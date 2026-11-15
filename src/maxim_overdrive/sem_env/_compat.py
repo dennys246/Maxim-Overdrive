@@ -1,4 +1,7 @@
-"""Stand-ins for Maxim's SEM dataclasses, field for field, used only when pymaxim is not installed."""
+"""Stand-ins for Maxim's SEM dataclasses, field for field, used only when pymaxim is not installed.
+
+tests/test_sem_compat.py holds every class here to Maxim's: same fields, order, types, defaults and flags.
+"""
 
 from __future__ import annotations
 
@@ -29,5 +32,11 @@ class ModulatorResult:
 
 @dataclass(frozen=True)
 class AffordanceSchema:
-    params: dict[str, Any] = field(default_factory=dict)
+    params: dict[str, type | tuple[type, Any]] = field(default_factory=dict)
     description: str = ""
+    timeout: float = 30.0
+    requires: dict[str, float] = field(default_factory=dict)
+    self_effect: dict[str, float] = field(default_factory=dict)
+    target_effect: dict[str, float] = field(default_factory=dict)
+    always_active: bool = False
+    speech_param: str | None = None

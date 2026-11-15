@@ -83,7 +83,7 @@ source = ["maxim_overdrive"]
 branch = true
 
 [tool.coverage.report]
-fail_under = 84
+fail_under = 91.5
 show_missing = true
 skip_covered = true
 exclude_also = [
