@@ -96,9 +96,7 @@ def region_breached(grid: MaterialGrid, region: str) -> bool:
     holes = orig & (grid.material == AIR_ID)
     if not holes.any():
         return False
-    labels, n = ndimage.label(holes)
-    if n == 0:
-        return False
+    labels, _ = ndimage.label(holes)  # holes is non-empty, so there is at least one component
     first = np.take(labels, lo[axis], axis=axis)
     last = np.take(labels, hi[axis], axis=axis)
     return bool(np.intersect1d(first[first > 0], last[last > 0]).size)
