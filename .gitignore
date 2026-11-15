@@ -12,3 +12,9 @@ steamworks_sdk*/
 sdk/steamworks/
 # Licensed third-party assets live outside this repo.
 assets/licensed/
+.coverage
+htmlcov/
+coverage.xml
+.mypy_cache/
+.ruff_cache/
+.hypothesis/

@@ -23,7 +23,9 @@ class HeatSource:
     power_w: float
 
 
-def sphere_overlap(grid: MaterialGrid, center_m: tuple[float, float, float], radius_m: float, samples: int = 4) -> np.ndarray:
+def sphere_overlap(
+    grid: MaterialGrid, center_m: tuple[float, float, float], radius_m: float, samples: int = 4
+) -> np.ndarray:
     """Fraction of each cell inside a sphere, estimated on a samples^3 sub-grid per cell.
 
     Weighting by overlap rather than by "centre inside" keeps a source's power density the same at every rig; with

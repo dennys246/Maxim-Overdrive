@@ -32,13 +32,16 @@ class SpecRejected(ValueError):
 
 def _offset(p: Primitive, o: tuple[float, float, float]) -> Primitive:
     if isinstance(p, Box):
-        return Box(tuple(a + b for a, b in zip(p.min_m, o)), tuple(a + b for a, b in zip(p.max_m, o)), p.material)  # type: ignore[arg-type]
+        (x0, y0, z0), (x1, y1, z1) = p.min_m, p.max_m
+        return Box((x0 + o[0], y0 + o[1], z0 + o[2]), (x1 + o[0], y1 + o[1], z1 + o[2]), p.material)
     return Cylinder(
         (p.center_xy_m[0] + o[0], p.center_xy_m[1] + o[1]), p.radius_m, (p.z_m[0] + o[2], p.z_m[1] + o[2]), p.material
     )
 
 
-def place(grid: MaterialGrid, spec: dict[str, Any], origin_m: tuple[float, float, float], budget: Budget = Budget()) -> float:
+def place(
+    grid: MaterialGrid, spec: dict[str, Any], origin_m: tuple[float, float, float], budget: Budget = Budget()
+) -> float:
     """Validate an imagined object and voxelize it as a new region. Returns its mass in kg.
 
     Raises ``SpecRejected`` with a reason if any rule fails; the grid is unchanged in that case.
@@ -62,13 +65,14 @@ def place(grid: MaterialGrid, spec: dict[str, Any], origin_m: tuple[float, float
     placed = [_offset(p, origin_m) for p in prims]
 
     masks = [p.mask(grid) for p in placed]
-    union = np.logical_or.reduce(masks)
+    union = np.any(np.stack(masks), axis=0)
     if not union.any():
         raise SpecRejected("the object is smaller than one cell at this resolution, or outside the world")
     idx = np.argwhere(union)
     size = (idx.max(axis=0) - idx.min(axis=0) + 1) * grid.dx
-    if size.max() > budget.max_extent_m + 1e-9:
-        raise SpecRejected(f"too large: {size.max():.2f} m across, the limit is {budget.max_extent_m} m")
+    across_m = float(np.max(size))
+    if across_m > budget.max_extent_m + 1e-9:
+        raise SpecRejected(f"too large: {across_m:.2f} m across, the limit is {budget.max_extent_m} m")
     if (union & grid.solid).any():
         raise SpecRejected("that space is occupied")
     # Mass from the authored geometry, so the budget does not depend on the rig.
@@ -76,7 +80,7 @@ def place(grid: MaterialGrid, spec: dict[str, Any], origin_m: tuple[float, float
     if mass > budget.max_mass_kg:
         raise SpecRejected(f"too heavy: {mass:.0f} kg, the limit is {budget.max_mass_kg:.0f} kg")
 
-    for p, m in zip(placed, masks):
+    for p, m in zip(placed, masks, strict=True):
         grid.paint(m, p.material)
     grid.regions[name] = union.copy()
     return float(mass)

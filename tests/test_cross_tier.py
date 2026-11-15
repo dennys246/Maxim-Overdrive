@@ -37,4 +37,6 @@ def test_fire_outcomes_agree_across_rigs(rigs, materials):
 def test_a_small_fire_changes_nothing_at_any_rig(rigs, materials):
     for rig in rigs:
         onset, crate, wall = _burn(rig, materials, turns=60, power_w=20_000.0)
-        assert onset is None and crate > 0.99 and wall > 0.99, rig.name
+        assert onset is None, rig.name
+        assert crate > 0.99, rig.name
+        assert wall > 0.99, rig.name

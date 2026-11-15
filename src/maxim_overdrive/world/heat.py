@@ -14,6 +14,7 @@ yet: air here only conducts, which understates how fast a room heats.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 
 import numpy as np
 
@@ -77,7 +78,7 @@ def step(
     seconds: float,
     min_substeps: int = 1,
     power_w: np.ndarray | None = None,
-    on_substep=None,
+    on_substep: Callable[[MaterialGrid, float], int] | None = None,
 ) -> int:
     """Advance heat by ``seconds``. Returns the number of substeps taken.
 

@@ -15,26 +15,37 @@ local stand-ins with the same fields.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
 
 from maxim_overdrive.world import damage
 from maxim_overdrive.world.world import HeatSource, World
 
-try:  # Maxim's frozen SEM types, when available.
+if TYPE_CHECKING:
+    # Type-check against Maxim's own classes; tests/test_sem_compat.py holds the _compat mirror to the same fields.
     from maxim.embodiment.sem import AffordanceSchema, Entity, ModulatorResult, SensorReading
 
-    HAVE_MAXIM = True
-except ImportError:  # pragma: no cover - exercised only without pymaxim
-    from maxim_overdrive.sem_env._compat import AffordanceSchema, ModulatorResult, SensorReading  # type: ignore
+    HAVE_MAXIM: bool
+else:
+    try:  # Maxim's frozen SEM types, when available.
+        from maxim.embodiment.sem import AffordanceSchema, Entity, ModulatorResult, SensorReading
 
-    Entity = None  # type: ignore[assignment,misc]
-    HAVE_MAXIM = False
+        HAVE_MAXIM = True
+    except ImportError:  # exercised by tests/test_sem_compat.py, which blocks the maxim import
+        from maxim_overdrive.sem_env._compat import AffordanceSchema, ModulatorResult, SensorReading
+
+        Entity = None
+        HAVE_MAXIM = False
 
 
 class RegionSensor:
-    _UNITS = {"integrity": "ratio", "temperature_max": "celsius", "temperature_mean": "celsius", "breached": "bool"}
+    _UNITS: ClassVar[dict[str, str]] = {
+        "integrity": "ratio",
+        "temperature_max": "celsius",
+        "temperature_mean": "celsius",
+        "breached": "bool",
+    }
 
     def __init__(self, world: World, region: str, quantity: str) -> None:
         if quantity not in self._UNITS:
@@ -113,7 +124,9 @@ class StructureModulator:
         c = (idx.mean(axis=0) + 0.5) * self._world.grid.dx
         return (float(c[0]), float(c[1]), float(c[2]))
 
-    def _result(self, affordance: str, params: dict[str, Any], ok: bool, error: str | None = None, **meta: Any):
+    def _result(
+        self, affordance: str, params: dict[str, Any], ok: bool, error: str | None = None, **meta: Any
+    ) -> ModulatorResult:
         return ModulatorResult(
             success=ok,
             modulator_name=self.name,
@@ -152,7 +165,7 @@ def region_parts(world: World, region: str) -> tuple[dict[str, RegionSensor], di
     return sensors, {"structure": StructureModulator(world, region)}
 
 
-def to_maxim_entity(world: World, region: str, entity_type: str = "structure"):
+def to_maxim_entity(world: World, region: str, entity_type: str = "structure") -> Entity:
     """A real Maxim Entity for one region. Requires pymaxim."""
     if not HAVE_MAXIM:
         raise RuntimeError("pymaxim is not installed: pip install 'maxim-overdrive[maxim]'")

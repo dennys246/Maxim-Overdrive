@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import yaml
 
 
@@ -87,8 +88,6 @@ class MaterialTable:
             raise ValueError("material ids must fit in uint8")
         self.by_name = dict(materials)
         self.by_id = {m.id: m for m in materials.values()}
-        import numpy as np
-
         n = max(ids) + 1
         self.rho_cp = np.ones(n, dtype=np.float64)
         self.conductivity = np.zeros(n, dtype=np.float64)

@@ -1,12 +1,17 @@
 """Imagined objects pass the world's rules, then become ordinary cells."""
 
+from typing import Any
+
 import pytest
 
 from maxim_overdrive import Box, Scene
 from maxim_overdrive.imagination.spec import Budget, SpecRejected, place
 from maxim_overdrive.world import damage
 
-CRATE = {"name": "imagined_crate", "primitives": [{"kind": "box", "min_m": [0, 0, 0], "max_m": [0.6, 0.6, 0.6], "material": "wood"}]}
+CRATE: dict[str, Any] = {
+    "name": "imagined_crate",
+    "primitives": [{"kind": "box", "min_m": [0, 0, 0], "max_m": [0.6, 0.6, 0.6], "material": "wood"}],
+}
 
 
 def _grid(rig, materials):
@@ -25,9 +30,17 @@ def test_an_imagined_crate_is_destructible_like_any_other(rig, materials):
 @pytest.mark.parametrize(
     ("spec", "origin", "reason"),
     [
-        ({**CRATE, "primitives": [{**CRATE["primitives"][0], "material": "unobtainium"}]}, (1.2, 1.2, 0), "not a material"),
+        (
+            {**CRATE, "primitives": [{**CRATE["primitives"][0], "material": "unobtainium"}]},
+            (1.2, 1.2, 0),
+            "not a material",
+        ),
         (CRATE, (0.0, 0.0, 0.0), "occupied"),
-        ({**CRATE, "primitives": [{**CRATE["primitives"][0], "max_m": [2.0, 2.0, 2.0], "material": "steel"}]}, (0.8, 0.8, 0), "too"),
+        (
+            {**CRATE, "primitives": [{**CRATE["primitives"][0], "max_m": [2.0, 2.0, 2.0], "material": "steel"}]},
+            (0.8, 0.8, 0),
+            "too",
+        ),
         ({"name": "nothing", "primitives": []}, (1.2, 1.2, 0), "at least one"),
     ],
 )

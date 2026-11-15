@@ -19,7 +19,15 @@ dependencies = [
 [project.optional-dependencies]
 # The SEM bridge builds real maxim Entities when pymaxim is installed; without it the world server still runs.
 maxim = ["pymaxim>=1.3"]
-dev = ["pytest>=8.0"]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "hypothesis>=6.100",
+    "diff-cover>=9.0",
+    "ruff>=0.15",
+    "mypy>=1.15",
+    "types-PyYAML>=6.0",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/maxim_overdrive"]
@@ -30,3 +38,56 @@ packages = ["src/maxim_overdrive"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = ["--strict-markers", "--strict-config"]
+xfail_strict = true          # a red gate that unexpectedly passes is a failure, not a silent pass
+filterwarnings = ["error"]   # warnings are bugs until proven otherwise
+
+# Ruff: lint and format. The rule set is in CLAUDE.md ("Engineering standards"); BLE and S110 are the
+# no-silent-swallow rule, B905 makes every zip say whether lengths must match.
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "RUF", "SIM", "BLE", "S110", "PT", "NPY", "PL"]
+ignore = [
+    "PLR2004",  # magic numbers: physics constants are named where they mean something, literal where they don't
+    "PLR0913",  # many arguments: physics functions take their parameters explicitly
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLR0915"]
+
+# mypy: strict everywhere. pymaxim ships py.typed.
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unreachable = true
+files = ["src", "tests"]
+
+# Tests: bodies are type-checked, but fixture-heavy signatures need no annotations.
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["scipy.*"]
+ignore_missing_imports = true
+
+# Coverage: branch coverage, with a floor that only ratchets up (CLAUDE.md, "Testing").
+[tool.coverage.run]
+source = ["maxim_overdrive"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 84
+show_missing = true
+skip_covered = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

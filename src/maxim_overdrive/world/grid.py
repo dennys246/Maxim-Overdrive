@@ -37,8 +37,8 @@ class MaterialGrid:
         ambient_c: float = 20.0,
     ) -> MaterialGrid:
         dx = rig.cell_size_m
-        shape = tuple(max(1, int(round(e / dx))) for e in extent_m)
-        for e, n in zip(extent_m, shape):
+        shape = tuple(max(1, round(e / dx)) for e in extent_m)
+        for e, n in zip(extent_m, shape, strict=True):
             if abs(n * dx - e) > 1e-6 * max(1.0, e):
                 raise ValueError(
                     f"extent {e} m is not a whole number of {dx} m cells; author tile extents as multiples of the "
@@ -77,7 +77,7 @@ class MaterialGrid:
 
     def cell_of(self, point_m: tuple[float, float, float]) -> tuple[int, int, int]:
         idx = tuple(int(np.floor(p / self.dx)) for p in point_m)
-        for i, n in zip(idx, self.shape):
+        for i, n in zip(idx, self.shape, strict=True):
             if not 0 <= i < n:
                 raise ValueError(f"point {point_m} is outside the grid {self.extent_m}")
         return idx  # type: ignore[return-value]
@@ -95,9 +95,9 @@ class MaterialGrid:
                 raise ValueError(f"region {region!r} already exists")
             self.regions[region] = mask.copy()
         # A later paint takes cells from any earlier region.
-        for name, rmask in self.regions.items():
+        for name, other in self.regions.items():
             if name != region:
-                rmask &= ~mask
+                np.logical_and(other, ~mask, out=other)
 
     def destroy(self, mask: np.ndarray) -> int:
         """Turn solid cells in ``mask`` to air. Returns how many cells were destroyed."""
@@ -112,7 +112,8 @@ class MaterialGrid:
 
     @property
     def solid(self) -> np.ndarray:
-        return self.material != AIR_ID
+        solid: np.ndarray = self.material != AIR_ID
+        return solid
 
     def volume_m3(self, mask: np.ndarray | None = None) -> float:
         m = self.solid if mask is None else (mask & self.solid)

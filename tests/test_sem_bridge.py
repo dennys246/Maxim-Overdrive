@@ -7,7 +7,9 @@ from maxim_overdrive.sem_env import bridge
 
 
 def _world(rig, materials):
-    return World.from_scene(Scene((2.0, 3.0, 2.4), (Box((0.8, 0, 0), (1.2, 3, 2.4), "concrete", "wall"),)), rig, materials)
+    return World.from_scene(
+        Scene((2.0, 3.0, 2.4), (Box((0.8, 0, 0), (1.2, 3, 2.4), "concrete", "wall"),)), rig, materials
+    )
 
 
 def test_strike_moves_the_integrity_sensor(rig, materials):
@@ -15,7 +17,8 @@ def test_strike_moves_the_integrity_sensor(rig, materials):
     sensors, mods = bridge.region_parts(w, "wall")
     assert sensors["integrity"].read().value == pytest.approx(1.0)
     res = mods["structure"].execute("strike", {"energy_j": 6.3e7, "sigma_m": 0.3, "point_m": [0.8, 1.5, 1.2]})
-    assert res.success and res.metadata["destroyed_volume_m3"] > 0
+    assert res.success
+    assert res.metadata["destroyed_volume_m3"] > 0
     assert sensors["integrity"].read().value < 1.0
     assert sensors["breached"].read().value == 1.0
 
@@ -27,10 +30,9 @@ def test_bad_actions_fail_cleanly(rig, materials):
     assert not mods["structure"].execute("teleport", {}).success
 
 
-@pytest.mark.skipif(not bridge.HAVE_MAXIM, reason="pymaxim not installed")
 def test_regions_are_real_maxim_entities(rig, materials):
-    from maxim.embodiment.sem import Modulator, Sensor
-
+    sem = pytest.importorskip("maxim.embodiment.sem")
+    Modulator, Sensor = sem.Modulator, sem.Sensor
     ent = bridge.to_maxim_entity(_world(rig, materials), "wall")
     assert all(isinstance(s, Sensor) for s in ent.sensors.values())
     assert all(isinstance(m, Modulator) for m in ent.modulators.values())

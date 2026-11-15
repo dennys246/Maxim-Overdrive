@@ -85,7 +85,9 @@ class Scene:
                 prims.append(Box(tuple(p["min_m"]), tuple(p["max_m"]), p["material"], p.get("name")))
             elif kind == "cylinder":
                 prims.append(
-                    Cylinder(tuple(p["center_xy_m"]), float(p["radius_m"]), tuple(p["z_m"]), p["material"], p.get("name"))
+                    Cylinder(
+                        tuple(p["center_xy_m"]), float(p["radius_m"]), tuple(p["z_m"]), p["material"], p.get("name")
+                    )
                 )
             else:
                 raise ValueError(f"unknown primitive kind {kind!r}")

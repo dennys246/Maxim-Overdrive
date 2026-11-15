@@ -48,4 +48,5 @@ def test_step_never_exceeds_the_stability_bound(materials):
     g.temperature[2, 2, 2] = 1000.0
     n = heat.step(g, 10 * 3600.0, min_substeps=1)
     assert n >= 10 * 3600.0 / heat.stable_dt(g)
-    assert np.isfinite(g.temperature).all() and g.temperature.max() <= 1000.0 + 1e-6
+    assert np.isfinite(g.temperature).all()
+    assert g.temperature.max() <= 1000.0 + 1e-6
