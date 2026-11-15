@@ -36,7 +36,8 @@ def test_compat_mirrors_maxim_field_for_field(name: str) -> None:
     sem = pytest.importorskip("maxim.embodiment.sem")
     theirs, ours = getattr(sem, name), getattr(_compat, name)
     assert _shape(ours) == _shape(theirs)
-    assert ours.__dataclass_params__.frozen == theirs.__dataclass_params__.frozen
+    assert ours.__dataclass_params__.__repr__() == theirs.__dataclass_params__.__repr__()  # frozen, eq, order, ...
+    assert getattr(ours, "__slots__", None) == getattr(theirs, "__slots__", None)
 
 
 class _BlockMaxim:

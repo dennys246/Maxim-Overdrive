@@ -53,6 +53,17 @@ How the rule is kept, so far:
   turns): a coarse cell degrades as one block. Onset agrees to within 5%.
 - No convection or radiation: air only conducts, so rooms heat too slowly and fires must sit on a material.
 - Destroying a cell removes its heat with it (the cell becomes air at the air's heat capacity).
+- **Fires don't consume fuel, and nothing radiates.** A fire is a constant-power source spread over the solid cells
+  it overlaps, so as a crate burns away the same power lands on fewer cells and their temperature runs away. Measured
+  on the 3×3×2 m crate scene, 500 kW at radius 0.3 m for 30 turns: peak crate temperature 16,619 °C at 0.2 m cells
+  and 29,213 °C at 0.1 m (crate integrity 0.34 and 0.37, 7 and 136 cells destroyed). The snapshot clamps
+  temperature at 6000 °C, so the client never sees the overshoot, but heat conducted onward from those cells is
+  real. This blocks the Phase 1 exit test's "burn away" and has to be fixed (fuel consumption, and a loss term)
+  before the tile's crate scenario is gated.
+- **A source smaller than a cell heats one cell.** `World._power_field` puts all of a sub-cell source's power into
+  the cell it sits in, so total power is right but its density is P/dx³: 64× higher at 0.05 m cells than at 0.2 m.
+  Peak temperature near a spark therefore depends on the rig. A minimum source radius of about one coarse cell
+  would remove it.
 - Cost: the 0.05 m profile is about 60x slower than 0.1 m on a fire scenario (explicit heat, Python + numpy).
   `full_res_radius_m` is reserved for running far cells coarser.
 
@@ -88,7 +99,9 @@ one of the two that a web export or `wss://` remote play could use.
 
 **What it costs, and what we do about it:**
 - *Any web page can open `ws://localhost`.* Browsers allow cross-origin WebSockets, which a raw socket would not.
-  The server binds to `127.0.0.1` only, rejects unexpected `Origin` headers, and requires a per-launch token.
+  The server binds to `127.0.0.1` only, refuses any handshake that carries an `Origin` header (browsers always send
+  one; Godot's native `WebSocketPeer` sends none unless told to, to be confirmed in step 2), and requires a
+  per-launch token. Each refusal has a test (`docs/standards_backlog.md` B14).
 - *Head-of-line blocking.* WebSocket runs over TCP, so a large snapshot delays any small message queued behind it.
   That is harmless for a turn-based game. Continuous streaming would need delta snapshots or chunking.
 - *Whole messages are buffered.* Both ends must raise their default caps (Godot's `inbound_buffer_size` is 64 KiB;
@@ -97,8 +110,9 @@ one of the two that a web export or `wss://` remote play could use.
 - *The faster local option is shared memory, not raw TCP.* Godot needs a GDExtension for it. A Phase 2 "Scale"
   item only if profiling asks for it.
 
-The snapshot header reserves a compression field from v0. Most cells are air, so zstd should shrink snapshots by
-10× or more, and Godot unpacks it with `PackedByteArray.decompress(..., FileAccess.COMPRESSION_ZSTD)`.
+The snapshot header reserves a compression field from v0, plus each array's uncompressed byte size, which Godot's
+`PackedByteArray.decompress(buffer_size, FileAccess.COMPRESSION_ZSTD)` needs. Most cells are air, so zstd should
+shrink snapshots by 10× or more.
 
 ## Imagination: specs, not assets
 

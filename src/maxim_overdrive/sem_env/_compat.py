@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class SensorReading:
     sensor_name: str
     entity_name: str
@@ -19,7 +19,7 @@ class SensorReading:
     extra: dict[str, Any] = field(default_factory=dict, hash=False, compare=False)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ModulatorResult:
     success: bool
     modulator_name: str
@@ -30,7 +30,7 @@ class ModulatorResult:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class AffordanceSchema:
     params: dict[str, type | tuple[type, Any]] = field(default_factory=dict)
     description: str = ""

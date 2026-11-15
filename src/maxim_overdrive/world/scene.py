@@ -9,6 +9,8 @@ A cell belongs to a primitive when its centre lies inside it; later primitives o
 
 from __future__ import annotations
 
+import math
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -18,6 +20,24 @@ from maxim_overdrive.config import MaterialTable, RigProfile
 from maxim_overdrive.world.grid import MaterialGrid
 
 
+def _vector(value: object, n: int, what: str) -> tuple[float, ...]:
+    """``value`` as ``n`` finite floats, or a ValueError that names the field. Scene YAML and imagined specs both land
+    here, so a malformed coordinate is refused where the primitive is made, not deep inside voxelization."""
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or len(value) != n:
+        raise ValueError(f"{what} must be {n} numbers, got {value!r}")
+    out = []
+    for v in value:
+        if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+            raise ValueError(f"{what} must be {n} finite numbers, got {value!r}")
+        out.append(float(v))
+    return tuple(out)
+
+
+def _check_material(material: object, name: str | None) -> None:
+    if not isinstance(material, str) or not material:
+        raise ValueError(f"primitive {name!r} needs a material name, got {material!r}")
+
+
 @dataclass(frozen=True)
 class Box:
     min_m: tuple[float, float, float]
@@ -25,6 +45,14 @@ class Box:
     material: str
     name: str | None = None
     kind: Literal["box"] = "box"
+
+    def __post_init__(self) -> None:
+        lo, hi = _vector(self.min_m, 3, "min_m"), _vector(self.max_m, 3, "max_m")
+        if not all(a < b for a, b in zip(lo, hi, strict=True)):
+            raise ValueError(f"box max_m must exceed min_m on every axis, got {lo} and {hi}")
+        _check_material(self.material, self.name)
+        object.__setattr__(self, "min_m", lo)
+        object.__setattr__(self, "max_m", hi)
 
     def mask(self, grid: MaterialGrid) -> np.ndarray:
         x, y, z = grid.mesh()
@@ -46,6 +74,17 @@ class Cylinder:
     material: str
     name: str | None = None
     kind: Literal["cylinder"] = "cylinder"
+
+    def __post_init__(self) -> None:
+        center = _vector(self.center_xy_m, 2, "center_xy_m")
+        (radius,) = _vector((self.radius_m,), 1, "radius_m")
+        z = _vector(self.z_m, 2, "z_m")
+        if radius <= 0 or z[1] <= z[0]:
+            raise ValueError(f"cylinder needs a positive radius and z_m[1] > z_m[0], got {radius} and {z}")
+        _check_material(self.material, self.name)
+        object.__setattr__(self, "center_xy_m", center)
+        object.__setattr__(self, "radius_m", radius)
+        object.__setattr__(self, "z_m", z)
 
     def mask(self, grid: MaterialGrid) -> np.ndarray:
         x, y, z = grid.mesh()
@@ -82,13 +121,9 @@ class Scene:
         for p in raw.get("primitives", []):
             kind = p.get("kind", "box")
             if kind == "box":
-                prims.append(Box(tuple(p["min_m"]), tuple(p["max_m"]), p["material"], p.get("name")))
+                prims.append(Box(p["min_m"], p["max_m"], p["material"], p.get("name")))
             elif kind == "cylinder":
-                prims.append(
-                    Cylinder(
-                        tuple(p["center_xy_m"]), float(p["radius_m"]), tuple(p["z_m"]), p["material"], p.get("name")
-                    )
-                )
+                prims.append(Cylinder(p["center_xy_m"], p["radius_m"], p["z_m"], p["material"], p.get("name")))
             else:
                 raise ValueError(f"unknown primitive kind {kind!r}")
         return cls(tuple(raw["extent_m"]), tuple(prims), float(raw.get("ambient_c", 20.0)))

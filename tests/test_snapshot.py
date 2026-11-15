@@ -43,12 +43,19 @@ def test_crack_is_one_minus_integrity_on_solids(rig, materials):
     assert (crack[~g.solid] == 0).all()
 
 
+def test_glow_starts_at_the_draper_point():
+    assert GLOW_START_C == 525.0  # where hot solids first glow visibly red
+    assert GLOW_FULL_C == 1500.0
+
+
 @pytest.mark.parametrize(
     ("temp_c", "expected"),
     [
         (GLOW_START_C - 1.0, 0),
         (GLOW_START_C, 0),
+        (GLOW_START_C + 0.25 * (GLOW_FULL_C - GLOW_START_C), 64),  # linear: a smoothstep would give 40
         ((GLOW_START_C + GLOW_FULL_C) / 2, 128),
+        (GLOW_START_C + 0.75 * (GLOW_FULL_C - GLOW_START_C), 191),
         (GLOW_FULL_C, 255),
         (GLOW_FULL_C + 1000.0, 255),
     ],
@@ -67,6 +74,9 @@ def test_temperature_is_clamped_to_the_float16_range_it_promises(rig, materials)
     t = np.asarray(snapshot(g)["temperature_c"])
     assert np.isfinite(t).all()
     assert t.max() == pytest.approx(6000.0, rel=1e-3)
+    g.temperature[:] = -1.0e9
+    t = np.asarray(snapshot(g)["temperature_c"])
+    assert t.min() == pytest.approx(-273.0, rel=1e-3)
 
 
 def test_snapshot_arrays_do_not_alias_the_grid(rig, materials):

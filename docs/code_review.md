@@ -17,9 +17,10 @@ the Maxim repo), where the record shows that the catches came from a *different*
    - **BLOCKER:** wrong on the shipped path, breaks a standing rule, or a test that cannot fail.
    - **SHOULD-FIX:** a real defect or gap with a narrower trigger, or a rule kept by luck rather than by a check.
    - **NIT:** clarity, naming, small simplifications.
-4. **Fold.** Every BLOCKER and SHOULD-FIX is fixed on the branch, or answered in writing with a reason. Fixing it in
-   a later PR is allowed only as a `TEMPORARY(phaseN)` marker plus a roadmap or backlog row. NITs are the author's
-   call.
+4. **Fold.** Every BLOCKER and SHOULD-FIX is fixed on the branch, or answered in writing with a reason. Deferring a
+   code finding is allowed only as a `TEMPORARY(phaseN)` marker listed under that phase in `docs/roadmap.md` (the
+   lint checks both). A finding with no code to mark (a missing check, a process gap) is deferred as a row in
+   `docs/standards_backlog.md`, or as a known gap in `docs/architecture.md` for physics. NITs are the author's call.
 5. **Delta round.** After a fold that touches `src/`, `scripts/` or `client/`, rerun the lens whose finding was
    folded, plus wire integrity, on the fold's diff only. Repeat until a round folds nothing in code.
 6. **Record.** The fold commit's message lists each finding and what was done. The hand-off note (and the PR

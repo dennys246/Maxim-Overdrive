@@ -27,6 +27,7 @@ dev = [
     "ruff>=0.15",
     "mypy>=1.15",
     "types-PyYAML>=6.0",
+    "tomli>=2.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -39,6 +40,7 @@ packages = ["src/maxim_overdrive"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = ["--strict-markers", "--strict-config"]
+markers = ["slow: takes more than a few seconds; gate it behind a tier variable (CLAUDE.md, Testing)"]
 xfail_strict = true          # a red gate that unexpectedly passes is a failure, not a silent pass
 filterwarnings = ["error"]   # warnings are bugs until proven otherwise
 
@@ -79,7 +81,7 @@ ignore_missing_imports = true
 
 # Coverage: branch coverage, with a floor that only ratchets up (CLAUDE.md, "Testing").
 [tool.coverage.run]
-source = ["maxim_overdrive"]
+source = ["maxim_overdrive", "scripts"]
 branch = true
 
 [tool.coverage.report]

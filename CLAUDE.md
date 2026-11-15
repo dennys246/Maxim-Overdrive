@@ -10,11 +10,17 @@ and `docs/book_to_world.md` (the book-to-world plan).
 ## Commands
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -e '.[dev,maxim]'   # Python >= 3.10; [maxim] enables real SEM Entities
+python3 -m venv .venv && .venv/bin/pip install -e '.[dev,maxim]'   # Python >= 3.10; the gate needs both extras
 .venv/bin/pytest                            # laptop + rig profiles, a few seconds; run the module you touched first
 MAXIM_OVERDRIVE_ALL_TIERS=1 .venv/bin/pytest  # adds the 0.05 m max profile (about a minute)
 scripts/prepush.sh                          # the full gate: lint, types, standards, every tier, coverage, diff coverage
 ```
+
+`[maxim]` is optional for running the server, but the gate needs it: mypy checks the SEM bridge against Maxim's own
+classes, and `tests/test_sem_compat.py` compares the mirror with whichever pymaxim is installed. A pymaxim release
+that changes those classes turns the gate red with no local change; that is the drift check working, so update the
+mirror rather than pinning it away. In a worktree without its own `.venv`, run `PYTHON=<venv>/bin/python
+scripts/prepush.sh`.
 
 Godot 4.7.2 is installed at `/Applications/Godot.app` (binary: `Contents/MacOS/Godot`).
 
@@ -39,9 +45,10 @@ Godot 4.7.2 is installed at `/Applications/Godot.app` (binary: `Contents/MacOS/G
 - Thin features must be at least two cells of the coarsest rig thick.
 - The world server is authoritative. The client never computes anything that feeds back into the world; it may add
   purely visual effects.
-- The SEM bridge uses Maxim's frozen types (`SensorReading`, `ModulatorResult`, `AffordanceSchema`, `Entity`);
-  `sem_env/_compat.py` mirrors them field for field (`tests/test_sem_compat.py` holds it to that). Don't add fields
-  Maxim doesn't have.
+- The SEM bridge uses Maxim's frozen types (`SensorReading`, `ModulatorResult`, `AffordanceSchema`, `Entity`).
+  `sem_env/_compat.py` mirrors the three dataclasses field for field, with the same flags and slots
+  (`tests/test_sem_compat.py` holds it to that); without pymaxim there is no `Entity`, and `to_maxim_entity` refuses.
+  Don't add fields Maxim doesn't have.
 - Imagined objects enter only through `imagination.spec.place`, which validates them. Never write cells directly
   from LLM output.
 - Actions change cells; only `World.advance` moves time.
@@ -49,9 +56,11 @@ Godot 4.7.2 is installed at `/Applications/Godot.app` (binary: `Contents/MacOS/G
 
 ## Engineering standards
 
-Treat this as a serious engineering project from the first commit. Each rule names the check that enforces it
-(`Guard:`). A rule with no check yet cites a row in `docs/standards_backlog.md`, so the gap is visible.
-`scripts/lint_standards.py` fails if a rule loses its guard.
+Treat this as a serious engineering project from the first commit. Each rule ends with `Guard:`, naming the check
+that enforces it, or, for a rule held only by review or attention today, a row in `docs/standards_backlog.md`, so
+the gap is visible. A document is not a check: a rule guarded only by `docs/` must cite a backlog row too.
+`scripts/lint_standards.py` fails if a rule loses its guard, and prints how many rules a check enforces and how many
+only review holds.
 
 ### Fix root causes
 
@@ -61,9 +70,10 @@ Treat this as a serious engineering project from the first commit. Each rule nam
   describe the root cause and the scope of the real fix, and ask. Never quietly pick the smaller fix.
   Guard: `docs/code_review.md` (the Architecture lens asks this of every diff), B1
 - **The one exemption: a marked, scheduled band-aid.** Allowed only when the plan already has a moment that removes
-  it. Mark it in the code as `TEMPORARY(phaseN[/step]): <why, and what the real fix is>`, and list it under that
-  phase in `docs/roadmap.md`. The lint fails on a marker with no reason, an unknown phase, or a phase already done.
-  Guard: `scripts/lint_standards.py::check_temporary_markers`
+  it. Mark it in the code as `TEMPORARY(phaseN[/step]): <why, and what the real fix is>`, and list its file under
+  that phase in `docs/roadmap.md`. The lint fails on a marker with no reason, an unknown or finished phase, or a file
+  the phase doesn't list, so every open band-aid shows in the roadmap. A finding with no code to mark is deferred as
+  a backlog row or a known gap instead. Guard: `scripts/lint_standards.py::check_markers`
 - **When debugging stalls, audit the layer beneath.** If two explanations for a bad result have died, stop
   generating a third. Check what else changed, and whether the action you commanded actually happened (did the fire
   actually get added, did the message actually arrive) before theorizing about the sensor. Guard: B1 (review asks how
@@ -78,9 +88,10 @@ Treat this as a serious engineering project from the first commit. Each rule nam
   coverage. Wire and save formats: a round trip plus committed golden fixtures. Determinism: a bit-identical rerun.
   Guard: `tests/test_cross_tier.py`, `tests/test_imagination.py`, `tests/test_determinism.py`, B3, B4
 - **Coverage only ratchets up.** Branch coverage must stay above `fail_under` in `pyproject.toml`; raise the floor
-  when coverage rises, never lower it. Lines changed on a branch must be at least 95% covered. A `pragma: no cover`
-  needs a comment saying why the line can't be tested, and reviewers question it.
-  Guard: `pyproject.toml::fail_under`, `scripts/prepush.sh::diff_cover`
+  when coverage rises, never lower it. Coverage measures `src/` and `scripts/`. Lines changed on a branch must be at
+  least 95% covered. A `pragma: no cover` must say why (`# pragma: no cover - <why>`), and reviewers question it.
+  Guard: `pyproject.toml::fail_under`, `scripts/lint_standards.py::check_coverage_ratchet`,
+  `scripts/lint_standards.py::check_markers`, `scripts/prepush.sh::diff_cover`
 - **Prove a guard by deleting what it guards.** Before claiming a test protects something, break the mechanism and
   watch the test go red, and say so in the commit message. A test that cannot fail is a BLOCKER.
   Guard: `docs/code_review.md` (Executor lens), B10
@@ -90,7 +101,9 @@ Treat this as a serious engineering project from the first commit. Each rule nam
 - **Property tests for invariants over input spaces** (Hypothesis): physics conservation, protocol round trips,
   validators that never crash on any input. Guard: B9
 - **Tests are deterministic and fast.** No sleeps, wall clock, real network beyond localhost, or LLM calls in tests.
-  Mark anything over a few seconds `slow` and gate it behind a tier variable. Guard: `tests/test_determinism.py`, B1
+  Mark anything over a few seconds `slow` and gate it behind a tier variable. Guard:
+  `tests/test_determinism.py::test_the_simulation_and_tests_have_no_hidden_sources_of_nondeterminism` (RNG, clock,
+  sleep), B1 (network and LLM calls)
 
 ### Review before push
 
@@ -99,22 +112,25 @@ Treat this as a serious engineering project from the first commit. Each rule nam
   boundary, Performance, Client and rendering). Findings are BLOCKER, SHOULD-FIX or NIT with a `file::symbol` and a
   failure scenario. They are folded into the same branch before hand-off, with delta rounds after code folds. The
   hand-off note carries the round summary. Charter: `docs/code_review.md`. Guard: B1
-- **`scripts/prepush.sh` must print `prepush: PASS` on the exact commit handed over.** Rerun it after every fold.
-  Guard: `scripts/prepush.sh`, B11
+- **`scripts/prepush.sh` must print `prepush: PASS <sha>` for the exact commit handed over.** It refuses a dirty
+  tree (`ALLOW_DIRTY=1` checks work in progress but says the result doesn't count). Rerun it after every fold.
+  Guard: `scripts/prepush.sh::HEAD_SHA`, B11
 
 ### Game engineering
 
 - **Determinism.** The same scene, rig and intents give bit-identical state on one machine. Across machines only the
   outcome class is promised, as with rigs. Randomness, when it arrives, comes from one seeded `numpy.random.Generator`
   owned by `World`. Time comes from `World.advance`, never the wall clock. No builtin `hash()` in the simulation.
-  Guard: `tests/test_determinism.py::test_the_simulation_has_no_hidden_sources_of_nondeterminism`
+  Guard: `tests/test_determinism.py::test_runs_in_processes_with_different_hash_seeds_agree`,
+  `tests/test_determinism.py::test_the_simulation_and_tests_have_no_hidden_sources_of_nondeterminism`
 - **Replays are first-class.** The intent log plus the scene and rig reproduce any session. It is the bug report, the
   regression test and the save format's backbone. Guard: B2
 - **Every format is versioned:** wire protocol, saves and scene files. Readers refuse versions they don't know, loudly.
   Old fixtures stay committed, and a format change that breaks one needs a migration or a version bump. Guard: B3, B4
 - **The client is untrusted input.** Every intent is validated at the protocol layer. Malformed input gets an error
-  reply, never a crash or a half-applied change. The server binds to 127.0.0.1, checks `Origin` and requires the
-  per-launch token. Guard: `docs/code_review.md` (Trust boundary lens), B3
+  reply, never a crash or a half-applied change. The server binds to 127.0.0.1, refuses any handshake carrying an
+  `Origin` header, and requires the per-launch token. Imagined and authored geometry is validated where primitives
+  are made. Guard: `tests/test_imagination.py::test_the_world_refuses_impossible_objects`, B3, B14
 - **Performance has budgets, measured, not guessed:** turn time and snapshot size per profile, with a regression gate.
   Optimize only from a profile. Guard: B5
 - **Client standards (Godot).** The engine version is pinned (4.7.2), and an upgrade is its own branch. GDScript is
@@ -128,8 +144,8 @@ Treat this as a serious engineering project from the first commit. Each rule nam
 
 ### Code
 
-- **Lint, format and type-check clean:** ruff (rules in `pyproject.toml`) and strict mypy on `src/` and `scripts/`.
-  Guard: `scripts/prepush.sh`
+- **Lint, format and type-check clean:** ruff (rules in `pyproject.toml`), and mypy strict on `src/` and
+  `scripts/` with test bodies checked too. Guard: `scripts/prepush.sh`
 - **No silent exception swallows.** Catch the narrowest type, and handle it by reporting or re-raising. A handler
   that quietly returns a fallback is a swallow too. Guard: `pyproject.toml::BLE`, `pyproject.toml::S110`, B13
 - **Push invariants into types.** A collaborator that must be passed is a required keyword-only parameter, so

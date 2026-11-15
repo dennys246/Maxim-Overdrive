@@ -59,6 +59,52 @@ def test_an_imagined_crate_is_destructible_like_any_other(rig, materials):
             "smaller than one cell",
         ),
         (CRATE, (10.0, 10.0, 0.0), "smaller than one cell|outside"),
+        (
+            {**CRATE, "primitives": [{**CRATE["primitives"][0], "min_m": [0, 0, 0, 0]}]},
+            (1.2, 1.2, 0),
+            "malformed",
+        ),  # 4 numbers
+        (
+            {**CRATE, "primitives": [{**CRATE["primitives"][0], "min_m": [0, 0]}]},
+            (1.2, 1.2, 0),
+            "malformed",
+        ),  # 2 numbers
+        (
+            {**CRATE, "primitives": [{**CRATE["primitives"][0], "min_m": [0, 0, "a"]}]},
+            (1.2, 1.2, 0),
+            "malformed",
+        ),  # "a"
+        (
+            {**CRATE, "primitives": [{**CRATE["primitives"][0], "min_m": [0, 0, float("nan")]}]},
+            (1.2, 1.2, 0),
+            "malformed",
+        ),  # nan
+        (
+            {**CRATE, "primitives": [{**CRATE["primitives"][0], "min_m": [0, True, 0]}]},
+            (1.2, 1.2, 0),
+            "malformed",
+        ),  # True
+        ({**CRATE, "primitives": [{**CRATE["primitives"][0], "min_m": "000"}]}, (1.2, 1.2, 0), "malformed"),  # 000
+        (
+            {**CRATE, "primitives": [{**CRATE["primitives"][0], "min_m": [0.6, 0, 0]}]},
+            (1.2, 1.2, 0),
+            "malformed",
+        ),  # exceed
+        (
+            {**CRATE, "primitives": [{**CRATE["primitives"][0], "material": 7}]},
+            (1.2, 1.2, 0),
+            "malformed",
+        ),  # material name
+        (
+            {
+                **CRATE,
+                "primitives": [
+                    {"kind": "cylinder", "center_xy_m": [0, 0], "radius_m": -0.2, "z_m": [0, 1], "material": "wood"}
+                ],
+            },
+            (1.2, 1.2, 0),
+            "malformed.*positive radius",
+        ),
     ],
 )
 def test_the_world_refuses_impossible_objects(rig, materials, spec, origin, reason):

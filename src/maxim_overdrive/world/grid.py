@@ -37,7 +37,7 @@ class MaterialGrid:
         ambient_c: float = 20.0,
     ) -> MaterialGrid:
         dx = rig.cell_size_m
-        shape = tuple(max(1, round(e / dx)) for e in extent_m)
+        shape = tuple(max(1, int(np.rint(e / dx))) for e in extent_m)  # int: numpy 1.x round() keeps float64
         for e, n in zip(extent_m, shape, strict=True):
             if abs(n * dx - e) > 1e-6 * max(1.0, e):
                 raise ValueError(
