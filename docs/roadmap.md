@@ -17,7 +17,8 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
 
 - A Godot 4 client that only draws and sends intents. It uploads snapshot arrays as 3-D textures, and a shader
   reads `crack` and `glow`.
-- A local transport between client and server (a WebSocket or a plain socket carrying JSON and binary arrays).
+- A local transport between client and server: a WebSocket carrying JSON intents and binary snapshots (decided
+  2026-11-15; `docs/architecture.md`, "Transport").
 - The first tile authored in metres: the ripperdoc clinic and the alley outside it.
 - Save format v0: the world grid plus the scene spec. Agent homes join in Phase 4.
 - **Exit:** walk into the alley, set a crate on fire, and watch it crack, glow and burn away. It must look the same,
@@ -103,7 +104,6 @@ See `docs/book_to_world.md`. Extraction, timeline and the perspective split, the
 
 ## Open questions
 
-- Transport: WebSocket (easy to debug) or a raw socket with a binary protocol (faster snapshots)?
 - Turn length: 6 s is a placeholder. What does combat feel like at 3 s or 10 s?
 - Does the world server become a pip-installable dependency of Maxim experiments (cradles in real physics), or stay
   game-only?

@@ -74,6 +74,32 @@ directly, so the finest physical state shows up as cracks, scorch and glowing me
 any physics. The cell size sets the finest detail physics can drive; the client can add sub-cell detail (noise,
 decals) that is purely visual.
 
+## Transport: WebSocket on localhost (decided 2026-11-15)
+
+The client and server talk over one WebSocket. Snapshots go as binary messages (a JSON header plus the per-cell
+arrays), and intents go as JSON text messages. The protocol is defined apart from the transport, so swapping the
+transport later means replacing one adapter on each side, not the message format or its tests.
+
+**Why not a raw TCP socket.** At 5 bytes per cell, a 16×10×4 m tile is about 0.4 MB at 0.2 m cells, 3.2 MB at
+0.1 m and 26 MB at 0.05 m. On localhost either transport moves that in tens of milliseconds, far less than a turn of
+physics. WebSocket frames each message for us (raw TCP means hand-written length-prefix reassembly in GDScript),
+can be inspected with `websocat` or a few lines of Python, is built into Godot 4 (`WebSocketPeer`), and is the only
+one of the two that a web export or `wss://` remote play could use.
+
+**What it costs, and what we do about it:**
+- *Any web page can open `ws://localhost`.* Browsers allow cross-origin WebSockets, which a raw socket would not.
+  The server binds to `127.0.0.1` only, rejects unexpected `Origin` headers, and requires a per-launch token.
+- *Head-of-line blocking.* WebSocket runs over TCP, so a large snapshot delays any small message queued behind it.
+  That is harmless for a turn-based game. Continuous streaming would need delta snapshots or chunking.
+- *Whole messages are buffered.* Both ends must raise their default caps (Godot's `inbound_buffer_size` is 64 KiB;
+  Python `websockets`' `max_size` is 1 MiB). Multi-tile worlds at 0.05 m would need deltas, as any transport would.
+- *Not for real-time internet play.* Fast multiplayer would want UDP (Godot's ENet). Out of scope.
+- *The faster local option is shared memory, not raw TCP.* Godot needs a GDExtension for it. A Phase 2 "Scale"
+  item only if profiling asks for it.
+
+The snapshot header reserves a compression field from v0. Most cells are air, so zstd should shrink snapshots by
+10× or more, and Godot unpacks it with `PackedByteArray.decompress(..., FileAccess.COMPRESSION_ZSTD)`.
+
 ## Imagination: specs, not assets
 
 `imagination/spec.py`: an imagined object is a spec of primitives made of known materials. Before it exists it must
