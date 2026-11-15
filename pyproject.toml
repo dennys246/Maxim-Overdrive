@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "maxim-overdrive"
+version = "0.0.1"
+description = "World server for Maxim Overdrive: material cells, physics fields and an SEM bridge for Maxim agents"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [{ name = "Denny Schaedig" }]
+dependencies = [
+    "numpy>=1.26,<3.0",
+    "scipy>=1.11,<2.0",
+    "pyyaml>=6.0,<7.0",
+]
+
+[project.optional-dependencies]
+# The SEM bridge builds real maxim Entities when pymaxim is installed; without it the world server still runs.
+maxim = ["pymaxim>=1.3"]
+dev = ["pytest>=8.0"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/maxim_overdrive"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"data" = "maxim_overdrive/_data"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

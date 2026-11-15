@@ -1,0 +1,4 @@
+name: max
+cell_size_m: 0.05
+min_substeps_per_turn: 64
+full_res_radius_m: 1000.0
