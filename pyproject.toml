@@ -63,7 +63,7 @@ ignore = [
 python_version = "3.10"
 strict = true
 warn_unreachable = true
-files = ["src", "tests"]
+files = ["src", "tests", "scripts"]
 
 # Tests: bodies are type-checked, but fixture-heavy signatures need no annotations.
 [[tool.mypy.overrides]]
@@ -83,7 +83,7 @@ source = ["maxim_overdrive"]
 branch = true
 
 [tool.coverage.report]
-fail_under = 91.5
+fail_under = 100
 show_missing = true
 skip_covered = true
 exclude_also = [

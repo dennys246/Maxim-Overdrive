@@ -95,6 +95,10 @@ See `docs/book_to_world.md`. Extraction, timeline and the perspective split, the
 
 ## Standing rules
 
+The engineering standards (no band-aids, testing, the pre-push review, determinism, formats, budgets, client
+rules) live in `CLAUDE.md`, each with the check that enforces it; unenforced ones are rows in
+`docs/standards_backlog.md`. The rules below are the design rules.
+
 - **The resolution rule:** a rig changes precision, never the outcome class.
 - Physics parameters are per unit volume. Scenes are authored in metres, never in cells.
 - Energy lands by exact cell average or by volume overlap, never by whether the cell centre is inside.

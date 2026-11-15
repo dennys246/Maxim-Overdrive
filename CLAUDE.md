@@ -1,8 +1,8 @@
 # CLAUDE.md
 
 Maxim Overdrive is a cyberpunk RPG set in **Maxim Prime**, where every NPC is a [Maxim](https://github.com/dennys246/Maxim)
-agent (`pymaxim`) with a life it actually lived. This repo currently holds the **world server**. There is no game
-client yet.
+agent (`pymaxim`) with a life it actually lived. This repo holds the **world server** (Python, authoritative) and,
+from Phase 1, a **Godot 4 client** in `client/` that only draws snapshots and sends intents.
 
 Read these first: `docs/architecture.md` (the design and why), `docs/roadmap.md` (phases, exit tests, standing rules)
 and `docs/book_to_world.md` (the book-to-world plan).
@@ -10,10 +10,13 @@ and `docs/book_to_world.md` (the book-to-world plan).
 ## Commands
 
 ```bash
-pip install -e '.[dev,maxim]'          # Python >= 3.10; the [maxim] extra enables real SEM Entities
-pytest                                 # laptop + rig profiles, a few seconds
-MAXIM_OVERDRIVE_ALL_TIERS=1 pytest     # adds the 0.05 m max profile (about 90 s)
+python3 -m venv .venv && .venv/bin/pip install -e '.[dev,maxim]'   # Python >= 3.10; [maxim] enables real SEM Entities
+.venv/bin/pytest                            # laptop + rig profiles, a few seconds; run the module you touched first
+MAXIM_OVERDRIVE_ALL_TIERS=1 .venv/bin/pytest  # adds the 0.05 m max profile (about a minute)
+scripts/prepush.sh                          # the full gate: lint, types, standards, every tier, coverage, diff coverage
 ```
+
+Godot 4.7.2 is installed at `/Applications/Godot.app` (binary: `Contents/MacOS/Godot`).
 
 ## Layout
 
@@ -22,6 +25,8 @@ MAXIM_OVERDRIVE_ALL_TIERS=1 pytest     # adds the 0.05 m max profile (about 90 s
   `world.py` (turn loop, heat sources, `snapshot`)
 - `src/maxim_overdrive/sem_env/bridge.py`: environment regions as Maxim SEM Entities
 - `src/maxim_overdrive/imagination/spec.py`: imagined objects as validated specs that become cells
+- `scripts/`: `prepush.sh` (the gate) and `lint_standards.py`
+- `docs/code_review.md`: the pre-push review charter. `docs/standards_backlog.md`: rules waiting for a check
 - `docs/maxim_upstream/`: drafts that belong in the Maxim repo (the Exp 64 pre-registration)
 
 ## Rules that matter here
@@ -32,19 +37,119 @@ MAXIM_OVERDRIVE_ALL_TIERS=1 pytest     # adds the 0.05 m max profile (about 90 s
 - Author scenes in metres. Keep physics parameters per unit volume. Deposit energy by exact cell average or volume
   overlap, never by whether the cell centre is inside.
 - Thin features must be at least two cells of the coarsest rig thick.
+- The world server is authoritative. The client never computes anything that feeds back into the world; it may add
+  purely visual effects.
 - The SEM bridge uses Maxim's frozen types (`SensorReading`, `ModulatorResult`, `AffordanceSchema`, `Entity`);
-  `sem_env/_compat.py` mirrors them field for field for runs without pymaxim. Don't add fields Maxim doesn't have.
+  `sem_env/_compat.py` mirrors them field for field (`tests/test_sem_compat.py` holds it to that). Don't add fields
+  Maxim doesn't have.
 - Imagined objects enter only through `imagination.spec.place`, which validates them. Never write cells directly
   from LLM output.
 - Actions change cells; only `World.advance` moves time.
 - Record known physics gaps in `docs/architecture.md` ("Known gaps"), with numbers, instead of hiding them.
 
-## Cross-repo work
+## Engineering standards
 
-Changes to Maxim (the Phase 3 line items in `docs/roadmap.md`) go to the Maxim repo and follow its process there: its
-own CLAUDE.md, pre-registration, four-lens design review and ledger. Game runs never go on Maxim's results ledger.
+Treat this as a serious engineering project from the first commit. Each rule names the check that enforces it
+(`Guard:`). A rule with no check yet cites a row in `docs/standards_backlog.md`, so the gap is visible.
+`scripts/lint_standards.py` fails if a rule loses its guard.
 
-## Never commit
+### Fix root causes
 
-The Steamworks SDK (its license forbids redistribution), licensed third-party assets, or `.env` files. Code is
-Apache-2.0; story, characters, lore, art and audio are all rights reserved (`ASSETS_LICENSE.md`).
+- **No band-aids.** Fix the root cause, even when that means stepping back and refactoring. A band-aid is anything
+  that hides a symptom: a special case, a swallowed exception, a flag that routes around broken behaviour, a
+  loosened tolerance, a fix that has to be repeated at each call site. If the root fix is bigger than the task, stop,
+  describe the root cause and the scope of the real fix, and ask. Never quietly pick the smaller fix.
+  Guard: `docs/code_review.md` (the Architecture lens asks this of every diff), B1
+- **The one exemption: a marked, scheduled band-aid.** Allowed only when the plan already has a moment that removes
+  it. Mark it in the code as `TEMPORARY(phaseN[/step]): <why, and what the real fix is>`, and list it under that
+  phase in `docs/roadmap.md`. The lint fails on a marker with no reason, an unknown phase, or a phase already done.
+  Guard: `scripts/lint_standards.py::check_temporary_markers`
+- **When debugging stalls, audit the layer beneath.** If two explanations for a bad result have died, stop
+  generating a third. Check what else changed, and whether the action you commanded actually happened (did the fire
+  actually get added, did the message actually arrive) before theorizing about the sensor. Guard: B1 (review asks how
+  a fix was found)
+
+### Testing
+
+- **Every behaviour change ships with its tests in the same commit.** A bug fix starts with a test that reproduces the
+  bug and fails. Guard: `scripts/prepush.sh` (diff coverage), `docs/code_review.md` (Executor lens)
+- **Critical functionality is tested exhaustively, by kind.** Physics: a closed-form test and a cross-tier test.
+  Trust boundaries (protocol, intents, `imagination.spec`, every loader): every rejection path, aiming at 100% branch
+  coverage. Wire and save formats: a round trip plus committed golden fixtures. Determinism: a bit-identical rerun.
+  Guard: `tests/test_cross_tier.py`, `tests/test_imagination.py`, `tests/test_determinism.py`, B3, B4
+- **Coverage only ratchets up.** Branch coverage must stay above `fail_under` in `pyproject.toml`; raise the floor
+  when coverage rises, never lower it. Lines changed on a branch must be at least 95% covered. A `pragma: no cover`
+  needs a comment saying why the line can't be tested, and reviewers question it.
+  Guard: `pyproject.toml::fail_under`, `scripts/prepush.sh::diff_cover`
+- **Prove a guard by deleting what it guards.** Before claiming a test protects something, break the mechanism and
+  watch the test go red, and say so in the commit message. A test that cannot fail is a BLOCKER.
+  Guard: `docs/code_review.md` (Executor lens), B10
+- **Known-broken behaviour gets a strict red gate,** `pytest.mark.xfail(strict=True)` with a reason, never `skip`.
+  When the fix lands the gate flips and must be removed. Warnings are errors. Guard: `pyproject.toml::xfail_strict`,
+  `pyproject.toml::filterwarnings`
+- **Property tests for invariants over input spaces** (Hypothesis): physics conservation, protocol round trips,
+  validators that never crash on any input. Guard: B9
+- **Tests are deterministic and fast.** No sleeps, wall clock, real network beyond localhost, or LLM calls in tests.
+  Mark anything over a few seconds `slow` and gate it behind a tier variable. Guard: `tests/test_determinism.py`, B1
+
+### Review before push
+
+- **Every branch that changes code gets a pre-push review round:** parallel independent readers, always Executor,
+  Architecture and Wire integrity, plus each situational lens the diff triggers (Physics and resolution, Trust
+  boundary, Performance, Client and rendering). Findings are BLOCKER, SHOULD-FIX or NIT with a `file::symbol` and a
+  failure scenario. They are folded into the same branch before hand-off, with delta rounds after code folds. The
+  hand-off note carries the round summary. Charter: `docs/code_review.md`. Guard: B1
+- **`scripts/prepush.sh` must print `prepush: PASS` on the exact commit handed over.** Rerun it after every fold.
+  Guard: `scripts/prepush.sh`, B11
+
+### Game engineering
+
+- **Determinism.** The same scene, rig and intents give bit-identical state on one machine. Across machines only the
+  outcome class is promised, as with rigs. Randomness, when it arrives, comes from one seeded `numpy.random.Generator`
+  owned by `World`. Time comes from `World.advance`, never the wall clock. No builtin `hash()` in the simulation.
+  Guard: `tests/test_determinism.py::test_the_simulation_has_no_hidden_sources_of_nondeterminism`
+- **Replays are first-class.** The intent log plus the scene and rig reproduce any session. It is the bug report, the
+  regression test and the save format's backbone. Guard: B2
+- **Every format is versioned:** wire protocol, saves and scene files. Readers refuse versions they don't know, loudly.
+  Old fixtures stay committed, and a format change that breaks one needs a migration or a version bump. Guard: B3, B4
+- **The client is untrusted input.** Every intent is validated at the protocol layer. Malformed input gets an error
+  reply, never a crash or a half-applied change. The server binds to 127.0.0.1, checks `Origin` and requires the
+  per-launch token. Guard: `docs/code_review.md` (Trust boundary lens), B3
+- **Performance has budgets, measured, not guessed:** turn time and snapshot size per profile, with a regression gate.
+  Optimize only from a profile. Guard: B5
+- **Client standards (Godot).** The engine version is pinned (4.7.2), and an upgrade is its own branch. GDScript is
+  fully typed, with typed-GDScript warnings as errors. Visuals come from snapshot channels, not art. State is never
+  shown by colour alone (cracks also change shape and shading, glow also changes brightness). Guard: B6, B7
+- **Exit tests are automated where they can be:** a scripted scenario plus golden screenshots per profile, then a
+  human playtest. Guard: B7
+- **Data and assets.** Tunables live in `data/` YAML, not code, and every data file loads and validates in a test.
+  Every non-code asset is listed with its source and licence before it is committed. Never commit the Steamworks SDK,
+  licensed third-party assets or `.env` files. Guard: B8, B12
+
+### Code
+
+- **Lint, format and type-check clean:** ruff (rules in `pyproject.toml`) and strict mypy on `src/` and `scripts/`.
+  Guard: `scripts/prepush.sh`
+- **No silent exception swallows.** Catch the narrowest type, and handle it by reporting or re-raising. A handler
+  that quietly returns a fallback is a swallow too. Guard: `pyproject.toml::BLE`, `pyproject.toml::S110`, B13
+- **Push invariants into types.** A collaborator that must be passed is a required keyword-only parameter, so
+  forgetting it is a `TypeError`, not a silent no-op. Prefer frozen dataclasses for anything that crosses a wire or
+  is persisted. Guard: `docs/code_review.md` (Architecture lens), B1
+- **A fix ships with a caller.** New code with no caller on the shipped path is capability, not a fix. A claim about
+  what works is measured on the shipped path, and the commit says where. Guard: `docs/code_review.md` (Wire
+  integrity lens), B1
+
+### Working
+
+- **Branches and commits.** Work on `phaseN/<step>` branches with clear, signed commits. Never bypass signing or
+  hooks. Never push: the owner reviews and pushes. Concurrent sessions each use a worktree under `.worktrees/`.
+  Guard: `.gitignore::worktrees`, B1
+- **Keep Maxim untouched from here.** Anything that needs a Maxim change goes under Phase 3 in `docs/roadmap.md` and
+  follows Maxim's own process (pre-registration, four-lens design review, ledger). Game runs never go on Maxim's
+  results ledger. Guard: `docs/roadmap.md`, B1
+- **Engine choices get a one-line why** in the code or the commit (scene tree, node types, shaders, GDScript vs C#),
+  for a team learning Godot. Guard: B1
+
+## Licensing
+
+Code is Apache-2.0; story, characters, lore, art and audio are all rights reserved (`ASSETS_LICENSE.md`).
