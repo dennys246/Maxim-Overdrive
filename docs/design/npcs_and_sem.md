@@ -56,7 +56,7 @@ means recalled from memory, to be checked before it enters `data/`.
 | O9 | **A reply's content may only make it land later, never earlier.** The substrate schedules the earliest onset from what the body knows, and logs it. Content (a dispreferred answer, a long one) may add delay, capped in `thought_budget.yaml` and counted against the session's dilation budget; it may never pull the onset earlier, since that would rewrite a logged time. Resolves BF2-2 against TB2-S5. | §4.2, §4.7 |
 | O10 | No developer mode with real Maxim before tier A, except inside strict red-gate tests. | §4.8, §12.1 |
 | O11 | **Live play holds the floor; it doesn't dilate (2026-11-16).** While a thought is late, the substrate covers the wait with content-free fillers and gaze aversion; past a floor ceiling the NPC yields, and the late answer arrives as a new turn, logged and never booked as a cognitive failure (resolves BF2-8 against TB2-B3). The world keeps real time. Guards: a yield never feeds fatigue, credit or learning; dilate stays for experiments and the lockstep reference; a B5 meter counts yields per turn by hardware. Needs OD-H5 first. This reverses BF2-10 for live play, on purpose. | §4.4, §5 |
-| — | *Proposed, not decided:* **processing speed as a per-NPC trait, in world time.** The owner's reason for O11 is that people really do differ in speed. That variation belongs to the character: stable for that person, independent of whose machine hosts the world. Hardware lateness is not that; in co-op, one host's GPU slows every NPC at once. Proposed: a per-NPC onset multiplier drawn at creation from a documented distribution (reaction time correlates with general ability, Deary, Der & Ford 2001, *to verify*), applied to the modelled onset, so it works under either policy. | §4.2 |
+| O12 | **Processing speed is a per-NPC trait, in world time (2026-11-16).** People differ in speed, but that variation belongs to the person: stable, and independent of whose machine hosts the world. Hardware lateness is not that (one host's GPU slows every NPC at once, and most in busy scenes). Each NPC draws an onset multiplier at creation, saved with the agent, from the NPC's keyed stream (§3.4); it scales the modelled onset under either latency policy and never reads the hardware. Its distribution lives in `data/agents/`, validated at load; it starts as an `[engineering]` lognormal with median 1, its spread to be set from the individual-differences literature on reaction time (Deary, Der & Ford 2001, *to verify*) before it enters `data/`. Fatigue (§2.3) still varies speed within a person. | §4.2 |
 | OA4 | Speech is stamped per syllable. | §5.3 |
 | OA5 | One mental-fatigue drive that rises with load, with per-kind load weights; it recovers with rest and sleep, feeds sleep pressure, and is separate from stamina. | §2.3, §4.6 |
 | — | The thought-cost unit is as fine as is realistic and useful, so conversation can be dynamic in hybrid mode | §4, §5, §9 |
@@ -821,8 +821,6 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
    path.
 4. **Bug reports and dialogue.** `speak` text is redacted from bug reports by default (§5.2). Is that the right
    default, or should the reporter choose?
-5. **The per-NPC speed trait** (§0, proposed): adopt it, and from which distribution? Decided already: live play
-   holds the floor (O11).
 
 ### 12.2 Known OPEN divergences (each with a red gate when there is code)
 
