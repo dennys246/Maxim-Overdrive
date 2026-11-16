@@ -1,54 +1,101 @@
-# DRAFT for Maxim: a 1.5 line that builds the hybrid runtime and tunes it by experiment
+# DRAFT for Maxim: Overdrive's contribution to the hybrid arbitration line
 
-**Status:** a proposal drafted in Maxim Overdrive on 2026-11-15, for Maxim's own process: an issue, a plan, a
-four-lens design review, and a pre-registration per experiment. Nothing here is run or claimed. It moves to Maxim's
-`docs/plans/` if Maxim accepts it. Game runs stay off Maxim's results ledger; only the pre-registered experiments
-below would go on it.
+**Status:** rewritten in Maxim Overdrive on 2026-11-16. The first version (2026-11-15) proposed a new 1.5 line for a
+hybrid runtime. Since then Maxim's owner has decided one: `DECISIONS.md` 2026-11-11, "Hybrid arbitration is a 1.5
+candidate line". Its design is `docs/plans/hybrid_arbitration.md` (HA-O1 to HA-O16), split into four plans:
+- `idle_dmn_coordinator.md`;
+- `sem_interruptibility.md`;
+- `learned_hold_window.md`;
+- `foreign_advice_layer.md`.
 
-## The claim the line would test
+So this draft no longer proposes a line. It proposes what an embedded world adds to that one. Read against
+`origin/main` `7084f561`.
 
-A Maxim agent in hybrid mode never has to wait for its own deliberation. Its substrate (reflexes, NAc's learned
-action selection, drives) carries it through the world while an LLM thought is in flight. The thought arrives
-later, gets checked against the world as it is then, and then steers the agent.
+- **The line's rules, which this respects:**
+  - It is a parallel paper line, not a 1.4 rung, with no `src/` before the 1.4.0 cut (M89).
+  - Its first evidence slice is an Exp 49 re-run, boundary-only, with one hybrid cell (HA-O14).
+  - Claims are exploratory under BF2.
+- **Overdrive ids:** OD-H1 to OD-H4 (tier C).
 
-The design that prompted this (Overdrive's `docs/design/realtime_lanes_coop.md`, §4.3) takes the claim as its
-operating rule: neither the world nor the NPC ever waits for a thought. **If an agent would need to wait, the hybrid
-isn't working as intended.** That's a finding for this line, not something the game should build around.
+## OD-H1. The game as a test bed for the hybrid's questions
 
-## Why now, and why the game
+The line has **no** experiment yet that tested a hybrid ("Everything above is motivation, not evidence",
+`hybrid_arbitration.md` §Why). An embedded world gives it what a robot can't:
+- deliberation latency set exactly, in world time;
+- swept;
+- replayed bit for bit (after tier A).
 
-- **The game is a controllable, replayable real-time world.** Deliberation latency can be set exactly (a stub with a
-  fixed latency in ticks), swept, and replayed bit for bit. A physical robot can't do that.
-- **The robots are the ground truth.** On Reachy and the Microduck, the world truly can't wait. The same latency
-  sweep run on a robot tests whether the game's curves transfer.
-- **Its prerequisites are on Overdrive's Phase 3 list already:** an externally stepped Default Network on a world
-  clock (item 11), an agent live tick (12), cancellable deliberation with a world-time deadline (13), deterministic
-  agents (15), and generate vs apply (16). The hybrid plan
-  (`docs/plans/deferred/hybrid_substrate_reflex_runtime.md`) and its BL-1 to BL-5 are the reflex half. This line
-  would revive that plan, on a simulated body or on the Microduck (Phase 3 item 17).
+The robots stay the ground truth for transfer. Candidate questions, for the line to adopt, amend or refuse:
 
-## Candidate experiments (each needs its own pre-registration and four-lens design review)
-
-| # | Question | Manipulation | Measures |
+| Id | Question | What a world adds | Earns? |
 |---|---|---|---|
-| H1 | **The substrate floor:** how much of an NPC's competence does the substrate carry with no deliberation at all? | deliberation off; then on with zero latency; then on with **the world paused for each thought**, which exists only as an upper-bound control arm and never as the shipped mechanism | task outcomes on the tile (keep away from fire, find food and rest, respond to a strike), pain, drive satisfaction |
-| H2 | **The latency curve:** does competence degrade gracefully as thinking gets slower, or collapse? | stub deliberation latency swept over world time (for example 0, 1, 3, 10 and 30 s) | outcomes, the stale-refusal rate, the fraction of in-flight time spent on substrate actions and what they were, reflex-against-deliberation conflicts, dithering |
-| H3 | **When to think:** is "the substrate has no opinion" (`NAc.recommend_action` returns `None`) the right trigger to deliberate, compared with fixed-interval deliberation? | the trigger policy | LLM calls per NPC-hour against outcomes |
-| H4 | **Interruption:** can pain or salience cancel a thought in flight, as fast as a reflex? | a hazard appears while a thought is in flight, with cancellation on and off | time to a protective action, outcomes |
-| H5 | **Acting while talking:** does an NPC in dialogue keep its reflexes? | a hazard during a dialogue thought | protective action while the reply continues; whether the reply stays coherent with what the body did (efference copy) |
-| H6 | **Dial sensitivity:** with a live model, how much does behaviour change with the world's speed? | the same scenario at 0.25×, 1× and 4× | the H2 measures, compared across dial values |
-| H7 | **Game to robot:** does H2's curve transfer to a physical body? | the latency sweep on Reachy or the Microduck orienting task | the same curve, game against robot |
+| OD-HX1 | **The substrate floor:** how much of an agent's competence does the substrate carry with no deliberation? | controlled tasks (keep away from fire, find food and rest) with identical replays | an experiment, with BF2 floors |
+| OD-HX2 | **The latency curve:** does competence degrade gracefully as deliberation gets slower? | latency swept in world time (0, 1, 3, 10 and 30 s) | **calibration only.** It sets the hold's starting values and can't earn anything (MP-S9). |
+| OD-HX3 | **Interruption:** can pain or salience cancel a thought in flight, as fast as a reflex? | a hazard timed exactly against a thought in flight | an experiment; needs OD-A14's cancel and `sem_interruptibility.md`'s vocabulary |
+| OD-HX4 | **Acting while talking:** does an agent in conversation keep its reflexes, and stay coherent with what its body did? | a hazard during a dialogue thought | an experiment |
+| OD-HX5 | **Game to robot:** does the latency curve transfer to a physical body? | the same sweep on Reachy | an experiment, the transfer check |
 
-**What the line tunes from these:** the deliberation budget for each kind of request, the trigger to deliberate,
-cancellation thresholds, and how a late thought is reconciled with what the body did meanwhile.
+**Where these run.** Game runs never go on Maxim's ledger. An experiment from this list runs in a Maxim-owned harness,
+either against a scripted world or against an Overdrive world exposed through a Maxim simulation bridge (as
+`simulation/minecraft.py` exposes Minecraft). It is pre-registered and frozen on Maxim's `main` before data. Which of
+the two is acceptable is a question for the line's owner.
 
-**Kill criterion (to be pre-registered):** if H1's substrate floor is near zero on every task, and H2's curve
-collapses at small latencies, the substrate can't carry an agent through deliberation. The hybrid claim fails, and
-the line reports an honest null.
+## OD-H2. Pushback: in an embedded world, the hold's waiting cost must be modelled latency, not observed latency
 
-## Open for Maxim's review
+- **The decision argued against:** `learned_hold_window.md` §"The rule to start from": "**Waiting cost:** the
+  world's hazard and reward rate, the backend's action duration, and the observed LLM latency."
+- **Why it's right for a robot:** on a robot, wall time is world time. The observed latency is the cost the world
+  actually charges.
+- **Why it's wrong for an embedded world:** there the observed latency is a property of the host machine and the
+  time dial, not of the world.
+  - The same agent on a faster GPU, or at a slower dial, would learn a different hold. Its behaviour would then
+    depend on the hardware: the class of bug Overdrive's resolution rule forbids for physics (Overdrive lesson 1).
+  - At 20×, a 0.4 s wall answer is 8 world seconds; at 0.25× it is 0.1 world second.
+- **Overdrive's evidence:**
+  - its design reviews (`docs/design/reviews/foundations_v1/determinism.md` DR-B5, `bio_faithful.md` BF2-8);
+  - the engine mapping (`docs/design/research/time/engine_mapping.md` §3).
+- **Maxim's own precedent:** `foreign_advice_layer.md` already decays advice "on the experience clock … not on loop
+  passes. That way advice influence lasts the same in every arm, whatever the LLM latency or host load." The hold
+  should follow the same rule.
+- **Proposed:** when the agent is embedded, the waiting cost reads the host's **modelled world-time latency** for the
+  thought kind, which the host's gateway reports (OD-A14). On a robot it keeps the observed latency, which there is
+  the same thing. It is a declaration on the embedded entry point, so no robot changes.
 
-- Whether this belongs in 1.5, or extends 1.4's grounding line.
-- How H1's "world waits" control arm is reported, so it can never be read as a shipped mechanism.
-- Which tasks on the Overdrive tile count as the battery, which drives the tile must satisfy (Overdrive design,
-  Bio-11: the tile needs food and rest affordances), and how they map to Maxim's existing survival rig.
+## OD-H3. Re-key the deferred reflex runtime's trigger, argued against G4, at GL3's start
+
+- **The decision argued against:** owner decision G4 (2026-10-07), recorded on
+  `deferred/hybrid_substrate_reflex_runtime.md`: "this trigger is NOT re-keyed; it is the robot half of the
+  second-body gate … Whether to re-read the 'second robot body' gate is a question at GL3's start."
+  - The first draft cited M76. That was the wrong record: M76 is the mechanization row for the second-body plans'
+    tripwire.
+- **The argument, for GL3's start:** an embedded world is a second body in every respect the reflex runtime needs:
+  - a body grammar;
+  - drives;
+  - sensors and timing;
+  - a world it can't pause.
+
+  It isn't a robot. G4 splits the gate into a perception half, re-keyed to a capability trigger, and a robot half.
+  The reflex runtime's need is closer to the perception half's.
+- **The ask:** when GL3 starts, consider re-reading the trigger as "a second body, physical or embedded". The
+  Microduck's arrival would meet the robot half anyway.
+
+## OD-H4. Conversation: deliberation starts while the other person is still speaking
+
+- **The evidence:** people leave about 200 ms between turns (Stivers et al. 2009: the mode is 0–200 ms, and the
+  language means run from about 7 to about 470 ms; verified in Overdrive's bio-faithful review). Producing a reply
+  takes over 600 ms (Levinson & Torreira 2015), so people plan during the other person's turn. Gaps over about 700 ms
+  read as reluctance (Kendrick & Torreira 2015).
+- **What it means for the hybrid:**
+  - the substrate carries the turn's fast parts: gaze, backchannels, and fillers chosen from the modelled delay
+    (Clark & Fox Tree 2002);
+  - deliberation is triggered by the incoming speech stream, not by its end.
+- **What it needs:** streamed input to the agent, and OD-A14's token stream and cancel.
+- **The ask:** that the line consider "deliberation triggered during the other's turn" as a candidate for its
+  escalation rule (`hybrid_arbitration.md` §A.1, "The arbiter escalates if ANY of the following holds"). Overdrive
+  would bring a pre-registered comparison of onset-from-end against onset-during-turn.
+
+## Open for the line's owner
+
+- Whether an Overdrive world through a Maxim simulation bridge is an acceptable venue for OD-HX1, OD-HX3 and
+  OD-HX4.
+- Whether OD-H2 belongs in `learned_hold_window.md` v1's frozen hold, or only in v2.
