@@ -51,6 +51,7 @@ Godot 4.7.2 is installed at `/Applications/Godot.app` (binary: `Contents/MacOS/G
 - `scripts/`: `prepush.sh` (the gate) and `lint_standards.py`
 - `docs/code_review.md`: the pre-push review charter. `docs/standards_backlog.md`: rules waiting for a check
 - `docs/maxim_upstream/`: drafts that belong in the Maxim repo (the Exp 64 pre-registration)
+- `docs/lessons_maxim_in_games.md`: what building this game teaches about applying Maxim to games, kept current
 
 ## Rules that matter here
 
@@ -206,6 +207,11 @@ only review holds.
   Never work around it in this repo, and never stay quiet because the decision was recorded. Each proposal is an
   item under Phase 3 in `docs/roadmap.md`, with its draft in `docs/maxim_upstream/` when it needs one.
   Guard: `docs/code_review.md` (the Bio-faithful integration lens asks it), B15
+- **Record lessons as they're learned.** Whenever the work teaches something about putting Maxim into a game (a
+  finding, a measurement, a pushback, a design reversal), add or update an entry in `docs/lessons_maxim_in_games.md`
+  in the same commit as the work that taught it, with its evidence and its consequence. Don't save lessons for a
+  session's wrap-up: a lesson that lives only in a conversation is lost. This file is the seed of an engine's
+  documentation and the evidence base for pushbacks to Maxim. Guard: B18
 - **Engine choices get a one-line why** in the code or the commit (scene tree, node types, shaders, GDScript vs C#),
   for a team learning Godot. Guard: B1
 - **Teach game engineering as you go.** The owner is learning game development from the start, and knows software
