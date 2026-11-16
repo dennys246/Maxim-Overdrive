@@ -12,7 +12,7 @@ act on the environment. There is no game client yet.
 - `world/`: the material grid, scenes authored in metres, heat conduction, damage, the turn loop, render snapshots
 - `sem_env/`: walls, doors and objects as Maxim SEM Entities (sensors read cells; modulators change them)
 - `imagination/`: imagined objects as validated specs that become ordinary, destructible cells
-- `data/`: rig profiles (laptop, rig, max) and the material table
+- `data/`: rig profiles (laptop, rig, max), the material table, and world config (`data/world/`: action limits)
 - `docs/architecture.md`: the design and its rules; `docs/book_to_world.md`: the plan for bringing a book to life
 
 ## Quick start

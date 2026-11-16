@@ -113,7 +113,9 @@ BAD = [
 ]
 
 
-@pytest.mark.parametrize(("affordance", "params", "field"), BAD)
+@pytest.mark.parametrize(
+    ("affordance", "params", "field"), BAD, ids=[f"{a}-{f}-{i}" for i, (a, _, f) in enumerate(BAD)]
+)
 def test_bad_parameters_are_refused_by_name_and_leave_the_world_unchanged(affordance, params, field):
     w = _world()
     w.sources["fire:crate"] = HeatSource((1.5, 1.5, 0.3), 0.3, 1000.0)  # so extinguish has something to put out
@@ -153,12 +155,27 @@ def test_good_parameters_of_any_real_number_type_still_work(affordance, params):
     assert res.success, res.error
 
 
-def test_maxims_call_keys_are_accepted_and_dropped():
-    # Maxim's orchestrator-actor tool always passes target=<Entity>, the entity this modulator belongs to.
+def test_a_target_is_accepted_only_when_it_is_this_region():
+    # Maxim's orchestrator-actor tool passes target=<Entity>, what the actor acts ON (the player by default). A
+    # region's structure is only acted on directly, so another target is refused, never dropped: dropping it would
+    # strike the crate when the call meant the wall.
+    from maxim_overdrive.sem_env.bridge import to_maxim_entity  # noqa: PLC0415 - the gate installs pymaxim
+
     assert frozenset({"target"}) == MAXIM_CALL_KEYS
-    w = _world()
-    assert _structure(w).execute("ignite", {"power_w": 1000.0, "target": object()}).success
-    assert w.sources["fire:crate"].power_w == 1000.0
+    scene = Scene(SCENE.extent_m, (*SCENE.primitives, Box((0, 0, 0), (0.6, 3, 2), "concrete", "wall")))
+    w = World.from_scene(scene, RigProfile.load("laptop"), limits=LIMITS)
+    crate, wall = to_maxim_entity(w, "crate"), to_maxim_entity(w, "wall")
+    s = crate.modulators["structure"]
+    for target in [None, crate, "crate"]:
+        assert s.execute("ignite", {"power_w": 1000.0, "target": target}).success, target
+    before = _state(w)
+    others: list[tuple[object, str]] = [(wall, "wall"), ("player", "'player'"), (object(), "<object")]
+    for other, shown in others:
+        res = s.execute("strike", {"energy_j": 1e5, "target": other})
+        assert not res.success
+        assert res.error is not None
+        assert res.error.startswith(f"the crate's structure can only be acted on directly, not on {shown}")
+    assert _unchanged(before, w)
 
 
 def test_both_ends_of_every_limit_are_allowed_and_one_step_past_them_is_not():
@@ -240,8 +257,14 @@ def test_every_shipped_rig_is_at_least_as_fine_as_the_smallest_action():
     assert LIMITS.min_sigma_m >= coarsest
 
 
-def _ignite_and_burn(rig, turns=40):
-    w = _world(rig)
+# The fire envelope is verified for 30 turns (docs/architecture.md, Known gaps): past that, a fire burns out its few
+# cells and its power falls back into air (the fuel gap), and the rigs diverge.
+ENVELOPE_TURNS = 30
+WOOD_FLAME_C = 2000.0  # wood's adiabatic flame temperature: no fire on wood may heat a cell past it
+
+
+def _ignite_and_burn(rig, turns):
+    w = World.from_scene(SCENE, rig, limits=LIMITS)
     s, m = region_parts(w, "crate")
     assert m["structure"].execute("ignite", {"power_w": LIMITS.max_power_w, "radius_m": LIMITS.min_radius_m}).success
     onset = None
@@ -249,28 +272,69 @@ def _ignite_and_burn(rig, turns=40):
         w.advance()
         if onset is None and s["integrity"].value() < 0.9:
             onset = turn
-    return onset, s["integrity"].value()
+    return onset, s["integrity"].value(), float(np.max(w.grid.temperature))
 
 
-def test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig():
-    runs = {rig: _ignite_and_burn(rig) for rig in FAST_TIERS}
-    onsets = [o for o, _ in runs.values()]
+def _same_fire_everywhere(runs):
+    onsets = [o for o, _, _ in runs.values()]
+    integrity = [i for _, i, _ in runs.values()]
     assert all(o is not None for o in onsets), runs
     assert max(onsets) - min(onsets) <= max(1, 0.1 * min(onsets)), runs
-    assert all(integrity < 0.7 for _, integrity in runs.values()), runs
+    assert max(integrity) - min(integrity) <= 0.1, runs  # the same damage, not just "badly burned"
+    assert all(t <= WOOD_FLAME_C for _, _, t in runs.values()), runs
 
 
-@pytest.mark.parametrize("energy_j", [1e7, 3e7, 1e8, LIMITS.max_energy_j])
-def test_the_narrowest_allowed_strike_makes_the_same_crater_at_every_rig(energy_j):
+def test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_within_the_envelope(rigs):
+    _same_fire_everywhere({rig.name: _ignite_and_burn(rig, ENVELOPE_TURNS) for rig in rigs})
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="the fuel gap: past about 30 turns a fire burns out its cells and heats air, and the rigs diverge "
+    "(docs/architecture.md, Known gaps). The Phase 1 fuel model fixes it; this gate then flips.",
+)
+def test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_after_60_turns(rigs):
+    _same_fire_everywhere({rig.name: _ignite_and_burn(rig, 60) for rig in rigs})
+
+
+def _crater_class(energy_j, sigma_m, coarsest_m=0.2):
+    """A strike's outcome class from its closed-form crater radius, which doesn't depend on the rig. A crater
+    narrower than two coarse cells is "small" (the thin-features rule): the rigs then agree only that it stays small."""
+    radius = damage.analytic_crater_radius_m(energy_j, sigma_m, 2.0e7)
+    return "none" if radius == 0 else ("small" if radius < 2 * coarsest_m else "crater"), radius
+
+
+@pytest.mark.parametrize("multiple", [0.95, 1.05, 1.2, 1.5, 2.0, 3.0, 5.0, 40.0, 390.0])
+def test_a_strike_has_the_same_outcome_class_at_every_rig(rigs, multiple):
+    sigma = LIMITS.min_sigma_m
+    threshold_j = 2.0e7 * (2 * math.pi) ** 1.5 * sigma**3  # where the peak energy density meets concrete's fracture
+    kind, radius = _crater_class(multiple * threshold_j, sigma)
     scene = Scene((3.0, 3.0, 2.0), (Box((0.6, 0.6, 0), (2.4, 2.4, 1.8), "concrete", "block"),))
-    expected = 4 / 3 * math.pi * damage.analytic_crater_radius_m(energy_j, LIMITS.min_sigma_m, 2.0e7) ** 3
-    for rig in FAST_TIERS:
-        w = World.from_scene(scene, RigProfile.load(rig), limits=LIMITS)
+    for rig in rigs:
+        w = World.from_scene(scene, rig, limits=LIMITS)
         res = region_parts(w, "block")[1]["structure"].execute(
-            "strike", {"energy_j": energy_j, "sigma_m": LIMITS.min_sigma_m}
+            "strike", {"energy_j": multiple * threshold_j, "sigma_m": sigma}
         )
         assert res.success
-        assert res.metadata["destroyed_volume_m3"] == pytest.approx(expected, rel=0.25), rig
+        volume = res.metadata["destroyed_volume_m3"]
+        if kind == "none":
+            assert volume == 0, rig.name
+        elif kind == "small":
+            assert volume <= 4 / 3 * math.pi * (2 * 0.2) ** 3, rig.name
+        else:
+            assert volume == pytest.approx(4 / 3 * math.pi * radius**3, rel=0.25), rig.name
+
+
+def test_a_strike_at_the_edge_of_a_region_off_the_coarse_grid_is_judged_the_same_at_every_rig(rigs):
+    # The crate's faces sit between the 0.2 m cells, so its cells (and any reach built from them) move with the rig.
+    scene = Scene((3.0, 3.0, 2.0), (Box((1.25, 1.25, 0), (1.75, 1.75, 0.6), "wood", "crate"),))
+    edge = 1.75 + LIMITS.default_sigma_m
+    for rig in rigs:
+        w = World.from_scene(scene, rig, limits=LIMITS)
+        s = region_parts(w, "crate")[1]["structure"]
+        assert s.execute("strike", {"energy_j": 1e3, "point_m": [edge, 1.5, 0.3]}).success, rig.name
+        beyond = s.execute("strike", {"energy_j": 1e3, "point_m": [math.nextafter(edge, 9), 1.5, 0.3]})
+        assert beyond.error == "point_m is not on the crate", rig.name
 
 
 # -- the physics entry points refuse what no caller should ever pass ------------------------------------------------
@@ -463,3 +527,95 @@ def test_no_data_file_writes_a_number_as_a_string():
     for path in sorted(data_dir().rglob("*.yaml")):
         walk(yaml.safe_load(path.read_text()), [path.name])
     assert found == []
+
+
+# -- folds from PR 1's delta review -----------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"energy_j": 1e3, "point_m": [10**5000, 0, 0]},  # nested: 3.10's reprlib crashed on it
+        {"energy_j": 1e3, "point_m": (10**5000,)},
+        {"energy_j": 1e3, "point_m": [[10**5000], 0, 0]},
+        {"energy_j": 1e3, (10**5000,): 1},
+        {"energy_j": "x" * 1_000_000},
+    ],
+    ids=["nested-int", "short-tuple-int", "deep-int", "int-key", "megabyte-string"],  # str(10**5000) would raise
+)
+def test_huge_or_hostile_values_anywhere_are_refused_with_a_short_message(params):
+    res = _structure(_world()).execute("strike", params)
+    assert not res.success
+    assert res.error is not None
+    assert len(res.error) < 200
+
+
+@pytest.mark.parametrize(
+    "affordance", [10**5000, "x" * 1_000_000, None, ("strike",)], ids=["huge-int", "megabyte", "none", "tuple"]
+)
+def test_a_hostile_affordance_name_is_refused_and_never_echoed_whole(affordance):
+    res = _structure(_world()).execute(affordance, {})
+    assert not res.success
+    assert len(res.affordance) <= 80
+    assert res.error is not None
+    assert len(res.error) < 200
+
+
+@pytest.mark.parametrize(
+    ("build", "name"),
+    [
+        (lambda: Strike(10**400, 0.2, None), "energy_j"),
+        (lambda: Strike("a", 0.2, None), "energy_j"),  # type: ignore[arg-type]
+        (lambda: Strike(1.0, math.nan, None), "sigma_m"),
+        (lambda: Strike(1.0, 0.2, (1.0, 2.0)), "point_m"),  # type: ignore[arg-type]
+        (lambda: Strike(1.0, 0.2, (1.0, "2", 3.0)), "point_m"),  # type: ignore[arg-type]
+        (lambda: Ignite(math.nan, 0.3), "power_w"),
+        (lambda: Ignite(1.0, math.inf), "radius_m"),
+    ],
+)
+def test_a_hand_built_action_with_bad_numbers_cannot_be_made(build, name):
+    with pytest.raises(ActionRefused, match=f"^{name} must be"):
+        build()
+
+
+def test_apply_refuses_what_is_not_an_action_loudly():
+    with pytest.raises(TypeError, match="not an action: object"):
+        _structure(_world()).apply(object())
+
+
+@pytest.mark.parametrize(
+    ("action", "affordance"),
+    [(Strike(1.0, 0.2, None), "strike"), (Ignite(1.0, 0.3), "ignite"), (Extinguish(), "extinguish")],
+)
+def test_apply_names_every_affordance_from_its_action(action, affordance):
+    assert _structure(_world()).apply(action).affordance == affordance
+
+
+def test_a_zero_limit_is_refused():
+    with pytest.raises(ValueError, match="max_power_w must be positive"):
+        ActionLimits(**{**vars(LIMITS), "max_power_w": 0.0})
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        (GOOD_LIMITS.replace("version: 0", "version: 0\n? [1, 2]\n: 3"), "a mapping key must be a plain value"),
+    ],
+)
+def test_more_bad_limits_files_are_refused(tmp_path, text, message):
+    path = tmp_path / "actions.yaml"
+    path.write_text(text)
+    with pytest.raises(ValueError, match=message):
+        ActionLimits.load(path)
+
+
+def test_yaml_merge_keys_still_work_in_the_limits_file(tmp_path):
+    text = (
+        "version: 0\n"
+        "base: &base {max_power_w: 500000.0, min_radius_m: 0.3, max_radius_m: 3.0, default_radius_m: 0.3}\n"
+        "ignite: {<<: *base}\n" + GOOD_LIMITS.split("\n")[2] + "\n"
+    )
+    path = tmp_path / "actions.yaml"
+    path.write_text(text)
+    with pytest.raises(ValueError, match="expected sections"):  # merged fine; "base" is then an unknown section
+        ActionLimits.load(path)

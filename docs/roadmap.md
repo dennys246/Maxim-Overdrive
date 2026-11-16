@@ -63,7 +63,9 @@ They are the prerequisites for Exp 64 and for NPCs that remember.
     ranges) in the executor, as an executor-made refusal kind, which keeps #1315's rule that a tool body can't exempt
     itself. **Argues against:** TF2 (`docs/plans/tool_failure_credit.md`), which counts any tool that reached
     `tool.run` as having run. Evidence: the 33 probes of Overdrive's PR 1 (`tests/test_act_validation.py`) and its
-    Bio-faithful review.
+    Bio-faithful review. It is wider than malformed arguments: `Tool.run` calls `_validate_input` inside its own
+    `except Exception`, so even the required-key check is booked as a NEGATIVE, and so is any exception a modulator
+    raises, which turns a physics bug that fails loudly in the game into a false lesson for the NPC.
 
 - **Exit:** Exp 64a's prerequisites are met and its pre-registration is frozen. The draft is in
   `docs/maxim_upstream/` and moves to Maxim's `docs/experiments/`.

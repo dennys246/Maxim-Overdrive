@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 import yaml
 
-from maxim_overdrive.checks import finite_real
+from maxim_overdrive.checks import finite_real, whole_number
 
 
 def data_dir() -> Path:
@@ -47,7 +47,7 @@ class RigProfile:
         return cls(
             name=str(raw["name"]),
             cell_size_m=finite_real(raw["cell_size_m"], "cell_size_m"),
-            min_substeps_per_turn=int(raw["min_substeps_per_turn"]),
+            min_substeps_per_turn=whole_number(raw["min_substeps_per_turn"], "min_substeps_per_turn"),
             full_res_radius_m=finite_real(raw["full_res_radius_m"], "full_res_radius_m"),
         )
 
@@ -118,7 +118,7 @@ class MaterialTable:
         for name, v in raw.items():
             mats[name] = Material(
                 name=name,
-                id=int(v["id"]),
+                id=whole_number(v["id"], f"{name}.id"),
                 density_kg_m3=finite_real(v["density_kg_m3"], f"{name}.density_kg_m3"),
                 specific_heat_j_kgk=finite_real(v["specific_heat_j_kgk"], f"{name}.specific_heat_j_kgk"),
                 conductivity_w_mk=finite_real(v["conductivity_w_mk"], f"{name}.conductivity_w_mk"),
@@ -129,7 +129,7 @@ class MaterialTable:
                 degrade_rate_per_s_per_100c=finite_real(
                     v.get("degrade_rate_per_s_per_100c", 0.0), f"{name}.degrade_rate_per_s_per_100c"
                 ),
-                color_rgb=tuple(int(c) for c in v["color_rgb"]),  # type: ignore[arg-type]
+                color_rgb=tuple(whole_number(c, f"{name}.color_rgb") for c in v["color_rgb"]),  # type: ignore[arg-type]
             )
         return cls(mats)
 
@@ -146,7 +146,11 @@ class _StrictLoader(yaml.SafeLoader):
 
 
 def _no_duplicate_keys(loader: _StrictLoader, node: yaml.MappingNode) -> dict[Any, Any]:
+    loader.flatten_mapping(node)  # resolve YAML merge keys (<<:) first, as SafeLoader does
     keys = [loader.construct_object(k, deep=True) for k, _ in node.value]
+    for key in keys:
+        if not isinstance(key, (str, int, float, bool)) and key is not None:
+            raise ValueError(f"a mapping key must be a plain value, got {type(key).__name__}")
     repeated = sorted({str(k) for k in keys if keys.count(k) > 1})
     if repeated:
         raise ValueError(f"repeated key(s) {repeated} in a mapping")
@@ -162,8 +166,10 @@ class ActionLimits:
 
     These are physics-safety ceilings, not what a body can do: an NPC's capability will come from its body and its
     energy (Phase 4 and 5). They are world config, not server config, because the simulation enforces them and a
-    replay needs the same values. The minimum radius and width are at least the coarsest rig's cell, so an action
-    has the same outcome at every rig (the resolution rule; ``tests/test_act_validation.py`` holds both).
+    replay needs the same values. The minimum radius and width are at least the coarsest rig's cell. Within the
+    limits, a strike has the same outcome class at every rig (none, small or crater, from its closed-form radius),
+    and a fire the same outcome for its first 30 turns; past that the fuel gap makes fires diverge
+    (``tests/test_act_validation.py`` holds all three, the last as a strict red gate).
     """
 
     max_power_w: float

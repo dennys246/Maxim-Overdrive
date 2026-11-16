@@ -26,6 +26,14 @@ def finite_real(value: object, what: str) -> float:
     return f
 
 
+def whole_number(value: object, what: str) -> int:
+    """``value`` as an int, or a ValueError that names it. Only integers count: not bools, floats such as 2.9 (which
+    ``int()`` would quietly truncate to 2) or numeric strings."""
+    if isinstance(value, bool) or not isinstance(value, numbers.Integral):
+        raise ValueError(f"{what} must be a whole number, got {value!r}")
+    return int(value)
+
+
 def finite_vector(value: object, n: int, what: str) -> tuple[float, ...]:
     """``value`` as ``n`` finite floats, or a ValueError that names the field."""
     if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or len(value) != n:

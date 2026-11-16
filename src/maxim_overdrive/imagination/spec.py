@@ -80,9 +80,10 @@ def place(
     union = np.any(np.stack(masks), axis=0)
     if not union.any():
         raise SpecRejected("the object is smaller than one cell at this resolution, or outside the world")
-    idx = np.argwhere(union)
-    size = (idx.max(axis=0) - idx.min(axis=0) + 1) * grid.dx
-    across_m = float(np.max(size))
+    # Size from the authored geometry, like mass, so whether an object is too large doesn't depend on the rig.
+    lo = tuple(min(p.bounds_m[0][i] for p in placed) for i in range(3))
+    hi = tuple(max(p.bounds_m[1][i] for p in placed) for i in range(3))
+    across_m = max(b - a for a, b in zip(lo, hi, strict=True))
     if across_m > budget.max_extent_m + 1e-9:
         raise SpecRejected(f"too large: {across_m:.2f} m across, the limit is {budget.max_extent_m} m")
     if (union & grid.solid).any():
@@ -94,5 +95,5 @@ def place(
 
     for p, m in zip(placed, masks, strict=True):
         grid.paint(m, p.material)
-    grid.regions[name] = union.copy()
+    grid.name_region(name, union, ((lo[0], lo[1], lo[2]), (hi[0], hi[1], hi[2])))
     return float(mass)

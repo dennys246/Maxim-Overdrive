@@ -16,7 +16,7 @@ from typing import Literal
 
 from maxim_overdrive.checks import finite_real, finite_vector
 from maxim_overdrive.config import MaterialTable, RigProfile
-from maxim_overdrive.world.grid import Mask, MaterialGrid
+from maxim_overdrive.world.grid import Bounds, Mask, MaterialGrid
 
 
 def _check_labels(material: object, name: object) -> None:
@@ -51,6 +51,11 @@ class Box:
     def volume_m3(self) -> float:
         return math.prod(b - a for a, b in zip(self.min_m, self.max_m, strict=True))  # floats: inf, not a warning
 
+    @property
+    def bounds_m(self) -> Bounds:
+        (x0, y0, z0), (x1, y1, z1) = self.min_m, self.max_m
+        return (x0, y0, z0), (x1, y1, z1)
+
 
 @dataclass(frozen=True)
 class Cylinder:
@@ -84,8 +89,17 @@ class Cylinder:
     def volume_m3(self) -> float:
         return math.pi * self.radius_m * self.radius_m * (self.z_m[1] - self.z_m[0])  # r*r: ** raises on overflow
 
+    @property
+    def bounds_m(self) -> Bounds:
+        (cx, cy), r, (z0, z1) = self.center_xy_m, self.radius_m, self.z_m
+        return (cx - r, cy - r, z0), (cx + r, cy + r, z1)
+
 
 Primitive = Box | Cylinder
+
+
+# No ambient is hotter than a flame (wood's is about 2000 C); a scene's air at 1e300 C would overflow the first step.
+MAX_AMBIENT_C = 3000.0
 
 
 @dataclass(frozen=True)
@@ -95,9 +109,14 @@ class Scene:
     ambient_c: float = 20.0
 
     def __post_init__(self) -> None:
+        x, y, z = finite_vector(self.extent_m, 3, "a scene's extent_m")
+        if min(x, y, z) <= 0:
+            raise ValueError(f"a scene's extent_m must be positive on every axis, got {self.extent_m!r}")
         ambient = finite_real(self.ambient_c, "a scene's ambient_c")
-        if ambient <= -273.15:
-            raise ValueError(f"a scene's ambient_c must be above absolute zero, got {self.ambient_c!r}")
+        if not -273.15 < ambient <= MAX_AMBIENT_C:
+            limit = f"above absolute zero and at most {MAX_AMBIENT_C:g} C"
+            raise ValueError(f"a scene's ambient_c must be {limit}, got {self.ambient_c!r}")
+        object.__setattr__(self, "extent_m", (x, y, z))
         object.__setattr__(self, "ambient_c", ambient)
 
     def build(self, rig: RigProfile, materials: MaterialTable) -> MaterialGrid:
@@ -106,7 +125,7 @@ class Scene:
                 raise ValueError(f"unknown material {p.material!r} in primitive {p.name or p.kind}")
         grid = MaterialGrid.empty(self.extent_m, rig, materials, ambient_c=self.ambient_c)
         for p in self.primitives:
-            grid.paint(p.mask(grid), p.material, region=p.name)
+            grid.paint(p.mask(grid), p.material, region=p.name, bounds_m=p.bounds_m if p.name else None)
         return grid
 
     @classmethod

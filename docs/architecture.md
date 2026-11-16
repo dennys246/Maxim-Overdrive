@@ -73,17 +73,32 @@ How the rule is kept, so far:
   have a radius of at least 0.3 m and a `strike` a width of at least 0.2 m, the coarsest rig's cell
   (`data/world/actions.yaml`, held by `tests/test_act_validation.py`). A `HeatSource` built directly in code can
   still be smaller.
-- **Fires are only verified the same at every rig inside a small envelope, so `ignite` is held to it.** Measured on
+- **Fires are only verified the same at every rig inside a small envelope, and only for 30 turns, so `ignite` is
+  held to it.** Measured on
   the 3×3×2 m crate scene over 30 turns: at 500 kW and a 0.3 m radius the crate catches at turns 15 / 14 / 14
   (laptop / rig / max) and ends at integrity 0.32 / 0.36 / 0.38. At a 0.2 m radius the onsets split (11 / 8 / 7, and
   integrity 0.31 / 0.70 / 0.76); at 1 MW and 0.3 m it's 9 / 8 / 8 and 0.00 / 0.26 / 0.34; at 10 MW and 0.2 m,
   integrity 0.00 / 0.25 / 0.34 with peaks near 3×10⁷ °C. In each case the fire burns out its few cells and its power
   falls back into air (the fuel gap above). Until the fuel model lands, `ignite` is limited to at most 500 kW and a
-  radius of at least 0.3 m, a marked, scheduled band-aid in `data/world/actions.yaml`.
-- **Craters smaller than about one coarse cell come out coarse.** At the 0.2 m minimum width a strike's crater
-  matches the closed form within 25% at every rig (1e7 to 1e9 J on concrete). Narrower than that, a 1e7 J strike at
-  0.3 m width destroys 0.008 m³ at 0.2 m cells against 0.021 m³ analytic: a crater forms at every rig, but the
-  coarse rig rounds it to one cell.
+  radius of at least 0.3 m, a marked, scheduled band-aid in `data/world/actions.yaml`. **No envelope holds for
+  long:** at 40 turns even the allowed corner gives integrity 0.02 / 0.26 / 0.34 and peaks of 620 / 1.4×10⁵ /
+  1.4×10⁵ °C, because every fire left burning reaches the fuel gap. A 0.5 m radius holds a little longer (integrity
+  0.28 / 0.30 / 0.30 at 30 turns). The 30-turn agreement is tested (integrity within 0.1, no cell past wood's flame
+  temperature), and 60 turns is a strict red gate that the fuel model flips.
+- **Craters narrower than two coarse cells only agree that they are small.** At the 0.2 m minimum width on
+  concrete (threshold about 2.5 MJ), destroyed volume at laptop / rig / max is 0 / 0 / 0.001 m³ at 1.05× the
+  threshold, 0.008 / 0.032 / 0.026 m³ at 1.5×, and 0.152 / 0.088 / 0.114 m³ at 3× (closed form 0.109 m³). It
+  agrees within 25% only once the closed-form crater radius reaches about two coarse cells (0.4 m), as the
+  thin-features rule predicts: the crater radius goes to zero continuously at the threshold, so no minimum width can
+  remove the band. A strike's outcome class is therefore taken from its closed-form radius, which doesn't depend on
+  the rig: none (below the threshold, nothing destroyed at any rig), small (radius under 0.4 m, destroyed volume
+  within a 0.4 m sphere at every rig) or crater (volume within 25% of the closed form at every rig). Held by
+  `tests/test_act_validation.py::test_a_strike_has_the_same_outcome_class_at_every_rig`.
+- **Whether an imagined object fits in the world can depend on the rig.** `imagination.spec.place` refuses an object
+  "smaller than one cell at this resolution" when it covers no cell centre, which can happen at the coarse rig and
+  not at a finer one. Its size and mass budgets come from the authored geometry (rig-independent since
+  2026-11-15); this check is still rig-dependent. The thin-features rule (two coarse cells) as a minimum authored size
+  would remove it.
 - **A region's temperature reading can leave its declared range.** `RegionSensor` declares
   `temperature_max` as [-273, 6000] °C, but the fuel gap lets legal fires drive cells far past that (about 4×10⁵ °C
   after 60 turns of a 500 kW fire, once the crate has burned away). The reading isn't clipped, because clipping

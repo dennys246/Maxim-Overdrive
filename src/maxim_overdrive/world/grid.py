@@ -20,6 +20,10 @@ from maxim_overdrive.config import AIR_ID, MaterialTable, RigProfile
 # supported numpy: older stubs give ndarray no default type parameters.
 Mask = npt.NDArray[np.bool_]
 Field = npt.NDArray[np.float64]
+# A region's authored extent in metres, (min corner, max corner). It is kept beside the region's cells because the
+# cells depend on the rig and the authored bounds don't, so anything that asks "is this point on the region?" gets
+# the same answer at every rig.
+Bounds = tuple[tuple[float, float, float], tuple[float, float, float]]
 
 
 @dataclass
@@ -32,6 +36,7 @@ class MaterialGrid:
     integrity: npt.NDArray[np.float32] = field(repr=False)
     temperature: Field = field(repr=False)
     regions: dict[str, Mask] = field(default_factory=dict, repr=False)
+    region_bounds_m: dict[str, Bounds] = field(default_factory=dict, repr=False)
     time_s: float = 0.0
 
     @classmethod
@@ -90,20 +95,34 @@ class MaterialGrid:
 
     # -- writing ------------------------------------------------------------
 
-    def paint(self, mask: Mask, material_name: str, region: str | None = None) -> None:
-        """Fill the cells in ``mask`` with a material at full integrity; optionally name them as a region."""
+    def paint(
+        self, mask: Mask, material_name: str, region: str | None = None, *, bounds_m: Bounds | None = None
+    ) -> None:
+        """Fill the cells in ``mask`` with a material at full integrity; optionally name them as a region.
+
+        A named region needs ``bounds_m``, its authored extent in metres (see ``Bounds``).
+        """
+        if region is not None and region in self.regions:
+            raise ValueError(f"region {region!r} already exists")
+        if region is not None and bounds_m is None:
+            raise ValueError(f"region {region!r} needs its authored bounds in metres")
         mid = self.materials[material_name].id
         self.material[mask] = mid
         self.original_material[mask] = mid
         self.integrity[mask] = 0.0 if mid == AIR_ID else 1.0
-        if region is not None:
-            if region in self.regions:
-                raise ValueError(f"region {region!r} already exists")
-            self.regions[region] = mask.copy()
         # A later paint takes cells from any earlier region.
-        for name, other in self.regions.items():
-            if name != region:
-                np.logical_and(other, ~mask, out=other)
+        for other in self.regions.values():
+            np.logical_and(other, ~mask, out=other)
+        if region is not None:
+            assert bounds_m is not None
+            self.name_region(region, mask, bounds_m)
+
+    def name_region(self, region: str, mask: Mask, bounds_m: Bounds) -> None:
+        """Name the cells in ``mask`` as a region with its authored bounds, without changing what they are made of."""
+        if region in self.regions:
+            raise ValueError(f"region {region!r} already exists")
+        self.regions[region] = mask.copy()
+        self.region_bounds_m[region] = bounds_m
 
     def destroy(self, mask: Mask) -> int:
         """Turn solid cells in ``mask`` to air. Returns how many cells were destroyed."""

@@ -103,21 +103,30 @@ class ActionRefused(ValueError):
     """An action broke a rule; the message says which, in words fit for whoever asked. The world is unchanged."""
 
 
-# Keys Maxim adds to every call on some paths, which name nothing the action needs. Maxim's orchestrator-actor tool
-# (maxim/simulation/tools.py, OrchestratorActorTool) always passes target=<Entity>: the entity this modulator
-# already belongs to. They are accepted and dropped; any other unknown key is refused.
+# Keys Maxim adds to a call itself. Maxim's orchestrator-actor tool (maxim/simulation/tools.py, OrchestratorActorTool)
+# passes target=<Entity>: what the actor acts ON (it defaults to the player). A region's structure is only ever acted
+# on directly, so a target is accepted only when it is absent or is this region; any other target is refused, never
+# dropped, because dropping it would strike the crate when the call meant the wall.
 MAXIM_CALL_KEYS = frozenset({"target"})
 
-_SHOW = reprlib.Repr()
+
+class _BoundedRepr(reprlib.Repr):
+    """reprlib with a safe int at every depth. Python 3.10's reprlib calls repr() on an int, which raises past 4300
+    digits (3.12+ prints a placeholder), so a 10**5000 anywhere in a value would crash the message on 3.10, which CI
+    runs."""
+
+    def repr_int(self, x: int, level: int) -> str:
+        if x.bit_length() > 128:
+            return f"<an integer of about {int(x.bit_length() * 0.30103)} digits>"
+        return repr(x)
+
+
+_SHOW = _BoundedRepr()
 _SHOW.maxstring = _SHOW.maxother = 40
 
 
 def _shown(value: object) -> str:
     """A bounded repr for an error message, so a huge or hostile value can't flood (or crash) the reply."""
-    # Python 3.10's reprlib calls repr() on an int, which raises past 4300 digits; 3.12+ prints a placeholder. The
-    # tests' 10**5000 cases go red without this on 3.10, which CI runs.
-    if isinstance(value, int) and not isinstance(value, bool) and value.bit_length() > 128:
-        return f"<an integer of about {int(value.bit_length() * 0.30103)} digits>"
     return _SHOW.repr(value)
 
 
@@ -126,11 +135,29 @@ def _within(name: str, value: float, lo: float, hi: float) -> None:
         raise ActionRefused(f"{name} must be between {lo:g} and {hi:g}, got {value:g}")
 
 
+def _typed(action: object, *names: str) -> None:
+    """A hand-built action's numbers become finite floats, or the action is refused: it never reaches the physics."""
+    for name in names:
+        try:
+            object.__setattr__(action, name, finite_real(getattr(action, name), name))
+        except ValueError:
+            raise ActionRefused(f"{name} must be a finite number, got {_shown(getattr(action, name))}") from None
+
+
 @dataclass(frozen=True)
 class Strike:
     energy_j: float
     sigma_m: float
     point_m: tuple[float, float, float] | None  # None: the region's centroid, found when the action applies
+
+    def __post_init__(self) -> None:
+        _typed(self, "energy_j", "sigma_m")
+        if self.point_m is not None:
+            try:
+                x, y, z = finite_vector(self.point_m, 3, "point_m")
+            except ValueError:
+                raise ActionRefused(f"point_m must be 3 finite numbers, got {_shown(self.point_m)}") from None
+            object.__setattr__(self, "point_m", (x, y, z))
 
     def check(self, limits: ActionLimits) -> None:
         _within("energy_j", self.energy_j, 0.0, limits.max_energy_j)
@@ -141,6 +168,9 @@ class Strike:
 class Ignite:
     power_w: float
     radius_m: float
+
+    def __post_init__(self) -> None:
+        _typed(self, "power_w", "radius_m")
 
     def check(self, limits: ActionLimits) -> None:
         _within("power_w", self.power_w, 0.0, limits.max_power_w)
@@ -191,14 +221,9 @@ def parse_action(affordance: object, params: object, limits: ActionLimits) -> Ac
         raise ActionRefused(f"unknown parameter(s) for {affordance}: {', '.join(unknown)}")
     action: Action
     if affordance == "strike":
-        point: tuple[float, float, float] | None = None
-        if params.get("point_m") is not None:
-            try:
-                x, y, z = finite_vector(params["point_m"], 3, "point_m")
-            except ValueError:  # reported as the refusal
-                raise ActionRefused(f"point_m must be 3 finite numbers, got {_shown(params['point_m'])}") from None
-            point = (x, y, z)
-        action = Strike(_real(params, "energy_j"), _real(params, "sigma_m", limits.default_sigma_m), point)
+        action = Strike(
+            _real(params, "energy_j"), _real(params, "sigma_m", limits.default_sigma_m), params.get("point_m")
+        )
     elif affordance == "ignite":
         action = Ignite(_real(params, "power_w"), _real(params, "radius_m", limits.default_radius_m))
     else:
@@ -268,14 +293,23 @@ class StructureModulator:
 
     def execute(self, affordance: str, params: dict[str, Any]) -> ModulatorResult:
         """Parse, then apply. A refused result carries no params, so it never echoes a non-finite value back."""
+        label = affordance if isinstance(affordance, str) and len(affordance) <= 40 else _shown(affordance)
         try:
             action = parse_action(affordance, params, self._world.limits)
         except ActionRefused as exc:
-            return self._result(str(affordance), {}, False, str(exc))
+            return self._result(label, {}, False, str(exc))
+        target = params.get("target") if isinstance(params, Mapping) else None
+        if target is not None and getattr(target, "name", target) != self._region:
+            shown = getattr(target, "name", None) or _shown(target)
+            return self._result(
+                label, {}, False, f"the {self._region}'s structure can only be acted on directly, not on {shown}"
+            )
         return self.apply(action)
 
     def apply(self, action: Action) -> ModulatorResult:
         """Apply a typed action: it is re-checked against this world's limits, then against the world as it is now."""
+        if type(action) not in _AFFORDANCE_OF:
+            raise TypeError(f"not an action: {type(action).__name__}")  # a programming error, not untrusted input
         affordance = _AFFORDANCE_OF[type(action)]
         shown = {k: list(v) if isinstance(v, tuple) else v for k, v in asdict(action).items()}
         try:
@@ -287,8 +321,11 @@ class StructureModulator:
             return self._result(affordance, shown, False, f"the {self._region} is gone")
         if isinstance(action, Strike):
             point = action.point_m if action.point_m is not None else self.centroid_m()
-            dx = self._world.grid.dx
-            lo, hi = cells.min(axis=0) * dx - action.sigma_m, (cells.max(axis=0) + 1) * dx + action.sigma_m
+            # Reach is the region's authored bounds plus the strike's width, in metres: the region's cells move
+            # with the rig, so a reach built from them would accept a strike at one rig and refuse it at another.
+            (x0, y0, z0), (x1, y1, z1) = self._world.grid.region_bounds_m[self._region]
+            lo = (x0 - action.sigma_m, y0 - action.sigma_m, z0 - action.sigma_m)
+            hi = (x1 + action.sigma_m, y1 + action.sigma_m, z1 + action.sigma_m)
             if not all(a <= p <= b for a, p, b in zip(lo, point, hi, strict=True)):
                 return self._result(affordance, shown, False, f"point_m is not on the {self._region}")
             res = damage.strike(self._world.grid, point, action.energy_j, action.sigma_m)

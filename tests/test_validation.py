@@ -19,6 +19,7 @@ from maxim_overdrive.imagination.spec import Budget, SpecRejected, place
 from maxim_overdrive.sem_env import bridge
 from maxim_overdrive.world import damage, heat
 from maxim_overdrive.world.grid import MaterialGrid
+from maxim_overdrive.world.scene import Cylinder
 from maxim_overdrive.world.world import HeatSource
 
 LIMITS = ActionLimits.load()
@@ -85,9 +86,9 @@ def test_a_point_outside_the_grid_has_no_cell(rig, materials):
 def test_region_names_are_unique(rig, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), rig, materials)
     x, _, _ = g.mesh()
-    g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate")
+    g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate", bounds_m=((0, 0, 0), (0.5, 1, 1)))
     with pytest.raises(ValueError, match="already exists"):
-        g.paint(np.broadcast_to(x >= 0.5, g.shape), "wood", region="crate")
+        g.paint(np.broadcast_to(x >= 0.5, g.shape), "wood", region="crate", bounds_m=((0.5, 0, 0), (1, 1, 1)))
 
 
 def test_a_scene_refuses_unknown_materials(rig, materials):
@@ -129,7 +130,7 @@ def test_a_strike_refuses_negative_energy_and_non_positive_width(rig, materials,
 def test_a_region_with_no_solid_cells_cannot_be_breached(rig, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), rig, materials)
     x, _, _ = g.mesh()
-    g.paint(np.broadcast_to(x < 0.5, g.shape), "air", region="doorway")
+    g.paint(np.broadcast_to(x < 0.5, g.shape), "air", region="doorway", bounds_m=((0, 0, 0), (0.5, 1, 1)))
     assert damage.region_breached(g, "doorway") is False
 
 
@@ -254,3 +255,68 @@ def test_a_material_file_refuses_a_value_that_is_not_a_finite_number(tmp_path, f
     path.write_text(yaml.safe_dump(raw))
     with pytest.raises(ValueError, match=f"wood.{field} must be a finite number"):
         MaterialTable.load(path)
+
+
+@pytest.mark.parametrize(
+    ("extent", "message"),
+    [
+        ([True, 3, 2], "extent_m must be 3 finite numbers"),
+        ([3, 3], "extent_m must be 3 numbers"),
+        (["3", 3, 2], "extent_m must be 3 finite numbers"),
+        ([math.nan, 3, 2], "extent_m must be 3 finite numbers"),
+        ([0, 3, 2], "positive on every axis"),
+    ],
+)
+def test_a_scene_refuses_an_impossible_extent(extent, message):
+    with pytest.raises(ValueError, match=message):
+        Scene(tuple(extent))
+
+
+@pytest.mark.parametrize(("ambient", "ok"), [(-273.15, False), (-273.0, True), (3000.0, True), (3000.5, False)])
+def test_a_scenes_ambient_bounds_are_exact(ambient, ok):
+    if ok:
+        given = int(ambient) if ambient.is_integer() else ambient  # an int becomes a float
+        assert isinstance(Scene((1.0, 1.0, 1.0), ambient_c=given).ambient_c, float)
+    else:
+        with pytest.raises(ValueError, match="ambient_c must be above absolute zero"):
+            Scene((1.0, 1.0, 1.0), ambient_c=ambient)
+
+
+@pytest.mark.parametrize("value", ["2.9", "true", "'4'", ".inf"])
+def test_a_rig_files_substep_count_must_be_a_whole_number(tmp_path, value):
+    path = tmp_path / "t.yaml"
+    path.write_text(f"name: t\ncell_size_m: 0.25\nmin_substeps_per_turn: {value}\nfull_res_radius_m: 4.0\n")
+    with pytest.raises(ValueError, match="min_substeps_per_turn must be a whole number"):
+        RigProfile.load(path)
+
+
+@pytest.mark.parametrize(("field", "value"), [("id", True), ("id", 2.0), ("color_rgb", [1, 2, "3"])])
+def test_a_material_files_whole_numbers_are_whole(tmp_path, field, value):
+    raw = yaml.safe_load((data_dir() / "materials" / "core.yaml").read_text())
+    raw["materials"]["wood"][field] = value
+    path = tmp_path / "core.yaml"
+    path.write_text(yaml.safe_dump(raw))
+    with pytest.raises(ValueError, match=f"wood.{field} must be a whole number"):
+        MaterialTable.load(path)
+
+
+def test_a_material_files_degrade_rate_must_be_a_number(tmp_path):
+    raw = yaml.safe_load((data_dir() / "materials" / "core.yaml").read_text())
+    raw["materials"]["wood"]["degrade_rate_per_s_per_100c"] = "0.01"
+    path = tmp_path / "core.yaml"
+    path.write_text(yaml.safe_dump(raw))
+    with pytest.raises(ValueError, match=r"wood\.degrade_rate_per_s_per_100c must be a finite number"):
+        MaterialTable.load(path)
+
+
+def test_a_named_region_needs_its_authored_bounds(rig, materials):
+    g = MaterialGrid.empty((1.0, 1.0, 1.0), rig, materials)
+    x, _, _ = g.mesh()
+    with pytest.raises(ValueError, match="needs its authored bounds"):
+        g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate")
+    assert "crate" not in g.regions
+    assert (g.material == 0).all()  # refused before anything was painted
+    g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate", bounds_m=((0, 0, 0), (0.5, 1, 1)))
+    with pytest.raises(ValueError, match="already exists"):
+        g.name_region("crate", np.broadcast_to(x < 0.5, g.shape), ((0, 0, 0), (0.5, 1, 1)))
+    assert Cylinder((0.5, 0.5), 0.2, (0.0, 1.0), "wood").bounds_m == ((0.3, 0.3, 0.0), (0.7, 0.7, 1.0))
