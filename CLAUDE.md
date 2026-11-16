@@ -171,6 +171,13 @@ only review holds.
 - **Keep Maxim untouched from here.** Anything that needs a Maxim change goes under Phase 3 in `docs/roadmap.md` and
   follows Maxim's own process (pre-registration, four-lens design review, ledger). Game runs never go on Maxim's
   results ledger. Guard: `docs/roadmap.md`, B1
+- **Push back on Maxim where the game shows it's wrong.** Guiding Maxim through a real application is a pillar goal
+  of this project. When the game's evidence contradicts a Maxim plan, decision, default or assumption (a clock, a
+  deferred trigger, a recorded rationale), propose the change in Maxim. Name the decision you're arguing against,
+  bring the evidence from here (numbers, a failing scenario, a review finding), and go through Maxim's own process.
+  Never work around it in this repo, and never stay quiet because the decision was recorded. Each proposal is an
+  item under Phase 3 in `docs/roadmap.md`, with its draft in `docs/maxim_upstream/` when it needs one.
+  Guard: `docs/code_review.md` (the Bio-faithful integration lens asks it), B15
 - **Engine choices get a one-line why** in the code or the commit (scene tree, node types, shaders, GDScript vs C#),
   for a team learning Godot. Guard: B1
 

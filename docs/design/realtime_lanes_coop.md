@@ -22,8 +22,17 @@ server) with four PRs (§8). Nothing here is built until the owner accepts it.
 6. **Bio-faithful integration is a standing lens** for design reviews and for every change an NPC senses, acts
    through or keeps time by (`docs/code_review.md`).
 
-**Proposed by this fold, for the owner (§9):** hold the world for a late thought, with a budget; how normal play
-relates to a 24-hour day; and two decisions that belong to Maxim.
+**Owner, on the v1 fold (2026-11-15):**
+7. **Neither the world nor the NPC waits for a thought.** Waiting isn't bio-faithful. Needing to wait is a sign the
+   hybrid mode isn't working as intended, so it's something to find out through experiments, not to build around
+   (§4.3). Building and tuning the hybrid mode, through experiments in the game and on real robots, is proposed to
+   Maxim as a 1.5 line (§6).
+8. **The dial stays free,** with fast-forward presets for waiting and sleeping (§3.4).
+9. **The hybrid plan's revive trigger covers simulated bodies,** as a re-keying proposed to Maxim. The Microduck,
+   due in about a month, will meet the physical trigger anyway.
+10. **Push back on Maxim's plans where the game shows they're wrong,** through Maxim's own process. Guiding Maxim
+    through a real application is a pillar goal of this project, and it's now a standing rule in CLAUDE.md
+    ("Working").
 
 ## 1. What the review changed, in brief
 
@@ -141,18 +150,26 @@ then, NPCs must not run against the world clock with their SCN on host time.
 ### 3.3 The experience clock
 
 The world declares itself to Maxim's `ExperienceClockDriver` as a turn-based world: `experience_turns()` returns the
-tick, and `experience_us_per_turn` is `tick_us` (W-F11, Bio-9). A paused or held world then produces no experience,
+tick, and `experience_us_per_turn` is `tick_us` (W-F11, Bio-9). A paused world then produces no experience,
 so NPCs don't forget while paused. Two caveats from the review: the driver only runs inside Maxim's full agent loop,
 not under `AgentPool.run_turn` (X4), and most decay in Maxim still runs on the wall clock until Maxim's #1361 lands
 (§6).
 
-### 3.4 What a 24-hour day means for play (open, §9 Q2)
+### 3.4 Play against a 24-hour day (owner decision 8)
 
 At 1× with a 24-hour day, a play session sees little of one day, NPCs never sleep in it, and drive rates tuned for
 Maxim's two-minute experiments run far too fast or slow (Bio-8). A day in an hour (24×) isn't reachable on a rig
-tile even with the caching fix (CP-10). And a different day length gives the SCN perfect entrainment to any period,
-because Maxim's SCN has no intrinsic period apart from the clock it's given; a real day-length experiment needs one,
-and Maxim's own pre-registration (Bio-7).
+tile even with the caching fix (CP-10).
+
+- **The dial stays free** for the host, within the server's `[min_scale, max_scale]`.
+- **Fast-forward presets** for waiting and sleeping are named dial values in `data/server/` (for example "wait" and
+  "sleep"). They're host requests like any other, and they're capped by what the rig can sustain, with dilation
+  reported.
+- **NPCs live most of their days in headless cradles,** unpaced, so they arrive with whole days and nights behind
+  them.
+
+A different day length gives the SCN perfect entrainment to any period, because Maxim's SCN has no intrinsic period
+apart from the clock it's given. A real day-length experiment needs one, and Maxim's own pre-registration (Bio-7).
 
 ## 4. Lanes
 
@@ -207,17 +224,36 @@ and Maxim's own pre-registration (Bio-7).
   deadline, through the same validators as client intents (TB-15, A7), and logs them. The model never touches
   `World` or agent state from the thinking lane. Maxim's turn today writes the hippocampus and NAc during the LLM
   call, so this needs Maxim's "generate vs apply" split (§6 item 16); the 2b stub has this shape now.
-- **Scheduling in world time.** A result applies at tick `T + d`, where `d` is in ticks, set per request kind in
-  `data/`. Holding (§9 Q1): if it hasn't arrived, the simulation lane enters a **held state**. In that state it still
-  serves pause, stop, joins, leaves and intents (queued for later ticks), and doesn't advance the tick (CP-3).
-- **The hold budget** counts wall time only while unpaused (CP-3, D5). When it runs out, the simulation lane alone
-  decides `thought_failed`, logs it, and drops any later arrival. Headless runs have no budget, so they never time
-  out (Bio-5). The model call's own timeout is shorter than the hold budget, so slow calls don't hold workers (CP-4).
-- **The queue is earliest-deadline-first, with one outstanding thought per NPC** (CP-4). Priority (the NPC the
-  player is talking to) breaks ties.
-- **Bio conditions on holding** (Bio-5): reflexes keep running through the deliberation time; pain or salience can
-  cancel a thought, which releases the hold; a thought is checked against the world as it is at its apply tick, and
-  a stale action is refused through validation.
+- **Nothing waits for a thought: not the world, and not the NPC** (owner decision 7). A living animal can't stop the
+  world while it thinks, and it doesn't freeze either. While a thought is in flight, the NPC's substrate keeps
+  acting: its reflexes, habits and the action it's already doing. **If an NPC would need to wait, the hybrid isn't
+  working as intended.** That's a finding for the hybrid experiments (§6), never a mechanism to build here.
+- **A thought applies on the first tick after it arrives.** The simulation lane takes it off its inbox at a tick
+  boundary, and the log records the tick it applied at, so replays are bit-identical (A9, D5). At that tick the
+  result passes the same validation as any intent, against the world as it is then (Bio-5). An action the world has
+  overtaken is refused as stale, and the refusal goes back to the NPC as an outcome, which is something it can learn
+  from.
+- **Abandoning a thought is decided in world time** by the simulation lane. A thought older than `max_age_ticks`
+  (in `data/`) is abandoned, logged as `thought_failed`, and a later arrival is dropped. Pain or salience can cancel
+  a thought in flight (§6 item 13). The model call's own wall-time timeout only frees its worker (CP-4), and its
+  failure arrives as a message, applied and logged like any result.
+- **With live models, thinking speed in world time depends on the dial.** In slow motion an NPC gets more thought
+  per world second, and at fast-forward less. That's a real property of a mind in a faster or slower world, so it is
+  measured rather than hidden. Decision 2 still holds for replays and scripted runs (§4.4 tiers 1 and 2). Live
+  models are tier 3, which was never reproducible.
+- **The signs that the hybrid isn't working are meters, per NPC:**
+  - thought latency in world ticks;
+  - the stale-refusal rate;
+  - the fraction of ticks the NPC acts on its substrate alone while a thought is in flight, and what it does then;
+  - reflex-against-deliberation conflicts;
+  - abandoned thoughts;
+  - LLM calls per NPC-hour.
+  
+  These are what the hybrid experiments tune against.
+- **The queue orders by priority, then age, with one outstanding thought per NPC** (CP-4). The NPC the player is
+  talking to comes first.
+- **The test stub has a fixed latency in ticks**, so scripted runs with stub agents stay bit-identical at any dial
+  (tier 2).
 
 ### 4.4 What determinism promises, in three tiers (D9, D1)
 
@@ -254,14 +290,15 @@ Each goes to the Maxim repo through Maxim's own issue, plan and four-lens review
 | # | Item | Why the game needs it |
 |---|---|---|
 | prerequisite | **#1361, experience-clock decay** (`docs/plans/experience_clock_decay.md`: NAc decay, eligibility and windows, `Embodiment.advance`, `decay_all`), already proposed with owner decisions taken | paused NPCs otherwise get hungry and forget on the wall clock (Bio-1) |
-| 10 | **One world clock for every `TemporalSignature` producer and percept timestamp**: phase from world time and the world's day length, no local time; the SCN oscillator integrates elapsed time, not one hour per event. It revisits #1361's §(g), which keeps SCN phases on the host calendar by design. | X5, Bio-2, Bio-6, W-F10 |
+| 10 | **One world clock for every `TemporalSignature` producer and percept timestamp**: phase from world time and the world's day length, no local time; the SCN oscillator integrates elapsed time, not one hour per event. It argues against #1361's §(g), which keeps SCN phases on the host calendar by design (decision 10). | X5, Bio-2, Bio-6, W-F10 |
 | 11 | **An externally stepped Default Network**: `step(world_now)`, every DN timer on the injected clock, an injected RNG, a non-visual input channel, per-behaviour suppression and efference copy (the hybrid plan's BL-2, A3, A4, SF-1, SF-2) | X6, Bio-3, Bio-10 |
 | 12 | **An externally stepped agent live tick** (not `AgentPool`, which has no body, drives or DN): `step(world_dt)` driving the experience driver, `Embodiment.advance` and the proposer, proposing on action completion, not every tick | Bio-3, X4 |
 | 13 | **Cancellable deliberation with a world-time deadline**, cancellable by bottom-up escalation (joins item 7) | Bio-5 |
 | 14 | **Consolidation without ending the session**, on experience time, with idle replay | Bio-4 |
 | 15 | **Deterministic agents**: an injected clock, RNG and id source across agent code (hippocampus de-duplication on `time.time()`, `uuid4` ids, the global `random` in DN); a world-seeded RNG | D1, A10 |
 | 16 | **Generate vs apply**: an agent turn that returns its intents and memory writes as values, with no side effects during the LLM call | A3, CP-2 |
-| owner decision | **Re-key the hybrid plan's revive trigger** (today: a second physical robot body) or write a simulated-body reflex plan, and decide the Phase 4 movement-on-substrate, speech-on-LLM split in a Maxim plan | Bio-3, X6 |
+| 17 | **Re-key the hybrid plan's revive trigger** (today a second physical robot body, `outstanding.md` M76) to include a simulated body in the game, and decide the Phase 4 movement-on-substrate, speech-on-LLM split in a Maxim plan. The Microduck's arrival meets the physical trigger too. | owner decision 9; Bio-3, X6 |
+| 18 | **A Maxim 1.5 line: build the hybrid runtime and tune it by experiment**, in the game and on real robots (Reachy, the Microduck). Its pre-registered experiments ask whether the substrate carries an NPC while deliberation is in flight. Draft: `docs/maxim_upstream/hybrid_1_5_line_DRAFT.md`. | owner decision 7 |
 
 The Exp 64 pre-registration draft (`docs/maxim_upstream/`) needs updating for real time before it freezes (Bio-12):
 host-clock temporal credit, the shipped NPC path (Maxim's turn path or the game's tick), a failed thought as the
@@ -295,7 +332,7 @@ intents can cost (TB-10).
 | Message | When | Carries |
 |---|---|---|
 | `welcome` | after a valid `hello` | `session`, `actor`, `role`, the world config, the rig, `dx`, `shape` with its axis order, the region list with each region's affordances, the material table, and the current time state (W-F12) |
-| `tick` | each tick, throttled per session | `tick`, `world_time_us`, `time_of_day_us`, requested and effective scale, paused, held |
+| `tick` | each tick, throttled per session | `tick`, `world_time_us`, `time_of_day_us`, requested and effective scale, paused |
 | snapshot (binary) | when cells' version changed, at most `snapshot_hz` per session (2 Hz is the normal rate during any fire, CP-8), and on request | `[u32 header length][JSON header][array bytes]`, little-endian; the header has `kind: "full"`, `protocol`, `tick`, `shape: [nz, ny, nx]`, `axis_order: "zyx"`, `frame: "z-up"`, and for each array its name, dtype from a listed vocabulary (`u8`, `<f2`), offset from the start of the array section, stored and uncompressed size, and compression (`none`) |
 | `error` | a refused message | `code`, `message`, `in_reply_to`; the world is unchanged |
 
@@ -333,7 +370,7 @@ intents can cost (TB-10).
    constant-scale wall pacing, the intent log v0 with a replay test, golden fixtures (B3), and the B14 refusals.**
    Its test list is the 41 rejection paths in `reviews/realtime_lanes_coop/trust_boundary.md`, plus one end-to-end
    test over a real localhost WebSocket.
-4. **`phase1/lanes`: the lanes, backpressure, the thinking lane with its stub, hold semantics, the meters, and the
+4. **`phase1/lanes`: the lanes, backpressure, the thinking lane with its stub and late-thought semantics, the meters, and the
    crash-injection tests.**
 
 Each PR runs the standard review round plus the lenses it triggers, Bio-faithful included where it applies.
@@ -349,19 +386,14 @@ When PR 2 lands, these change in the same PR:
 - `docs/standards_backlog.md`: B2's "turn", B5's rows, and B7's fixed turn.
 - Code: `World.turn` and `turn_seconds`, `min_substeps_per_turn`, docstrings and the rig YAML comments.
 
-## 9. Open questions for the owner
+## 9. Questions the v1 fold raised, and their answers
 
-1. **Hold the world for a late thought, with a budget?** This fold recommends yes.
-   - For: Bio-faithful found holding the faithful choice, since deliberation is lived time.
-   - Against: Architecture and Determinism point out that replays are exact either way, as long as the log records
-     the apply tick. Holding only makes scripted runs independent of the dial. In co-op it freezes everyone.
-   - The budget, plus `thought_failed`, bounds the stall.
-2. **How does normal play relate to a 24-hour day?** Options:
-   - (a) play at 1×, with fast-forward through "wait" and sleep;
-   - (b) a default dial above 1×, limited by the rig;
-   - (c) NPC lives lived mostly in headless cradles, with play at 1×.
-   
-   This fold recommends (a) with (c): it fits the rig limits and gives NPCs whole days.
-3. **In Maxim: re-key the hybrid plan's revive trigger** (a second physical robot body today) to cover simulated
-   bodies, or start a separate simulated-body reflex plan?
-4. **In Maxim: argue against #1361's §(g)** (SCN phases on the host calendar by design) so that NPCs keep world time?
+1. **Hold the world for a late thought?** No: neither the world nor the NPC waits (decision 7, §4.3). The
+   bio-faithful reviewer's case for holding was that deliberation is lived time. Under decision 7 that stays true,
+   because the NPC lives through its deliberation by acting on its substrate. The world doesn't stop for it.
+2. **Play against a 24-hour day?** A free dial with "wait" and "sleep" presets, plus headless cradles (decision 8,
+   §3.4).
+3. **The hybrid plan's revive trigger?** Re-key it to cover simulated bodies (decision 9, §6 item 17).
+4. **#1361's §(g)** (SCN phases on the host calendar by design)? Argue against it in Maxim (decision 10, §6 item 10).
+
+A delta review of v1 runs on §3.4, §4.3, §6 and the new draft in `docs/maxim_upstream/` before PR 2 is built.
