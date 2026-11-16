@@ -239,6 +239,8 @@ On the 16×10×4 m synthetic tile (DLP, measured):
 |---|---|---|
 | 1 | `phase1/act-validation` | **Done** (review complete, awaiting the owner). |
 | 2 | | Parts 1, 2 and 3 of this design accepted. |
+| 2b | `phase1/boundaries` | Structure: the engine package re-homed by layer, the config split, the intents layer, the bridge split, the import contracts (`boundaries.md` §11.1). |
+| 2c | `phase1/gates` | Behaviour: the write window, published frames, validating constructors, the gate contract and registry (`boundaries.md` §11.1). |
 | 3 | `phase1/verify` | The verification harness. Heat retrofitted, with its order-of-accuracy test fixed by refining space and time separately (E2). The resolution rule becomes the verification rule (§1.1). |
 | 4 | `phase1/sim-clock` | The `Simulation` and its integer clock; the truth resolution; cached conductances and preallocated buffers; the fire's bounding-box overlap; `set_material`, `topology_version` and the region id array; memory budget with transients. |
 | 5 | | Material table v1, strict. |
