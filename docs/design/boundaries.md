@@ -511,9 +511,9 @@ aren't packages in the import graph, so that half couldn't fail (Arch N5) and is
 | Item | Why | Path |
 |---|---|---|
 | Injected clock, RNG and ids; `step(world_dt)` for the agent and the Default Network | the agent lane needs them (§7.1) | additive now (the dedicated "world clock" release) |
-| The cerebellum honours `outcome_valence: "neutral"` | mode (b) must not train on unverified state (BF-1) | additive now |
+| The cerebellum observes at settle time, not during the call (valence is not a cerebellum input: it trains on the sensors read in the call, `tool_bridge.py:864-892`; NAc already honours `neutral`, `tool_dispatch.py:356-375`) | mode (b) must not train on unverified state (BF-1) | additive now |
 | A `stale` refusal kind in P2 | §7.2 | additive now |
-| Finish `modulated_by` for the fatigue coupling | thought cost (O4) | additive now |
+| Implement `EntropicDriveSpec.coupled_to` for the fatigue coupling (`sem.py:244`; parsed, never applied), with a cognitive-reserve sensor (`modulated_by` exists only on homeostatic drives) | thought cost (O4) | additive now |
 | Per-part `world_set_axis` (P4) | §4.3 | additive now |
 | Reserved membrane metadata keys | BF-10 | additive now |
 | Propose and settle at the tool (P3 with item 16) | mode (b) | batched |
