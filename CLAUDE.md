@@ -7,6 +7,23 @@ from Phase 1, a **Godot 4 client** in `client/` that only draws snapshots and se
 Read these first: `docs/architecture.md` (the design and why), `docs/roadmap.md` (phases, exit tests, standing rules)
 and `docs/book_to_world.md` (the book-to-world plan).
 
+## First principle: brutal honesty
+
+This comes before every other rule in this file. The owner wants the truth, not comfort, and engineering this
+serious depends on it.
+
+- **No sycophancy, no sugar-coating.** Say what is true, including when it's unwelcome, when it contradicts the
+  owner, and when it shows your own earlier work was wrong. Don't praise an idea to be agreeable: agree when you
+  agree, and say why. Guard: B16
+- **Raise a problem the moment you see it.** Tell the owner in plain words what's wrong, how bad it is, and what
+  fixing it costs. Never sweep it under the rug: no silent deferral, no burying it at the end of a long message,
+  no quietly choosing the smaller fix. Guard: B16
+- **Report results exactly as they are.** Failing tests with their output, skipped steps, numbers that came out
+  worse than claimed, claims that turned out false. "Done" means done and verified, and anything less is named for
+  what it is. A correction of your own earlier claim goes first in a message, not last. Guard: B16
+- **Disagree when you disagree.** Give the reasons and the evidence, then do what the owner decides, and record the
+  decision. Guard: B16
+
 ## Commands
 
 ```bash

@@ -108,6 +108,11 @@ STANDARDS = """\
 ## Next section
 
 - not a rule. No guard needed.
+
+## First principle: brutal honesty
+
+- **Honest rule.** Guard: B1
+- **Unguarded honest rule.** Nothing checks it.
 """
 BACKLOG = "| B1 | something |\n"
 
@@ -125,23 +130,37 @@ def test_guard_citations_are_checked():
     assert "CLAUDE.md:13: only documents guard this rule" in text
     assert "CLAUDE.md:14: guard tests is a directory" in text
     assert "CLAUDE.md:16: guard scripts/lint_standards.py has no re outside comments" in text  # imported, not defined
-    assert len(problems) == 8
+    assert "CLAUDE.md:25: rule has no 'Guard:'" in text  # the honesty section is read like the standards
+    assert len(problems) == 9
     assert "not a rule" not in text
-    # Rules one, two (a directory is a real guard), four, five, nine, ten, eleven cite non-document paths; six and
-    # eight cite only a backlog row or a document. Three and seven never reach the count.
-    assert (checked, review_only) == (7, 2)
+    # Rules one, two (a directory is a real guard), four, five, nine, ten, eleven cite non-document paths; six,
+    # eight and the honest rule cite only a backlog row or a document. Three, seven and the unguarded honest rule
+    # never reach the count.
+    assert (checked, review_only) == (7, 3)
 
 
-def test_a_missing_standards_section_is_a_finding():
+HONESTY = "## First principle: brutal honesty\n\n- **H.** Guard: B1\n\n"
+
+
+def test_a_missing_rule_section_is_a_finding():
     assert lint.check_guards("# CLAUDE.md\n", BACKLOG, ROOT) == (
-        ["CLAUDE.md: no '## Engineering standards' section with rule bullets"],
+        [
+            "CLAUDE.md: no '## First principle: brutal honesty' section with rule bullets",
+            "CLAUDE.md: no '## Engineering standards' section with rule bullets",
+        ],
         0,
         0,
     )
 
 
+def test_a_rule_section_with_no_bullets_is_a_finding():
+    problems, _, _ = lint.check_guards(HONESTY + "## Engineering standards\n\nprose only\n", BACKLOG, ROOT)
+    assert problems == ["CLAUDE.md: no '## Engineering standards' section with rule bullets"]
+
+
 def test_a_standards_section_at_the_end_of_the_file_is_read():
-    problems, checked, _ = lint.check_guards("## Engineering standards\n\n- **R.** Guard: `tests`", BACKLOG, ROOT)
+    claude_md = HONESTY + "## Engineering standards\n\n- **R.** Guard: `tests`"
+    problems, checked, _ = lint.check_guards(claude_md, BACKLOG, ROOT)
     assert (problems, checked) == ([], 1)
 
 
@@ -216,7 +235,10 @@ def repo(tmp_path):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs/roadmap.md").write_text("## Phase 1: Tile (next)\n")
     (tmp_path / "docs/standards_backlog.md").write_text("| B1 | x |\n")
-    (tmp_path / "CLAUDE.md").write_text("## Engineering standards\n\n- **R.** Guard: `pyproject.toml::fail_under`\n")
+    (tmp_path / "CLAUDE.md").write_text(
+        "## First principle: brutal honesty\n\n- **H.** Guard: `pyproject.toml`\n\n"
+        "## Engineering standards\n\n- **R.** Guard: `pyproject.toml::fail_under`\n"
+    )
     (tmp_path / "pyproject.toml").write_text(_pyproject(100))
     (tmp_path / "logo.png").write_bytes(b"\x89PNG\r\n\x1a\n\xff\xfe\x00")
     _git(tmp_path, "init", "-q")
@@ -228,7 +250,7 @@ def repo(tmp_path):
 def test_main_passes_a_clean_repository_and_reports_the_counts(repo, capsys):
     assert lint.main(["--base", "HEAD"], root=repo) == 0
     assert (
-        "PASS (0 finding(s)); rules enforced by a check: 1, held only by review (backlog): 0" in capsys.readouterr().out
+        "PASS (0 finding(s)); rules enforced by a check: 2, held only by review (backlog): 0" in capsys.readouterr().out
     )
 
 

@@ -33,7 +33,8 @@ TEMP_TARGET = re.compile(r"^phase(\d+)(?:/[a-z0-9][a-z0-9_-]*)?$")
 PRAGMA = re.compile(r"pragma:\s*no\s*cover", re.IGNORECASE)
 PRAGMA_REASON = re.compile(r"pragma:\s*no\s*cover\s*(?:-+|:)\s*\S.{8,}", re.IGNORECASE)
 PHASE_HEADING = re.compile(r"^## Phase (\d+):.*\((\w+)[^)]*\)\s*$")
-STANDARDS_HEADING = "## Engineering standards"
+# Every rule in these sections must name its guard. Honesty comes first in CLAUDE.md, and the lint reads it too.
+STANDARDS_HEADINGS = ("## First principle: brutal honesty", "## Engineering standards")
 GUARD = re.compile(r"Guard:\s*(.+)$")
 PATH_REF = re.compile(r"`([^`]+)`")
 BACKLOG_REF = re.compile(r"\bB(\d+)\b")
@@ -92,23 +93,29 @@ def check_markers(files: dict[str, str], roadmap: str) -> list[str]:
     return problems
 
 
-def standards_bullets(claude_md: str) -> list[tuple[int, str]]:
-    """Top-level bullets in the Engineering standards section, joined across continuation lines."""
+def standards_bullets(claude_md: str) -> tuple[list[tuple[int, str]], list[str]]:
+    """Top-level bullets in every rule section, joined across continuation lines, plus the sections not found."""
     lines = claude_md.splitlines()
-    try:
-        start = next(i for i, ln in enumerate(lines) if ln.strip() == STANDARDS_HEADING)
-    except StopIteration:
-        return []
     bullets: list[tuple[int, str]] = []
-    for i in range(start + 1, len(lines)):
-        ln = lines[i]
-        if ln.startswith("## "):
-            break
-        if ln.startswith("- "):
-            bullets.append((i + 1, ln))
-        elif bullets and ln.startswith("  ") and ln.strip():
-            bullets[-1] = (bullets[-1][0], bullets[-1][1] + " " + ln.strip())
-    return bullets
+    missing: list[str] = []
+    for heading in STANDARDS_HEADINGS:
+        start = next((i for i, ln in enumerate(lines) if ln.strip() == heading), None)
+        if start is None:
+            missing.append(heading)
+            continue
+        section: list[tuple[int, str]] = []
+        for i in range(start + 1, len(lines)):
+            ln = lines[i]
+            if ln.startswith("## "):
+                break
+            if ln.startswith("- "):
+                section.append((i + 1, ln))
+            elif section and ln.startswith("  ") and ln.strip():
+                section[-1] = (section[-1][0], section[-1][1] + " " + ln.strip())
+        if not section:
+            missing.append(heading)
+        bullets.extend(section)
+    return bullets, missing
 
 
 def _code_text(path: Path) -> str:
@@ -147,10 +154,8 @@ def _path_problem(root: Path, ref: str) -> str | None:
 def check_guards(claude_md: str, backlog: str, root: Path) -> tuple[list[str], int, int]:
     """Findings, plus how many rules a check enforces and how many only review holds."""
     rows = {int(m.group(1)) for ln in backlog.splitlines() if (m := BACKLOG_ROW.match(ln))}
-    bullets = standards_bullets(claude_md)
-    if not bullets:
-        return [f"CLAUDE.md: no '{STANDARDS_HEADING}' section with rule bullets"], 0, 0
-    problems: list[str] = []
+    bullets, missing = standards_bullets(claude_md)
+    problems = [f"CLAUDE.md: no '{heading}' section with rule bullets" for heading in missing]
     checked = review_only = 0
     for lineno, text in bullets:
         where = f"CLAUDE.md:{lineno}"
