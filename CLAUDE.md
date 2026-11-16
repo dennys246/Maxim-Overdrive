@@ -198,8 +198,10 @@ only review holds.
   doesn't need a commit, and say what's waiting.
   Guard: B1 (the .gitignore entry for .worktrees/ is not a check)
 - **Keep Maxim untouched from here.** Anything that needs a Maxim change goes under Phase 3 in `docs/roadmap.md` and
-  follows Maxim's own process (pre-registration, four-lens design review, ledger). Game runs never go on Maxim's
-  results ledger. Guard: `docs/roadmap.md`, B1
+  follows Maxim's own process, which depends on the kind of change: a sub-plan or a change to Maxim's `src/` gets a
+  three-lens review before its PR opens (Maxim `CONTRIBUTING.md`); a new experiment gets a pre-registration, a
+  four-lens design review and a ledger entry (Maxim `CLAUDE.md`). Game runs never go on Maxim's results ledger.
+  Guard: `docs/roadmap.md`, B1
 - **Push back on Maxim where the game shows it's wrong.** Guiding Maxim through a real application is a pillar goal
   of this project. When the game's evidence contradicts a Maxim plan, decision, default or assumption (a clock, a
   deferred trigger, a recorded rationale), propose the change in Maxim. Name the decision you're arguing against,
