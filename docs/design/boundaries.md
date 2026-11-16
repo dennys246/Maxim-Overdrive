@@ -88,6 +88,60 @@ for this document:
 - **Rule:** Maxim's pre-registered experiments run in a harness package that the game never imports. Game runs stay
   off Maxim's results ledger unless pre-registered (an existing rule).
 
+### Further candidates (added for the review, 2026-11-16)
+
+The owner asked for other boundaries worth establishing. Each one below is a candidate. The review should say
+whether it earns a place, and when.
+
+#### B-8. Layers inside the engine
+
+- **Rule:** the engine is a stack, and a layer imports only layers below it:
+  1. `checks`, `config`
+  2. `world.grid`
+  3. the laws (`world.heat`, `world.damage`, later zones and fuel)
+  4. `world.scene`, `imagination`
+  5. `world.world`, later `Simulation`
+  6. `sem_env`, the protocol and encoding
+  7. the host
+- **Why:** a law that imports the turn loop, or a grid that knows about SEM, is how a physics module ends up
+  depending on Maxim. An `import-linter` layers contract makes the stack checkable.
+- **Lands:** `phase1/boundaries`.
+
+#### B-9. One door for every actor
+
+- **Rule:** players and NPCs act through the same intent gate, and the same intent log records both. No NPC path
+  reaches cells except through intents. The SEM modulator's `execute` becomes a producer of intents, not a second
+  way in.
+- **Why:**
+  - Replays need one log.
+  - The trust rule ("the client is untrusted input") must cover NPC output too, since an LLM is untrusted as well.
+  - Fairness and debugging: what an NPC can do, a player can do, and the reverse.
+- **Lands:** `phase1/sim-clock`, where the intent log is born. Today `StructureModulator.apply` writes cells
+  directly, which is acceptable only until the log exists.
+
+#### B-10. Observation cannot mutate
+
+- **Rule:** sensors, snapshots and SEM readings receive read-only views. NumPy arrays passed outward have
+  `writeable=False`. Mutation is reserved to `World.advance` and to applying intents.
+- **Why:** "Actions change cells; only `World.advance` moves time" holds today only by attention. A sensor that
+  nudges a value would break determinism invisibly.
+- **Lands:** `phase1/boundaries` for the existing snapshot and sensors, with a test that writing to a view raises.
+
+#### B-11. One protocol schema, both sides
+
+- **Rule:** the wire protocol is defined once, as a versioned schema file. The server's codec and the Godot client's
+  parser are checked against it, or generated from it.
+- **Why:** the client is GDScript and the server is Python, so nothing shares a type. A schema is the only thing that
+  stops the two drifting.
+- **Lands:** the protocol PR.
+
+#### B-12. Tests and tools stay out of the shipped path
+
+- **Rule:** `src/` never imports `tests/`, `scripts/` or test-only libraries (`pytest`, `hypothesis`). Test
+  fixtures and golden files live under `tests/`.
+- **Why:** it keeps the wheel honest, and keeps test conveniences from becoming the behaviour.
+- **Lands:** `phase1/boundaries`, as one more forbidden contract.
+
 ## Enforcement
 
 | Boundary | Check | Lands |
@@ -99,6 +153,11 @@ for this document:
 | B-5 content | the directory rule, plus B8's manifest check over `content/` | material table v1 |
 | B-6 presentation | `import-linter`: the core is forbidden from importing the encoding layer, and the encoding layer is the only producer of frames | the protocol PR |
 | B-7 experiments | `import-linter`: `maxim_overdrive` is forbidden from importing the harness | the first experiment |
+| B-8 engine layers | `import-linter` layers contract | `phase1/boundaries` |
+| B-9 one door | a test that every cell write on the shipped path happens under `World.advance` or intent application; `execute` returns intents | `phase1/sim-clock` |
+| B-10 read-only views | a test that writing to every outward view raises | `phase1/boundaries` |
+| B-11 one schema | the codec and a GDScript parser test both run against the schema's golden frames | the protocol PR |
+| B-12 tests out of src | `import-linter` forbidden contract | `phase1/boundaries` |
 
 **`import-linter`** is a maintained tool for declaring import rules ("contracts") in `pyproject.toml`. It is added to
 the gate and pinned. Each contract is proven the way every guard is: plant a violating import and watch the gate go
