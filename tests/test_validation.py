@@ -92,6 +92,12 @@ def test_a_scene_refuses_unknown_materials(rig, materials):
         scene.build(rig, materials)
 
 
+@pytest.mark.parametrize("raw", [["not", "a", "scene"], "scene", None, 3])
+def test_a_scene_must_be_a_mapping(raw):
+    with pytest.raises(ValueError, match="a scene must be a mapping"):
+        Scene.from_dict(raw)
+
+
 def test_a_scene_refuses_unknown_primitive_kinds():
     with pytest.raises(ValueError, match="unknown primitive kind 'torus'"):
         Scene.from_dict({"extent_m": [1, 1, 1], "primitives": [{"kind": "torus", "material": "wood"}]})

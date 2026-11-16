@@ -11,13 +11,14 @@ separately; see docs/architecture.md.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, SupportsFloat
 
 import numpy as np
 
 from maxim_overdrive.world.grid import MaterialGrid
-from maxim_overdrive.world.scene import Box, Cylinder, Primitive, Scene
+from maxim_overdrive.world.scene import Box, Cylinder, Primitive, Scene, finite_vector
 
 
 @dataclass(frozen=True)
@@ -39,20 +40,19 @@ def _offset(p: Primitive, o: tuple[float, float, float]) -> Primitive:
     )
 
 
-def place(
-    grid: MaterialGrid, spec: dict[str, Any], origin_m: tuple[float, float, float], budget: Budget = Budget()
-) -> float:
-    """Validate an imagined object and voxelize it as a new region. Returns its mass in kg.
-
-    Raises ``SpecRejected`` with a reason if any rule fails; the grid is unchanged in that case.
-    """
+def _read(grid: MaterialGrid, spec: object, origin_m: object) -> tuple[str, list[Primitive]]:
+    """The spec's name and its primitives placed at ``origin_m``, or SpecRejected. Nothing here touches the grid."""
+    if not isinstance(spec, Mapping):
+        raise SpecRejected(f"an imagined object must be a mapping, got {type(spec).__name__}")
     name = spec.get("name")
     if not name or not isinstance(name, str):
         raise SpecRejected("an imagined object needs a name")
     if name in grid.regions:
         raise SpecRejected(f"something called {name!r} already exists")
     try:
+        origin = finite_vector(origin_m, 3, "origin_m")
         prims = Scene.from_dict({"extent_m": grid.extent_m, "primitives": spec.get("primitives", [])}).primitives
+        placed = [_offset(p, (origin[0], origin[1], origin[2])) for p in prims]  # offsetting re-validates
     except (KeyError, TypeError, ValueError) as exc:
         raise SpecRejected(f"malformed spec: {exc}") from exc
     if not prims:
@@ -62,7 +62,18 @@ def place(
             raise SpecRejected(f"{p.material!r} is not a material this world knows")
         if p.material == "air":
             raise SpecRejected("objects cannot be made of air")
-    placed = [_offset(p, origin_m) for p in prims]
+    return name, placed
+
+
+def place(
+    grid: MaterialGrid, spec: Mapping[str, Any], origin_m: Sequence[SupportsFloat], budget: Budget = Budget()
+) -> float:
+    """Validate an imagined object and voxelize it as a new region. Returns its mass in kg.
+
+    Raises ``SpecRejected`` with a reason if any rule fails; the grid is unchanged in that case. ``spec`` and
+    ``origin_m`` usually come from an LLM, so every malformed shape is a rejection, never another exception.
+    """
+    name, placed = _read(grid, spec, origin_m)
 
     masks = [p.mask(grid) for p in placed]
     union = np.any(np.stack(masks), axis=0)

@@ -23,7 +23,7 @@ from scipy import ndimage
 from scipy.special import ndtr
 
 from maxim_overdrive.config import AIR_ID
-from maxim_overdrive.world.grid import MaterialGrid
+from maxim_overdrive.world.grid import Field, MaterialGrid
 
 
 @dataclass(frozen=True)
@@ -33,7 +33,7 @@ class StrikeResult:
     absorbed_j: float
 
 
-def _axis_fraction(grid: MaterialGrid, axis: int, center: float, sigma: float) -> np.ndarray:
+def _axis_fraction(grid: MaterialGrid, axis: int, center: float, sigma: float) -> Field:
     edges = np.arange(grid.shape[axis] + 1) * grid.dx
     cdf = ndtr((edges - center) / sigma)
     return np.diff(cdf)

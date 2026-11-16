@@ -67,12 +67,18 @@ def test_a_well_formed_marker_passes(line):
         ("src/c.py", "# TEMPORARY(phase2): listed only outside the phase section", "list src/c.py under Phase 2"),
         ("src/a.py", "x  # pragma: no cover", "needs a reason"),
         ("src/a.py", "x  # pragma: no cover - meh", "needs a reason"),
+        ("src/a.py", "# Temporary (phase0): mixed case still counts when it cites a phase", "is done"),
+        ("a.py", "# TEMPORARY(phase2): listed only as part of a longer path, src/a.py", "list a.py under Phase 2"),
     ],
 )
 def test_a_bad_marker_is_reported(rel, line, complaint):
     problems = lint.check_markers({rel: line}, ROADMAP)
     assert any(complaint in p for p in problems), problems
     assert all(p.startswith(f"{rel}:1:") for p in problems)
+
+
+def test_prose_about_temporary_things_is_not_a_marker():
+    assert lint.check_markers({"docs/x.md": "A temporary (two-turn) fire, TEMPORARILY (sic) lit."}, ROADMAP) == []
 
 
 def test_exempt_files_may_mention_markers():
@@ -198,6 +204,12 @@ def _git(repo: Path, *args: str) -> None:
     subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
 
 
+def _commit(repo: Path, message: str) -> None:
+    """A throwaway commit in a temp repo: a fixed identity, unsigned because it never leaves the test."""
+    identity = ["-c", "user.email=t@example.com", "-c", "user.name=t", "-c", "commit.gpgsign=false"]
+    _git(repo, *identity, "commit", "-qm", message)
+
+
 @pytest.fixture
 def repo(tmp_path):
     """A minimal repository that passes: CLAUDE.md, roadmap, backlog, pyproject, and a binary file."""
@@ -209,18 +221,7 @@ def repo(tmp_path):
     (tmp_path / "logo.png").write_bytes(b"\x89PNG\r\n\x1a\n\xff\xfe\x00")
     _git(tmp_path, "init", "-q")
     _git(tmp_path, "add", "-A")
-    _git(
-        tmp_path,
-        "-c",
-        "user.email=t@example.com",
-        "-c",
-        "user.name=t",
-        "-c",
-        "commit.gpgsign=false",
-        "commit",
-        "-qm",
-        "x",
-    )
+    _commit(tmp_path, "x")
     return tmp_path
 
 
@@ -244,7 +245,19 @@ def test_main_fails_and_reports_each_finding(repo, capsys):
 def test_main_without_a_base_or_backlog_still_runs(repo, capsys):
     (repo / "docs/standards_backlog.md").unlink()
     assert lint.main([], root=repo) == 0
-    assert lint.base_pyproject(repo, "no-such-ref") is None
+    assert lint.base_pyproject(repo, None) == (None, [])
+
+
+def test_an_unknown_base_is_a_finding_not_a_skip(repo, capsys):
+    (repo / "pyproject.toml").write_text(_pyproject(10))
+    assert lint.main(["--base", "mian"], root=repo) == 1
+    assert "--base mian is not a commit" in capsys.readouterr().err
+
+
+def test_a_base_with_no_pyproject_has_nothing_to_ratchet_against(repo):
+    _git(repo, "rm", "-q", "pyproject.toml")
+    _commit(repo, "y")
+    assert lint.base_pyproject(repo, "HEAD") == (None, [])
 
 
 def test_the_repository_itself_passes(capsys):

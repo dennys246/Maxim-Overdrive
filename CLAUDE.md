@@ -82,7 +82,8 @@ only review holds.
 ### Testing
 
 - **Every behaviour change ships with its tests in the same commit.** A bug fix starts with a test that reproduces the
-  bug and fails. Guard: `scripts/prepush.sh` (diff coverage), `docs/code_review.md` (Executor lens)
+  bug and fails. Guard: `scripts/prepush.sh::diff_cover` (changed lines must run under a test), B1 (same commit,
+  red first)
 - **Critical functionality is tested exhaustively, by kind.** Physics: a closed-form test and a cross-tier test.
   Trust boundaries (protocol, intents, `imagination.spec`, every loader): every rejection path, aiming at 100% branch
   coverage. Wire and save formats: a round trip plus committed golden fixtures. Determinism: a bit-identical rerun.
@@ -91,13 +92,14 @@ only review holds.
   when coverage rises, never lower it. Coverage measures `src/` and `scripts/`. Lines changed on a branch must be at
   least 95% covered. A `pragma: no cover` must say why (`# pragma: no cover - <why>`), and reviewers question it.
   Guard: `pyproject.toml::fail_under`, `scripts/lint_standards.py::check_coverage_ratchet`,
-  `scripts/lint_standards.py::check_markers`, `scripts/prepush.sh::diff_cover`
+  `scripts/lint_standards.py::check_markers`, `scripts/prepush.sh::diff_cover`,
+  `tests/test_tooling_config.py::test_coverage_measures_branches_over_src_and_scripts`
 - **Prove a guard by deleting what it guards.** Before claiming a test protects something, break the mechanism and
   watch the test go red, and say so in the commit message. A test that cannot fail is a BLOCKER.
   Guard: `docs/code_review.md` (Executor lens), B10
 - **Known-broken behaviour gets a strict red gate,** `pytest.mark.xfail(strict=True)` with a reason, never `skip`.
-  When the fix lands the gate flips and must be removed. Warnings are errors. Guard: `pyproject.toml::xfail_strict`,
-  `pyproject.toml::filterwarnings`
+  When the fix lands the gate flips and must be removed. Warnings are errors.
+  Guard: `tests/test_tooling_config.py::test_red_gates_are_strict_and_warnings_are_errors`
 - **Property tests for invariants over input spaces** (Hypothesis): physics conservation, protocol round trips,
   validators that never crash on any input. Guard: B9
 - **Tests are deterministic and fast.** No sleeps, wall clock, real network beyond localhost, or LLM calls in tests.
@@ -145,9 +147,11 @@ only review holds.
 ### Code
 
 - **Lint, format and type-check clean:** ruff (rules in `pyproject.toml`), and mypy strict on `src/` and
-  `scripts/` with test bodies checked too. Guard: `scripts/prepush.sh`
+  `scripts/` with test bodies checked too. Guard: `scripts/prepush.sh`,
+  `tests/test_tooling_config.py::test_mypy_is_strict`
 - **No silent exception swallows.** Catch the narrowest type, and handle it by reporting or re-raising. A handler
-  that quietly returns a fallback is a swallow too. Guard: `pyproject.toml::BLE`, `pyproject.toml::S110`, B13
+  that quietly returns a fallback is a swallow too.
+  Guard: `tests/test_tooling_config.py::test_the_no_silent_swallow_rules_are_selected_and_not_ignored`, B13
 - **Push invariants into types.** A collaborator that must be passed is a required keyword-only parameter, so
   forgetting it is a `TypeError`, not a silent no-op. Prefer frozen dataclasses for anything that crosses a wire or
   is persisted. Guard: `docs/code_review.md` (Architecture lens), B1
@@ -159,7 +163,7 @@ only review holds.
 
 - **Branches and commits.** Work on `phaseN/<step>` branches with clear, signed commits. Never bypass signing or
   hooks. Never push: the owner reviews and pushes. Concurrent sessions each use a worktree under `.worktrees/`.
-  Guard: `.gitignore::worktrees`, B1
+  Guard: B1 (the .gitignore entry for .worktrees/ is not a check)
 - **Keep Maxim untouched from here.** Anything that needs a Maxim change goes under Phase 3 in `docs/roadmap.md` and
   follows Maxim's own process (pre-registration, four-lens design review, ledger). Game runs never go on Maxim's
   results ledger. Guard: `docs/roadmap.md`, B1

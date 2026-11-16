@@ -105,6 +105,33 @@ def test_an_imagined_crate_is_destructible_like_any_other(rig, materials):
             (1.2, 1.2, 0),
             "malformed.*positive radius",
         ),
+        # Shapes an LLM can produce that are not numbers, lists or mappings where they should be.
+        ({**CRATE, "primitives": [{**CRATE["primitives"][0], "min_m": [0, 0, 10**400]}]}, (1.2, 1.2, 0), "malformed"),
+        (
+            {
+                **CRATE,
+                "primitives": [
+                    {"kind": "cylinder", "center_xy_m": [0, 0], "radius_m": 10**400, "z_m": [0, 1], "material": "wood"}
+                ],
+            },
+            (1.2, 1.2, 0),
+            "malformed",
+        ),
+        ({**CRATE, "primitives": "box"}, (1.2, 1.2, 0), "malformed.*must be a list"),
+        ({**CRATE, "primitives": {"a": 1}}, (1.2, 1.2, 0), "malformed.*must be a list"),
+        ({**CRATE, "primitives": ["box"]}, (1.2, 1.2, 0), "malformed.*must be a mapping"),
+        ({**CRATE, "primitives": [{**CRATE["primitives"][0], "name": ["x"]}]}, (1.2, 1.2, 0), "malformed.*name"),
+        (CRATE, (float("nan"), 0.0, 0.0), "malformed.*origin_m"),
+        (CRATE, (float("inf"), 0.0, 0.0), "malformed.*origin_m"),
+        (CRATE, (1e308, 0.0, 0.0), "malformed"),  # adding the offset collapses the box
+        (CRATE, (1.2, 1.2), "malformed.*origin_m"),
+        (CRATE, "abc", "malformed.*origin_m"),
+        (["not", "a", "spec"], (1.2, 1.2, 0), "must be a mapping"),
+        (
+            {**CRATE, "primitives": [{**CRATE["primitives"][0], "max_m": [1e308, 1e308, 1e308]}]},
+            (1.2, 1.2, 0),
+            "too large|too heavy",
+        ),
     ],
 )
 def test_the_world_refuses_impossible_objects(rig, materials, spec, origin, reason):
@@ -128,3 +155,9 @@ def test_an_imagined_cylinder_lands_where_it_was_placed(rig, materials):
     idx = np.argwhere(g.regions["barrel"])
     centre_m = (idx.mean(axis=0) + 0.5) * g.dx
     assert centre_m[:2] == pytest.approx([2.0, 2.0], abs=g.dx / 2)  # offset by the origin, not left at (0, 0)
+
+
+def test_numpy_scalars_are_numbers(rig, materials):
+    g = _grid(rig, materials)
+    crate = {**CRATE, "primitives": [{**CRATE["primitives"][0], "max_m": [np.int64(1), np.float64(0.6), 0.6]}]}
+    assert place(g, crate, (np.float32(1.2), 1.2, 0)) == pytest.approx(0.36 * 600)

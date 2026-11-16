@@ -26,7 +26,9 @@ import tomli  # the stdlib's tomllib, from PyPI on every version: one code path,
 
 ROOT = Path(__file__).resolve().parents[1]
 
-TEMP_MARKER = re.compile(r"\bTEMPORARY\s*\(([^)]*)\)", re.IGNORECASE)
+# Upper case always counts; any other case counts when it cites a phase, so "a temporary (two-turn) fire" in prose is
+# not a marker but "temporary (phase2): ..." is.
+TEMP_MARKER = re.compile(r"\b(?:TEMPORARY|(?i:temporary)(?=\s*\(\s*phase))\s*\(([^)]*)\)")
 TEMP_TARGET = re.compile(r"^phase(\d+)(?:/[a-z0-9][a-z0-9_-]*)?$")
 PRAGMA = re.compile(r"pragma:\s*no\s*cover", re.IGNORECASE)
 PRAGMA_REASON = re.compile(r"pragma:\s*no\s*cover\s*(?:-+|:)\s*\S.{8,}", re.IGNORECASE)
@@ -85,7 +87,7 @@ def check_markers(files: dict[str, str], roadmap: str) -> list[str]:
                 status, body = sections[n]
                 if status == "done":
                     problems.append(f"{where}: TEMPORARY({target}): phase {n} is done, so this was due to be removed")
-                if rel not in body:
+                if not re.search(rf"(?<![\w./-]){re.escape(rel)}(?![\w/-])", body):
                     problems.append(f"{where}: TEMPORARY({target}): list {rel} under Phase {n} in docs/roadmap.md")
     return problems
 
@@ -205,12 +207,18 @@ def tracked_text_files(root: Path) -> dict[str, str]:
     return files
 
 
-def base_pyproject(root: Path, base: str | None) -> str | None:
+def base_pyproject(root: Path, base: str | None) -> tuple[str | None, list[str]]:
+    """The base's pyproject.toml, or None when there is no base or the base has no pyproject. An unknown ref is a
+    finding, not a skip: a typo must not quietly switch the ratchet off."""
     if base is None:
-        return None
-    cmd = ["git", "show", f"{base}:pyproject.toml"]
-    out = subprocess.run(cmd, cwd=root, capture_output=True, text=True, check=False)
-    return out.stdout if out.returncode == 0 else None  # no pyproject at the base: nothing to ratchet against
+        return None, []
+    verify = ["git", "rev-parse", "--verify", "-q", f"{base}^{{commit}}"]
+    known = subprocess.run(verify, cwd=root, capture_output=True, check=False)
+    if known.returncode != 0:
+        return None, [f"--base {base} is not a commit in this repository, so the coverage ratchet can't run"]
+    show = ["git", "show", f"{base}:pyproject.toml"]
+    out = subprocess.run(show, cwd=root, capture_output=True, text=True, check=False)
+    return (out.stdout if out.returncode == 0 else None), []
 
 
 def main(argv: list[str] | None = None, root: Path = ROOT) -> int:
@@ -223,7 +231,9 @@ def main(argv: list[str] | None = None, root: Path = ROOT) -> int:
     problems = check_markers(tracked_text_files(root), (root / "docs/roadmap.md").read_text())
     guard_problems, checked, review_only = check_guards((root / "CLAUDE.md").read_text(), backlog, root)
     problems += guard_problems
-    problems += check_coverage_ratchet((root / "pyproject.toml").read_text(), base_pyproject(root, args.base))
+    base_text, base_problems = base_pyproject(root, args.base)
+    problems += base_problems
+    problems += check_coverage_ratchet((root / "pyproject.toml").read_text(), base_text)
     for p in problems:
         print(p, file=sys.stderr)
     verdict = "FAIL" if problems else "PASS"

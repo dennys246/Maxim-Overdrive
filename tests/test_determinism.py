@@ -6,13 +6,11 @@ outcome class is promised, as under the resolution rule.
 
 from __future__ import annotations
 
+import ast
 import hashlib
-import io
 import os
-import re
 import subprocess
 import sys
-import tokenize
 from pathlib import Path
 
 import pytest
@@ -96,47 +94,82 @@ def test_runs_in_processes_with_different_hash_seeds_agree(rig_name):
 # -- the static half: no hidden sources of nondeterminism ------------------------------------------------------------
 
 # Randomness, when it arrives, comes from one seeded numpy Generator owned by World; time comes from World.advance.
-FORBIDDEN = {
-    r"\bimport\s+(?:random|secrets)\b|\bfrom\s+(?:random|secrets)\s+import\b": "the stdlib RNG or OS entropy",
-    r"\bimport\s+numpy\.random\b|\bfrom\s+numpy\.random\s+import\b|\bfrom\s+numpy\s+import\b.*\brandom\b": (
-        "a numpy.random import outside the np namespace (use the World's Generator)"
-    ),
-    r"\b(?:np|numpy)\.random\.(?!default_rng\b|Generator\b|SeedSequence\b|PCG64\b)\w+": "numpy's global RNG",
-    r"\bdefault_rng\(\s*\)|\bPCG64\(\s*\)|\bSeedSequence\(\s*\)": "an unseeded generator (seeded from OS entropy)",
-    r"\btime\.(?:time|monotonic|perf_counter|process_time|thread_time)(?:_ns)?\(|\btime\.sleep\(": "the wall clock",
-    r"\bfrom\s+time\s+import\b|\bperf_counter(?:_ns)?\(": "the wall clock",
-    r"\b(?:datetime|date)\.(?:now|utcnow|today)\(": "the wall clock",
-    r"(?<![\w.])hash\(": "builtin hash (randomized per process by PYTHONHASHSEED)",
-    r"\bos\.urandom\(|\buuid\.uuid[14]\(|\bSystemRandom\b": "OS entropy",
+# The scan reads the syntax tree, so comments, strings, spacing, line breaks and aliases can't hide a call, and
+# f-string expressions are checked on every Python version.
+BANNED_MODULES = {
+    "random": "the stdlib global RNG",
+    "secrets": "OS entropy",
+    "uuid": "OS entropy",
+    "time": "the wall clock",
+    "datetime": "the wall clock",
+    "timeit": "the wall clock",
 }
+NUMPY_RANDOM_ALLOWED = {"default_rng", "Generator", "SeedSequence", "PCG64"}  # seeded construction only
+SEEDED_CONSTRUCTORS = {"default_rng", "PCG64", "SeedSequence"}
 # server/ is the transport: it may read the clock and OS entropy (connection timeouts, the per-launch token), and
-# nothing it reads that way may reach the world. Everything else in the package is simulation.
+# nothing it reads that way may reach the world (docs/standards_backlog.md B14). Everything else is simulation.
 NOT_SIMULATION = {"server"}
 
 
-def code_only(source: str) -> list[tuple[int, str]]:
-    """Each line's code with comments and string contents removed, so prose about ``hash(`` is not a finding."""
-    lines: dict[int, list[str]] = {}
-    skip = {tokenize.COMMENT, tokenize.STRING, tokenize.NL, tokenize.NEWLINE, tokenize.INDENT, tokenize.DEDENT}
-    skip |= {getattr(tokenize, n) for n in ("FSTRING_MIDDLE", "TSTRING_MIDDLE") if hasattr(tokenize, n)}
-    prev_end: tuple[int, int] | None = None
-    for tok in tokenize.generate_tokens(io.StringIO(source).readline):
-        if tok.type in skip or tok.type == tokenize.ENDMARKER:
-            prev_end = None
-            continue
-        row = tok.start[0]
-        sep = " " if prev_end and (prev_end[0] != row or prev_end[1] != tok.start[1]) else ""
-        lines.setdefault(row, []).append(sep + tok.string)
-        prev_end = tok.end
-    return [(row, "".join(parts)) for row, parts in sorted(lines.items())]
+def _dotted(node: ast.AST) -> str | None:
+    """``np.random.rand`` for an attribute chain on a name, else None."""
+    parts = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if isinstance(node, ast.Name):
+        return ".".join([node.id, *reversed(parts)])
+    return None
+
+
+def _import_findings(node: ast.Import | ast.ImportFrom) -> list[str]:
+    modules = [a.name for a in node.names] if isinstance(node, ast.Import) else [node.module or ""]
+    out = [f"imports {m}: {BANNED_MODULES[m.split('.')[0]]}" for m in modules if m.split(".")[0] in BANNED_MODULES]
+    numpy_random = any(m.startswith("numpy.random") for m in modules) or (
+        isinstance(node, ast.ImportFrom) and node.module == "numpy" and any(a.name == "random" for a in node.names)
+    )
+    if numpy_random:
+        out.append("imports numpy.random: use the World's Generator")
+    return out
+
+
+def _name_findings(dotted: str) -> list[str]:
+    parts = dotted.split(".")
+    out = []
+    if parts[0] in BANNED_MODULES and len(parts) > 1:
+        out.append(f"uses {dotted}: {BANNED_MODULES[parts[0]]}")
+    if parts[0] in ("np", "numpy") and parts[1:2] == ["random"] and parts[2:3] and parts[2] not in NUMPY_RANDOM_ALLOWED:
+        out.append(f"uses {dotted}: numpy's global RNG")
+    if dotted in ("os.urandom", "date.today") or parts[-1] == "SystemRandom":
+        out.append(f"uses {dotted}: OS entropy or the wall clock")
+    return out
+
+
+def _call_findings(node: ast.Call) -> list[str]:
+    name = _dotted(node.func) or ""
+    out = []
+    if name == "hash":
+        out.append("calls builtin hash (randomized per process by PYTHONHASHSEED)")
+    if name.split(".")[-1] in SEEDED_CONSTRUCTORS and not node.args and not node.keywords:
+        out.append(f"calls {name}() with no seed (seeded from OS entropy)")
+    return out
 
 
 def findings(path: Path, source: str) -> list[str]:
+    tree = ast.parse(source)
+    # Judge only the outermost attribute of a chain, so np.random.rand is one finding, not three.
+    inner = {id(n.value) for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
     out = []
-    for lineno, line in code_only(source):
-        for pattern, why in FORBIDDEN.items():
-            if re.search(pattern, line):
-                out.append(f"{path}:{lineno}: {why}: {line.strip()}")
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            hits = _import_findings(node)
+        elif isinstance(node, (ast.Attribute, ast.Name)) and id(node) not in inner:
+            hits = _name_findings(_dotted(node) or "")
+        elif isinstance(node, ast.Call):
+            hits = _call_findings(node)
+        else:
+            hits = []
+        out += [f"{path}:{getattr(node, 'lineno', 0)}: {h}" for h in hits]
     return out
 
 
@@ -151,40 +184,47 @@ def test_the_simulation_and_tests_have_no_hidden_sources_of_nondeterminism():
 
 
 @pytest.mark.parametrize(
-    "line",
+    "source",
     [
         "import random",
         "from random import choice",
         "import secrets",
+        "import time as t",
+        "from time import time",
+        "from datetime import datetime as dt",
+        "import timeit",
+        "import uuid",
         "from numpy.random import rand",
         "from numpy import random",
         "import numpy.random",
         "x = np.random.rand(3)",
         "x = numpy.random.normal()",
+        "x = (np.random\n.rand())",
+        "x = np . random . rand()",
         "rng = np.random.default_rng()",
         "rng = np.random.Generator(np.random.PCG64())",
         "t = time.time()",
-        "t = time.time_ns()",
+        "clock = time.time",
         "t = time.perf_counter_ns()",
-        "t = time.process_time()",
         "time.sleep(0.1)",
-        "from time import time",
         "d = datetime.now()",
         "d = date.today()",
         "k = hash(name)",
+        "k = hash (name)",
+        'msg = f"{hash(name)}"',
         "b = os.urandom(8)",
-        "u = uuid.uuid4()",
         "r = random_module.SystemRandom()",
     ],
 )
-def test_the_scan_catches(line):
-    assert findings(Path("x.py"), line + "\n"), line
+def test_the_scan_catches(source):
+    assert findings(Path("x.py"), source + "\n"), source
 
 
 @pytest.mark.parametrize(
-    "line",
+    "source",
     [
         "rng = np.random.default_rng(seed)",
+        "rng = np.random.default_rng(seed=1)",
         "rng = np.random.Generator(np.random.PCG64(1234))",
         "# never call hash(x) or time.time() here",
         "msg = 'hash(x) and time.time() are banned'",
@@ -192,7 +232,12 @@ def test_the_scan_catches(line):
         "h = stable_hash(name)",
         "h = hashlib.sha256()",
         "t = world.time_s",
+        "self.hash = value.hash(1)",
     ],
 )
-def test_the_scan_ignores(line):
-    assert findings(Path("x.py"), line + "\n") == [], line
+def test_the_scan_ignores(source):
+    assert findings(Path("x.py"), source + "\n") == [], source
+
+
+def test_a_chain_is_one_finding():
+    assert len(findings(Path("x.py"), "x = np.random.rand(3)\n")) == 1

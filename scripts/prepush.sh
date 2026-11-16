@@ -56,6 +56,11 @@ step "diff coverage: lines changed since ${MERGE_BASE:0:8} ($BASE) must be >= 95
 "$PY" -m diff_cover.diff_cover_tool coverage.xml --compare-branch="$BASE" --fail-under=95
 
 HEAD_SHA="$(git rev-parse --short=12 HEAD)"
+# A step that wrote into the tree (a test leaving files behind) would make the PASS describe a different tree.
+if [ "$(git status --porcelain)" != "$DIRTY" ]; then
+  git status --porcelain >&2
+  die "the gate changed the working tree while it ran; fix the step that writes there"
+fi
 if [ -n "$DIRTY" ]; then
   printf '\nprepush: PASS on a dirty tree (HEAD %s plus uncommitted changes); this does not clear a hand-off\n' "$HEAD_SHA"
 else

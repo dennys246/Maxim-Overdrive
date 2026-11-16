@@ -80,7 +80,7 @@ class RegionSensor:
         temps = g.temperature[mask]
         if temps.size == 0:
             return float("nan")
-        return float(temps.max() if self._quantity == "temperature_max" else temps.mean())
+        return float(np.max(temps) if self._quantity == "temperature_max" else np.mean(temps))
 
     def read(self) -> SensorReading:
         return SensorReading(
