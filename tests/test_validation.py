@@ -492,7 +492,7 @@ def test_thermal_degradation_is_proportional_to_the_excess(rigs, materials):
         assert g.integrity == pytest.approx(expected, rel=1e-6), rig.name
 
 
-@pytest.mark.parametrize("name", ["Crate", " crate", "CRATE"])
+@pytest.mark.parametrize("name", ["Crate", "CRATE", "crAte"])
 def test_an_imagined_object_named_like_an_existing_region_is_refused_before_painting(rig, materials, name):
     g = Scene((3.0, 3.0, 2.0), (Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", "crate"),)).build(rig, materials)
     before = g.material.copy()
@@ -508,3 +508,31 @@ def test_name_region_itself_refuses_a_name_maxim_would_confuse(rig, materials):
     footprint = g.regions["crate"].footprint
     with pytest.raises(ValueError, match=r"region 'Crate' already exists \(as 'crate'\)"):
         g.name_region("Crate", g.regions["crate"].cells, footprint, solid=True)
+
+
+def test_an_imagined_object_may_sit_in_a_named_air_room_but_no_primitive_may_enter_a_solids_footprint(rig, materials):
+    room = Box((0.0, 0.0, 0.0), (3.0, 3.0, 2.0), "air", "room")
+    crate = Cylinder((2.3, 2.3), 0.3, (0.0, 0.6), "wood", "crate")  # its box's corners are empty space
+    g = Scene((3.0, 3.0, 2.0), (room, crate)).build(rig, materials)
+    box = {"name": "box", "primitives": [{"min_m": [0, 0, 0], "max_m": [0.4, 0.4, 0.4], "material": "wood"}]}
+    place(g, box, (0.2, 0.2, 0.0))  # inside the air room is fine
+    two = {
+        "name": "two",
+        "primitives": [
+            {"min_m": [0, 0, 0], "max_m": [0.2, 0.2, 0.2], "material": "wood"},
+            {"min_m": [1.0, 1.0, 0], "max_m": [1.08, 1.08, 0.2], "material": "wood"},  # in the box's empty corner
+        ],
+    }
+    with pytest.raises(SpecRejected, match="that space belongs to crate"):
+        place(g, two, (1.0, 1.0, 0.0))
+
+
+def test_paint_refuses_a_confusable_name_before_painting(rig, materials):
+    g = MaterialGrid.empty((1.0, 1.0, 1.0), rig, materials)
+    x, _, _ = g.mesh()
+    footprint = Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5))
+    g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate", footprint=footprint)
+    before = g.material.copy()
+    with pytest.raises(ValueError, match="already exists"):
+        g.paint(np.ones(g.shape, dtype=bool), "steel", region="Crate", footprint=footprint)
+    assert np.array_equal(g.material, before)

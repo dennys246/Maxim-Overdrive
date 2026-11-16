@@ -22,8 +22,9 @@ from maxim_overdrive.world.grid import Bounds, Footprint, Mask, MaterialGrid, Po
 def _check_labels(material: object, name: object) -> None:
     if not isinstance(material, str) or not material:
         raise ValueError(f"primitive {name!r} needs a material name, got {material!r}")
-    if name is not None and (not isinstance(name, str) or not name):
-        raise ValueError(f"a primitive's name must be a non-empty string, got {name!r}")
+    if name is not None and (not isinstance(name, str) or not name.strip() or name != name.strip()):
+        # Maxim strips the names it resolves, so " crate" would answer to "crate" and "  " to nothing.
+        raise ValueError(f"a primitive's name must be a non-empty string with no outer spaces, got {name!r}")
 
 
 @dataclass(frozen=True)

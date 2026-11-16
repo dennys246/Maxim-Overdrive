@@ -46,8 +46,8 @@ def _read(grid: MaterialGrid, spec: object, origin_m: object) -> tuple[str, list
     if not isinstance(spec, Mapping):
         raise SpecRejected(f"an imagined object must be a mapping, got {type(spec).__name__}")
     name = spec.get("name")
-    if not name or not isinstance(name, str):
-        raise SpecRejected("an imagined object needs a name")
+    if not name or not isinstance(name, str) or not name.strip() or name != name.strip():
+        raise SpecRejected("an imagined object needs a name, with no outer spaces")
     clash = next((r for r in grid.regions if entity_key(r) == entity_key(name)), None)
     if clash is not None:  # by Maxim's name rule, checked before anything is painted
         raise SpecRejected(f"something called {clash!r} already exists")

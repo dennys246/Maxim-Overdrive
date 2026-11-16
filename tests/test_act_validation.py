@@ -31,7 +31,7 @@ from maxim_overdrive.sem_env.bridge import (
     region_parts,
 )
 from maxim_overdrive.world import damage
-from maxim_overdrive.world.world import HeatSource
+from maxim_overdrive.world.world import HeatSource, sphere_overlap
 from tests.conftest import FAST_TIERS
 
 LIMITS = ActionLimits.load()
@@ -767,7 +767,7 @@ def test_targets_resolve_by_maxims_own_name_rule():
     assert not crate.execute("ignite", {"power_w": 1.0, "target": "fire door"}).success
 
 
-@pytest.mark.parametrize(("first", "second"), [("crate", "Crate"), ("fire door", "fire_door"), ("crate", " crate")])
+@pytest.mark.parametrize(("first", "second"), [("crate", "Crate"), ("fire door", "fire_door"), ("crate", "CRATE")])
 def test_region_names_that_maxim_would_confuse_are_refused(materials, first, second):
     a = Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", first)
     b = Box((1.2, 1.2, 0), (1.8, 1.8, 0.6), "wood", second)
@@ -775,12 +775,42 @@ def test_region_names_that_maxim_would_confuse_are_refused(materials, first, sec
         Scene(SCENE.extent_m, (a, b)).build(RigProfile.load("laptop"), materials)
 
 
-def test_a_fire_on_a_region_carved_hollow_is_refused_rather_than_burning_air(rigs):
-    # A wall with a doorway through its middle: its authored centroid sits in the doorway's air.
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason="a region carved hollow keeps its authored centroid, so a fire on a wall with a doorway through its middle "
+    "lands in the doorway and heats only air (docs/architecture.md, Known gaps). Deciding from the region's cells "
+    "would move with the rig; per-cell ownership with authored geometry (design v2) is the fix.",
+)
+def test_a_fire_on_a_region_carved_hollow_heats_the_region_not_air(rigs):
     wall = Box((1.0, 0.0, 0.0), (1.6, 3.0, 2.0), "concrete", "wall")
     doorway = Box((1.0, 1.0, 0.0), (1.6, 2.0, 2.0), "air", "doorway")
     for rig in rigs:
         w = World.from_scene(Scene((3.0, 3.0, 2.0), (wall, doorway)), rig, limits=LIMITS)
         res = region_parts(w, "wall")[1]["structure"].execute("ignite", {"power_w": 1000.0})
-        assert res.error == "a fire there would touch none of the wall", rig.name
-        assert w.sources == {}
+        if res.success:  # a fix may refuse the fire, or place it on the wall; either way it must not heat only air
+            source = w.sources["fire:wall"]
+            own = w.grid.regions["wall"].cells & w.grid.solid
+            assert (sphere_overlap(w.grid, source.point_m, source.radius_m) * own).any(), rig.name
+
+
+def test_an_entity_that_only_shares_the_regions_name_is_not_the_region():
+    from maxim.embodiment.sem import Entity  # noqa: PLC0415 - the gate installs pymaxim
+
+    impostor = Entity("crate", "item")  # an item or an NPC elsewhere called "crate"
+    res = _structure(_world()).execute("ignite", {"power_w": 1.0, "target": impostor})
+    assert not res.success
+
+
+def test_target_names_follow_maxims_lower_not_casefold():
+    scene = Scene(SCENE.extent_m, (Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", "straße"),))
+    w = World.from_scene(scene, RigProfile.load("laptop"), limits=LIMITS)
+    s = region_parts(w, "straße")[1]["structure"]
+    assert s.execute("ignite", {"power_w": 1.0, "target": "STRASSE"}).success is False  # casefold would match
+    assert s.execute("ignite", {"power_w": 1.0, "target": "Straße"}).success
+
+
+@pytest.mark.parametrize("name", [" crate", "crate ", "  ", "\tcrate"])
+def test_a_name_with_outer_spaces_is_refused(name):
+    with pytest.raises(ValueError, match="no outer spaces"):
+        Box((0, 0, 0), (1, 1, 1), "wood", name)

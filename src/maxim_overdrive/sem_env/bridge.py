@@ -27,7 +27,7 @@ from maxim_overdrive.checks import finite_real, finite_vector
 from maxim_overdrive.config import ActionLimits
 from maxim_overdrive.world import damage
 from maxim_overdrive.world.grid import entity_key
-from maxim_overdrive.world.world import HeatSource, World, sphere_overlap
+from maxim_overdrive.world.world import HeatSource, World
 
 if TYPE_CHECKING:
     # Type-check against Maxim's own classes; tests/test_sem_compat.py holds the _compat mirror to the same fields.
@@ -332,10 +332,15 @@ class StructureModulator:
         return self.apply(action)
 
     def _is_this_region(self, target: object) -> bool:
-        """A target names this region when it is exactly a string, or a Maxim Entity named by one, that resolves to
-        the region under Maxim's own name rule (``grid.entity_key``). Region names are unique under that rule."""
-        name = target.name if HAVE_MAXIM and isinstance(target, Entity) else target
-        return type(name) is str and entity_key(name) == entity_key(self._region)
+        """Whether a call's target is this region.
+
+        A Maxim Entity is this region only if it carries this very modulator: names are unique among regions, but an
+        item or an NPC elsewhere could share one. A string names this region when it resolves to it under Maxim's own
+        name rule (``grid.entity_key``), under which region names are unique.
+        """
+        if HAVE_MAXIM and isinstance(target, Entity):
+            return target.modulators.get("structure") is self
+        return type(target) is str and entity_key(target) == entity_key(self._region)
 
     @staticmethod
     def _target_label(target: object) -> str:
@@ -374,12 +379,10 @@ class StructureModulator:
         )
 
     def _ignite(self, action: Ignite, shown: dict[str, Any]) -> ModulatorResult:
+        # A region carved hollow (a wall with a doorway through its middle) can have its centroid in air, so this fire
+        # may heat only air: a known gap, held by a strict red gate. Refusing it here would mean deciding from the
+        # region's cells, which move with the rig; the fix is per-cell ownership with authored geometry (design v2).
         source = HeatSource(self.centroid_m(), action.radius_m, action.power_w)
-        grid = self._world.grid
-        own_solid = grid.regions[self._region].cells & grid.solid
-        if not (sphere_overlap(grid, source.point_m, source.radius_m) * own_solid).any():
-            # A region carved hollow (a wall with a doorway through its middle) can have its centroid in air.
-            return self._result("ignite", shown, False, f"a fire there would touch none of the {self._region}")
         self._world.sources[f"fire:{self._region}"] = source
         return self._result("ignite", shown, True)
 

@@ -102,7 +102,8 @@ How the rule is kept, so far:
   threshold, is breached at rig and max but not laptop (a strict red gate,
   `tests/test_act_validation.py::test_a_strike_breaches_a_thin_wall_the_same_at_every_rig`). How the resolution
   rule should treat outcomes at a class boundary is an open decision.
-- **A destroyed region still claims its space.** A region's footprint is its authored shape, so a crate burned to
+- **A destroyed region still claims its space,** for strikes and for imagined objects alike (`spec.place` refuses
+  a new object inside a burnt-out crate's old box). A region's footprint is its authored shape, so a crate burned to
   nothing still owns its old box: a strike there is still "on the crate", and `ignite` on a burnt-out crate puts the
   fire into air. "Gone" only means a later paint took every cell. Ownership per cell (the region id array planned
   for design v2) removes it.
@@ -113,8 +114,13 @@ How the rule is kept, so far:
   ownership (design v2's region id array) removes both.
 - **A region carved hollow keeps its authored centroid.** Air may carve into a named solid (a doorway), but the
   solid's footprint and centroid stay those of the authored box. With a doorway through a wall's middle, the
-  centroid is in air: `ignite` is then refused in words ("a fire there would touch none of the wall") rather than
-  burning air, and an aimless strike lands in the doorway. Per-cell ownership removes it.
+  centroid is in air: `ignite` puts the fire in the doorway, where it heats only air, and an aimless strike lands
+  there too. Refusing such a fire by checking the region's cells was tried and withdrawn: whether a fire touches
+  the region's cells depends on the rig when the carving sits off the coarse grid (a 0.33 m fire is accepted at
+  laptop and rig and refused at max), which is the kind of decision CLAUDE.md's "reconstruct, decide, integrate"
+  rule forbids. Held by a strict red gate,
+  `tests/test_act_validation.py::test_a_fire_on_a_region_carved_hollow_heats_the_region_not_air`. Per-cell ownership
+  with authored geometry (design v2) removes it.
 - **Whether an imagined object fits in the world can depend on the rig.** `imagination.spec.place` refuses an object
   "smaller than one cell at this resolution" when it covers no cell centre, which can happen at the coarse rig and
   not at a finer one. Its size and mass budgets come from the authored geometry (rig-independent since
