@@ -111,9 +111,13 @@ only review holds.
 
 - **Every branch that changes code gets a pre-push review round:** parallel independent readers, always Executor,
   Architecture and Wire integrity, plus each situational lens the diff triggers (Physics and resolution, Trust
-  boundary, Performance, Client and rendering). Findings are BLOCKER, SHOULD-FIX or NIT with a `file::symbol` and a
-  failure scenario. They are folded into the same branch before hand-off, with delta rounds after code folds. The
-  hand-off note carries the round summary. Charter: `docs/code_review.md`. Guard: B1
+  boundary, Performance, Client and rendering, Bio-faithful integration, Determinism and replay, Concurrency and
+  lanes). Findings are BLOCKER, SHOULD-FIX or NIT with a `file::symbol` and a failure scenario. They are folded into
+  the same branch before hand-off, with delta rounds after code folds. The hand-off note carries the round summary.
+  Charter: `docs/code_review.md`. Guard: B1
+- **A design that changes the architecture is reviewed before code,** on its design document, and Bio-faithful
+  integration is always one of its lenses. Each lens's findings are kept in `docs/design/reviews/`.
+  Guard: `docs/code_review.md` ("Design reviews"), B1
 - **`scripts/prepush.sh` must print `prepush: PASS <sha>` for the exact commit handed over.** It refuses a dirty
   tree (`ALLOW_DIRTY=1` checks work in progress but says the result doesn't count). Rerun it after every fold.
   Guard: `scripts/prepush.sh::HEAD_SHA`, B11
