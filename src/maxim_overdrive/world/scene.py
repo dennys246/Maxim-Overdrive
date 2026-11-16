@@ -108,6 +108,30 @@ class Cylinder:
 Primitive = Box | Cylinder
 
 
+def _boxes_overlap(a: Bounds, b: Bounds) -> bool:
+    return all(a[0][i] < b[1][i] and b[0][i] < a[1][i] for i in range(3))
+
+
+def _check_no_solid_overlaps(primitives: Sequence[Primitive]) -> None:
+    """A later solid primitive may not take space from an earlier named solid one.
+
+    A named region's footprint (its authored shape in metres) says where it is and what a strike on it reaches. If a
+    later solid primitive painted over part of it, the footprint would cover cells the region no longer owns, so a
+    fire on the crate would heat the wall and a strike on the crate would break it. Air may still carve into a named
+    solid (a doorway in a wall). Overlap is judged on bounding boxes, so a cylinder's corners count; the region id
+    array planned for design v2 makes ownership per cell instead.
+    """
+    for i, later in enumerate(primitives):
+        if later.material == "air":
+            continue
+        for earlier in primitives[:i]:
+            if earlier.name and earlier.material != "air" and _boxes_overlap(earlier.bounds_m, later.bounds_m):
+                raise ValueError(
+                    f"primitive {later.name or later.kind} overlaps the named solid {earlier.name}: named objects "
+                    "can't share space with a later solid (air may carve into them)"
+                )
+
+
 def footprint_of(primitives: Sequence[Primitive]) -> Footprint:
     """The authored footprint of one or more primitives: their joint bounding box and volume-weighted centroid.
 
@@ -120,7 +144,8 @@ def footprint_of(primitives: Sequence[Primitive]) -> Footprint:
 
 
 # Validity bounds, not tunables: no ambient is hotter than a flame (wood's is about 2000 C), and a scene's air at
-# 1e300 C would overflow the first step. A tile is tens of metres; past a kilometre the grid can't be allocated.
+# 1e300 C would overflow the first step. A tile is tens of metres. The extent bound only refuses absurd numbers: a
+# real per-rig cell-count budget comes with the memory budget planned for design v2.
 MAX_AMBIENT_C = 3000.0
 MAX_EXTENT_M = 1000.0
 
@@ -148,6 +173,7 @@ class Scene:
         for p in self.primitives:
             if p.material not in materials:
                 raise ValueError(f"unknown material {p.material!r} in primitive {p.name or p.kind}")
+        _check_no_solid_overlaps(self.primitives)
         grid = MaterialGrid.empty(self.extent_m, rig, materials, ambient_c=self.ambient_c)
         for p in self.primitives:
             grid.paint(p.mask(grid), p.material, region=p.name, footprint=footprint_of([p]) if p.name else None)

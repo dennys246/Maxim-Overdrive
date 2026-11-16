@@ -42,6 +42,7 @@ class Region:
 
     cells: Mask
     footprint: Footprint
+    solid: bool  # made of a solid material when named; air regions (rooms, doorways) never own a strike point
 
 
 @dataclass
@@ -132,13 +133,13 @@ class MaterialGrid:
             np.logical_and(other.cells, ~mask, out=other.cells)
         if region is not None:
             assert footprint is not None
-            self.name_region(region, mask, footprint)
+            self.name_region(region, mask, footprint, solid=mid != AIR_ID)
 
-    def name_region(self, region: str, mask: Mask, footprint: Footprint) -> None:
+    def name_region(self, region: str, mask: Mask, footprint: Footprint, *, solid: bool) -> None:
         """Name the cells in ``mask`` as a region with its footprint, without changing what they are made of."""
         if region in self.regions:
             raise ValueError(f"region {region!r} already exists")
-        self.regions[region] = Region(mask.copy(), footprint)
+        self.regions[region] = Region(mask.copy(), footprint, solid)
 
     def destroy(self, mask: Mask) -> int:
         """Turn solid cells in ``mask`` to air. Returns how many cells were destroyed."""

@@ -282,8 +282,9 @@ class StructureModulator:
 
         A region's cells move with the rig, so a reach built from them would accept a strike at one rig and refuse
         it at another. Reach is this region's footprint plus the strike's width, except that a point outside this
-        footprint but inside another region's belongs to that region: when a wall is painted over half a crate, a
-        strike just past the crate's face is a strike on the wall.
+        footprint but inside another solid region's belongs to that region: a strike just past the crate's face, into
+        the wall beside it, is a strike on the wall. Solids can't overlap (``scene._check_no_solid_overlaps``), and
+        air regions such as rooms never own a point.
         """
         grid = self._world.grid
 
@@ -293,7 +294,8 @@ class StructureModulator:
 
         if not inside(self._region, sigma_m):
             return False
-        return inside(self._region, 0.0) or not any(inside(r, 0.0) for r in grid.regions if r != self._region)
+        others = (r for r, region in grid.regions.items() if r != self._region and region.solid)
+        return inside(self._region, 0.0) or not any(inside(r, 0.0) for r in others)
 
     def _result(
         self, affordance: str, params: dict[str, Any], ok: bool, error: str | None = None, **meta: Any
@@ -317,23 +319,27 @@ class StructureModulator:
             return self._result(label, {}, False, str(exc))
         target = params.get("target") if isinstance(params, Mapping) else None
         if target is not None and not self._is_this_region(target):
-            named = target.name if HAVE_MAXIM and isinstance(target, Entity) else target
             return self._result(
                 label,
                 {},
                 False,
-                f"the {self._region}'s structure is acted on directly, not on {_shown(named)}: "
-                f"leave target out, or name the {self._region}",
+                f"the {self._region}'s structure is acted on directly, not on {self._target_label(target)}: "
+                f"name the {self._region} as the target (or leave target out)",
             )
         return self.apply(action)
 
     def _is_this_region(self, target: object) -> bool:
-        """A target names this region when it is exactly the string, or a Maxim Entity of that exact name."""
-        if type(target) is str:
-            return target == self._region
-        if HAVE_MAXIM and isinstance(target, Entity):
-            return type(target.name) is str and target.name == self._region
-        return False
+        """A target names this region when it is exactly a string, or a Maxim Entity named by one, equal to the
+        region's name ignoring case (as Maxim's EntityMap resolves names)."""
+        name = target.name if HAVE_MAXIM and isinstance(target, Entity) else target
+        return type(name) is str and name.casefold() == self._region.casefold()
+
+    @staticmethod
+    def _target_label(target: object) -> str:
+        """A short, deterministic label for a refused target: no memory addresses, which would differ between runs
+        and break a replayed log's bytes."""
+        name = target.name if HAVE_MAXIM and isinstance(target, Entity) else target
+        return _shown(name) if type(name) in (str, int, float) else f"<a {type(name).__name__}>"
 
     def apply(self, action: Action) -> ModulatorResult:
         """Apply a typed action: it is re-checked against this world's limits, then against the world as it is now."""

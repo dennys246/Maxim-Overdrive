@@ -59,6 +59,7 @@ def digest(w: World) -> str:
         mask = region.cells
         h.update(name.encode())
         h.update(mask.tobytes())
+        h.update(f"{region.footprint}{region.solid}".encode())  # where fires land and what a strike reaches
     for name, src in w.sources.items():
         h.update(f"{name}{src.point_m}{src.radius_m}{src.power_w}".encode())
     h.update(f"{g.time_s!r} {w.turn}".encode())

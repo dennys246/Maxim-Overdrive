@@ -95,5 +95,5 @@ def place(
 
     for p, m in zip(placed, masks, strict=True):
         grid.paint(m, p.material)
-    grid.name_region(name, union, footprint)
+    grid.name_region(name, union, footprint, solid=True)  # imagined objects are never air (see _read)
     return float(mass)

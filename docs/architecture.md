@@ -79,23 +79,33 @@ How the rule is kept, so far:
   (0.70 / 0.57 / 0.51). It narrows near turn 30 only because the curves cross, and from about turn 30 the fuel gap
   takes over (at 40 turns, integrity 0.02 / 0.26 / 0.34 and peaks of 620 / 1.4×10⁵ / 1.4×10⁵ °C). Smaller radii or
   more power diverge sooner: at a 0.2 m radius the onsets are 11 / 8 / 7, and at 1 MW integrity at turn 30 is
-  0.00 / 0.26 / 0.34. The suspected cause, not yet verified, is that burning is a threshold on a cell's mean
-  temperature (`damage.thermal_degrade`), and a coarse cell's mean lags the same region at fine resolution;
-  thresholded cell-mean models don't converge with resolution. The fix is the Phase 1 fuel model, with burning as a
+  0.00 / 0.26 / 0.34. `temperature_max` diverges too (540 / 614 / 978 °C at turn 27). **The cause is measured:**
+  the crate's mean temperature agrees between laptop and rig to within 1 °C through turn 22, so heat converges, but
+  the degradation driver (the mean of the excess of each cell's temperature over the limit, in
+  `damage.thermal_degrade`) is 1.3–1.5× larger at rig. A threshold applied to cell means doesn't converge with
+  resolution. Scaling the rate by cell size would make the gate pass and is a band-aid; the law itself is held by a
+  closed-form test at every rig (`tests/test_validation.py::test_thermal_degradation_follows_its_closed_form_at_every_rig`). The fix is the Phase 1 fuel model, with burning as a
   rate driven by heat content. Held by a strict red gate that checks the spread on every turn for 60 turns,
   `tests/test_act_validation.py::test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn`.
   Until then, `ignite`'s ceilings in `data/world/actions.yaml` (at most 500 kW, a radius of at least 0.3 m) keep
   fires at the powers this physics has been measured at; they make no claim about agreement across rigs.
 - **Strikes near the fracture threshold, and breaches of thin walls, flip across rigs.** Below the threshold nothing
-  is destroyed at any rig, a guarantee of exact cell-average deposition. Craters at least two coarse cells across
-  (4× the threshold and above, at the 0.2 m minimum width on concrete) match the closed form within 25% at every
-  rig. Between the two they don't: destroyed volume at laptop / rig / max is 0 / 0 / 0.001 m³ at 1.05× the
+  is destroyed at any rig, a guarantee of exact cell-average deposition. Craters with a closed-form radius of at least
+  0.33 m (about 1.7 coarse cells; 4× the threshold and above at the 0.2 m minimum width on concrete) match the closed
+  form within 25% at every rig. Between the two they don't: destroyed volume at laptop / rig / max is 0 / 0 / 0.001 m³ at 1.05× the
   threshold (about 2.5 MJ), 0.008 / 0.032 / 0.026 m³ at 1.5×, and 0.152 / 0.088 / 0.114 m³ at 3× (closed form
   0.109 m³). The crater radius goes to zero continuously at the threshold, so no minimum width removes the band.
   What an NPC acts on flips too: a 0.4 m concrete wall whose faces sit off the 0.2 m grid, struck at 1.5× the
   threshold, is breached at rig and max but not laptop (a strict red gate,
   `tests/test_act_validation.py::test_a_strike_breaches_a_thin_wall_the_same_at_every_rig`). How the resolution
   rule should treat outcomes at a class boundary is an open decision.
+- **A destroyed region still claims its space.** A region's footprint is its authored shape, so a crate burned to
+  nothing still owns its old box: a strike there is still "on the crate", and `ignite` on a burnt-out crate puts the
+  fire into air. "Gone" only means a later paint took every cell. Ownership per cell (the region id array planned
+  for design v2) removes it.
+- **Overlap is judged on bounding boxes.** Named solids may not overlap a later solid (`scene._check_no_solid_overlaps`),
+  and a cylinder's box corners count as its own, so two barrels close together can be refused although they don't
+  touch. Per-cell ownership removes it too.
 - **Whether an imagined object fits in the world can depend on the rig.** `imagination.spec.place` refuses an object
   "smaller than one cell at this resolution" when it covers no cell centre, which can happen at the coarse rig and
   not at a finer one. Its size and mass budgets come from the authored geometry (rig-independent since
@@ -120,7 +130,9 @@ pain or learning: it is SEM without embodiment.
 world through it, so it works in two stages. `parse_action` turns the untrusted `(affordance, params)` into a frozen
 `Strike`, `Ignite` or `Extinguish` inside the world's `ActionLimits` (`data/world/actions.yaml`), reading nothing from
 the world, so the protocol layer can run it first. `StructureModulator.apply` re-checks the action against the
-limits, then checks what depends on the world now (the region still has cells, a strike's point is on the region).
+limits, then checks what depends on the world now (the region still has cells, a strike's point is on the region, judged
+from authored footprints in metres so the answer is the same at every rig). A region is its cells plus its authored
+footprint; named solids can't share space with a later solid, so a footprint never covers another object's cells.
 Parameters are a closed set per affordance, plus the keys Maxim adds itself (`target`). Every number is a finite real
 number: NaN, infinities, bools and numeric strings are refused, never guessed. A refusal names the parameter in plain
 words and changes nothing. The physics checks again underneath: `HeatSource` and `damage.strike` refuse non-finite

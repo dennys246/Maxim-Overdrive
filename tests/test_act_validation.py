@@ -166,15 +166,18 @@ def test_a_target_is_accepted_only_when_it_is_this_region():
     w = World.from_scene(scene, RigProfile.load("laptop"), limits=LIMITS)
     crate, wall = to_maxim_entity(w, "crate"), to_maxim_entity(w, "wall")
     s = crate.modulators["structure"]
-    for target in [None, crate, "crate"]:
+    for target in [None, crate, "crate", "Crate"]:  # case-insensitive, as Maxim's EntityMap resolves names
         assert s.execute("ignite", {"power_w": 1000.0, "target": target}).success, target
     before = _state(w)
-    others: list[tuple[object, str]] = [(wall, "'wall'"), ("player", "'player'"), (object(), "<object")]
+    others: list[tuple[object, str]] = [(wall, "'wall'"), ("player", "'player'"), (object(), "<a object>")]
     for other, shown in others:
         res = s.execute("strike", {"energy_j": 1e5, "target": other})
         assert not res.success
         assert res.error is not None
-        assert res.error.startswith(f"the crate's structure is acted on directly, not on {shown}")
+        assert res.error == (
+            f"the crate's structure is acted on directly, not on {shown}: name the crate as the target "
+            "(or leave target out)"
+        )
     assert _unchanged(before, w)
 
 
@@ -306,7 +309,7 @@ def test_a_strike_below_the_fracture_threshold_destroys_nothing_at_any_rig(rigs)
 
 
 @pytest.mark.parametrize("multiple", [4.0, 5.0, 8.0, 12.0, 40.0, 390.0])
-def test_a_crater_two_coarse_cells_wide_matches_the_closed_form_at_every_rig(rigs, multiple):
+def test_a_crater_of_radius_at_least_a_third_of_a_metre_matches_the_closed_form_at_every_rig(rigs, multiple):
     energy = multiple * CONCRETE_THRESHOLD_J
     expected = 4 / 3 * math.pi * damage.analytic_crater_radius_m(energy, 0.2, 2.0e7) ** 3
     for rig in rigs:
@@ -344,20 +347,23 @@ def test_a_strike_at_any_face_of_a_region_off_the_coarse_grid_is_judged_the_same
 
 
 def test_a_strike_past_a_regions_face_into_another_region_belongs_to_that_region(rigs):
-    # A wall painted over half the crate: the crate's authored box still covers the wall's cells there.
-    crate, wall = (
-        Box((1.2, 1.2, 0), (1.8, 1.8, 0.6), "wood", "crate"),
-        Box((1.5, 0, 0), (2.1, 3, 2), "concrete", "wall"),
-    )
+    # A wall right against the crate: a strike just past the crate's face, within sigma, lands in the wall.
+    crate = Box((1.2, 1.2, 0), (1.8, 1.8, 0.6), "wood", "crate")
+    wall = Box((1.8, 0, 0), (2.4, 3, 2), "concrete", "wall")
+    room = Box((0.6, 0.6, 0), (2.4, 2.4, 1.2), "air", "room")  # an air room never owns a point
     for rig in rigs:
-        w = World.from_scene(Scene((3.0, 3.0, 2.0), (crate, wall)), rig, limits=LIMITS)
+        w = World.from_scene(Scene((3.0, 3.0, 2.0), (room, crate, wall)), rig, limits=LIMITS)
         parts = {r: region_parts(w, r)[1]["structure"] for r in ("crate", "wall")}
         before = _state(w)
-        res = parts["crate"].execute("strike", {"energy_j": 1e7, "point_m": [1.95, 1.5, 0.3]})
+        res = parts["crate"].execute("strike", {"energy_j": 1e7, "point_m": [1.85, 1.5, 0.3]})
         assert res.error == "point_m is not on the crate", rig.name
         assert _unchanged(before, w)
-        assert parts["wall"].execute("strike", {"energy_j": 1e3, "point_m": [1.95, 1.5, 0.3]}).success
-        assert parts["crate"].execute("strike", {"energy_j": 1e3, "point_m": [1.65, 1.5, 0.3]}).success  # overlap
+        assert parts["wall"].execute("strike", {"energy_j": 1e3, "point_m": [1.85, 1.5, 0.3]}).success
+        assert (
+            parts["crate"].execute("strike", {"energy_j": 1e3, "point_m": [1.15, 1.5, 0.3]}).success
+        )  # inside the room
+        res = parts["crate"].execute("strike", {"energy_j": 1e3, "point_m": [1.79, 1.5, 0.3]})
+        assert res.success, rig.name  # within sigma of the wall, but on the crate's own footprint
 
 
 # -- the physics entry points refuse what no caller should ever pass ------------------------------------------------
@@ -669,7 +675,7 @@ def test_maxims_actor_tool_must_name_the_region_as_its_own_target():
     ignite = {"entity": "crate", "affordance": "ignite", "params": {"power_w": 1000.0}}
     default = actor.run(**ignite)
     assert not default.success
-    assert "leave target out, or name the crate" in (default.error or "")
+    assert "name the crate as the target" in (default.error or "")
     assert w.sources == {}
     assert actor.run(**ignite, target="crate").success
     assert w.sources["fire:crate"].power_w == 1000.0
@@ -711,3 +717,29 @@ def test_a_fire_lands_on_the_authored_centroid_at_every_rig(rigs):
         w = World.from_scene(scene, rig, limits=LIMITS)
         assert region_parts(w, "crate")[1]["structure"].execute("ignite", {"power_w": 1.0}).success
         assert w.sources["fire:crate"].point_m == (1.5, 1.5, 0.55), rig.name
+
+
+def test_an_entity_whose_name_is_not_a_plain_string_is_refused():
+    from maxim.embodiment.sem import Entity  # noqa: PLC0415 - the gate installs pymaxim
+
+    sneaky = Entity("crate", "structure")
+    object.__setattr__(
+        sneaky, "name", type("Sneaky", (str,), {"__eq__": lambda s, o: True, "__hash__": str.__hash__})("crate")
+    )
+    res = _structure(_world()).execute("ignite", {"power_w": 1.0, "target": sneaky})
+    assert not res.success
+
+
+def test_a_merged_key_is_overridden_by_the_one_written_after_it(tmp_path):
+    path = tmp_path / "actions.yaml"
+    merged = "{max_power_w: 1.0, min_radius_m: 0.3, max_radius_m: 3.0, default_radius_m: 0.3}"
+    path.write_text(f"version: 0\nignite: &i {merged}\n" + GOOD_LIMITS.split("\n")[2] + "\n")
+    assert ActionLimits.load(path).max_power_w == 1.0
+    raw = yaml.load(f"a: &a {merged}\nb: {{<<: *a, max_power_w: 500000.0}}\n", Loader=_strict_loader())
+    assert raw["b"]["max_power_w"] == 500000.0  # the written key wins over the merged one
+
+
+def _strict_loader():
+    from maxim_overdrive.config import _StrictLoader  # noqa: PLC0415
+
+    return _StrictLoader

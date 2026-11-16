@@ -4,7 +4,8 @@ A cyberpunk RPG set in **Maxim Prime**, where every NPC is a [Maxim](https://git
 life it actually lived.
 
 **Status: foundations.** This repository currently holds the world server: the world as material cells, heat and
-damage physics that give the same outcomes at every resolution, and an SEM bridge that lets Maxim agents perceive and
+damage physics that aim to give the same outcomes at every resolution (with the known exceptions recorded in
+`docs/architecture.md`, "Known gaps"), and an SEM bridge that lets Maxim agents perceive and
 act on the environment. There is no game client yet.
 
 ## What is here

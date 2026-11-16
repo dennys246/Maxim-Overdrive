@@ -339,7 +339,12 @@ def test_a_named_region_needs_its_authored_bounds(rig, materials):
         footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
     )
     with pytest.raises(ValueError, match="already exists"):
-        g.name_region("crate", np.broadcast_to(x < 0.5, g.shape), Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)))
+        g.name_region(
+            "crate",
+            np.broadcast_to(x < 0.5, g.shape),
+            Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
+            solid=True,
+        )
     assert Cylinder((0.5, 0.5), 0.2, (0.0, 1.0), "wood").bounds_m == ((0.3, 0.3, 0.0), (0.7, 0.7, 1.0))
 
 
@@ -384,7 +389,9 @@ def test_a_later_paint_takes_cells_from_earlier_regions_and_a_refused_paint_chan
     assert np.array_equal(g.material, before)  # refused before anything was painted
 
 
-@pytest.mark.parametrize(("field", "value"), [("id", -1), ("color_rgb", [1e9, -5, 3]), ("color_rgb", [1, 2])])
+@pytest.mark.parametrize(
+    ("field", "value"), [("id", -1), ("color_rgb", [256, 5, 3]), ("color_rgb", [1, -5, 3]), ("color_rgb", [1, 2])]
+)
 def test_a_material_files_ids_and_colours_are_in_range(tmp_path, field, value):
     raw = yaml.safe_load((data_dir() / "materials" / "core.yaml").read_text())
     raw["materials"]["drywall"][field] = value
@@ -392,3 +399,45 @@ def test_a_material_files_ids_and_colours_are_in_range(tmp_path, field, value):
     path.write_text(yaml.safe_dump(raw))
     with pytest.raises(ValueError, match=r"uint8|color_rgb"):
         MaterialTable.load(path)
+
+
+@pytest.mark.parametrize(
+    ("primitives", "ok"),
+    [
+        ((Box((0, 0, 0), (1, 1, 1), "wood", "crate"), Box((0.5, 0, 0), (1.5, 1, 1), "concrete", "wall")), False),
+        ((Box((0, 0, 0), (1, 1, 1), "wood", "crate"), Box((0.5, 0, 0), (1.5, 1, 1), "concrete")), False),
+        ((Box((0, 0, 0), (1, 1, 1), "concrete", "wall"), Box((0.4, 0, 0), (0.6, 1, 0.8), "air", "doorway")), True),
+        ((Box((0, 0, 0), (2, 2, 0.2), "concrete"), Box((0.5, 0.5, 0), (1, 1, 0.6), "wood", "crate")), True),
+        ((Box((0, 0, 0), (1, 1, 1), "wood", "crate"), Box((1, 0, 0), (2, 1, 1), "concrete", "wall")), True),  # touching
+    ],
+    ids=["named-over-named", "unnamed-over-named", "air-carves-named", "named-over-unnamed", "touching"],
+)
+def test_a_later_solid_may_not_take_space_from_a_named_solid(rig, materials, primitives, ok):
+    scene = Scene((3.0, 3.0, 2.0), primitives)
+    if ok:
+        scene.build(rig, materials)
+    else:
+        with pytest.raises(ValueError, match="overlaps the named solid crate"):
+            scene.build(rig, materials)
+
+
+def test_a_footprints_centroid_is_volume_weighted_and_a_cylinders_is_its_middle():
+    from maxim_overdrive.world.scene import footprint_of  # noqa: PLC0415
+
+    big, small = Box((0, 0, 0), (3, 1, 1), "wood"), Box((3, 0, 0), (4, 1, 1), "wood")
+    assert footprint_of([big, small]).centroid_m == pytest.approx((2.0, 0.5, 0.5))  # unweighted would be 2.25
+    assert Cylinder((1.0, 2.0), 0.5, (0.4, 1.6), "wood").centroid_m == (1.0, 2.0, 1.0)
+
+
+def test_thermal_degradation_follows_its_closed_form_at_every_rig(rigs, materials):
+    # One step of the law: integrity falls by rate * dt * (T - limit) / 100 in every cell above the limit, whatever
+    # the cell size. A rate that scaled with dx (a resolution-dependent law) fails here.
+    wood = materials["wood"]
+    assert wood.degrade_above_c is not None
+    excess, dt = 150.0, 0.5
+    for rig in rigs:
+        g = Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (1, 1, 1), "wood", "block"),)).build(rig, materials)
+        g.temperature[:] = wood.degrade_above_c + excess
+        damage.thermal_degrade(g, dt)
+        expected = 1.0 - wood.degrade_rate_per_s_per_100c * dt * excess / 100.0
+        assert g.integrity == pytest.approx(np.full(g.shape, expected), rel=1e-6), rig.name
