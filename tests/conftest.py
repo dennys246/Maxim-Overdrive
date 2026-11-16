@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from maxim_overdrive.config import MaterialTable, RigProfile
+from maxim_overdrive.config import ActionLimits, MaterialTable, RigProfile
 
 # The 'max' rig takes about a minute per fire scenario. Run it with MAXIM_OVERDRIVE_ALL_TIERS=1.
 FAST_TIERS = ["laptop", "rig"]
@@ -22,3 +22,8 @@ def rig(request):
 @pytest.fixture
 def rigs():
     return [RigProfile.load(t) for t in ALL_TIERS]
+
+
+@pytest.fixture(scope="session")
+def limits():
+    return ActionLimits.load()

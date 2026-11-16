@@ -10,32 +10,13 @@ A cell belongs to a primitive when its centre lies inside it; later primitives o
 from __future__ import annotations
 
 import math
-import numbers
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
 from maxim_overdrive.config import MaterialTable, RigProfile
+from maxim_overdrive.world.checks import finite_vector
 from maxim_overdrive.world.grid import Mask, MaterialGrid
-
-
-def finite_vector(value: object, n: int, what: str) -> tuple[float, ...]:
-    """``value`` as ``n`` finite floats, or a ValueError that names the field. Scene YAML and imagined specs both land
-    here, so a malformed coordinate is refused where the primitive is made, not deep inside voxelization."""
-    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or len(value) != n:
-        raise ValueError(f"{what} must be {n} numbers, got {value!r}")
-    out = []
-    for v in value:
-        f = math.nan
-        if not isinstance(v, bool) and isinstance(v, numbers.Real):  # numpy scalars count; True and False don't
-            try:
-                f = float(v)
-            except OverflowError:  # an int too big for a float, such as 10**400 from YAML or JSON
-                f = math.nan
-        if not math.isfinite(f):
-            raise ValueError(f"{what} must be {n} finite numbers, got {value!r}")
-        out.append(f)
-    return tuple(out)
 
 
 def _check_labels(material: object, name: object) -> None:

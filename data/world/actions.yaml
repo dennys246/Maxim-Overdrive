@@ -1,0 +1,12 @@
+# What one SEM action may ask of the world: an NPC's tool call, an LLM's output or a client's intent. These are
+# gameplay limits, checked by sem_env/bridge.py before an action reaches the physics. Physical validity (finite,
+# non-negative) is checked again where each source or strike is made, whatever made it.
+version: 0
+ignite:
+  max_power_w: 10000000.0   # 10 MW: well above a burning car, far below anything that overflows a cell in a turn
+  min_radius_m: 0.01
+  max_radius_m: 3.0
+strike:
+  max_energy_j: 1000000000.0  # 1 GJ: a large explosion
+  min_sigma_m: 0.01
+  max_sigma_m: 2.0

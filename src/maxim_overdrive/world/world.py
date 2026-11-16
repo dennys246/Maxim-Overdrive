@@ -12,15 +12,29 @@ import numpy as np
 
 from maxim_overdrive.config import MaterialTable, RigProfile
 from maxim_overdrive.world import damage, heat
+from maxim_overdrive.world.checks import finite_real, finite_vector
 from maxim_overdrive.world.grid import Field, MaterialGrid
 from maxim_overdrive.world.scene import Scene
 
 
-@dataclass
+@dataclass(frozen=True)
 class HeatSource:
     point_m: tuple[float, float, float]
     radius_m: float
     power_w: float
+
+    def __post_init__(self) -> None:
+        # Physical validity, whoever builds the source. Gameplay limits (how big a fire may be) belong to the action
+        # that asks for it (config.ActionLimits, checked in sem_env.bridge).
+        object.__setattr__(self, "point_m", finite_vector(self.point_m, 3, "a heat source's point_m"))
+        radius = finite_real(self.radius_m, "a heat source's radius_m")
+        power = finite_real(self.power_w, "a heat source's power_w")
+        if radius <= 0 or power < 0:
+            raise ValueError(
+                f"a heat source needs a positive radius and non-negative power, got {radius!r} m, {power!r} W"
+            )
+        object.__setattr__(self, "radius_m", radius)
+        object.__setattr__(self, "power_w", power)
 
 
 def sphere_overlap(

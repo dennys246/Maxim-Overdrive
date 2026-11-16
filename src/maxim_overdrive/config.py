@@ -1,7 +1,8 @@
-"""Rig profiles and the material table: the two inputs every world is built from."""
+"""Rig profiles, the material table and action limits: the data every world and every action is checked against."""
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -126,3 +127,49 @@ class MaterialTable:
                 color_rgb=tuple(int(c) for c in v["color_rgb"]),  # type: ignore[arg-type]
             )
         return cls(mats)
+
+
+ACTION_LIMITS_VERSION = 0
+_LIMIT_FIELDS = {
+    "ignite": ("max_power_w", "min_radius_m", "max_radius_m"),
+    "strike": ("max_energy_j", "min_sigma_m", "max_sigma_m"),
+}
+
+
+@dataclass(frozen=True)
+class ActionLimits:
+    """How much one SEM action may ask of the world (``data/world/actions.yaml``).
+
+    These are world config, not server config: the simulation enforces them, so a replay needs the same values.
+    """
+
+    max_power_w: float
+    min_radius_m: float
+    max_radius_m: float
+    max_energy_j: float
+    min_sigma_m: float
+    max_sigma_m: float
+
+    def __post_init__(self) -> None:
+        for name, value in vars(self).items():
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
+                raise ValueError(f"action limit {name} must be a positive finite number, got {value!r}")
+        if self.min_radius_m > self.max_radius_m or self.min_sigma_m > self.max_sigma_m:
+            raise ValueError("each action limit's minimum must not exceed its maximum")
+
+    @classmethod
+    def load(cls, path: str | Path | None = None) -> ActionLimits:
+        path = Path(path) if path is not None else data_dir() / "world" / "actions.yaml"
+        raw = yaml.safe_load(path.read_text())
+        if not isinstance(raw, dict) or raw.get("version") != ACTION_LIMITS_VERSION:
+            got = raw.get("version") if isinstance(raw, dict) else raw
+            raise ValueError(f"{path}: action limits version must be {ACTION_LIMITS_VERSION}, got {got!r}")
+        if set(raw) != {"version", *_LIMIT_FIELDS}:
+            raise ValueError(f"{path}: expected sections {sorted(_LIMIT_FIELDS)}, got {sorted(set(raw) - {'version'})}")
+        values: dict[str, Any] = {}
+        for section, names in _LIMIT_FIELDS.items():
+            block = raw[section]
+            if not isinstance(block, dict) or set(block) != set(names):
+                raise ValueError(f"{path}: {section} must have exactly {list(names)}, got {block!r}")
+            values.update(block)
+        return cls(**values)

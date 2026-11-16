@@ -17,8 +17,9 @@ from typing import Any, SupportsFloat
 
 import numpy as np
 
+from maxim_overdrive.world.checks import finite_vector
 from maxim_overdrive.world.grid import MaterialGrid
-from maxim_overdrive.world.scene import Box, Cylinder, Primitive, Scene, finite_vector
+from maxim_overdrive.world.scene import Box, Cylinder, Primitive, Scene
 
 
 @dataclass(frozen=True)

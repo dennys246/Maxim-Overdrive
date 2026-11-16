@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 
 from maxim_overdrive import Box, MaterialTable, RigProfile, Scene, World
+from maxim_overdrive.config import ActionLimits
 from maxim_overdrive.imagination.spec import Budget, SpecRejected, place
 from maxim_overdrive.sem_env import bridge
 from maxim_overdrive.world import damage, heat
@@ -161,11 +162,11 @@ def test_sensors_and_modulators_refuse_unknown_names(rig, materials):
     with pytest.raises(KeyError, match="no region 'door'"):
         bridge.RegionSensor(w, "door", "integrity")
     with pytest.raises(KeyError, match="no region 'door'"):
-        bridge.StructureModulator(w, "door")
+        bridge.StructureModulator(w, "door", limits=ActionLimits.load())
 
 
 def test_every_sensor_reports_its_schema_and_unit(rig, materials):
-    sensors, _ = bridge.region_parts(_world(rig, materials), "wall")
+    sensors, _ = bridge.region_parts(_world(rig, materials), "wall", limits=ActionLimits.load())
     assert sensors["integrity"].reading_schema == {"type": "float", "range": [0.0, 1.0]}
     assert sensors["breached"].reading_schema == {"type": "float", "range": [0.0, 1.0]}
     assert sensors["temperature_max"].reading_schema == {"type": "float", "range": [-273.0, 6000.0]}
@@ -180,7 +181,7 @@ def test_every_sensor_reports_its_schema_and_unit(rig, materials):
 
 def test_a_region_that_lost_all_its_cells_reads_nan_and_cannot_burn(rig, materials):
     w = _world(rig, materials)
-    sensors, mods = bridge.region_parts(w, "wall")
+    sensors, mods = bridge.region_parts(w, "wall", limits=ActionLimits.load())
     w.grid.regions["wall"][:] = False  # a later paint took every cell
     assert math.isnan(sensors["temperature_max"].value())
     res = mods["structure"].execute("ignite", {"power_w": 1000.0})
