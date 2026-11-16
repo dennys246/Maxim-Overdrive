@@ -12,7 +12,7 @@ import numpy as np
 
 from maxim_overdrive.config import MaterialTable, RigProfile
 from maxim_overdrive.world import damage, heat
-from maxim_overdrive.world.grid import MaterialGrid
+from maxim_overdrive.world.grid import Field, MaterialGrid
 from maxim_overdrive.world.scene import Scene
 
 
@@ -25,7 +25,7 @@ class HeatSource:
 
 def sphere_overlap(
     grid: MaterialGrid, center_m: tuple[float, float, float], radius_m: float, samples: int = 4
-) -> np.ndarray:
+) -> Field:
     """Fraction of each cell inside a sphere, estimated on a samples^3 sub-grid per cell.
 
     Weighting by overlap rather than by "centre inside" keeps a source's power density the same at every rig; with
@@ -60,7 +60,7 @@ class World:
         materials = materials or MaterialTable.load()
         return cls(scene.build(rig, materials), rig, turn_seconds)
 
-    def _power_field(self) -> np.ndarray | None:
+    def _power_field(self) -> Field | None:
         if not self.sources:
             return None
         power = np.zeros(self.grid.shape, dtype=np.float64)
@@ -83,7 +83,7 @@ class World:
             self.grid,
             seconds,
             min_substeps=self.rig.min_substeps_per_turn,
-            power_w=self._power_field(),
+            power=self._power_field,
             on_substep=damage.thermal_degrade,
         )
         self.turn += 1

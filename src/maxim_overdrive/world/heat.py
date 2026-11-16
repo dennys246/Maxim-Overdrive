@@ -18,12 +18,12 @@ from collections.abc import Callable
 
 import numpy as np
 
-from maxim_overdrive.world.grid import MaterialGrid
+from maxim_overdrive.world.grid import Field, MaterialGrid
 
 STABILITY_SAFETY = 0.9
 
 
-def _face_conductances(k: np.ndarray) -> list[tuple[int, np.ndarray]]:
+def _face_conductances(k: Field) -> list[tuple[int, Field]]:
     """Harmonic-mean conductivity on the interior faces along each axis."""
     out = []
     for axis in range(3):
@@ -53,7 +53,7 @@ def stable_dt(grid: MaterialGrid) -> float:
     return float(STABILITY_SAFETY * limit.min())
 
 
-def substep(grid: MaterialGrid, dt: float, power_w: np.ndarray | None = None) -> None:
+def substep(grid: MaterialGrid, dt: float, power_w: Field | None = None) -> None:
     """Advance temperature by one explicit step of ``dt`` seconds. ``power_w`` is heat added per cell, in watts."""
     k = grid.materials.conductivity[grid.material]
     rho_cp = grid.materials.rho_cp[grid.material]
@@ -77,14 +77,15 @@ def step(
     grid: MaterialGrid,
     seconds: float,
     min_substeps: int = 1,
-    power_w: np.ndarray | None = None,
+    power: Callable[[], Field | None] | None = None,
     on_substep: Callable[[MaterialGrid, float], int] | None = None,
 ) -> int:
     """Advance heat by ``seconds``. Returns the number of substeps taken.
 
-    ``on_substep(grid, dt)`` runs after each substep (damage uses it to weaken hot cells) and returns how many cells
-    it destroyed. Destroyed cells change the stability bound, so it is recomputed only after a substep that
-    destroyed something.
+    ``power()`` gives the source power per cell in watts (or None). ``on_substep(grid, dt)`` runs after each substep
+    (damage uses it to weaken hot cells) and returns how many cells it destroyed. Destroyed cells change both the
+    stability bound and where sources deposit (a fire heats solids, and a destroyed cell is air), so both are
+    recomputed after a substep that destroyed something, and only then.
     """
     if seconds <= 0:
         return 0
@@ -93,9 +94,11 @@ def step(
     taken = 0
     elapsed = 0.0
     changed = False
+    power_w = power() if power is not None else None
     while elapsed < seconds - 1e-12:
         if changed:
             dt = min(dt, stable_dt(grid))
+            power_w = power() if power is not None else None
         dt = min(dt, seconds - elapsed)
         substep(grid, dt, power_w)
         changed = bool(on_substep(grid, dt)) if on_substep is not None else False

@@ -1,7 +1,11 @@
 """The resolution rule on a full turn loop: a fire on a crate, and on a concrete wall, at every rig."""
 
-from maxim_overdrive import Box, Scene, World
+import numpy as np
+import pytest
+
+from maxim_overdrive import Box, RigProfile, Scene, World
 from maxim_overdrive.sem_env.bridge import region_parts
+from tests.conftest import FAST_TIERS
 
 SCENE = Scene(
     (3.0, 3.0, 2.0),
@@ -40,3 +44,41 @@ def test_a_small_fire_changes_nothing_at_any_rig(rigs, materials):
         assert onset is None, rig.name
         assert crate > 0.99, rig.name
         assert wall > 0.99, rig.name
+
+
+# Wood's adiabatic flame temperature is about 2000 C: no fire burning on wood may heat any cell past it. Before
+# heat.step refreshed source power after destruction, this scenario peaked at 16,619 C (0.2 m) and 29,213 C (0.1 m).
+WOOD_FLAME_C = 2000.0
+
+
+def test_a_fierce_fire_never_heats_any_cell_past_the_flame_temperature(rigs, materials):
+    for rig in rigs:
+        w = World.from_scene(SCENE, rig, materials)
+        crate_s, crate_m = region_parts(w, "crate")
+        assert crate_m["structure"].execute("ignite", {"power_w": 500_000.0, "radius_m": 0.3}).success
+        peak = 0.0
+        for _ in range(30):
+            w.advance()
+            peak = max(peak, float(np.max(w.grid.temperature)))
+        assert crate_s["integrity"].value() < 0.5, rig.name  # it really burned
+        assert peak < WOOD_FLAME_C, (rig.name, peak)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "Known gap (docs/architecture.md): fires don't consume fuel. Once no solid is left under a fire, "
+        "World._power_field deposits its power into air (207,350 C at 0.2 m by turn 50). Fix before the Phase 1 "
+        "crate scenario is gated; this gate then flips and must be removed."
+    ),
+)
+def test_a_fire_that_has_burned_its_fuel_stops_heating(materials):
+    for name in FAST_TIERS:
+        w = World.from_scene(SCENE, RigProfile.load(name), materials)
+        _, crate_m = region_parts(w, "crate")
+        assert crate_m["structure"].execute("ignite", {"power_w": 500_000.0, "radius_m": 0.3}).success
+        peak = 0.0
+        for _ in range(60):
+            w.advance()
+            peak = max(peak, float(np.max(w.grid.temperature)))
+        assert peak < WOOD_FLAME_C, (name, peak)

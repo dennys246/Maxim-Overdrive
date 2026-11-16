@@ -21,8 +21,10 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   2026-11-15; `docs/architecture.md`, "Transport").
 - The first tile authored in metres: the ripperdoc clinic and the alley outside it.
 - Save format v0: the world grid plus the scene spec. Agent homes join in Phase 4.
-- Fires that consume their fuel and lose heat, so a burning crate burns *away* instead of running to tens of
-  thousands of degrees (`docs/architecture.md`, Known gaps). Needed before the tile's crate scenario is gated.
+- Fires that go out when their fuel is gone, so a burnt-out crate's fire stops instead of heating air to millions of
+  degrees (`docs/architecture.md`, Known gaps; the red gate is
+  `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`). Needed before the tile's crate
+  scenario is gated.
 - **Exit:** walk into the alley, set a crate on fire, and watch it crack, glow and burn away. It must look the same,
   apart from detail, at the laptop and rig profiles.
 

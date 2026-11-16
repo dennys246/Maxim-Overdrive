@@ -12,8 +12,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 import numpy as np
+import numpy.typing as npt
 
 from maxim_overdrive.config import AIR_ID, MaterialTable, RigProfile
+
+# Array types for the grid's fields. Typing the element type (not bare np.ndarray) is what strict mypy needs on every
+# supported numpy: older stubs give ndarray no default type parameters.
+Mask = npt.NDArray[np.bool_]
+Field = npt.NDArray[np.float64]
 
 
 @dataclass
@@ -21,11 +27,11 @@ class MaterialGrid:
     dx: float
     shape: tuple[int, int, int]
     materials: MaterialTable
-    material: np.ndarray = field(repr=False)
-    original_material: np.ndarray = field(repr=False)
-    integrity: np.ndarray = field(repr=False)
-    temperature: np.ndarray = field(repr=False)
-    regions: dict[str, np.ndarray] = field(default_factory=dict, repr=False)
+    material: npt.NDArray[np.uint8] = field(repr=False)
+    original_material: npt.NDArray[np.uint8] = field(repr=False)
+    integrity: npt.NDArray[np.float32] = field(repr=False)
+    temperature: Field = field(repr=False)
+    regions: dict[str, Mask] = field(default_factory=dict, repr=False)
     time_s: float = 0.0
 
     @classmethod
@@ -64,11 +70,11 @@ class MaterialGrid:
     def extent_m(self) -> tuple[float, float, float]:
         return tuple(n * self.dx for n in self.shape)  # type: ignore[return-value]
 
-    def centers(self, axis: int) -> np.ndarray:
+    def centers(self, axis: int) -> Field:
         """Cell-centre coordinates along one axis, in metres."""
-        return (np.arange(self.shape[axis]) + 0.5) * self.dx
+        return (np.arange(self.shape[axis], dtype=np.float64) + 0.5) * self.dx
 
-    def mesh(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def mesh(self) -> tuple[Field, Field, Field]:
         """Broadcastable cell-centre coordinates (x[:, None, None], y[None, :, None], z[None, None, :])."""
         x = self.centers(0)[:, None, None]
         y = self.centers(1)[None, :, None]
@@ -84,7 +90,7 @@ class MaterialGrid:
 
     # -- writing ------------------------------------------------------------
 
-    def paint(self, mask: np.ndarray, material_name: str, region: str | None = None) -> None:
+    def paint(self, mask: Mask, material_name: str, region: str | None = None) -> None:
         """Fill the cells in ``mask`` with a material at full integrity; optionally name them as a region."""
         mid = self.materials[material_name].id
         self.material[mask] = mid
@@ -99,7 +105,7 @@ class MaterialGrid:
             if name != region:
                 np.logical_and(other, ~mask, out=other)
 
-    def destroy(self, mask: np.ndarray) -> int:
+    def destroy(self, mask: Mask) -> int:
         """Turn solid cells in ``mask`` to air. Returns how many cells were destroyed."""
         hit = mask & (self.material != AIR_ID)
         n = int(hit.sum())
@@ -111,10 +117,10 @@ class MaterialGrid:
     # -- reading ------------------------------------------------------------
 
     @property
-    def solid(self) -> np.ndarray:
-        solid: np.ndarray = self.material != AIR_ID
+    def solid(self) -> Mask:
+        solid: Mask = self.material != AIR_ID
         return solid
 
-    def volume_m3(self, mask: np.ndarray | None = None) -> float:
+    def volume_m3(self, mask: Mask | None = None) -> float:
         m = self.solid if mask is None else (mask & self.solid)
         return float(m.sum()) * self.cell_volume_m3

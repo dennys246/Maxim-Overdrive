@@ -53,13 +53,20 @@ How the rule is kept, so far:
   turns): a coarse cell degrades as one block. Onset agrees to within 5%.
 - No convection or radiation: air only conducts, so rooms heat too slowly and fires must sit on a material.
 - Destroying a cell removes its heat with it (the cell becomes air at the air's heat capacity).
-- **Fires don't consume fuel, and nothing radiates.** A fire is a constant-power source spread over the solid cells
-  it overlaps, so as a crate burns away the same power lands on fewer cells and their temperature runs away. Measured
-  on the 3×3×2 m crate scene, 500 kW at radius 0.3 m for 30 turns: peak crate temperature 16,619 °C at 0.2 m cells
-  and 29,213 °C at 0.1 m (crate integrity 0.34 and 0.37, 7 and 136 cells destroyed). The snapshot clamps
-  temperature at 6000 °C, so the client never sees the overshoot, but heat conducted onward from those cells is
-  real. This blocks the Phase 1 exit test's "burn away" and has to be fixed (fuel consumption, and a loss term)
-  before the tile's crate scenario is gated.
+- **Fires don't consume fuel: once nothing solid is left under a fire, it heats air.** `World._power_field` spreads a
+  fire's power over the solid cells its sphere overlaps, and falls back to the air cells when there are none. Air has
+  about 1/1000 of wood's ρc, so the runaway is enormous. On the 3×3×2 m crate scene at 500 kW, radius 0.3 m: the
+  crate is gone by turn 50 at 0.2 m cells, and the peak is 207,350 °C at turn 50 and 2.67 million °C at turn 200;
+  at 0.1 m it is 361,913 °C at turn 50 and 2.67 million °C at turn 200. The snapshot clamps temperature at 6000 °C,
+  so the client never sees the overshoot, but the heat is real and conducts onward. The fix is a fire that goes out
+  when it has nothing to burn. It blocks the exit test's "burn away", so it lands before the tile's crate scenario
+  is gated. Red gate: `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`
+  (`xfail(strict=True)`).
+  *Fixed 2026-11-15, the other half:* `heat.step` used to deposit a turn's power field into cells destroyed mid-turn
+  (now air), which peaked the same scene at 16,619 °C by turn 30. Power is now recomputed after any substep that
+  destroys cells. Peaks while the crate still burns are 538 °C at 0.2 m and 613 °C at 0.1 m, and crate damage is
+  unchanged (integrity 0.32 and 0.36). Guards: `tests/test_heat.py::test_a_cell_destroyed_mid_turn_gets_no_more_source_power`
+  and `tests/test_cross_tier.py::test_a_fierce_fire_never_heats_any_cell_past_the_flame_temperature`.
 - **A source smaller than a cell heats one cell.** `World._power_field` puts all of a sub-cell source's power into
   the cell it sits in, so total power is right but its density is P/dx³: 64× higher at 0.05 m cells than at 0.2 m.
   Peak temperature near a spark therefore depends on the rig. A minimum source radius of about one coarse cell
@@ -101,7 +108,9 @@ one of the two that a web export or `wss://` remote play could use.
 - *Any web page can open `ws://localhost`.* Browsers allow cross-origin WebSockets, which a raw socket would not.
   The server binds to `127.0.0.1` only, refuses any handshake that carries an `Origin` header (browsers always send
   one; Godot's native `WebSocketPeer` sends none unless told to, to be confirmed in step 2), and requires a
-  per-launch token. Each refusal has a test (`docs/standards_backlog.md` B14).
+  per-launch token. Each refusal has a test (`docs/standards_backlog.md` B14). A web export would send its page's
+  `Origin`, so supporting one would mean an Origin allow-list, which is a protocol change made deliberately, not a
+  relaxed check.
 - *Head-of-line blocking.* WebSocket runs over TCP, so a large snapshot delays any small message queued behind it.
   That is harmless for a turn-based game. Continuous streaming would need delta snapshots or chunking.
 - *Whole messages are buffered.* Both ends must raise their default caps (Godot's `inbound_buffer_size` is 64 KiB;
