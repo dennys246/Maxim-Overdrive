@@ -44,7 +44,7 @@ step "ruff format"
 "$PY" -m ruff format --check src tests scripts
 step "mypy (strict on src and scripts; test bodies checked)"
 "$PY" -m mypy
-step "standards lint (TEMPORARY markers, pragmas, guard citations, coverage ratchet against $BASE)"
+step "standards lint (TEMPORARY markers, pragmas, guard citations, size limits, coverage and size ratchets against $BASE)"
 "$PY" scripts/lint_standards.py --base "$BASE"
 
 step "tests, every tier, with branch coverage (floor in pyproject.toml)"

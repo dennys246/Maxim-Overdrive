@@ -364,6 +364,7 @@ def test_a_class_with_too_many_public_methods_is_found_and_private_ones_do_not_c
         "def f():  # noqa",  # a blanket noqa silences every rule, these included
         "# ruff: noqa",
         "# ruff: noqa: C901",
+        "# flake8: noqa",  # ruff honours it as a file-wide exemption
     ],
 )
 def test_a_noqa_may_not_silence_the_complexity_rules(line):
@@ -422,3 +423,50 @@ def test_main_refuses_a_loosened_limit(repo, capsys):
     (repo / "pyproject.toml").write_text(_pyproject(100, limits=LIMITS.replace("40", "80")))
     assert lint.main(["--base", "HEAD"], root=repo) == 1
     assert "function_lines rose from 40 to 80" in capsys.readouterr().err
+
+
+def test_comments_and_blank_lines_do_not_count_towards_a_body():
+    code = (
+        "def f():\n    # why the first step\n    a = 1\n\n"
+        "    # why the second\n    b = 2\n    c = 3\n    return a + b + c\n"
+    )
+    assert lint.check_sizes({"src/a.py": code}, SMALL) == []
+    assert lint.check_sizes({"src/a.py": code.replace("    return", "    d = 4\n    return")}, SMALL) != []
+
+
+def test_a_body_that_is_only_a_docstring_counts_as_empty():
+    code = 'def f():\n    """One\n    two\n    three\n    four\n    five."""\n'
+    assert lint.check_sizes({"src/a.py": code}, SMALL) == []
+
+
+def test_async_functions_and_methods_are_checked():
+    body = "".join(f"    x{i} = {i}\n" for i in range(5))
+    problems = lint.check_sizes({"src/a.py": "async def f():\n" + body}, SMALL)
+    assert problems == ["src/a.py:1: f has a 5-line body (limit 4); split it by responsibility"]
+    methods = "".join(f"    async def m{i}(self): pass\n" for i in range(3))
+    assert any("3 public methods" in p for p in lint.check_sizes({"src/a.py": "class C:\n" + methods}, SMALL))
+
+
+@pytest.mark.parametrize(
+    ("base", "base_text", "expected"),
+    [
+        (None, None, []),
+        ("main", None, ["coverage and size ratchets have nothing to compare"]),
+        ("main", "[tool.coverage.report]\n", ["no coverage floor", "no valid size limits"]),
+        ("main", _pyproject(100, limits=""), ["no valid size limits"]),
+        ("main", _pyproject(100), []),
+    ],
+)
+def test_a_ratchet_with_nothing_to_compare_says_so(base, base_text, expected):
+    notes = lint.ratchet_notes(base, base_text)
+    assert len(notes) == len(expected)
+    assert all(e in n for e, n in zip(expected, notes, strict=True))
+
+
+def test_main_prints_the_ratchet_notes(repo, capsys):
+    _git(repo, "checkout", "-q", "--orphan", "bare")
+    _git(repo, "rm", "-q", "-r", "--cached", "pyproject.toml")
+    _commit(repo, "a base with no pyproject")
+    _git(repo, "add", "-A")
+    assert lint.main(["--base", "bare"], root=repo) == 0
+    assert "bare has no pyproject.toml" in capsys.readouterr().out

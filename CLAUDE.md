@@ -182,14 +182,19 @@ only review holds.
   that quietly returns a fallback is a swallow too.
   Guard: `tests/test_tooling_config.py::test_the_no_silent_swallow_rules_are_selected_and_not_ignored`, B13
 - **Separation of concerns; no god functions.** Every module, class and function has one job and one reason to
-  change. A function either decides or does; orchestration reads as a short list of named steps, and the steps live
-  where their concern lives. Packages import only downward through their layers. Hard limits in `src/` and
-  `scripts/`: cyclomatic complexity 10, a 40-line function body, a 500-line module and 12 public methods per class
-  (`[tool.maxim_overdrive.size_limits]`), on top of ruff's caps on branches, returns and statements. A limit is a
-  tripwire, not a target: code that reaches one is split along a responsibility, never cut at the line count, and
-  never silenced with a `noqa`. The limits only tighten. Guard: `scripts/lint_standards.py::check_sizes`,
-  `scripts/lint_standards.py::check_size_ratchet`,
-  `tests/test_tooling_config.py::test_the_complexity_rules_are_selected_and_not_relaxed`, B19
+  change. A function either decides or does; orchestration reads as a short list of named steps, and each step lives
+  where its concern lives. Once the boundaries design lands, packages import only downward through its layers. No
+  check can see a mixed concern, so review holds this and the size tripwires below only catch its symptoms.
+  Guard: `docs/code_review.md` (the Architecture lens asks it of every diff), B19
+- **Size tripwires.** Hard limits in `src/` and `scripts/`: a 40-line function body (code lines: the docstring,
+  comments and blank lines don't count), a 500-line module and 12 public methods per class, properties included
+  (`[tool.maxim_overdrive.size_limits]`). Ruff caps cyclomatic complexity at 10, plus branches, returns and
+  statements, in `tests/` too (tests waive only the statement count). Code that reaches a limit is split along a
+  responsibility, never cut at the line count, and never silenced with a `noqa` or a ruff config. The limits only
+  tighten; the ratchet compares with the base branch, and until the base carries the table the lint says it has
+  nothing to compare. Guard: `scripts/lint_standards.py::check_sizes`, `scripts/lint_standards.py::check_size_ratchet`,
+  `tests/test_tooling_config.py::test_the_complexity_rules_are_selected_and_not_relaxed`,
+  `tests/test_tooling_config.py::test_no_nested_ruff_config_can_override_the_root_one`
 - **Push invariants into types.** A collaborator that must be passed is a required keyword-only parameter, so
   forgetting it is a `TypeError`, not a silent no-op. Prefer frozen dataclasses for anything that crosses a wire or
   is persisted. Guard: `docs/code_review.md` (Architecture lens), B1

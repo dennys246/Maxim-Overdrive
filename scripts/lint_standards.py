@@ -45,9 +45,10 @@ GUARD = re.compile(r"Guard:\s*(.+)$")
 PATH_REF = re.compile(r"`([^`]+)`")
 BACKLOG_REF = re.compile(r"\bB(\d+)\b")
 BACKLOG_ROW = re.compile(r"^\|\s*B(\d+)\s*\|")
-# A noqa that silences a complexity rule, a blanket noqa (which silences every rule) or a file-wide ruff: noqa.
+# A noqa that silences a complexity rule, a blanket noqa (which silences every rule), or a file-wide exemption in
+# ruff's or flake8's spelling (ruff honours both). The scan is by line, so a string that spells one is flagged too.
 COMPLEXITY_NOQA = re.compile(
-    r"#\s*noqa:[^#\n]*\b(?:C90\d?|PLR091[1-5])\b|#\s*noqa(?!\s*:)|#\s*ruff\s*:\s*noqa", re.IGNORECASE
+    r"#\s*noqa:[^#\n]*\b(?:C90\d?|PLR091[1-5])\b|#\s*noqa(?!\s*:)|#\s*(?:ruff|flake8)\s*:\s*noqa", re.IGNORECASE
 )
 SIZE_SCOPE = ("src/", "scripts/")
 COMMENT_PREFIX = {".py": "#", ".toml": "#", ".sh": "#", ".yml": "#", ".yaml": "#", ".gitignore": "#", ".gd": "#"}
@@ -146,22 +147,43 @@ def check_size_ratchet(current: SizeLimits, base: str | None) -> list[str]:
     ]
 
 
-def _body_lines(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
+def ratchet_notes(base: str | None, base_text: str | None) -> list[str]:
+    """What the ratchets could not compare, said aloud: a base with no pyproject.toml, no coverage floor or no size
+    limits leaves that ratchet with nothing to hold, which must show rather than pass silently."""
+    if base is None:
+        return []
+    if base_text is None:
+        return [f"note: {base} has no pyproject.toml, so the coverage and size ratchets have nothing to compare yet"]
+    notes = []
+    if fail_under(base_text) is None:
+        notes.append(f"note: {base} has no coverage floor, so the coverage ratchet has nothing to compare yet")
+    if size_limits(base_text)[0] is None:
+        notes.append(f"note: {base} has no valid size limits, so the size ratchet has nothing to compare yet")
+    return notes
+
+
+def _body_lines(fn: ast.FunctionDef | ast.AsyncFunctionDef, lines: list[str]) -> int:
+    """Lines of code in the body: the docstring, blank lines and comment-only lines don't count, so the limit never
+    pushes anyone to delete an explanation."""
     first = fn.body[0]
     docstring = (
         isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str)
     )
-    body = fn.body[1:] if docstring and len(fn.body) > 1 else fn.body
+    body = fn.body[1:] if docstring else fn.body
+    if not body:
+        return 0
     end = fn.end_lineno if fn.end_lineno is not None else body[-1].lineno
-    return end - body[0].lineno + 1
+    return sum(1 for ln in lines[body[0].lineno - 1 : end] if ln.strip() and not ln.lstrip().startswith("#"))
 
 
-def _tree_problems(rel: str, tree: ast.Module, limits: SizeLimits) -> list[str]:
+def _tree_problems(rel: str, tree: ast.Module, lines: list[str], limits: SizeLimits) -> list[str]:
+    """Function bodies and public methods. A class's public methods are the ``def``s in its own body, properties and
+    each ``@overload`` stub included: they are all surface a caller can reach."""
     problems = []
     for node in ast.walk(tree):
         if (
             isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
-            and (n := _body_lines(node)) > limits.function_lines
+            and (n := _body_lines(node, lines)) > limits.function_lines
         ):
             problems.append(
                 f"{rel}:{node.lineno}: {node.name} has a {n}-line body (limit {limits.function_lines}); "
@@ -200,7 +222,7 @@ def check_sizes(files: dict[str, str], limits: SizeLimits) -> list[str]:
         except SyntaxError as exc:  # reported as a finding: an unparseable file must not pass the size check unread
             problems.append(f"{rel}:{exc.lineno}: does not parse, so its sizes can't be checked: {exc.msg}")
             continue
-        problems += _tree_problems(rel, tree, limits)
+        problems += _tree_problems(rel, tree, lines, limits)
     return problems
 
 
@@ -331,7 +353,7 @@ def base_pyproject(root: Path, base: str | None) -> tuple[str | None, list[str]]
     verify = ["git", "rev-parse", "--verify", "-q", f"{base}^{{commit}}"]
     known = subprocess.run(verify, cwd=root, capture_output=True, check=False)
     if known.returncode != 0:
-        return None, [f"--base {base} is not a commit in this repository, so the coverage ratchet can't run"]
+        return None, [f"--base {base} is not a commit in this repository, so the coverage and size ratchets can't run"]
     show = ["git", "show", f"{base}:pyproject.toml"]
     out = subprocess.run(show, cwd=root, capture_output=True, text=True, check=False)
     return (out.stdout if out.returncode == 0 else None), []
@@ -339,7 +361,7 @@ def base_pyproject(root: Path, base: str | None) -> tuple[str | None, list[str]]
 
 def main(argv: list[str] | None = None, root: Path = ROOT) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--base", help="git ref whose coverage floor this branch may not go below")
+    parser.add_argument("--base", help="git ref whose coverage floor and size limits this branch may not loosen")
     args = parser.parse_args(argv)
 
     backlog_path = root / "docs/standards_backlog.md"
@@ -359,6 +381,8 @@ def main(argv: list[str] | None = None, root: Path = ROOT) -> int:
         problems += check_size_ratchet(limits, base_text)
     for p in problems:
         print(p, file=sys.stderr)
+    for n in ratchet_notes(args.base, base_text):
+        print(f"lint_standards: {n}")
     verdict = "FAIL" if problems else "PASS"
     print(
         f"lint_standards: {verdict} ({len(problems)} finding(s)); rules enforced by a check: {checked}, "
