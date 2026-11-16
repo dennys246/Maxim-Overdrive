@@ -128,9 +128,13 @@ only review holds.
 
 - **Every branch that changes code gets a pre-push review round:** parallel independent readers, always Executor,
   Architecture and Wire integrity, plus each situational lens the diff triggers (Physics and resolution, Trust
-  boundary, Performance, Client and rendering). Findings are BLOCKER, SHOULD-FIX or NIT with a `file::symbol` and a
-  failure scenario. They are folded into the same branch before hand-off, with delta rounds after code folds. The
-  hand-off note carries the round summary. Charter: `docs/code_review.md`. Guard: B1
+  boundary, Performance, Client and rendering, Bio-faithful integration, Determinism and replay, Concurrency and
+  lanes). Findings are BLOCKER, SHOULD-FIX or NIT with a `file::symbol` and a failure scenario. They are folded into
+  the same branch before hand-off, with delta rounds after code folds. The hand-off note carries the round summary.
+  Charter: `docs/code_review.md`. Guard: B1
+- **A design that changes the architecture is reviewed before code,** on its design document, and Bio-faithful
+  integration is always one of its lenses. Each lens's findings are kept in `docs/design/reviews/`.
+  Guard: `docs/code_review.md` ("Design reviews"), B1
 - **`scripts/prepush.sh` must print `prepush: PASS <sha>` for the exact commit handed over.** It refuses a dirty
   tree (`ALLOW_DIRTY=1` checks work in progress but says the result doesn't count). Rerun it after every fold.
   Guard: `scripts/prepush.sh::HEAD_SHA`, B11
@@ -188,6 +192,13 @@ only review holds.
 - **Keep Maxim untouched from here.** Anything that needs a Maxim change goes under Phase 3 in `docs/roadmap.md` and
   follows Maxim's own process (pre-registration, four-lens design review, ledger). Game runs never go on Maxim's
   results ledger. Guard: `docs/roadmap.md`, B1
+- **Push back on Maxim where the game shows it's wrong.** Guiding Maxim through a real application is a pillar goal
+  of this project. When the game's evidence contradicts a Maxim plan, decision, default or assumption (a clock, a
+  deferred trigger, a recorded rationale), propose the change in Maxim. Name the decision you're arguing against,
+  bring the evidence from here (numbers, a failing scenario, a review finding), and go through Maxim's own process.
+  Never work around it in this repo, and never stay quiet because the decision was recorded. Each proposal is an
+  item under Phase 3 in `docs/roadmap.md`, with its draft in `docs/maxim_upstream/` when it needs one.
+  Guard: `docs/code_review.md` (the Bio-faithful integration lens asks it), B15
 - **Engine choices get a one-line why** in the code or the commit (scene tree, node types, shaders, GDScript vs C#),
   for a team learning Godot. Guard: B1
 

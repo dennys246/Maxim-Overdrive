@@ -77,6 +77,19 @@ Add each lens whose trigger the diff hits. More readers are cheap next to a defe
 | **Trust boundary** | the protocol, intent handling, `imagination.spec`, any file or YAML loader, anything that parses input | Can malformed, hostile or oversized input crash the server, change state partially, or reach the cells unvalidated? Is every rejection path tested? Is the localhost, Origin and token check intact? |
 | **Performance** | hot loops, snapshot encoding, the turn loop, shaders, texture uploads | What does it cost at the max profile (about 5×10⁶ cells)? Is anything O(cells) done per message that could be done per turn? Does it stay inside the budgets in `docs/standards_backlog.md` B5? |
 | **Client and rendering** | `client/` | Does the client only draw and send intents, computing nothing that feeds back into the world? Is GDScript typed? Do visuals come from the snapshot channels rather than art? Does it read the same at both profiles apart from detail? Is state shown by more than colour? |
+| **Bio-faithful integration** | anything an NPC senses, acts through, or keeps time by: `sem_env/`, percepts built from world state, agent intents, the world clock and day, the thinking and substrate lanes, any call into Maxim; and every design review | Does each Maxim mechanism get to do its **real job**, not a caricature of it? (Maxim's own question, from its design-review charter.) Does the world produce every signal an NPC uses through play (a percept from cells, light or sound), or does the game hand the NPC a number it could never sense? Are Maxim's systems driven the way their briefs and `Bio-mapping:` tags say they work (the SCN entrained by time cues, a reflex under one-way suppression from deliberation, forgetting on experience time)? Is every divergence named, ideally as Maxim's EARN, ANALOG or OPEN intent (`docs/plans/bio_faithful_roadmap.md` in Maxim)? Does anything need a Maxim change, and is it listed under Phase 3 instead of patched around here? Does the game's evidence show that a Maxim plan, decision or default is wrong? If so, the finding names it and proposes the pushback (CLAUDE.md, "Push back on Maxim"). |
+| **Determinism and replay** | the tick loop, intent ordering, the intent log, anything with threads, processes or queues, anything that could read a clock | Do the same scene, rig and intent log give bit-identical state, whatever the thread scheduling, the dial, the wall-clock latency or the hash seed? Can any wall-clock value, arrival order or non-deterministic result reach `World` without first being recorded in the log? Does a replay ever call something live (a model, a clock)? |
+| **Concurrency and lanes** | threads, processes, channels, locks, the host's lifecycle | Does only the simulation lane touch `World`? Is every message crossing a lane frozen? Can a lane deadlock, starve or grow a queue without bound? Does every start have a stop on every exit path, including a crash in one lane? Is each lane metered against its own budget? |
+
+## Design reviews
+
+A design that changes the architecture (a new subsystem, a new contract, a reversed decision) is reviewed **before
+code**, on the design document. The readers are Executor (are the design's claims about the existing code and its
+numbers true?), Architecture and Wire integrity, plus each situational lens the design will trigger once it is
+built, **always including Bio-faithful integration**. Findings use the same severities. A BLOCKER stops the build
+until it is folded or overruled by the owner with a recorded reason. Each lens's findings are kept verbatim in
+`docs/design/reviews/<design>/<lens>.md`, because they explain why the design is what it is. The author then folds
+them into the design and presents one plan to the owner before building.
 
 ## When the reviewers are agents
 
