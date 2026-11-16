@@ -86,8 +86,11 @@ class MaterialTable:
             raise ValueError("material ids must be unique")
         if AIR_ID not in ids or materials.get("air") is None or materials["air"].id != AIR_ID:
             raise ValueError("the table must define 'air' with id 0")
-        if max(ids) > 255:
-            raise ValueError("material ids must fit in uint8")
+        if min(ids) < 0 or max(ids) > 255:  # a negative id would index the property arrays from the end
+            raise ValueError("material ids must fit in uint8 (0 to 255)")
+        for m in materials.values():
+            if len(m.color_rgb) != 3 or not all(0 <= c <= 255 for c in m.color_rgb):
+                raise ValueError(f"{m.name}.color_rgb must be three values from 0 to 255, got {m.color_rgb!r}")
         self.by_name = dict(materials)
         self.by_id = {m.id: m for m in materials.values()}
         n = max(ids) + 1
@@ -146,14 +149,16 @@ class _StrictLoader(yaml.SafeLoader):
 
 
 def _no_duplicate_keys(loader: _StrictLoader, node: yaml.MappingNode) -> dict[Any, Any]:
-    loader.flatten_mapping(node)  # resolve YAML merge keys (<<:) first, as SafeLoader does
-    keys = [loader.construct_object(k, deep=True) for k, _ in node.value]
-    for key in keys:
+    # Repeats are judged among the keys written in this mapping; a key that overrides one merged in from <<: is the
+    # point of a merge, not a repeat.
+    written = [loader.construct_object(k, deep=True) for k, _ in node.value if k.tag != "tag:yaml.org,2002:merge"]
+    for key in written:
         if not isinstance(key, (str, int, float, bool)) and key is not None:
             raise ValueError(f"a mapping key must be a plain value, got {type(key).__name__}")
-    repeated = sorted({str(k) for k in keys if keys.count(k) > 1})
+    repeated = sorted({str(k) for k in written if written.count(k) > 1})
     if repeated:
         raise ValueError(f"repeated key(s) {repeated} in a mapping")
+    loader.flatten_mapping(node)  # resolve merge keys (<<:) as SafeLoader does; the written keys come last and win
     return dict(loader.construct_pairs(node, deep=True))
 
 
@@ -166,10 +171,9 @@ class ActionLimits:
 
     These are physics-safety ceilings, not what a body can do: an NPC's capability will come from its body and its
     energy (Phase 4 and 5). They are world config, not server config, because the simulation enforces them and a
-    replay needs the same values. The minimum radius and width are at least the coarsest rig's cell. Within the
-    limits, a strike has the same outcome class at every rig (none, small or crater, from its closed-form radius),
-    and a fire the same outcome for its first 30 turns; past that the fuel gap makes fires diverge
-    (``tests/test_act_validation.py`` holds all three, the last as a strict red gate).
+    replay needs the same values. The minimum radius and width are at least the coarsest rig's cell, so no action
+    lands in a single cell at one rig and spreads at another. They don't make fires or near-threshold strikes agree
+    across rigs: both diverge today (docs/architecture.md, Known gaps, each held by a strict red gate).
     """
 
     max_power_w: float

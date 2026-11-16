@@ -16,7 +16,7 @@ from typing import Literal
 
 from maxim_overdrive.checks import finite_real, finite_vector
 from maxim_overdrive.config import MaterialTable, RigProfile
-from maxim_overdrive.world.grid import Bounds, Mask, MaterialGrid
+from maxim_overdrive.world.grid import Bounds, Footprint, Mask, MaterialGrid, Point
 
 
 def _check_labels(material: object, name: object) -> None:
@@ -56,6 +56,11 @@ class Box:
         (x0, y0, z0), (x1, y1, z1) = self.min_m, self.max_m
         return (x0, y0, z0), (x1, y1, z1)
 
+    @property
+    def centroid_m(self) -> Point:
+        (x0, y0, z0), (x1, y1, z1) = self.min_m, self.max_m
+        return ((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
+
 
 @dataclass(frozen=True)
 class Cylinder:
@@ -94,12 +99,30 @@ class Cylinder:
         (cx, cy), r, (z0, z1) = self.center_xy_m, self.radius_m, self.z_m
         return (cx - r, cy - r, z0), (cx + r, cy + r, z1)
 
+    @property
+    def centroid_m(self) -> Point:
+        (cx, cy), (z0, z1) = self.center_xy_m, self.z_m
+        return (cx, cy, (z0 + z1) / 2)
+
 
 Primitive = Box | Cylinder
 
 
-# No ambient is hotter than a flame (wood's is about 2000 C); a scene's air at 1e300 C would overflow the first step.
+def footprint_of(primitives: Sequence[Primitive]) -> Footprint:
+    """The authored footprint of one or more primitives: their joint bounding box and volume-weighted centroid.
+
+    Overlaps between primitives are counted twice in the centroid's weights; authored objects rarely overlap."""
+    lo = tuple(min(p.bounds_m[0][i] for p in primitives) for i in range(3))
+    hi = tuple(max(p.bounds_m[1][i] for p in primitives) for i in range(3))
+    total = sum(p.volume_m3 for p in primitives)
+    c = tuple(sum(p.volume_m3 * p.centroid_m[i] for p in primitives) / total for i in range(3))
+    return Footprint(((lo[0], lo[1], lo[2]), (hi[0], hi[1], hi[2])), (c[0], c[1], c[2]))
+
+
+# Validity bounds, not tunables: no ambient is hotter than a flame (wood's is about 2000 C), and a scene's air at
+# 1e300 C would overflow the first step. A tile is tens of metres; past a kilometre the grid can't be allocated.
 MAX_AMBIENT_C = 3000.0
+MAX_EXTENT_M = 1000.0
 
 
 @dataclass(frozen=True)
@@ -110,8 +133,10 @@ class Scene:
 
     def __post_init__(self) -> None:
         x, y, z = finite_vector(self.extent_m, 3, "a scene's extent_m")
-        if min(x, y, z) <= 0:
-            raise ValueError(f"a scene's extent_m must be positive on every axis, got {self.extent_m!r}")
+        if not (min(x, y, z) > 0 and max(x, y, z) <= MAX_EXTENT_M):
+            raise ValueError(
+                f"a scene's extent_m must be between 0 and {MAX_EXTENT_M:g} m on every axis, got {self.extent_m!r}"
+            )
         ambient = finite_real(self.ambient_c, "a scene's ambient_c")
         if not -273.15 < ambient <= MAX_AMBIENT_C:
             limit = f"above absolute zero and at most {MAX_AMBIENT_C:g} C"
@@ -125,7 +150,7 @@ class Scene:
                 raise ValueError(f"unknown material {p.material!r} in primitive {p.name or p.kind}")
         grid = MaterialGrid.empty(self.extent_m, rig, materials, ambient_c=self.ambient_c)
         for p in self.primitives:
-            grid.paint(p.mask(grid), p.material, region=p.name, bounds_m=p.bounds_m if p.name else None)
+            grid.paint(p.mask(grid), p.material, region=p.name, footprint=footprint_of([p]) if p.name else None)
         return grid
 
     @classmethod

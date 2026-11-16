@@ -4,17 +4,17 @@
 # where each source or strike is made. Write numbers as plain decimals: YAML 1.1 reads 1.0e7 as a string.
 version: 0
 ignite:
-  # TEMPORARY(phase1): held to the envelope where a fire's outcome is verified the same at every rig for its first
-  # 30 turns (radius at least 0.3 m, power at most 500 kW; tests/test_act_validation.py and docs/architecture.md,
-  # Known gaps). No envelope holds longer: a fire left burning past about 30 turns burns out its few cells, its power
-  # falls back into air (the fuel gap), and the rigs diverge (a strict red gate at 60 turns). The real fix is the
-  # Phase 1 fuel model: a fire draws its power from what it burns and goes out when that is gone.
+  # TEMPORARY(phase1): these ceilings keep fires at the powers and sizes the current physics has been measured at
+  # (at most 500 kW, a radius of at least 0.3 m). They don't make fires agree across rigs: fires diverge mid-burn,
+  # and past about 30 turns the fuel gap heats air (docs/architecture.md, Known gaps; a strict red gate). The real
+  # fix is the Phase 1 fuel model: burning as a rate driven by heat content, drawing on fuel and oxygen, so a fire
+  # goes out when either is gone. The ceilings are then set from that model.
   max_power_w: 500000.0
   min_radius_m: 0.3
   max_radius_m: 3.0
   default_radius_m: 0.3
 strike:
   max_energy_j: 1000000000.0  # 1 GJ: a large explosion
-  min_sigma_m: 0.2            # at least the coarsest rig's cell; craters narrower than two cells are only "small"
+  min_sigma_m: 0.2            # at least the coarsest rig's cell; near-threshold craters still differ (Known gaps)
   max_sigma_m: 2.0
   default_sigma_m: 0.2

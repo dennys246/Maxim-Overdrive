@@ -65,7 +65,19 @@ They are the prerequisites for Exp 64 and for NPCs that remember.
     `tool.run` as having run. Evidence: the 33 probes of Overdrive's PR 1 (`tests/test_act_validation.py`) and its
     Bio-faithful review. It is wider than malformed arguments: `Tool.run` calls `_validate_input` inside its own
     `except Exception`, so even the required-key check is booked as a NEGATIVE, and so is any exception a modulator
-    raises, which turns a physics bug that fails loudly in the game into a false lesson for the NPC.
+    raises, which turns a physics bug that fails loudly in the game into a false lesson for the NPC. One caution
+    for the proposal: Maxim's own orchestrator-actor tool injects `target`, which no affordance schema declares, so
+    "refuse undeclared keys" must exempt the keys Maxim's executor adds itself.
+11. Tell the two kinds of affordance apart in SEM: things an entity does to a target, and things done to the entity.
+    Maxim's `OrchestratorActorTool` assumes the first (`actor(entity="crate", affordance="strike", target=...)`
+    means the crate strikes its target, by default the player). Overdrive's structure affordances are the second
+    (striking the crate), so its modulator accepts a target only when it names the region itself, and the actor
+    tool's default call is refused. A call aimed at the wall through the crate's tool is then booked as a NEGATIVE on
+    `crate_strike`, which teaches that striking the crate fails, when the NPC picked the wrong tool. A modulator
+    can't flag its own refusal without breaking #1315's rule, and Maxim drops a failed result's metadata, so the fix
+    belongs in SEM: a declared direction per affordance, and an executor-made "wrong target" refusal kind booked
+    like a cognitive error. **Argues against:** the actor tool's single "acts on target" model. Evidence: Overdrive
+    PR 1's review (`tests/test_act_validation.py::test_maxims_actor_tool_must_name_the_region_as_its_own_target`).
 
 - **Exit:** Exp 64a's prerequisites are met and its pre-registration is frozen. The draft is in
   `docs/maxim_upstream/` and moves to Maxim's `docs/experiments/`.

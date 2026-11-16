@@ -24,6 +24,24 @@ Field = npt.NDArray[np.float64]
 # cells depend on the rig and the authored bounds don't, so anything that asks "is this point on the region?" gets
 # the same answer at every rig.
 Bounds = tuple[tuple[float, float, float], tuple[float, float, float]]
+Point = tuple[float, float, float]
+
+
+@dataclass(frozen=True)
+class Footprint:
+    """A region's authored shape in metres: its bounding box and its volume-weighted centroid."""
+
+    bounds_m: Bounds
+    centroid_m: Point
+
+
+@dataclass(frozen=True)
+class Region:
+    """A named part of the world. ``cells`` move with the rig (and lose cells to later paints); ``footprint``, the
+    authored shape, doesn't, so "where is it" and "is this point on it" get the same answer at every rig."""
+
+    cells: Mask
+    footprint: Footprint
 
 
 @dataclass
@@ -35,8 +53,7 @@ class MaterialGrid:
     original_material: npt.NDArray[np.uint8] = field(repr=False)
     integrity: npt.NDArray[np.float32] = field(repr=False)
     temperature: Field = field(repr=False)
-    regions: dict[str, Mask] = field(default_factory=dict, repr=False)
-    region_bounds_m: dict[str, Bounds] = field(default_factory=dict, repr=False)
+    regions: dict[str, Region] = field(default_factory=dict, repr=False)
     time_s: float = 0.0
 
     @classmethod
@@ -96,33 +113,32 @@ class MaterialGrid:
     # -- writing ------------------------------------------------------------
 
     def paint(
-        self, mask: Mask, material_name: str, region: str | None = None, *, bounds_m: Bounds | None = None
+        self, mask: Mask, material_name: str, region: str | None = None, *, footprint: Footprint | None = None
     ) -> None:
         """Fill the cells in ``mask`` with a material at full integrity; optionally name them as a region.
 
-        A named region needs ``bounds_m``, its authored extent in metres (see ``Bounds``).
+        A named region needs its ``footprint``, its authored shape in metres (see ``Region``).
         """
         if region is not None and region in self.regions:
             raise ValueError(f"region {region!r} already exists")
-        if region is not None and bounds_m is None:
-            raise ValueError(f"region {region!r} needs its authored bounds in metres")
+        if region is not None and footprint is None:
+            raise ValueError(f"region {region!r} needs its authored footprint in metres")
         mid = self.materials[material_name].id
         self.material[mask] = mid
         self.original_material[mask] = mid
         self.integrity[mask] = 0.0 if mid == AIR_ID else 1.0
         # A later paint takes cells from any earlier region.
         for other in self.regions.values():
-            np.logical_and(other, ~mask, out=other)
+            np.logical_and(other.cells, ~mask, out=other.cells)
         if region is not None:
-            assert bounds_m is not None
-            self.name_region(region, mask, bounds_m)
+            assert footprint is not None
+            self.name_region(region, mask, footprint)
 
-    def name_region(self, region: str, mask: Mask, bounds_m: Bounds) -> None:
-        """Name the cells in ``mask`` as a region with its authored bounds, without changing what they are made of."""
+    def name_region(self, region: str, mask: Mask, footprint: Footprint) -> None:
+        """Name the cells in ``mask`` as a region with its footprint, without changing what they are made of."""
         if region in self.regions:
             raise ValueError(f"region {region!r} already exists")
-        self.regions[region] = mask.copy()
-        self.region_bounds_m[region] = bounds_m
+        self.regions[region] = Region(mask.copy(), footprint)
 
     def destroy(self, mask: Mask) -> int:
         """Turn solid cells in ``mask`` to air. Returns how many cells were destroyed."""

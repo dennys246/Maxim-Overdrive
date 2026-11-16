@@ -18,7 +18,7 @@ from maxim_overdrive.config import ActionLimits, data_dir
 from maxim_overdrive.imagination.spec import Budget, SpecRejected, place
 from maxim_overdrive.sem_env import bridge
 from maxim_overdrive.world import damage, heat
-from maxim_overdrive.world.grid import MaterialGrid
+from maxim_overdrive.world.grid import Footprint, MaterialGrid
 from maxim_overdrive.world.scene import Cylinder
 from maxim_overdrive.world.world import HeatSource
 
@@ -86,9 +86,19 @@ def test_a_point_outside_the_grid_has_no_cell(rig, materials):
 def test_region_names_are_unique(rig, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), rig, materials)
     x, _, _ = g.mesh()
-    g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate", bounds_m=((0, 0, 0), (0.5, 1, 1)))
+    g.paint(
+        np.broadcast_to(x < 0.5, g.shape),
+        "wood",
+        region="crate",
+        footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
+    )
     with pytest.raises(ValueError, match="already exists"):
-        g.paint(np.broadcast_to(x >= 0.5, g.shape), "wood", region="crate", bounds_m=((0.5, 0, 0), (1, 1, 1)))
+        g.paint(
+            np.broadcast_to(x >= 0.5, g.shape),
+            "wood",
+            region="crate",
+            footprint=Footprint(((0.5, 0, 0), (1, 1, 1)), (0.25, 0.5, 0.5)),
+        )
 
 
 def test_a_scene_refuses_unknown_materials(rig, materials):
@@ -130,7 +140,12 @@ def test_a_strike_refuses_negative_energy_and_non_positive_width(rig, materials,
 def test_a_region_with_no_solid_cells_cannot_be_breached(rig, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), rig, materials)
     x, _, _ = g.mesh()
-    g.paint(np.broadcast_to(x < 0.5, g.shape), "air", region="doorway", bounds_m=((0, 0, 0), (0.5, 1, 1)))
+    g.paint(
+        np.broadcast_to(x < 0.5, g.shape),
+        "air",
+        region="doorway",
+        footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
+    )
     assert damage.region_breached(g, "doorway") is False
 
 
@@ -196,7 +211,7 @@ def test_every_sensor_reports_its_schema_and_unit(rig, materials):
 def test_a_region_that_lost_all_its_cells_reads_nan_and_cannot_burn(rig, materials):
     w = _world(rig, materials)
     sensors, mods = bridge.region_parts(w, "wall")
-    w.grid.regions["wall"][:] = False  # a later paint took every cell
+    w.grid.regions["wall"].cells[:] = False  # a later paint took every cell
     assert math.isnan(sensors["temperature_max"].value())
     res = mods["structure"].execute("ignite", {"power_w": 1000.0})
     assert not res.success
@@ -264,7 +279,8 @@ def test_a_material_file_refuses_a_value_that_is_not_a_finite_number(tmp_path, f
         ([3, 3], "extent_m must be 3 numbers"),
         (["3", 3, 2], "extent_m must be 3 finite numbers"),
         ([math.nan, 3, 2], "extent_m must be 3 finite numbers"),
-        ([0, 3, 2], "positive on every axis"),
+        ([0, 3, 2], "between 0 and 1000 m on every axis"),
+        ([3, 3, 1e6], "between 0 and 1000 m on every axis"),
     ],
 )
 def test_a_scene_refuses_an_impossible_extent(extent, message):
@@ -312,11 +328,67 @@ def test_a_material_files_degrade_rate_must_be_a_number(tmp_path):
 def test_a_named_region_needs_its_authored_bounds(rig, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), rig, materials)
     x, _, _ = g.mesh()
-    with pytest.raises(ValueError, match="needs its authored bounds"):
+    with pytest.raises(ValueError, match="needs its authored footprint"):
         g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate")
     assert "crate" not in g.regions
     assert (g.material == 0).all()  # refused before anything was painted
-    g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate", bounds_m=((0, 0, 0), (0.5, 1, 1)))
+    g.paint(
+        np.broadcast_to(x < 0.5, g.shape),
+        "wood",
+        region="crate",
+        footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
+    )
     with pytest.raises(ValueError, match="already exists"):
-        g.name_region("crate", np.broadcast_to(x < 0.5, g.shape), ((0, 0, 0), (0.5, 1, 1)))
+        g.name_region("crate", np.broadcast_to(x < 0.5, g.shape), Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)))
     assert Cylinder((0.5, 0.5), 0.2, (0.0, 1.0), "wood").bounds_m == ((0.3, 0.3, 0.0), (0.7, 0.7, 1.0))
+
+
+def test_an_imagined_objects_size_budget_is_judged_the_same_at_every_rig(rigs, materials):
+    # A 1.5 m slab whose faces sit off the 0.2 m grid: measured from cells it spans 1.6 m at laptop, and was refused
+    # there only. Measured from its authored geometry it is 1.5 m at every rig.
+    slab = {"name": "slab", "primitives": [{"min_m": [0, 0, 0], "max_m": [1.5, 0.3, 0.3], "material": "wood"}]}
+    for rig in rigs:
+        g = Scene((4.0, 3.0, 2.0)).build(rig, materials)
+        place(g, slab, (1.25, 1.0, 0.0), Budget(max_extent_m=1.5, max_mass_kg=1000.0))
+        assert g.regions["slab"].footprint.bounds_m == ((1.25, 1.0, 0.0), (2.75, 1.3, 0.3)), rig.name
+
+
+def test_a_multi_primitive_objects_footprint_covers_every_primitive(rig, materials):
+    spec = {
+        "name": "table",
+        "primitives": [
+            {"min_m": [0, 0, 0.6], "max_m": [1.0, 0.6, 0.7], "material": "wood"},  # the top
+            {"kind": "cylinder", "center_xy_m": [0.1, 0.1], "radius_m": 0.05, "z_m": [0, 1.4], "material": "wood"},
+        ],
+    }
+    g = Scene((3.0, 3.0, 2.0)).build(rig, materials)
+    place(g, spec, (1.0, 1.0, 0.0), Budget(max_extent_m=1.5, max_mass_kg=1000.0))
+    footprint = g.regions["table"].footprint
+    low, high = footprint.bounds_m
+    assert low == (1.0, 1.0, 0.0)
+    assert high == pytest.approx((2.0, 1.6, 1.4))
+    with pytest.raises(SpecRejected, match=r"too large: 1\.40 m across"):  # the tallest axis, not the first
+        place(g, {**spec, "name": "tall"}, (0.0, 0.0, 0.0), Budget(max_extent_m=1.2, max_mass_kg=1000.0))
+
+
+def test_a_later_paint_takes_cells_from_earlier_regions_and_a_refused_paint_changes_nothing(rig, materials):
+    g = MaterialGrid.empty((1.0, 1.0, 1.0), rig, materials)
+    x, _, _ = g.mesh()
+    left = np.broadcast_to(x < 0.6, g.shape)
+    g.paint(left, "wood", region="left", footprint=Footprint(((0, 0, 0), (0.6, 1, 1)), (0.3, 0.5, 0.5)))
+    g.paint(np.broadcast_to(x >= 0.4, g.shape), "concrete")  # unnamed, and it overlaps "left"
+    assert not (g.regions["left"].cells & np.broadcast_to(x >= 0.4, g.shape)).any()
+    before = g.material.copy()
+    with pytest.raises(ValueError, match="already exists"):
+        g.paint(np.ones(g.shape, dtype=bool), "steel", region="left", footprint=g.regions["left"].footprint)
+    assert np.array_equal(g.material, before)  # refused before anything was painted
+
+
+@pytest.mark.parametrize(("field", "value"), [("id", -1), ("color_rgb", [1e9, -5, 3]), ("color_rgb", [1, 2])])
+def test_a_material_files_ids_and_colours_are_in_range(tmp_path, field, value):
+    raw = yaml.safe_load((data_dir() / "materials" / "core.yaml").read_text())
+    raw["materials"]["drywall"][field] = value
+    path = tmp_path / "core.yaml"
+    path.write_text(yaml.safe_dump(raw))
+    with pytest.raises(ValueError, match=r"uint8|color_rgb"):
+        MaterialTable.load(path)

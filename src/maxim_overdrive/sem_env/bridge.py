@@ -82,7 +82,7 @@ class RegionSensor:
             return damage.region_integrity(g, self._region)
         if self._quantity == "breached":
             return 1.0 if damage.region_breached(g, self._region) else 0.0
-        mask = g.regions[self._region]
+        mask = g.regions[self._region].cells
         temps = g.temperature[mask]
         if temps.size == 0:
             return float("nan")
@@ -269,14 +269,31 @@ class StructureModulator:
         }
 
     def _cells(self) -> npt.NDArray[np.intp]:
-        return np.argwhere(self._world.grid.regions[self._region])
+        return np.argwhere(self._world.grid.regions[self._region].cells)
 
     def centroid_m(self) -> tuple[float, float, float]:
-        idx = self._cells()
-        if idx.size == 0:
+        """Where a fire or an aimless strike lands: the authored centroid, so it doesn't move with the rig."""
+        if self._cells().size == 0:
             raise ValueError(f"region {self._region!r} has no cells")
-        c = (idx.mean(axis=0) + 0.5) * self._world.grid.dx
-        return (float(c[0]), float(c[1]), float(c[2]))
+        return self._world.grid.regions[self._region].footprint.centroid_m
+
+    def _on_region(self, point: tuple[float, float, float], sigma_m: float) -> bool:
+        """Whether a strike at ``point`` is a strike on this region, judged from authored footprints in metres.
+
+        A region's cells move with the rig, so a reach built from them would accept a strike at one rig and refuse
+        it at another. Reach is this region's footprint plus the strike's width, except that a point outside this
+        footprint but inside another region's belongs to that region: when a wall is painted over half a crate, a
+        strike just past the crate's face is a strike on the wall.
+        """
+        grid = self._world.grid
+
+        def inside(region: str, margin: float) -> bool:
+            lo, hi = grid.regions[region].footprint.bounds_m
+            return all(a - margin <= p <= b + margin for a, p, b in zip(lo, point, hi, strict=True))
+
+        if not inside(self._region, sigma_m):
+            return False
+        return inside(self._region, 0.0) or not any(inside(r, 0.0) for r in grid.regions if r != self._region)
 
     def _result(
         self, affordance: str, params: dict[str, Any], ok: bool, error: str | None = None, **meta: Any
@@ -299,12 +316,24 @@ class StructureModulator:
         except ActionRefused as exc:
             return self._result(label, {}, False, str(exc))
         target = params.get("target") if isinstance(params, Mapping) else None
-        if target is not None and getattr(target, "name", target) != self._region:
-            shown = getattr(target, "name", None) or _shown(target)
+        if target is not None and not self._is_this_region(target):
+            named = target.name if HAVE_MAXIM and isinstance(target, Entity) else target
             return self._result(
-                label, {}, False, f"the {self._region}'s structure can only be acted on directly, not on {shown}"
+                label,
+                {},
+                False,
+                f"the {self._region}'s structure is acted on directly, not on {_shown(named)}: "
+                f"leave target out, or name the {self._region}",
             )
         return self.apply(action)
+
+    def _is_this_region(self, target: object) -> bool:
+        """A target names this region when it is exactly the string, or a Maxim Entity of that exact name."""
+        if type(target) is str:
+            return target == self._region
+        if HAVE_MAXIM and isinstance(target, Entity):
+            return type(target.name) is str and target.name == self._region
+        return False
 
     def apply(self, action: Action) -> ModulatorResult:
         """Apply a typed action: it is re-checked against this world's limits, then against the world as it is now."""
@@ -321,12 +350,7 @@ class StructureModulator:
             return self._result(affordance, shown, False, f"the {self._region} is gone")
         if isinstance(action, Strike):
             point = action.point_m if action.point_m is not None else self.centroid_m()
-            # Reach is the region's authored bounds plus the strike's width, in metres: the region's cells move
-            # with the rig, so a reach built from them would accept a strike at one rig and refuse it at another.
-            (x0, y0, z0), (x1, y1, z1) = self._world.grid.region_bounds_m[self._region]
-            lo = (x0 - action.sigma_m, y0 - action.sigma_m, z0 - action.sigma_m)
-            hi = (x1 + action.sigma_m, y1 + action.sigma_m, z1 + action.sigma_m)
-            if not all(a <= p <= b for a, p, b in zip(lo, point, hi, strict=True)):
+            if not self._on_region(point, action.sigma_m):
                 return self._result(affordance, shown, False, f"point_m is not on the {self._region}")
             res = damage.strike(self._world.grid, point, action.energy_j, action.sigma_m)
             return self._result(

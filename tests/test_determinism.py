@@ -55,7 +55,8 @@ def digest(w: World) -> str:
     g = w.grid
     for arr in (g.material, g.original_material, g.integrity, g.temperature):
         h.update(arr.tobytes())
-    for name, mask in g.regions.items():
+    for name, region in g.regions.items():
+        mask = region.cells
         h.update(name.encode())
         h.update(mask.tobytes())
     for name, src in w.sources.items():
@@ -70,7 +71,7 @@ def test_the_scenario_exercises_burning(rig_name):
     w = run(rig_name)
     sensors, _ = region_parts(w, "crate")
     assert sensors["integrity"].value() < 0.9  # thermal degradation ran
-    original_crate = w.grid.regions["crate"] & (w.grid.original_material != 0)
+    original_crate = w.grid.regions["crate"].cells & (w.grid.original_material != 0)
     assert (original_crate & ~w.grid.solid).any()  # and destroyed crate cells
 
 

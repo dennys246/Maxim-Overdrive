@@ -19,7 +19,7 @@ import numpy as np
 
 from maxim_overdrive.checks import finite_vector
 from maxim_overdrive.world.grid import MaterialGrid
-from maxim_overdrive.world.scene import Box, Cylinder, Primitive, Scene
+from maxim_overdrive.world.scene import Box, Cylinder, Primitive, Scene, footprint_of
 
 
 @dataclass(frozen=True)
@@ -81,9 +81,9 @@ def place(
     if not union.any():
         raise SpecRejected("the object is smaller than one cell at this resolution, or outside the world")
     # Size from the authored geometry, like mass, so whether an object is too large doesn't depend on the rig.
-    lo = tuple(min(p.bounds_m[0][i] for p in placed) for i in range(3))
-    hi = tuple(max(p.bounds_m[1][i] for p in placed) for i in range(3))
-    across_m = max(b - a for a, b in zip(lo, hi, strict=True))
+    footprint = footprint_of(placed)
+    (x0, y0, z0), (x1, y1, z1) = footprint.bounds_m
+    across_m = max(x1 - x0, y1 - y0, z1 - z0)
     if across_m > budget.max_extent_m + 1e-9:
         raise SpecRejected(f"too large: {across_m:.2f} m across, the limit is {budget.max_extent_m} m")
     if (union & grid.solid).any():
@@ -95,5 +95,5 @@ def place(
 
     for p, m in zip(placed, masks, strict=True):
         grid.paint(m, p.material)
-    grid.name_region(name, union, ((lo[0], lo[1], lo[2]), (hi[0], hi[1], hi[2])))
+    grid.name_region(name, union, footprint)
     return float(mass)

@@ -84,14 +84,14 @@ def thermal_degrade(grid: MaterialGrid, dt: float) -> int:
 
 def region_integrity(grid: MaterialGrid, region: str) -> float:
     """Mean integrity over the region's original solid cells, destroyed cells counting 0."""
-    mask = grid.regions[region] & (grid.original_material != AIR_ID)
+    mask = grid.regions[region].cells & (grid.original_material != AIR_ID)
     n = int(mask.sum())
     return float(grid.integrity[mask].clip(min=0.0).sum() / n) if n else 0.0
 
 
 def region_breached(grid: MaterialGrid, region: str) -> bool:
     """True if destroyed cells form a hole through the region along its thinnest axis (a hole through a wall)."""
-    orig = grid.regions[region] & (grid.original_material != AIR_ID)
+    orig = grid.regions[region].cells & (grid.original_material != AIR_ID)
     if not orig.any():
         return False
     idx = np.argwhere(orig)

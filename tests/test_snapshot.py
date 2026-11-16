@@ -42,7 +42,7 @@ def test_an_intact_cold_world_has_no_crack_and_no_glow(rig, materials):
 
 def test_crack_is_one_minus_integrity_on_solids(rig, materials):
     g = _grid(rig, materials)
-    wall = g.regions["wall"]
+    wall = g.regions["wall"].cells
     g.integrity[wall] = 0.5
     crack = np.asarray(snapshot(g)["crack"])
     assert (crack[wall] == 128).all()  # round(0.5 * 255) under numpy's round-half-even

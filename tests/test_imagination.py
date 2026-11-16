@@ -23,7 +23,7 @@ def test_an_imagined_crate_is_destructible_like_any_other(rig, materials):
     g = _grid(rig, materials)
     mass = place(g, CRATE, (1.2, 1.2, 0.0))
     assert mass == pytest.approx(0.216 * 600)  # from authored geometry, the same at every rig
-    assert g.volume_m3(g.regions["imagined_crate"]) == pytest.approx(0.216, rel=1e-6)
+    assert g.volume_m3(g.regions["imagined_crate"].cells) == pytest.approx(0.216, rel=1e-6)
     damage.strike(g, (1.5, 1.5, 0.3), 5.0e6, 0.3)
     assert damage.region_integrity(g, "imagined_crate") < 1.0
 
@@ -152,7 +152,7 @@ def test_an_imagined_cylinder_lands_where_it_was_placed(rig, materials):
     }
     mass = place(g, barrel, (2.0, 2.0, 0.0))
     assert mass == pytest.approx(np.pi * 0.3**2 * 0.8 * g.materials["wood"].density_kg_m3)
-    idx = np.argwhere(g.regions["barrel"])
+    idx = np.argwhere(g.regions["barrel"].cells)
     centre_m = (idx.mean(axis=0) + 0.5) * g.dx
     assert centre_m[:2] == pytest.approx([2.0, 2.0], abs=g.dx / 2)  # offset by the origin, not left at (0, 0)
 

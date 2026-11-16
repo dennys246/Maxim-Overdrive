@@ -169,12 +169,12 @@ def test_a_target_is_accepted_only_when_it_is_this_region():
     for target in [None, crate, "crate"]:
         assert s.execute("ignite", {"power_w": 1000.0, "target": target}).success, target
     before = _state(w)
-    others: list[tuple[object, str]] = [(wall, "wall"), ("player", "'player'"), (object(), "<object")]
+    others: list[tuple[object, str]] = [(wall, "'wall'"), ("player", "'player'"), (object(), "<object")]
     for other, shown in others:
         res = s.execute("strike", {"energy_j": 1e5, "target": other})
         assert not res.success
         assert res.error is not None
-        assert res.error.startswith(f"the crate's structure can only be acted on directly, not on {shown}")
+        assert res.error.startswith(f"the crate's structure is acted on directly, not on {shown}")
     assert _unchanged(before, w)
 
 
@@ -234,7 +234,7 @@ def test_apply_names_the_affordance_from_the_action_and_reports_the_parsed_value
 def test_a_region_that_is_gone_refuses_in_words_the_agent_can_use():
     w = _world()
     s = _structure(w)
-    w.grid.regions["crate"][:] = False
+    w.grid.regions["crate"].cells[:] = False
     for affordance, params in [("ignite", {"power_w": 1.0}), ("strike", {"energy_j": 1.0}), ("extinguish", {})]:
         res = s.execute(affordance, params)
         assert not res.success
@@ -257,84 +257,107 @@ def test_every_shipped_rig_is_at_least_as_fine_as_the_smallest_action():
     assert LIMITS.min_sigma_m >= coarsest
 
 
-# The fire envelope is verified for 30 turns (docs/architecture.md, Known gaps): past that, a fire burns out its few
-# cells and its power falls back into air (the fuel gap), and the rigs diverge.
-ENVELOPE_TURNS = 30
 WOOD_FLAME_C = 2000.0  # wood's adiabatic flame temperature: no fire on wood may heat a cell past it
 
 
-def _ignite_and_burn(rig, turns):
+def _burn_every_turn(rig, turns):
     w = World.from_scene(SCENE, rig, limits=LIMITS)
     s, m = region_parts(w, "crate")
     assert m["structure"].execute("ignite", {"power_w": LIMITS.max_power_w, "radius_m": LIMITS.min_radius_m}).success
-    onset = None
-    for turn in range(turns):
+    history = []
+    for _ in range(turns):
         w.advance()
-        if onset is None and s["integrity"].value() < 0.9:
-            onset = turn
-    return onset, s["integrity"].value(), float(np.max(w.grid.temperature))
-
-
-def _same_fire_everywhere(runs):
-    onsets = [o for o, _, _ in runs.values()]
-    integrity = [i for _, i, _ in runs.values()]
-    assert all(o is not None for o in onsets), runs
-    assert max(onsets) - min(onsets) <= max(1, 0.1 * min(onsets)), runs
-    assert max(integrity) - min(integrity) <= 0.1, runs  # the same damage, not just "badly burned"
-    assert all(t <= WOOD_FLAME_C for _, _, t in runs.values()), runs
-
-
-def test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_within_the_envelope(rigs):
-    _same_fire_everywhere({rig.name: _ignite_and_burn(rig, ENVELOPE_TURNS) for rig in rigs})
+        history.append((s["integrity"].value(), float(np.max(w.grid.temperature))))
+    return history
 
 
 @pytest.mark.xfail(
     strict=True,
-    reason="the fuel gap: past about 30 turns a fire burns out its cells and heats air, and the rigs diverge "
-    "(docs/architecture.md, Known gaps). The Phase 1 fuel model fixes it; this gate then flips.",
+    raises=AssertionError,
+    reason="fires diverge across rigs mid-burn: at the allowed corner the crate's integrity differs by up to 0.19 "
+    "between rigs at turn 22, and past about 30 turns the fuel gap heats air. Burning is a threshold on a cell's "
+    "mean temperature, which lags in coarse cells (docs/architecture.md, Known gaps). The Phase 1 fuel model "
+    "(a burn rate driven by heat content) is the fix; this gate then flips.",
 )
-def test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_after_60_turns(rigs):
-    _same_fire_everywhere({rig.name: _ignite_and_burn(rig, 60) for rig in rigs})
+def test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn(rigs):
+    runs = {rig.name: _burn_every_turn(rig, 60) for rig in rigs}
+    for turn in range(60):
+        integrity = [h[turn][0] for h in runs.values()]
+        assert max(integrity) - min(integrity) <= 0.1, (turn, runs)
+        assert all(h[turn][1] <= WOOD_FLAME_C for h in runs.values()), (turn, runs)
 
 
-def _crater_class(energy_j, sigma_m, coarsest_m=0.2):
-    """A strike's outcome class from its closed-form crater radius, which doesn't depend on the rig. A crater
-    narrower than two coarse cells is "small" (the thin-features rule): the rigs then agree only that it stays small."""
-    radius = damage.analytic_crater_radius_m(energy_j, sigma_m, 2.0e7)
-    return "none" if radius == 0 else ("small" if radius < 2 * coarsest_m else "crater"), radius
+CONCRETE_THRESHOLD_J = 2.0e7 * (2 * math.pi) ** 1.5 * 0.2**3  # where a 0.2 m strike's peak meets fracture
 
 
-@pytest.mark.parametrize("multiple", [0.95, 1.05, 1.2, 1.5, 2.0, 3.0, 5.0, 40.0, 390.0])
-def test_a_strike_has_the_same_outcome_class_at_every_rig(rigs, multiple):
-    sigma = LIMITS.min_sigma_m
-    threshold_j = 2.0e7 * (2 * math.pi) ** 1.5 * sigma**3  # where the peak energy density meets concrete's fracture
-    kind, radius = _crater_class(multiple * threshold_j, sigma)
-    scene = Scene((3.0, 3.0, 2.0), (Box((0.6, 0.6, 0), (2.4, 2.4, 1.8), "concrete", "block"),))
+def _block_strike(rig, energy_j, thickness_m=1.8, x0=0.6):
+    scene = Scene((3.0, 3.0, 2.0), (Box((x0, 0.2, 0), (x0 + thickness_m, 2.8, 1.8), "concrete", "block"),))
+    w = World.from_scene(scene, rig, limits=LIMITS)
+    sensors, mods = region_parts(w, "block")
+    point = [x0 + thickness_m / 2, 1.5, 0.9]
+    res = mods["structure"].execute("strike", {"energy_j": energy_j, "sigma_m": 0.2, "point_m": point})
+    assert res.success
+    return res.metadata["destroyed_volume_m3"], sensors["breached"].value()
+
+
+def test_a_strike_below_the_fracture_threshold_destroys_nothing_at_any_rig(rigs):
+    for rig in rigs:  # exact cell-average deposition makes this a guarantee, not a tolerance
+        assert _block_strike(rig, 0.95 * CONCRETE_THRESHOLD_J)[0] == 0, rig.name
+
+
+@pytest.mark.parametrize("multiple", [4.0, 5.0, 8.0, 12.0, 40.0, 390.0])
+def test_a_crater_two_coarse_cells_wide_matches_the_closed_form_at_every_rig(rigs, multiple):
+    energy = multiple * CONCRETE_THRESHOLD_J
+    expected = 4 / 3 * math.pi * damage.analytic_crater_radius_m(energy, 0.2, 2.0e7) ** 3
     for rig in rigs:
-        w = World.from_scene(scene, rig, limits=LIMITS)
-        res = region_parts(w, "block")[1]["structure"].execute(
-            "strike", {"energy_j": multiple * threshold_j, "sigma_m": sigma}
-        )
-        assert res.success
-        volume = res.metadata["destroyed_volume_m3"]
-        if kind == "none":
-            assert volume == 0, rig.name
-        elif kind == "small":
-            assert volume <= 4 / 3 * math.pi * (2 * 0.2) ** 3, rig.name
-        else:
-            assert volume == pytest.approx(4 / 3 * math.pi * radius**3, rel=0.25), rig.name
+        assert _block_strike(rig, energy)[0] == pytest.approx(expected, rel=0.25), rig.name
 
 
-def test_a_strike_at_the_edge_of_a_region_off_the_coarse_grid_is_judged_the_same_at_every_rig(rigs):
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason="whether a strike breaches a thin wall flips across rigs near the threshold: a 0.4 m concrete wall "
+    "struck at 1.5x the threshold is breached at rig and max but not laptop (docs/architecture.md, Known gaps). "
+    "Craters narrower than two coarse cells are below what the coarse rig resolves.",
+)
+def test_a_strike_breaches_a_thin_wall_the_same_at_every_rig(rigs):
+    # The wall's faces sit off the 0.2 m grid (x from 1.3 to 1.7 m), as most authored walls will.
+    breached = {rig.name: _block_strike(rig, 1.5 * CONCRETE_THRESHOLD_J, 0.4, x0=1.3)[1] for rig in rigs}
+    assert len(set(breached.values())) == 1, breached
+
+
+def test_a_strike_at_any_face_of_a_region_off_the_coarse_grid_is_judged_the_same_at_every_rig(rigs):
     # The crate's faces sit between the 0.2 m cells, so its cells (and any reach built from them) move with the rig.
-    scene = Scene((3.0, 3.0, 2.0), (Box((1.25, 1.25, 0), (1.75, 1.75, 0.6), "wood", "crate"),))
-    edge = 1.75 + LIMITS.default_sigma_m
+    lo, hi, sigma = (1.25, 1.25, 0.25), (1.75, 1.75, 0.85), LIMITS.default_sigma_m
+    scene = Scene((3.0, 3.0, 2.0), (Box(lo, hi, "wood", "crate"),))
+    middle = [(a + b) / 2 for a, b in zip(lo, hi, strict=True)]
     for rig in rigs:
         w = World.from_scene(scene, rig, limits=LIMITS)
         s = region_parts(w, "crate")[1]["structure"]
-        assert s.execute("strike", {"energy_j": 1e3, "point_m": [edge, 1.5, 0.3]}).success, rig.name
-        beyond = s.execute("strike", {"energy_j": 1e3, "point_m": [math.nextafter(edge, 9), 1.5, 0.3]})
-        assert beyond.error == "point_m is not on the crate", rig.name
+        for axis in range(3):
+            for edge, outward in [(lo[axis] - sigma, -9.0), (hi[axis] + sigma, 9.0)]:
+                at, past = list(middle), list(middle)
+                at[axis], past[axis] = edge, math.nextafter(edge, outward)
+                assert s.execute("strike", {"energy_j": 1e3, "point_m": at}).success, (rig.name, axis, edge)
+                refused = s.execute("strike", {"energy_j": 1e3, "point_m": past})
+                assert refused.error == "point_m is not on the crate", (rig.name, axis, edge)
+
+
+def test_a_strike_past_a_regions_face_into_another_region_belongs_to_that_region(rigs):
+    # A wall painted over half the crate: the crate's authored box still covers the wall's cells there.
+    crate, wall = (
+        Box((1.2, 1.2, 0), (1.8, 1.8, 0.6), "wood", "crate"),
+        Box((1.5, 0, 0), (2.1, 3, 2), "concrete", "wall"),
+    )
+    for rig in rigs:
+        w = World.from_scene(Scene((3.0, 3.0, 2.0), (crate, wall)), rig, limits=LIMITS)
+        parts = {r: region_parts(w, r)[1]["structure"] for r in ("crate", "wall")}
+        before = _state(w)
+        res = parts["crate"].execute("strike", {"energy_j": 1e7, "point_m": [1.95, 1.5, 0.3]})
+        assert res.error == "point_m is not on the crate", rig.name
+        assert _unchanged(before, w)
+        assert parts["wall"].execute("strike", {"energy_j": 1e3, "point_m": [1.95, 1.5, 0.3]}).success
+        assert parts["crate"].execute("strike", {"energy_j": 1e3, "point_m": [1.65, 1.5, 0.3]}).success  # overlap
 
 
 # -- the physics entry points refuse what no caller should ever pass ------------------------------------------------
@@ -619,3 +642,72 @@ def test_yaml_merge_keys_still_work_in_the_limits_file(tmp_path):
     path.write_text(text)
     with pytest.raises(ValueError, match="expected sections"):  # merged fine; "base" is then an unknown section
         ActionLimits.load(path)
+
+
+def test_maxims_actor_tool_must_name_the_region_as_its_own_target():
+    # In Maxim's OrchestratorActorTool the entity acts ON its target (default: the player). Overdrive's affordances
+    # are done TO the region, so only target=<the region> is a coherent call (roadmap Phase 3 item 11 asks Maxim to
+    # tell the two kinds of affordance apart).
+    from maxim.embodiment.body import Embodiment  # noqa: PLC0415 - the gate installs pymaxim
+    from maxim.embodiment.entity_map import EntityMap  # noqa: PLC0415
+    from maxim.embodiment.sem import Entity  # noqa: PLC0415
+    from maxim.simulation.tools import OrchestratorActorTool  # noqa: PLC0415
+
+    from maxim_overdrive.sem_env.bridge import to_maxim_entity  # noqa: PLC0415
+
+    w = World.from_scene(
+        Scene(SCENE.extent_m, (*SCENE.primitives, Box((0, 0, 0), (0.6, 3, 2), "concrete", "wall"))),
+        RigProfile.load("laptop"),
+        limits=LIMITS,
+    )
+    npc = Entity("npc", "body")
+    entities = EntityMap()
+    entities.register_self(npc)
+    entities.register_scene(to_maxim_entity(w, "crate"))
+    entities.register_scene(to_maxim_entity(w, "wall"))
+    actor = OrchestratorActorTool(embodiment=Embodiment(npc), entity_map=entities)
+    ignite = {"entity": "crate", "affordance": "ignite", "params": {"power_w": 1000.0}}
+    default = actor.run(**ignite)
+    assert not default.success
+    assert "leave target out, or name the crate" in (default.error or "")
+    assert w.sources == {}
+    assert actor.run(**ignite, target="crate").success
+    assert w.sources["fire:crate"].power_w == 1000.0
+    assert not actor.run(entity="crate", affordance="strike", target="wall", params={"energy_j": 1e3}).success
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        type("Sneaky", (str,), {"__eq__": lambda self, other: True, "__hash__": str.__hash__})("wall"),
+        "x" * 1_000_000,
+        10**5000,
+    ],
+    ids=["str-subclass", "megabyte-name", "huge-int"],
+)
+def test_a_hostile_target_is_refused_with_a_short_message(target):
+    res = _structure(_world()).execute("ignite", {"power_w": 1.0, "target": target})
+    assert not res.success
+    assert res.error is not None
+    assert len(res.error) < 300
+
+
+def test_a_yaml_merge_key_can_be_overridden_but_a_written_key_cannot_repeat(tmp_path):
+    base = "base: &b {max_power_w: 1.0, min_radius_m: 0.3, max_radius_m: 3.0, default_radius_m: 0.3}\n"
+    strike = GOOD_LIMITS.split("\n")[2] + "\n"
+    path = tmp_path / "actions.yaml"
+    path.write_text("version: 0\n" + base + "ignite: {<<: *b, max_power_w: 500000.0}\n" + strike)
+    with pytest.raises(ValueError, match="expected sections"):  # merged and overridden fine; "base" is unknown
+        ActionLimits.load(path)
+    path.write_text("version: 0\nignite: {<<: *b, max_power_w: 1.0, max_power_w: 2.0}\n".replace("*b", "{}"))
+    with pytest.raises(ValueError, match="repeated key"):
+        ActionLimits.load(path)
+
+
+def test_a_fire_lands_on_the_authored_centroid_at_every_rig(rigs):
+    # The crate's faces sit off the coarse grid, so the centroid of its cells moves with the rig; the fire mustn't.
+    scene = Scene((3.0, 3.0, 2.0), (Box((1.25, 1.25, 0.25), (1.75, 1.75, 0.85), "wood", "crate"),))
+    for rig in rigs:
+        w = World.from_scene(scene, rig, limits=LIMITS)
+        assert region_parts(w, "crate")[1]["structure"].execute("ignite", {"power_w": 1.0}).success
+        assert w.sources["fire:crate"].point_m == (1.5, 1.5, 0.55), rig.name
