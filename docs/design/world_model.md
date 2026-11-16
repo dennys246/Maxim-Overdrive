@@ -240,7 +240,7 @@ On the 16×10×4 m synthetic tile (DLP, measured):
 | 1 | `phase1/act-validation` | **Done** (review complete, awaiting the owner). |
 | 2 | | Parts 1, 2 and 3 of this design accepted. |
 | 2b | `phase1/boundaries` | Structure: the engine package re-homed by layer, the config split, the intents layer, the bridge split, the import contracts (`boundaries.md` §11.1). |
-| 2c | `phase1/gates` | Behaviour: the write window, published frames, validating constructors, the gate contract and registry (`boundaries.md` §11.1). |
+| 2c | `phase1/gates` | Behaviour, limited to what has a caller then: the ownership write window, frames published as copies, validating constructors, the gate contract and registry (`boundaries.md` §11.1). |
 | 3 | `phase1/verify` | The verification harness. Heat retrofitted, with its order-of-accuracy test fixed by refining space and time separately (E2). The resolution rule becomes the verification rule (§1.1). |
 | 4 | `phase1/sim-clock` | The `Simulation` and its integer clock; the truth resolution; cached conductances and preallocated buffers; the fire's bounding-box overlap; `set_material`, `topology_version` and the region id array; memory budget with transients. |
 | 5 | | Material table v1, strict. |
@@ -249,7 +249,8 @@ On the 16×10×4 m synthetic tile (DLP, measured):
 | 8a | `phase1/fuel-surface` | Fuel by volume overlap; area-overlap deposit and ignited fractions; sub-box recession; reconstructed pyrolysis. |
 | 8b | `phase1/fuel-combustion` | Combustion per zone, products, extinction, flame feedback debited. Fines from destroyed mass. The CSG footprints (§5). |
 | 9 | | Phase-change progress, with bound water as the first transition. |
-| 10 | `phase1/lanes` | The thinking lane, meters, crash injection (part 2 specifies the thinking rules). |
+| 9b | `phase1/agents` | The agent foundations: the split `AgentPort` and host service protocol, `StepOutput`, receipts and settle, thought requests, `data/agents/`, per-NPC streams, the tool-roster and home checks, the scripted test double; real Maxim a strict red gate until its tier A (`boundaries.md` §11.1, `npcs_and_sem.md` §6.2). |
+| 10 | `phase1/lanes` | The thinking lane and the LLM gateway, the agent barrier, meters, crash injection (`npcs_and_sem.md` §4.4, §6.3). |
 | 11 | | **Save v0, after the lanes,** so in-flight thoughts are part of the saved `Simulation` state with a load rule (A-SF-12, DA-6). |
 | 12 | `phase1/lab` | The lab as a physics benchmark tile, and the Godot client (part 3). |
 

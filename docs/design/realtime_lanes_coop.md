@@ -176,6 +176,11 @@ apart from the clock it's given. A real day-length experiment needs one, and Max
 
 ## 4. Lanes
 
+> **Superseded in part (2026-11-16).** Agent ownership in §4.1 ("owns Simulation (and through it World and
+> agents)", "agents step inside the simulation lane's tick"), arrival-order `host_seq` and request-id assignment in
+> §4.2, and several §4.3 rules are replaced by `npcs_and_sem.md` §11.1 and `boundaries.md` §6.2 and §7.1. Read those
+> first; the rest of this section stands.
+
 ### 4.1 One owner, explicit channels
 
 ```

@@ -1,9 +1,22 @@
-# Boundaries between engine, game, Maxim and the outside world (design v2, 2026-11-16)
+# Boundaries between engine, game, Maxim and the outside world (design v3, 2026-11-16)
 
-**Status:** DRAFT v2, for a delta design review before any code. v1 (47add00) went to a six-lens review
-(`docs/design/reviews/boundaries/`: 18 BLOCKER, 52 SHOULD-FIX, 29 NIT). This version folds every BLOCKER and
-SHOULD-FIX, and the owner's decisions of 2026-11-16 (§0). The fold table at the end maps each finding to where it
-landed, or says why it was deferred.
+**Status:** DRAFT v3, for a delta design review before any code. v1 (47add00) went to a six-lens review
+(`docs/design/reviews/boundaries/`: 18 BLOCKER, 52 SHOULD-FIX, 29 NIT), folded in v2. v2 (4f7a754) went to the
+seven-lens foundations review with part 2 and the Maxim drafts (`docs/design/reviews/foundations_v1/`). This version
+folds every foundations BLOCKER and SHOULD-FIX that touches it, and the owner's decision O6 (§0). Two fold tables at
+the end map each finding to where it landed.
+
+**What changed from v2, in short:**
+- **Mode (a) is dropped (O6).** Agents follow a host-driven embeddable contract: the host steps them, they return
+  values, and the host owns every LLM call through a gateway (§7). This removes the agent lane's data race, the
+  deadlock and the missing thought seam the review found.
+- **The write window is ownership, not a flag**, because a view unlocked in one window stayed writable after it
+  (§4.1). Frames are copies, published on change, with a stated cadence and thread scope (§4.2).
+- **The layers are fixed** where the review showed contracts that would fail the day their modules exist (§2.2).
+- **The log record gains `apply_us`, one ordering key, and kinds for speech, cancellation and failure;** `memory_write`
+  leaves the world log (§6).
+- **NPCs get a closed tool roster and a per-agent home,** and thoughts get budgets (§5.3, §5.4).
+- **`phase1/gates` ships only what has a caller then,** and the agent foundations get their own PR (§11.1).
 
 **What changed from v1, in short:**
 - The sealed core is defined by what runs on the simulation lane, deny by default, and it now includes the code that
@@ -28,10 +41,11 @@ landed, or says why it was deferred.
 | # | Decision |
 |---|---|
 | O1 | One repository, with an enforced engine/game boundary and a written split trigger. |
-| O2 | **The action result contract:** (a) now, (b) later. (a): the Maxim adapter's `execute` submits an intent through the one pipeline and waits *in world time* for its receipt and the next published frame, then reports the applied outcome. (b): return `neutral` immediately and settle later, once Maxim can credit late effects (P3). The foundation (propose and settle, receipts, ids) is laid now, so (a) → (b) is an adapter change, not an engine refactor. |
-| O3 | **The agent substrate** runs outside the sealed core, behind an engine-defined `AgentPort` in integer ticks: frozen frames in, logged intents out, with real Maxim. It moves inline when Maxim ships an injected clock and deterministic external stepping. |
+| O2 | *Superseded by O6.* It was: the action result contract (a) now (a world-time wait in `execute`), (b) later (`neutral` plus late credit). The foundations review showed (a) deadlocks with dilation, races the tick, and credits only instant effects, and that "(a) → (b) is an adapter change" was overstated (foundations Arch B2). |
+| O3 | **The agent substrate** runs outside the sealed core, behind an engine-defined `AgentPort` in integer ticks: frozen frames in, logged intents out. Refined by O6: the host steps it. |
 | O4 | **Three clocks** (world, body, perceived). No time field reaches cognition. Thought cost is modelled in world time and phased; the world slows (reported dilation, by cause) when real thoughts run late. Abandoning late thoughts is an explicit, logged host policy. Thinking couples to the fatigue drive and sleep pressure, not hunger. Details are part 2's (`npcs_and_sem.md`); this design carries only the interfaces and fields. |
-| O5 | **Refining Maxim's SEM is in scope and a priority** of the foundations work, through Maxim's own process. Each SEM-touching item here says whether it is additive now or batched into one SEM breaking-change plan (§9.3). |
+| O5 | **Refining Maxim's SEM is in scope and a priority** of the foundations work, through Maxim's own process. Each SEM-touching item here cites its roadmap `OD-` id and path (§9.3): additive first in 1.x. |
+| O6 | **Mode (a) is dropped; agents follow a host-driven embeddable contract.** The host calls `agent.step(world_dt, frame)`; the agent returns intents, memory writes and thought requests as values and never applies anything or runs on its own. Maxim must offer a host-supplied LLM gateway with streaming and cancellation, a closed NPC tool roster checked at build, a per-agent home under the save (never `~/.maxim`) with no pickle on the load path, no host time in prompts or observations, the cerebellum observing at settle, and `outcome_valence` per D53. Phase 1 has no NPCs; Phase 4's NPCs wait on Maxim shipping it. Detail: `npcs_and_sem.md` §6. |
 
 ## 1. Why now, and what the code is today
 
@@ -75,6 +89,10 @@ Surveyed on `phase1/act-validation` at 2f200b5 (Executor confirmed each item):
 | Godot: the frame decoder and channel bindings | `client/addons/engine/` (S8) |
 | Godot: scenes, art, game UI | `client/game/` |
 
+- **How game rules reach the tick (foundations Arch S11): as data only.** The game supplies vocabulary,
+  calibrations, rosters, scenes and limits through the engine's gates. A new mechanism (a law, an intent kind, an
+  affordance with new physics) is engine code, reviewed as engine code; no game callable ever runs inside
+  `Simulation.step`. This matches "physiology is mechanism" (BF-15) and keeps the banned-list contract sufficient.
 - **Split trigger (S8):** split into two repositories when an outside consumer wants the engine (a second game, an
   outside developer), or when measured: over the last 20 merged PRs, at least 15 touched only engine paths. No date
   trigger. Phase 2 changes engine and game together, and a split then would double every feature's PRs.
@@ -91,21 +109,32 @@ below it. Siblings on one line are independent of each other.
 | 2 | `engine.geometry` | primitives, CSG and footprints in metres; no cells (S5) |
 | 3 | `engine.cells` | the grid, regions, ownership arrays, the write window (§4.1) |
 | 4 | `engine.laws` | heat, damage; later zones, gas, fuel |
-| 5 | `engine.scene` &#124; `engine.intents` &#124; `engine.imagination` | scene type and build; the action vocabulary, typed intents, `ActionLimits`, stage-1 parsing, the intent record and receipts (S3); imagined-object specs |
-| 6 | `engine.sim` | `World`, `Simulation`, the integer clock, the intent applier, the frame publisher, the `AgentPort` protocol |
-| 7 | `engine.loaders` &#124; `engine.encoding` &#124; `engine.protocol` &#124; `engine.adapters.sem` &#124; `engine.adapters.agents` &#124; `engine.tiers` | file gates; display quantization (B-6); wire decode and encode; the Maxim membrane; the Maxim agent stepping adapter; `RigProfile` as a rendering tier |
-| 8 | `engine.host` &#124; `engine.verify` | pacing loop, lanes, sessions, `TimeAuthority`, dilation measurement, log writer; the verification harness (S12) |
+| 5a | `engine.imagination` &#124; `engine.scene` | imagined-object specs; the scene type. Both take primitives from `engine.geometry` |
+| 5b | `engine.intents` | the action vocabulary, typed intents (the `imagine` intent carries a spec, so intents sit above imagination), `ActionLimits` (the type only), stage-1 parsing, the intent record, receipts, `StepOutput`, thought requests, and the host service protocol the agent adapter receives (S3; foundations Arch B3, S1) |
+| 6 | `engine.sim` | `World`, `Simulation`, the integer clock, the intent applier, construction (`Simulation.from_scene`, which builds scenes and loads saves from decoded data), the frame publisher, the `AgentPort` protocol |
+| 7a | `engine.loaders` &#124; `engine.tiers` | file gates (including `ActionLimits.load` and the save's decoding half); `RigProfile` as a rendering tier |
+| 7b | `engine.encoding` &#124; `engine.adapters.sem` | display quantization (B-6, uses tiers); the Maxim membrane |
+| 7c | `engine.protocol` &#124; `engine.adapters.agents` | wire decode and encode (uses encoding); the agent adapter (uses the membrane's types) |
+| 8 | `engine.host` &#124; `engine.verify` | pacing loop, lanes, sessions, `TimeAuthority`, the thought gate and LLM gateway, dilation measurement, log writer; the verification harness (S12) |
 
 - **Layers 0–6 are the sealed core** (§3).
 - **The written order is the order committed,** checked red-first on today's code (X S-2, Arch N1). Today `config`
   imports `checks`, so `checks` sits below `materials`. `imagination.spec` imports `world.scene` for its primitives;
-  after the move it takes them from `engine.geometry` (layer 2), so `imagination` and `scene` can be independent
-  siblings. If that move isn't clean, `imagination` gets its own layer above `scene`, never the non-independent `:`
-  form, which lets upward imports through unreported.
-- **Skip-layer rules (S2).** Layers allow skipping, so a further forbidden contract applies: `engine.adapters.*`,
-  `engine.protocol` and `engine.host` import only `engine.sim`'s public surface, `engine.intents` and
-  `engine.materials` types. Never `engine.cells`, `engine.laws`, `engine.geometry` internals or `engine.scene` build
-  functions. `World.sources` becomes private behind an intent.
+  after the move it takes them from `engine.geometry` (layer 2), so `imagination` and `scene` are independent
+  siblings. **Every dependency the review found is now a sub-layer** (foundations Arch S1): intents above imagination
+  (the `imagine` intent), encoding above tiers, protocol above encoding, the agent adapter above the membrane. The
+  non-independent `:` form is never used.
+- **Skip-layer rules (S2; foundations Arch S2).** Layers allow skipping, so a further forbidden contract applies:
+  `engine.adapters.*`, `engine.protocol` and `engine.host` import only `engine.sim`'s public surface,
+  `engine.intents`, `engine.materials` types and `engine.checks`. Never `engine.cells`, `engine.laws` or
+  `engine.geometry`. Every rule names a module, since import-linter can't forbid a function:
+  - **the reach and centroid checks** (today's `_on_region`, `centroid_m`) are stage-2 world checks in the applier,
+    where world-state checks belong; the membrane's gate half needs no geometry;
+  - **the name rule** (`entity_key`) moves to `engine.checks`, which the gate half may import;
+  - **scene build** happens only through `Simulation.from_scene`, so adapters never see a build function;
+  - **the save loader** splits: decoding in `engine.loaders` (layer 7a), construction in `engine.sim`, so the only
+    cell writer outside `step` is in the core;
+  - `World.sources` becomes private behind an intent.
 - **Rendering never reaches the truth (S1, new boundary).** The core (layers 0–6) is forbidden from importing
   `engine.tiers`. Today the rig decides physics (`MaterialGrid.empty` takes `rig.cell_size_m`; `World.advance` takes
   `rig.min_substeps_per_turn`; `Scene.build(rig, …)`). The rename splits `config` into `engine.materials` (truth) and
@@ -124,8 +153,12 @@ below it. Siblings on one line are independent of each other.
   `engine.sim` as the intent applier. `place` becomes the stage-2 apply of an `imagine` intent (§5.3). A non-vacuity
   test asserts that every function assigning into a cell array, `regions` or `sources` is defined in a core module
   (D-B1).
-- **Agents are not in the core** (O3, BF-2). The core defines `AgentPort` (§7.1) and never imports `maxim`. Real
-  Maxim runs in the agent lane through `engine.adapters.agents`.
+- **Agents are not in the core** (O3, O6, BF-2). The core defines `AgentPort` (§7.1) and never imports `maxim`.
+  Agents run on the agent lane (§7.1) through `engine.adapters.agents`.
+- **A second sealed set: the agent step path (foundations DR-S10).** `engine.adapters.agents` minus one named
+  host-only module (wall timeouts) is under the same banned list and AST scan as the core, and the tripwire also runs
+  on the agent lane's thread. It owns the strip, the push, per-NPC noise and step scheduling, which decide dial
+  invisibility and tier-2 reruns, so a `time.monotonic()` there must go red. Each entry is proven by a planted call.
 - **No file IO in the core (D-B2, S-8, S9).** Loaders are gates in layer 7. The core receives frozen, loaded tables
   as required keyword-only parameters (`materials=`, `limits=`, no defaults). `MaterialTable.load()` with no path
   disappears.
@@ -145,11 +178,18 @@ below it. Siblings on one line are independent of each other.
   `kind="stable"` on non-unique keys, `np.seterr`/`errstate`, BLAS calls (`@`, `dot`, `linalg`, `einsum`). **BLAS is
   forbidden in the core** for now. None exists today; the first solver that needs it brings a threads-pinned policy
   (`threadpoolctl`, 1 thread) to review.
-- **The tripwire is a test, not a runtime seal (D-S1, D-N3).** It runs over the golden replay corpus, on the
-  simulation thread, with an explicit denylist (`time.*` clocks, `datetime.now/utcnow/today`, `date.today`,
+- **The tripwire is a test, not a runtime seal (D-S1, D-N3).** It is a **profile hook**
+  (`sys.setprofile`, and `threading.setprofile_all_threads` on Python ≥ 3.12) on `c_call` events, matching the
+  function objects themselves, with a frame-based allowlist. Patching module attributes can't work: `datetime.now`
+  can't be patched, `default_factory=time.time` and from-imports keep the original function, and a process-global
+  patch trips the wall reads meant to stay (foundations X-1, verified in a probe). It runs over the golden replay
+  corpus, on the simulation and agent-lane threads, with an explicit denylist (`time.*` clocks,
+  `datetime.now/utcnow/today`, `date.today`,
   `os.urandom/getrandom/getpid/environ`, `uuid1/4`, `secrets.*`, `SystemRandom`, `threading.get_ident`,
-  `Random.seed(a=None)` detected from the frame, `SeedSequence()` with no entropy), each proven by one planted call.
-  It guards only what the corpus exercises, and it ships with sim-clock.
+  `Random.seed(a=None)` detected from the frame, `SeedSequence()` with no entropy, `time.localtime`, `time.strftime`
+  and `datetime.fromtimestamp` with host-zone rendering, `time_ns`, numpy's global `np.random`), each proven by one
+  planted call, including a `default_factory` stamp, a from-import, and a timeout on another thread that must not
+  trip. It guards only what the corpus exercises, and it ships with sim-clock.
 - **Dilation is measured in the host** and enters the `Simulation` only as recorded data (Arch N7), so nobody
   exempts the core to measure it.
 - **This guards mistakes, not adversaries.** ctypes and buffer tricks stay possible (D-B4).
@@ -158,28 +198,49 @@ below it. Siblings on one line are independent of each other.
 
 ### 4.1 One write window (the guard for both writes and observation)
 
-- **Every array the core owns is read-only at the owner** (`writeable=False` on the owning array, so a view can't
-  re-enable it). This includes the grid's channels, region masks and `MaterialTable`'s arrays (always read-only after
-  construction; nothing writes them).
-- **One write context,** `with cells.writing():`, is entered only by:
+- **Every array the core owns is read-only at rest.** This includes the grid's channels, region masks and
+  `MaterialTable`'s arrays (always read-only after construction; nothing writes them).
+- **The write window is ownership, not a flag (foundations DR-B4).** v2 flipped the owner's flag for the window.
+  Measured on numpy 2.5.4: a view that re-enables itself while the window is open stays writable after it closes, so
+  the guard failed while its proof tests (all run with the window closed) passed. Instead, `with cells.writing() as w:`
+  yields fresh writable arrays (the only writable handles), and swaps them in as the new read-only owners at exit. No
+  handle outlives the window.
+- **The window is entered only by:**
   - `Simulation.step` (the laws during advance, and the intent applier);
-  - construction (`Scene.build`, the save loader), named as the third writer (S11, S-7).
+  - construction (`Simulation.from_scene`, and the save's construction half), the third writer (S11, S-7).
 - `regions` and `sources` are `MappingProxyType`. `sources` changes only through the applier.
-- **What this buys:** "every write happens under advance or intent application" stops being a test that sees only
-  exercised paths (TB-S7) and becomes "a write anywhere else raises". The golden scenario runs with the window
-  closed outside `step`. It replaces v1's view flags, which guarded copies (X-3) and could be switched back on
-  (D-B4). Heat's in-place updates run inside the window, so they are unaffected.
-- **Proof tests (D-B4):** for every outward surface, each of direct write, `flags.writeable = True` then write, write
-  through `.base`, ufunc `out=`, and attribute assignment must raise.
+- **Thread scope.** The window is a single-thread guarantee. Across lanes the guard is §4.2's rule that nothing
+  outside the simulation lane holds a reference to a core array; "a write anywhere else raises" holds on the
+  simulation thread only, and the design says so (foundations Arch S4).
+- **What this buys:** "every write happens under advance or intent application" becomes "a write anywhere else
+  raises" on that thread, instead of a test that sees only exercised paths (TB-S7). Heat's in-place updates run inside
+  the window, on the window's arrays.
+- **Proof tests:** for every outward surface, each of direct write, `flags.writeable = True` then write, write
+  through `.base`, ufunc `out=`, and attribute assignment must raise; and **a view unlocked inside a window, written
+  after the window closes,** must not change the world (DR-B4).
+- **Before `Simulation` exists (2c; foundations Wire B1).** In `phase1/gates` the window's owners are `World.advance`
+  and the intent applier, each under a TEMPORARY marker scheduled for `phase1/sim-clock`, saying it moves to
+  `Simulation.step`, with
+  the files listed under Phase 1 in `docs/roadmap.md`. Until sim-clock, the applier publishes a frame after each
+  application, so `tests/test_sem_bridge.py`'s strike-then-read keeps its meaning without an edit.
 
 ### 4.2 Observation reads published frames (B-10, rewritten)
 
-- **Rule:** percepts and instruments are immutable samples of one published frame. After each step the simulation
-  publishes a frozen frame (copies or read-only owners), stamped with its tick. Nothing outside the simulation lane
-  holds a reference to `World`, the grid or `MaterialTable` (S6, BF-4, D-S5, X-3).
+- **Rule:** percepts and instruments are immutable samples of one published frame, stamped with its tick. Nothing
+  outside the simulation lane holds a reference to `World`, the grid or `MaterialTable` (S6, BF-4, D-S5, X-3).
+- **Frames are copies, published on change (foundations Arch S4, DR-S9).** Never the owner, which the next window
+  replaces. Cells change at physics steps and at intent apply, so a frame is published then, not per tick. Agents get
+  reductions (per-region and per-NPC scalars from the bincount pass), not grids: a full-grid copy is 64–80 MB per tile
+  at 0.1 m, about 13–16 GB/s of copying if published per tick at 20×. The copy and the publish are B5 rows.
+- **Cadence:** a frame is published after each physics step (0.5 s) and after each tick that applied an intent, so a
+  receipt's after-frame exists on its apply tick. The design never promises "one tick" of reafference for effects that
+  only show at the next physics step.
 - **Sensors type against a `Frame`/`Observation` protocol** with no `advance`, `sources` or `grid`, so mypy refuses
   a peek (D-B4). `RegionSensor` stops holding `World`.
-- **Every intent records `observed_tick`,** the frame its decision was based on (D-S5).
+- **Every intent records `observed_tick`,** the frame its decision was based on (D-S5). For a client intent the host
+  stamps it (the last frame sent to that session); a client-supplied value is refused (foundations TB2-S6).
+- **Which frame an agent reads:** one pinned per agent by the adapter, the frame observed at its last `step`
+  (`npcs_and_sem.md` §7.3).
 - **Observation never draws from the World's generator.** Percept noise uses the per-NPC stream (§7.3) (D-S5).
 - `world.snapshot()` already copies. Its only change is B-6's move to `engine.encoding` (Arch N6).
 - **Tests:** a reading taken at tick T is unchanged after `advance`; a sensor holds no `World` reference; a read from
@@ -189,20 +250,23 @@ below it. Siblings on one line are independent of each other.
 
 - Maxim bodies perceive by push: the world writes measured values into `vital_metrics` through `world_set_axis` with
   `live_world_set_sensors` declaring the world the single writer.
-- **This is a sanctioned mutation of agent state,** done by `engine.adapters.agents` in the agent lane, as a pure
-  function of a published frame (so it needs no log record).
+- **This is a sanctioned mutation of agent state,** done by `engine.adapters.agents` on the agent's owner thread
+  (§7.1), as a pure function of the agent's pinned frame (so it needs no log record).
 - **Every body sensor the world simulates is world-owned.** A modeled `self_effect` is allowed only on sensors the
   world doesn't simulate, and each one is listed as an ANALOG divergence. Otherwise an NPC is burned twice, by the
   YAML delta and by physics.
-- Per-part sensors (`arms.thermal`) need P4, since `world_set_axis` is root-only today.
+- Per-part sensors (`arms.thermal`) need OD-C10, since `world_set_axis` is root-only today.
 
 ### 4.4 B-13 (new): percepts come only through physical channels at the perceiver (BF-7)
 
 - **Rule:** a percept is a reduction of registered physical channels, evaluated at the perceiver's position and
   receptor, with a line-of-sight gate once light exists. The membrane reads the world only through frames and the
   field registry.
-- **Today's region sensors are instruments,** relabelled as such (an ANALOG divergence): usable by tests and the
-  lab's instruments, not as an NPC's senses.
+- **Today's region sensors are test and lab instruments,** relabelled as such (an ANALOG divergence), never an NPC's
+  input. **An instrument an NPC uses is an in-world device** with a position, its own physical reduction and a
+  display perceived like any other percept (foundations BF2-6; `npcs_and_sem.md` §7.1).
+- **The membrane drops `cell_size_m`** from readings and entity metadata, which put the rendering tier in front of
+  cognition (foundations Wire S6).
 - **Lands:** the import half in `phase1/boundaries`; the perceiver half with the first NPC body (Phase 4).
 
 ## 5. Untrusted input (B-4, rewritten)
@@ -226,7 +290,7 @@ below it. Siblings on one line are independent of each other.
 - **`World` and the grid are the sink,** mutable by design inside the write window, not "objects past a gate".
 - **Maxim's own types are a named exception:** `ModulatorResult` (`params`, `metadata`) and `SensorReading`
   (`extra`) are frozen dataclasses holding plain dicts. The membrane only builds them outbound; it never trusts one
-  inbound. Deep freezing is a candidate for the SEM breaking-change plan (§9.3).
+  inbound. Not mutating them is OD-C7 (freezing deferred); it had no home in v2 (foundations Arch S8, Wire S11).
 
 ### 5.2 Guard the sources, not the signatures
 
@@ -238,9 +302,15 @@ below it. Siblings on one line are independent of each other.
   `np.load(allow_pickle=True)`, `eval`, `exec`.
 - **A gate registry** in `lint_standards.py`: gate name → kind (authentication, authorization, validation) → its
   rejection-path test module → status (meets the contract, or gate-to-be with its row). Each gate module is measured
-  at 100% branch coverage. The lint checks that every public callable reachable from an outside entry point (the
-  Maxim calls, the loaders, the protocol) is registered.
-- **Proof:** plant a `json.loads` in a non-gate module, and a public entry with no registry row; both go red.
+  at 100% branch coverage.
+- **The registry check is mechanical, not a reachability analysis (foundations Arch S15, TB2-S10):**
+  - **every public callable defined in a gate module** has a row;
+  - **every method of a class implementing a Maxim protocol** (`Modulator`, a sensor, the LLM gateway) **or
+    `AgentPort` or the host service protocol** is an entry point and has a row. In-process objects from Maxim (tool
+    params, `Entity` targets, thought results, streamed tokens) reach the engine only through those methods, so they
+    are covered without an input primitive.
+- **Proof:** plant a `json.loads` in a non-gate module; a public entry with no row; a new `handle(raw: bytes)` inside a
+  gate module (v1 B2's exact scenario); and a new `Modulator` subclass whose `execute` has no row. All four go red.
 - v1's annotation rule is dropped. It missed `execute(params: dict[str, Any])` and every path-taking loader, and
   flagged four non-gates (X S-4).
 
@@ -248,16 +318,21 @@ below it. Siblings on one line are independent of each other.
 
 | Input | Source | Authentication | Authorization | Validation (gate) | Lands |
 |---|---|---|---|---|---|
-| NPC tool calls | Maxim (`ModulatorAffordanceTool`) | the agent lane's request id | per-kind authority (§6.1) | `engine.adapters.sem.StructureModulator.execute` (X-2), with `engine.intents.parse_action` as stage 1 | today; moves in `phase1/boundaries` |
+| NPC tool calls | Maxim (`ModulatorAffordanceTool`) | the stepping agent's bound actor; a call whose modulator is bound to another actor is refused (foundations TB2-S8) | per-kind authority (§6.1) | `engine.adapters.sem.StructureModulator.execute` (X-2), with `engine.intents.parse_action` as stage 1 | today; moves in `phase1/boundaries` |
+| **The NPC tool roster** (foundations TB2-B1) | Maxim's tool registry | — | **a closed allowlist**: the membrane's affordances plus reviewed cognition tools; nothing that reaches the host's files, processes, network or Maxim's operational mode | the agent adapter refuses to step an agent whose registry holds any other tool, or an `operational_mode` with filesystem reach; proven by a planted `BashTool` | `phase1/agents` (red gate against real Maxim until tier A) |
+| **Agent homes** (foundations TB2-B2) | Maxim's `data_home()`; saves | — | one home per agent, under the save; never `~/.maxim` | until Maxim takes the home as a parameter, the adapter refuses real Maxim unless `MAXIM_DATA_HOME` points at a per-run directory, and runs at most one real agent per process; a test asserts two NPCs resolve different homes. Agent homes from outside this machine are a **gate-to-be**: a foreign save loads the world only and re-seeds agents from the roster; a home loads only from a save this machine wrote, checked by a per-install HMAC, until Maxim's persistence is pickle-free | `phase1/agents`; save v1 |
 | `target=<Entity>` and other Maxim objects | Maxim's actor tool | — | — | resolved to a stable id at `execute`, namesake and identity checks before the intent is frozen (TB-S5) | `phase1/boundaries` |
-| Imagined objects | LLM via Maxim | request id | the actor's budget | `imagine` intent: spec constructors at stage 1, `place` as stage 2 (TB-S6) | `phase1/boundaries` (kind), sim-clock (log) |
-| Thought results: intents and **memory writes** | agent lane | request id | an NPC's own memory only | the stage-1 validators; memory writes validated by Maxim through item 16's apply step, the game checking shape and size (BF-13) | `phase1/lanes` |
+| Imagined objects | LLM via Maxim | the bound actor | the actor's budget | `imagine` intent: spec constructors at stage 1, `place` as stage 2 (TB-S6) | `phase1/boundaries` (kind), sim-clock (log) |
+| Thought results: intents, speech and **memory writes** | the agent's `StepOutput` | the bound actor | an NPC's own memory only | intents and speech through stage 1; memory writes are a **gate-to-be** until generate vs apply (OD-A15) gives the game a value to check, an OPEN divergence with a strict red gate (foundations TB2-S3) | `phase1/agents` (types); OD-A15 (memory) |
+| **Thought budgets** (foundations TB2-B3) | the LLM gateway | — | — | segments, tool calls, tokens per segment (a generation limit and a stream cut-off before buffering), held-buffer bytes, memory writes, `cancel_on` length, `D` ceilings, from `data/agents/thought_budget.yaml` | `phase1/agents` |
+| **Player speech** (foundations TB2-S1) | network lane | session token | per-session rate limit | the `speak` validator: length cap, NFC, control and bidi-override characters refused | `phase1/protocol` |
+| **The response cache** (foundations DR-B3, TB2-S4, Wire S9) | disk, per save | — | — | the strictest contract: versioned, strict decoder, size budgets; an entry holds only raw output and the canonical request, and the gate recomputes the hash and refuses a mismatch; never read by replay | after tier A |
 | Scene files, saves, intent logs, bug reports | disk, **strangers' machines** | — | — | the strictest gate (world_model F14): no pickle, budget before allocation, all-or-nothing | scene v1, save v0, sim-clock |
 | Rigs, materials, limits, vocabulary, presets, rosters, arcs | `data/`, `content/`, later mods | — | — | a loader each under the gate contract (§5.4) | today and as each lands |
 | Handshake, per-launch token, `Origin` | network lane | `hmac.compare_digest`, `Origin` refused, loopback bind (lanes §5) | — | the protocol decoder | `phase1/protocol` |
 | Joins and leaves | network lane | session token | — | session to actor id allocation (lanes §4.2) | `phase1/protocol` |
 | Controls: dial, pause, presets | host session | session token | `TimeAuthority` / `HostOnly` (lanes §5) | the protocol decoder | `phase1/protocol` |
-| Client frames (intents) | network lane | session token | per kind | strict JSON decoder (§10), then stage 1 | `phase1/protocol` |
+| Client frames (intents) | network lane | session token | per kind | strict JSON decoder (§10), then stage 1; client-supplied `observed_tick`, `issued_tick`, `apply_tick`, `apply_us` and speech timing are refused, with golden rejection frames (foundations TB2-S6) | `phase1/protocol` |
 | Snapshot frames, as the client receives them | server | — | — | the client-side decoder (defence in depth; never crashes on a bad frame) | `phase1/protocol` |
 | Token delivery | env var or a 0600 file | — | — | a host config reader; never echoed or logged. The host owns `os` and `secrets` | `phase1/protocol` |
 | `MAXIM_OVERDRIVE_*` env vars, the rig CLI flag | operator | — | — | a host config reader; the rig name from a closed set | `phase1/boundaries` |
@@ -272,7 +347,8 @@ Every registered gate meets all of these, with a rejection test each:
 - a version field, unknown versions refused loudly;
 - a closed key set (a typo is an error, not a silent default);
 - one exception type (`ValueError` or a subclass), never `KeyError`/`TypeError` escaping;
-- bounded echo through `engine.checks.shown`;
+- bounded echo through `engine.checks.shown`; anything agent-facing (errors, receipts) uses a **closed code
+  vocabulary**, never exception text or paths, since `shown` bounds length and doesn't scrub (foundations TB2-S9);
 - budgets checked **before allocation**: counts (primitives per spec), string lengths (names), nesting depth, total
   allocation (cells × primitives). `place` today stacks one mask per primitive before refusing anything: 1,000
   one-centimetre primitives cost about 5 GB at the max profile.
@@ -293,56 +369,103 @@ Only `ActionLimits.load` and `parse_action` meet the bar today, and `place` part
 |---|---|
 | `intent` (strike, ignite, douse, …) | any actor |
 | `imagine` | any actor, within its budget |
-| `control` (dial, pause, presets) | host sessions only, through `TimeAuthority`. **NPCs can never emit it.** |
-| `memory_write` | an NPC, to its own memory only |
+| `speak` | any actor: an NPC only through a thought, a player only through a protocol message (foundations TB2-S1) |
+| `control` (dial, pause, presets, `latency_policy`, the thought-pace table) | host sessions only, through `TimeAuthority`. **NPCs can never emit it, and dilation is never a lever a guest can request** (foundations TB2-S7, DR-S11) |
+| `thought_cancelled` | the host, from world events in `cancel_on` only, rate-limited per source; a guest can't cancel thoughts by talking repeatedly (foundations TB2-S7) |
+| `thought_failed` (reason: budget, timeout, model error) | the host's thought gate (foundations TB2-B3, Wire S4) |
 | `join` / `leave` | the network lane |
 | host commands: advance (in ticks), rig selection, save, load, admin `set_material` | the host |
+
+- **Thought requests** come from an agent's `StepOutput` only; percepts may trigger them, rate-limited per speaker.
+- **`memory_write` is not a world-log kind** (foundations Arch S6, Wire S4). Agent state lives outside `Simulation`,
+  the core can't apply it, and replay never runs Maxim. Memory writes are agent-side values in `StepOutput`, recorded
+  in an agent-side audit record after OD-A15, and saved with the agent home.
 
 3. **Limits are the shared physics-safety ceiling intersected with the actor's capability.** `ActionLimits` stays
    the ceiling (and a refusal, never a clamp); capability comes from the body and, later, energy (Phase 5).
 
 - **Identity is stamped from the channel, never read from the payload:** a client's session token maps to its actor
-  id; an NPC's request id is `(tick, actor, n)` from the agent lane. A guest sending `"actor": 0` changes nothing.
+  id; an NPC's intents carry the actor the host is stepping (§7.1), and a thought request id is `(tick, actor, n)`
+  from the host's thought gate. A guest sending `"actor": 0` changes nothing.
+- **The intent id receipts carry is `(actor_id, seq)`** (foundations Wire S4); the thought request id is a separate
+  id space for thoughts.
 - The "fairness" argument is a game-design goal and no longer part of the trust rationale (TB-N4). Asymmetries are
   explicit in the table above.
 
 ### 6.2 The log record (D-B3, D-S7, D-S8, D-S9)
 
 - **The log holds every input** to the `Simulation`, not only actor intents: every kind in §6.1, including refused
-  intents (a refusal at apply depends on world state) and host commands. `advance` takes ticks, never wall-derived
-  seconds.
+  intents (a refusal at apply depends on world state), controls (a `latency_policy` change included) and host
+  commands. `advance` takes ticks, never wall-derived seconds.
 - **An intent record** is frozen and versioned, with golden fixtures for its format:
   - `schema_version`, `kind`, `actor_id`, `seq` (per actor);
-  - `observed_tick`, `issued_tick`, `apply_tick`;
+  - `observed_tick`, `issued_tick`, `apply_tick`, and **`apply_us`** (int64, the integer world-microsecond offset
+    within the tick; foundations Arch S7, DR-S2, Wire S4). Never a float;
   - `params`: the **typed canonical** form after stage 1, so later gate tightening doesn't change old replays; the
     raw payload is an optional audit field only;
   - `target`: a **stable id** (a region name or persisted entity id), resolved at the door. Nothing identity-based
     crosses into the log.
 - **Derived, never input:** receipts, refusal reasons, destroyed volume, `ModulatorResult`s. Replay recomputes them
   and checks them against a per-tick digest.
-- **An NPC's thought is never a log input.** Prompts, LLM text and tool-call text stay out. The only thing a thought
-  contributes is the intent it produced, and that is logged.
-- **Same-tick order is canonical:** `(apply_tick, actor_id, seq)`, never arrival. Float accumulations over named
+- **What is logged, kind by kind (foundations TB2-S2, DR-S8):**
+  - **an NPC's thought is never a log input:** prompts, raw LLM text and tool-call text stay out; what a thought
+    contributes is the intents and speech it produced, and those are logged;
+  - **`speak` is logged with its text,** since other actors perceive it and it can cancel thoughts. That is the one
+    place LLM-derived text enters the log. Bug reports redact `speak` text by default, keeping lengths and syllable
+    stamps;
+  - **`imagine`** logs its typed spec, whose names are bounded and validated at stage 1;
+  - **`thought_cancelled` and `thought_failed`** are logged as records, so the world never waits on a thought the log
+    can't explain;
+  - memory writes are not world-log records (§6.1).
+- **One ordering key, stated here and nowhere else (foundations DR-S3, Wire S4; supersedes `realtime_lanes_coop.md`
+  §4.2's arrival-order `host_seq`):** `(apply_tick, kind_rank, apply_us, actor_id, seq)`. Controls and joins rank
+  before intents. The log is written in that order, so a replay never sorts. Float accumulations over named
   collections (today `World._power_field` over `sources`) iterate in sorted-key order. Ordering keys are integers
   (D-N2).
-- **Replay calls nothing live:** no model, no Maxim, no clock. Tested by replaying with `maxim` blocked from import.
+- **Replay calls nothing live:** no model, no Maxim, no clock, and **never the response cache**. Tested by replaying
+  with `maxim` blocked from import, and with the cache deleted or poisoned (foundations TB2-S4).
+- **Replay reproduces the world, never the agents (foundations DR-S7).** Under O3 and O6 replay never runs Maxim, so
+  it reproduces `World` bit for bit and no agent state. Why an NPC chose something needs a tier-2 **rerun**, against
+  the rerun manifest (§6.3). So a save is a checkpoint plus the log for the world, and agent homes are saved as state.
+  CLAUDE.md's replay sentence is scoped to the world when this lands (§11.2).
 
 ### 6.3 The log header (D-B2, D-S4)
 
-- Content digests of the scene, the truth constants, the material table, the action limits and the SEM vocabulary;
-  the run seed; the host's `latency_policy` (§7.4).
+- Content digests of the scene, the truth constants (including `tick_us`), both material files after the split (the
+  engine's and the content's), the action limits, the imagination budgets and the SEM vocabulary; the run seed; the
+  host's initial `latency_policy` and thought-pace table (later changes are control records, §6.2).
+- **The rig** (while it still feeds anything until the truth constants absorb it), the **engine SHA** and the
+  `derivation_version` (world_model F15) (foundations Wire S8).
+- **One digest form:** SHA-256 over a canonical serialisation of the loaded, typed value (sorted keys, fixed number
+  format), so a YAML comment change doesn't refuse a replay. One canonicalizer, in `engine.checks`.
+- **Dilation by cause** is log metadata the `Simulation` never reads (foundations Wire S7); it reaches the client
+  through a host status message (`npcs_and_sem.md` §5.4).
 - The environment: Python, numpy and scipy versions, `platform.machine()`, numpy's CPU dispatch features, the BLAS
   thread count.
 - **A content mismatch is refused, loudly.** An environment mismatch downgrades the replay to an outcome-class check,
   and says so, like the rig rule.
 - **Goldens are regenerated only** on a recorded content or environment change, in a commit that says which; never to
   make a red test green.
+- **A rerun manifest beside the header (foundations DR-S7, Wire S8),** with the same refuse-on-mismatch rule, for
+  tier-2 reruns that re-run agents: the digests of `data/agents/` (timing, speech, fatigue, thought budget), the
+  roster and each agent home's initial state; the pymaxim version and config digest; the model ids, weights or
+  quantisation digests and context lengths (the model profile, `npcs_and_sem.md` §4.1); the response cache's digest;
+  the agent seed namespace; the syllabifier version. A run with any machine-decided thought failure, or under
+  `abandon`, is flagged tier 3 in it.
+
+**The three tiers, by what each reproduces:**
+
+| Tier | Reproduces | From |
+|---|---|---|
+| 1. Replay | the world, bit for bit | scene, header, log |
+| 2. Rerun | the world and the agents, bit for bit | the above plus the rerun manifest and the response cache, after tier A and the barrier |
+| 3. Live | the outcome class | anything with live models, abandon, or machine-decided failures |
 
 ### 6.4 Every writer, classified (S11, S-7, N-3)
 
 | Writer | Writes | Class |
 |---|---|---|
-| `Scene.build`, the save loader | cells, regions | construction (opens the window before the clock starts) |
+| `Simulation.from_scene`, the save's construction half | cells, regions | construction (opens the window before the clock starts) |
 | the applier: strike | cells, through the strike law | intent application |
 | the applier: ignite, douse | `sources` | intent application |
 | the applier: `imagine` (today's `place`) | cells, regions | intent application |
@@ -350,88 +473,116 @@ Only `ActionLimits.load` and `parse_action` meet the bar today, and `place` part
 
 - `StructureModulator.apply` stops being public. Its world-writing half becomes the applier; its gate half stays in
   the adapter.
-- **A scheduled band-aid, marked.** Until sim-clock builds the log and the clock, `execute` calls the applier
-  synchronously with no log. It gets a `TEMPORARY(phase1/sim-clock): …` marker in the adapter, and the file is listed
-  under Phase 1 in `docs/roadmap.md`, in `phase1/boundaries` (S11).
+- **A scheduled band-aid, marked.** After `phase1/boundaries`, `execute` calls the applier synchronously with no log.
+  It gets a `TEMPORARY(phase1/agents): …` marker in the adapter, listed under Phase 1 in `docs/roadmap.md` (S11). v2
+  targeted `phase1/sim-clock`, which can't remove it: the synchronous path ends only when `execute` stops applying,
+  which is the agent foundations PR (foundations Arch S5). There, `execute` only parses, checks the bound actor and
+  appends the intent to the stepping agent's outbox, returning a pending, `neutral` result
+  (`npcs_and_sem.md` §6.2).
 
 ## 7. Agents, time and the action contract
 
-### 7.1 `AgentPort` (O3, BF-2)
+### 7.1 `AgentPort` and the agent lane (O3, O6; foundations Arch B1, B3, DR-B1, Wire B2, B3)
 
-The core defines the port; `engine.adapters.agents` implements it with Maxim; the agent lane runs it.
+The core defines the port; `engine.adapters.agents` implements it; the **host** calls it. Detail of the embeddable
+contract Maxim must offer is in `npcs_and_sem.md` §6.1.
 
-| Call | Direction | Meaning |
-|---|---|---|
-| `step(now_tick, dt_ticks, frame) -> intents` | sim → agent | advance the substrate by world time; return proposed intents |
-| `settle(receipts)` | sim → agent | the outcomes of earlier intents |
-| `request_thought(...)` | agent → host | ask for deliberation (§7.4) |
-| `deliver(thought_result)` | host → agent | a thought's result, at its world-time deadline |
+**The port is split in two (foundations Arch B3):**
 
-- **Option B, now:** the substrate runs at tick boundaries on published frames, and its outputs enter as logged
-  intents. Replays are bit-identical because the log is the truth, and a replay never re-runs Maxim.
-- **Inline later:** when Maxim ships an injected clock, RNG and ids and an externally stepped live tick (#1361,
-  items 11, 12, 15), the same port is called inside the tick. Until then **real Maxim never runs in the sealed
-  tick**, where its wall-clock reads would crash it under the tripwire or leak silently without it.
-- **The static import contract is not what seals agents;** the tripwire and the log are.
+| Interface | Defined in | Called by | Calls |
+|---|---|---|---|
+| `AgentPort` | `engine.sim` | the host | `step(now_tick, dt_ticks, frame) -> StepOutput`; `settle(receipts)` |
+| the host service protocol | `engine.intents` | the agent adapter, which receives it as a required keyword-only argument | `request_thought(request)`, the LLM gateway handle, the intent sink |
+
+- **`StepOutput`** is a frozen value: intents (with `apply_us`), `speak` acts, thought requests, and memory writes
+  (agent-side, §6.1). The agent never applies anything and never runs on its own thread (O6).
+- **No upward import.** The adapter (layer 7c) never imports the host (layer 8): it receives the service protocol.
+  v2's `request_thought` drawn as "agent → host" was an upward import, and its `step` drawn as "sim → agent" put
+  Maxim in the sealed tick or was labelled wrong.
+- **The membrane factory** takes a frame source and the intent sink, never `World` (foundations Arch S3, Wire B2).
+- **The LLM gateway** is in `engine.host`, and it is Maxim's only path to a model under the embeddable contract. The
+  host holds, stamps, dilates, cancels and caches there (`npcs_and_sem.md` §4).
+
+**The agent lane (supersedes `realtime_lanes_coop.md` §4.1's "the simulation lane owns … agents" and "agents step
+inside the simulation lane's tick"):**
+- **One owner per agent.** Each agent is owned by one agent-lane thread at a time. Its `step`, `settle` and any push
+  into its body run there, serialised. Only the LLM call leaves it, through the gateway.
+- **The barrier (foundations DR-B1).** The host steps tick T+1 only when every agent is parked: returned from `step`,
+  or waiting at the gateway for a held response. Released work runs to its next park before the tick advances, in the
+  canonical order (§6.2). Lockstep on intents alone isn't enough: agent code would race the tick, and what the
+  cerebellum trains on would depend on the dial.
+- **At most one real Maxim agent per process** until tier A proves agent isolation (Maxim's module-level state:
+  global `random`, caches, the de-duplication window) (foundations DR-S5, TB2-B2).
+- **`dt_ticks` is a pure function of the actor's rate divisor and phase,** never of lag (foundations DR-S1).
 - **Agent state lives outside `Simulation`.** Save v1 persists the world plus each NPC's agent home, separately.
-  That decision is flagged to the save design.
 - **Lane hand-off is counted inside the modelled latency** (§7.3), so the threading design never decides an NPC's
   biology.
+- **Inline later:** if Maxim ever ships deterministic agents (OD-A2 to OD-A8, OD-A15), the same port could be called
+  inside
+  the tick, which would change the core's definition and replay. That is a future design decision, not a promise.
+- **Until tier A,** real Maxim behind the adapter is a strict red gate; every [now] agent test runs against the
+  scripted test double (`npcs_and_sem.md` §6.2).
 
-### 7.2 The action contract: propose and settle (O2, BF-1, B1, BF-8)
+### 7.2 The action contract: propose, receipt, settle (O6; BF-1, foundations BF2-3, Wire S12, Arch S13)
 
-- **The engine's contract is propose → receipt.** A receipt carries the intent id, the outcome kind (`applied`,
-  `refused`, `stale`, `cancelled`), `apply_tick`, the measured effect (`destroyed_volume_m3`, `absorbed_j`, …), and
-  the ids of the frames before and after.
-- **Mode (a), now.** The Maxim adapter's `execute` submits the intent, then waits **in world time** for the receipt and
-  the next published frame. It returns a `ModulatorResult` built from the application: `success` and `error` from
-  the receipt, metadata from the measured effect, `measured_drive_transitions` from the before and after frames.
-  - This is a body's reafference latency (one tick), not a wait for a thought, so "nobody waits for a thought"
-    holds. It is Maxim's own Reachy precedent (`ReachyOrientMotorBackend.execute`).
-  - The wait is bounded in world ticks. A paused world holds the call; it never times out on the wall clock.
-- **Mode (b), later.** `execute` returns `outcome_valence: "neutral"` immediately and the receipt reaches Maxim
-  through settle, once Maxim splits the tool into propose and settle (§9.3). Switching is a change to the adapter only.
-- **Stale is context, never credit** (lesson 9 wins over `realtime_lanes_coop.md` §4.3, which is corrected). Maxim
-  has no refusal kind for "the world overtook you": every `success=False` books NEGATIVE. Until P2 gains a `stale`
-  kind, stale refusals under mode (a) are an **OPEN divergence with a strict red gate**, and the receipt also goes to
+- **The engine's contract is propose → receipt → settle.** An intent produces one receipt: the intent id
+  `(actor_id, seq)`, the outcome kind (`applied`, `refused`, `stale`, `cancelled`), `apply_tick`, the measured effect
+  (`destroyed_volume_m3`, `absorbed_j`, …), and the before and after frame ids.
+- **There is no blocking wait.** v2's mode (a) blocked Maxim's tool loop in `execute` until a world-time receipt. It
+  deadlocked with the dilate policy on one worker (foundations Arch B2), raced the tick (DR-B1), had no route into the
+  pipeline and no second lane to wait across (Wire B2), and credited only instant effects (Arch S13). Under O6 the
+  agent returns intents as values and receives receipts through `settle`.
+- **Each receipt is credited exactly once,** through `settle`, and zero times when `stale`; a test asserts it.
+- **Valence per D53:** the adapter always self-reports. `neutral` when the measured effect is nil or unverifiable,
+  drive deltas through `measured_drive_transitions`; absent a report, Maxim books mechanical success as POSITIVE.
+- **Credit reads declared sensors only,** the ones the affordance declares it affects, and never instruments.
+  Slow-effect credit (ignite) is an OPEN divergence with a red gate until settle can carry a horizon (OD-A16).
+- **Stale is context, never credit** (lesson 9). Until Maxim promotes a refusal-kind key through the bridge's failure
+  path (OD-A16), stale refusals are an OPEN divergence with a strict red gate, and the receipt goes to
   the next thought's context.
-- **Per-actor binding (BF-6).** `to_maxim_entity(world, region, actor=...)` gives each NPC its own entity and
-  modulator, so its intents are stamped with that actor. `name` and `full_path` stay identical across actors, since
-  the cerebellum and NAc key on them (lesson 10).
+- **Per-actor binding (BF-6; foundations TB2-S8):** each NPC gets its own entity and modulator, bound to its actor.
+  `name` and `full_path` stay identical across actors (lesson 10). The adapter refuses a call whose bound actor isn't
+  the agent it is stepping.
 
 ### 7.3 Three clocks (O4)
 
 | Clock | What | Owner | Exact? |
 |---|---|---|---|
 | World time | the integer tick | `Simulation` | exact |
-| Body time | drive drift, depletion, reflex latency | the agent substrate, fed the true world dt | exact |
+| Body time | drive drift, mental fatigue, sleep pressure, reflex latency | the agent substrate, fed the true world dt | exact |
 | Perceived time | durations, order, time of day as the NPC believes them | modelled senses | coarse, biased, noisy |
 
-Fields and tests laid now:
-- **No time field reaches cognition.** The adapter strips `observed_tick`, `issued_tick`, `apply_tick`, receipt
-  ticks, deadlines, the dial and dilation from everything agent-facing. A schema test and a prompt test prove it. The
-  NPC matches a receipt by an opaque id.
-- **The dial is invisible:** an NPC's percepts are bit-identical at 1× and 20×.
-- **Δt invariance:** every agent-side process the adapter steps gives the same result at any step size (closed-form
-  updates), the agent's version of the resolution rule.
-- **A per-NPC seeded stream,** counter-based and keyed by `(run seed, actor, stream, counter)`, spawned from the log
-  header's seed and owned by the agent side. Never the World's generator.
-- **Timing data in microseconds** in `data/` (for example `data/agents/timing.yaml`); rates are integer divisors of
-  the tick with a per-actor phase.
+Fields and tests laid now (detail and test designs in `npcs_and_sem.md` §2–§3):
+- **No time field reaches cognition.** The adapter strips `observed_tick`, `issued_tick`, `apply_tick`, `apply_us`,
+  receipt ticks, deadlines, the dial and dilation from everything it builds. A schema test (with
+  `SensorReading.timestamp` as its named exemption, plus a value-level metadata check) and a prompt test (rendered in
+  two time zones 13 h apart) prove it; against real Maxim both are strict red gates until tier A, since Maxim builds
+  the prompt (foundations X-2, X-12).
+- **The dial is invisible:** with a seeded wall-delay schedule through the gateway, percepts, receipts and kinds are
+  bit-identical at 1× and 20×, and a negative control under `abandon` must differ (foundations DR-S6).
+- **Δt invariance,** with a relative 1e-9 tolerance and the planted Euler update in an exponential process
+  (foundations X-11).
+- **Per-NPC seeded streams,** keyed by stable identity: `SeedSequence(root, spawn_key=(NS_AGENT, npc_key,
+  stream_key))`, never `spawn()`; the World's generator under `(NS_WORLD,)`. The host derives them from the log
+  header's root seed (foundations DR-S4, Wire S3).
+- **Integer microseconds** in `data/agents/`; rates are integer divisors of the tick with a per-actor phase.
 - **The membrane is the clock translator (BF-11).** Today `RegionSensor` stamps world seconds and Maxim's sensors
-  stamp epoch seconds. Until item 10 and P5 land, each field's clock is documented, and the mismatch is an OPEN
-  divergence with a red gate. `SensorReading.timestamp` never reaches a prompt verbatim.
+  stamp epoch seconds. Until OD-C2 and OD-A2 land, each field's clock is documented, and the mismatch is an
+  OPEN divergence with a red gate (foundations Wire S10: v2 named the wrong items). Under k reflex substeps, the
+  injected clock advances exactly by the stepped dts (foundations Wire S1).
 
 ### 7.4 Thought cost: the interfaces only (O4)
 
-- **A thought request** carries `kind`, `deadline_ticks` (modelled onset), `cancel_on`, and a cache key (SHA-256 of
-  the canonical request).
-- **A thought result** is streamed: tokens stamped with world-microsecond offsets finer than the tick, interruptible.
-- **The host's `latency_policy`** is logged in the header: the default slows the world when a real thought runs late,
-  reported as dilation by cause; abandoning late thoughts is an explicit, logged alternative.
-- **The tick size** is decided in sim-clock, with sub-tick offsets on the table.
-- The phases (substrate reaction, onset, speech), the fatigue and sleep-pressure coupling, and every constant belong
-  to part 2.
+- **A thought request** carries `kind` (from the closed vocabulary of `data/agents/timing.yaml`, chosen before the
+  call and never changed by a result), the modelled times, `cancel_on`, and its budget.
+- **A thought result** is streamed through the gateway: syllables stamped in integer world microseconds below the
+  tick, interruptible. Segment times are computed by the host from the cost model, never parsed from model output
+  (foundations TB2-S5).
+- **The host's `latency_policy`** is a host-only control: the default dilates, with DLP-B2's fixes (the wait is a
+  state on the simulation lane's inbox, dispatch by deadline, a wall ceiling that ends a thought as a logged
+  `thought_failed`); `abandon` is the logged alternative (foundations Arch B2, TB2-B3).
+- **The tick size** is decided in sim-clock, with `apply_us` already in the record.
+- Phases, budgets, the cache, fatigue and every constant belong to part 2.
 
 ## 8. Maxim, content and experiments
 
@@ -442,19 +593,24 @@ Fields and tests laid now:
 | Adapter | Package | Surface |
 |---|---|---|
 | SEM membrane | `engine.adapters.sem` | bodies, percepts, acts (`Entity`, `Modulator`, `SensorReading`, `ModulatorResult`, `AffordanceSchema`) |
-| Agent stepping | `engine.adapters.agents` | stepping, clock and RNG injection, the experience driver, agent-state save |
+| Agent stepping | `engine.adapters.agents` | host-called stepping and settle, the LLM gateway (implemented by the host, injected into Maxim), the tool-roster check, the per-agent home, clock and RNG injection, the experience driver, agent-state save (foundations Arch B3, DR-B2) |
 | NPC authoring | game, when it exists | `AgentFactory`, seed memory, the arc loader |
 | Experiment harness | `maxim_experiments` | the experiment and ledger tooling |
 
-- **Enforced** by import-linter's `protected` contract on `maxim` (allowed importers listed; new root packages are
-  covered automatically, verified on 2.15 without pymaxim installed), plus a lint comparing each adapter's imported
-  symbols against its declared list.
+- **Enforced** by import-linter's `protected` contract on `maxim` (allowed importers listed; verified on 2.15 without
+  pymaxim installed), plus a lint comparing each adapter's imported symbols against its declared list.
+- **New root packages are not covered automatically** (foundations X-12, verified): grimp builds no graph for a root
+  not listed in `root_packages`, so an unlisted `game` importing `maxim` passed. A test asserts `root_packages` equals
+  the set of top-level packages under `src/`.
 - **Behaviour, not only shape (BF-10).** A behavioural contract test runs a real `ModulatorAffordanceTool` (and the
   actor tool) against the membrane and asserts what Maxim does with the result: the valence booked for applied,
   refused and pending results; what the cerebellum is trained on; which side-effect keys are promoted. The membrane's
-  metadata keys are reserved (a key named `success` would overwrite the outcome). Lands with mode (a) in sim-clock.
-- **Proposal ids are one id space** in `docs/roadmap.md` Phase 3 (BF-14). This design cites the realtime design's §6
-  items and world_v2's P-numbers until that renumbering lands.
+  metadata keys are reserved (OD-C6: `tool_bridge` merges `**result.metadata` after `"success": True`, so a key named
+  `success` overwrites the outcome).
+  It runs against real Maxim as a strict red gate from `phase1/agents`, and turns green with tier A.
+- **Proposal ids are roadmap Phase 3's `OD-` ids,** Overdrive-scoped so they can't collide with Maxim's own; its
+  "Was" column maps the old A, B, C, P and SEM-plan numbers. v2's old ids are replaced throughout (foundations Wire
+  S10, MP-S9).
 
 ### 8.2 Content and licence (B-5; S9, X S-9, TB-S8)
 
@@ -472,6 +628,11 @@ Fields and tests laid now:
   own licence when it exists. A check lists each wheel's files against B8's manifest.
 - **The material split** gives the engine file and the content file disjoint, closed key sets, and the merge refuses
   an override, so content (later, mods) can never set a physical property.
+- **The shipped values stay under the resolution gate (foundations Arch S12).** Calibrations decide outcome classes
+  (breach, ignition, burn-out), so moving them to content must not take them out of the cross-tier and closed-form
+  tests. The game's gate runs `engine.verify`'s cross-tier suite over its own content tables, as a required check born
+  with the content file in material table v1. A retune that puts a value inside a band where profiles disagree goes
+  red in the game's gate, not in the lab.
 
 ### 8.3 Presentation (B-6)
 
@@ -483,8 +644,8 @@ The core is forbidden from importing it; `engine.adapters.sem` is too (§2.2).
 - `maxim_experiments` imports only the engine and its own Apache-2.0 fixtures (a fixture body, event pool and
   scene). Neither the engine nor the game imports it.
 - Experiments that need game content are game runs, which stay off Maxim's ledger.
-- **A ledger record pins** the engine SHA, the pymaxim version, the membrane contract version (mode (a) or (b), and
-  any interim `neutral` behaviour, which is part of the treatment) and the Phase 3 items present.
+- **A ledger record pins** the engine SHA, the pymaxim version, the membrane and agent contract versions (including
+  any interim `neutral` behaviour, which is part of the treatment), the model profile, and the Phase 3 items present.
 - Decided now, because the Exp 64 draft freezes at the Phase 3 exit and will name these paths.
 
 ## 9. Protocol, tests and SEM refinement
@@ -506,31 +667,42 @@ The core is forbidden from importing it; `engine.adapters.sem` is too (§2.2).
 The external half only: the engine is forbidden from importing `pytest` and `hypothesis`. `tests` and `scripts`
 aren't packages in the import graph, so that half couldn't fail (Arch N5) and is dropped.
 
-### 9.3 SEM refinement items (O5)
+### 9.3 SEM refinement items (O5; foundations Arch S8, Wire S10, Wire S11, X-5, X-13, MP-B3)
 
-| Item | Why | Path |
+Ids are roadmap Phase 3's `OD-` ids (its "Was" column maps the old A, B, C and SEM-plan S-ids). **Additive first, in
+1.x:** under Maxim's own reading of CC3 (`AffordanceSchema`'s marker, `sem.py:113-116`), appending a field with a
+default is non-breaking (precedents: `always_active` #403, `speech_param` #1261), and a rename follows the
+alias-plus-deprecation precedent. Only `Modulator.execute`'s signature is a real break, and it can be opt-in. No
+major version is proposed.
+
+| Item | Roadmap | Path |
 |---|---|---|
-| Injected clock, RNG and ids; `step(world_dt)` for the agent and the Default Network | the agent lane needs them (§7.1) | additive now (the dedicated "world clock" release) |
-| The cerebellum observes at settle time, not during the call (valence is not a cerebellum input: it trains on the sensors read in the call, `tool_bridge.py:864-892`; NAc already honours `neutral`, `tool_dispatch.py:356-375`) | mode (b) must not train on unverified state (BF-1) | additive now |
-| A `stale` refusal kind in P2 | §7.2 | additive now |
-| Implement `EntropicDriveSpec.coupled_to` for the fatigue coupling (`sem.py:244`; parsed, never applied), with a cognitive-reserve sensor (`modulated_by` exists only on homeostatic drives) | thought cost (O4) | additive now |
-| Per-part `world_set_axis` (P4) | §4.3 | additive now |
-| Reserved membrane metadata keys | BF-10 | additive now |
-| Propose and settle at the tool (P3 with item 16) | mode (b) | batched |
-| What `SensorReading.timestamp` means; `drift_rate`'s time base | §7.3 | batched |
-| Deep-frozen `ModulatorResult`/`SensorReading` | §5.1 | batched |
-| A declared direction per affordance (done to / done by) | lesson 8 | batched |
-| An acting-entity context on `execute` | BF-6 (only if per-actor binding is measured to be costly) | batched, low priority |
-
-Batched items go into **one SEM breaking-change plan**, drafted in `docs/maxim_upstream/`, through Maxim's process.
+| The world clock: `AgentTime`, prompt and observation time, stamps, the de-duplication window, dispatch gates, ids, the stepped Default Network | OD-A1–OD-A9 | additive; defaults reproduce today's values |
+| The embeddable agent: entry point, closed tool roster, per-agent home, no pickle, streaming and cancellation, `step`/`think` returning values, agent isolation | OD-A10–OD-A15 | additive |
+| Credit for effects measured later: receipts, the cerebellum at settle, exactly-once credit, `stale` and `call_error` kinds promoted through the bridge, a per-modulator valence default | OD-A16 | an amendment to `tool_failure_credit.md` |
+| Drive drift states its time base | OD-C1 | additive; optional rename with an alias |
+| `SensorReading.timestamp` is the body clock | OD-C2 | additive |
+| A declared direction per affordance (`acts_on`, trailing, defaulted) | OD-C3 | additive |
+| The acting entity reaches `execute`, opt-in (`accepts_actor`) | OD-C4 | additive only because opt-in (MP-S12) |
+| `ModulatorResult.settles`, trailing, defaulted | OD-C5 | additive |
+| Reserved membrane metadata keys (BF-10): metadata can't overwrite `success` | OD-C6 | additive |
+| `ModulatorResult` and `SensorReading` are not mutated (§5.1; freezing deferred) | OD-C7 | additive |
+| Percepts and instruments, shrunk: instruments are in-world objects | OD-C8 | additive |
+| A version rule for the SEM vocabulary on `ENTITY_FORMAT_VERSION` | OD-C9 | additive |
+| `world_set_axis` for sub-sensors | OD-C10 | additive (unverified) |
+| A mental-fatigue drive that rises with load; `CouplingSpec` can't carry it | OD-B12 | tier B, earned by OD-X2 |
+| The missing CC3 declaration on `ModulatorResult`; the salience 0.0 bug | OD-I2, OD-I1 | issues now |
 
 ## 10. Enforcement
 
 | Boundary | Check | Lands |
 |---|---|---|
 | B-1 engine/game/experiments | import-linter forbidden contracts | `phase1/boundaries` |
-| B-2 Maxim adapters | `protected` contract on `maxim`; declared-surface lint; behavioural contract test | boundaries; the behavioural test with sim-clock |
-| B-3 sealed core | forbidden contract (one shared banned list); extended AST scan; writer non-vacuity test; tripwire over the corpus | boundaries; tripwire with sim-clock |
+| B-2 Maxim adapters | `protected` contract on `maxim`; a test that `root_packages` equals the packages under `src/`; declared-surface lint; behavioural contract test | boundaries; the behavioural test (a strict red gate against real Maxim) with `phase1/agents` |
+| B-3 sealed core | forbidden contract (one shared banned list); extended AST scan; writer non-vacuity test; profile-hook tripwire over the corpus | boundaries; tripwire with sim-clock |
+| B-3 agent step path | the same banned list and scan over `engine.adapters.agents` minus its host-only module; tripwire on the agent lane | `phase1/agents` |
+| NPC tool roster and homes | roster allowlist check with a planted `BashTool`; per-NPC home test; one real agent per process | `phase1/agents` |
+| Agent barrier | a test where a slow agent at 20× must not see a later frame than at 1×; park and release meters | `phase1/lanes` |
 | Rendering never reaches truth | forbidden contract: core ↛ `engine.tiers` | boundaries |
 | Skip-layer rule | forbidden contract: adapters, protocol, host ↛ cells, laws, geometry, scene build | boundaries |
 | B-4 untrusted input | input-primitive allowlist (import-linter + AST lint); banned unsafe calls; gate registry with per-gate branch coverage | boundaries |
@@ -538,7 +710,7 @@ Batched items go into **one SEM breaking-change plan**, drafted in `docs/maxim_u
 | B-6 presentation | forbidden: core and `adapters.sem` ↛ `encoding` | the protocol PR |
 | B-7 experiments | forbidden: engine and game ↛ `maxim_experiments`; harness ↛ game | the first experiment |
 | B-8 layers | import-linter layers contract, committed order | boundaries |
-| B-9 one pipeline | the write window (§4.1); record golden fixtures; ordering test; replay with `maxim` blocked | boundaries (window); sim-clock (log) |
+| B-9 one pipeline | the ownership window (§4.1, with the unlock-then-close proof); record golden fixtures; ordering test; replay with `maxim` blocked and the cache deleted | gates (window); sim-clock (log) |
 | B-10 observation | frame tests (§4.2); `Observation` protocol under mypy | boundaries |
 | B-11 one schema | regenerate-and-compare; golden valid and rejection frames on both sides | the protocol PR |
 | B-12 tests out | forbidden: engine ↛ `pytest`, `hypothesis` | boundaries |
@@ -568,13 +740,22 @@ harness is born in `engine.verify`:
     `intents`, `imagination`, `sim`, `loaders`, `tiers`, `adapters.sem`.
   - Split `config` (truth vs `tiers` vs loaders); remove data defaults (`materials=`, `limits=` required).
   - Move `parse_action`, the typed actions and `ActionLimits` into `engine.intents`.
-  - Split `StructureModulator`: gate half in `adapters.sem`, write half into `sim` as the applier, with the
-    TEMPORARY marker and roadmap row (§6.4).
+  - Split `StructureModulator`: gate half in `adapters.sem`, write half into `sim` as the applier (with the reach and
+    centroid checks as stage-2 checks), with its TEMPORARY marker scheduled for `phase1/agents` and its roadmap row
+    (§6.4).
   - The contracts, the import-linter wiring and the tooling tests (§10).
-- **2c `phase1/gates`: behaviour.**
-  - The write window and read-only owners (§4.1); published frames, sensors on frames, instruments relabelled (§4.2,
-    §4.4).
+- **2c `phase1/gates`: behaviour, limited to what has a caller then (foundations Arch S5, Wire B1).**
+  - The ownership write window, owned by `World.advance` and the applier under TEMPORARY markers scheduled for
+    `phase1/sim-clock`
+    (§4.1); frames published after each application and each advance, as copies; sensors on frames; instruments
+    relabelled; `cell_size_m` dropped (§4.2, §4.4).
   - Validating constructors (§5.1); the gate contract and registry (§5.2, §5.4); budgets and bounded echo.
+  - **Not in 2c:** `observed_tick` on intents and the integer tick (sim-clock); the cross-thread frame test (lanes).
+- **The agent foundations, `phase1/agents`** (a new row in world_model §10, after sim-clock and before lanes): the
+  split `AgentPort` and host service protocol, `StepOutput`, receipts and settle, thought request types, the
+  `data/agents/` files and their gates, the per-NPC streams, the tool-roster and home checks, the agent-step-path
+  seal, the scripted test double, and real Maxim as a strict red gate. It removes the TEMPORARY marker
+  scheduled for it. The barrier's concurrency, the gateway's threads and the meters arrive with `phase1/lanes`.
 
 ### 11.2 What the rename must get right (W2, W5–W7, W10–W14)
 
@@ -589,7 +770,11 @@ harness is born in `engine.verify`:
 - **`MAXIM_OVERDRIVE_ALL_TIERS` keeps its name,** with a test that `prepush.sh` exports the name `conftest.py` reads
   (W6).
 - **Docs:** README's quick start, `docs/code_review.md`, CLAUDE.md (Layout, Commands, the SEM rule's paths, the new
-  rule) and `docs/architecture.md` are updated by hand. `docs/design/reviews/` and `docs/design/research/` are kept
+  rule) and `docs/architecture.md` are updated by hand. When the agent foundations land, CLAUDE.md's determinism
+  rule ("one seeded `numpy.random.Generator` owned by `World`") becomes "the World's generator plus keyed per-NPC
+  streams from one root seed", `tests/test_determinism.py::NUMPY_RANDOM_ALLOWED` admits `Philox`, and the replay
+  sentence is scoped to the world (§6.2) (foundations Wire S3, DR-S7, BF2-15). `docs/design/reviews/` and
+  `docs/design/research/` are kept
   verbatim and excluded (W7, W11).
 - **Wire-visible strings are decided, not sed'd:** the entity metadata `source` becomes a fixed vocabulary value
   (`"overdrive_world"`), pinned by a test (W10, X N-2). `__version__` moves to the engine; the distribution name
@@ -613,17 +798,29 @@ harness is born in `engine.verify`:
    files, and reviewing it apart from new behaviour keeps both reviewable.
 3. **Abandoning `phase1/transport` and `foundations/world-server-v0`.**
 4. **Imagination budgets:** the mechanism is engine; per-actor budget values are game data, loaded through a gate.
+5. **Frame cadence:** frames publish on change (after each physics step and each tick that applied an intent), not per
+   tick (§4.2). Accept that, or pay the per-tick copy cost for finer percepts?
 
 ## 13. What this design does not settle
 
-- **Stale refusals under mode (a)** stay an OPEN divergence until Maxim has a `stale` refusal kind (§7.2).
-- **Two clocks into Maxim** stay an OPEN divergence until item 10 and P5 (§7.3).
+- **Real NPCs wait for Maxim's embeddable agent contract** (O6). Until it ships, real Maxim behind the adapter is a
+  strict red gate, and every agent test runs on the scripted test double.
+- **Stale refusals** stay an OPEN divergence until Maxim promotes a `stale` refusal kind (OD-A16)
+  (§7.2). Roadmap Phase 3's exit now requires OD-A16 before Phase 4 (`npcs_and_sem.md` §12.1 asks the owner to confirm).
+- **Slow-effect credit** stays OPEN until settle carries a horizon (OD-A16).
+- **Memory writes** are ungated until generate vs apply (OD-A15); memory authority is OPEN until per-agent homes and
+  pickle-free persistence land.
+- **Two clocks into Maxim** stay an OPEN divergence until OD-C2 and OD-A2 (§7.3).
+- **The game's rule seam is data only** (§2.1); a game that needs a new mechanism brings it to the engine.
 - **BLAS in the core** is forbidden rather than policed; the first solver that needs it reopens this (§3).
 - **The perceiver half of B-13** waits for the first NPC body (Phase 4).
 
-## Fold table
+## Fold table: the v1 review (`reviews/boundaries/`)
 
-Every BLOCKER and SHOULD-FIX, by review. Status is **folded** (with the section), or **deferred** (with the reason).
+Every v1 BLOCKER and SHOULD-FIX, as folded in v2. **Three v2 folds were revised in v3** after the foundations review
+found them not achieved or overtaken: D-B4 (v2's flag-toggling window failed; v3's ownership window, §4.1), D-S8 (v2
+left lanes §4.2's arrival order standing; v3 states one key, §6.2), and Arch B1 / BF-1 (v2's mode (a); superseded by O6,
+§7.2).
 
 | Finding | Severity | Status |
 |---|---|---|
@@ -698,6 +895,84 @@ Every BLOCKER and SHOULD-FIX, by review. Status is **folded** (with the section)
 | W8 contracts partly unexpressible; the guard step | SHOULD-FIX | folded: §3, §10 |
 | W9 merge order | SHOULD-FIX | folded: §11.3 |
 
-Coverage: 18 of 18 BLOCKERs and 52 of 52 SHOULD-FIXes folded; none deferred. NITs folded where they touched a
+v1 coverage: 18 of 18 BLOCKERs and 52 of 52 SHOULD-FIXes folded in v2, three of them revised in v3 (above), and the
+gate-registry fold (Arch B2, TB-B1, X-2) made mechanical in v3 (foundations Arch S15). NITs folded where they touched a
 section: Arch N1–N8; BF-12 to BF-15; D-N1 to D-N3, D-N5; X N-1 to N-3; TB-N1 to N-4; W10 to W14. D-N4 (drive
 determinism tests from the golden log, by kind) is deferred to sim-clock, where the golden log is born.
+
+## Fold table: the foundations review (`reviews/foundations_v1/`)
+
+Every foundations BLOCKER and SHOULD-FIX that touches this design. Status is **folded** (with the section),
+**partial** (what is missing), or **elsewhere** (the document that owns it). Findings that touch only part 2 are in
+`npcs_and_sem.md`'s fold table; those that touch only the Maxim drafts or roadmap Phase 3 are the drafts' fold.
+
+| Finding | Severity | Status |
+|---|---|---|
+| Arch B1 the agent lane is defined nowhere | BLOCKER | folded: §7.1 (one owner per agent, the barrier); lanes §4.1 superseded in part 2 §11.1 |
+| Arch B2 mode (a) + dilation deadlock | BLOCKER | folded: O6 drops mode (a); §7.2, §7.4 (DLP-B2's fixes) |
+| Arch B3 `AgentPort` isn't the thought seam | BLOCKER | folded: §7.1 (port split, gateway) |
+| Arch S1 sibling layers aren't independent | SHOULD-FIX | folded: §2.2 sub-layers 5a/5b, 7a/7b/7c |
+| Arch S2 restricted importers need what's forbidden; writers outside the core | SHOULD-FIX | folded: §2.2 skip-layer rule (stage-2 checks, `entity_key` in checks, save split, `ActionLimits.load` in loaders) |
+| Arch S3 `to_maxim_entity` takes `World` | SHOULD-FIX | folded: §7.1 |
+| Arch S4 frames can mutate; thread scope; cadence | SHOULD-FIX | folded: §4.1 (thread scope), §4.2 (copies, cadence) |
+| Arch S5 agent foundations have no PR; the marker can't come out | SHOULD-FIX | folded: §6.4, §11.1 (`phase1/agents`); world_model §10 |
+| Arch S6 `memory_write` in the world log | SHOULD-FIX | folded: §6.1 |
+| Arch S7 the log record lacks the sub-tick key | SHOULD-FIX | folded: §6.2 (`apply_us`, one key) |
+| Arch S8 SEM paths disagree; two items have no home | SHOULD-FIX | folded: §9.3, §5.1 (OD-C6, OD-C7) |
+| Arch S11 no seam for game rules | SHOULD-FIX | folded: §2.1 (data only) |
+| Arch S12 calibrations leave the resolution gate | SHOULD-FIX | folded: §8.2 |
+| Arch S13 credit for slow effects; instruments | SHOULD-FIX | folded: §7.2 (OPEN with a red gate; declared sensors) |
+| Arch S15 the registry check overstated | SHOULD-FIX | folded: §5.2 (mechanical rule, four plants) |
+| X-1 the tripwire can't see what it claims | BLOCKER | folded here: §3 (profile hook); the world-clock draft's tripwire is the drafts' fold |
+| X-2 [now] claims false with real Maxim | BLOCKER | folded: §7.3 (strict red gates until tier A) |
+| X-5 CC3 misquoted | SHOULD-FIX | folded: §9.3 |
+| X-12 schema, prompt, protected tests | SHOULD-FIX | folded: §7.3, §8.1, §10 |
+| X-13 additive disagreement | SHOULD-FIX | folded: §9.3 |
+| Wire B1 the window and frames before `Simulation` | BLOCKER | folded: §4.1, §11.1 |
+| Wire B2 mode (a) can't reach the pipeline | BLOCKER | folded: O6; §7.1 (intent sink as a required port) |
+| Wire B3 no Maxim thought entry point | BLOCKER | folded: §7.1, §8.1 (the gateway) |
+| Wire S1 three time inputs, no invariant | SHOULD-FIX | folded: §7.3 |
+| Wire S3 the seed path; CLAUDE.md drift | SHOULD-FIX | folded: §7.3, §11.2 |
+| Wire S4 record fields and kinds | SHOULD-FIX | folded: §6.1, §6.2 |
+| Wire S5 speech has no wire | SHOULD-FIX | folded: §6.1, §6.2 (`speak`); detail in part 2 §5.2 |
+| Wire S6 which frame; leaks | SHOULD-FIX | folded: §4.2, §4.4 |
+| Wire S7 dilation has no channel | SHOULD-FIX | folded: §6.3 |
+| Wire S8 the header misses inputs | SHOULD-FIX | folded: §6.3 |
+| Wire S9 the cache is unregistered | SHOULD-FIX | folded: §5.3 |
+| Wire S10 stale Phase 3 ids | SHOULD-FIX | folded: OD- ids throughout (§4.3, §5.3, §7, §8.1, §9.3, §13) |
+| Wire S11 §9.3 vs the SEM plan | SHOULD-FIX | folded: §9.3 |
+| Wire S12 settle double credit | SHOULD-FIX | folded: §7.2 |
+| DR-B1 agent code races the tick | BLOCKER | folded: §7.1 (barrier) |
+| DR-B2 the host doesn't own the LLM call | BLOCKER | folded: §7.1, §8.1 |
+| DR-B3 the cache isn't canonical | BLOCKER | folded: §5.3 (gate); the key in part 2 §4.8 |
+| DR-B4 the v1 D-B4 fold doesn't hold | BLOCKER | folded: §4.1 (ownership window, the unlock-then-close proof) |
+| DR-B5 throughput is the wrong bound | BLOCKER | elsewhere: part 2 §4.5 (boundaries carries no throughput claim) |
+| DR-S1 Δt invariance vs bits | SHOULD-FIX | folded: §7.1 (`dt_ticks` from the schedule); detail in part 2 §2.1 |
+| DR-S2 sub-tick units and field | SHOULD-FIX | folded: §6.2 |
+| DR-S3 three ordering keys | SHOULD-FIX | folded: §6.2 |
+| DR-S4 Philox stability | SHOULD-FIX | folded: §7.3 |
+| DR-S5 agents share module state | SHOULD-FIX | folded: §7.1 (one real agent per process); the exit test is the drafts' |
+| DR-S6 the dial test can't fail | SHOULD-FIX | folded: §7.3 |
+| DR-S7 replay reproduces the world only | SHOULD-FIX | folded: §6.2, §6.3 (tiers, rerun manifest) |
+| DR-S8 speech is world input | SHOULD-FIX | folded: §6.2 |
+| DR-S9 unmeasured budgets | SHOULD-FIX | folded: §4.2 (frame copies, on change), §10 (barrier meters); remaining rows in part 2 |
+| DR-S10 the agent adapter is unsealed | SHOULD-FIX | folded: §3 |
+| DR-S11 machine-decided failures; policy changes | SHOULD-FIX | folded: §6.1, §6.2, §6.3 |
+| TB2-B1 the NPC tool surface | BLOCKER | folded: §5.3 (roster gate) |
+| TB2-B2 one shared home; pickle | BLOCKER | folded: §5.3 (homes gate-to-be), §7.1 |
+| TB2-B3 thought budgets; liveness | BLOCKER | folded: §5.3, §6.1, §7.4 |
+| TB2-S1 speech kind and gate | SHOULD-FIX | folded: §5.3, §6.1 |
+| TB2-S2 the log excludes and includes LLM text | SHOULD-FIX | folded: §6.2 (per kind) |
+| TB2-S3 the memory-write gate can't exist yet | SHOULD-FIX | folded: §5.3 (gate-to-be), §13 |
+| TB2-S4 the cache is untrusted | SHOULD-FIX | folded: §5.3, §6.2 (replay never opens it) |
+| TB2-S5 kind from model output | SHOULD-FIX | folded: §7.4 |
+| TB2-S6 who stamps player ticks | SHOULD-FIX | folded: §4.2, §5.3 |
+| TB2-S7 authority misses policy, requests, cancels | SHOULD-FIX | folded: §6.1 |
+| TB2-S8 identity from the object called | SHOULD-FIX | folded: §5.3, §7.2 |
+| TB2-S9 host data before tier A | SHOULD-FIX | partial: §5.4 (closed code vocabulary); the guest-session guard and LLM locality are owner questions in part 2 §12.1 |
+| TB2-S10 in-process inputs from Maxim | SHOULD-FIX | folded: §5.2 |
+| BF2-6 two meanings of instrument | SHOULD-FIX | folded: §4.4 |
+| MP-B3 CC3 misread | BLOCKER | folded: §9.3 |
+| MP-S12 the injected actor key isn't additive | SHOULD-FIX | folded: §9.3 |
+
+NITs folded where they touched a section: Arch N1 (inline later is a future decision, §7.1); BF2-15 (§11.2).
