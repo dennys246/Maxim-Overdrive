@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import yaml
+
+from maxim_overdrive.checks import finite_real
 
 
 def data_dir() -> Path:
@@ -45,9 +46,9 @@ class RigProfile:
         raw = yaml.safe_load(path.read_text())
         return cls(
             name=str(raw["name"]),
-            cell_size_m=float(raw["cell_size_m"]),
+            cell_size_m=finite_real(raw["cell_size_m"], "cell_size_m"),
             min_substeps_per_turn=int(raw["min_substeps_per_turn"]),
-            full_res_radius_m=float(raw["full_res_radius_m"]),
+            full_res_radius_m=finite_real(raw["full_res_radius_m"], "full_res_radius_m"),
         )
 
 
@@ -118,12 +119,16 @@ class MaterialTable:
             mats[name] = Material(
                 name=name,
                 id=int(v["id"]),
-                density_kg_m3=float(v["density_kg_m3"]),
-                specific_heat_j_kgk=float(v["specific_heat_j_kgk"]),
-                conductivity_w_mk=float(v["conductivity_w_mk"]),
-                fracture_energy_j_m3=float(v["fracture_energy_j_m3"]),
-                degrade_above_c=None if v.get("degrade_above_c") is None else float(v["degrade_above_c"]),
-                degrade_rate_per_s_per_100c=float(v.get("degrade_rate_per_s_per_100c", 0.0)),
+                density_kg_m3=finite_real(v["density_kg_m3"], f"{name}.density_kg_m3"),
+                specific_heat_j_kgk=finite_real(v["specific_heat_j_kgk"], f"{name}.specific_heat_j_kgk"),
+                conductivity_w_mk=finite_real(v["conductivity_w_mk"], f"{name}.conductivity_w_mk"),
+                fracture_energy_j_m3=finite_real(v["fracture_energy_j_m3"], f"{name}.fracture_energy_j_m3"),
+                degrade_above_c=None
+                if v.get("degrade_above_c") is None
+                else finite_real(v["degrade_above_c"], f"{name}.degrade_above_c"),
+                degrade_rate_per_s_per_100c=finite_real(
+                    v.get("degrade_rate_per_s_per_100c", 0.0), f"{name}.degrade_rate_per_s_per_100c"
+                ),
                 color_rgb=tuple(int(c) for c in v["color_rgb"]),  # type: ignore[arg-type]
             )
         return cls(mats)
@@ -131,39 +136,69 @@ class MaterialTable:
 
 ACTION_LIMITS_VERSION = 0
 _LIMIT_FIELDS = {
-    "ignite": ("max_power_w", "min_radius_m", "max_radius_m"),
-    "strike": ("max_energy_j", "min_sigma_m", "max_sigma_m"),
+    "ignite": ("max_power_w", "min_radius_m", "max_radius_m", "default_radius_m"),
+    "strike": ("max_energy_j", "min_sigma_m", "max_sigma_m", "default_sigma_m"),
 }
+
+
+class _StrictLoader(yaml.SafeLoader):
+    """``yaml.SafeLoader`` that refuses a mapping with a repeated key instead of keeping the last value."""
+
+
+def _no_duplicate_keys(loader: _StrictLoader, node: yaml.MappingNode) -> dict[Any, Any]:
+    keys = [loader.construct_object(k, deep=True) for k, _ in node.value]
+    repeated = sorted({str(k) for k in keys if keys.count(k) > 1})
+    if repeated:
+        raise ValueError(f"repeated key(s) {repeated} in a mapping")
+    return dict(loader.construct_pairs(node, deep=True))
+
+
+_StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicate_keys)
 
 
 @dataclass(frozen=True)
 class ActionLimits:
     """How much one SEM action may ask of the world (``data/world/actions.yaml``).
 
-    These are world config, not server config: the simulation enforces them, so a replay needs the same values.
+    These are physics-safety ceilings, not what a body can do: an NPC's capability will come from its body and its
+    energy (Phase 4 and 5). They are world config, not server config, because the simulation enforces them and a
+    replay needs the same values. The minimum radius and width are at least the coarsest rig's cell, so an action
+    has the same outcome at every rig (the resolution rule; ``tests/test_act_validation.py`` holds both).
     """
 
     max_power_w: float
     min_radius_m: float
     max_radius_m: float
+    default_radius_m: float
     max_energy_j: float
     min_sigma_m: float
     max_sigma_m: float
+    default_sigma_m: float
 
     def __post_init__(self) -> None:
         for name, value in vars(self).items():
-            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
-                raise ValueError(f"action limit {name} must be a positive finite number, got {value!r}")
-        if self.min_radius_m > self.max_radius_m or self.min_sigma_m > self.max_sigma_m:
-            raise ValueError("each action limit's minimum must not exceed its maximum")
+            number = finite_real(value, f"action limit {name}")
+            if number <= 0:
+                raise ValueError(f"action limit {name} must be positive, got {value!r}")
+            object.__setattr__(self, name, number)
+        if not self.min_radius_m <= self.default_radius_m <= self.max_radius_m:
+            raise ValueError("ignite's default_radius_m must lie between its minimum and maximum")
+        if not self.min_sigma_m <= self.default_sigma_m <= self.max_sigma_m:
+            raise ValueError("strike's default_sigma_m must lie between its minimum and maximum")
 
     @classmethod
     def load(cls, path: str | Path | None = None) -> ActionLimits:
         path = Path(path) if path is not None else data_dir() / "world" / "actions.yaml"
-        raw = yaml.safe_load(path.read_text())
-        if not isinstance(raw, dict) or raw.get("version") != ACTION_LIMITS_VERSION:
-            got = raw.get("version") if isinstance(raw, dict) else raw
-            raise ValueError(f"{path}: action limits version must be {ACTION_LIMITS_VERSION}, got {got!r}")
+        try:
+            raw = yaml.load(path.read_text(), Loader=_StrictLoader)  # a SafeLoader subclass
+        except yaml.YAMLError as exc:  # reported, with the file, as the refusal
+            raise ValueError(f"{path}: not valid YAML: {exc}") from None
+        except ValueError as exc:
+            raise ValueError(f"{path}: {exc}") from None
+        version = raw.get("version") if isinstance(raw, dict) else raw
+        if type(version) is not int or version != ACTION_LIMITS_VERSION:  # True and 0.0 are not version 0
+            raise ValueError(f"{path}: action limits version must be {ACTION_LIMITS_VERSION}, got {version!r}")
+        assert isinstance(raw, dict)
         if set(raw) != {"version", *_LIMIT_FIELDS}:
             raise ValueError(f"{path}: expected sections {sorted(_LIMIT_FIELDS)}, got {sorted(set(raw) - {'version'})}")
         values: dict[str, Any] = {}

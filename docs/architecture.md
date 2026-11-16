@@ -69,8 +69,25 @@ How the rule is kept, so far:
   and `tests/test_cross_tier.py::test_a_fierce_fire_never_heats_any_cell_past_the_flame_temperature`.
 - **A source smaller than a cell heats one cell.** `World._power_field` puts all of a sub-cell source's power into
   the cell it sits in, so total power is right but its density is P/dx³: 64× higher at 0.05 m cells than at 0.2 m.
-  Peak temperature near a spark therefore depends on the rig. A minimum source radius of about one coarse cell
-  would remove it.
+  Peak temperature near a spark therefore depends on the rig. *Closed for actions (2026-11-15):* an `ignite` must
+  have a radius of at least 0.3 m and a `strike` a width of at least 0.2 m, the coarsest rig's cell
+  (`data/world/actions.yaml`, held by `tests/test_act_validation.py`). A `HeatSource` built directly in code can
+  still be smaller.
+- **Fires are only verified the same at every rig inside a small envelope, so `ignite` is held to it.** Measured on
+  the 3×3×2 m crate scene over 30 turns: at 500 kW and a 0.3 m radius the crate catches at turns 15 / 14 / 14
+  (laptop / rig / max) and ends at integrity 0.32 / 0.36 / 0.38. At a 0.2 m radius the onsets split (11 / 8 / 7, and
+  integrity 0.31 / 0.70 / 0.76); at 1 MW and 0.3 m it's 9 / 8 / 8 and 0.00 / 0.26 / 0.34; at 10 MW and 0.2 m,
+  integrity 0.00 / 0.25 / 0.34 with peaks near 3×10⁷ °C. In each case the fire burns out its few cells and its power
+  falls back into air (the fuel gap above). Until the fuel model lands, `ignite` is limited to at most 500 kW and a
+  radius of at least 0.3 m, a marked, scheduled band-aid in `data/world/actions.yaml`.
+- **Craters smaller than about one coarse cell come out coarse.** At the 0.2 m minimum width a strike's crater
+  matches the closed form within 25% at every rig (1e7 to 1e9 J on concrete). Narrower than that, a 1e7 J strike at
+  0.3 m width destroys 0.008 m³ at 0.2 m cells against 0.021 m³ analytic: a crater forms at every rig, but the
+  coarse rig rounds it to one cell.
+- **A region's temperature reading can leave its declared range.** `RegionSensor` declares
+  `temperature_max` as [-273, 6000] °C, but the fuel gap lets legal fires drive cells far past that (about 4×10⁵ °C
+  after 60 turns of a 500 kW fire, once the crate has burned away). The reading isn't clipped, because clipping
+  would hide the gap; the fuel model is the fix.
 - Cost: the 0.05 m profile is about 60x slower than 0.1 m on a fire scenario (explicit heat, Python + numpy).
   `full_res_radius_m` is reserved for running far cells coarser.
 
@@ -81,6 +98,17 @@ How the rule is kept, so far:
 `extinguish`. With pymaxim installed, `to_maxim_entity` returns a real `maxim.embodiment.sem.Entity`, so Maxim's tool
 generation, affordance gating and prompt formatting work on the environment unchanged. The environment has no drives,
 pain or learning: it is SEM without embodiment.
+
+**The modulator is a trust boundary.** An NPC's tool call, an LLM's output and a client's intent will all reach the
+world through it, so it works in two stages. `parse_action` turns the untrusted `(affordance, params)` into a frozen
+`Strike`, `Ignite` or `Extinguish` inside the world's `ActionLimits` (`data/world/actions.yaml`), reading nothing from
+the world, so the protocol layer can run it first. `StructureModulator.apply` re-checks the action against the
+limits, then checks what depends on the world now (the region still has cells, a strike's point is on the region).
+Parameters are a closed set per affordance, plus the keys Maxim adds itself (`target`). Every number is a finite real
+number: NaN, infinities, bools and numeric strings are refused, never guessed. A refusal names the parameter in plain
+words and changes nothing. The physics checks again underneath: `HeatSource` and `damage.strike` refuse non-finite
+and negative values, whoever calls them. The limits are physics-safety ceilings, not what a body can do; an NPC's
+capability will come from its body and energy (`docs/roadmap.md`, Phase 5).
 
 Actions change cells; only `World.advance` moves time.
 

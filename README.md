@@ -25,10 +25,11 @@ MAXIM_OVERDRIVE_ALL_TIERS=1 pytest       # adds the 0.05 m 'max' profile (slow)
 
 ```python
 from maxim_overdrive import Box, RigProfile, Scene, World
+from maxim_overdrive.config import ActionLimits
 from maxim_overdrive.sem_env.bridge import to_maxim_entity
 
 scene = Scene((3.0, 3.0, 2.0), (Box((1.2, 1.2, 0), (1.8, 1.8, 0.6), "wood", "crate"),))
-world = World.from_scene(scene, RigProfile.load("rig"))
+world = World.from_scene(scene, RigProfile.load("rig"), limits=ActionLimits.load())
 crate = to_maxim_entity(world, "crate")            # a real maxim Entity
 crate.modulators["structure"].execute("ignite", {"power_w": 60_000})
 for _ in range(100):

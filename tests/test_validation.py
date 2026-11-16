@@ -11,14 +11,17 @@ import math
 
 import numpy as np
 import pytest
+import yaml
 
 from maxim_overdrive import Box, MaterialTable, RigProfile, Scene, World
-from maxim_overdrive.config import ActionLimits
+from maxim_overdrive.config import ActionLimits, data_dir
 from maxim_overdrive.imagination.spec import Budget, SpecRejected, place
 from maxim_overdrive.sem_env import bridge
 from maxim_overdrive.world import damage, heat
 from maxim_overdrive.world.grid import MaterialGrid
 from maxim_overdrive.world.world import HeatSource
+
+LIMITS = ActionLimits.load()
 
 # -- config ---------------------------------------------------------------------------------------------------------
 
@@ -131,14 +134,21 @@ def test_a_region_with_no_solid_cells_cannot_be_breached(rig, materials):
 
 
 def test_a_world_with_no_fire_stays_at_ambient(rig, materials):
-    w = World.from_scene(Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (0.4, 1, 1), "concrete", "wall"),)), rig, materials)
+    w = World.from_scene(
+        Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (0.4, 1, 1), "concrete", "wall"),)),
+        rig,
+        materials,
+        limits=LIMITS,
+    )
     w.advance()
     assert np.allclose(w.grid.temperature, 20.0)
     assert w.turn == 1
 
 
 def test_a_source_smaller_than_a_cell_still_delivers_its_full_power(rig, materials):
-    w = World.from_scene(Scene((1.0, 1.0, 1.0)), rig, materials)  # all air: the fire has no solid to sit on
+    w = World.from_scene(
+        Scene((1.0, 1.0, 1.0)), rig, materials, limits=LIMITS
+    )  # all air: the fire has no solid to sit on
     w.sources["spark"] = HeatSource((0.5, 0.5, 0.5), radius_m=1e-4, power_w=100.0)
     power = w._power_field()
     assert power is not None
@@ -151,7 +161,10 @@ def test_a_source_smaller_than_a_cell_still_delivers_its_full_power(rig, materia
 
 def _world(rig, materials):
     return World.from_scene(
-        Scene((2.0, 2.0, 2.0), (Box((0.8, 0, 0), (1.2, 2, 2), "concrete", "wall"),)), rig, materials
+        Scene((2.0, 2.0, 2.0), (Box((0.8, 0, 0), (1.2, 2, 2), "concrete", "wall"),)),
+        rig,
+        materials,
+        limits=LIMITS,
     )
 
 
@@ -162,11 +175,11 @@ def test_sensors_and_modulators_refuse_unknown_names(rig, materials):
     with pytest.raises(KeyError, match="no region 'door'"):
         bridge.RegionSensor(w, "door", "integrity")
     with pytest.raises(KeyError, match="no region 'door'"):
-        bridge.StructureModulator(w, "door", limits=ActionLimits.load())
+        bridge.StructureModulator(w, "door")
 
 
 def test_every_sensor_reports_its_schema_and_unit(rig, materials):
-    sensors, _ = bridge.region_parts(_world(rig, materials), "wall", limits=ActionLimits.load())
+    sensors, _ = bridge.region_parts(_world(rig, materials), "wall")
     assert sensors["integrity"].reading_schema == {"type": "float", "range": [0.0, 1.0]}
     assert sensors["breached"].reading_schema == {"type": "float", "range": [0.0, 1.0]}
     assert sensors["temperature_max"].reading_schema == {"type": "float", "range": [-273.0, 6000.0]}
@@ -181,12 +194,12 @@ def test_every_sensor_reports_its_schema_and_unit(rig, materials):
 
 def test_a_region_that_lost_all_its_cells_reads_nan_and_cannot_burn(rig, materials):
     w = _world(rig, materials)
-    sensors, mods = bridge.region_parts(w, "wall", limits=ActionLimits.load())
+    sensors, mods = bridge.region_parts(w, "wall")
     w.grid.regions["wall"][:] = False  # a later paint took every cell
     assert math.isnan(sensors["temperature_max"].value())
     res = mods["structure"].execute("ignite", {"power_w": 1000.0})
     assert not res.success
-    assert res.error == "ValueError: region 'wall' has no cells"
+    assert res.error == "the wall is gone"
     assert "fire:wall" not in w.sources
 
 
@@ -205,3 +218,39 @@ def test_a_rig_loads_by_name_or_by_path(tmp_path):
     assert RigProfile.load("rig").cell_size_m == 0.1
     with pytest.raises(FileNotFoundError):
         RigProfile.load("no_such_rig")
+
+
+# -- every number in a data file is a finite real number, or the loader says which one isn't -------------------------
+
+
+@pytest.mark.parametrize(
+    ("ambient", "message"), [("nan", "finite number"), (".nan", "finite number"), (-300, "absolute zero")]
+)
+def test_a_scene_refuses_an_impossible_ambient_temperature(ambient, message):
+    raw = yaml.safe_load(f"extent_m: [1, 1, 1]\nprimitives: []\nambient_c: {ambient}\n")
+    with pytest.raises(ValueError, match=message):
+        Scene.from_dict(raw)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"), [("cell_size_m", "'0.1'"), ("cell_size_m", ".inf"), ("full_res_radius_m", "true")]
+)
+def test_a_rig_file_refuses_a_value_that_is_not_a_finite_number(tmp_path, field, value):
+    good = {"name": "t", "cell_size_m": "0.25", "min_substeps_per_turn": "2", "full_res_radius_m": "4.0"}
+    good[field] = value
+    path = tmp_path / "t.yaml"
+    path.write_text("".join(f"{k}: {v}\n" for k, v in good.items()))
+    with pytest.raises(ValueError, match=f"{field} must be a finite number"):
+        RigProfile.load(path)
+
+
+@pytest.mark.parametrize(
+    "field", ["density_kg_m3", "specific_heat_j_kgk", "conductivity_w_mk", "fracture_energy_j_m3", "degrade_above_c"]
+)
+def test_a_material_file_refuses_a_value_that_is_not_a_finite_number(tmp_path, field):
+    raw = yaml.safe_load((data_dir() / "materials" / "core.yaml").read_text())
+    raw["materials"]["wood"][field] = "2.0e7"  # YAML 1.1 reads this as a string
+    path = tmp_path / "core.yaml"
+    path.write_text(yaml.safe_dump(raw))
+    with pytest.raises(ValueError, match=f"wood.{field} must be a finite number"):
+        MaterialTable.load(path)

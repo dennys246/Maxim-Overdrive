@@ -10,9 +10,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from maxim_overdrive.config import MaterialTable, RigProfile
+from maxim_overdrive.checks import finite_real, finite_vector
+from maxim_overdrive.config import ActionLimits, MaterialTable, RigProfile
 from maxim_overdrive.world import damage, heat
-from maxim_overdrive.world.checks import finite_real, finite_vector
 from maxim_overdrive.world.grid import Field, MaterialGrid
 from maxim_overdrive.world.scene import Scene
 
@@ -66,13 +66,21 @@ class World:
     turn_seconds: float = 6.0
     sources: dict[str, HeatSource] = field(default_factory=dict)
     turn: int = 0
+    # What one action may ask of this world. Required, so a world can't run with no limits or two sets of them.
+    limits: ActionLimits = field(kw_only=True)
 
     @classmethod
     def from_scene(
-        cls, scene: Scene, rig: RigProfile, materials: MaterialTable | None = None, turn_seconds: float = 6.0
+        cls,
+        scene: Scene,
+        rig: RigProfile,
+        materials: MaterialTable | None = None,
+        turn_seconds: float = 6.0,
+        *,
+        limits: ActionLimits,
     ) -> World:
         materials = materials or MaterialTable.load()
-        return cls(scene.build(rig, materials), rig, turn_seconds)
+        return cls(scene.build(rig, materials), rig, turn_seconds, limits=limits)
 
     def _power_field(self) -> Field | None:
         if not self.sources:

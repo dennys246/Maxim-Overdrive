@@ -15,15 +15,17 @@ local stand-ins with the same fields.
 
 from __future__ import annotations
 
+import reprlib
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import numpy as np
+import numpy.typing as npt
 
+from maxim_overdrive.checks import finite_real, finite_vector
 from maxim_overdrive.config import ActionLimits
 from maxim_overdrive.world import damage
-from maxim_overdrive.world.checks import finite_real, finite_vector
 from maxim_overdrive.world.world import HeatSource, World
 
 if TYPE_CHECKING:
@@ -98,7 +100,30 @@ class RegionSensor:
 
 
 class ActionRefused(ValueError):
-    """An action's parameters broke a rule; the message names the parameter. Nothing in the world has changed."""
+    """An action broke a rule; the message says which, in words fit for whoever asked. The world is unchanged."""
+
+
+# Keys Maxim adds to every call on some paths, which name nothing the action needs. Maxim's orchestrator-actor tool
+# (maxim/simulation/tools.py, OrchestratorActorTool) always passes target=<Entity>: the entity this modulator
+# already belongs to. They are accepted and dropped; any other unknown key is refused.
+MAXIM_CALL_KEYS = frozenset({"target"})
+
+_SHOW = reprlib.Repr()
+_SHOW.maxstring = _SHOW.maxother = 40
+
+
+def _shown(value: object) -> str:
+    """A bounded repr for an error message, so a huge or hostile value can't flood (or crash) the reply."""
+    # Python 3.10's reprlib calls repr() on an int, which raises past 4300 digits; 3.12+ prints a placeholder. The
+    # tests' 10**5000 cases go red without this on 3.10, which CI runs.
+    if isinstance(value, int) and not isinstance(value, bool) and value.bit_length() > 128:
+        return f"<an integer of about {int(value.bit_length() * 0.30103)} digits>"
+    return _SHOW.repr(value)
+
+
+def _within(name: str, value: float, lo: float, hi: float) -> None:
+    if not lo <= value <= hi:
+        raise ActionRefused(f"{name} must be between {lo:g} and {hi:g}, got {value:g}")
 
 
 @dataclass(frozen=True)
@@ -107,16 +132,25 @@ class Strike:
     sigma_m: float
     point_m: tuple[float, float, float] | None  # None: the region's centroid, found when the action applies
 
+    def check(self, limits: ActionLimits) -> None:
+        _within("energy_j", self.energy_j, 0.0, limits.max_energy_j)
+        _within("sigma_m", self.sigma_m, limits.min_sigma_m, limits.max_sigma_m)
+
 
 @dataclass(frozen=True)
 class Ignite:
     power_w: float
     radius_m: float
 
+    def check(self, limits: ActionLimits) -> None:
+        _within("power_w", self.power_w, 0.0, limits.max_power_w)
+        _within("radius_m", self.radius_m, limits.min_radius_m, limits.max_radius_m)
+
 
 @dataclass(frozen=True)
 class Extinguish:
-    pass
+    def check(self, limits: ActionLimits) -> None:
+        pass
 
 
 Action = Strike | Ignite | Extinguish
@@ -128,87 +162,92 @@ _ALLOWED_PARAMS: dict[str, frozenset[str]] = {
 }
 
 
-def _number(params: Mapping[str, Any], name: str, lo: float, hi: float, default: float | None = None) -> float:
-    """One parameter as a finite float in [lo, hi], or ActionRefused naming it."""
-    if name not in params:
+def _real(params: Mapping[str, Any], name: str, default: float | None = None) -> float:
+    if name not in params or params[name] is None:
         if default is None:
             raise ActionRefused(f"{name} is required")
         return default
-    value = params[name]
     try:
-        f: float | None = finite_real(value, name)
-    except ValueError:
-        f = None
-    if f is None or not lo <= f <= hi:
-        raise ActionRefused(f"{name} must be a finite number in [{lo:g}, {hi:g}], got {value!r}")
-    return f
+        return finite_real(params[name], name)
+    except ValueError:  # reported, with the parameter's name, as the refusal
+        raise ActionRefused(f"{name} must be a finite number, got {_shown(params[name])}") from None
 
 
 def parse_action(affordance: object, params: object, limits: ActionLimits) -> Action:
     """Untrusted (affordance, params) as a typed action inside ``limits``, or ActionRefused saying why.
 
-    It reads nothing from the world, so it can run wherever input arrives (the protocol layer, an LLM's tool call)
-    before the world-dependent checks that run when the action applies.
+    ``params`` is JSON-shaped: a mapping of names to numbers, lists or None, as an LLM's tool call or a client's
+    intent gives it. Numbers must be real numbers; numeric strings such as "1000" are refused, deliberately, so a
+    value is never guessed. It reads nothing from the world, so it can run wherever input arrives, before the
+    world-dependent checks in ``StructureModulator.apply``.
     """
     if not isinstance(params, Mapping):
         raise ActionRefused("params must be a mapping of names to values")
     allowed = _ALLOWED_PARAMS.get(affordance) if isinstance(affordance, str) else None
     if allowed is None:
-        raise ActionRefused(f"unknown affordance {affordance!r}")
-    unknown = sorted(str(k) for k in params if k not in allowed)
+        raise ActionRefused(f"unknown affordance {_shown(affordance)}")
+    unknown = sorted(_shown(k) for k in params if k not in allowed and k not in MAXIM_CALL_KEYS)
     if unknown:
         raise ActionRefused(f"unknown parameter(s) for {affordance}: {', '.join(unknown)}")
+    action: Action
     if affordance == "strike":
         point: tuple[float, float, float] | None = None
         if params.get("point_m") is not None:
             try:
                 x, y, z = finite_vector(params["point_m"], 3, "point_m")
-            except ValueError as exc:
-                raise ActionRefused(str(exc)) from None
+            except ValueError:  # reported as the refusal
+                raise ActionRefused(f"point_m must be 3 finite numbers, got {_shown(params['point_m'])}") from None
             point = (x, y, z)
-        return Strike(
-            _number(params, "energy_j", 0.0, limits.max_energy_j),
-            _number(params, "sigma_m", limits.min_sigma_m, limits.max_sigma_m, default=0.15),
-            point,
-        )
-    if affordance == "ignite":
-        return Ignite(
-            _number(params, "power_w", 0.0, limits.max_power_w),
-            _number(params, "radius_m", limits.min_radius_m, limits.max_radius_m, default=0.3),
-        )
-    return Extinguish()
+        action = Strike(_real(params, "energy_j"), _real(params, "sigma_m", limits.default_sigma_m), point)
+    elif affordance == "ignite":
+        action = Ignite(_real(params, "power_w"), _real(params, "radius_m", limits.default_radius_m))
+    else:
+        action = Extinguish()
+    action.check(limits)
+    return action
 
 
 class StructureModulator:
     """What can be done *to* a region. Actions change cells; time passes only in ``World.advance``.
 
-    This is a trust boundary: an NPC's tool call, an LLM's output and a client's intent all arrive here. Parameters
-    are a closed set per affordance, each a finite real number inside ``limits``. A refused action changes nothing.
+    This is a trust boundary: an NPC's tool call, an LLM's output and a client's intent will all arrive here.
+    ``execute`` parses, then applies; a refusal at either stage is a failed result and changes nothing.
     """
 
     name = "structure"
 
-    def __init__(self, world: World, region: str, *, limits: ActionLimits) -> None:
+    def __init__(self, world: World, region: str) -> None:
         if region not in world.grid.regions:
             raise KeyError(f"no region {region!r} in this world")
-        self._world, self._region, self._limits = world, region, limits
+        self._world, self._region = world, region
 
     @property
     def affordances(self) -> dict[str, AffordanceSchema]:
+        lim = self._world.limits
         return {
             "strike": AffordanceSchema(
-                params={"energy_j": float, "sigma_m": (float, 0.15), "point_m": (list, None)},
-                description="Deliver mechanical energy to this structure (a blow, a bullet, a blast).",
+                params={"energy_j": float, "sigma_m": (float, lim.default_sigma_m), "point_m": (list, None)},
+                description=(
+                    "Deliver mechanical energy to this structure (a blow, a bullet, a blast): energy_j up to "
+                    f"{lim.max_energy_j:g} J, spread over sigma_m from {lim.min_sigma_m:g} to {lim.max_sigma_m:g} m, "
+                    "at point_m on the structure (its middle if omitted)."
+                ),
             ),
             "ignite": AffordanceSchema(
-                params={"power_w": float, "radius_m": (float, 0.3)},
-                description="Start a fire at this structure's surface; it burns until extinguished.",
+                params={"power_w": float, "radius_m": (float, lim.default_radius_m)},
+                description=(
+                    "Start a fire at this structure's surface; it burns until extinguished. power_w up to "
+                    f"{lim.max_power_w:g} W, radius_m from {lim.min_radius_m:g} to {lim.max_radius_m:g} m."
+                ),
             ),
             "extinguish": AffordanceSchema(description="Put out a fire started on this structure."),
         }
 
+    def _cells(self) -> npt.NDArray[np.intp]:
+        return np.argwhere(self._world.grid.regions[self._region])
+
     def centroid_m(self) -> tuple[float, float, float]:
-        idx = np.argwhere(self._world.grid.regions[self._region])
+        idx = self._cells()
         if idx.size == 0:
             raise ValueError(f"region {self._region!r} has no cells")
         c = (idx.mean(axis=0) + 0.5) * self._world.grid.dx
@@ -222,51 +261,60 @@ class StructureModulator:
             modulator_name=self.name,
             entity_name=self._region,
             affordance=affordance,
-            params=dict(params),
+            params=params,
             error=error,
             metadata=meta,
         )
 
     def execute(self, affordance: str, params: dict[str, Any]) -> ModulatorResult:
-        """Parse, then apply. A refusal at either stage is a failed result, and the world is unchanged."""
-        shown = dict(params) if isinstance(params, Mapping) else {}
+        """Parse, then apply. A refused result carries no params, so it never echoes a non-finite value back."""
         try:
-            action = parse_action(affordance, params, self._limits)
+            action = parse_action(affordance, params, self._world.limits)
+        except ActionRefused as exc:
+            return self._result(str(affordance), {}, False, str(exc))
+        return self.apply(action)
+
+    def apply(self, action: Action) -> ModulatorResult:
+        """Apply a typed action: it is re-checked against this world's limits, then against the world as it is now."""
+        affordance = _AFFORDANCE_OF[type(action)]
+        shown = {k: list(v) if isinstance(v, tuple) else v for k, v in asdict(action).items()}
+        try:
+            action.check(self._world.limits)
         except ActionRefused as exc:
             return self._result(affordance, shown, False, str(exc))
-        return self.apply(affordance, shown, action)
-
-    def apply(self, affordance: str, params: dict[str, Any], action: Action) -> ModulatorResult:
-        """Apply an already parsed action. Its only refusals depend on the world as it is now."""
-        try:
-            if isinstance(action, Strike):
-                point = action.point_m if action.point_m is not None else self.centroid_m()
-                res = damage.strike(self._world.grid, point, action.energy_j, action.sigma_m)
-                return self._result(
-                    affordance, params, True, destroyed_volume_m3=res.destroyed_volume_m3, absorbed_j=res.absorbed_j
-                )
-            if isinstance(action, Ignite):
-                source = HeatSource(self.centroid_m(), action.radius_m, action.power_w)
-                self._world.sources[f"fire:{self._region}"] = source
-                return self._result(affordance, params, True)
-        except ValueError as exc:  # the region lost every cell, so it has no centroid to act on
-            return self._result(affordance, params, False, f"{type(exc).__name__}: {exc}")
+        cells = self._cells()
+        if cells.size == 0:
+            return self._result(affordance, shown, False, f"the {self._region} is gone")
+        if isinstance(action, Strike):
+            point = action.point_m if action.point_m is not None else self.centroid_m()
+            dx = self._world.grid.dx
+            lo, hi = cells.min(axis=0) * dx - action.sigma_m, (cells.max(axis=0) + 1) * dx + action.sigma_m
+            if not all(a <= p <= b for a, p, b in zip(lo, point, hi, strict=True)):
+                return self._result(affordance, shown, False, f"point_m is not on the {self._region}")
+            res = damage.strike(self._world.grid, point, action.energy_j, action.sigma_m)
+            return self._result(
+                affordance, shown, True, destroyed_volume_m3=res.destroyed_volume_m3, absorbed_j=res.absorbed_j
+            )
+        if isinstance(action, Ignite):
+            self._world.sources[f"fire:{self._region}"] = HeatSource(self.centroid_m(), action.radius_m, action.power_w)
+            return self._result(affordance, shown, True)
         had = self._world.sources.pop(f"fire:{self._region}", None) is not None
-        return self._result(affordance, params, had, None if had else "nothing is burning here")
+        return self._result(affordance, shown, had, None if had else f"nothing is burning on the {self._region}")
 
 
-def region_parts(
-    world: World, region: str, *, limits: ActionLimits
-) -> tuple[dict[str, RegionSensor], dict[str, StructureModulator]]:
+_AFFORDANCE_OF: dict[type, str] = {Strike: "strike", Ignite: "ignite", Extinguish: "extinguish"}
+
+
+def region_parts(world: World, region: str) -> tuple[dict[str, RegionSensor], dict[str, StructureModulator]]:
     sensors = {q: RegionSensor(world, region, q) for q in RegionSensor._UNITS}
-    return sensors, {"structure": StructureModulator(world, region, limits=limits)}
+    return sensors, {"structure": StructureModulator(world, region)}
 
 
-def to_maxim_entity(world: World, region: str, *, limits: ActionLimits, entity_type: str = "structure") -> Entity:
+def to_maxim_entity(world: World, region: str, entity_type: str = "structure") -> Entity:
     """A real Maxim Entity for one region. Requires pymaxim."""
     if not HAVE_MAXIM:
         raise RuntimeError("pymaxim is not installed: pip install 'maxim-overdrive[maxim]'")
-    sensors, modulators = region_parts(world, region, limits=limits)
+    sensors, modulators = region_parts(world, region)
     return Entity(
         region,
         entity_type,

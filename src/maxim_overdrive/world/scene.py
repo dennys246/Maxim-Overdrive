@@ -14,8 +14,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
+from maxim_overdrive.checks import finite_real, finite_vector
 from maxim_overdrive.config import MaterialTable, RigProfile
-from maxim_overdrive.world.checks import finite_vector
 from maxim_overdrive.world.grid import Mask, MaterialGrid
 
 
@@ -94,6 +94,12 @@ class Scene:
     primitives: tuple[Primitive, ...] = field(default_factory=tuple)
     ambient_c: float = 20.0
 
+    def __post_init__(self) -> None:
+        ambient = finite_real(self.ambient_c, "a scene's ambient_c")
+        if ambient <= -273.15:
+            raise ValueError(f"a scene's ambient_c must be above absolute zero, got {self.ambient_c!r}")
+        object.__setattr__(self, "ambient_c", ambient)
+
     def build(self, rig: RigProfile, materials: MaterialTable) -> MaterialGrid:
         for p in self.primitives:
             if p.material not in materials:
@@ -122,4 +128,4 @@ class Scene:
                 prims.append(Cylinder(p["center_xy_m"], p["radius_m"], p["z_m"], p["material"], p.get("name")))
             else:
                 raise ValueError(f"unknown primitive kind {kind!r}")
-        return cls(tuple(raw["extent_m"]), tuple(prims), float(raw.get("ambient_c", 20.0)))
+        return cls(tuple(raw["extent_m"]), tuple(prims), raw.get("ambient_c", 20.0))

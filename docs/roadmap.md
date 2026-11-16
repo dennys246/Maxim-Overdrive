@@ -24,7 +24,8 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
 - Fires that go out when their fuel is gone, so a burnt-out crate's fire stops instead of heating air to millions of
   degrees (`docs/architecture.md`, Known gaps; the red gate is
   `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`). Needed before the tile's crate
-  scenario is gated.
+  scenario is gated. It removes the marked band-aid in `data/world/actions.yaml`, which holds `ignite` to the
+  envelope where fires are verified the same at every rig.
 - **Exit:** walk into the alley, set a crate on fire, and watch it crack, glow and burn away. It must look the same,
   apart from detail, at the laptop and rig profiles.
 
@@ -54,6 +55,15 @@ They are the prerequisites for Exp 64 and for NPCs that remember.
 7. Cancellable SEM actions (`docs/plans/sem_interruptibility.md`).
 8. The arc YAML loader keeps `act`, `world_entities` and `mother_scaffold`.
 9. An install-augment API: attach a modulator and regenerate its tools in one call.
+10. Validate a tool's arguments before the tool runs, and book a malformed argument as a cognitive error, not a tool
+    failure. Today `tools/base.py::Tool._validate_input` checks only that required keys are present, so a NaN or an
+    unknown key reaches the modulator, is refused there, and `ToolPainBridge.record_tool_failure` books a surprising
+    NEGATIVE on `tool:<region>_<affordance>`: a JSON typo teaches an NPC to avoid striking the crate in every state.
+    The proposal validates against the declared `AffordanceSchema` (types, unknown keys, finiteness, ideally declared
+    ranges) in the executor, as an executor-made refusal kind, which keeps #1315's rule that a tool body can't exempt
+    itself. **Argues against:** TF2 (`docs/plans/tool_failure_credit.md`), which counts any tool that reached
+    `tool.run` as having run. Evidence: the 33 probes of Overdrive's PR 1 (`tests/test_act_validation.py`) and its
+    Bio-faithful review.
 
 - **Exit:** Exp 64a's prerequisites are met and its pre-registration is frozen. The draft is in
   `docs/maxim_upstream/` and moves to Maxim's `docs/experiments/`.
@@ -72,6 +82,13 @@ They are the prerequisites for Exp 64 and for NPCs that remember.
 - The player's body is an SEM entity with the same body grammar as the NPCs.
 - Cyberware is installed and removed at the ripperdoc. Hacking is a `target_effect` on another body's sensors.
 - **Overdrive:** forcing an action through a part below its integrity limit, paid for in pain.
+- **Action energy and homeostasis** (owner idea, 2026-11-15): what a body can do comes from its energy, not from a
+  fixed cap. A bodily action (a strike, a lift) draws on a metabolic store that feeds Maxim's drives (fatigue,
+  hunger), so an NPC's own homeostasis steers it away from exhausting itself; Overdrive is spending past it, paid in
+  pain. A fire is not powered by the body: the actor supplies a spark, and the power comes from the fuel (the Phase 1
+  fuel model). It replaces "refuse or clamp" for NPC requests beyond their means, and it is tested as homeostasis: do
+  NPCs regulate, or run themselves into the ground? Until then, `data/world/actions.yaml` holds physics-safety
+  ceilings only, and requests past them are refused for every caller.
 - Rumour: fear and reputation spread between NPCs through hivemind merges of learned state, never of episodes.
 - **Exit:** an NPC who never met the player avoids them because another NPC got hurt.
 

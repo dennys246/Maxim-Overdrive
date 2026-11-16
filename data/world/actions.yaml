@@ -1,12 +1,19 @@
 # What one SEM action may ask of the world: an NPC's tool call, an LLM's output or a client's intent. These are
-# gameplay limits, checked by sem_env/bridge.py before an action reaches the physics. Physical validity (finite,
-# non-negative) is checked again where each source or strike is made, whatever made it.
+# physics-safety ceilings, checked by sem_env/bridge.py before an action applies; they are not what a body can do,
+# which will come from its body and energy (Phase 4 and 5). Physical validity (finite, non-negative) is checked again
+# where each source or strike is made. Write numbers as plain decimals: YAML 1.1 reads 1.0e7 as a string.
 version: 0
 ignite:
-  max_power_w: 10000000.0   # 10 MW: well above a burning car, far below anything that overflows a cell in a turn
-  min_radius_m: 0.01
+  # TEMPORARY(phase1): held to the envelope where a fire's outcome is verified the same at every rig (radius at
+  # least 0.3 m, power at most 500 kW; tests/test_act_validation.py and docs/architecture.md, Known gaps). Beyond
+  # it, a fire burns out its few cells and its power falls back into air (the fuel gap), so the rigs diverge. The
+  # real fix is the Phase 1 fuel model: a fire draws its power from what it burns and goes out when that is gone.
+  max_power_w: 500000.0
+  min_radius_m: 0.3
   max_radius_m: 3.0
+  default_radius_m: 0.3
 strike:
   max_energy_j: 1000000000.0  # 1 GJ: a large explosion
-  min_sigma_m: 0.01
+  min_sigma_m: 0.2            # at least the coarsest rig's cell, so a crater is the same at every rig
   max_sigma_m: 2.0
+  default_sigma_m: 0.2

@@ -6,12 +6,18 @@ import numpy as np
 import pytest
 
 from maxim_overdrive import Box, Scene, World, snapshot
+from maxim_overdrive.config import ActionLimits
 from maxim_overdrive.world.world import GLOW_FULL_C, GLOW_START_C
+
+LIMITS = ActionLimits.load()
 
 
 def _grid(rig, materials):
     return World.from_scene(
-        Scene((2.0, 2.0, 2.0), (Box((0.8, 0, 0), (1.2, 2, 2), "concrete", "wall"),)), rig, materials
+        Scene((2.0, 2.0, 2.0), (Box((0.8, 0, 0), (1.2, 2, 2), "concrete", "wall"),)),
+        rig,
+        materials,
+        limits=LIMITS,
     ).grid
 
 

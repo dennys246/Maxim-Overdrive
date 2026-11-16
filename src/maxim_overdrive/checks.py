@@ -1,8 +1,9 @@
 """Turning untrusted values into the finite floats physics needs, or refusing them with a reason.
 
-Scene YAML, imagined specs and SEM actions (an NPC's tool call, an LLM's output, a client's intent) all reach the
-world as loosely typed values. Each becomes a float here or is refused here, so nothing downstream sees NaN, an
-infinity, a bool posing as a number or a string that ``float()`` would quietly accept.
+Data files (rigs, materials, action limits, scenes), imagined specs and SEM actions (an NPC's tool call, an LLM's
+output, a client's intent) all reach the world as loosely typed values. Each number becomes a float here or is
+refused here, so nothing downstream sees NaN, an infinity, a bool posing as a number, or a string that ``float()``
+would quietly accept. ``tests/test_validation.py`` and ``tests/test_act_validation.py`` hold every loader to it.
 """
 
 from __future__ import annotations

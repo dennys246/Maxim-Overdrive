@@ -22,8 +22,8 @@ import numpy as np
 from scipy import ndimage
 from scipy.special import ndtr
 
+from maxim_overdrive.checks import finite_real, finite_vector
 from maxim_overdrive.config import AIR_ID
-from maxim_overdrive.world.checks import finite_real, finite_vector
 from maxim_overdrive.world.grid import Field, MaterialGrid
 
 

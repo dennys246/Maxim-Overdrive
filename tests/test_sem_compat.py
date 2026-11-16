@@ -19,6 +19,8 @@ from maxim_overdrive import Box, Scene, World
 from maxim_overdrive.config import ActionLimits
 from maxim_overdrive.sem_env import _compat, bridge
 
+LIMITS = ActionLimits.load()
+
 MIRRORED = ["SensorReading", "ModulatorResult", "AffordanceSchema"]
 
 
@@ -67,8 +69,13 @@ def bridge_without_maxim() -> Iterator[ModuleType]:
 def test_the_bridge_runs_on_the_stand_ins_without_pymaxim(bridge_without_maxim: ModuleType, rig, materials) -> None:
     b = bridge_without_maxim
     assert b.HAVE_MAXIM is False
-    w = World.from_scene(Scene((2.0, 2.0, 2.0), (Box((0.8, 0, 0), (1.2, 2, 2), "concrete", "wall"),)), rig, materials)
-    sensors, mods = b.region_parts(w, "wall", limits=ActionLimits.load())
+    w = World.from_scene(
+        Scene((2.0, 2.0, 2.0), (Box((0.8, 0, 0), (1.2, 2, 2), "concrete", "wall"),)),
+        rig,
+        materials,
+        limits=LIMITS,
+    )
+    sensors, mods = b.region_parts(w, "wall")
     reading = sensors["integrity"].read()
     assert type(reading) is _compat.SensorReading
     assert reading.value == pytest.approx(1.0)
@@ -77,4 +84,4 @@ def test_the_bridge_runs_on_the_stand_ins_without_pymaxim(bridge_without_maxim: 
     assert result.success
     assert all(type(a) is _compat.AffordanceSchema for a in mods["structure"].affordances.values())
     with pytest.raises(RuntimeError, match="pymaxim is not installed"):
-        b.to_maxim_entity(w, "wall", limits=ActionLimits.load())
+        b.to_maxim_entity(w, "wall")

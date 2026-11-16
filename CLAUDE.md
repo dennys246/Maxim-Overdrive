@@ -44,8 +44,8 @@ Godot 4.7.2 is installed at `/Applications/Godot.app` (binary: `Contents/MacOS/G
 ## Layout
 
 - `src/maxim_overdrive/config.py`: rig profiles, the material table and action limits (`data/rigs/`,
-  `data/materials/`, `data/world/`)
-- `src/maxim_overdrive/world/`: `grid.py` (cells), `checks.py` (untrusted values to finite floats), `scene.py`
+  `data/materials/`, `data/world/`). `checks.py`: every untrusted value becomes a finite float there, or is refused
+- `src/maxim_overdrive/world/`: `grid.py` (cells), `scene.py`
   (authoring in metres), `heat.py`, `damage.py`,
   `world.py` (turn loop, heat sources, `snapshot`)
 - `src/maxim_overdrive/sem_env/bridge.py`: environment regions as Maxim SEM Entities
