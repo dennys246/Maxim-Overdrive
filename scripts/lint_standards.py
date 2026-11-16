@@ -10,6 +10,10 @@
    guards are documents must also cite a backlog row: a document is not a check. The summary line counts the rules
    a check enforces and the rules held only by review, so neither number hides.
 4. The coverage floor only ratchets: ``fail_under`` may not drop below the base branch's.
+5. Separation of concerns: in ``src/`` and ``scripts/``, no function body, module or class may outgrow the limits in
+   ``[tool.maxim_overdrive.size_limits]``, and no ``noqa`` may silence the complexity rules. A function that doesn't
+   fit is split by responsibility; the limit is a tripwire for a god function, not a target. The limits only tighten:
+   none may rise above the base branch's.
 
 Run: ``python scripts/lint_standards.py [--base REF]`` (exit 1 on any finding). scripts/prepush.sh runs it.
 """
@@ -17,9 +21,11 @@ Run: ``python scripts/lint_standards.py [--base REF]`` (exit 1 on any finding). 
 from __future__ import annotations
 
 import argparse
+import ast
 import re
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 import tomli  # the stdlib's tomllib, from PyPI on every version: one code path, including Python 3.10
@@ -39,6 +45,11 @@ GUARD = re.compile(r"Guard:\s*(.+)$")
 PATH_REF = re.compile(r"`([^`]+)`")
 BACKLOG_REF = re.compile(r"\bB(\d+)\b")
 BACKLOG_ROW = re.compile(r"^\|\s*B(\d+)\s*\|")
+# A noqa that silences a complexity rule, a blanket noqa (which silences every rule) or a file-wide ruff: noqa.
+COMPLEXITY_NOQA = re.compile(
+    r"#\s*noqa:[^#\n]*\b(?:C90\d?|PLR091[1-5])\b|#\s*noqa(?!\s*:)|#\s*ruff\s*:\s*noqa", re.IGNORECASE
+)
+SIZE_SCOPE = ("src/", "scripts/")
 COMMENT_PREFIX = {".py": "#", ".toml": "#", ".sh": "#", ".yml": "#", ".yaml": "#", ".gitignore": "#", ".gd": "#"}
 
 # Files that discuss markers and pragmas without being band-aids or exclusions.
@@ -62,6 +73,34 @@ def phase_sections(roadmap: str) -> dict[int, tuple[str, str]]:
     return out
 
 
+def _pragma_problem(line: str, where: str) -> str | None:
+    if PRAGMA.search(line) and not PRAGMA_REASON.search(line):
+        return f"{where}: 'pragma: no cover' needs a reason: '# pragma: no cover - <why>'"
+    return None
+
+
+def _marker_problems(
+    m: re.Match[str], line: str, where: str, rel: str, sections: dict[int, tuple[str, str]]
+) -> list[str]:
+    target = m.group(1).strip()
+    rest = line[m.end() :]
+    problems = []
+    if not rest.lstrip().startswith(":") or len(rest.strip(" :")) < 10:
+        problems.append(f"{where}: TEMPORARY({target}) needs ': <why, and what the real fix is>'")
+    t = TEMP_TARGET.match(target)
+    if not t:
+        return [*problems, f"{where}: TEMPORARY({target}) must cite a roadmap phase, e.g. TEMPORARY(phase2)"]
+    n = int(t.group(1))
+    if n not in sections:
+        return [*problems, f"{where}: TEMPORARY({target}) cites phase {n}, which docs/roadmap.md lacks"]
+    status, body = sections[n]
+    if status == "done":
+        problems.append(f"{where}: TEMPORARY({target}): phase {n} is done, so this was due to be removed")
+    if not re.search(rf"(?<![\w./-]){re.escape(rel)}(?![\w/-])", body):
+        problems.append(f"{where}: TEMPORARY({target}): list {rel} under Phase {n} in docs/roadmap.md")
+    return problems
+
+
 def check_markers(files: dict[str, str], roadmap: str) -> list[str]:
     sections = phase_sections(roadmap)
     problems = []
@@ -70,26 +109,98 @@ def check_markers(files: dict[str, str], roadmap: str) -> list[str]:
             continue
         for lineno, line in enumerate(text.splitlines(), 1):
             where = f"{rel}:{lineno}"
-            if PRAGMA.search(line) and not PRAGMA_REASON.search(line):
-                problems.append(f"{where}: 'pragma: no cover' needs a reason: '# pragma: no cover - <why>'")
+            if p := _pragma_problem(line, where):
+                problems.append(p)
             for m in TEMP_MARKER.finditer(line):
-                target = m.group(1).strip()
-                rest = line[m.end() :]
-                if not rest.lstrip().startswith(":") or len(rest.strip(" :")) < 10:
-                    problems.append(f"{where}: TEMPORARY({target}) needs ': <why, and what the real fix is>'")
-                t = TEMP_TARGET.match(target)
-                if not t:
-                    problems.append(f"{where}: TEMPORARY({target}) must cite a roadmap phase, e.g. TEMPORARY(phase2)")
-                    continue
-                n = int(t.group(1))
-                if n not in sections:
-                    problems.append(f"{where}: TEMPORARY({target}) cites phase {n}, which docs/roadmap.md lacks")
-                    continue
-                status, body = sections[n]
-                if status == "done":
-                    problems.append(f"{where}: TEMPORARY({target}): phase {n} is done, so this was due to be removed")
-                if not re.search(rf"(?<![\w./-]){re.escape(rel)}(?![\w/-])", body):
-                    problems.append(f"{where}: TEMPORARY({target}): list {rel} under Phase {n} in docs/roadmap.md")
+                problems += _marker_problems(m, line, where, rel, sections)
+    return problems
+
+
+@dataclass(frozen=True)
+class SizeLimits:
+    function_lines: int
+    module_lines: int
+    public_methods: int
+
+
+def size_limits(pyproject: str) -> tuple[SizeLimits | None, list[str]]:
+    table = tomli.loads(pyproject).get("tool", {}).get("maxim_overdrive", {}).get("size_limits")
+    names = ("function_lines", "module_lines", "public_methods")
+    if not isinstance(table, dict) or set(table) != set(names):
+        return None, [f"pyproject.toml: [tool.maxim_overdrive.size_limits] must set exactly {', '.join(names)}"]
+    if not all(type(table[n]) is int and table[n] > 0 for n in names):
+        return None, ["pyproject.toml: every size limit must be a positive integer"]
+    return SizeLimits(**{n: table[n] for n in names}), []
+
+
+def check_size_ratchet(current: SizeLimits, base: str | None) -> list[str]:
+    """The size limits only tighten: no limit may rise above the base branch's."""
+    before, _ = size_limits(base) if base is not None else (None, [])
+    if before is None:
+        return []
+    return [
+        f"pyproject.toml: size limit {name} rose from {getattr(before, name)} to {getattr(current, name)}; "
+        "limits only tighten"
+        for name in ("function_lines", "module_lines", "public_methods")
+        if getattr(current, name) > getattr(before, name)
+    ]
+
+
+def _body_lines(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
+    first = fn.body[0]
+    docstring = (
+        isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str)
+    )
+    body = fn.body[1:] if docstring and len(fn.body) > 1 else fn.body
+    end = fn.end_lineno if fn.end_lineno is not None else body[-1].lineno
+    return end - body[0].lineno + 1
+
+
+def _tree_problems(rel: str, tree: ast.Module, limits: SizeLimits) -> list[str]:
+    problems = []
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+            and (n := _body_lines(node)) > limits.function_lines
+        ):
+            problems.append(
+                f"{rel}:{node.lineno}: {node.name} has a {n}-line body (limit {limits.function_lines}); "
+                "split it by responsibility"
+            )
+        if isinstance(node, ast.ClassDef):
+            public = [
+                m
+                for m in node.body
+                if isinstance(m, ast.FunctionDef | ast.AsyncFunctionDef) and not m.name.startswith("_")
+            ]
+            if len(public) > limits.public_methods:
+                problems.append(
+                    f"{rel}:{node.lineno}: class {node.name} has {len(public)} public methods "
+                    f"(limit {limits.public_methods}); it is doing more than one job"
+                )
+    return problems
+
+
+def check_sizes(files: dict[str, str], limits: SizeLimits) -> list[str]:
+    """God-function tripwires over the code coverage measures (``src/`` and ``scripts/``)."""
+    problems = []
+    for rel, text in sorted(files.items()):
+        if not (rel.endswith(".py") and rel.startswith(SIZE_SCOPE)):
+            continue
+        lines = text.splitlines()
+        if len(lines) > limits.module_lines:
+            problems.append(f"{rel}: {len(lines)} lines (limit {limits.module_lines}); split the module by concern")
+        problems += [
+            f"{rel}:{i}: a noqa may not silence the complexity rules; split the code instead"
+            for i, ln in enumerate(lines, 1)
+            if COMPLEXITY_NOQA.search(ln)
+        ]
+        try:
+            tree = ast.parse(text, filename=rel)
+        except SyntaxError as exc:  # reported as a finding: an unparseable file must not pass the size check unread
+            problems.append(f"{rel}:{exc.lineno}: does not parse, so its sizes can't be checked: {exc.msg}")
+            continue
+        problems += _tree_problems(rel, tree, limits)
     return problems
 
 
@@ -233,12 +344,19 @@ def main(argv: list[str] | None = None, root: Path = ROOT) -> int:
 
     backlog_path = root / "docs/standards_backlog.md"
     backlog = backlog_path.read_text() if backlog_path.exists() else ""
-    problems = check_markers(tracked_text_files(root), (root / "docs/roadmap.md").read_text())
+    files = tracked_text_files(root)
+    problems = check_markers(files, (root / "docs/roadmap.md").read_text())
     guard_problems, checked, review_only = check_guards((root / "CLAUDE.md").read_text(), backlog, root)
     problems += guard_problems
     base_text, base_problems = base_pyproject(root, args.base)
     problems += base_problems
-    problems += check_coverage_ratchet((root / "pyproject.toml").read_text(), base_text)
+    pyproject = (root / "pyproject.toml").read_text()
+    problems += check_coverage_ratchet(pyproject, base_text)
+    limits, limit_problems = size_limits(pyproject)
+    problems += limit_problems
+    if limits is not None:
+        problems += check_sizes(files, limits)
+        problems += check_size_ratchet(limits, base_text)
     for p in problems:
         print(p, file=sys.stderr)
     verdict = "FAIL" if problems else "PASS"

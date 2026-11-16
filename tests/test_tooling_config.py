@@ -44,3 +44,17 @@ def test_mypy_is_strict():
     assert set(mypy["files"]) == {"src", "tests", "scripts"}
     relaxed = [o for o in mypy.get("overrides", []) if "disallow_untyped_defs" in o]
     assert all(o["module"] == ["tests.*"] for o in relaxed)  # only test signatures may go unannotated
+
+
+def test_the_complexity_rules_are_selected_and_not_relaxed():
+    lint = _config()["ruff"]["lint"]
+    selected, ignored = set(lint["select"]), set(lint.get("ignore", []))
+    assert {"C90", "PL"} <= selected
+    assert lint["mccabe"]["max-complexity"] == 10
+    capped = {"C90", "C901", "PLR0911", "PLR0912", "PLR0915"}
+    assert not capped & ignored
+    for pattern, rules in lint.get("per-file-ignores", {}).items():
+        assert pattern.startswith("tests/") or not capped & set(rules), pattern
+    assert "max-branches" not in lint.get("pylint", {})  # ruff's defaults (12 branches, 6 returns, 50 statements) hold
+    assert "max-returns" not in lint.get("pylint", {})
+    assert "max-statements" not in lint.get("pylint", {})

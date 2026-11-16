@@ -181,6 +181,15 @@ only review holds.
 - **No silent exception swallows.** Catch the narrowest type, and handle it by reporting or re-raising. A handler
   that quietly returns a fallback is a swallow too.
   Guard: `tests/test_tooling_config.py::test_the_no_silent_swallow_rules_are_selected_and_not_ignored`, B13
+- **Separation of concerns; no god functions.** Every module, class and function has one job and one reason to
+  change. A function either decides or does; orchestration reads as a short list of named steps, and the steps live
+  where their concern lives. Packages import only downward through their layers. Hard limits in `src/` and
+  `scripts/`: cyclomatic complexity 10, a 40-line function body, a 500-line module and 12 public methods per class
+  (`[tool.maxim_overdrive.size_limits]`), on top of ruff's caps on branches, returns and statements. A limit is a
+  tripwire, not a target: code that reaches one is split along a responsibility, never cut at the line count, and
+  never silenced with a `noqa`. The limits only tighten. Guard: `scripts/lint_standards.py::check_sizes`,
+  `scripts/lint_standards.py::check_size_ratchet`,
+  `tests/test_tooling_config.py::test_the_complexity_rules_are_selected_and_not_relaxed`, B19
 - **Push invariants into types.** A collaborator that must be passed is a required keyword-only parameter, so
   forgetting it is a `TypeError`, not a silent no-op. Prefer frozen dataclasses for anything that crosses a wire or
   is persisted. Guard: `docs/code_review.md` (Architecture lens), B1

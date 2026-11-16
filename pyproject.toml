@@ -51,7 +51,7 @@ line-length = 120
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "RUF", "SIM", "BLE", "S110", "PT", "NPY", "PL"]
+select = ["E", "F", "W", "I", "B", "UP", "RUF", "SIM", "BLE", "S110", "PT", "NPY", "PL", "C90"]
 ignore = [
     "PLR2004",  # magic numbers: physics constants are named where they mean something, literal where they don't
     "PLR0913",  # many arguments: physics functions take their parameters explicitly
@@ -59,6 +59,17 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["PLR0915"]
+
+# Separation of concerns (CLAUDE.md, "Code"). Ruff's PL rules already cap returns, branches and statements per function;
+# mccabe caps the paths through it. scripts/lint_standards.py::check_sizes holds the limits ruff has no rule for, and
+# refuses a noqa for any of these codes in src/ and scripts/.
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.maxim_overdrive.size_limits]
+function_lines = 40   # body lines, docstring excluded; a nested function counts towards its parent too
+module_lines = 500
+public_methods = 12   # per class, defined in its own body
 
 # mypy: strict everywhere. pymaxim ships py.typed.
 [tool.mypy]

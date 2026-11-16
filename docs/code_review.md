@@ -34,7 +34,7 @@ gets a round, because a claim is a contract.
 | Lens | Reads | Asks |
 |---|---|---|
 | **Executor** | the code in the diff's hunks and its path from a real entry point (server endpoint, `World.advance`, a test) | Does it work on the path that ships? Does every new branch, error path and return value run under a test? Would each test fail if the mechanism were deleted? Does it refuse bad input when it should? |
-| **Architecture** | the diff against `docs/architecture.md`, the roadmap and CLAUDE.md | Is this the root cause or a band-aid? Is it the right layer and owner (server vs client, protocol vs transport, world vs bridge)? Does it keep the standing rules? Are the docs and known gaps honest about what it does? |
+| **Architecture** | the diff against `docs/architecture.md`, the roadmap and CLAUDE.md | Is this the root cause or a band-aid? Is it the right layer and owner (server vs client, protocol vs transport, world vs bridge)? Does it keep the standing rules? Are the docs and known gaps honest about what it does? Does each new or grown function, class and module keep one job and one reason to change, or is it becoming a god object? Was a size limit met by splitting along a responsibility, or by cutting at the line count? |
 | **Wire integrity** | every line **outside** the hunks that produces or consumes a contract the diff touches | What does each neighbouring producer and consumer get, before and after? |
 
 **Boundaries.** Executor owns the code inside the hunks. Wire integrity owns everything outside them that touches a
