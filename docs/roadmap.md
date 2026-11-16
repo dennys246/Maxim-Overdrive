@@ -157,6 +157,7 @@ Drafts: `sem_breaking_change_plan_DRAFT.md` (now an additive refinement plan; th
 | OD-H2 | Pushback: in an embedded world, the hold's waiting cost uses modelled world-time latency, not observed latency | new (DR-B5, BF2-8) |
 | OD-H3 | Re-key the deferred reflex runtime's trigger, argued against owner decision G4 at GL3's start | C10 (cited M76 in error) |
 | OD-H4 | Deliberation triggered during the other speaker's turn | new (BF2-2) |
+| OD-H5 | A turn-taking substrate: gaze, backchannels, content-free fillers and floor-holding while deliberation is pending, and yielding the floor past a ceiling. None of the hybrid plans has one (owner decision OA3, revised 2026-11-16) | new (foundations delta, Bio-faithful) |
 
 **Retired:** C9 (cancellable SEM actions and deliberation). Mid-action cancel is Maxim's own `sem_interruptibility.md`,
 and cancelling a model call is OD-A14.

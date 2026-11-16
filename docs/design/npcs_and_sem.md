@@ -51,7 +51,11 @@ means recalled from memory, to be checked before it enters `data/`.
 | **O6** | **Mode (a) is dropped.** Replaced by a host-driven embeddable agent contract: the host calls `agent.step(world_dt, frame)`, and the agent returns intents, memory writes and thought requests as values, never applying anything or running on its own. A host-supplied LLM gateway with streaming and cancellation; a closed NPC tool roster checked at build; a per-agent home under the save, never `~/.maxim`, with no pickle on the load path; no host time in prompts or observations; the cerebellum observes at settle; `outcome_valence` set per D53. Phase 1 has no NPCs; Phase 4's NPCs wait on Maxim shipping this. This supersedes O2's "(a) then (b)": the end state is reached directly. | §6 |
 | OA1 | A thought's kind is chosen by the agent's policy, from a closed vocabulary, before the call. A host-only settings table may override its modelled cost (per-kind multipliers, or a pace preset); the table is logged, and experiments always run on fixed defaults. | §4.2 |
 | OA2 | The player sees dilation on a three-handed analogue clock (§5.4). | §5.4 |
-| OA3 | Overdrive builds no conversational repertoire of its own: interfaces only in Phase 1; the repertoire comes from Maxim's hybrid line. | §5 |
+| OA3 | Overdrive builds no conversational repertoire of its own: interfaces only in Phase 1. **Revised 2026-11-16:** v1 said the repertoire comes from Maxim's hybrid line, but none of the hybrid plans has one (foundations delta, Bio-faithful). It is proposed upstream as **OD-H5** (a turn-taking substrate), and its absence is an OPEN divergence (§12.2) until it lands. | §5 |
+| O7 | The agent half of this part (§4.4, §6) is parked as a reviewed draft until Maxim answers the embeddable-agent questions; the world half proceeds (`boundaries.md` O7). | §4.4, §6 |
+| O9 | **A reply's content may only make it land later, never earlier.** The substrate schedules the earliest onset from what the body knows, and logs it. Content (a dispreferred answer, a long one) may add delay, capped in `thought_budget.yaml` and counted against the session's dilation budget; it may never pull the onset earlier, since that would rewrite a logged time. Resolves BF2-2 against TB2-S5. | §4.2, §4.7 |
+| O10 | No developer mode with real Maxim before tier A, except inside strict red-gate tests. | §4.8, §12.1 |
+| — | *Pending the owner (§12.1 item 5):* substrate floor-holding instead of dilation while a thought is late. Content-free fillers cover the wait; past a floor ceiling the NPC yields the floor, and the late answer arrives as a new turn, logged and never booked as a cognitive failure (BF2-8 against TB2-B3). The open cost: NPC behaviour then depends on the player's hardware. | §4.4, §5 |
 | OA4 | Speech is stamped per syllable. | §5.3 |
 | OA5 | One mental-fatigue drive that rises with load, with per-kind load weights; it recovers with rest and sleep, feeds sleep pressure, and is separate from stamina. | §2.3, §4.6 |
 | — | The thought-cost unit is as fine as is realistic and useful, so conversation can be dynamic in hybrid mode | §4, §5, §9 |
@@ -816,6 +820,14 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
    path.
 4. **Bug reports and dialogue.** `speak` text is redacted from bug reports by default (§5.2). Is that the right
    default, or should the reporter choose?
+5. **Floor-holding or dilation when a thought is late.** Under dilate (§4.4), the world waits, so what the NPC does
+   doesn't depend on the machine; the cost is a world that runs below real time in conversation (§4.5). Under
+   floor-holding, the substrate covers the wait with content-free fillers and gaze aversion, and yields the floor past
+   a ceiling; the world keeps real time. The cost: a slow GPU makes NPCs hesitate and yield more often, so behaviour
+   depends on the hardware, which §4.1 and BF2-10 ("no *um* on a stalled model") removed on purpose. If it is
+   chosen, a yield must never feed fatigue, credit or learning (the machine's cost never becomes the character's),
+   dilate stays for experiments and the lockstep reference, and a B5 meter counts yields per turn by hardware.
+   Either way, it needs OD-H5 first.
 
 ### 12.2 Known OPEN divergences (each with a red gate when there is code)
 
@@ -830,6 +842,8 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
 - Stale refusals book NEGATIVE; closes with OD-A16.
 - Slow-effect credit; closes with OD-A16's settle horizon.
 - The NPC is a statue while a thought is in flight; closes with the hybrid line's substrate.
+- Maxim has no turn-taking substrate (gaze, backchannels, fillers, floor-holding); closes with OD-H5 if Maxim takes it
+  (OA3, revised).
 - The SCN phase is an oracle (host calendar today, exact world phase after tier A); closes with OD-B8 if OD-X1 earns it.
 - Weekly, monthly and annual phases are calendar oracles; Overdrive declares them off.
 - The coarse interim time readout is an `[engineering]` ANALOG until the senses are earned.
