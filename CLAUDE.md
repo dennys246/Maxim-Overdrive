@@ -180,6 +180,10 @@ only review holds.
 
 - **Branches and commits.** Work on `phaseN/<step>` branches with clear, signed commits. Never bypass signing or
   hooks. Never push: the owner reviews and pushes. Concurrent sessions each use a worktree under `.worktrees/`.
+  **When signing fails** (the passphrase prompt timed out or was cancelled), try once more: the first attempt often
+  only raises the prompt. If the second fails too, stop and ask the owner to answer the prompt; they're probably in
+  another window. Don't retry beyond that, and don't change the GPG cache settings. Keep working on anything that
+  doesn't need a commit, and say what's waiting.
   Guard: B1 (the .gitignore entry for .worktrees/ is not a check)
 - **Keep Maxim untouched from here.** Anything that needs a Maxim change goes under Phase 3 in `docs/roadmap.md` and
   follows Maxim's own process (pre-registration, four-lens design review, ledger). Game runs never go on Maxim's
