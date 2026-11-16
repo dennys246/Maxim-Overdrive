@@ -56,7 +56,7 @@ means recalled from memory, to be checked before it enters `data/`.
 | O9 | **A reply's content may only make it land later, never earlier.** The substrate schedules the earliest onset from what the body knows, and logs it. Content (a dispreferred answer, a long one) may add delay, capped in `thought_budget.yaml` and counted against the session's dilation budget; it may never pull the onset earlier, since that would rewrite a logged time. Resolves BF2-2 against TB2-S5. | §4.2, §4.7 |
 | O10 | No developer mode with real Maxim before tier A, except inside strict red-gate tests. | §4.8, §12.1 |
 | O11 | **Live play holds the floor; it doesn't dilate (2026-11-16).** While a thought is late, the substrate covers the wait with content-free fillers and gaze aversion; past a floor ceiling the NPC yields, and the late answer arrives as a new turn, logged and never booked as a cognitive failure (resolves BF2-8 against TB2-B3). The world keeps real time. Guards: a yield never feeds fatigue, credit or learning; dilate stays for experiments and the lockstep reference; a B5 meter counts yields per turn by hardware. Needs OD-H5 first. This reverses BF2-10 for live play, on purpose. | §4.4, §5 |
-| O12 | **Processing speed is a per-NPC trait, in world time (2026-11-16).** People differ in speed, but that variation belongs to the person: stable, and independent of whose machine hosts the world. Hardware lateness is not that (one host's GPU slows every NPC at once, and most in busy scenes). Each NPC draws an onset multiplier at creation, saved with the agent, from the NPC's keyed stream (§3.4); it scales the modelled onset under either latency policy and never reads the hardware. Its distribution lives in `data/agents/`, validated at load; it starts as an `[engineering]` lognormal with median 1, its spread to be set from the individual-differences literature on reaction time (Deary, Der & Ford 2001, *to verify*) before it enters `data/`. Fatigue (§2.3) still varies speed within a person. | §4.2 |
+| O12 | **Processing speed is a per-NPC trait, in world time (2026-11-16).** People differ in speed, but that variation belongs to the person: stable, and independent of whose machine hosts the world. Hardware lateness is not that (one host's GPU slows every NPC at once, and most in busy scenes). Each NPC draws an onset multiplier at creation, saved with the agent, from the NPC's keyed stream (§3.4); it scales the modelled onset under either latency policy and never reads the hardware. Its distribution lives in `data/agents/`, validated at load: a lognormal, median 1 at a stated reference age, sigma 0.15 within an age (plausible 0.10–0.25; choice-RT CVs of 0.13–0.15 in age-matched cohorts, `research/speed/individual_differences.md`, *verified* there). Fatigue (§2.3) and per-response noise still vary speed within a person, and per trial that noise is larger than the gap between people. The refinements the review proposes (age, domains, turn gaps) are §12.1 item 5, for the owner. | §4.2 |
 | OA4 | Speech is stamped per syllable. | §5.3 |
 | OA5 | One mental-fatigue drive that rises with load, with per-kind load weights; it recovers with rest and sleep, feeds sleep pressure, and is separate from stamina. | §2.3, §4.6 |
 | — | The thought-cost unit is as fine as is realistic and useful, so conversation can be dynamic in hybrid mode | §4, §5, §9 |
@@ -821,6 +821,17 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
    path.
 4. **Bug reports and dialogue.** `speak` text is redacted from bug reports by default (§5.2). Is that the right
    default, or should the reporter choose?
+5. **The speed trait's structure (O12), from `research/speed/individual_differences.md`.** Proposed:
+   - **Age shifts the median, not the spread.** Decision onset slows about 0.5–0.8% per adult year, simple responses
+     about half that; spread within an age doesn't shrink (*verified*: Der & Deary 2017, Woods et al. 2015).
+   - **One general factor plus a residual per domain** (decision onset, speech onset):
+     `m = exp(σ·(λ·z_g + √(1−λ²)·z_d))`, λ ≈ 0.75 (simple and choice RT correlate 0.59, about 0.75 corrected for
+     reliability; *verified*, the λ form `[engineering]`).
+   - **Turn gaps come mostly from the dialogue and the pair, not the speaker.** In the Fisher corpus the pair explains
+     41.5% of a speaker's gap variance and the speaker 12.8% (*verified*: Cavalcanti & Skantze 2025). The trait gets a
+     weak loading on gaps at most; no study links lab speed to conversational gaps.
+   - **Optional slow tail** (`[engineering]`): real populations have a heavier slow tail than a lognormal; a small
+     slow group (about 5% of NPCs, twice the sigma) would give it.
 
 ### 12.2 Known OPEN divergences (each with a red gate when there is code)
 
