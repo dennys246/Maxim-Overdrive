@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
 import tomli
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,32 +50,65 @@ def test_mypy_is_strict():
     assert all(o["module"] == ["tests.*"] for o in relaxed)  # only test signatures may go unannotated
 
 
-CAPPED = ("C901", "PLR0911", "PLR0912", "PLR0915")
+# Canaries one step past each cap, and one at the complexity cap that must stay quiet. Asking ruff itself, rather than
+# reading pyproject.toml for keys that relax a rule, closes every way to relax one, including keys ruff adds later.
+CANARY = (
+    "def at_cap(x):\n" + "".join(f"    if x == {i}:\n        x += 1\n" for i in range(9)) + "    return x\n\n\n"
+    "def complex_(x):\n" + "".join(f"    if x == {i}:\n        x += 1\n" for i in range(10)) + "    return x\n\n\n"
+    "def returns(x):\n" + "".join(f"    if x == {i}:\n        return {i}\n" for i in range(6)) + "    return x\n\n\n"
+    "def branches(x):\n" + "".join(f"    if x == {i}:\n        x += 1\n" for i in range(13)) + "    return x\n\n\n"
+    "def statements(x):\n" + "".join(f"    x += {i}\n" for i in range(51)) + "    return x\n"
+)
+EXPECTED = {
+    "complex_": {"C901"},
+    "returns": {"PLR0911"},
+    "branches": {"C901", "PLR0912"},
+    "statements": {"PLR0915"},
+}
 
 
-def _relaxes(entry: str) -> bool:
-    """Ruff matches rule selectors by prefix, so "C", "PLR09" and "ALL" each relax every capped rule."""
-    return entry == "ALL" or any(code.startswith(entry) for code in CAPPED)
+def _ruff(*args: str, stdin: str | None = None) -> subprocess.CompletedProcess[str]:
+    cmd = [sys.executable, "-m", "ruff", *args]
+    return subprocess.run(cmd, cwd=ROOT, input=stdin, capture_output=True, text=True, check=False)
 
 
-def test_the_complexity_rules_are_selected_and_not_relaxed():
-    ruff = _config()["ruff"]
-    lint = ruff["lint"]
-    assert {"C90", "PL"} <= set(lint["select"])
-    assert lint["mccabe"]["max-complexity"] == 10
-    for table in (ruff, lint):
-        for key in ("ignore", "extend-ignore"):
-            assert not [e for e in table.get(key, []) if _relaxes(e)], key
-        for key in ("per-file-ignores", "extend-per-file-ignores"):
-            for pattern, rules in table.get(key, {}).items():
-                relaxed = {r for r in rules if _relaxes(r)}
-                # tests may waive the statement count; nothing else, and nowhere else
-                assert relaxed <= {"PLR0915"}, (key, pattern)
-                assert not relaxed or pattern.startswith("tests/"), (key, pattern)
-    for key in ("exclude", "extend-exclude"):
-        assert not [e for e in ruff.get(key, []) if e.startswith(("src", "scripts", "*", "/", "."))], key
-    for key in ("max-branches", "max-returns", "max-statements"):
-        assert key not in lint.get("pylint", {})  # ruff's defaults (12 branches, 6 returns, 50 statements) hold
+def _capped_hits(path: str) -> dict[str, set[str]]:
+    """The complexity codes ruff reports on the canary, as if it were the file at ``path``, by canary function."""
+    out = _ruff("check", "--force-exclude", "--output-format", "json", "--stdin-filename", path, "-", stdin=CANARY)
+    starts = {ln.split("(")[0][4:]: i for i, ln in enumerate(CANARY.splitlines(), 1) if ln.startswith("def ")}
+    by_line = {line: name for name, line in starts.items()}
+    hits: dict[str, set[str]] = {name: set() for name in starts}
+    for d in json.loads(out.stdout or "[]"):
+        if d["code"] in {"C901", "PLR0911", "PLR0912", "PLR0915"} and d["location"]["row"] in by_line:
+            hits[by_line[d["location"]["row"]]].add(d["code"])
+    return hits
+
+
+@pytest.mark.parametrize(
+    "path", ["src/maxim_overdrive/world/canary.py", "src/maxim_overdrive/canary.py", "scripts/canary.py"]
+)
+def test_ruff_enforces_each_complexity_cap_at_its_threshold(path):
+    hits = _capped_hits(path)
+    assert hits.pop("at_cap") == set()  # complexity 10 is allowed: the cap is 10, not lower
+    assert hits == EXPECTED
+
+
+def test_tests_waive_only_the_statement_count():
+    hits = _capped_hits("tests/test_canary.py")
+    assert hits.pop("at_cap") == set()
+    assert hits == {**EXPECTED, "statements": set()}
+
+
+def test_ruff_lints_every_tracked_python_file():
+    """An exclude anywhere (a key, a glob, an extended config) shows up as a tracked file ruff doesn't see."""
+    shown = _ruff("check", "--show-files", "src", "tests", "scripts")
+    assert shown.returncode == 0, shown.stderr
+    seen = {str(Path(p).resolve().relative_to(ROOT)) for p in shown.stdout.split() if p.endswith(".py")}
+    listed = subprocess.run(
+        ["git", "ls-files", "src", "tests", "scripts"], cwd=ROOT, capture_output=True, text=True, check=True
+    )
+    tracked = {f for f in listed.stdout.splitlines() if f.endswith(".py")}
+    assert tracked - seen == set()
 
 
 def test_no_nested_ruff_config_can_override_the_root_one():

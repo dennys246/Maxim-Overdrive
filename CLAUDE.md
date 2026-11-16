@@ -193,8 +193,8 @@ only review holds.
   responsibility, never cut at the line count, and never silenced with a `noqa` or a ruff config. The limits only
   tighten; the ratchet compares with the base branch, and until the base carries the table the lint says it has
   nothing to compare. Guard: `scripts/lint_standards.py::check_sizes`, `scripts/lint_standards.py::check_size_ratchet`,
-  `tests/test_tooling_config.py::test_the_complexity_rules_are_selected_and_not_relaxed`,
-  `tests/test_tooling_config.py::test_no_nested_ruff_config_can_override_the_root_one`
+  `tests/test_tooling_config.py::test_ruff_enforces_each_complexity_cap_at_its_threshold`,
+  `tests/test_tooling_config.py::test_ruff_lints_every_tracked_python_file`
 - **Push invariants into types.** A collaborator that must be passed is a required keyword-only parameter, so
   forgetting it is a `TypeError`, not a silent no-op. Prefer frozen dataclasses for anything that crosses a wire or
   is persisted. Guard: `docs/code_review.md` (Architecture lens), B1

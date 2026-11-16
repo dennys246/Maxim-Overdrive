@@ -164,7 +164,8 @@ def ratchet_notes(base: str | None, base_text: str | None) -> list[str]:
 
 def _body_lines(fn: ast.FunctionDef | ast.AsyncFunctionDef, lines: list[str]) -> int:
     """Lines of code in the body: the docstring, blank lines and comment-only lines don't count, so the limit never
-    pushes anyone to delete an explanation."""
+    pushes anyone to delete an explanation. Approximate by design: a line inside a multi-line string that starts with
+    ``#`` is skipped too."""
     first = fn.body[0]
     docstring = (
         isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str)
@@ -381,7 +382,7 @@ def main(argv: list[str] | None = None, root: Path = ROOT) -> int:
         problems += check_size_ratchet(limits, base_text)
     for p in problems:
         print(p, file=sys.stderr)
-    for n in ratchet_notes(args.base, base_text):
+    for n in [] if base_problems else ratchet_notes(args.base, base_text):  # a bad ref is already a finding
         print(f"lint_standards: {n}")
     verdict = "FAIL" if problems else "PASS"
     print(
