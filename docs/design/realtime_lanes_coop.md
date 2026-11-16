@@ -1,270 +1,367 @@
-# Real time, lanes and co-op (design v0, 2026-11-15)
+# Real time, lanes and co-op (design v1, 2026-11-15)
 
-**Status:** DRAFT, for a design review before any code. It replaces Phase 1 step 2 as first briefed (a client that
-sends `advance` and `act` to a turn-based server) and splits it into steps 2a and 2b. The review's findings and
-how they were folded go in `docs/design/reviews/realtime_lanes_coop/`.
+**Status:** DRAFT v1, the design-review fold. v0 (52e64f0) was reviewed by seven lenses: Executor, Architecture,
+Wire integrity, Bio-faithful integration, Determinism and replay, Concurrency and performance, and Trust boundary.
+Their findings, 22 BLOCKER, 61 SHOULD-FIX and 24 NIT, are kept verbatim in `docs/design/reviews/realtime_lanes_coop/`,
+and `README.md` there records how each was folded. Finding ids below (A3, TB-1, X1 …) point into those files.
 
-## Decisions (owner, 2026-11-15)
+This design replaces Phase 1 step 2 as first briefed (a client that sends `advance` and `act` to a turn-based
+server) with four PRs (§8). Nothing here is built until the owner accepts it.
 
-1. **Real time with pause, on a fixed tick.** Not turn-based. The reason: Maxim's SCN learns daily and weekly
-   rhythms, and Maxim's hybrid runtime puts a fast substrate loop under slow LLM deliberation. A world that only moves
-   when the player acts gives neither anything to work with.
+## Decisions
+
+**Owner, 2026-11-15:**
+1. **Real time with pause, on a fixed tick.** Not turn-based. Maxim's SCN learns daily and weekly rhythms, and
+   Maxim's hybrid runtime puts a fast substrate loop under slow LLM deliberation. A world that only moves when the
+   player acts gives neither anything to work with. Every lens found this sound.
 2. **The time scale is a dial from the start.** Slow motion, normal speed and fast-forward are values of one
-   number, not separate modes. Pause is the dial at zero.
-3. **Day length is a knob, held at 24 hours for now.** Varying it later is an experiment in time dynamics.
-4. **Time control is host-only, behind a policy** that a vote can replace without protocol or host changes.
-5. **Step 2 is two PRs:** 2a (protocol, sessions, the host and its tick loop) and 2b (lanes, the thinking lane,
-   metering, real-time pacing under load).
-6. **A design review before code,** with new lenses for this design, including bio-faithful integration.
+   number. Pause is a separate state, not a dial value (W-F9).
+3. **Day length is a knob, held at 24 hours for now.** Varying it later is an experiment in time dynamics (§3.4).
+4. **Time control is host-only, behind a policy** that a vote can replace.
+5. **Step 2 is split into several PRs.**
+6. **Bio-faithful integration is a standing lens** for design reviews and for every change an NPC senses, acts
+   through or keeps time by (`docs/code_review.md`).
 
-`docs/architecture.md` ("The game is turn-based") gets a dated decision record pointing here when this design is
-accepted.
+**Proposed by this fold, for the owner (§9):** hold the world for a late thought, with a budget; how normal play
+relates to a 24-hour day; and two decisions that belong to Maxim.
 
-## 1. The world clock
+## 1. What the review changed, in brief
 
-The world's time is `tick × tick_s`. Nothing else is the world's time.
+- **The deterministic core is a `Simulation`, not the host** (A1, W-F3, X3). The `Simulation` owns `World`, the
+  integer tick, the world config, the RNG and, later, the agents. The host only collects inputs and paces calls to
+  `Simulation.step`. Replays, cradles and tests drive the `Simulation` directly, with no sessions.
+- **One clock, in integers** (A5, D7, W-F8, X-N3). The world's time is `tick × tick_us` microseconds. `grid.time_s`,
+  `World.turn` and `World.turn_seconds` go: anything that needs world time derives it from the tick.
+- **The cost table was wrong**, found by four lenses (X1, CP-1, A4, W-F7). `World.advance` recomputes the fire's
+  sphere overlap (64 passes over the whole grid per source) and the stability limit on every call. Calling it 12
+  times per 6 s instead of once makes physics about 4 to 14 times dearer per world second. The root fix (§2.3) comes
+  before any real-time loop.
+- **Maxim's agents are far less ready for a deterministic world than v0 said** (D1, Bio-1 to Bio-4, X4 to X6, A3,
+  CP-2). More of Maxim's substrate reads the wall clock than the three systems v0 listed: drives, DN timers, NAc
+  decay, sleep forgetting, hippocampus de-duplication, percept timestamps. Agent state is written during LLM calls,
+  and ids come from `uuid4`. Phase 3 grows from 4 items to 8 (§6), and until they land the determinism promise
+  covers the world and stub agents only (§4.4).
+- **Input validation had a live hole in code that's already committed** (TB-1, X7). The SEM `structure` modulator
+  accepts NaN, infinite and negative values; a NaN `ignite` turns every cell's temperature to NaN after one advance.
+  It's fixed first, on its own PR (§8), because NPCs already use this path.
+- **The intent log is a versioned format** (A2, D2, W-F2), and **every client message gets exactly one final
+  reply**, including `act` (W-F1).
+- **Co-op roles are bound to tokens** (TB-4, A8, W-F13). Separate host and guest tokens, no promotion, and the world
+  pauses when the host leaves.
+- **Backpressure everywhere** (TB-8, CP-5): bounded inbound queues, latest-wins outbound slots.
 
-- **`tick_s` is fixed for a world**, a world-config value in `data/` (proposed: 0.1 s). The rig never changes it,
-  so the tick count for a given scenario is the same at every profile.
-- **Physics runs at its own period**, `physics_period_s` (proposed 0.5 s of world time, a multiple of `tick_s`).
-  Each physics step is `World.advance(physics_period_s)`. Intents that change cells land at the next tick, and their
-  effect on temperature shows at the next physics step, at most `physics_period_s` later.
-- **The rig profile's `min_substeps_per_turn` becomes `max_substep_s`.** Today the rig sets a minimum number of heat
-  substeps *per turn*. The measured runs take exactly that minimum (4, 16 and 64 per 6 s turn at 0.2, 0.1 and
-  0.05 m), so stability is not what limits them. Calling `World.advance` with a shorter period would keep the
-  count and multiply the work: 60 times the substeps for the same simulated time at 0.1 s. The rig field becomes
-  the longest substep it allows, in seconds (1.5, 0.375 and 0.094 s, the same precision as today). The heat
-  solver's stability limit still applies on top of it. This is a rig-profile contract change, so it gets its own
-  cross-tier test: the same scenario run as one 6 s advance and as twelve 0.5 s advances lands in the same outcome
-  class, at every profile.
-- **The day.** `day_length_s` (default 86,400) and `epoch` (the world's date and time at tick 0) are world config.
-  Time of day is `(epoch + tick × tick_s) mod day_length_s`. v0 fixes both for a run. Changing either mid-run is a
-  later intent, which the log would record.
+## 2. The simulation and its clock
 
-### The dial
-
-`time_scale` is world seconds per wall second: 0 is paused, 0.25 is slow motion, 1 is real time, 30 is
-fast-forward. The dial changes only **how often the host runs a tick**, never what a tick does. Every tick advances
-the world by the same `tick_s` at every speed. So:
-
-- Determinism and the resolution rule don't depend on the dial. A run at 0.25× and a run at 30× with the same
-  intents on the same ticks are bit-identical.
-- Slow motion costs nothing extra, and it's not a separate mode. A tactical slow-motion view is a client choice of
-  dial value.
-- **Time dilation is reported, not hidden.** When the host can't run ticks as fast as the dial asks (the max profile
-  is slower than real time on a full tile, below), it runs them as fast as it can, and the tick status carries the
-  effective scale. The world is never stepped with a longer `tick_s` to catch up.
-- **Headless mode is the dial at "unpaced".** Cradles, experiments and tests run the same host with no wall pacing
-  at all: a test steps ticks directly, and an experiment runs as fast as the machine allows. It's one code path, not
-  a separate one. The wall clock never reaches `World`: the pacer only decides *when* to call `tick()`, and
-  `tick()` takes no duration argument (backlog B14 tests this).
-
-### What it costs (measured 2026-11-15 on the 3×3×2 m crate scene; the tile figures are scaled up, not measured)
-
-| Profile | Physics time per 6 s of world time | Faster than real time by | A 16×10×4 m tile (36× the cells), estimated |
-|---|---|---|---|
-| laptop, 0.2 m | 0.9 ms | 6,700× | about 190× |
-| rig, 0.1 m | 9 ms | 670× | about 18× |
-| max, 0.05 m | 201 ms | 30× | **about 0.8×: slower than real time** |
-
-These assume `max_substep_s` as above, so per world second the cost doesn't depend on `tick_s` or
-`physics_period_s`. The max profile on a full tile runs slower than the world clock at a dial setting of 1×. That's
-allowed: the world stays correct, the dial reports dilation, and Phase 2's "Scale" item (coarser cells beyond
-`full_res_radius_m`, then numba or C) is what fixes it. B5 sets the budgets from measured tiles in step 3.
-
-## 2. Lanes
-
-**One owner of the world.** The simulation lane alone holds `World`. Every other lane talks to it through messages.
-So determinism and replay hold however much else runs in parallel, and a lane can move from a thread to a process
-without its code changing.
+### 2.1 Ownership
 
 ```
-              ┌──────────── simulation lane: owns World, runs one tick at a time ───────────────┐
- intents ───▶ │ 1. take the intents for this tick, ordered by (tick, actor, seq)                │ ──▶ published
-              │ 2. apply thoughts whose deadline is this tick (from the thinking lane)          │     snapshot
-              │ 3. step each NPC's substrate, in actor order (Phase 4; a no-op until then)      │     (immutable)
-              │ 4. on physics ticks, World.advance(physics_period_s)                            │
-              │ 5. publish the tick status, and a snapshot when cells changed                   │
-              └─────────────────────────────────────────────────────────────────────────────────┘
-       ▲                        ▲                                         │
- network lanes             thinking lane (LLM)                       record lane
- one per client:           a worker pool; requests and               intent log, metrics,
- decode, validate,         results are messages; results             autosave (later)
- stamp the actor, queue    apply at a world-time deadline
+Simulation (deterministic, in a scanned package, imports nothing from server/)
+  ├── World (cells, physics; no clock of its own)
+  ├── tick: int, the only clock
+  ├── WorldConfig (frozen, integers): tick_us, physics_every_ticks, day_length_ticks, epoch_us
+  ├── rng: numpy.random.Generator, seeded from the log header
+  ├── actors: an allocator of integer ids, in the order joins are applied
+  └── step(inputs: StepInputs) -> StepOutputs        (inputs are the validated, ordered records for this tick)
 ```
 
-- **The interface is a channel of frozen messages** (a dataclass per message type). In 2b lanes are threads with
-  `queue.Queue` channels. A lane that turns out to be CPU-bound in Python (substrate stepping for many NPCs, say)
-  moves to a process with the same message types. Python 3.14's free-threaded build is the other option, but it
-  isn't relied on.
-- **Ordering is part of the contract.** Intents are ordered by the tick the host assigns them, then by actor id,
-  then by sequence number. The host assigns the tick when it takes the intent off the channel, never from a client
-  clock. Nothing depends on thread scheduling, dict order or `hash()`.
-- **Each lane is metered separately**, and each budget is its own B5 row:
-  - Simulation: tick time, and dilation (effective vs requested scale).
-  - Thinking: requests in flight, tokens, wall latency and late results, per NPC and per tile. The queue has
-    priorities, so an NPC the player is talking to thinks first.
-  - Network: bytes per second, snapshot size and queue depth per client.
-  - Record: log bytes per second.
+- `Simulation.step` is the only thing that moves time. CLAUDE.md's "only `World.advance` moves time" becomes "only
+  `Simulation.step` moves time"; `World.advance(seconds)` stays as the physics call that `step` makes on physics
+  ticks (W-F3, A11).
+- **Within a tick, the order is fixed** (D10): (1) apply this tick's records in log order (joins, leaves, time
+  decisions, intents, thought results); (2) step agents (Phase 4; a no-op until then); (3) on ticks where
+  `tick % physics_every_ticks == 0`, run physics for the interval that ends at this tick; (4) emit outputs (tick
+  status, and a snapshot when cells' version changed).
+- **A save is a `Simulation` checkpoint plus the log header** (A12): the tick, the RNG state, the world, queued
+  records and the thoughts in flight with their deadlines. Save v0 itself stays a Phase 1 item.
 
-### The thinking lane and determinism
+### 2.2 World config (integers, frozen per run)
 
-LLM output isn't deterministic, and its wall latency changes with load and with the dial. If a thought were applied
-whenever it arrived, slow motion would make NPCs think faster *in world time* (more wall time per tick), and
-fast-forward would make them slower. NPC behaviour would then depend on the dial, which decision 2 rules out.
-
-So **a thought is scheduled in world time.** When a request is made at tick T, its result applies at tick
-T + d, where d is the deliberation time in world seconds (set per request type in `data/`, for example a reply in
-dialogue against a plan for the day). If the result arrives early, it waits. If it hasn't arrived by T + d, the
-simulation lane **holds at that tick** until it does, up to a wall-time timeout (that's dilation, and it's reported).
-At the timeout the thought resolves as `thought_failed`, and the NPC goes on with its substrate alone.
-
-- **Every result, including `thought_failed`, goes into the intent log.** A replay reads results from the log and
-  never calls a model, so replays stay bit-identical. A fresh run with live models is reproducible only in outcome
-  class, as across machines.
-- At fast-forward the host can only run as fast as thoughts complete. Thinking throughput then caps the effective
-  scale, and the meter shows it.
-- Holding the world for a thought is a choice to review. The alternative, applying late thoughts whenever they
-  arrive, keeps the world moving but makes NPC timing depend on load.
-
-### Substrate and the hybrid runtime (Phase 4, with Maxim changes)
-
-Maxim's hybrid runtime puts a fast Default Network reflex loop, about 30 Hz, under slow LLM deliberation, which
-suppresses reflexes one way only (`docs/plans/deferred/hybrid_substrate_reflex_runtime.md` in Maxim). The game's
-version is step 3 of the simulation lane, the substrate, plus the thinking lane:
-
-- Every tick each NPC's substrate runs: drives, reflexes, `NAc.recommend_action` over its affordances. It acts
-  through the same SEM modulators and intents as the player.
-- Deliberation runs in the thinking lane. While a voluntary action is in progress, its result suppresses the
-  conflicting reflexes, one way only, as in Maxim's design.
-- Each NPC gets its percepts from the world: SEM sensors over cells, sound and light from Phase 2. It never gets a
-  synthetic signal that the world doesn't produce.
-
-At 10 Hz this is slower than the Default Network's 30 Hz default. Whether a reflex loop at the world's tick keeps
-its job is a question for the bio-faithful lens.
-
-## 3. The world clock and Maxim's time systems
-
-Three Maxim clocks meet the world clock:
-
-| Maxim system | Reads today | In the game |
+| Field | Proposed | Meaning |
 |---|---|---|
-| `ExperienceClock` (memory strength, forgetting) | its world: elapsed monotonic time, or a fixed amount per turn (`runtime/experience_time.py`) | world time: a percept source declares the world's time, so a paused world doesn't make NPCs forget |
-| SCN and `TemporalSignature` (circadian, weekly, monthly and annual phase) | the wall clock: `TemporalSignature.now()` and `from_timestamp(time.time())` | **needs an injected world clock** (Maxim change), or NPCs live on the player's machine time |
-| Default Network (reflex loop) | its own 30 Hz thread with `time.time()` and `sleep` | **needs an externally stepped tick** (Maxim change), so the simulation lane drives it deterministically |
+| `tick_us` | 100,000 | world time per tick (0.1 s) |
+| `physics_every_ticks` | 5 | physics runs every 5 ticks (0.5 s) |
+| `day_length_ticks` | 864,000 | 24 hours at 0.1 s per tick |
+| `epoch_us` | an integer, UTC, with no time zone | the world's date and time at tick 0 |
 
-The SCN's day comes from `day_length_s`. With a knob instead of a constant, Maxim's 24-hour bins need either a
-day-length-aware `TemporalSignature` or a world clock that reports phase. Which one is a Maxim design question. A
-circadian clock is entrained by light in biology. The world produces light only from Phase 2, so until then the
-world gives NPCs the time of day but no cue to entrain to.
+- Time of day is `(epoch_us + tick × tick_us) mod (day_length_ticks × tick_us)`, in integers (D7).
+- World config lives in `data/world/` and is hashed into the log header. Server config (`snapshot_hz`, queue
+  limits, rate limits, caps) is separate, in `data/server/`, because it doesn't change the world (A14).
 
-**Phase 3 additions** (in Maxim, through its own process; numbers continue the roadmap's list):
+### 2.3 Physics on a period, at no extra cost: the root fix comes first
 
-10. An injectable clock for `TemporalSignature` and the SCN, with day length taken from it.
-11. An externally stepped Default Network: `step(now)` with no thread and no wall clock.
-12. A per-tick substrate step on `AgentPool` (today it has `run_turn` and `run_round`).
-13. Deliberation requests with a deadline that can be cancelled, which joins item 7 (cancellable SEM actions).
+- **The rig field changes from `min_substeps_per_turn` to `substeps_per_physics_step`, an integer** (X2, W-F7,
+  CP-1). With a 0.5 s physics step: laptop 1 (0.5 s substeps, finer than today's 1.5 s), rig 2 (0.25 s, finer than
+  0.375 s), max 6 (0.083 s, finer than 0.094 s). Precision is never coarser than today at any rig. The heat
+  solver's stability limit still applies on top. An old rig YAML is refused with a message naming the new field.
+- **Stop recomputing what hasn't changed** (X1, CP-1). Compute each source's sphere overlap only over its bounding
+  box, and once per source, since it depends only on geometry. Cache the power field and `stable_dt` behind a
+  version counter that adding a source, removing one and `destroy` all bump. This is the root fix for the cost, not
+  a tuning: today's code does O(cells × 64) work per call regardless of whether anything changed.
+- **Tests that come with it:** a period-split cross-tier test (one 6 s run against twelve 0.5 s steps, same outcome
+  class at every rig); a closed-form check that the cached power field equals a fresh one after each kind of
+  change; and the existing heat tests on the new rig field, whose two `test_heat.py` calls are rewritten to the new
+  meaning (X2), not reinterpreted.
 
-## 4. Sessions, actors and co-op
+**Cost, measured by the review on a full 16×10×4 m tile (CP-1); to be re-measured on a committed tile by B5:**
 
-The server-authoritative, intent-driven design is already the right model for co-op. These are cheap now and
-expensive to add later:
-
-- **Many sessions, one world, from v0.** A `WorldHost` owns the simulation lane. Each connection is a `Session`
-  with its own token, actor and role (`host` or `guest`). Nothing assumes a single client.
-- **The host assigns the actor.** An intent's actor comes from its session, never from the message. The world
-  doesn't distinguish players from NPCs: both act through avatars, the same way.
-- **Time control goes through a policy.** `pause`, `resume` and `set_time_scale` are *requests*. A `TimeAuthority`
-  turns a request plus the sessions into a decision, or "pending". v0 ships `HostOnly`: the host's request is
-  granted, and a guest's is refused with a reason. A vote is another `TimeAuthority`, with no protocol change
-  beyond a "pending" reply, which v0 already reserves. The log records the *decision*, so a replay never re-runs
-  the policy.
-- **Each session gets its own snapshot.** Each has its own cadence and, later, its own view (interest management:
-  only what's near its actor). In v0 the view is the whole tile.
-- **Deliberately not now:** listening beyond 127.0.0.1 (LAN play), NAT traversal, client prediction or rollback,
-  accounts. Each would be a deliberate protocol and security change. One exception: the client may smooth
-  its own avatar's motion between snapshots, as a purely visual effect, which the standing rules already allow.
-
-## 5. Protocol v0
-
-The transport is as decided (`docs/architecture.md`, "Transport"). JSON text messages carry control. A binary
-message is `[u32 header length][JSON header][array bytes]`, little-endian.
-
-**Client to server.** Every message carries `seq`, and the reply echoes it.
-
-| Message | Fields | Notes |
+| Profile | Fastest sustainable dial, v0 as designed | With the caching fix (estimated) |
 |---|---|---|
-| `hello` | `protocol: 0`, `token` | first, and only once; the token travels here, not in the URL |
-| `act` | `region`, `action`, `params` | the SEM `structure` modulator's vocabulary (`strike`, `ignite`, `extinguish`), validated before anything is applied |
-| `time` | `request: pause \| resume \| set_scale`, `scale` | goes to the `TimeAuthority` |
-| `snapshot` | (none) | asks for a full snapshot now |
+| laptop, 0.2 m | about 44× | about 300× |
+| rig, 0.1 m | about 5× | about 20× |
+| max, 0.05 m | about 0.4× | about 0.75×, slower than real time |
+
+The max profile can't keep real time on a full tile until Phase 2's "Scale" item lands. That's allowed: the world
+stays correct, and the dial reports dilation. Every physics tick is lumpy (CP-9: about 100 ms at rig and up to
+1.2 s at max as v0 was designed), so the meters report p99 tick time and the delay before a control request
+takes effect.
+
+## 3. Time, the dial and the day
+
+### 3.1 The dial
+
+`time_scale` is world seconds per wall second, a finite number in `[min_scale, max_scale]` from server config.
+Pause is a separate flag, not scale 0 (W-F9). The dial changes only **how often the host calls `step`**, never what
+a step does, so the dial never changes the bits of a replay or the outcome class of a run.
+
+- **Dilation is reported, never hidden.** When the host can't step as fast as the dial asks, it steps as fast as it
+  can, and the tick status carries the effective scale, measured over at least one physics period (A15).
+- **Unpaced is a host mode, not a dial value** (W-F9: `inf` isn't valid JSON). Headless runs, cradles and tests
+  call `step` directly.
+- **The dial, dilation and thought deadlines never reach a percept** (Bio-11). An NPC can't sense how fast the
+  player's machine is running the world.
+
+### 3.2 The day knob and Maxim's calendar
+
+Maxim's `TemporalSignature` computes circadian, weekly, monthly and annual phase from a Unix timestamp with
+`datetime.fromtimestamp`. That's host-local time, with daylight saving, and 86,400 s is hard-coded (X5, Bio-2,
+W-F10). Two machines would give the same world moment different phases. The fix is Maxim's (§6 item 10): one world
+clock for every `TemporalSignature` producer, phase from world time and the world's day length, no local time. Until
+then, NPCs must not run against the world clock with their SCN on host time.
+
+### 3.3 The experience clock
+
+The world declares itself to Maxim's `ExperienceClockDriver` as a turn-based world: `experience_turns()` returns the
+tick, and `experience_us_per_turn` is `tick_us` (W-F11, Bio-9). A paused or held world then produces no experience,
+so NPCs don't forget while paused. Two caveats from the review: the driver only runs inside Maxim's full agent loop,
+not under `AgentPool.run_turn` (X4), and most decay in Maxim still runs on the wall clock until Maxim's #1361 lands
+(§6).
+
+### 3.4 What a 24-hour day means for play (open, §9 Q2)
+
+At 1× with a 24-hour day, a play session sees little of one day, NPCs never sleep in it, and drive rates tuned for
+Maxim's two-minute experiments run far too fast or slow (Bio-8). A day in an hour (24×) isn't reachable on a rig
+tile even with the caching fix (CP-10). And a different day length gives the SCN perfect entrainment to any period,
+because Maxim's SCN has no intrinsic period apart from the clock it's given; a real day-length experiment needs one,
+and Maxim's own pre-registration (Bio-7).
+
+## 4. Lanes
+
+### 4.1 One owner, explicit channels
+
+```
+             ┌──────────── simulation lane: owns Simulation (and through it World and agents) ───────────┐
+ records ──▶ │ waits on ONE inbox: intents, controls, thought results, stop                             │ ──▶ outputs
+             │ assigns each record its tick and a host sequence number, writes it to the log, then      │   (latest-wins
+             │ applies it in Simulation.step                                                            │    slot per
+             └──────────────────────────────────────────────────────────────────────────────────────────┘    session)
+       ▲                                ▲                                                   │
+ network lane: ONE asyncio         thinking lane: a worker pool                  record lane: the log is written
+ loop thread, a task per           with a frozen request in and a                synchronously by the simulation
+ session; decodes and              pure result value out                         lane each tick (CP-6); this lane
+ schema-checks, never                                                            only flushes and rotates
+ touches World
+```
+
+- **The network lane is one asyncio loop thread** with a task per session (A13, CP-7). Inbound: `put_nowait` onto a
+  bounded per-session queue; full means a `busy` error reply. Outbound: the simulation lane writes the latest tick
+  status and snapshot into per-session slots and wakes the loop with `call_soon_threadsafe`. `websockets` gets
+  `compression=None`, a small `max_size` (about 64 KiB, because snapshots go out, not in; TB-7), and a bounded
+  `max_queue`.
+- **Moving a lane to a process is possible, not free** (A10, CP-N1). Agents step inside the simulation lane's tick,
+  so moving them out means a lockstep barrier every tick and messages that pickle.
+- **Lifecycle and crashes** (TB-2, CP-6): an exception in the simulation lane is a bug, and the host fails loudly:
+  it flushes the log (including the record that caused it), stops every lane and joins every thread. It never
+  swallows the exception and carries on. A network task's failure ends only its session. `WorldHost` is a context
+  manager. A test injects a crash into each lane and checks that every thread is joined. TB-1's validation is what
+  keeps valid input from ever raising.
+- **Meters, each a B5 row** (CP-12): physics-step breakdown, p99 tick time, control-request delay, fastest
+  sustainable dial, peak memory, CPU against wall time for the simulation lane (CP-11, GIL), queue depths, slot
+  overwrites and overflows, and for thinking: requests in flight, late and failed results. Budgets use best-of-N or
+  operation counts, not one wall-time sample.
+
+### 4.2 Ordering and ids (D3, D4, D6, A6, TB-12, W-F5)
+
+- **The host assigns the order.** Each record gets `(tick, host_seq)` when the simulation lane takes it off its
+  inbox, and the log stores it. A replay applies records in log order. The client's `seq` is only echoed in replies.
+- **Which tick an intent gets depends on when it arrives,** in a live run (X8). That's input, like a keypress, and
+  the log records it. Only replays are independent of timing.
+- **Actor ids are integers from the simulation lane's allocator**, issued when a join is applied, never reused,
+  for players and NPCs alike. NPCs are allocated in roster order at load.
+- **Thoughts due on the same tick apply in request-id order**, where the request id is `(tick, actor, n)` assigned
+  by the simulation lane.
+
+### 4.3 The thinking lane
+
+- **A thought request is a frozen context, built from the state at tick T, and its result is a pure value** (A3,
+  CP-2): the intents the NPC will try, plus the memory writes it wants. The simulation lane applies both at the
+  deadline, through the same validators as client intents (TB-15, A7), and logs them. The model never touches
+  `World` or agent state from the thinking lane. Maxim's turn today writes the hippocampus and NAc during the LLM
+  call, so this needs Maxim's "generate vs apply" split (§6 item 16); the 2b stub has this shape now.
+- **Scheduling in world time.** A result applies at tick `T + d`, where `d` is in ticks, set per request kind in
+  `data/`. Holding (§9 Q1): if it hasn't arrived, the simulation lane enters a **held state**. In that state it still
+  serves pause, stop, joins, leaves and intents (queued for later ticks), and doesn't advance the tick (CP-3).
+- **The hold budget** counts wall time only while unpaused (CP-3, D5). When it runs out, the simulation lane alone
+  decides `thought_failed`, logs it, and drops any later arrival. Headless runs have no budget, so they never time
+  out (Bio-5). The model call's own timeout is shorter than the hold budget, so slow calls don't hold workers (CP-4).
+- **The queue is earliest-deadline-first, with one outstanding thought per NPC** (CP-4). Priority (the NPC the
+  player is talking to) breaks ties.
+- **Bio conditions on holding** (Bio-5): reflexes keep running through the deliberation time; pain or salience can
+  cancel a thought, which releases the hold; a thought is checked against the world as it is at its apply tick, and
+  a stale action is refused through validation.
+
+### 4.4 What determinism promises, in three tiers (D9, D1)
+
+1. **Replays are bit-identical** on one machine: same scene, rig, world config and log.
+2. **Scripted runs are bit-identical at any dial and any pacing**, with stub agents, because a stub thought is a
+   pure function of its request.
+3. **Live models or live players aren't reproducible.** The log is the only reproduction, and it is complete.
+
+Real Maxim agents join tier 1 only when §6's deterministic-agent items land (D1). A tripwire test makes `time`,
+`uuid` and the global `random` raise inside `Simulation.step`, so any agent code that reaches them fails loudly. The
+host code lives in a package the AST scan covers; `server/` holds only the transport (D8). The hash-seed test grows to
+a multi-session replay.
+
+## 5. Sessions, tokens and co-op (TB-4 to TB-6, TB-14, TB-16, A8, W-F13)
+
+- **Two kinds of token, fresh each launch:** one host token and up to N guest tokens. The role is bound to the
+  token, compared with `hmac.compare_digest`. One live session per token, and no promotion. Tokens reach the client
+  by environment variable or a 0600 file, never argv, and never appear in a log or an error echo.
+- **The handshake:** `hello` comes first and only once, within a deadline; anything else closes the session. There's
+  a session cap. Client binary frames are refused. Any request carrying an `Origin` header is refused, including an
+  empty one or `null`. Plain HTTP to the port gets a 400. The server binds the literal `127.0.0.1`.
+- **Joins and leaves are records** at a tick, in the log. When a guest leaves, its intents that already have a tick
+  apply and the rest are discarded. **When the host leaves, the world pauses** (a logged time decision) until the
+  host token reconnects.
+- **`TimeAuthority`** sees a frozen view of the sessions. `HostOnly` grants the host and refuses guests, with a
+  reason; it never returns `pending`. A `vote` message is refused in v0 (TB-17). A future vote needs a timeout and
+  a quorum rule, and the "pending" reply is reserved for it.
+- **Same-tick conflicts favour whoever applies first** in host order (TB-18), which is arrival order, not actor id.
+
+## 6. Maxim upstream: Phase 3, revised
+
+Each goes to the Maxim repo through Maxim's own issue, plan and four-lens review. None is patched here.
+
+| # | Item | Why the game needs it |
+|---|---|---|
+| prerequisite | **#1361, experience-clock decay** (`docs/plans/experience_clock_decay.md`: NAc decay, eligibility and windows, `Embodiment.advance`, `decay_all`), already proposed with owner decisions taken | paused NPCs otherwise get hungry and forget on the wall clock (Bio-1) |
+| 10 | **One world clock for every `TemporalSignature` producer and percept timestamp**: phase from world time and the world's day length, no local time; the SCN oscillator integrates elapsed time, not one hour per event. It revisits #1361's §(g), which keeps SCN phases on the host calendar by design. | X5, Bio-2, Bio-6, W-F10 |
+| 11 | **An externally stepped Default Network**: `step(world_now)`, every DN timer on the injected clock, an injected RNG, a non-visual input channel, per-behaviour suppression and efference copy (the hybrid plan's BL-2, A3, A4, SF-1, SF-2) | X6, Bio-3, Bio-10 |
+| 12 | **An externally stepped agent live tick** (not `AgentPool`, which has no body, drives or DN): `step(world_dt)` driving the experience driver, `Embodiment.advance` and the proposer, proposing on action completion, not every tick | Bio-3, X4 |
+| 13 | **Cancellable deliberation with a world-time deadline**, cancellable by bottom-up escalation (joins item 7) | Bio-5 |
+| 14 | **Consolidation without ending the session**, on experience time, with idle replay | Bio-4 |
+| 15 | **Deterministic agents**: an injected clock, RNG and id source across agent code (hippocampus de-duplication on `time.time()`, `uuid4` ids, the global `random` in DN); a world-seeded RNG | D1, A10 |
+| 16 | **Generate vs apply**: an agent turn that returns its intents and memory writes as values, with no side effects during the LLM call | A3, CP-2 |
+| owner decision | **Re-key the hybrid plan's revive trigger** (today: a second physical robot body) or write a simulated-body reflex plan, and decide the Phase 4 movement-on-substrate, speech-on-LLM split in a Maxim plan | Bio-3, X6 |
+
+The Exp 64 pre-registration draft (`docs/maxim_upstream/`) needs updating for real time before it freezes (Bio-12):
+host-clock temporal credit, the shipped NPC path (Maxim's turn path or the game's tick), a failed thought as the
+outage abort, encounter spacing pre-registered in ticks, and frozen drift through #1361's `Embodiment.advance`.
+
+## 7. Protocol v0
+
+The transport is as decided (`docs/architecture.md`, "Transport"). **Closed schemas everywhere** (TB-3, W-N4):
+unknown message types, fields and params are refused, including any client-sent `actor`, `tick`, `role` or
+`session`. JSON is parsed with NaN, Infinity and out-of-range numbers refused (TB-1). **Every client message gets
+exactly one final reply** (W-F1).
+
+**Client to server.** `seq` is an integer in `[0, 2^31)` and must increase within a session (W-F5).
+
+| Message | Fields | Final reply |
+|---|---|---|
+| `hello` | `protocol: 0`, `token` | `welcome`, or `error` then close |
+| `act` | `region`, `action`, `params` | `act_result`: `tick_applied`, `success`, `error`, `metadata` |
+| `time` | `request: pause \| resume \| set_scale`, `scale` (only for `set_scale`) | `time_decision`: granted or refused, with a reason |
+| `snapshot` | (none) | a binary snapshot whose header carries `in_reply_to`, served from the last published snapshot, coalesced and rate-limited (TB-9, D11) |
+
+**Validation runs in two stages** (TB-13). The network lane checks the schema: types, finiteness, ranges, caps from
+`data/server/`. The simulation lane checks what depends on the world at the record's tick: the region exists, the
+action is allowed, the per-tick limits. Both refusals are `error` or `act_result` replies with a code from a listed
+vocabulary (W-N3), and the world is unchanged. The `act` validator is the same one PR 1 (§8) adds to the SEM bridge,
+so NPCs, LLM results and clients pass one gate. Per-session rate limits and a cap on heat sources bound what valid
+intents can cost (TB-10).
 
 **Server to client.**
 
 | Message | When | Carries |
 |---|---|---|
-| `welcome` | after a valid `hello` | `session`, `actor`, `role`, `tick_s`, `physics_period_s`, `day_length_s`, `epoch`, rig name, `dx`, `shape` |
-| `tick` | each tick, throttled per session | `tick`, `world_time_s`, `time_of_day_s`, requested and effective scale, paused |
-| snapshot (binary) | when cells changed, at most `snapshot_hz` per session, and on request | the header: `protocol`, `tick`, `world_time_s`, `shape`, `axis_order: "zyx"`, and for each array its name, dtype, offset, stored and uncompressed size, and compression (`none` in v0) |
-| `time_decision` | a reply to `time` | granted, refused with a reason, or pending (reserved for a vote) |
+| `welcome` | after a valid `hello` | `session`, `actor`, `role`, the world config, the rig, `dx`, `shape` with its axis order, the region list with each region's affordances, the material table, and the current time state (W-F12) |
+| `tick` | each tick, throttled per session | `tick`, `world_time_us`, `time_of_day_us`, requested and effective scale, paused, held |
+| snapshot (binary) | when cells' version changed, at most `snapshot_hz` per session (2 Hz is the normal rate during any fire, CP-8), and on request | `[u32 header length][JSON header][array bytes]`, little-endian; the header has `kind: "full"`, `protocol`, `tick`, `shape: [nz, ny, nx]`, `axis_order: "zyx"`, `frame: "z-up"`, and for each array its name, dtype from a listed vocabulary (`u8`, `<f2`), offset from the start of the array section, stored and uncompressed size, and compression (`none`) |
 | `error` | a refused message | `code`, `message`, `in_reply_to`; the world is unchanged |
 
-- **Axis order is Godot's, fixed now.** Arrays are sent in z, y, x order with x varying fastest, which is what
-  `ImageTexture3D` expects. A golden fixture holds the convention, so the client never transposes.
-- **`advance` is not in the client's vocabulary.** The host's clock moves time. Tests and experiments step the host
-  directly, through the same `tick()`.
-- **Compression stays off in v0**, with the fields reserved. A roadmap item tries zstd at several levels once real
-  scenes exist, measuring snapshot size, encode and decode time, and client upload time per profile.
-- **Snapshot volume.** A full snapshot each time cells change, capped at `snapshot_hz` (proposed 2 Hz), is about
-  6.4 MB/s per client at the rig profile on a full tile, and 52 MB/s at max. That's fine on localhost and not
-  sustainable beyond it. Sending only changed regions comes with step 3, where B5 measures it.
+- **Readers refuse** an unknown protocol version, `kind`, dtype or compression, loudly (W-F6).
+- **Axis order is Godot's** (W-F4, X-N2): arrays are sent z, y, x with x varying fastest, one `Image` per z-slice for
+  `ImageTexture3D`. The server is z-up and Godot y-up, so the client maps axes in one place, the shader. An
+  **asymmetric golden fixture** (a different value at each corner) holds both conventions.
+- **Snapshots are encoded once per published tick and shared** across sessions (CP-8), and their arrays are
+  read-only (D11, W-N2).
+- **Compression is off in v0**, with the field reserved. A roadmap item tries zstd at several levels once real
+  scenes exist.
 
-## 6. What 2a and 2b ship
+**The intent log v0** (A2, D2, W-F2) is a versioned file:
+- **Header:** format version, protocol version, code SHA, pymaxim, numpy and Python versions, platform; content
+  hashes of the scene, rig, material table, world config and agent roster; the RNG seed; each agent's initial state
+  hash.
+- **Records:** `tick`, `host_seq`, `kind` (join, leave, time decision, intent, thought result, thought failed),
+  `actor` and the validated payload.
+- **Every N ticks a state digest, and an end marker** with the final tick (ticks with no records still run).
+- **Only the simulation lane writes records.** The reader is itself an untrusted loader (TB-15): it validates
+  every record and refuses a header it doesn't match.
+- **Golden fixtures**, like every other format (B3).
 
-**2a, `phase1/protocol`:**
-- the pure protocol codec;
-- sessions with the token, Origin and loopback checks;
-- `TimeAuthority` and `HostOnly`;
-- `WorldHost` with `tick()`, the intent queue and its ordering, and a stepped (headless) pacer and a wall pacer at
-  a constant scale;
-- the intent log, with a replay test;
-- `max_substep_s` replacing `min_substeps_per_turn`, with its cross-tier test;
-- golden wire fixtures (B3) and the B14 refusals;
-- one end-to-end test over a real localhost WebSocket.
+## 8. The PRs
 
-**2b, `phase1/lanes`:**
-- lane channels and threads;
-- the thinking lane interface, its deadline semantics and a deterministic stub (no LLM in tests);
-- the dial under load, with dilation reporting;
-- per-lane meters;
-- per-session snapshot cadence;
-- the B5 rows for the simulation, network and thinking lanes.
+1. **`phase1/act-validation`: fix the input hole in committed code** (TB-1, X7). Typed, frozen parameters for
+   `strike`, `ignite` and `extinguish`, built with `finite_vector`; NaN, infinite, negative and out-of-range values
+   refused, with caps from `data/`; a second check inside `damage.strike` and `HeatSource`. It starts with a test
+   per probe the review ran, each red first, plus a Hypothesis property: no input crashes the modulator or leaves a
+   non-finite value in the grid.
+2. **`phase1/sim-clock`: the `Simulation`, the integer clock and the physics cost fix** (§2). This includes the
+   rig-field change, caching, the period-split cross-tier test, the cost table re-measured on a committed tile
+   (B5's first rows), and the "Supersedes" doc updates (below).
+3. **`phase1/protocol`: protocol v0, sessions and tokens, `TimeAuthority` with `HostOnly`, the host with stepped and
+   constant-scale wall pacing, the intent log v0 with a replay test, golden fixtures (B3), and the B14 refusals.**
+   Its test list is the 41 rejection paths in `reviews/realtime_lanes_coop/trust_boundary.md`, plus one end-to-end
+   test over a real localhost WebSocket.
+4. **`phase1/lanes`: the lanes, backpressure, the thinking lane with its stub, hold semantics, the meters, and the
+   crash-injection tests.**
 
-Both PRs run the standard review round plus the lenses this design triggers (`docs/code_review.md`).
+Each PR runs the standard review round plus the lenses it triggers, Bio-faithful included where it applies.
 
-## 7. Risks and downsides
+### Supersedes (A11, W-F14, X-N4)
 
-- **Holding the world for a late thought can stall it**, and the effective scale can drop well below the dial.
-  The meters make that visible, and the deadline values are tunable data.
-- **Moving physics to a period changes when heat is applied** relative to intents: up to `physics_period_s` of
-  latency between an `ignite` and its first heat. The cross-tier and period-split tests have to show that the
-  outcome class holds.
-- **The max profile can't keep real time on a full tile** until Phase 2's "Scale" item lands.
-- **Maxim changes are needed before NPC substrates run in the simulation lane** (items 10 to 13). Until then, lanes
-  and protocol are built and tested with stubs. The risk is building the lanes around the wrong shape before Maxim's
-  side is designed.
-- **Thread lanes under the GIL** give no CPU parallelism for pure-Python work. Moving a lane to a process is designed
-  for, but not built.
-- **Determinism is narrower with live models:** replays are bit-identical, fresh runs only match in outcome class.
+When PR 2 lands, these change in the same PR:
+- CLAUDE.md: "only `World.advance` moves time".
+- `docs/architecture.md`: "The game is turn-based"; head-of-line blocking "harmless for a turn-based game"; the
+  buffer-cap advice (TB-7: only the client raises its cap); known gaps counted in turns.
+- `docs/roadmap.md`: Phase 4's "dialogue screen and turn order", the "Turn length" open question, and the new
+  Phase 3 items.
+- `docs/standards_backlog.md`: B2's "turn", B5's rows, and B7's fixed turn.
+- Code: `World.turn` and `turn_seconds`, `min_substeps_per_turn`, docstrings and the rig YAML comments.
 
-## 8. Open questions for the review and the owner
+## 9. Open questions for the owner
 
-1. Hold the world for a late thought (deterministic in world time, can stall) or apply it on arrival (never stalls,
-   timing depends on load)?
-2. Proposed values: `tick_s` = 0.1 s, `physics_period_s` = 0.5 s, `snapshot_hz` = 2. Are any of them wrong for the
-   physics, the substrate or the feel?
-3. At 1× and 24-hour days, a play session sees little of a day. Should the default dial be above 1×, so a world
-   day takes, say, an hour, or should the world run at 1× with fast-forward only as the player's choice?
-4. Does stepping the substrate at the world tick (10 Hz) keep the reflex loop's real job, against Maxim's 30 Hz?
-5. How does the SCN get a day that isn't 24 hours: a day-length-aware `TemporalSignature`, or a world clock that
-   reports phase?
+1. **Hold the world for a late thought, with a budget?** This fold recommends yes.
+   - For: Bio-faithful found holding the faithful choice, since deliberation is lived time.
+   - Against: Architecture and Determinism point out that replays are exact either way, as long as the log records
+     the apply tick. Holding only makes scripted runs independent of the dial. In co-op it freezes everyone.
+   - The budget, plus `thought_failed`, bounds the stall.
+2. **How does normal play relate to a 24-hour day?** Options:
+   - (a) play at 1×, with fast-forward through "wait" and sleep;
+   - (b) a default dial above 1×, limited by the rig;
+   - (c) NPC lives lived mostly in headless cradles, with play at 1×.
+   
+   This fold recommends (a) with (c): it fits the rig limits and gives NPCs whole days.
+3. **In Maxim: re-key the hybrid plan's revive trigger** (a second physical robot body today) to cover simulated
+   bodies, or start a separate simulated-body reflex plan?
+4. **In Maxim: argue against #1361's §(g)** (SCN phases on the host calendar by design) so that NPCs keep world time?
