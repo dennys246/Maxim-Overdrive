@@ -175,8 +175,7 @@ def test_a_target_is_accepted_only_when_it_is_this_region():
         assert not res.success
         assert res.error is not None
         assert res.error == (
-            f"the crate's structure is acted on directly, not on {shown}: name the crate as the target "
-            "(or leave target out)"
+            f"the crate's structure is acted on directly, not on {shown}: name the crate as the target"
         )
     assert _unchanged(before, w)
 
@@ -743,3 +742,45 @@ def _strict_loader():
     from maxim_overdrive.config import _StrictLoader  # noqa: PLC0415
 
     return _StrictLoader
+
+
+def test_an_air_region_has_no_structure_to_act_on():
+    from maxim_overdrive.sem_env.bridge import StructureModulator, to_maxim_entity  # noqa: PLC0415
+
+    room = Box((0.6, 0.6, 0), (2.4, 2.4, 1.2), "air", "room")
+    w = World.from_scene(Scene(SCENE.extent_m, (room, *SCENE.primitives)), RigProfile.load("laptop"), limits=LIMITS)
+    sensors, mods = region_parts(w, "room")
+    assert mods == {}
+    assert "temperature_mean" in sensors  # still sensed
+    with pytest.raises(ValueError, match="'room' is air"):
+        StructureModulator(w, "room")
+    assert to_maxim_entity(w, "room").modulators == {}
+
+
+def test_targets_resolve_by_maxims_own_name_rule():
+    scene = Scene(SCENE.extent_m, (Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", "fire door"), *SCENE.primitives))
+    w = World.from_scene(scene, RigProfile.load("laptop"), limits=LIMITS)
+    crate, door = (region_parts(w, r)[1]["structure"] for r in ("crate", "fire door"))
+    for target in ["crate", " Crate ", "CRATE"]:
+        assert crate.execute("ignite", {"power_w": 1.0, "target": target}).success, target
+    assert door.execute("ignite", {"power_w": 1.0, "target": "fire_door"}).success  # Maxim's spaces-as-underscores
+    assert not crate.execute("ignite", {"power_w": 1.0, "target": "fire door"}).success
+
+
+@pytest.mark.parametrize(("first", "second"), [("crate", "Crate"), ("fire door", "fire_door"), ("crate", " crate")])
+def test_region_names_that_maxim_would_confuse_are_refused(materials, first, second):
+    a = Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", first)
+    b = Box((1.2, 1.2, 0), (1.8, 1.8, 0.6), "wood", second)
+    with pytest.raises(ValueError, match="already exists"):
+        Scene(SCENE.extent_m, (a, b)).build(RigProfile.load("laptop"), materials)
+
+
+def test_a_fire_on_a_region_carved_hollow_is_refused_rather_than_burning_air(rigs):
+    # A wall with a doorway through its middle: its authored centroid sits in the doorway's air.
+    wall = Box((1.0, 0.0, 0.0), (1.6, 3.0, 2.0), "concrete", "wall")
+    doorway = Box((1.0, 1.0, 0.0), (1.6, 2.0, 2.0), "air", "doorway")
+    for rig in rigs:
+        w = World.from_scene(Scene((3.0, 3.0, 2.0), (wall, doorway)), rig, limits=LIMITS)
+        res = region_parts(w, "wall")[1]["structure"].execute("ignite", {"power_w": 1000.0})
+        assert res.error == "a fire there would touch none of the wall", rig.name
+        assert w.sources == {}

@@ -27,6 +27,11 @@ Bounds = tuple[tuple[float, float, float], tuple[float, float, float]]
 Point = tuple[float, float, float]
 
 
+def entity_key(name: str) -> str:
+    """A name as Maxim's EntityMap resolves it: stripped, lower-cased, spaces as underscores."""
+    return name.strip().lower().replace(" ", "_")
+
+
 @dataclass(frozen=True)
 class Footprint:
     """A region's authored shape in metres: its bounding box and its volume-weighted centroid."""
@@ -120,7 +125,7 @@ class MaterialGrid:
 
         A named region needs its ``footprint``, its authored shape in metres (see ``Region``).
         """
-        if region is not None and region in self.regions:
+        if region is not None and any(entity_key(r) == entity_key(region) for r in self.regions):
             raise ValueError(f"region {region!r} already exists")
         if region is not None and footprint is None:
             raise ValueError(f"region {region!r} needs its authored footprint in metres")
@@ -136,9 +141,15 @@ class MaterialGrid:
             self.name_region(region, mask, footprint, solid=mid != AIR_ID)
 
     def name_region(self, region: str, mask: Mask, footprint: Footprint, *, solid: bool) -> None:
-        """Name the cells in ``mask`` as a region with its footprint, without changing what they are made of."""
-        if region in self.regions:
-            raise ValueError(f"region {region!r} already exists")
+        """Name the cells in ``mask`` as a region with its footprint, without changing what they are made of.
+
+        Names must differ under Maxim's name normalisation (``entity_key``), because Maxim resolves an NPC's
+        "crate" to whichever entity normalises to it: two regions "Crate" and "crate" would let a call aimed at one
+        burn the other.
+        """
+        clash = next((r for r in self.regions if entity_key(r) == entity_key(region)), None)
+        if clash is not None:
+            raise ValueError(f"region {region!r} already exists" + ("" if clash == region else f" (as {clash!r})"))
         self.regions[region] = Region(mask.copy(), footprint, solid)
 
     def destroy(self, mask: Mask) -> int:

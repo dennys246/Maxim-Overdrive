@@ -108,7 +108,7 @@ class Cylinder:
 Primitive = Box | Cylinder
 
 
-def _boxes_overlap(a: Bounds, b: Bounds) -> bool:
+def boxes_overlap(a: Bounds, b: Bounds) -> bool:
     return all(a[0][i] < b[1][i] and b[0][i] < a[1][i] for i in range(3))
 
 
@@ -125,7 +125,7 @@ def _check_no_solid_overlaps(primitives: Sequence[Primitive]) -> None:
         if later.material == "air":
             continue
         for earlier in primitives[:i]:
-            if earlier.name and earlier.material != "air" and _boxes_overlap(earlier.bounds_m, later.bounds_m):
+            if earlier.name and earlier.material != "air" and boxes_overlap(earlier.bounds_m, later.bounds_m):
                 raise ValueError(
                     f"primitive {later.name or later.kind} overlaps the named solid {earlier.name}: named objects "
                     "can't share space with a later solid (air may carve into them)"

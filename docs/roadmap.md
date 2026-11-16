@@ -24,10 +24,12 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
 - Fires that go out when their fuel is gone, so a burnt-out crate's fire stops instead of heating air to millions of
   degrees (`docs/architecture.md`, Known gaps; the red gate is
   `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`). Needed before the tile's crate
-  scenario is gated. **Requirement:** burning must be a rate integrated over each cell that converges with
-  resolution, not a threshold on a cell's mean temperature: the measured cause of today's mid-burn divergence is
-  exactly that threshold (the crate's mean temperature agrees across rigs to within 1 °C while the degradation
-  driver differs 1.3–1.5×), and a per-cell ignition or pyrolysis threshold would inherit it. It must flip the strict
+  scenario is gated. **Requirement:** a cell's burn rate must estimate the integral of the point-wise rate over the
+  cell, from a reconstructed sub-cell profile, well enough at the coarsest rig to pass the gate (CLAUDE.md,
+  "Reconstruct, decide at the point, integrate upward"). Converging is not enough: today's law converges, slowly,
+  and the coarse rig still sits far off, because the measured cause is a threshold on a cell's mean temperature
+  (the crate's mean temperature agrees across rigs within 1 °C while the degradation driver differs 1.3–1.5×). A
+  per-cell ignition or pyrolysis threshold would inherit it. It must flip the strict
   red gate `tests/test_act_validation.py::test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn`,
   and it removes the marked band-aid in `data/world/actions.yaml`, whose ceilings keep fires at the powers the
   current physics has been measured at.
@@ -82,8 +84,10 @@ They are the prerequisites for Exp 64 and for NPCs that remember.
     can't flag its own refusal without breaking #1315's rule, and Maxim drops a failed result's metadata, so the fix
     belongs in SEM: a declared direction per affordance, and an executor-made "wrong target" refusal kind booked
     like a cognitive error (the category `docs/plans/tool_failure_credit.md` reserves for hallucinated tools).
-    **Argues against:** `docs/plans/deferred/scene_actor_affordances.md` (PR #213, hardened in #316), invariant 2,
-    which makes every scene affordance an act by the entity on a target that defaults to the player. **The
+    **Argues against:** `docs/plans/deferred/scene_actor_affordances.md` (PR #213, hardened in #316), invariant 5,
+    which makes every scene affordance an act by the entity on a target, defaulting to the player (the schema's
+    `"target": (str, "player")`; `OrchestratorActorTool`'s docstring in `maxim/simulation/tools.py` numbers the
+    same rule 2). **The
     alternative Maxim's review will raise,** modelling a strike as the NPC's own affordance with a `target_effect`,
     can't work here: `target_effect` is a set of sensor deltas, so it can't run the region's modulator, which is
     what changes cells. **Evidence,** measured through Maxim's real tools: `actor(entity="crate",

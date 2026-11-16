@@ -18,8 +18,8 @@ from typing import Any, SupportsFloat
 import numpy as np
 
 from maxim_overdrive.checks import finite_vector
-from maxim_overdrive.world.grid import MaterialGrid
-from maxim_overdrive.world.scene import Box, Cylinder, Primitive, Scene, footprint_of
+from maxim_overdrive.world.grid import MaterialGrid, entity_key
+from maxim_overdrive.world.scene import Box, Cylinder, Primitive, Scene, boxes_overlap, footprint_of
 
 
 @dataclass(frozen=True)
@@ -48,8 +48,9 @@ def _read(grid: MaterialGrid, spec: object, origin_m: object) -> tuple[str, list
     name = spec.get("name")
     if not name or not isinstance(name, str):
         raise SpecRejected("an imagined object needs a name")
-    if name in grid.regions:
-        raise SpecRejected(f"something called {name!r} already exists")
+    clash = next((r for r in grid.regions if entity_key(r) == entity_key(name)), None)
+    if clash is not None:  # by Maxim's name rule, checked before anything is painted
+        raise SpecRejected(f"something called {clash!r} already exists")
     try:
         origin = finite_vector(origin_m, 3, "origin_m")
         prims = Scene.from_dict({"extent_m": grid.extent_m, "primitives": spec.get("primitives", [])}).primitives
@@ -88,6 +89,11 @@ def place(
         raise SpecRejected(f"too large: {across_m:.2f} m across, the limit is {budget.max_extent_m} m")
     if (union & grid.solid).any():
         raise SpecRejected("that space is occupied")
+    # The same boundary as authored scenes (scene._check_no_solid_overlaps): an imagined object may not sit inside a
+    # named solid's footprint, even in air carved into it, or a strike on that solid could break the new object.
+    for other, region in grid.regions.items():
+        if region.solid and any(boxes_overlap(region.footprint.bounds_m, p.bounds_m) for p in placed):
+            raise SpecRejected(f"that space belongs to {other}")
     # Mass from the authored geometry, so the budget does not depend on the rig.
     mass = sum(p.volume_m3 * grid.materials[p.material].density_kg_m3 for p in placed)
     if mass > budget.max_mass_kg:

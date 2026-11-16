@@ -441,3 +441,70 @@ def test_thermal_degradation_follows_its_closed_form_at_every_rig(rigs, material
         damage.thermal_degrade(g, dt)
         expected = 1.0 - wood.degrade_rate_per_s_per_100c * dt * excess / 100.0
         assert g.integrity == pytest.approx(np.full(g.shape, expected), rel=1e-6), rig.name
+
+
+@pytest.mark.parametrize(
+    ("later", "ok"),
+    [
+        (Box((0, 0.5, 0), (1, 1.5, 1), "concrete"), False),  # overlaps on y
+        (Box((0, 0, 0.5), (1, 1, 1.5), "concrete"), False),  # overlaps on z
+        (Box((0, 1, 0), (1, 2, 1), "concrete"), True),  # side by side on y
+        (Box((0, 0, 1), (1, 1, 2), "concrete"), True),  # stacked on z
+        (Cylinder((1.45, 1.45), 0.5, (0, 1), "concrete"), False),  # box corners overlap, the body doesn't: refused
+    ],
+    ids=["y", "z", "beside-y", "stacked-z", "cylinder-corner"],
+)
+def test_the_overlap_rule_judges_every_axis(rig, materials, later, ok):
+    scene = Scene((3.0, 3.0, 2.0), (Box((0, 0, 0), (1, 1, 1), "wood", "crate"), later))
+    if ok:
+        scene.build(rig, materials)
+    else:
+        with pytest.raises(ValueError, match="overlaps the named solid crate"):
+            scene.build(rig, materials)
+
+
+def test_a_later_solid_may_fill_an_earlier_named_air_region(rig, materials):
+    room = Box((0, 0, 0), (2, 2, 1), "air", "room")
+    Scene((3.0, 3.0, 2.0), (room, Box((0.5, 0.5, 0), (1, 1, 0.5), "wood", "crate"))).build(rig, materials)
+
+
+def test_an_imagined_object_may_not_sit_in_a_named_solids_footprint(rig, materials):
+    wall = Box((1.0, 0.0, 0.0), (1.6, 3.0, 2.0), "concrete", "wall")
+    doorway = Box((1.0, 1.0, 0.0), (1.6, 2.0, 2.0), "air", "doorway")
+    g = Scene((3.0, 3.0, 2.0), (wall, doorway)).build(rig, materials)
+    box = {"name": "box", "primitives": [{"min_m": [0, 0, 0], "max_m": [0.4, 0.4, 0.4], "material": "wood"}]}
+    with pytest.raises(SpecRejected, match="that space belongs to wall"):
+        place(g, box, (1.1, 1.3, 0.0))  # in the doorway's air, inside the wall's footprint
+    place(g, box, (2.0, 1.3, 0.0))  # beside the wall is fine
+    assert "box" in g.regions
+
+
+def test_thermal_degradation_is_proportional_to_the_excess(rigs, materials):
+    wood = materials["wood"]
+    assert wood.degrade_above_c is not None
+    for rig in rigs:
+        g = Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (1, 1, 1), "wood", "block"),)).build(rig, materials)
+        x, _, _ = g.mesh()
+        excess = np.where(np.broadcast_to(x < 0.5, g.shape), 150.0, 50.0)
+        g.temperature[:] = wood.degrade_above_c + excess
+        damage.thermal_degrade(g, 0.5)
+        expected = 1.0 - wood.degrade_rate_per_s_per_100c * 0.5 * excess / 100.0
+        assert g.integrity == pytest.approx(expected, rel=1e-6), rig.name
+
+
+@pytest.mark.parametrize("name", ["Crate", " crate", "CRATE"])
+def test_an_imagined_object_named_like_an_existing_region_is_refused_before_painting(rig, materials, name):
+    g = Scene((3.0, 3.0, 2.0), (Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", "crate"),)).build(rig, materials)
+    before = g.material.copy()
+    box = {"name": name, "primitives": [{"min_m": [0, 0, 0], "max_m": [0.4, 0.4, 0.4], "material": "wood"}]}
+    with pytest.raises(SpecRejected, match="something called 'crate' already exists"):
+        place(g, box, (2.0, 2.0, 0.0))
+    assert np.array_equal(g.material, before)  # refused, not half-applied
+
+
+def test_name_region_itself_refuses_a_name_maxim_would_confuse(rig, materials):
+    # Its callers check first; this is the second line, for any future caller that doesn't.
+    g = Scene((3.0, 3.0, 2.0), (Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", "crate"),)).build(rig, materials)
+    footprint = g.regions["crate"].footprint
+    with pytest.raises(ValueError, match=r"region 'Crate' already exists \(as 'crate'\)"):
+        g.name_region("Crate", g.regions["crate"].cells, footprint, solid=True)

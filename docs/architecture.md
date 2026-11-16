@@ -44,7 +44,9 @@ How the rule is kept, so far:
 - Energy lands by **exact cell average** (a strike's Gaussian integrated over each cell) or by **volume overlap**
   (a fire's sphere, sub-sampled), never by "is the cell centre inside". Centre-inside made a 0.3 m fire run 35%
   cooler at 0.2 m cells than at 0.05 m, and the crate burned at one rig and not another.
-- SEM sensors are **reductions over cells** (mean integrity, max temperature), which converge with resolution.
+- SEM sensors are **reductions over cells** (mean integrity, mean and max temperature). Means converge with
+  resolution; a max doesn't have to (`temperature_max` mid-burn differs across rigs, see Known gaps), so decisions
+  are taken on means or integrals, as the "reconstruct, decide, integrate" rule in CLAUDE.md requires.
 - Thin features must be at least two of the coarsest rig's cells thick, or one cell becomes the whole feature and a
   scratch becomes a breach.
 
@@ -80,10 +82,11 @@ How the rule is kept, so far:
   takes over (at 40 turns, integrity 0.02 / 0.26 / 0.34 and peaks of 620 / 1.4×10⁵ / 1.4×10⁵ °C). Smaller radii or
   more power diverge sooner: at a 0.2 m radius the onsets are 11 / 8 / 7, and at 1 MW integrity at turn 30 is
   0.00 / 0.26 / 0.34. `temperature_max` diverges too (540 / 614 / 978 °C at turn 27). **The cause is measured:**
-  the crate's mean temperature agrees between laptop and rig to within 1 °C through turn 22, so heat converges, but
+  the crate's mean temperature agrees between laptop and rig to within 1 °C through turn 22, so the crate's heat content agrees, but
   the degradation driver (the mean of the excess of each cell's temperature over the limit, in
-  `damage.thermal_degrade`) is 1.3–1.5× larger at rig. A threshold applied to cell means doesn't converge with
-  resolution. Scaling the rate by cell size would make the gate pass and is a band-aid; the law itself is held by a
+  `damage.thermal_degrade`) is 1.3–1.5× larger at rig. The law does converge, slowly (integrity at turn 22 is 0.703 /
+  0.567 / 0.514, roughly first order), but the coarse rig sits far off, because a threshold is applied to cell means
+  (CLAUDE.md, "Reconstruct, decide at the point, integrate upward"). Scaling the rate by cell size would make the gate pass and is a band-aid; the law itself is held by a
   closed-form test at every rig (`tests/test_validation.py::test_thermal_degradation_follows_its_closed_form_at_every_rig`). The fix is the Phase 1 fuel model, with burning as a
   rate driven by heat content. Held by a strict red gate that checks the spread on every turn for 60 turns,
   `tests/test_act_validation.py::test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn`.
@@ -103,9 +106,15 @@ How the rule is kept, so far:
   nothing still owns its old box: a strike there is still "on the crate", and `ignite` on a burnt-out crate puts the
   fire into air. "Gone" only means a later paint took every cell. Ownership per cell (the region id array planned
   for design v2) removes it.
-- **Overlap is judged on bounding boxes.** Named solids may not overlap a later solid (`scene._check_no_solid_overlaps`),
-  and a cylinder's box corners count as its own, so two barrels close together can be refused although they don't
-  touch. Per-cell ownership removes it too.
+- **Overlap is judged on bounding boxes, and it has an authoring cost.** Named solids may not overlap a later solid
+  (`scene._check_no_solid_overlaps`, and `imagination.spec.place` for imagined objects), and a cylinder's box corners
+  count as its own, so two barrels close together can be refused although they don't touch. A solid window, sign or
+  vent inside a named wall is refused too, so such a wall must be split into pieces or left unnamed. Per-cell
+  ownership (design v2's region id array) removes both.
+- **A region carved hollow keeps its authored centroid.** Air may carve into a named solid (a doorway), but the
+  solid's footprint and centroid stay those of the authored box. With a doorway through a wall's middle, the
+  centroid is in air: `ignite` is then refused in words ("a fire there would touch none of the wall") rather than
+  burning air, and an aimless strike lands in the doorway. Per-cell ownership removes it.
 - **Whether an imagined object fits in the world can depend on the rig.** `imagination.spec.place` refuses an object
   "smaller than one cell at this resolution" when it covers no cell centre, which can happen at the coarse rig and
   not at a finer one. Its size and mass budgets come from the authored geometry (rig-independent since

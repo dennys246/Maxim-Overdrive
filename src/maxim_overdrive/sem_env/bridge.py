@@ -26,7 +26,8 @@ import numpy.typing as npt
 from maxim_overdrive.checks import finite_real, finite_vector
 from maxim_overdrive.config import ActionLimits
 from maxim_overdrive.world import damage
-from maxim_overdrive.world.world import HeatSource, World
+from maxim_overdrive.world.grid import entity_key
+from maxim_overdrive.world.world import HeatSource, World, sphere_overlap
 
 if TYPE_CHECKING:
     # Type-check against Maxim's own classes; tests/test_sem_compat.py holds the _compat mirror to the same fields.
@@ -244,6 +245,8 @@ class StructureModulator:
     def __init__(self, world: World, region: str) -> None:
         if region not in world.grid.regions:
             raise KeyError(f"no region {region!r} in this world")
+        if not world.grid.regions[region].solid:
+            raise ValueError(f"region {region!r} is air: there is no structure to act on")
         self._world, self._region = world, region
 
     @property
@@ -324,15 +327,15 @@ class StructureModulator:
                 {},
                 False,
                 f"the {self._region}'s structure is acted on directly, not on {self._target_label(target)}: "
-                f"name the {self._region} as the target (or leave target out)",
+                f"name the {self._region} as the target",
             )
         return self.apply(action)
 
     def _is_this_region(self, target: object) -> bool:
-        """A target names this region when it is exactly a string, or a Maxim Entity named by one, equal to the
-        region's name ignoring case (as Maxim's EntityMap resolves names)."""
+        """A target names this region when it is exactly a string, or a Maxim Entity named by one, that resolves to
+        the region under Maxim's own name rule (``grid.entity_key``). Region names are unique under that rule."""
         name = target.name if HAVE_MAXIM and isinstance(target, Entity) else target
-        return type(name) is str and name.casefold() == self._region.casefold()
+        return type(name) is str and entity_key(name) == entity_key(self._region)
 
     @staticmethod
     def _target_label(target: object) -> str:
@@ -355,18 +358,30 @@ class StructureModulator:
         if cells.size == 0:
             return self._result(affordance, shown, False, f"the {self._region} is gone")
         if isinstance(action, Strike):
-            point = action.point_m if action.point_m is not None else self.centroid_m()
-            if not self._on_region(point, action.sigma_m):
-                return self._result(affordance, shown, False, f"point_m is not on the {self._region}")
-            res = damage.strike(self._world.grid, point, action.energy_j, action.sigma_m)
-            return self._result(
-                affordance, shown, True, destroyed_volume_m3=res.destroyed_volume_m3, absorbed_j=res.absorbed_j
-            )
+            return self._strike(action, shown)
         if isinstance(action, Ignite):
-            self._world.sources[f"fire:{self._region}"] = HeatSource(self.centroid_m(), action.radius_m, action.power_w)
-            return self._result(affordance, shown, True)
+            return self._ignite(action, shown)
         had = self._world.sources.pop(f"fire:{self._region}", None) is not None
         return self._result(affordance, shown, had, None if had else f"nothing is burning on the {self._region}")
+
+    def _strike(self, action: Strike, shown: dict[str, Any]) -> ModulatorResult:
+        point = action.point_m if action.point_m is not None else self.centroid_m()
+        if not self._on_region(point, action.sigma_m):
+            return self._result("strike", shown, False, f"point_m is not on the {self._region}")
+        res = damage.strike(self._world.grid, point, action.energy_j, action.sigma_m)
+        return self._result(
+            "strike", shown, True, destroyed_volume_m3=res.destroyed_volume_m3, absorbed_j=res.absorbed_j
+        )
+
+    def _ignite(self, action: Ignite, shown: dict[str, Any]) -> ModulatorResult:
+        source = HeatSource(self.centroid_m(), action.radius_m, action.power_w)
+        grid = self._world.grid
+        own_solid = grid.regions[self._region].cells & grid.solid
+        if not (sphere_overlap(grid, source.point_m, source.radius_m) * own_solid).any():
+            # A region carved hollow (a wall with a doorway through its middle) can have its centroid in air.
+            return self._result("ignite", shown, False, f"a fire there would touch none of the {self._region}")
+        self._world.sources[f"fire:{self._region}"] = source
+        return self._result("ignite", shown, True)
 
 
 _AFFORDANCE_OF: dict[type, str] = {Strike: "strike", Ignite: "ignite", Extinguish: "extinguish"}
@@ -374,7 +389,9 @@ _AFFORDANCE_OF: dict[type, str] = {Strike: "strike", Ignite: "ignite", Extinguis
 
 def region_parts(world: World, region: str) -> tuple[dict[str, RegionSensor], dict[str, StructureModulator]]:
     sensors = {q: RegionSensor(world, region, q) for q in RegionSensor._UNITS}
-    return sensors, {"structure": StructureModulator(world, region)}
+    # An air region (a room, a doorway) is sensed, but it has no structure: nothing to strike or set alight.
+    modulators = {"structure": StructureModulator(world, region)} if world.grid.regions[region].solid else {}
+    return sensors, modulators
 
 
 def to_maxim_entity(world: World, region: str, entity_type: str = "structure") -> Entity:
