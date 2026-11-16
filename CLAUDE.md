@@ -59,6 +59,13 @@ Godot 4.7.2 is installed at `/Applications/Godot.app` (binary: `Contents/MacOS/G
   a cross-tier test fails, fix the physics; never loosen the test to pass.
 - Author scenes in metres. Keep physics parameters per unit volume. Deposit energy by exact cell average or volume
   overlap, never by whether the cell centre is inside.
+- **Reconstruct, decide at the point, integrate upward.** Never apply a threshold or a non-linear law to a cell's
+  mean when the outcome depends on structure inside the cell: averaging then thresholding is not thresholding then
+  averaging, and the difference grows with the cell size. Reconstruct the sub-cell profile (from neighbours, or a
+  surface model sized in metres), evaluate the law on it, and integrate over the cell. Every consumer reads at its
+  own scale: NPC sensors as reductions over volumes in metres, zones as integrals, the client at its own level of
+  detail; none of them reads "a cell". Fineness is spent where the gradients are. Binary outcomes (breached,
+  ignited) keep a band near their threshold however fine the cells are, so they are gated with an outcome margin.
 - Thin features must be at least two cells of the coarsest rig thick.
 - The world server is authoritative. The client never computes anything that feeds back into the world; it may add
   purely visual effects.
