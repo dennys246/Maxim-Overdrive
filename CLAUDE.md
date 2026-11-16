@@ -208,6 +208,13 @@ only review holds.
   Guard: `docs/code_review.md` (the Bio-faithful integration lens asks it), B15
 - **Engine choices get a one-line why** in the code or the commit (scene tree, node types, shaders, GDScript vs C#),
   for a team learning Godot. Guard: B1
+- **Teach game engineering as you go.** The owner is learning game development from the start, and knows software
+  engineering and machine learning well. In every reply, explain the game-engineering concepts the work touches, in
+  depth and from first principles, including the everyday ones a game developer takes for granted: the game loop
+  and fixed timestep, level of detail, streaming, collision, rendering passes and shaders, netcode and
+  authoritative servers, save systems, asset pipelines, simulation stability. Say what the concept is, why games
+  do it that way, and what it costs or trades off, and tie it to what it means here. Don't explain general software
+  or ML. Guard: B17
 
 ## Licensing
 
