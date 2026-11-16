@@ -144,6 +144,27 @@ construction: a destroyed cell losing its heat, and the fuel gap.
 
 ## 3. Burning, ignition and phase change
 
+### 3.0 The principle: reconstruct, decide at the point, integrate upward
+
+Every resolution problem found so far applied a non-linear decision to a coarse average:
+- degradation and ignition were thresholds on a cell's mean temperature;
+- breaching is a threshold on whole cells;
+- reach and fire centres were decided from voxelized cells.
+
+The heat field converges; the decisions on it didn't. So, as a standing rule (CLAUDE.md, owner decision
+2026-11-16):
+- **No threshold or non-linear rate on a cell's mean** where the outcome depends on structure inside the cell.
+- **Reconstruct the sub-cell profile,** from neighbours or a surface model sized in metres. Evaluate the law on it
+  and integrate over the cell. This is the standard finite-volume approach: reconstruct, then evaluate.
+- **Each consumer reads at its own scale:** NPC sensors as reductions over volumes in metres, zones as integrals,
+  the client at its own level of detail.
+- **Fineness is spent where gradients are.** Adaptive refinement near fronts is the Phase 2 "Scale" item.
+
+This is also the fuel model's acceptance requirement. "A rate that converges with resolution" isn't enough: today's
+law converges, slowly (integrity at turn 22 is 0.703 / 0.567 / 0.514), and still leaves the red gate red. The
+requirement is that a cell's rate estimates the integral of the point-wise rate over the cell well enough at the
+coarsest rig to flip `test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn`.
+
 ### 3.1 One transition kernel
 
 Energy above a component's transition enthalpy converts it, at its latent heat. A condensed product stays in the
