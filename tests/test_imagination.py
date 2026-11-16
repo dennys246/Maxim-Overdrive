@@ -45,6 +45,10 @@ def test_an_imagined_crate_is_destructible_like_any_other(rig, materials):
         ({"name": "nothing", "primitives": []}, (1.2, 1.2, 0), "at least one"),
         ({**CRATE, "name": ""}, (1.2, 1.2, 0), "needs a name"),
         ({**CRATE, "name": 7}, (1.2, 1.2, 0), "needs a name"),
+        ({**CRATE, "name": " box"}, (1.2, 1.2, 0), "no outer spaces"),
+        ({**CRATE, "name": "box "}, (1.2, 1.2, 0), "no outer spaces"),
+        ({**CRATE, "name": "  "}, (1.2, 1.2, 0), "no outer spaces"),
+        ({**CRATE, "name": "\tbox"}, (1.2, 1.2, 0), "no outer spaces"),
         ({**CRATE, "name": "wall"}, (1.2, 1.2, 0), "already exists"),
         (
             {**CRATE, "primitives": [{"kind": "box", "min_m": [0, 0, 0], "material": "wood"}]},

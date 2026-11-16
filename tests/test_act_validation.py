@@ -800,6 +800,7 @@ def test_an_entity_that_only_shares_the_regions_name_is_not_the_region():
     impostor = Entity("crate", "item")  # an item or an NPC elsewhere called "crate"
     res = _structure(_world()).execute("ignite", {"power_w": 1.0, "target": impostor})
     assert not res.success
+    assert res.error == "that is another thing called 'crate', not this crate"  # not "name the crate", which loops
 
 
 def test_target_names_follow_maxims_lower_not_casefold():

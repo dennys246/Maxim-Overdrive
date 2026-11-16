@@ -321,6 +321,9 @@ class StructureModulator:
         except ActionRefused as exc:
             return self._result(label, {}, False, str(exc))
         target = params.get("target") if isinstance(params, Mapping) else None
+        if self._is_namesake(target):
+            other = f"that is another thing called {self._target_label(target)}, not this {self._region}"
+            return self._result(label, {}, False, other)
         if target is not None and not self._is_this_region(target):
             return self._result(
                 label,
@@ -330,6 +333,12 @@ class StructureModulator:
                 f"name the {self._region} as the target",
             )
         return self.apply(action)
+
+    def _is_namesake(self, target: object) -> bool:
+        """A Maxim Entity that shares this region's name but isn't it (an item or an NPC called "crate")."""
+        if not (HAVE_MAXIM and isinstance(target, Entity)) or self._is_this_region(target):
+            return False
+        return type(target.name) is str and entity_key(target.name) == entity_key(self._region)
 
     def _is_this_region(self, target: object) -> bool:
         """Whether a call's target is this region.
