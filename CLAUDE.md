@@ -205,7 +205,9 @@ only review holds.
 ### Working
 
 - **Branches and commits.** Work on `phaseN/<step>` branches with clear, signed commits. Never bypass signing or
-  hooks. Never push: the owner reviews and pushes.
+  hooks. A session may push its own `phaseN/<step>` branch to keep that branch's draft PR current (owner, 2026-11-17).
+  It never pushes `main`, never force-pushes, never pushes another session's branch, and never merges: the owner
+  reviews and merges.
   **When signing fails** (the passphrase prompt timed out or was cancelled), try once more: the first attempt often
   only raises the prompt. If the second fails too, stop and ask the owner to answer the prompt; they're probably in
   another window. Don't retry beyond that, and don't change the GPG cache settings. Keep working on anything that
