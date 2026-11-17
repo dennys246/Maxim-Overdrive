@@ -324,12 +324,13 @@ below it. Siblings on one line are independent of each other.
 |---|---|---|---|---|---|
 | NPC tool calls | Maxim (`ModulatorAffordanceTool`) | the stepping agent's bound actor; a call whose modulator is bound to another actor is refused (foundations TB2-S8) | per-kind authority (§6.1) | `engine.adapters.sem.StructureModulator.execute` (X-2), with `engine.intents.parse_action` as stage 1 | today; moves in `phase1/boundaries` |
 | **The NPC tool roster** (foundations TB2-B1) | Maxim's tool registry | — | **a closed allowlist**: the membrane's affordances plus reviewed cognition tools; nothing that reaches the host's files, processes, network or Maxim's operational mode | the agent adapter refuses to step an agent whose registry holds any other tool, or an `operational_mode` with filesystem reach; proven by a planted `BashTool` | `phase1/agents` (red gate against real Maxim until tier A) |
-| **Agent homes** (foundations TB2-B2) | Maxim's `data_home()`; saves | — | one home per agent, under the save; never `~/.maxim` | until `AgentHome` routes every store, each real agent runs in its own worker process with `MAXIM_DATA_HOME` and its working directory at its agent home and a scrubbed environment; a test asserts two NPCs resolve different homes. Agent homes from outside this machine are a **gate-to-be**: a foreign save loads the world only and re-seeds agents from the roster; a home loads only from a save this machine wrote, checked by a per-install HMAC, until Maxim's persistence is pickle-free | `phase1/agents`; save v1 |
+| **Agent homes** (foundations TB2-B2) | Maxim's `data_home()`; saves | — | one home per agent, under the save; never `~/.maxim` | until `AgentHome` routes every store, each real agent runs in its own worker process with `MAXIM_DATA_HOME` (the one environment read OD-A17's env-read test allows, until OD-A12) and its working directory at its agent home and an allowlisted environment (`npcs_and_sem.md` §6.6); a test asserts two NPCs resolve different homes. Agent homes from outside this machine are a **gate-to-be**: a foreign save loads the world only and re-seeds agents from the roster; a home loads only from a save this machine wrote, checked by a per-install HMAC, until Maxim's persistence is pickle-free | `phase1/agents`; save v1 |
 | `target=<Entity>` and other Maxim objects | Maxim's actor tool | — | — | resolved to a stable id at `execute`, namesake and identity checks before the intent is frozen (TB-S5) | `phase1/boundaries` |
 | Imagined objects | LLM via Maxim | the bound actor | the actor's budget | `imagine` intent: spec constructors at stage 1, `place` as stage 2 (TB-S6) | `phase1/boundaries` (kind), sim-clock (log) |
-| Thought results: intents, speech and **memory writes** | the agent's `StepOutput` | the bound actor | an NPC's own memory only | intents and speech through stage 1; memory writes are a **gate-to-be** until generate vs apply (OD-A15) gives the game a value to check, an OPEN divergence with a strict red gate (foundations TB2-S3) | `phase1/agents` (types); OD-A15 (memory) |
+| **The worker channel** (`npcs_and_sem.md` §6.6; Exec B1, TB3-B1) | a real agent's worker process | one actor per channel, bound at spawn | — | the strictest contract: length-prefixed, versioned, closed-schema JSON through the strict decoder, closed message kinds per direction, size budgets before allocation, pickle-free (`multiprocessing`, `pickle`, `marshal`, `shelve` banned in `engine.host` and `engine.adapters`); golden rejection frames and a planted pickle frame; a refused frame, a hang past the per-park ceiling or a crash ends the agent as a logged `agent_failed` | `phase1/agents` (with the test double behind it) |
+| Thought results: intents, speech and **memory writes** | the agent's `StepOutput` and `ThoughtOutput`, decoded from the worker channel | the bound actor | an NPC's own memory only, with provenance by source actor (§6.6) | everything re-validated **in the host**: intents and speech through stage 1, memory writes through the host's gate before the host calls `apply` (canonical order); a **gate-to-be** until generate vs apply (OD-A18) gives the game a value to check, an OPEN divergence with a strict red gate (foundations TB2-S3) | `phase1/agents` (types); OD-A18 (memory) |
 | **Thought budgets** (foundations TB2-B3) | the host's thinking lane | — | — | PFC cycles, `parallel_actions`, `next_actions` and follow-up chains per triggering input, tokens per call (a generation limit and a stream cut-off before buffering), held-buffer bytes, memory writes, `cancel_on` length, `D` ceilings, from `data/agents/thought_budget.yaml` | `phase1/agents` |
-| **Player speech** (foundations TB2-S1) | network lane | session token | per-session rate limit | the `speak` validator: length cap, NFC, control and bidi-override characters refused | `phase1/protocol` |
+| **Player speech and all guest text** (foundations TB2-S1; TB3-S3, TB3-S4, TB3-N4) | network lane | session token | per-session rate limit | one gate, `engine.text.player_text`, for `speak` and every guest string that can reach a prompt: length cap, NFC, then on the **decoded** text, per chunk and whole, refuse controls, bidi overrides, every line separator `str.splitlines` splits on (U+2028, U+2029, U+0085, `\v`, `\f`, U+001C–U+001E) and every format (Cf) character, zero-width and tag characters included | `phase1/protocol` |
 | **The response cache** (foundations DR-B3, TB2-S4, Wire S9) | disk, per save | — | — | the strictest contract: versioned, strict decoder, size budgets; an entry holds only raw output and the canonical request, and the gate recomputes the hash and refuses a mismatch; never read by replay | after tier A |
 | Scene files, saves, intent logs, bug reports | disk, **strangers' machines** | — | — | the strictest gate (world_model F14): no pickle, budget before allocation, all-or-nothing | scene v1, save v0, sim-clock |
 | Rigs, materials, limits, vocabulary, presets, rosters, arcs | `data/`, `content/`, later mods | — | — | a loader each under the gate contract (§5.4) | today and as each lands |
@@ -356,6 +357,9 @@ Every registered gate meets all of these, with a rejection test each:
 - budgets checked **before allocation**: counts (primitives per spec), string lengths (names), nesting depth, total
   allocation (cells × primitives). `place` today stacks one mask per primitive before refusing anything: 1,000
   one-centimetre primitives cost about 5 GB at the max profile.
+
+**Across the worker channel** (`npcs_and_sem.md` §6.6), stage 1 runs in the host on decoded values: an `Entity` target
+arrives as a stable id and is re-checked, so nothing produced in a worker is trusted for having been a Maxim object.
 
 Only `ActionLimits.load` and `parse_action` meet the bar today, and `place` partly. `RigProfile.load`,
 `MaterialTable.load` and `Scene.from_dict` are registered as gates-to-be and hardened in `phase1/boundaries`
@@ -495,11 +499,13 @@ contract Maxim must offer is in `npcs_and_sem.md` §6.1.
 
 | Interface | Defined in | Called by | Calls |
 |---|---|---|---|
-| `AgentPort` | `engine.sim` | the host | `step(now_tick, dt_ticks, frame) -> StepOutput`; `think(continuation, reply \| None) -> (continuation', Pending \| ThoughtOutput)`; `settle(receipts)` |
+| `AgentPort` | `engine.sim` | the host | `step(now_tick, dt_ticks, frame) -> StepOutput`; `think(handle, reply \| None) -> Pending \| ThoughtOutput`; `apply(writes)`; `settle(receipts)`. Maxim's embedded function is `step(agent, world_dt_us, frame)`; the adapter converts ticks through the fixed schedule |
 
-- **`StepOutput`** is a frozen value: intents (with `apply_us`), `speak` acts, thought requests, and memory writes
-  (agent-side, `npcs_and_sem.md` §6.1). The agent never applies anything and never runs on its own thread (O6).
-- **Requests are values, so nothing calls upward.** v3's host service protocol (`request_thought`, a gateway handle
+- **`StepOutput`** is a frozen value: intents (with `apply_us`), `speak` acts, thought requests, and memory writes.
+  The agent never applies anything and never runs on its own thread (O6): `apply` and `settle` are the only writers,
+  both host-called, and the continuation's host-owned header (budgets, basis, landing ticks) stays in the host
+  (`npcs_and_sem.md` §6.6).
+- **Requests are values, so nothing calls upward.** The host service protocol of boundaries v2 and npcs v2 (`request_thought`, a gateway handle
   and an intent sink handed to the adapter) is deleted: with `think` returning `Pending(request)`, the adapter (layer
   7c) never calls the host (layer 8). Maxim has no inner tool loop (`runtime/agent_loop.py:2172`, `:2264` on
   7084f561); a tool call is an intent, and its result comes back as the next tick's follow-up.
@@ -513,8 +519,10 @@ contract Maxim must offer is in `npcs_and_sem.md` §6.1.
 inside the simulation lane's tick"):**
 - **One owner per agent.** Each real agent runs in its own worker process (`npcs_and_sem.md` O13): `spawn`, a
   scrubbed environment, its home and working directory at its agent home, the offline latch engaged after the pipe
-  opens. Its `step`, `think`, `settle` and any push into its body run there, serialised. The process boundary is the
-  trust boundary.
+  opens. Its `step`, `think`, `apply`, `settle` and any push into its body run there, serialised. The channel to it is
+  a registered gate (§5.3), the environment an allowlist, and a hung or dead worker ends as a logged `agent_failed`,
+  never a frozen barrier (`npcs_and_sem.md` §6.6). The worker contains Maxim's default leak paths; it is not an OS
+  sandbox.
 - **The barrier (foundations DR-B1).** The host steps tick T+1 only when every agent is parked: returned from `step`,
   `think` or `settle`, an outstanding request being a `Pending` value, not a parked thread. Released work runs to its next park before the tick advances, in the
   canonical order (§6.2). Lockstep on intents alone isn't enough: agent code would race the tick, and what the
@@ -527,10 +535,10 @@ inside the simulation lane's tick"):**
 - **Lane hand-off is counted inside the modelled latency** (§7.3), so the threading design never decides an NPC's
   biology.
 - **Inline later:** with requests as values the only nondeterministic input is the reply, so calling agents inside
-  the tick is no longer blocked by design, only by Maxim's step cost and the worker boundary. Decide it from a B5
-  measurement, not now.
+  the tick is no longer blocked by determinism. But inlining puts Maxim back in the host process, which O13 made the
+  trust boundary, so it is a design decision against O13, not only a B5 measurement (Arch N1).
 - **Until tier A,** real Maxim behind the adapter is a strict red gate; every [now] agent test runs against the
-  scripted test double (`npcs_and_sem.md` §6.2).
+  scripted test double, in a spawned worker behind the same channel (`npcs_and_sem.md` §6.2, §6.6).
 
 ### 7.2 The action contract: propose, receipt, settle (O6; BF-1, foundations BF2-3, Wire S12, Arch S13)
 
@@ -818,7 +826,7 @@ harness is born in `engine.verify`:
 - **Stale refusals** stay an OPEN divergence until Maxim promotes a `stale` refusal kind (OD-A16)
   (§7.2). Roadmap Phase 3's exit now requires OD-A16 before Phase 4 (`npcs_and_sem.md` §12.1 asks the owner to confirm).
 - **Slow-effect credit** stays OPEN until settle carries a horizon (OD-A16).
-- **Memory writes** are ungated until generate vs apply (OD-A15); memory authority is OPEN until per-agent homes and
+- **Memory writes** are ungated until generate vs apply (OD-A18) and the host's `apply`; memory authority is OPEN until per-agent homes and
   pickle-free persistence land.
 - **Two clocks into Maxim** stay an OPEN divergence until OD-C2 and OD-A2 (§7.3).
 - **The game's rule seam is data only** (§2.1); a game that needs a new mechanism brings it to the engine.
@@ -920,7 +928,7 @@ Every foundations BLOCKER and SHOULD-FIX that touches this design. Status is **f
 |---|---|---|
 | Arch B1 the agent lane is defined nowhere | BLOCKER | folded: §7.1 (one owner per agent, the barrier); lanes §4.1 superseded in part 2 §11.1 |
 | Arch B2 mode (a) + dilation deadlock | BLOCKER | folded: O6 drops mode (a); §7.2, §7.4 (DLP-B2's fixes) |
-| Arch B3 `AgentPort` isn't the thought seam | BLOCKER | folded: §7.1 (port split, gateway) |
+| Arch B3 `AgentPort` isn't the thought seam | BLOCKER | folded: §7.1 (port split, gateway) *(superseded by `npcs_and_sem.md` O6a and v3.1 §6.6: one host-called port; intents return in `StepOutput`; the gateway is the host's thinking lane)* |
 | Arch S1 sibling layers aren't independent | SHOULD-FIX | folded: §2.2 sub-layers 5a/5b, 7a/7b/7c |
 | Arch S2 restricted importers need what's forbidden; writers outside the core | SHOULD-FIX | folded: §2.2 skip-layer rule (stage-2 checks, `entity_key` in checks, save split, `ActionLimits.load` in loaders) |
 | Arch S3 `to_maxim_entity` takes `World` | SHOULD-FIX | folded: §7.1 |
@@ -939,8 +947,8 @@ Every foundations BLOCKER and SHOULD-FIX that touches this design. Status is **f
 | X-12 schema, prompt, protected tests | SHOULD-FIX | folded: §7.3, §8.1, §10 |
 | X-13 additive disagreement | SHOULD-FIX | folded: §9.3 |
 | Wire B1 the window and frames before `Simulation` | BLOCKER | folded: §4.1, §11.1 |
-| Wire B2 mode (a) can't reach the pipeline | BLOCKER | folded: O6; §7.1 (intent sink as a required port) |
-| Wire B3 no Maxim thought entry point | BLOCKER | folded: §7.1, §8.1 (the gateway) |
+| Wire B2 mode (a) can't reach the pipeline | BLOCKER | folded: O6; §7.1 (intent sink as a required port) *(superseded by `npcs_and_sem.md` O6a and v3.1 §6.6: one host-called port; intents return in `StepOutput`; the gateway is the host's thinking lane)* |
+| Wire B3 no Maxim thought entry point | BLOCKER | folded: §7.1, §8.1 (the gateway) *(superseded by `npcs_and_sem.md` O6a and v3.1 §6.6: one host-called port; intents return in `StepOutput`; the gateway is the host's thinking lane)* |
 | Wire S1 three time inputs, no invariant | SHOULD-FIX | folded: §7.3 |
 | Wire S3 the seed path; CLAUDE.md drift | SHOULD-FIX | folded: §7.3, §11.2 |
 | Wire S4 record fields and kinds | SHOULD-FIX | folded: §6.1, §6.2 |
