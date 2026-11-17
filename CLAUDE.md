@@ -205,12 +205,27 @@ only review holds.
 ### Working
 
 - **Branches and commits.** Work on `phaseN/<step>` branches with clear, signed commits. Never bypass signing or
-  hooks. Never push: the owner reviews and pushes. Concurrent sessions each use a worktree under `.worktrees/`.
+  hooks. Never push: the owner reviews and pushes.
   **When signing fails** (the passphrase prompt timed out or was cancelled), try once more: the first attempt often
   only raises the prompt. If the second fails too, stop and ask the owner to answer the prompt; they're probably in
   another window. Don't retry beyond that, and don't change the GPG cache settings. Keep working on anything that
   doesn't need a commit, and say what's waiting.
-  Guard: B1 (the .gitignore entry for .worktrees/ is not a check)
+  Guard: B1
+- **Assume other agents are working in this repository right now.** Several sessions run at once, so each one works
+  only in its own worktree, on its own branch: `git worktree add .worktrees/<name> -b phaseN/<step>`. The main
+  checkout is the owner's and stays on `main`; no session edits, commits or runs the gate there, and none touches
+  another session's worktree, branch or files. Git state that worktrees share is shared: never a bare `git stash` or
+  `git stash pop` (set work aside with a WIP commit on your own branch), and never prune, delete, reset, rebase or
+  force-move a branch or worktree you didn't create. Before deleting or overwriting anything, look at it: it may be
+  another session's work in progress. Never `pip install` into a venv another worktree uses: an editable install
+  points it at one checkout, so it would change what every session imports. Make your worktree its own `.venv`
+  instead. Nothing a session runs may collide with another's: tests and tools write only inside their worktree or
+  pytest's `tmp_path`, never to a fixed temp path or the home directory; servers in tests bind port 0; and tests run
+  git only through `tests/_gitutil.py`, so an inherited `GIT_DIR` can't point them at someone else's repository.
+  The gate refuses `main` and the main checkout; only GitHub Actions, whose clone is fresh, is exempt, and its PASS
+  line says so. Guard: `scripts/prepush.sh::refuse_main_branch`,
+  `tests/test_isolation.py::test_nothing_writes_outside_its_worktree_or_binds_a_fixed_port`,
+  `tests/test_prepush.py::test_the_tests_cannot_reach_a_repository_named_in_the_environment`, B20
 - **Keep Maxim untouched from here.** Anything that needs a Maxim change goes under Phase 3 in `docs/roadmap.md` and
   follows Maxim's own process, which depends on the kind of change: a sub-plan or a change to Maxim's `src/` gets a
   three-lens review before its PR opens (Maxim `CONTRIBUTING.md`); a new experiment gets a pre-registration, a

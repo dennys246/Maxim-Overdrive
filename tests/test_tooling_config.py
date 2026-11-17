@@ -11,6 +11,8 @@ from typing import Any
 import pytest
 import tomli
 
+from tests._gitutil import git
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -104,14 +106,12 @@ def test_ruff_lints_every_tracked_python_file():
     shown = _ruff("check", "--show-files", "src", "tests", "scripts")
     assert shown.returncode == 0, shown.stderr
     seen = {str(Path(p).resolve().relative_to(ROOT)) for p in shown.stdout.split() if p.endswith(".py")}
-    listed = subprocess.run(
-        ["git", "ls-files", "src", "tests", "scripts"], cwd=ROOT, capture_output=True, text=True, check=True
-    )
+    listed = git(ROOT, "ls-files", "src", "tests", "scripts")
     tracked = {f for f in listed.stdout.splitlines() if f.endswith(".py")}
     assert tracked - seen == set()
 
 
 def test_no_nested_ruff_config_can_override_the_root_one():
-    tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    tracked = git(ROOT, "ls-files").stdout
     assert not [f for f in tracked.splitlines() if Path(f).name in {"ruff.toml", ".ruff.toml"}]
     assert [f for f in tracked.splitlines() if Path(f).name == "pyproject.toml"] == ["pyproject.toml"]

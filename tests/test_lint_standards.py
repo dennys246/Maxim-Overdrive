@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import importlib.util
-import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+
+from tests._gitutil import git
 
 ROOT = Path(__file__).resolve().parents[1]
 _spec = importlib.util.spec_from_file_location("lint_standards", ROOT / "scripts" / "lint_standards.py")
@@ -223,13 +224,12 @@ def test_a_base_without_a_floor_has_nothing_to_ratchet_against():
 
 
 def _git(repo: Path, *args: str) -> None:
-    subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+    git(repo, *args)
 
 
 def _commit(repo: Path, message: str) -> None:
-    """A throwaway commit in a temp repo: a fixed identity, unsigned because it never leaves the test."""
-    identity = ["-c", "user.email=t@example.com", "-c", "user.name=t", "-c", "commit.gpgsign=false"]
-    _git(repo, *identity, "commit", "-qm", message)
+    """A throwaway commit in a temp repo (tests/_gitutil.py: a fixed identity, unsigned, no inherited git state)."""
+    git(repo, "commit", "-qm", message)
 
 
 @pytest.fixture
