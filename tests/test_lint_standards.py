@@ -82,7 +82,49 @@ def test_prose_about_temporary_things_is_not_a_marker():
 
 
 def test_exempt_files_may_mention_markers():
-    assert lint.check_markers({"CLAUDE.md": "# TEMPORARY(soon): x  # pragma: no cover"}, ROADMAP) == []
+    line = "# TEMPORARY(soon): x  # pragma: no cover"
+    assert lint.check_markers({"tests/test_lint_standards.py": line, "scripts/lint_standards.py": line}, ROADMAP) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A review quotes `TEMPORARY(phaseN)` and `# pragma: no cover` as syntax.",
+        "A double-backtick span ``TEMPORARY(phaseN) with a ` inside`` is code too.",
+        "A span that wraps `TEMPORARY(phaseN):\n<why>` across a line is still one span.",
+        "```python\nx = 1  # TEMPORARY(soon)\n# pragma: no cover\n```",
+        "~~~~\n```\nTEMPORARY(soon) inside a longer fence a shorter one cannot close\n~~~~",
+    ],
+)
+def test_markdown_code_is_a_quotation_not_a_marker(text):
+    assert lint.check_markers({"docs/design/reviews/r.md": text}, ROADMAP) == []
+
+
+@pytest.mark.parametrize(
+    ("text", "line", "complaint"),
+    [
+        ("Prose: TEMPORARY(phaseN) with no code span.", 1, "must cite a roadmap phase"),
+        ("```\nquoted\n```\nTEMPORARY(soon): after the fence closes, with a reason", 4, "must cite a roadmap phase"),
+        ("An unclosed ` backtick\n\nTEMPORARY(soon): a blank line ends the paragraph`", 3, "must cite a roadmap phase"),
+        ("x  pragma: no cover, in prose", 1, "needs a reason"),
+    ],
+)
+def test_markdown_prose_is_still_checked(text, line, complaint):
+    problems = lint.check_markers({"docs/x.md": text}, ROADMAP)
+    assert any(complaint in p for p in problems), problems
+    assert all(p.startswith(f"docs/x.md:{line}:") for p in problems), problems
+
+
+def test_backticks_in_code_files_do_not_hide_a_marker():
+    problems = lint.check_markers({"src/a.py": "s = '`'  # TEMPORARY(soon): x `y`"}, ROADMAP)
+    assert any("must cite a roadmap phase" in p for p in problems), problems
+
+
+def test_the_repository_documents_need_no_marker_exemption():
+    assert not {rel for rel in lint.MARKER_EXEMPT if rel.endswith(".md")}
+    files = lint.tracked_text_files(ROOT)
+    docs = {rel: text for rel, text in files.items() if rel.endswith(".md")}
+    assert lint.check_markers(docs, (ROOT / "docs/roadmap.md").read_text()) == []
 
 
 # -- guard citations --------------------------------------------------------------------------------------------------

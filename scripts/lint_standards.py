@@ -4,6 +4,8 @@
    roadmap phase that exists, is not done, and lists the marker's file in its section of docs/roadmap.md. So a
    band-aid can't outlive the moment promised to remove it, and the roadmap shows every one that is open.
 2. ``pragma: no cover`` must say why the line can't be tested.
+   In Markdown, code (an inline span or a fenced block) is a quotation, not a marker or a pragma: a document that
+   explains or reviews the rule quotes its syntax in code. Markdown prose is still checked.
 3. Guard citations. Every rule bullet under CLAUDE.md's "Engineering standards" ends with ``Guard:`` and names files
    that exist (``path``, or ``path::symbol`` where the symbol appears as a whole word outside comments, and, in a
    ``.py`` file, as a definition) and/or backlog rows (``B7``) in docs/standards_backlog.md. A rule whose only
@@ -40,8 +42,28 @@ BACKLOG_REF = re.compile(r"\bB(\d+)\b")
 BACKLOG_ROW = re.compile(r"^\|\s*B(\d+)\s*\|")
 COMMENT_PREFIX = {".py": "#", ".toml": "#", ".sh": "#", ".yml": "#", ".yaml": "#", ".gitignore": "#", ".gd": "#"}
 
-# Files that discuss markers and pragmas without being band-aids or exclusions.
-MARKER_EXEMPT = {"scripts/lint_standards.py", "tests/test_lint_standards.py", "CLAUDE.md", "docs/code_review.md"}
+# The lint and its tests write markers and pragmas as data. Documents need no entry: they quote them in code.
+MARKER_EXEMPT = {"scripts/lint_standards.py", "tests/test_lint_standards.py"}
+FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+# CommonMark code span: a backtick run closed by a run of the same length, within one paragraph.
+CODE_SPAN = re.compile(r"(?<!`)(`+)(?!`)((?:(?!\n\s*\n).)+?)(?<!`)\1(?!`)", re.S)
+
+
+def markdown_prose(text: str) -> str:
+    """The Markdown with fenced blocks and inline code spans blanked, keeping every newline so line numbers hold."""
+    lines, fence = [], ""
+    for line in text.splitlines():
+        m = FENCE.match(line)
+        if fence:
+            if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) and not line[m.end() :].strip():
+                fence = ""
+            lines.append("")
+        elif m:
+            fence = m.group(1)
+            lines.append("")
+        else:
+            lines.append(line)
+    return CODE_SPAN.sub(lambda c: re.sub(r"[^\n]", " ", c.group(0)), "\n".join(lines))
 
 
 def phase_sections(roadmap: str) -> dict[int, tuple[str, str]]:
@@ -67,7 +89,8 @@ def check_markers(files: dict[str, str], roadmap: str) -> list[str]:
     for rel, text in sorted(files.items()):
         if rel in MARKER_EXEMPT:
             continue
-        for lineno, line in enumerate(text.splitlines(), 1):
+        checked = markdown_prose(text) if rel.endswith(".md") else text
+        for lineno, line in enumerate(checked.splitlines(), 1):
             where = f"{rel}:{lineno}"
             if PRAGMA.search(line) and not PRAGMA_REASON.search(line):
                 problems.append(f"{where}: 'pragma: no cover' needs a reason: '# pragma: no cover - <why>'")
