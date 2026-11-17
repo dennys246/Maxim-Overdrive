@@ -65,6 +65,12 @@ all read against Maxim `origin/main` `7084f561` (2026-11-16).
   host supplies, uses only declared tools, and keeps state only in a home the host names.
   - Overdrive builds no interim mode in which Maxim's agent runs its own loop beside the world.
   - **Phase 4's NPCs wait for tier A.**
+- **After Maxim's answers (2026-11-17, `docs/design/reviews/maxim_response_1/`):** Maxim has no inner tool loop, so
+  `think` is host-called and resumable and the gateway is the host's (O6a). The engineering seams are accepted on
+  engineering grounds behind parity guards, and the stepped `think` lands **after Maxim's 1.4.0 cut** with the
+  agent-loop decomposition slices (O15a), so Phase 4's real NPCs wait for that too. Maxim's design session will write
+  a ranked candidates doc that re-checks every citation on a fresh `origin/main`; the rows below are proposals until
+  it lands.
 
 Both decisions are recorded in Overdrive. The Maxim-side record is proposed in
 `docs/maxim_upstream/decisions_entry_DRAFT.md`.
@@ -76,8 +82,11 @@ Both decisions are recorded in Overdrive. The Maxim-side record is proposed in
 
 | Id | Item | Was |
 |---|---|---|
-| OD-I1 | `attention/salience_map.py`: `current_time or time.time()` turns a world time of 0.0 into the wall clock | A9 |
-| OD-I2 | `embodiment/sem.py::ModulatorResult` has no CC3 declaration; path (b), with `metadata` documented as the extension channel | C7 (half), P6 |
+| OD-I1 | `x or time.time()` turns a world time of 0.0 into the wall clock, at five sites: `attention/salience_map.py:227`, `salience/salience_network.py:222`, `models/language/cost_tracker.py:376`, `:469`, `:480` | A9 |
+| OD-I2 | `embodiment/sem.py::ModulatorResult` has no CC3 declaration. Downgraded to a docstring nit: it is an in-process return value, never persisted or sent (Maxim's answer) | C7 (half), P6 |
+| OD-I3 | The only pickle-capable load in `src`: `MemoryHub._restore_on_open` → `EmbeddingStore.load` → `np.load(allow_pickle=True)` on the global `~/.maxim/util/semantic_embeddings.npz`; dormant unless `enable_semantic`, and must land before `AgentHome` (OD-A12) makes it reachable from saves | OD-A13 |
+| OD-I4 | `ARCHITECTURE.md:182` is stale: the DM runtime doesn't build NPCs through `AgentFactory` (`create_npc_agent` has no caller) | new (Maxim's answer) |
+| OD-I5 | A security issue: whether a U+2028 or U+2029 in a guest's text forges a header in cloud redaction (`cloud_redaction.py:205`, `:246` split on `splitlines()`), with a proof or a refutation | new (TBR-11) |
 
 ### Tier A: an agent a host drives (Phase 4 waits on all of it)
 
@@ -91,21 +100,23 @@ Drafts:
 | Id | Item | Plan | Was |
 |---|---|---|---|
 | OD-A1 | #1361's S3–S6: a dependency, not duplicated. S3–S6 are in 1.3.6; S2 coordinates with Session V; S0 and S1 shipped. | — | A1 |
-| OD-A2 | `AgentTime`. `Clock` gives epoch seconds as stamps are today, microseconds and a calendar; `Rng`'s default is the global `random`; plus `IdSource`. Host defaults read at call time, so `_StepClock` still works. A `sys.setprofile` tripwire on the stepping thread. Wiring from the embedded entry point. | A-pre | A2 |
-| OD-A3 | Prompt and observation time from the injected calendar, or omitted. Covers `prompt_builder`'s datetime and identity sections, `llm_fallback`'s canned answers and `context_pool`'s `[HH:MM:SS]` stamps. | A-pre | A6 |
+| OD-A2 | `AgentTime`, split in two: a **machinery clock** (epoch seconds as today, microseconds; decay, cadences and stamps) and a **perceived-time port**, the only time a prompt may contain. Robots default both to the wall clock. Keyed RNG substreams and `IdSource`. Host defaults read at call time, so `_StepClock` still works. Tests: a planted wall-clock read under an advancing fake clock, and a **planted-render test** (a sentinel time, TZ pinned, checked in raw, clock and date forms). | A-pre | A2 |
+| OD-A3 | Prompt and observation time only through the perceived-time port, or omitted, with a lint banning `datetime.now`, `strftime` and `localtime` in prompt-reaching modules. Covers `prompt_builder`'s datetime and identity sections (`:237`, `:1125-1127`), `llm_fallback`'s canned answers and `context_pool`'s `[HH:MM:SS]` stamps (`:468`, `:493`). | A-pre | A6 |
 | OD-A4 | Live-path stamps outside the fence, passed explicitly with defaults kept; `SensorReading` stamping | A-pre | A5 (part) |
 | OD-A5 | The hippocampus's 30 s wall window, attention and salience stamps, and `TemporalSignature`'s phase source | A-pre | A5 (part), A7 (source half) |
 | OD-A6 | Reaction and pain dispatch gates on the injected clock under embedding. Motor and IO limits stay on the wall. Lands after #1200. | A-pre | A8 |
-| OD-A7 | Randomness and ids outside the fence | A-pre | A5 (part) |
+| OD-A7 | Randomness and ids outside the fence: keyed substreams, `random.Random(stable_hash_64(seed, agent, stream))` per stream; `seed_all` never called on the embedded path; `time.time_ns()` event ids (`decisions/nac.py:1163`) | A-pre | A5 (part) |
 | OD-A8 | Fenced ids and stamps (`agent_loop`, `orchestrator`, `tool_dispatch`), NAc stamps and anchors, and `FailureMode.last_fired` (with S4) | A-post | A5 (rest), C8 (half) |
 | OD-A9 | `DefaultNetwork.step(now)`, with the thread a caller of it, coordinated with #1263's remainder | A-post | A3 |
 | OD-A10 | The embedded entry point on `AgentFactory`, every collaborator required; the DM runtime builds NPCs through it | embeddable | A10 |
-| OD-A11 | A closed tool roster for embedded agents, refused at construction, with no workspace manifest | embeddable | new (TB2-B1) |
-| OD-A12 | A per-agent home, not the process-wide `data_home()` | embeddable | new (TB2-B2) |
-| OD-A13 | No pickle on load paths (`similarity/semantic.py`'s embeddings) | embeddable | new (TB2-B2) |
-| OD-A14 | Token streaming and cancellation as optional `LLMBackend` capabilities, and an inspectable request | embeddable | new (DR-B2, Arch B3) |
-| OD-A15 | `step(world_dt, frame)` and `think(request)` returning values (generate vs apply), `apply`, and isolation between agents in one process | embeddable | A4, C1 (generate vs apply) |
-| OD-A16 | Credit for effects measured later: receipts, the cerebellum observing at settle, exactly-once credit, `stale` and `call_error` kinds, a per-modulator valence default | amendment | C1, C2, P2, P3, P7 |
+| OD-A11 | A closed tool roster for embedded agents, sealed with the advisor's patterns, refused at construction, with no workspace manifest. Engineering, on its own clock; making capability rosters the robot default stays experiment-gated | embeddable | new (TB2-B1) |
+| OD-A12 | `AgentHome`: one per-agent object over `AgentFactory`'s `persistence_dir`, routing the ~nine still-global store families; the ConceptExtractor thread made host-driven | embeddable | new (TB2-B2) |
+| OD-A13 | *Moved to OD-I3*, an issue now | — | new (TB2-B2) |
+| OD-A14 | The request/reply cut: the request as a value (rendered text, sampling, model role, priority and deadline fields, `tools is None`); the reply with reserved `cancelled(prefix)` and `truncated` variants that bypass the parse-failure template, and speech as a field emitted first. Not an `LLMBackend` capability | embeddable | new (DR-B2, Arch B3); was "streaming and cancellation on `LLMBackend`" |
+| OD-A15 | The stepped `think` on §A.1b's seam: a frozen deliberation continuation with `basis_seq`, multi-call PFC cycles, `next_actions`; the robot path drives the same `think`; isolation between agents in one process. Lands after the 1.4.0 cut with the agent-loop decomposition slices | embeddable | A4 |
+| OD-A16 | Credit for effects measured later: receipts, the cerebellum observing at settle, exactly-once credit, `stale` and `call_error` kinds, a per-modulator valence default. Rides on OD-A18 | amendment | C1, C2, P2, P3, P7 |
+| OD-A17 | The embedded-path leak closure: prefetch off and the working directory at the agent home; the short-question shortcut bypassed; no `force=True` logging; paths under the agent home; a static import ban plus the advisor's three closure tests; the parser bypass for cancelled replies | embeddable | new (Maxim's second answer; TBR-3, TBR-7) |
+| OD-A18 | Split `execute_and_learn` into dispatch and settle, folding in the parallel and agent-fallback side doors; generate vs apply for memory writes, D53 `outcome_valence` and OD-A16's keys; settle feeds NAc's existing traces; robots settle right after dispatch. After OD-A2, behind a bit-identical state-digest parity guard | embeddable | C1 (generate vs apply) |
 
 ### Tier B: the 1.4 line (NPCs that remember, and a coarse sense of time, earned by experiment)
 
@@ -157,10 +168,11 @@ Drafts: `sem_breaking_change_plan_DRAFT.md` (now an additive refinement plan; th
 | OD-H2 | Pushback: in an embedded world, the hold's waiting cost uses modelled world-time latency, not observed latency | new (DR-B5, BF2-8) |
 | OD-H3 | Re-key the deferred reflex runtime's trigger, argued against owner decision G4 at GL3's start | C10 (cited M76 in error) |
 | OD-H4 | Deliberation triggered during the other speaker's turn | new (BF2-2) |
-| OD-H5 | A turn-taking substrate: gaze, backchannels, content-free fillers and floor-holding while deliberation is pending, and yielding the floor past a ceiling. None of the hybrid plans has one (owner decision OA3, revised 2026-11-16) | new (foundations delta, Bio-faithful) |
+| OD-H5 | A turn-taking substrate, as a fifth split-out plan under `hybrid_arbitration.md`: gaze, backchannels, a filler from the predicted delay, an account, then a yield, thresholds as per-world parameters; no claims, structurally; a social cancel source for partner barge-in in `sem_interruptibility.md`. Folds in OD-H4. A paper plan in the 1.5 line; any claim needs a pre-registration (owner decisions OA3, O11a) | new (foundations delta, Bio-faithful; Maxim's answer) |
+| OD-H6 | On the embedded path the 0.5 s wall `llm_submit_interval` (`loop_controller.py:157`) runs on the machinery clock now; triggering deliberation by escalation is the later, experiment-earned change | new (Arch 4.3, BD-18) |
 
 **Retired:** C9 (cancellable SEM actions and deliberation). Mid-action cancel is Maxim's own `sem_interruptibility.md`,
-and cancelling a model call is OD-A14.
+and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
 
 - **Exit:**
   - Tier A has shipped, and Overdrive's agent port drives a real Maxim agent bit-identically under the world clock

@@ -31,7 +31,7 @@ The robots stay the ground truth for transfer. Candidate questions, for the line
 |---|---|---|---|
 | OD-HX1 | **The substrate floor:** how much of an agent's competence does the substrate carry with no deliberation? | controlled tasks (keep away from fire, find food and rest) with identical replays | an experiment, with BF2 floors |
 | OD-HX2 | **The latency curve:** does competence degrade gracefully as deliberation gets slower? | latency swept in world time (0, 1, 3, 10 and 30 s) | **calibration only.** It sets the hold's starting values and can't earn anything (MP-S9). |
-| OD-HX3 | **Interruption:** can pain or salience cancel a thought in flight, as fast as a reflex? | a hazard timed exactly against a thought in flight | an experiment; needs OD-A14's cancel and `sem_interruptibility.md`'s vocabulary |
+| OD-HX3 | **Interruption:** can pain or salience cancel a thought in flight, as fast as a reflex? | a hazard timed exactly against a thought in flight | an experiment; needs OD-A14's `cancelled(prefix)` reply and `sem_interruptibility.md`'s vocabulary |
 | OD-HX4 | **Acting while talking:** does an agent in conversation keep its reflexes, and stay coherent with what its body did? | a hazard during a dialogue thought | an experiment |
 | OD-HX5 | **Game to robot:** does the latency curve transfer to a physical body? | the same sweep on Reachy | an experiment, the transfer check |
 
@@ -58,7 +58,7 @@ the two is acceptable is a question for the line's owner.
   passes. That way advice influence lasts the same in every arm, whatever the LLM latency or host load." The hold
   should follow the same rule.
 - **Proposed:** when the agent is embedded, the waiting cost reads the host's **modelled world-time latency** for the
-  thought kind, which the host's gateway reports (OD-A14). On a robot it keeps the observed latency, which there is
+  thought kind, which the host reports on the request/reply cut (OD-A14). On a robot it keeps the observed latency, which there is
   the same thing. It is a declaration on the embedded entry point, so no robot changes.
 
 ## OD-H3. Re-key the deferred reflex runtime's trigger, argued against G4, at GL3's start
@@ -89,7 +89,7 @@ the two is acceptable is a question for the line's owner.
   - the substrate carries the turn's fast parts: gaze, backchannels, and fillers chosen from the modelled delay
     (Clark & Fox Tree 2002);
   - deliberation is triggered by the incoming speech stream, not by its end.
-- **What it needs:** streamed input to the agent, and OD-A14's token stream and cancel.
+- **What it needs:** streamed input to the agent, and OD-A14's speech-first reply and `cancelled(prefix)` variant. Now folded into OD-H5 (Maxim's answer).
 - **The ask:** that the line consider "deliberation triggered during the other's turn" as a candidate for its
   escalation rule (`hybrid_arbitration.md` §A.1, "The arbiter escalates if ANY of the following holds"). Overdrive
   would bring a pre-registered comparison of onset-from-end against onset-during-turn.

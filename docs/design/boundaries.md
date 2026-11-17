@@ -3,12 +3,13 @@
 **Status:** DRAFT v3, for a delta design review before any code. v1 (47add00) went to a six-lens review
 (`docs/design/reviews/boundaries/`: 18 BLOCKER, 52 SHOULD-FIX, 29 NIT), folded in v2. v2 (4f7a754) went to the
 seven-lens foundations review with part 2 and the Maxim drafts (`docs/design/reviews/foundations_v1/`). This version
-folds every foundations BLOCKER and SHOULD-FIX that touches it, and the owner's decision O6 (§0). Two fold tables at
+folds every foundations BLOCKER and SHOULD-FIX that touches it, and the owner's decision O6 (§0). Its agent sections
+(§7.1, §7.4, §8.1, §9.3) were revised on 2026-11-17 to match `npcs_and_sem.md` v3 (O6a, O7a, O13). Two fold tables at
 the end map each finding to where it landed.
 
 **What changed from v2, in short:**
 - **Mode (a) is dropped (O6).** Agents follow a host-driven embeddable contract: the host steps them, they return
-  values, and the host owns every LLM call through a gateway (§7). This removes the agent lane's data race, the
+  values, and the host owns every LLM call (§7; since 2026-11-17 by executing the requests `think` returns, O6a). This removes the agent lane's data race, the
   deadlock and the missing thought seam the review found.
 - **The write window is ownership, not a flag**, because a view unlocked in one window stayed writable after it
   (§4.1). Frames are copies, published on change, with a stated cadence and thread scope (§4.2).
@@ -45,7 +46,7 @@ the end map each finding to where it landed.
 | O3 | **The agent substrate** runs outside the sealed core, behind an engine-defined `AgentPort` in integer ticks: frozen frames in, logged intents out. Refined by O6: the host steps it. |
 | O4 | **Three clocks** (world, body, perceived). No time field reaches cognition. Thought cost is modelled in world time and phased; the world slows (reported dilation, by cause) when real thoughts run late. Abandoning late thoughts is an explicit, logged host policy. Thinking couples to the fatigue drive and sleep pressure, not hunger. Details are part 2's (`npcs_and_sem.md`); this design carries only the interfaces and fields. |
 | O5 | **Refining Maxim's SEM is in scope and a priority** of the foundations work, through Maxim's own process. Each SEM-touching item here cites its roadmap `OD-` id and path (§9.3): additive first in 1.x. |
-| O6 | **Mode (a) is dropped; agents follow a host-driven embeddable contract.** The host calls `agent.step(world_dt, frame)`; the agent returns intents, memory writes and thought requests as values and never applies anything or runs on its own. Maxim must offer a host-supplied LLM gateway with streaming and cancellation, a closed NPC tool roster checked at build, a per-agent home under the save (never `~/.maxim`) with no pickle on the load path, no host time in prompts or observations, the cerebellum observing at settle, and `outcome_valence` per D53. Phase 1 has no NPCs; Phase 4's NPCs wait on Maxim shipping it. Detail: `npcs_and_sem.md` §6. |
+| O6 | **Mode (a) is dropped; agents follow a host-driven embeddable contract.** The host calls `agent.step(world_dt, frame)`; the agent returns intents, memory writes and thought requests as values and never applies anything or runs on its own. Maxim must offer a host-supplied LLM gateway with streaming and cancellation, a closed NPC tool roster checked at build, a per-agent home under the save (never `~/.maxim`) with no pickle on the load path, no host time in prompts or observations, the cerebellum observing at settle, and `outcome_valence` per D53. Phase 1 has no NPCs; Phase 4's NPCs wait on Maxim shipping it. Detail: `npcs_and_sem.md` §6. *Its mechanism is corrected by `npcs_and_sem.md` O6a: no inner tool loop in Maxim, so `think` is host-called and resumable, returns model requests as values, and cancel is a `cancelled(prefix)` reply; the host service protocol is gone (§7.1).* |
 | O7 | **The world half proceeds; the agent half is parked (2026-11-16, after the foundations delta round).** The world half (packages and layers, the sealed core, gates by source, the log record and canonical order, replay tiers, keyed randomness, the response-cache rules) folds this round's world findings and goes to `phase1/boundaries` and `phase1/gates` after PR 1 is rebased. The agent half (`AgentPort` under O6, `npcs_and_sem.md` §4.4 and §6) stays a reviewed draft: no further review rounds until Maxim answers the embeddable-agent questions (a resumable `think`, how far `maxim.advisor` and `AgentFactory` reach). It goes to Maxim as a conversation, not as a polished draft. |
 | O7a | O7's condition is met: Maxim answered (`reviews/maxim_response_1/`), so the agent half is unparked for one revision and one review round. Each real agent runs in its own worker process, the process boundary being the trust boundary (`npcs_and_sem.md` O13). |
 | O8 | **The write window is a dev and test-build check; correctness rests on structure.** Only the applier and the physics laws hold the write handle. The window's ownership check, and a reference-count check at window exit that finds any surviving view, run in dev and test builds, as engine job-safety checks do. A shipped build doesn't copy frames at exit: measured at about 5.7 ms against a 5 ms tick. |
@@ -113,12 +114,12 @@ below it. Siblings on one line are independent of each other.
 | 3 | `engine.cells` | the grid, regions, ownership arrays, the write window (§4.1) |
 | 4 | `engine.laws` | heat, damage; later zones, gas, fuel |
 | 5a | `engine.imagination` &#124; `engine.scene` | imagined-object specs; the scene type. Both take primitives from `engine.geometry` |
-| 5b | `engine.intents` | the action vocabulary, typed intents (the `imagine` intent carries a spec, so intents sit above imagination), `ActionLimits` (the type only), stage-1 parsing, the intent record, receipts, `StepOutput`, thought requests, and the host service protocol the agent adapter receives (S3; foundations Arch B3, S1) |
+| 5b | `engine.intents` | the action vocabulary, typed intents (the `imagine` intent carries a spec, so intents sit above imagination), `ActionLimits` (the type only), stage-1 parsing, the intent record, receipts, `StepOutput`, `Pending`, `Reply` and thought requests (S3; foundations Arch B3, S1; the v3 host service protocol is deleted, `npcs_and_sem.md` O6a) |
 | 6 | `engine.sim` | `World`, `Simulation`, the integer clock, the intent applier, construction (`Simulation.from_scene`, which builds scenes and loads saves from decoded data), the frame publisher, the `AgentPort` protocol |
 | 7a | `engine.loaders` &#124; `engine.tiers` | file gates (including `ActionLimits.load` and the save's decoding half); `RigProfile` as a rendering tier |
 | 7b | `engine.encoding` &#124; `engine.adapters.sem` | display quantization (B-6, uses tiers); the Maxim membrane |
 | 7c | `engine.protocol` &#124; `engine.adapters.agents` | wire decode and encode (uses encoding); the agent adapter (uses the membrane's types) |
-| 8 | `engine.host` &#124; `engine.verify` | pacing loop, lanes, sessions, `TimeAuthority`, the thought gate and LLM gateway, dilation measurement, log writer; the verification harness (S12) |
+| 8 | `engine.host` &#124; `engine.verify` | pacing loop, lanes, sessions, `TimeAuthority`, the thought gate and the thinking lane that executes model requests, dilation measurement, log writer; the verification harness (S12) |
 
 - **Layers 0–6 are the sealed core** (§3).
 - **The written order is the order committed,** checked red-first on today's code (X S-2, Arch N1). Today `config`
@@ -308,8 +309,8 @@ below it. Siblings on one line are independent of each other.
   at 100% branch coverage.
 - **The registry check is mechanical, not a reachability analysis (foundations Arch S15, TB2-S10):**
   - **every public callable defined in a gate module** has a row;
-  - **every method of a class implementing a Maxim protocol** (`Modulator`, a sensor, the LLM gateway) **or
-    `AgentPort` or the host service protocol** is an entry point and has a row. In-process objects from Maxim (tool
+  - **every method of a class implementing a Maxim protocol** (`Modulator`, a sensor) **or
+    `AgentPort`** is an entry point and has a row. In-process objects from Maxim (tool
     params, `Entity` targets, thought results, streamed tokens) reach the engine only through those methods, so they
     are covered without an input primitive.
 - **Proof:** plant a `json.loads` in a non-gate module; a public entry with no row; a new `handle(raw: bytes)` inside a
@@ -323,11 +324,11 @@ below it. Siblings on one line are independent of each other.
 |---|---|---|---|---|---|
 | NPC tool calls | Maxim (`ModulatorAffordanceTool`) | the stepping agent's bound actor; a call whose modulator is bound to another actor is refused (foundations TB2-S8) | per-kind authority (§6.1) | `engine.adapters.sem.StructureModulator.execute` (X-2), with `engine.intents.parse_action` as stage 1 | today; moves in `phase1/boundaries` |
 | **The NPC tool roster** (foundations TB2-B1) | Maxim's tool registry | — | **a closed allowlist**: the membrane's affordances plus reviewed cognition tools; nothing that reaches the host's files, processes, network or Maxim's operational mode | the agent adapter refuses to step an agent whose registry holds any other tool, or an `operational_mode` with filesystem reach; proven by a planted `BashTool` | `phase1/agents` (red gate against real Maxim until tier A) |
-| **Agent homes** (foundations TB2-B2) | Maxim's `data_home()`; saves | — | one home per agent, under the save; never `~/.maxim` | until Maxim takes the home as a parameter, the adapter refuses real Maxim unless `MAXIM_DATA_HOME` points at a per-run directory, and runs at most one real agent per process; a test asserts two NPCs resolve different homes. Agent homes from outside this machine are a **gate-to-be**: a foreign save loads the world only and re-seeds agents from the roster; a home loads only from a save this machine wrote, checked by a per-install HMAC, until Maxim's persistence is pickle-free | `phase1/agents`; save v1 |
+| **Agent homes** (foundations TB2-B2) | Maxim's `data_home()`; saves | — | one home per agent, under the save; never `~/.maxim` | until `AgentHome` routes every store, each real agent runs in its own worker process with `MAXIM_DATA_HOME` and its working directory at its agent home and a scrubbed environment; a test asserts two NPCs resolve different homes. Agent homes from outside this machine are a **gate-to-be**: a foreign save loads the world only and re-seeds agents from the roster; a home loads only from a save this machine wrote, checked by a per-install HMAC, until Maxim's persistence is pickle-free | `phase1/agents`; save v1 |
 | `target=<Entity>` and other Maxim objects | Maxim's actor tool | — | — | resolved to a stable id at `execute`, namesake and identity checks before the intent is frozen (TB-S5) | `phase1/boundaries` |
 | Imagined objects | LLM via Maxim | the bound actor | the actor's budget | `imagine` intent: spec constructors at stage 1, `place` as stage 2 (TB-S6) | `phase1/boundaries` (kind), sim-clock (log) |
 | Thought results: intents, speech and **memory writes** | the agent's `StepOutput` | the bound actor | an NPC's own memory only | intents and speech through stage 1; memory writes are a **gate-to-be** until generate vs apply (OD-A15) gives the game a value to check, an OPEN divergence with a strict red gate (foundations TB2-S3) | `phase1/agents` (types); OD-A15 (memory) |
-| **Thought budgets** (foundations TB2-B3) | the LLM gateway | — | — | segments, tool calls, tokens per segment (a generation limit and a stream cut-off before buffering), held-buffer bytes, memory writes, `cancel_on` length, `D` ceilings, from `data/agents/thought_budget.yaml` | `phase1/agents` |
+| **Thought budgets** (foundations TB2-B3) | the host's thinking lane | — | — | PFC cycles, `parallel_actions`, `next_actions` and follow-up chains per triggering input, tokens per call (a generation limit and a stream cut-off before buffering), held-buffer bytes, memory writes, `cancel_on` length, `D` ceilings, from `data/agents/thought_budget.yaml` | `phase1/agents` |
 | **Player speech** (foundations TB2-S1) | network lane | session token | per-session rate limit | the `speak` validator: length cap, NFC, control and bidi-override characters refused | `phase1/protocol` |
 | **The response cache** (foundations DR-B3, TB2-S4, Wire S9) | disk, per save | — | — | the strictest contract: versioned, strict decoder, size budgets; an entry holds only raw output and the canonical request, and the gate recomputes the hash and refuses a mismatch; never read by replay | after tier A |
 | Scene files, saves, intent logs, bug reports | disk, **strangers' machines** | — | — | the strictest gate (world_model F14): no pickle, budget before allocation, all-or-nothing | scene v1, save v0, sim-clock |
@@ -490,39 +491,44 @@ Only `ActionLimits.load` and `parse_action` meet the bar today, and `place` part
 The core defines the port; `engine.adapters.agents` implements it; the **host** calls it. Detail of the embeddable
 contract Maxim must offer is in `npcs_and_sem.md` §6.1.
 
-**The port is split in two (foundations Arch B3):**
+**One port, called by the host (`npcs_and_sem.md` O6a, superseding the v2 split of foundations Arch B3):**
 
 | Interface | Defined in | Called by | Calls |
 |---|---|---|---|
-| `AgentPort` | `engine.sim` | the host | `step(now_tick, dt_ticks, frame) -> StepOutput`; `settle(receipts)` |
-| the host service protocol | `engine.intents` | the agent adapter, which receives it as a required keyword-only argument | `request_thought(request)`, the LLM gateway handle, the intent sink |
+| `AgentPort` | `engine.sim` | the host | `step(now_tick, dt_ticks, frame) -> StepOutput`; `think(continuation, reply \| None) -> (continuation', Pending \| ThoughtOutput)`; `settle(receipts)` |
 
 - **`StepOutput`** is a frozen value: intents (with `apply_us`), `speak` acts, thought requests, and memory writes
-  (agent-side, §6.1). The agent never applies anything and never runs on its own thread (O6).
-- **No upward import.** The adapter (layer 7c) never imports the host (layer 8): it receives the service protocol.
-  v2's `request_thought` drawn as "agent → host" was an upward import, and its `step` drawn as "sim → agent" put
-  Maxim in the sealed tick or was labelled wrong.
-- **The membrane factory** takes a frame source and the intent sink, never `World` (foundations Arch S3, Wire B2).
-- **The LLM gateway** is in `engine.host`, and it is Maxim's only path to a model under the embeddable contract. The
-  host holds, stamps, dilates, cancels and caches there (`npcs_and_sem.md` §4).
+  (agent-side, `npcs_and_sem.md` §6.1). The agent never applies anything and never runs on its own thread (O6).
+- **Requests are values, so nothing calls upward.** v3's host service protocol (`request_thought`, a gateway handle
+  and an intent sink handed to the adapter) is deleted: with `think` returning `Pending(request)`, the adapter (layer
+  7c) never calls the host (layer 8). Maxim has no inner tool loop (`runtime/agent_loop.py:2172`, `:2264` on
+  7084f561); a tool call is an intent, and its result comes back as the next tick's follow-up.
+- **The membrane factory** takes a frame source and returns intents in `StepOutput`, never `World` (foundations Arch
+  S3, Wire B2).
+- **The host's thinking lane** in `engine.host` executes request values, by deadline, with the response cache and
+  cancel as a reply. It is the only path to a model; it sits above Maxim's backends, so the router's per-router lock
+  never serialises NPCs (`npcs_and_sem.md` §4, §6.1).
 
 **The agent lane (supersedes `realtime_lanes_coop.md` §4.1's "the simulation lane owns … agents" and "agents step
 inside the simulation lane's tick"):**
-- **One owner per agent.** Each agent is owned by one agent-lane thread at a time. Its `step`, `settle` and any push
-  into its body run there, serialised. Only the LLM call leaves it, through the gateway.
+- **One owner per agent.** Each real agent runs in its own worker process (`npcs_and_sem.md` O13): `spawn`, a
+  scrubbed environment, its home and working directory at its agent home, the offline latch engaged after the pipe
+  opens. Its `step`, `think`, `settle` and any push into its body run there, serialised. The process boundary is the
+  trust boundary.
 - **The barrier (foundations DR-B1).** The host steps tick T+1 only when every agent is parked: returned from `step`,
-  or waiting at the gateway for a held response. Released work runs to its next park before the tick advances, in the
+  `think` or `settle`, an outstanding request being a `Pending` value, not a parked thread. Released work runs to its next park before the tick advances, in the
   canonical order (§6.2). Lockstep on intents alone isn't enough: agent code would race the tick, and what the
   cerebellum trains on would depend on the dial.
-- **At most one real Maxim agent per process** until tier A proves agent isolation (Maxim's module-level state:
-  global `random`, caches, the de-duplication window) (foundations DR-S5, TB2-B2).
+- **Agent isolation** comes from the worker process for real agents; tier A still proves it inside one process
+  (OD-EA6), since Maxim's module-level state (global `random`, caches, the de-duplication window) is shared there
+  (foundations DR-S5, TB2-B2).
 - **`dt_ticks` is a pure function of the actor's rate divisor and phase,** never of lag (foundations DR-S1).
 - **Agent state lives outside `Simulation`.** Save v1 persists the world plus each NPC's agent home, separately.
 - **Lane hand-off is counted inside the modelled latency** (§7.3), so the threading design never decides an NPC's
   biology.
-- **Inline later:** if Maxim ever ships deterministic agents (OD-A2 to OD-A8, OD-A15), the same port could be called
-  inside
-  the tick, which would change the core's definition and replay. That is a future design decision, not a promise.
+- **Inline later:** with requests as values the only nondeterministic input is the reply, so calling agents inside
+  the tick is no longer blocked by design, only by Maxim's step cost and the worker boundary. Decide it from a B5
+  measurement, not now.
 - **Until tier A,** real Maxim behind the adapter is a strict red gate; every [now] agent test runs against the
   scripted test double (`npcs_and_sem.md` §6.2).
 
@@ -561,7 +567,7 @@ Fields and tests laid now (detail and test designs in `npcs_and_sem.md` §2–§
   `SensorReading.timestamp` as its named exemption, plus a value-level metadata check) and a prompt test (rendered in
   two time zones 13 h apart) prove it; against real Maxim both are strict red gates until tier A, since Maxim builds
   the prompt (foundations X-2, X-12).
-- **The dial is invisible:** with a seeded wall-delay schedule through the gateway, percepts, receipts and kinds are
+- **The dial is invisible:** with a seeded wall-delay schedule on the thinking lane's replies, percepts, receipts and kinds are
   bit-identical at 1× and 20×, and a negative control under `abandon` must differ (foundations DR-S6).
 - **Δt invariance,** with a relative 1e-9 tolerance and the planted Euler update in an exponential process
   (foundations X-11).
@@ -578,10 +584,11 @@ Fields and tests laid now (detail and test designs in `npcs_and_sem.md` §2–§
 
 - **A thought request** carries `kind` (from the closed vocabulary of `data/agents/timing.yaml`, chosen before the
   call and never changed by a result), the modelled times, `cancel_on`, and its budget.
-- **A thought result** is streamed through the gateway: syllables stamped in integer world microseconds below the
-  tick, interruptible. Segment times are computed by the host from the cost model, never parsed from model output
+- **A thought result** arrives as `Reply` values: the host streams the model call itself, reads the speech field
+  first, validates it per chunk, and stamps syllables in integer world microseconds below the tick, interruptible. Segment times are computed by the host from the cost model, never parsed from model output
   (foundations TB2-S5).
-- **The host's `latency_policy`** is a host-only control: the default dilates, with DLP-B2's fixes (the wait is a
+- **The host's `latency_policy`** is a host-only control: live play holds the floor once Maxim's turn-taking
+  substrate exists (`npcs_and_sem.md` O11, O11a); otherwise it dilates, with DLP-B2's fixes (the wait is a
   state on the simulation lane's inbox, dispatch by deadline, a wall ceiling that ends a thought as a logged
   `thought_failed`); `abandon` is the logged alternative (foundations Arch B2, TB2-B3).
 - **The tick size** is decided in sim-clock, with `apply_us` already in the record.
@@ -596,7 +603,7 @@ Fields and tests laid now (detail and test designs in `npcs_and_sem.md` §2–§
 | Adapter | Package | Surface |
 |---|---|---|
 | SEM membrane | `engine.adapters.sem` | bodies, percepts, acts (`Entity`, `Modulator`, `SensorReading`, `ModulatorResult`, `AffordanceSchema`) |
-| Agent stepping | `engine.adapters.agents` | host-called stepping and settle, the LLM gateway (implemented by the host, injected into Maxim), the tool-roster check, the per-agent home, clock and RNG injection, the experience driver, agent-state save (foundations Arch B3, DR-B2) |
+| Agent stepping | `engine.adapters.agents` | host-called `step`, `think` and `settle`, the request/reply values (model calls run by the host, never injected into Maxim), the worker process, the tool-roster check, the per-agent home, clock and RNG injection, the experience driver, agent-state save (foundations Arch B3, DR-B2) |
 | NPC authoring | game, when it exists | `AgentFactory`, seed memory, the arc loader |
 | Experiment harness | `maxim_experiments` | the experiment and ledger tooling |
 
@@ -680,8 +687,8 @@ major version is proposed.
 
 | Item | Roadmap | Path |
 |---|---|---|
-| The world clock: `AgentTime`, prompt and observation time, stamps, the de-duplication window, dispatch gates, ids, the stepped Default Network | OD-A1–OD-A9 | additive; defaults reproduce today's values |
-| The embeddable agent: entry point, closed tool roster, per-agent home, no pickle, streaming and cancellation, `step`/`think` returning values, agent isolation | OD-A10–OD-A15 | additive |
+| The world clock: a machinery clock and a perceived-time port (planted-render test, prompt-module lint), keyed substreams, stamps, the de-duplication window, dispatch gates, ids, the stepped Default Network | OD-A1–OD-A9 | additive; robots default to the wall clock |
+| The embeddable agent: entry point, closed tool roster, `AgentHome`, the request/reply cut, the stepped `think` and its continuation, the leak closure, the dispatch/settle split | OD-A10–OD-A15, OD-A17, OD-A18 | additive; the stepped `think` after 1.4.0 |
 | Credit for effects measured later: receipts, the cerebellum at settle, exactly-once credit, `stale` and `call_error` kinds promoted through the bridge, a per-modulator valence default | OD-A16 | an amendment to `tool_failure_credit.md` |
 | Drive drift states its time base | OD-C1 | additive; optional rename with an alias |
 | `SensorReading.timestamp` is the body clock | OD-C2 | additive |
@@ -694,7 +701,7 @@ major version is proposed.
 | A version rule for the SEM vocabulary on `ENTITY_FORMAT_VERSION` | OD-C9 | additive |
 | `world_set_axis` for sub-sensors | OD-C10 | additive (unverified) |
 | A mental-fatigue drive that rises with load; `CouplingSpec` can't carry it | OD-B12 | tier B, earned by OD-X2 |
-| The missing CC3 declaration on `ModulatorResult`; the salience 0.0 bug | OD-I2, OD-I1 | issues now |
+| The `x or time.time()` bug at five sites; the pickle-capable load; the stale `ARCHITECTURE.md:182`; the U+2028 redaction question (its own security issue) | OD-I1, OD-I3, OD-I4, OD-I5 | issues now; OD-I2 (a missing CC3 note on `ModulatorResult`) is a docstring nit |
 
 ## 10. Enforcement
 
@@ -755,10 +762,10 @@ harness is born in `engine.verify`:
   - Validating constructors (§5.1); the gate contract and registry (§5.2, §5.4); budgets and bounded echo.
   - **Not in 2c:** `observed_tick` on intents and the integer tick (sim-clock); the cross-thread frame test (lanes).
 - **The agent foundations, `phase1/agents`** (a new row in world_model §10, after sim-clock and before lanes): the
-  split `AgentPort` and host service protocol, `StepOutput`, receipts and settle, thought request types, the
+  `AgentPort` (`step`, `think`, `settle`), `StepOutput`, `Pending`, `Reply`, the continuation blob, receipts and settle, thought request types, the
   `data/agents/` files and their gates, the per-NPC streams, the tool-roster and home checks, the agent-step-path
   seal, the scripted test double, and real Maxim as a strict red gate. It removes the TEMPORARY marker
-  scheduled for it. The barrier's concurrency, the gateway's threads and the meters arrive with `phase1/lanes`.
+  scheduled for it. The barrier's concurrency, the thinking lane's threads, the worker processes and the meters arrive with `phase1/lanes`.
 
 ### 11.2 What the rename must get right (W2, W5–W7, W10–W14)
 

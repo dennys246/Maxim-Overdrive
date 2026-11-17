@@ -1,6 +1,9 @@
-# NPCs and SEM: time, thought, action and perception (design part 2, v2, 2026-11-16)
+# NPCs and SEM: time, thought, action and perception (design part 2, v3, 2026-11-17)
 
-**Status:** DRAFT v2, for a delta design review before any code. v1 (4f7a754) went to the seven-lens foundations
+**Status:** DRAFT v3, for one review round on the agent half before any code (O7a). v3 folds Maxim's two answers
+to the embeddable-agent questions and Overdrive's four-lens review of them (`docs/design/reviews/maxim_response_1/`),
+with the owner's decisions O11a and O13–O15a; its fold table is the last one in this file. v2 is described below.
+v1 (4f7a754) went to the seven-lens foundations
 review (`docs/design/reviews/foundations_v1/`: 22 BLOCKER, 82 SHOULD-FIX, 51 NIT across this part, `boundaries.md`
 and the Maxim drafts). This version folds every BLOCKER and SHOULD-FIX that touches this part, the owner's decision
 O6 and the owner's answers OA1–OA5 to v1's five questions (§0). Two fold tables at the end map each finding to where it
@@ -10,7 +13,20 @@ Part 2 of three: part 1 is `world_model.md` (the world), part 3 will be `lab_and
 detail `boundaries.md` defers. Where it changes a boundaries interface, boundaries is changed in the same fold and
 this part says so; it never quietly extends one (Arch S7).
 
-**What changed from v1, in short:**
+**What changed in v3, in short:**
+- **Maxim has no inner tool loop** (verified). A tool call is an intent the host validates; its result comes back as
+  the next tick's follow-up. So `AgentPort` is `step`, a resumable `think` and `settle`, all called by the host; the
+  host service protocol, `request_thought` and the cancellable-backend gateway are deleted (§6).
+- **One thought can still be up to 3 model calls** (PFC deliberation), so speech before deliberation can take up to
+  3·L, and budgets are counted per triggering input across follow-up chains (§4.2, §4.5, §4.7).
+- **Floor-holding has three steps** (O11a): filler, account, yield (§4.4, §5.1).
+- **Each real agent runs in its own worker process,** which is the trust boundary (O13, §6.3); guest sessions with
+  real NPCs wait for five gates (O14, §12.1).
+- **The clock seam splits in two:** a machinery clock and a perceived-time port, guarded by a planted-render test,
+  because Maxim's prompt renders the time (§6.1, §12.2).
+- **Real NPCs wait for Maxim 1.4.0** plus the agent-loop decomposition slice (O15a).
+
+**What changed from v1 to v2, in short:**
 - **Mode (a) is gone (O6).** v1 had Maxim's tool loop block in `execute` for a world-time receipt. Every lens found
   a face of one root cause: the designs assumed the host drives Maxim's agent, and Maxim owns its loop (its LLM
   calls, tool roster, storage and threads). The replacement is a host-driven **embeddable agent contract** (§6).
@@ -45,21 +61,22 @@ means recalled from memory, to be checked before it enters `data/`.
 
 | # | Decision (owner, 2026-11-16) | Where |
 |---|---|---|
-| O3 | The substrate runs outside the sealed core behind `AgentPort` (as refined by O6) | §1, §6 |
+| O3 | The substrate runs outside the sealed core behind `AgentPort` (as refined by O6 and O6a) | §1, §6 |
 | O4 | Three clocks; no time field reaches cognition; thought cost is modelled and phased in world time; late thoughts dilate the world; it couples to fatigue and sleep pressure, not hunger | §1–§5 |
 | O5 | Refining SEM is in scope and a priority, through Maxim's process; additive first | §8 |
-| **O6** | **Mode (a) is dropped.** Replaced by a host-driven embeddable agent contract: the host calls `agent.step(world_dt, frame)`, and the agent returns intents, memory writes and thought requests as values, never applying anything or running on its own. A host-supplied LLM gateway with streaming and cancellation; a closed NPC tool roster checked at build; a per-agent home under the save, never `~/.maxim`, with no pickle on the load path; no host time in prompts or observations; the cerebellum observes at settle; `outcome_valence` set per D53. Phase 1 has no NPCs; Phase 4's NPCs wait on Maxim shipping this. This supersedes O2's "(a) then (b)": the end state is reached directly. | §6 |
+| **O6** | **Mode (a) is dropped.** Replaced by a host-driven embeddable agent contract: the host calls `agent.step(world_dt, frame)`, and the agent returns intents, memory writes and thought requests as values, never applying anything or running on its own. A host-supplied LLM gateway with streaming and cancellation; a closed NPC tool roster checked at build; a per-agent home under the save, never `~/.maxim`, with no pickle on the load path; no host time in prompts or observations; the cerebellum observes at settle; `outcome_valence` set per D53. Phase 1 has no NPCs; Phase 4's NPCs wait on Maxim shipping this. This supersedes O2's "(a) then (b)": the end state is reached directly. *Its mechanism is corrected by O6a.* | §6 |
+| O6a | **O6's mechanism, corrected after Maxim's answers (2026-11-17, O7a).** Maxim has no inner tool loop, so the gateway is not a backend Maxim calls: `think` is a host-called, resumable function that returns each model request as a value, the host executes it, and cancel is resuming with a `cancelled(prefix)` reply. The intent of O6 holds; "a host-supplied LLM gateway with streaming and cancellation" is replaced by this request/reply cut. | §6 |
 | OA1 | A thought's kind is chosen by the agent's policy, from a closed vocabulary, before the call. A host-only settings table may override its modelled cost (per-kind multipliers, or a pace preset); the table is logged, and experiments always run on fixed defaults. | §4.2 |
 | OA2 | The player sees dilation on a three-handed analogue clock (§5.4). | §5.4 |
 | OA3 | Overdrive builds no conversational repertoire of its own: interfaces only in Phase 1. **Revised 2026-11-16:** v1 said the repertoire comes from Maxim's hybrid line, but none of the hybrid plans has one (foundations delta, Bio-faithful). It is proposed upstream as **OD-H5** (a turn-taking substrate), and its absence is an OPEN divergence (§12.2) until it lands. | §5 |
-| O7 | The agent half of this part (§4.4, §6) is parked as a reviewed draft until Maxim answers the embeddable-agent questions; the world half proceeds (`boundaries.md` O7). | §4.4, §6 |
+| O7 | The agent half of this part (§4.4, §6) is parked as a reviewed draft until Maxim answers the embeddable-agent questions; the world half proceeds (`boundaries.md` O7). *Its condition is met: see O7a.* | §4.4, §6 |
 | O9 | **A reply's content may only make it land later, never earlier.** The substrate schedules the earliest onset from what the body knows, and logs it. Content (a dispreferred answer, a long one) may add delay, capped in `thought_budget.yaml` and counted against the session's dilation budget; it may never pull the onset earlier, since that would rewrite a logged time. Resolves BF2-2 against TB2-S5. | §4.2, §4.7 |
 | O10 | No developer mode with real Maxim before tier A, except inside strict red-gate tests. | §4.8, §12.1 |
 | O11 | **Live play holds the floor; it doesn't dilate (2026-11-16).** While a thought is late, the substrate covers the wait with content-free fillers and gaze aversion; past a floor ceiling the NPC yields, and the late answer arrives as a new turn, logged and never booked as a cognitive failure (resolves BF2-8 against TB2-B3). The world keeps real time. Guards: a yield never feeds fatigue, credit or learning; dilate stays for experiments and the lockstep reference; a B5 meter counts yields per turn by hardware. Needs OD-H5 first. This reverses BF2-10 for live play, on purpose. | §4.4, §5 |
 | O12 | **Processing speed is a per-NPC trait, in world time (2026-11-16).** People differ in speed, but that variation belongs to the person: stable, and independent of whose machine hosts the world. Hardware lateness is not that (one host's GPU slows every NPC at once, and most in busy scenes). Each NPC draws an onset multiplier at creation, saved with the agent, from the NPC's keyed stream (§3.4); it scales the modelled onset under either latency policy and never reads the hardware. Its distribution lives in `data/agents/`, validated at load: a lognormal, median 1 at a stated reference age, sigma 0.15 within an age (plausible 0.10–0.25; choice-RT CVs of 0.13–0.15 in age-matched cohorts, `research/speed/individual_differences.md`, *verified* there). Fatigue (§2.3) and per-response noise still vary speed within a person, and per trial that noise is larger than the gap between people. The refinements the review proposes (age, domains, turn gaps) are §12.1 item 5, for the owner. | §4.2 |
 | O11a | **O11 amended after Maxim's response (2026-11-16, `reviews/maxim_response_1/`).** Floor-holding runs in three steps: a content-free filler, then an account ("let me think") at about 600–700 ms, then a yield at about 1 s. The order rests on the preference for progressivity: a non-answer such as an account is preferred over silence (Stivers & Robinson 2006, *verified* there; it gives no timings). The timings come from elsewhere: gaps past about 700 ms read as dispreferred (Kendrick & Torreira 2015, *verified*) and about 1 s is the "standard maximum" silence (Jefferson 1989, *to verify*). Every threshold is a per-world parameter in world time. The first filler is chosen from the **modelled** predicted delay; what follows may track real lateness, logged, tier 3, and counted by a meter of lateness-caused gaps per machine, because listeners hear long gaps as reluctance (BD-4: Kendrick & Torreira 2015, Roberts et al. 2006). Floor-holding is proposed to Maxim as a fifth hybrid split-out plan, not inside `learned_hold_window`. | §4.4, §5 |
 | O13 | **Each real Maxim agent runs in its own worker process; the process boundary is the trust boundary (TBR-3).** The worker gets a scrubbed environment, its home set to the agent's home under the save, no API keys and the offline latch engaged; it talks to the host over a pipe opened before the latch. Workers start with `spawn`, since the latch refuses `fork` and `forkserver`. The worker's working directory is its empty agent home and prefetch is off structurally: the latch stops prefetch's `find` but not its file reads under the working directory (Maxim's second response). The LLM gateway stays in the host. Pipe latency and memory per worker are measured (B5) before Phase 4 commits to them; Windows needs an OS sandbox. | §6 |
-| O14 | **Guest sessions with real-Maxim NPCs wait for five gates** (replaces §12.1 item 1's single prompt test): the worker process (O13); a no-effect test (no file writes, sockets or spawns outside the agent home); a dialogue-level bypass test (prefetch, the short-question shortcut, the parse-failure template, phrase commands); line separators refused in `speak` (U+2028 and U+2029 forge redaction headers); and memory provenance by speaker with a purge path. | §5.2, §12.1 |
+| O14 | **Guest sessions with real-Maxim NPCs wait for five gates** (replaces §12.1 item 1's single prompt test): the worker process (O13); a no-effect test (no file writes, sockets or spawns outside the agent home); a dialogue-level bypass test (prefetch, the short-question shortcut, the parse-failure template, phrase commands); line separators refused in `speak` (U+2028 and U+2029 may forge prompt and redaction headers; Maxim treats the redaction case as its own security issue, OD-I5); and memory provenance by speaker with a purge path. | §5.2, §12.1 |
 | O15 | **Engineering seams are accepted on engineering grounds.** The stepped `think`, the dispatch/settle split and the clock seam are asked of Maxim with parity and regression guards, not behind the hybrid line's experiment gate; only behaviour claims wait for experiments. Otherwise Phase 4 waits on the arbiter's results after 1.4.0. | §6, §8 |
 | O15a | **Maxim's answer on O15 (second response):** the clock seam and dispatch/settle enter as engineering refactors behind a bit-identical state-digest parity guard on recorded replays, with the robot path settling right after dispatch. The stepped `think` is engineering-gated too, but it is §A.1b's seam in `agent_loop.py`, so it lands **after the 1.4.0 cut**, sequenced with the agent-loop decomposition slices (M89, touch-it-shrink-it). So Phase 4's first real NPCs wait for 1.4.0 plus that slice; until then Overdrive builds against the scripted test double. | §6, roadmap Phase 4 |
 | O7a | **O7's condition is met:** Maxim answered (`reviews/maxim_response_1/`). The agent half is unparked for one revision, folding the response and its review, then one review round. | §4, §6 |
@@ -83,7 +100,7 @@ doesn't estimate. Only perception is coarse.
 **Where wall time remains (host only):**
 - the pacing loop that turns the dial into ticks per wall second;
 - measuring dilation (§4.5);
-- the LLM gateway's wall timeouts. **Under the dilate policy a timeout retries, and past a host ceiling the thought
+- the thinking lane's wall timeouts on the model calls it executes. **Under the dilate policy a timeout retries, and past a host ceiling the thought
   ends as a logged `thought_failed`** (§4.4). A timeout never silently "frees a worker" and never fails a thought on
   its own (BF2-8, TB2-B3);
 - network timeouts, meters, log flushing.
@@ -210,7 +227,7 @@ id, and a delay is felt only by when the receipt arrives.
   - **Prompt test:** render the same prompt in two processes with `TZ` set 13 h apart (`time.tzset()`), and assert
     byte-identical output; and no host path, file name, user or host name appears (TB2-B1). Regex for clock strings
     misses `%I:%M %p` and `[HH:MM:SS]`.
-  - **Dial-invisibility test:** the test double driven through the LLM gateway (§6.1) with a seeded **wall-delay
+  - **Dial-invisibility test:** the test double driven through the host's thinking lane (§6.1) with a seeded **wall-delay
     schedule** that makes some segments early and some late at each dial, a threaded host as shipped, and an
     injected fake wall clock (no sleeps). Percepts, receipts and kinds must be bit-identical at 1× and 20×.
     - **Negative control:** the same run under `latency_policy: abandon` must differ between dials.
@@ -311,8 +328,8 @@ rig-dependent physics (lesson 1).
 
 **Decision (O4):** a thought costs **modelled world time, by phase.** An early result is held until its time; a late
 one dilates the world in wall time, reported by cause. The NPC lives through exactly the modelled time on its
-substrate. This needs the host to own every LLM call, which the gateway gives it (§6.1): **[after A]** with real
-Maxim, **[now]** with the test double.
+substrate. This needs the host to own every LLM call, which the request/reply cut gives it: `think` returns each model request
+as a value and the host executes it (§6.1). **[after A]** with real Maxim, **[now]** with the test double.
 
 **Two channels the cost model doesn't remove, stated (BF2-8):**
 - **Model capability.** The player's VRAM decides the model, its quantisation and context length, so a bigger GPU
@@ -333,8 +350,9 @@ applied at tick boundaries in canonical order (§9).
 | **P0 reaction** | the substrate, no LLM | a reaction latency from `data/`: ~150–250 ms simple, ~300–600 ms choice | reaction-time norms (neuroscience.md §3.1); backchannels, gaze and fillers live here (§5) |
 | **P1 gap / onset** | the LLM, modelled | **in conversation:** `D_gap(turn_type)` from the end of the other speaker's turn, mode ~200 ms with a right-skewed tail; **otherwise:** `D_onset(kind)` for a choice or plan, ~0.6–2 s (*to verify*) | Stivers et al. 2009 (*verified*: mode 0–200 ms; language means ~7–470 ms; polar answers); Kendrick & Torreira 2015 (*verified*: gaps ≥ ~700 ms mark dispreferred replies); Torreira, Bögels & Levinson 2015 (*verified*: in-breath answers ~576 ms modal) |
 | **P2 speech** | the LLM's stream, timed by the body | each syllable stamped at speech rate (§5.3) | conversational English ~150–190 wpm, ~4–6 syllables/s (*to verify*) |
+| **P1c deliberation cycle** | the LLM, when the first proposal isn't ready to act (PFC) | a modelled cycle cost per cycle, no speech; at most `max_cycles` (Maxim: 2, or 3 with a percept source) and capped in `thought_budget.yaml` | `agent_loop.py:521`, `:3086-3125` on Maxim `origin/main` 7084f561; `[engineering]` cost |
 | **P3 act** | an action the thought chose | the action's own world time, through the pipeline | — |
-| **Pn next segment** | the LLM, after a tool result or a percept | another modelled onset | think → act → perceive |
+| **Pn next thought** | the LLM, after a receipt (the follow-up) or a percept | another modelled onset | think → act → perceive; each step sees the world's actual response |
 
 - **Production latency is hidden, not added (BF2-2).** Levinson & Torreira 2015 (*verified*): gaps are ~200 ms while
   producing even one word takes over 600 ms, so responders plan **during** the incoming turn and launch on turn-final
@@ -349,6 +367,10 @@ applied at tick boundaries in canonical order (§9).
   frozen in the request and logged. A result never changes it. A host-only settings table may scale each kind's cost
   (a multiplier, or a "conversation pace" preset: natural, brisk, snappy); it is labelled a game-feel knob, logged as
   a control record (§4.7), and pinned to the defaults in experiments.
+- **Deliberation cycles are content-dependent delay (O9).** Whether the model asks for another cycle depends on its
+  output, so each cycle may only make speech land later, is capped, and counts against the session's dilation budget.
+- **`next_actions` chains** (one reply committing later actions with no further model call, `llm_worker.py:1355`)
+  are validated step by step, each when it dispatches, never once at proposal time.
 - **Speech length is not part of a deadline.** Speaking is an action that takes world time in proportion to its
   length, like walking.
 - **Calibration:** the hybrid draft's latency sweep sets `D_onset` for non-conversational kinds. It is calibration,
@@ -374,23 +396,26 @@ applied at tick boundaries in canonical order (§9).
 
 ### 4.4 Late thoughts **[now with the test double; after A with real Maxim]**
 
-The default policy is **dilate**: the host doesn't step past a segment's modelled time until it has arrived. This is
-the wall-time hold that two earlier reviews rejected (lanes concurrency BLOCKER 3, world_v2 DLP-B2) when built
+**Policy by context (O11, O11a):** live play **holds the floor** and keeps real time; experiments, the lockstep
+reference and unattended runs **dilate**. Floor-holding needs Maxim's turn-taking substrate (OD-H5), so until it lands
+the Phase 4 interim policy is an owner question (§12.1). Under **dilate** the host doesn't step past a segment's
+modelled time until it has arrived. This is the wall-time hold that two earlier reviews rejected (lanes concurrency BLOCKER 3, world_v2 DLP-B2) when built
 without their fixes. It is built with them (Arch B2):
 - **The wait is a state of the simulation lane** on its one multiplexed inbox, which carries `stop` and lane-crash
   messages. `stop` ends the wait at once and joins every thread.
-- **The model call is always in the thinking lane, behind the gateway.** `Simulation.step` never calls a model.
+- **The host's thinking lane executes request values.** `think` returns a `Pending(request)`; the lane runs it and
+  the host resumes `think` with the reply. `Simulation.step` never calls a model.
 - **Dispatch is by deadline,** not by priority then age, so the host never waits on a request queued behind
   later-due ones.
-- **No-deadlock invariant:** a thought that is waiting for the world never holds the resource an earlier-due thought
-  needs. Under O6 agents never block inside a turn (`step` returns values), so a worker is held only by an LLM call in
-  flight, and the host's wait set counts only those. Test: one worker, two NPCs, a thought due after a queued one.
+- **No-deadlock invariant, by construction:** no worker is ever held by an agent. An agent with an outstanding
+  request is a value holding a `Pending`; a worker is held only by a model call in flight, and the host's wait set
+  counts only those. Test: one worker, two NPCs, a thought due after a queued one.
 - **Liveness:** under every policy, a call past the host's wall ceiling ends as `thought_failed(reason=timeout)`, a
   logged record, so the world always moves again; the run is flagged tier 3 (TB2-B3, DR-S11).
 - **Machine-decided failures** (an LLM error, refusal, out-of-memory) are recorded in the cache as first-class
   responses and flag the run tier 3 (DR-S11).
-- **Early-held results** live in the host's thought gate, agent-side. They are saved with the agent home (save v1),
-  never in the world log, which holds only the intents they produce (world_v2 DLP S-1).
+- **Early-held results and deliberation continuations** live agent-side. They are saved with the agent home (save
+  v1), never in the world log, which holds only the intents they produce (world_v2 DLP S-1).
 - **A floor:** the loader requires `D(kind) ≥ D_min(kind) > 0`. Zero is allowed only in a named reference arm of a
   pre-registered experiment ("lockstep reference") (world_v2 BF-5.1).
 - **`latency_policy: abandon`** is the explicit alternative for runs that value wall pace (a long unattended
@@ -400,9 +425,13 @@ without their fixes. It is built with them (Arch B2):
   keyword-on-text, and drives keep drifting. The world doesn't wait, but the NPC effectively does. The meter
   "in-flight ticks with no substrate action" lands with the lanes, and this stays OPEN until the hybrid line's
   substrate exists (world_v2 BF-5.2).
-- **No "um" on a stalled model.** Fillers belong to P0 and are chosen from the **modelled** pending gap (Clark & Fox
-  Tree 2002, *verified*: *uh* announces a minor delay, *um* a major one; contested by later corpus work), never from a
-  stalled stream (BF2-10).
+- **Floor-holding in live play (O11a) [after OD-H5]:** a content-free filler, then an account ("let me think") at
+  about 600–700 ms, then a yield at about 1 s, each threshold a per-world parameter in world time. The **first** filler
+  is chosen from the modelled predicted delay (Clark & Fox Tree 2002, *verified*: *uh* announces a minor delay, *um* a
+  major one), ideally from a metacognitive feeling-of-knowing signal (Smith & Clark 1993, *verified* in BD-3), never
+  from hardware. What follows may track real lateness: logged, tier 3, and counted by a **lateness meter** (gaps
+  caused by lateness, per machine), because listeners hear long gaps as reluctance (BD-4; Roberts et al. 2006). A
+  yield never feeds fatigue, credit or learning. Under dilate, BF2-10 still holds: no filler from a stalled stream.
 
 ### 4.5 Latency and throughput, honestly (DR-B5)
 
@@ -412,14 +441,16 @@ however many workers exist. Over a world interval:
 
 `effective dial ≈ 1 / ( f · L/D + (1 − f) / dial_max )`, and never above the throughput bound,
 
-where f is the fraction of world time covered by at least one pending window. Each segment of a multi-call thought
-pays L again, and a tool call can't act on a partial stream, so it pays the full latency.
+where f is the fraction of world time covered by at least one pending window. Each model call pays L again: up to
+`max_cycles` PFC cycles before the first speech, and one more L for every follow-up after a receipt. An action can't
+act on a partial stream, so it pays the full latency.
 
 Recomputed with the documents' own numbers (D = 1 s, L = 3 s, dial_max = 20):
 
 | Scene | v1 said | Latency bound |
 |---|---|---|
 | One NPC talking to the player | — | **about 0.33×, below real time,** while it deliberates |
+| The same, through 3 PFC cycles before speaking | — | **about 0.11× under dilate;** under floor-holding a ~9 s wall wait, past any yield ceiling, so the NPC yields and answers as a new turn |
 | Ten idle NPCs, 2 thoughts per world minute each | ~10× | about 6.7× |
 | Hosted, 16 parallel, 2 s, 20 NPCs, 2 per world minute | 12× | about 1× |
 | Everyone asleep | ~20× | physics-bound, ~20× |
@@ -432,8 +463,8 @@ for other players in co-op. The levers, in order of size:
 3. **Streaming the first token** for P2 speech, so the gap closes on time-to-first-token, not on the whole reply.
 4. P0 carries the gap with gaze and backchannels. That changes the feel, not the arithmetic.
 
-**Meters (B5 rows, DR-S9):** wall latency to first token and to the complete tool call, per model; effective dial by
-cause.
+**Meters (B5 rows, DR-S9):** wall latency to first token and to the complete reply, per model and role; PFC cycles per
+thought; follow-ups per triggering input; effective dial by cause; under floor-holding, the lateness meter (§4.4).
 
 ### 4.6 Coupling to the body: mental fatigue and sleep pressure, not hunger **[after A; effects earned by OD-X2]**
 
@@ -450,10 +481,13 @@ cause.
 
 ### 4.7 Thought budgets and authority (TB2-B3, TB2-S5, TB2-S7)
 
-- **A thought budget in `data/agents/thought_budget.yaml`,** under the gate contract (`boundaries.md` §5.4): maximum
-  segments, tool calls, tokens per segment (passed to the model as its generation limit and enforced again as a stream
-  cut-off **before** buffering), held-buffer bytes, memory writes and their bytes, `cancel_on` length, and a ceiling
-  on `D` per kind.
+- **A thought budget in `data/agents/thought_budget.yaml`,** under the gate contract (`boundaries.md` §5.4): PFC
+  cycles per thought; `parallel_actions` per reply (also as a grammar `maxItems`, the advisor's pattern); `next_actions`
+  chain length; **follow-up chain length per triggering input**, keyed by the input's id, so an injected prompt that
+  makes every reply request one more action can't monopolise an NPC tick after tick; tokens per model call (passed as
+  the generation limit and enforced again as a stream cut-off **before** buffering); held-buffer bytes; memory writes
+  and their bytes; `cancel_on` length; and a ceiling on `D` per kind. Under floor-holding, holds are rate-limited per
+  triggering speaker, so one guest can't keep an NPC permanently mid-hold.
 - **Exceeding any cap ends the thought** as `thought_failed(reason=budget)`, logged, keeping the spoken prefix as an
   interruption does.
 - **Authority:**
@@ -473,7 +507,9 @@ S9). With both:
 - **A response cache, per LLM call** (each segment), not per thought.
 - **The canonical request** is a frozen, versioned type with golden fixtures: the model id and a weights or
   quantisation digest; sampling parameters (temperature, top-p, top-k, seed, max tokens, stops); the system prompt; the
-  tool schemas in a fixed order; the message list; the prompt-template and pymaxim versions. Serialised as canonical
+  message list; the model role; the prompt-template and pymaxim versions; and an assertion that `tools is None`
+  (Maxim's planning call renders tools into the prompt text and sends no native `tools=`, so a later move to native
+  tools changes the key loudly). Serialised as canonical
   JSON: sorted keys, no floats or a fixed float format, NFC strings, explicit separators.
 - **Occurrences:** keyed by `(content hash, occurrence index)`, so two identical requests at temperature above 0 in
   one run reproduce both answers.
@@ -484,6 +520,9 @@ S9). With both:
 - **The cache is a registered gate** with the strictest contract (versioned, strict decoder, size budgets), is **per
   save**, never global, and is **excluded from bug reports by default**, since it holds players' conversations.
 - **Replay never opens the cache.** Tested: a replay with the cache deleted, or poisoned, gives the same digests.
+- **What pairing buys, and where it stops.** Two runs that differ in one variable stay paired only until the first
+  prompt differs; after that every request misses. So paired reruns help substrate-only arms and the prefix before
+  divergence, not LLM arms as a whole; a paired analysis estimates d_z, with the seed as the unit (BD-16, Arch 4.5).
 
 ## 5. Conversation in hybrid mode
 
@@ -491,7 +530,7 @@ S9). With both:
 
 | Behaviour | Produced by | Why |
 |---|---|---|
-| Turn-taking: gaze, nods, backchannels, fillers, starting to answer | Maxim's substrate, P0 | gaps of ~200 ms (Stivers 2009, *verified*) are faster than content can be planned, so people plan in overlap and signal with fast routines |
+| Turn-taking: gaze, nods, backchannels, fillers, accounts, yielding the floor, starting to answer | Maxim's substrate, P0 (OD-H5) | gaps of ~200 ms (Stivers 2009, *verified*) are faster than content can be planned, so people plan in overlap and signal with fast routines |
 | Content: what to say and do | the LLM, P1 onward | deliberation |
 | Speaking it | the body, at speech rate, interruptible | speech is an action |
 | Being interrupted | the substrate first (stop, look), then the LLM | barge-in (§4.3) |
@@ -505,6 +544,23 @@ S9). With both:
   Its family (`idle_dmn_coordinator.md`, `learned_hold_window.md`, `foreign_advice_layer.md`,
   `sem_interruptibility.md`) is under **M89: no `src/` before the 1.4.0 cut.** Phase 4's conversation timeline is
   bound to that, and the owner accepted the coupling (OA3).
+- **Floor-holding is proposed to Maxim as a fifth hybrid split-out plan (OD-H5),** not inside
+  `learned_hold_window` (Maxim's answer; BD-1). It reuses §A.1b's held slot, but not its conflict-scaled hold or
+  HA-1's claim, because addressed speech is the case Maxim's own plan calls degenerate for the arbiter (BD-2). It
+  enters as `[engineering]` with its evidence cited: response planning starts in the middle of the other speaker's
+  turn (EEG, Bögels et al. 2015) and a planning network is active in conversation (intracranial, Castellucci et al.
+  2022), so "not a neural mechanism" is too strong (BD-9). Any claim needs a pre-registration on a measurable outcome
+  (gap distribution, overlap rate, repair rate). It is a paper plan in the 1.5 line, so Phase 4 lives without it for a
+  long time.
+- **No claims, structurally (BD-6).** Fillers and accounts come from a closed vocabulary with an empty proposition
+  field; the speaker never stores them as utterances and never credits them. A listener stores the hesitation as a
+  feature of the speech percept (a duration, a filler-present flag), not as words.
+- **The speed trait (O12) scales the modelled onset, never the yield threshold** (BD-5). A filler-propensity trait is
+  a candidate (Bortfeld et al. 2001, *to verify*).
+- **A late answer after a yield returns to the earlier sequence** ("about what you asked…"), a new turn, not a
+  conversation-analytic misplacement (BD-8).
+- **Partner barge-in needs a social cancel source.** `sem_interruptibility.md` covers cancels from the LLM or a
+  danger; a partner interrupting a filler has no cancel path today (BD-10). Part of OD-H5.
 - **Overdrive supplies:** the body (gaze, nodding, posture as affordances), the test scenes, and measurements for the
   hybrid line's pre-registered experiments.
 - **Starting to think before the other speaker finishes** is proposed to the hybrid line as an experiment: it is the
@@ -517,8 +573,14 @@ S9). With both:
 
 - **A `speak` kind** (`boundaries.md` §6.1): any actor; an NPC only through a thought, a player only through a
   protocol message. It carries the text.
-- **Stage-1 validator:** a length cap, Unicode NFC, control and bidi-override characters refused, a per-session rate
+- **Stage-1 validator:** a length cap, Unicode NFC, control and bidi-override characters refused, **every line
+  separator `str.splitlines` splits on refused** (U+2028, U+2029, U+0085, `\v`, `\f`, U+001C–U+001E), since a guest
+  line could otherwise forge a section header in Maxim's prompt or redaction (TBR-11; O14), and a per-session rate
   limit; golden rejection frames.
+- **Streamed NPC speech is validated per chunk,** before it reaches any player, independent of the rest of the reply
+  (Arch 2.6).
+- **Memory provenance (TBR-8; O14):** every memory an NPC forms from speech records the speaker, so a prompt-injected
+  memory can be traced to a guest and purged without touching what other players said.
 - **It is logged,** as a world input other actors perceive: replay must reproduce who heard what and which thoughts
   it cancelled. That is the one exception to "LLM text stays out of the log", and it carries a privacy cost: a shared
   bug report includes dialogue. Bug reports therefore redact `speak` text by default, keeping lengths and syllable
@@ -567,18 +629,24 @@ What Maxim must offer for Overdrive to run real NPCs, all **[after A]** and draf
 
 | Piece | What it is | Why |
 |---|---|---|
-| **Host-called stepping** | `step(world_dt, frame) -> StepOutput`: intents, memory writes and thought requests as values; the agent never applies anything and never runs on its own thread | the host owns time and order; generate vs apply (OD-A15) |
-| **A host-supplied LLM gateway** | Maxim's only path to a model, with streaming (a token iterator) and cancellation | holding, stamping, dilating, cancelling and caching all need the host in the stream. Maxim's `LLMBackend` protocol today returns whole responses (`complete() -> str`, `complete_with_usage(..., stream=)`), with no token iterator and no cancellation; streaming exists only inside one backend (#1370) (`models/language/backend_protocol.py`, `origin/main` 7084f561) |
-| **A closed tool roster** | the membrane's affordances plus reviewed cognition tools (memory recall, narrative), nothing that reaches the host's filesystem, processes, network or Maxim's operational mode | a default agent gets `BashTool`, file tools, `HttpFetchTool`, `InternetSearchTool` and a `singularity` mode switch (`runtime/bootstrap.py:132-141`), and player speech is in its prompt |
-| **A home per agent** | injected, under the save, never `~/.maxim` | `data_home()` is a cached module global (`utils/paths.py`); every agent in a process shares one memory, by default the owner's real Maxim home |
-| **No pickle on the load path** | Maxim's persistence loads without executing code | `similarity/semantic.py:619` loads with `np.load(..., allow_pickle=True)`; a stranger's save would run code |
-| **No host time** | none in prompts or observations | `prompt_builder.py:1104`, `:159`; `context_pool.py:468, :493`; a declared "no calendar" |
-| **World-time staleness** | every staleness and deadline on the injected clock | the wall thresholds of §1 drop thoughts whatever the world says |
-| **Credit at settle** | the cerebellum observes when the receipt settles, from its frames | it trains on the sensors read during the call (`tool_bridge.py:864-892`) |
+| **Host-called `step`, `think` and `settle`** | `step(world_dt, frame) -> StepOutput`; `think(agent, continuation, reply \| None) -> (continuation', Pending(request) \| ThoughtOutput)`; `apply` and `settle` the only writers; nothing runs on its own thread | the host owns time and order; generate vs apply (OD-A15, OD-A18). Maxim has no inner tool loop (`agent_loop.py:2172`, `:2264`), so the only thing `think` waits on is a model call, but PFC deliberation can make up to 3 (`:3086-3125`) |
+| **The request/reply cut** (replaces v2's "host-supplied gateway") | the request is a value (rendered text, sampling, model **role**, priority class and deadline, template version, `tools is None`); the reply is `complete(text)`, with reserved `cancelled(prefix)` and `truncated(prefix, reason)` variants that bypass the parse-failure template; speech is a top-level field emitted first | the gateway sits above the backend, so the router's per-router `_inference_lock` (`router.py:185`, `:1080`) never serialises NPCs, and the host holds, stamps, cancels and caches (Maxim's answer; Arch 2.1, 2.5, 2.6) |
+| **The deliberation continuation** | a frozen, versioned, pickle-free value, not the whole agent: thought id and kind, PFC cycle index and `max_cycles`, the partial proposal, the outstanding request, a `basis` (step seq and frame id; §A.1b.5's `basis_seq`) and the triggering-input id, budget counters, cancel status and prefix, the loop locals that aren't values yet | `step` keeps running while a thought is out, so resume must decide staleness against the current agent (Arch 2.2, 2.3) |
+| **World tools vs cognition tools** *(proposed)* | effectful world tools leave as intents; read-only cognition tools (memory recall, narrative) resolve inside `think` against the agent's own stores | otherwise a recall goes through the world log and costs a full follow-up L (Arch 1.2) |
+| **A closed tool roster** | the membrane's affordances plus reviewed cognition tools, sealed with the advisor's patterns (`ToolPolicy`, the `Effect` ceiling); engineering, on its own clock | the CLI and embodied runtime register file, shell and internet tools (`runtime/bootstrap.py:255-276`); player speech is in the prompt |
+| **`AgentHome`** | one per-agent object routing every store, over `AgentFactory`'s existing `persistence_dir` | the core stores are already per agent (`agent_factory.py:1168-1172`); about nine families are still global (embeddings, fear and escalation bridges, DN thresholds, focus and bounds learners, energy, cost, provenance, lane decisions), and the ConceptExtractor thread starts at construction (`runtime/bio_stack.py:654`) |
+| **No pickle on the load path** (issue OD-I3) | Maxim's persistence loads without executing code | `MemoryHub._restore_on_open` → `EmbeddingStore.load` → `np.load(allow_pickle=True)` (`memory_hub.py:719-727`, `semantic.py:662`): dormant unless `enable_semantic`, on a global file; must land before `AgentHome` makes it reachable from saves (TBR-10) |
+| **The clock seam, split in two** | a **machinery clock** for decay, cadences and stamps, and a **perceived-time port**, the only time a prompt may contain, which the host supplies. Guarded by a planted-render test (a sentinel time with unusual seconds, TZ pinned, checked in raw, clock and date forms) and a lint banning `datetime.now`, `strftime` and `localtime` in prompt-reaching modules (Maxim's answer: a no-`__str__` type can't be the guard) | the prompt renders the time (`prompt_builder.py:237`, `:1125-1127`; `context_pool.py:468`, `:493`); swapping in the host clock alone would hand cognition exact world time (BD-12) |
+| **Keyed substreams** | `random.Random(stable_hash_64(seed, agent, stream))` per stream, injectable; `seed_all` never called on the embedded path | `make_agent_rng` is one sequential stream, and `seed_all` reseeds the process (BD-13) |
+| **The leak closure** (OD-A17) | prefetch off and the working directory at the empty agent home; the short-question shortcut bypassed (it fires on any input, `llm_fallback.py:290-330`); no `force=True` logging; paths under the home; side doors folded into dispatch; a static import ban plus the advisor's three closure tests | prefetch reads files under the working directory on every input (`agent_loop.py:1571`), past every tool rule (Executor N2; TBR-3, TBR-7) |
+| **World-time staleness** | every staleness and deadline on the machinery clock | the wall thresholds of §1 drop thoughts whatever the world says |
+| **Credit at settle** | dispatch tags, settle credits, through NAc's existing eligibility traces, one credit path; robots settle right after dispatch | the cerebellum trains on the sensors read during the call (`tool_bridge.py:864-892`); dopamine's window after an action is 0.3–2 s (Yagishita et al. 2014, BD-19); NAc's traces decay on the wall clock (`nac.py:1162`), so this depends strictly on the clock seam |
 | **Valence per D53** | the adapter always self-reports: `neutral` when the measured effect is nil or unverifiable, drive deltas through `measured_drive_transitions` | absent a report, mechanical success books POSITIVE (`tool_dispatch.py`, D53 block); a strike that changed nothing would teach "striking steel doors works" (BF2-3) |
-| **An embedded-NPC profile** | one declared profile that builds all of the above | so the game doesn't rely on deregistering tools after Maxim built them |
+| **The robot path drives the same `think`** | a thin worker driver over the same function | one deliberation path; the parity check compares one function under two drivers (Arch 2.4) |
 
-**Front gate: what Maxim already has, which tier A must build on, not beside (MP-B1):** `ExperienceClockDriver` and
+**Front gate: what Maxim already has, which tier A must build on, not beside (MP-B1):** `AgentFactory` and its
+`persistence_dir`; the advisor's patterns, not the advisor itself (it is a quarantine with one hard-coded tool, no
+injected backend and a process-wide offline latch); `ExperienceClockDriver` and
 its stepped-world declaration (#1361 S2, Q8; #1361 "adds no clock"); `seeding.py::make_agent_rng`; `_StepClock` and
 `LockstepTime`, which already patch `time` for lockstep runs; `tool_failure_credit.md` (#1200, TF1–TF3) and the D53
 NEUTRAL tier, which propose and settle amend; `ENTITY_FORMAT_VERSION`; `sem_interruptibility.md`. The upstream drafts
@@ -586,15 +654,20 @@ own that survey; this part only depends on its outcome.
 
 ### 6.2 What Overdrive builds now **[now: the `phase1/agents` PR]**
 
-- **`AgentPort`, split in two (Arch B3):**
-  - the port the **host** calls: `step(now_tick, dt_ticks, frame) -> StepOutput`, `settle(receipts)`;
-  - a **host service protocol** the adapter receives as a required keyword-only argument: `request_thought(request)`,
-    the gateway handle, the intent sink. It is defined in `engine.intents`, below the adapters, so nothing imports
-    upward.
-- **`StepOutput`, receipts and thought requests** as frozen, versioned types with golden fixtures.
+- **`AgentPort`: `step`, `think` and `settle`, all called by the host** (v2's host service protocol and
+  `request_thought` are deleted: a callback from the adapter to the host ran the wrong way, and with requests as
+  values nothing needs it).
+- **`StepOutput`, `Pending`, `Reply` (with `cancelled(prefix)` and `truncated`), `ThoughtOutput`, receipts and thought
+  requests** as frozen, versioned types with golden fixtures; the continuation as an opaque, versioned blob in the
+  agent home, with a save/load round trip.
+- **The host thinking lane** that executes request values by deadline, with the response cache, cancel as a reply,
+  the wall ceiling ending a thought as `thought_failed`, and the follow-up-chain budget.
+- **The host-side stream:** chunked speech validation and syllable stamping from a scripted stream.
 - **`data/agents/` timing, speech, fatigue and thought-budget files,** each loaded through a gate.
-- **The scripted test double:** an agent that implements `AgentPort` from a script (fixed intents, fixed thought
-  requests, recorded responses) and runs through the real gateway, barrier and log. Every [now] test in this part runs
+- **The scripted test double:** an agent that implements `AgentPort` from a script and runs through the real
+  thinking lane, barrier and log. It is a real state machine, so the hard cases are exercised: multi-cycle PFC
+  deliberation, follow-ups after receipts, `next_actions` chains, partial and cancelled replies, and stale thoughts.
+  It may script fillers as fixed outputs for interface tests only, and the tests say so (OA3). Every [now] test in this part runs
   against it. It is a test double, never shipped as an NPC, and the tests say so.
 - **Real Maxim** behind `engine.adapters.agents` is a **strict red gate** (`xfail(strict=True)`) until tier A ships,
   with the reason naming the missing piece. Nothing is built around Maxim's router, which the push-back rule forbids.
@@ -611,25 +684,34 @@ own that survey; this part only depends on its outcome.
 This replaces `realtime_lanes_coop.md` §4.1's "the simulation lane owns `Simulation` (and through it World and
 agents)" and "agents step inside the simulation lane's tick" (§11).
 
-- **One owner per agent.** Each agent is owned by one agent-lane thread at a time: its `step`, its `settle` and any
-  push into its body run there, serialised. Only the LLM call itself leaves it, through the gateway. With
-  generate vs apply nothing writes agent state from a thinking worker.
-- **The barrier.** The host steps tick T+1 only when every agent is **parked**: returned from `step`, or waiting at
-  the gateway for a held response. Released work (a response at its time, a receipt) runs to its next park before the
-  tick advances, in canonical order (§9).
-- **Agent isolation.** Two agents in one process must not share Maxim's module-level state (global `random`, caches,
-  the de-duplication window). Until tier A proves it (an exit test: one agent's digest is the same alone, alongside
-  another, reversed and concurrent; DR-S5), the adapter runs **at most one real Maxim agent per process** and refuses
-  more (TB2-B2).
+- **One worker process per real agent (O13).** Each real Maxim agent runs in its own process, started with
+  `spawn` (the offline latch refuses `fork` and `forkserver`), with a scrubbed environment, no API keys, its working
+  directory and home at its agent home under the save, prefetch off, and the latch engaged after the host pipe is
+  open. The model gateway stays in the host. The process boundary is the trust boundary: a leak path Maxim hasn't
+  closed yet reaches an empty directory and a refused socket, not the host (TBR-5). The test double runs in-process.
+- **One owner per agent.** Its `step`, `think`, `settle` and any push into its body run serialised in its worker.
+  With generate vs apply nothing writes agent state from anywhere else.
+- **The barrier.** The host steps tick T+1 only when every agent is **parked**: returned from `step`, `think` or
+  `settle` (an agent with an outstanding request is parked, holding a `Pending`). Released work (a reply at its time,
+  a receipt) runs to its next park before the tick advances, in canonical order (§9).
+- **Agent isolation.** The worker process gives it by construction for real agents. Tier A still proves it inside
+  one process (OD-EA6: one agent's digest is the same alone, alongside another, reversed and concurrent; DR-S5),
+  because Maxim's own simulation hosts several agents in one process.
 - **Meters (B5):** park and release per NPC per tick (at 200 ticks per wall second, 50 µs each is 10 ms per second per
-  NPC), adapter push and strip, gateway overhead, GIL contention.
+  NPC), **pipe round trip per park** and **memory per worker** (both measured before Phase 4 commits to O13), adapter
+  push and strip, thinking-lane overhead.
 
 ### 6.4 Propose, receipt, settle (Wire S12, Arch S13, X-6)
 
 - **The engine's contract:** an intent produces one receipt: intent id, outcome kind (`applied`, `refused`, `stale`,
   `cancelled`), `apply_tick`, the measured effect, and the before and after frame ids.
 - **Each receipt is credited exactly once,** through `settle`, and zero times when `stale`. A test asserts it. Under
-  O6 there is no second path (`execute`'s return) to double-book.
+  O6 there is no second path (`execute`'s return) to double-book, once Maxim folds its parallel and agent-fallback
+  dispatch into the same split (`tool_dispatch.py:1290-1291`; TBR-6).
+- **Settle feeds NAc's existing eligibility traces,** not a second credit path. Dispatch/settle is an engineering
+  refactor behind a bit-identical state-digest parity guard, with robots settling right after dispatch; delayed settle
+  happens only when a host chooses it (O15a). A delay sweep that measures credit accuracy must include intervening
+  actions, or the measurement is trivial (BD-19).
 - **Slow effects.** Ignite's effect arrives over many physics steps. Credit at a single settle frame learns "ignite
   barely changes temperature". Until tool-level settle can carry a horizon (OD-A16), slow-effect credit is an **OPEN
   divergence with a red gate.** The sensors used for credit are restricted to those the affordance declares it
@@ -705,10 +787,11 @@ Additive first, in 1.x; appending a defaulted field is non-breaking under Maxim'
 
 | Roadmap | What | Here | Path |
 |---|---|---|---|
-| OD-I1 | `salience_map.py`'s `or` turns world time 0.0 into the wall clock | §1 | an issue now |
-| OD-I2 | `ModulatorResult` has no CC3 declaration (path (b), `metadata` as the extension channel) | §6 | an issue now |
+| OD-I1 | `x or time.time()` turns world time 0.0 into the wall clock, at five sites | §1 | an issue now |
+| OD-I2 | `ModulatorResult` has no CC3 declaration; downgraded to a docstring nit (it is an in-process value) | §6 | a nit |
+| OD-I3 | the pickle-capable embeddings load, dormant by default, on a global file | §6.1 | an issue now |
 | OD-A1–OD-A9 | the world-clock work: #1361 S3–S6, `AgentTime`, prompt and observation time (with `context_pool`), stamps, the de-duplication window, dispatch gates, ids, the stepped Default Network | §1, §3.1 | additive; defaults reproduce today's values |
-| OD-A10–OD-A15 | the embeddable agent: the entry point, the closed tool roster, per-agent homes, no pickle, streaming and cancellation on `LLMBackend`, `step` and `think` returning values with isolation between agents | §6.1 | additive |
+| OD-A10–OD-A15, OD-A17, OD-A18 | the embeddable agent: the entry point, the closed tool roster, `AgentHome`, the request/reply cut, the stepped `think` and its continuation, the leak closure, the dispatch/settle split | §6.1 | additive; the stepped `think` after 1.4.0 (O15a) |
 | OD-A16 | credit for effects measured later: receipts, the cerebellum at settle, exactly-once credit, `stale` and `call_error` kinds, a per-modulator valence default | §6.4 | an amendment to `tool_failure_credit.md` |
 | OD-B8 | the oscillator steps by elapsed time; light entrains the circadian scale | §3.3 | tier B, earned by OD-X1 |
 | OD-B9, OD-B10 | coarse time for cognition (interim bins, then estimates); an interval sense | §3.2 | tier B, earned by OD-X2 |
@@ -732,14 +815,14 @@ Most are now roadmap Phase 3 rows (the Phase 3 fold added them); the rest are fo
 
 | Ask | Roadmap |
 |---|---|
-| The embeddable agent contract: entry point, closed tool roster, per-agent home, no pickle, streaming and cancellation, `step` and `think` returning values, agent isolation | OD-A10–OD-A15 |
+| The embeddable agent contract: entry point, closed tool roster, `AgentHome`, the request/reply cut, the stepped `think`, the leak closure, dispatch/settle | OD-A10–OD-A15, OD-A17, OD-A18 |
 | `context_pool.py:468, :493` in the prompt and observation time row, with no host time zone | OD-A3 |
 | A world calendar on the injected clock, or "no calendar" (X-9, BF2-7) | OD-A2, OD-B13 |
 | A per-modulator valence default instead of D53's silent POSITIVE (BF2-3) | OD-A16 |
 | A mental-fatigue drive; `CouplingSpec` can't carry graded load (BF2-1), arguing against the SHAPE-FROZEN rationale about `extra` (fair about `extra`, but the shape fixes coupling as binary) | OD-B12 |
 | Embedder-supplied modelled latency for the learned hold window | OD-H2 |
 | Deliberation started during the other speaker's turn | OD-H4 |
-| **Keyed RNG substreams,** not sequential ones (DR-S4) | not yet placed |
+| **Keyed RNG substreams,** not sequential ones (DR-S4, BD-13) | OD-A7 |
 | **A step-size invariance exit test** in tier A (X-11) | not yet placed |
 | **World-time staleness thresholds** (`LLMWorker`'s 5 s, `_STALE_PROPOSAL_AGE_S`, the orchestrator's 15, 30 and 60 s; world_v2 BF-5.4) | not yet placed explicitly; nearest OD-A15 |
 
@@ -785,6 +868,12 @@ Without floor arms, either experiment could reach only `PARTIAL (narrow: floor m
 (2026-10-10). The refractory and habituation curves are manipulation checks. Both go to `docs/experiments/` only after
 a four-lens design review.
 
+**When a game-earned result can move a Maxim claim (BD-17, Arch 4.6).** Only through a Maxim-owned harness, under a
+pre-registration frozen before data, with engineering invariants (bit-identical replays, parity digests) kept apart
+from behavioural claims, which stay PARTIAL until a transfer check passes on a Maxim-owned task or the robot, and with
+every world-only affordance declared. The caution cuts both ways: Maxim's robot defaults never become game constants;
+floor thresholds, *h* and filler timing are per-world parameters on the listener's clock.
+
 ## 11. What this supersedes
 
 ### 11.1 In `realtime_lanes_coop.md`
@@ -813,13 +902,27 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
 | live results apply at `max(T + d_min, first tick after arrival)`; "the world never waits" | the world dilates under the default policy, with a floor `D ≥ D_min > 0` (§4.4) |
 | the world-time latency mode for headless cradles only | generalised as the default for live play, with DLP-B2's fixes |
 
+### 11.3 In v2 of this part (after Maxim's answers)
+
+| v2 | v3 |
+|---|---|
+| `AgentPort` split in two, with a host service protocol and `request_thought` | `step`, `think` and `settle`, all host-called (§6.2) |
+| a host-supplied gateway as a cancellable `LLMBackend` with a token iterator | the request/reply cut above the backend; cancel is a `cancelled(prefix)` reply (§6.1) |
+| "tool calls" in a thought, and a tool-call cap | PFC cycles, `parallel_actions`, `next_actions` and follow-up chains per triggering input (§4.7) |
+| tool schemas in the cache key | `tools is None` asserted (§4.8) |
+| at most one real Maxim agent per process | one worker process per real agent (§6.3) |
+| `AgentTime` as one injected clock | a machinery clock plus a perceived-time port (§6.1) |
+| filler, then yield | filler, account, yield (§4.4) |
+
 ## 12. Open questions and divergences
 
 ### 12.1 For the owner
 
-1. **Guest sessions with real-Maxim NPCs before tier A.** Host data (local time and time zone, workspace paths, the
-   owner's own Maxim memories) reaches NPC dialogue until tier A. Proposed: the host refuses guest sessions while
-   real-Maxim NPCs are live, until the prompt test passes on the pinned pymaxim (TB2-S9).
+1. **Guest sessions with real-Maxim NPCs: decided (O14).** They wait for five gates: the worker process (O13); a
+   no-effect test; a dialogue-level bypass test (prefetch, the shortcut, the parse-failure template, phrase commands,
+   which trigger on "maxim", the name of our world); line separators refused in `speak`; and memory provenance by
+   speaker with a purge path. Provenance and lane-decision JSONL currently write guests' words into the owner's
+   `~/.maxim` (TBR-13), which `AgentHome` and the worker's scrubbed environment close.
 2. **Local or remote LLM.** If a remote provider is ever used, it receives players' words; that needs a stated
    disclosure (TB2-S9).
 3. **The stale-refusal fix gates Phase 4.** Roadmap Phase 3's exit now requires OD-A16, so the first NPCs never learn
@@ -838,11 +941,17 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
      weak loading on gaps at most; no study links lab speed to conversational gaps.
    - **Optional slow tail** (`[engineering]`): real populations have a heavier slow tail than a lognormal; a small
      slow group (about 5% of NPCs, twice the sigma) would give it.
+6. **Phase 4's interim live-play policy.** Floor-holding needs OD-H5, a paper plan in Maxim's 1.5 line, while
+   Phase 4's real NPCs wait only for 1.4.0. Until OD-H5 lands, does live play dilate (the world slows while an NPC
+   thinks) or abandon (logged statue NPCs, §4.4)? Proposed: dilate, with the three-handed clock showing it.
 
 ### 12.2 Known OPEN divergences (each with a red gate when there is code)
 
-- Real Maxim reads the host clock on the live path (about 880 reads); closes with tier A.
-- Real Maxim's prompt carries host time, time zone and the workspace manifest; closes with tier A's prompt rows.
+- Real Maxim reads the host clock on the live path (608 `time.time()`, 145 `time.monotonic()`, 20 `datetime.now`
+  on 7084f561); determinism closes with tier A's machinery clock on the ~30 step-path files.
+- Real Maxim's prompt carries host time, time zone and the workspace manifest. **This closes only with the
+  perceived-time port and the planted-render test, not with the machinery clock** (BD-15), so landing tier A's clock
+  doesn't retire the O4 gate.
 - The prompt and dial-invisibility tests against real Maxim; red until tier A.
 - Two clocks reach one agent (the membrane stamps world seconds, Maxim's sensors epoch seconds); closes with SEM S2
   and OD-A2.
@@ -852,6 +961,12 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
 - Stale refusals book NEGATIVE; closes with OD-A16.
 - Slow-effect credit; closes with OD-A16's settle horizon.
 - The NPC is a statue while a thought is in flight; closes with the hybrid line's substrate.
+- Real NPCs wait for the stepped `think`, which lands after Maxim's 1.4.0 cut with the agent-loop decomposition slice
+  (O15a); until then every agent test runs on the test double.
+- LLM-bypassing replies on the core path (prefetch, the short-question shortcut, the parse-failure template); closes
+  with OD-A17, and the worker process contains them meanwhile.
+- Any shared router serialises inference (`_inference_lock`); the host never shares one across NPCs, and closes it
+  structurally with the request/reply cut.
 - Maxim has no turn-taking substrate (gaze, backchannels, fillers, floor-holding); closes with OD-H5 if Maxim takes it
   (OA3, revised).
 - The SCN phase is an oracle (host calendar today, exact world phase after tier A); closes with OD-B8 if OD-X1 earns it.
@@ -863,8 +978,10 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
 ### 12.3 Source inconsistencies
 
 - v1's §12.3 note that `boundaries.md` §9.3 still carried two wrong asks was stale at 4f7a754 and is removed.
-- The counts are settled (X-3): on Maxim `main`, 36 `uuid4` calls, 27 global-`random` calls, 36
-  `default_factory=time.time` stamps in 19 files. The roadmap's "39 global `random`" had no basis.
+- The counts are settled (X-3), and both sides now agree: on Maxim `main`, 36 `uuid4` code lines in 24 files, 27
+  global-`random` calls, 36 `default_factory=time.time` stamps in 19 files (plus one `time.monotonic` at
+  `tools/registry.py:146`). The roadmap's "39 global `random`" had no basis. The count of `MAXIM_*` names read depends
+  on the search pattern (122–213); "far more than 50" is what holds.
 - The skeptic's brief drew perceived-time noise from "the world RNG"; the per-NPC streams of §3.4 supersede it.
 
 ## Fold table: the foundations review (`reviews/foundations_v1/`)
@@ -979,3 +1096,106 @@ tripwire mechanism is also folded into `boundaries.md` §3.)
 
 NITs folded where they touched a section: BF2-10 to BF2-15; world_v2 NIT-1 ("context for the next thought") and
 NIT-2 (surface temperature).
+
+## Fold table: Maxim's answers and their review (`reviews/maxim_response_1/`)
+
+Generated by a script from the ids present in the four lens files (`executor.md`, `architecture.md`,
+`bio_determinism.md`, `trust_boundary.md`); the script refuses an id without a row and a row without an id.
+
+| Lens | Id | Status | Where, or why not |
+|---|---|---|---|
+| bio_determinism | BD-1 | partial | §5.1, OD-H5: its own plan, not `learned_hold_window`; the fixed-in-v1 yield deadline (learned only with a social cost) is left to the OD-H5 plan |
+| bio_determinism | BD-2 | folded | §5.1 |
+| bio_determinism | BD-3 | folded | §4.4 |
+| bio_determinism | BD-4 | folded | O11a, §4.4 (the lateness meter) |
+| bio_determinism | BD-5 | folded | §5.1 |
+| bio_determinism | BD-6 | folded | §5.1 |
+| bio_determinism | BD-7 | folded | O11a, §4.4; its citation corrected after Maxim's second answer (Stivers & Robinson supports the order only) |
+| bio_determinism | BD-8 | folded | §5.1 |
+| bio_determinism | BD-9 | folded | §5.1 |
+| bio_determinism | BD-10 | folded | §5.1, OD-H5 |
+| bio_determinism | BD-11 | folded | §6.1 (the clock seam), OD-A2 |
+| bio_determinism | BD-12 | folded | §6.1, OD-A2, OD-A3; the guard is the planted-render test plus a lint, per Maxim |
+| bio_determinism | BD-13 | folded | §6.1, OD-A7: keyed `random.Random` substreams (Maxim: Philox isn't needed), `seed_all` banned |
+| bio_determinism | BD-14 | partial | OD-A2 (an advancing fake clock), OD-A7 (`time_ns` ids); the rest (decay on load, monotonic stamps across saves, thread and set order, embedding floats, LLMs at T = 0, file-system order) is in `reply.md` §5 for Maxim's candidates doc, not yet in a design row |
+| bio_determinism | BD-15 | folded | §12.2 |
+| bio_determinism | BD-16 | folded | §4.8 |
+| bio_determinism | BD-17 | folded | §10 |
+| bio_determinism | BD-18 | partial | OD-H6 (the wall interval on the machinery clock now; escalation later); the idle-DMN second trigger and a world-time refractory are not yet written |
+| bio_determinism | BD-19 | folded | §6.1 (credit at settle), §6.4, OD-A18 |
+| trust_boundary | TBR-1 | folded | §6.1 (the leak closure), OD-A17 |
+| trust_boundary | TBR-2 | folded | §6.1, `embeddable_agent_DRAFT.md` §3 (three tests plus a static ban) |
+| trust_boundary | TBR-3 | folded | §6.1, OD-A17; the worker process contains what isn't closed yet (O13) |
+| trust_boundary | TBR-4 | folded | O13, §6.3 (`spawn`, the latch after the pipe) |
+| trust_boundary | TBR-5 | folded | O13, §6.3 |
+| trust_boundary | TBR-6 | folded | §6.4, OD-A18 (side doors folded into dispatch) |
+| trust_boundary | TBR-7 | folded | §6.1, OD-A17, §12.1 item 1 |
+| trust_boundary | TBR-8 | folded | §5.2, O14 |
+| trust_boundary | TBR-9 | folded | §6.1: the request/reply cut makes the model path the host's |
+| trust_boundary | TBR-10 | folded | §6.1, OD-I3 |
+| trust_boundary | TBR-11 | folded | §5.2, O14, OD-I5; the worker holds no keys (O13) |
+| trust_boundary | TBR-12 | folded | O13 (a scrubbed environment) |
+| trust_boundary | TBR-13 | folded | §12.1 item 1, OD-A12 |
+| trust_boundary | TBR-14 | folded | O14, §12.1 item 1 |
+| architecture | 1.1 | folded | §6.2, §11.3, §4.8 |
+| architecture | 1.2 | partial | §6.1 (world vs cognition tools, proposed): Maxim's answers didn't cover it |
+| architecture | 1.3 | folded | §4.7, `embeddable_agent_DRAFT.md` OD-EA9 |
+| architecture | 1.4 | folded | §4.2 (P1c), §4.5 |
+| architecture | 2.1 | folded | §6.1 |
+| architecture | 2.2 | folded | §6.1 (the continuation), `embeddable_agent_DRAFT.md` §2 (a census of think-path writes first) |
+| architecture | 2.3 | folded | §6.1 (the basis) |
+| architecture | 2.4 | folded | §6.1, OD-A15 |
+| architecture | 2.5 | folded | §6.1 (a model role) |
+| architecture | 2.6 | folded | §6.1, §5.2 (per-chunk validation) |
+| architecture | 3.1 | folded | O15a, OD-A15 |
+| architecture | 3.2 | folded | O15, O15a (accepted, with the stepped `think` after 1.4.0) |
+| architecture | 4.1 | folded | §6.1 (injectable keyed substreams) |
+| architecture | 4.2 | folded | OD-A11, OD-A18 (Maxim: no contradiction) |
+| architecture | 4.3 | partial | OD-A16/OD-A18 (D53, settle keys), OD-A18 (side doors), OD-A12 (ConceptExtractor), §4.7 (chains, guest holds), OD-H6 (the submit trigger); the write window for agent stores is not written |
+| architecture | 4.4 | folded | §6.1 (priority and deadline fields) |
+| architecture | 4.5 | folded | §4.8 |
+| architecture | 4.6 | folded | §10 |
+| architecture | §5 | folded | this revision: O6a, O7a, §4.2, §4.4, §4.5, §4.7, §4.8, §5.2, §6.1, §6.2; `boundaries.md` §7.1, §7.4; the embeddable draft; roadmap Phase 3; OA3's interim is §12.1 item 6 |
+| executor | 1a | folded | §4.2 (`next_actions`) |
+| executor | 1b | folded | §6.1 |
+| executor | 1c | folded | §4.2 (P1c), §6.1 |
+| executor | 1d | folded | §6.1 (no inner tool loop) |
+| executor | 2a | folded | §6.1 |
+| executor | 2b | folded | §12.2 (never share a router) |
+| executor | 3a | folded | §6.1 front gate |
+| executor | 3b | folded | §6.1 front gate |
+| executor | 3c | folded | §4.7 (`maxItems`) |
+| executor | 3d | folded | O13 |
+| executor | 4a | folded | §6.1 (`AgentHome`) |
+| executor | 4b | folded | §6.1 (`AgentHome`) |
+| executor | 4c | folded | §6.1 (`bio_stack.py:654`) |
+| executor | 4d | folded | §6.1 (keyed substreams) |
+| executor | 5a | folded | §12.3 |
+| executor | 5b | folded | §12.3 |
+| executor | 5c | not folded | the 3 legacy `np.random` calls change no design row; OD-A7's scope (randomness outside the fence) covers them |
+| executor | 5d | folded | §12.3 |
+| executor | 5e | folded | §12.2 |
+| executor | 5f | folded | §12.3 |
+| executor | 5g | folded | OD-I1 |
+| executor | 6a | folded | OD-I3 |
+| executor | 6b | folded | §6.1, OD-I3 |
+| executor | 6c | folded | OD-I3 |
+| executor | 6d | folded | OD-I3 |
+| executor | 7a | folded | §6.1 (roster row) |
+| executor | 7b | folded | OD-H6 |
+| executor | 7c | folded | OD-I4 |
+| executor | 7d | folded | OD-I4 |
+| executor | 7e | folded | §6.1, O13 (no keys, the gateway in the host) |
+| executor | 8a | folded | §5.1, OD-H5 |
+| executor | 8b | folded | O15a |
+| executor | — Citations for the resumable-think cut po | folded | §6.1, `embeddable_agent_DRAFT.md` §1 |
+| executor | — Advisor POSIX-only | folded | O13 (Windows needs an OS sandbox) |
+| executor | N1 | folded | §4.2, §6.1 |
+| executor | N2 | folded | §6.1, OD-A17 |
+| executor | N3 | folded | §12.2 |
+| executor | N4 | folded | O13 |
+| executor | N5 | folded | §6.1 (keyed substreams, `seed_all` banned) |
+| executor | N6 | folded | §12.3 |
+| executor | N7 | folded | §6.1 uses the corrected citations |
+
+**Counts:** 93 ids; 87 folded, 5 partial, 1 not folded.
