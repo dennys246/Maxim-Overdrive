@@ -9,6 +9,8 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import math
+from collections.abc import Callable
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -820,13 +822,56 @@ _spec_like = st.fixed_dictionaries(
 def test_an_imagined_object_from_any_json_is_placed_or_refused_and_a_refusal_changes_nothing(
     rig, materials, spec, origin
 ):
-    g = Scene((3.0, 3.0, 2.0)).build(rig, materials)
-    before = g.material.copy()
+    # A named wall, so the occupied, namesake and footprint refusals are reachable too.
+    g = Scene((3.0, 3.0, 2.0), (Box((0.0, 0.0, 0.0), (0.6, 3.0, 2.0), "concrete", "wall"),)).build(rig, materials)
+    before, regions = g.material.copy(), set(g.regions)
     try:
-        place(g, spec, origin)
+        mass = place(g, spec, origin)
     except SpecRejected:
         assert np.array_equal(g.material, before)
-        assert not g.regions
+        assert set(g.regions) == regions
+    else:
+        assert mass > 0
+        assert set(g.regions) == regions | {spec["name"]}
+
+
+def _mutation_paths(doc: object, prefix: tuple[object, ...] = ()) -> list[tuple[object, ...]]:
+    """Every key path into a parsed data file's mappings, the file itself first."""
+    paths = [prefix]
+    if isinstance(doc, dict):
+        for k, v in doc.items():
+            paths += _mutation_paths(v, (*prefix, k))
+    return paths
+
+
+_DATA_FILES: list[tuple[Callable[[Path], object], Path]] = [
+    (RigProfile.load, data_dir() / "rigs" / "rig.yaml"),
+    (MaterialTable.load, data_dir() / "materials" / "core.yaml"),
+    (ActionLimits.load, data_dir() / "world" / "actions.yaml"),
+]
+
+
+@settings(max_examples=200, deadline=None)
+@given(data=st.data())
+def test_every_data_loader_loads_or_refuses_one_change_to_its_real_file(tmp_path_factory, data):
+    # One change to a real file reaches every check behind the first: number checks, each material, __post_init__.
+    for load, source in _DATA_FILES:
+        doc = yaml.safe_load(source.read_text())
+        path = data.draw(st.sampled_from(_mutation_paths(doc)[1:]))
+        parent = doc
+        for key in path[:-1]:
+            parent = parent[key]
+        change = data.draw(st.sampled_from(["replace", "delete", "add"]))
+        if change == "replace":
+            parent[path[-1]] = data.draw(_json | _number)
+        elif change == "delete":
+            del parent[path[-1]]
+        else:
+            parent[data.draw(st.text(min_size=1, max_size=12))] = data.draw(_json)
+        file = tmp_path_factory.mktemp("mutated") / source.name
+        file.write_text(yaml.safe_dump(doc))
+        with contextlib.suppress(ValueError):
+            load(file)
 
 
 @settings(max_examples=150, deadline=None)
