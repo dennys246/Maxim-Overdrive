@@ -37,6 +37,11 @@ temperature plus phase-change progress as the stored heat state.
 - **D24. The design is split into three documents, each reviewed separately.**
 - **D25. Physics standard:** reconstruct, decide at the point, integrate upward (CLAUDE.md). This part applies it to
   every law, not one (P-verdict).
+- **D26. Tile first (owner, 2026-11-17, after the plan review).** Phase 1's exit is the roadmap's original one: walk
+  into the alley, set a crate on fire, watch it crack, glow and burn away. The crate burns out by a fuel-mass law
+  in open air. The lab's sealed and vented fires (O₂, zones, combustion per zone, products) move to Phase 2, and so
+  do phase change and the CSG footprints. This amends D23: the lab is Phase 2's benchmark tile, not Phase 1's. §10's
+  order is replaced for Phase 1 by `docs/plans/foundations_plan.md` §2.
 
 ## 1. Resolution: one truth
 

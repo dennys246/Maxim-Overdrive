@@ -45,7 +45,7 @@ COMMENT_PREFIX = {".py": "#", ".toml": "#", ".sh": "#", ".yml": "#", ".yaml": "#
 MARKER_EXEMPT = {"scripts/lint_standards.py", "tests/test_lint_standards.py", "CLAUDE.md", "docs/code_review.md"}
 # Review findings and research reports are records of what a reader wrote, kept verbatim; they quote marker syntax
 # when they discuss band-aids, and quoting one isn't placing one.
-MARKER_EXEMPT_DIRS = ("docs/design/reviews/", "docs/design/research/")
+MARKER_EXEMPT_DIRS = ("docs/design/reviews/", "docs/design/research/", "docs/plans/reviews/")
 
 
 def phase_sections(roadmap: str) -> dict[int, tuple[str, str]]:
