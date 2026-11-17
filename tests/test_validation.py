@@ -536,3 +536,102 @@ def test_paint_refuses_a_confusable_name_before_painting(rig, materials):
     with pytest.raises(ValueError, match="already exists"):
         g.paint(np.ones(g.shape, dtype=bool), "steel", region="Crate", footprint=footprint)
     assert np.array_equal(g.material, before)
+
+
+# -- closed schemas: every loader refuses a key it doesn't know, at every level (B12) ----------------------------------
+
+RIG_FILE = "name: t\ncell_size_m: 0.25\nmin_substeps_per_turn: 2\nfull_res_radius_m: 4.0\n"
+
+
+@pytest.mark.parametrize(
+    ("text", "message"),
+    [
+        (RIG_FILE + "cell_size: 0.5\n", r"unknown key\(s\) \['cell_size'\]"),  # a misspelt cell_size_m
+        (RIG_FILE + "cell_size_m: 0.5\n", "repeated key"),  # the second value would silently win
+        ("- name: t\n", "rig profile .* must be a mapping"),
+        ("cell_size_m: [\n", "not valid YAML"),
+    ],
+)
+def test_a_rig_file_refuses_unknown_and_repeated_keys(tmp_path, text, message):
+    path = tmp_path / "t.yaml"
+    path.write_text(text)
+    with pytest.raises(ValueError, match=message):
+        RigProfile.load(path)
+
+
+def _material_file(tmp_path, edit):
+    raw = yaml.safe_load((data_dir() / "materials" / "core.yaml").read_text())
+    edit(raw)
+    path = tmp_path / "core.yaml"
+    path.write_text(yaml.safe_dump(raw))
+    return path
+
+
+@pytest.mark.parametrize(
+    ("edit", "message"),
+    [
+        (lambda raw: raw.update(materails={}), r"material table: unknown key\(s\) \['materails'\]"),
+        # A misspelt degrade_above_c: without the refusal, wood would silently never degrade.
+        (lambda raw: raw["materials"]["wood"].update(degrade_above=250.0), r"material wood: unknown key\(s\)"),
+        (lambda raw: raw["materials"].update(steel=[1, 2]), "material steel must be a mapping"),
+        (lambda raw: raw.update(materials=[1]), "materials must be a mapping"),
+    ],
+)
+def test_a_material_file_refuses_unknown_keys_at_every_level(tmp_path, edit, message):
+    with pytest.raises(ValueError, match=message):
+        MaterialTable.load(_material_file(tmp_path, edit))
+
+
+def test_a_material_file_refuses_a_repeated_key(tmp_path):
+    text = (data_dir() / "materials" / "core.yaml").read_text()
+    path = tmp_path / "core.yaml"
+    path.write_text(text.replace("  wood:\n", "  wood:\n    id: 99\n", 1))
+    with pytest.raises(ValueError, match="repeated key"):
+        MaterialTable.load(path)
+
+
+BOX_RAW = {"kind": "box", "min_m": [0, 0, 0], "max_m": [0.5, 0.5, 0.5], "material": "wood", "name": "crate"}
+CYLINDER_RAW = {"kind": "cylinder", "center_xy_m": [0.5, 0.5], "radius_m": 0.2, "z_m": [0, 1], "material": "wood"}
+
+
+@pytest.mark.parametrize(
+    ("raw", "message"),
+    [
+        ({"extent_m": [1, 1, 1], "primitives": [], "ambient": 30.0}, r"scene: unknown key\(s\) \['ambient'\]"),
+        ({"extent_m": [1, 1, 1], "primitives": [{**BOX_RAW, "colour": "red"}]}, r"box primitive: unknown key"),
+        ({"extent_m": [1, 1, 1], "primitives": [{**CYLINDER_RAW, "radius": 1}]}, r"cylinder primitive: unknown key"),
+        ({"extent_m": [1, 1, 1], "primitives": [{**BOX_RAW, "radius_m": 0.2}]}, r"box primitive: unknown key"),
+    ],
+)
+def test_a_scene_refuses_unknown_keys_at_every_level(raw, message):
+    with pytest.raises(ValueError, match=message):
+        Scene.from_dict(raw)
+
+
+def test_a_scene_accepts_every_key_it_knows():
+    scene = Scene.from_dict({"extent_m": [1, 1, 1], "primitives": [BOX_RAW, CYLINDER_RAW], "ambient_c": 25.0})
+    assert [p.kind for p in scene.primitives] == ["box", "cylinder"]
+    assert scene.ambient_c == 25.0
+
+
+@pytest.mark.parametrize(
+    ("spec", "message"),
+    [
+        # A provenance or licence field the reader doesn't know must not vanish silently.
+        ({"name": "crate", "primitives": [BOX_RAW], "licence": "cc-by"}, r"unknown key\(s\) \['licence'\]"),
+        ({"name": "crate", "primitves": [BOX_RAW]}, r"unknown key\(s\) \['primitves'\]"),
+        ({"name": "crate", "primitives": [{**BOX_RAW, "colour": "red"}]}, "malformed spec: box primitive: unknown"),
+    ],
+)
+def test_an_imagined_object_refuses_unknown_keys(rig, materials, spec, message):
+    g = Scene((3.0, 3.0, 2.0)).build(rig, materials)
+    with pytest.raises(SpecRejected, match=message):
+        place(g, spec, (1.0, 1.0, 0.0))
+    assert not g.regions  # refused before anything was painted
+
+
+@pytest.mark.parametrize("value", [5, "red", [1, 2], {"r": 1}])
+def test_a_material_colour_must_be_three_whole_numbers(tmp_path, value):
+    path = _material_file(tmp_path, lambda raw: raw["materials"]["wood"].update(color_rgb=value))
+    with pytest.raises(ValueError, match=r"wood\.color_rgb must be three whole numbers"):
+        MaterialTable.load(path)

@@ -3,14 +3,16 @@
 Data files (rigs, materials, action limits, scenes), imagined specs and SEM actions (an NPC's tool call, an LLM's
 output, a client's intent) all reach the world as loosely typed values. Each number becomes a float here or is
 refused here, so nothing downstream sees NaN, an infinity, a bool posing as a number, or a string that ``float()``
-would quietly accept. ``tests/test_validation.py`` and ``tests/test_act_validation.py`` hold every loader to it.
+would quietly accept. Each mapping is held to the keys its reader knows (``known_keys``), so a misspelt key is
+refused rather than silently ignored. ``tests/test_validation.py`` and ``tests/test_act_validation.py`` hold every
+loader to it.
 """
 
 from __future__ import annotations
 
 import math
 import numbers
-from collections.abc import Sequence
+from collections.abc import Collection, Mapping, Sequence
 
 
 def finite_real(value: object, what: str) -> float:
@@ -32,6 +34,21 @@ def whole_number(value: object, what: str) -> int:
     if isinstance(value, bool) or not isinstance(value, numbers.Integral):
         raise ValueError(f"{what} must be a whole number, got {value!r}")
     return int(value)
+
+
+def known_keys(raw: object, allowed: Collection[str], what: str) -> Mapping[str, object]:
+    """``raw`` as a mapping whose keys are all in ``allowed``, or a ValueError that names the unknown ones.
+
+    A closed schema: a key the reader doesn't know is refused, never ignored, so a typo such as ``degrade_above`` for
+    ``degrade_above_c`` can't silently change what the world does. A new field is added here and to the format's
+    version, not slipped in.
+    """
+    if not isinstance(raw, Mapping):
+        raise ValueError(f"{what} must be a mapping, got {type(raw).__name__}")
+    unknown = sorted(str(k) for k in raw if k not in allowed)
+    if unknown:
+        raise ValueError(f"{what}: unknown key(s) {unknown}; it takes {sorted(allowed)}")
+    return raw
 
 
 def finite_vector(value: object, n: int, what: str) -> tuple[float, ...]:

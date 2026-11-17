@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import dataclasses
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -9,7 +11,7 @@ from typing import Any
 import numpy as np
 import yaml
 
-from maxim_overdrive.checks import finite_real, whole_number
+from maxim_overdrive.checks import finite_real, known_keys, whole_number
 
 
 def data_dir() -> Path:
@@ -43,13 +45,16 @@ class RigProfile:
         path = Path(name_or_path)
         if not path.suffix:
             path = data_dir() / "rigs" / f"{name_or_path}.yaml"
-        raw = yaml.safe_load(path.read_text())
+        raw = known_keys(read_yaml(path), RIG_KEYS, f"rig profile {path}")
         return cls(
             name=str(raw["name"]),
             cell_size_m=finite_real(raw["cell_size_m"], "cell_size_m"),
             min_substeps_per_turn=whole_number(raw["min_substeps_per_turn"], "min_substeps_per_turn"),
             full_res_radius_m=finite_real(raw["full_res_radius_m"], "full_res_radius_m"),
         )
+
+
+RIG_KEYS = frozenset({"name", "cell_size_m", "min_substeps_per_turn", "full_res_radius_m"})
 
 
 @dataclass(frozen=True)
@@ -74,7 +79,15 @@ class Material:
         return self.density_kg_m3 * self.specific_heat_j_kgk
 
 
+def _colour(value: object, what: str) -> tuple[int, int, int]:
+    """Three whole numbers, or a ValueError that names the field (a scalar or a string is refused, not iterated)."""
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or len(value) != 3:
+        raise ValueError(f"{what} must be three whole numbers, got {value!r}")
+    return (whole_number(value[0], what), whole_number(value[1], what), whole_number(value[2], what))
+
+
 AIR_ID = 0
+MATERIAL_KEYS = frozenset({f.name for f in dataclasses.fields(Material)} - {"name"})
 
 
 class MaterialTable:
@@ -116,9 +129,12 @@ class MaterialTable:
     @classmethod
     def load(cls, path: str | Path | None = None) -> MaterialTable:
         path = Path(path) if path is not None else data_dir() / "materials" / "core.yaml"
-        raw: dict[str, Any] = yaml.safe_load(path.read_text())["materials"]
+        raw = known_keys(read_yaml(path), {"materials"}, "material table").get("materials")
+        if not isinstance(raw, Mapping):
+            raise ValueError(f"materials must be a mapping, got {type(raw).__name__}")
         mats = {}
-        for name, v in raw.items():
+        for name, entry in raw.items():
+            v = known_keys(entry, MATERIAL_KEYS, f"material {name}")
             mats[name] = Material(
                 name=name,
                 id=whole_number(v["id"], f"{name}.id"),
@@ -132,7 +148,7 @@ class MaterialTable:
                 degrade_rate_per_s_per_100c=finite_real(
                     v.get("degrade_rate_per_s_per_100c", 0.0), f"{name}.degrade_rate_per_s_per_100c"
                 ),
-                color_rgb=tuple(whole_number(c, f"{name}.color_rgb") for c in v["color_rgb"]),  # type: ignore[arg-type]
+                color_rgb=_colour(v["color_rgb"], f"{name}.color_rgb"),
             )
         return cls(mats)
 
@@ -163,6 +179,19 @@ def _no_duplicate_keys(loader: _StrictLoader, node: yaml.MappingNode) -> dict[An
 
 
 _StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicate_keys)
+
+
+def read_yaml(path: Path) -> object:
+    """A data file parsed strictly: invalid YAML and repeated keys are refused, with the file named.
+
+    Every data loader reads through here, so none of them can keep the last of two values for one key.
+    """
+    try:
+        return yaml.load(path.read_text(), Loader=_StrictLoader)  # a SafeLoader subclass
+    except yaml.YAMLError as exc:  # reported, with the file, as the refusal
+        raise ValueError(f"{path}: not valid YAML: {exc}") from None
+    except ValueError as exc:
+        raise ValueError(f"{path}: {exc}") from None
 
 
 @dataclass(frozen=True)
@@ -199,12 +228,7 @@ class ActionLimits:
     @classmethod
     def load(cls, path: str | Path | None = None) -> ActionLimits:
         path = Path(path) if path is not None else data_dir() / "world" / "actions.yaml"
-        try:
-            raw = yaml.load(path.read_text(), Loader=_StrictLoader)  # a SafeLoader subclass
-        except yaml.YAMLError as exc:  # reported, with the file, as the refusal
-            raise ValueError(f"{path}: not valid YAML: {exc}") from None
-        except ValueError as exc:
-            raise ValueError(f"{path}: {exc}") from None
+        raw = read_yaml(path)
         version = raw.get("version") if isinstance(raw, dict) else raw
         if type(version) is not int or version != ACTION_LIMITS_VERSION:  # True and 0.0 are not version 0
             raise ValueError(f"{path}: action limits version must be {ACTION_LIMITS_VERSION}, got {version!r}")

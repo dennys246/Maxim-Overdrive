@@ -17,7 +17,7 @@ from typing import Any, SupportsFloat
 
 import numpy as np
 
-from maxim_overdrive.checks import finite_vector
+from maxim_overdrive.checks import finite_vector, known_keys
 from maxim_overdrive.world.grid import MaterialGrid, entity_key
 from maxim_overdrive.world.scene import Box, Cylinder, Primitive, Scene, boxes_overlap, footprint_of
 
@@ -41,10 +41,19 @@ def _offset(p: Primitive, o: tuple[float, float, float]) -> Primitive:
     )
 
 
+# The keys an imagined object may carry. A new one (a description, provenance, a licence) is added here and to the
+# content its id hashes, as one list (docs/design/ip_and_licensing.md on phase1/realtime-design, section 6).
+SPEC_KEYS = frozenset({"name", "primitives"})
+
+
 def _read(grid: MaterialGrid, spec: object, origin_m: object) -> tuple[str, list[Primitive]]:
     """The spec's name and its primitives placed at ``origin_m``, or SpecRejected. Nothing here touches the grid."""
     if not isinstance(spec, Mapping):
         raise SpecRejected(f"an imagined object must be a mapping, got {type(spec).__name__}")
+    try:
+        known_keys(spec, SPEC_KEYS, "an imagined object")
+    except ValueError as exc:  # reported as the refusal
+        raise SpecRejected(str(exc)) from exc
     name = spec.get("name")
     if not name or not isinstance(name, str) or not name.strip() or name != name.strip():
         raise SpecRejected("an imagined object needs a name, with no outer spaces")

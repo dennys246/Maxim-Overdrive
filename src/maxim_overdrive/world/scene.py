@@ -14,7 +14,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
-from maxim_overdrive.checks import finite_real, finite_vector
+from maxim_overdrive.checks import finite_real, finite_vector, known_keys
 from maxim_overdrive.config import MaterialTable, RigProfile
 from maxim_overdrive.world.grid import Bounds, Footprint, Mask, MaterialGrid, Point
 
@@ -151,6 +151,14 @@ MAX_AMBIENT_C = 3000.0
 MAX_EXTENT_M = 1000.0
 
 
+# The closed key sets of a scene written as data (Scene.from_dict): a key outside these is refused, not ignored.
+SCENE_KEYS = frozenset({"extent_m", "primitives", "ambient_c"})
+PRIMITIVE_KEYS = {
+    "box": frozenset({"kind", "min_m", "max_m", "material", "name"}),
+    "cylinder": frozenset({"kind", "center_xy_m", "radius_m", "z_m", "material", "name"}),
+}
+
+
 @dataclass(frozen=True)
 class Scene:
     extent_m: tuple[float, float, float]
@@ -185,6 +193,7 @@ class Scene:
         """A scene from parsed YAML or JSON. Any malformed shape is a ValueError that says what was wrong."""
         if not isinstance(raw, Mapping):
             raise ValueError(f"a scene must be a mapping, got {type(raw).__name__}")
+        known_keys(raw, SCENE_KEYS, "scene")
         listed = raw.get("primitives", [])
         if isinstance(listed, (str, bytes, Mapping)) or not isinstance(listed, Sequence):
             raise ValueError(f"primitives must be a list, got {type(listed).__name__}")
@@ -193,10 +202,11 @@ class Scene:
             if not isinstance(p, Mapping):
                 raise ValueError(f"each primitive must be a mapping, got {p!r}")
             kind = p.get("kind", "box")
+            if kind not in PRIMITIVE_KEYS:
+                raise ValueError(f"unknown primitive kind {kind!r}")
+            known_keys(p, PRIMITIVE_KEYS[kind], f"{kind} primitive")
             if kind == "box":
                 prims.append(Box(p["min_m"], p["max_m"], p["material"], p.get("name")))
-            elif kind == "cylinder":
-                prims.append(Cylinder(p["center_xy_m"], p["radius_m"], p["z_m"], p["material"], p.get("name")))
             else:
-                raise ValueError(f"unknown primitive kind {kind!r}")
+                prims.append(Cylinder(p["center_xy_m"], p["radius_m"], p["z_m"], p["material"], p.get("name")))
         return cls(tuple(raw["extent_m"]), tuple(prims), raw.get("ambient_c", 20.0))
