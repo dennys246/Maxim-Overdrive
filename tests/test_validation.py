@@ -9,6 +9,7 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import math
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
@@ -921,6 +922,7 @@ def test_every_data_loader_loads_or_refuses_any_file(tmp_path_factory, raw, as_y
 
 # -- format versions: every data format names its version, and a reader refuses one it doesn't know (B21) --------------
 
+ROOT = Path(__file__).resolve().parents[1]
 BAD_VERSIONS = [("1", "got 1"), ("true", "got True"), ("0.0", "got 0.0"), ("'0'", "got '0'"), ("~", "got None")]
 
 
@@ -962,7 +964,9 @@ def test_every_shipped_data_file_is_at_its_formats_current_version():
         "materials": (MaterialTable.load, MATERIAL_TABLE_VERSION),
         "world": (ActionLimits.load, ACTION_LIMITS_VERSION),
     }
-    files = sorted(p for p in data_dir().rglob("*") if p.is_file())
+    # The files git tracks, not whatever is on disk: a Finder .DS_Store is not a data file.
+    listed = subprocess.run(["git", "ls-files", "data"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    files = [ROOT / line for line in listed.splitlines()]
     assert files
     for path in files:
         kind = path.relative_to(data_dir()).parts[0]
@@ -981,8 +985,21 @@ def test_every_shipped_data_file_is_at_its_formats_current_version():
 )
 def test_the_committed_v0_files_still_load(load, fixture):
     # Golden files at version 0. When a format moves on, its reader must still load these (a migration) or refuse
-    # them loudly for their version; they are never rewritten to match.
-    load(Path(__file__).parent / "fixtures" / "formats" / "v0" / fixture)
+    # them loudly for their version; they are never rewritten to match. Loading must also read every value: today a
+    # v0 file loads to exactly what the shipped file does, and after a bump this compares with what migration gives.
+    golden = load(Path(__file__).parent / "fixtures" / "formats" / "v0" / fixture)
+    shipped = load(
+        {
+            "rig.yaml": data_dir() / "rigs" / "rig.yaml",
+            "core.yaml": data_dir() / "materials" / "core.yaml",
+            "actions.yaml": data_dir() / "world" / "actions.yaml",
+        }[fixture]
+    )
+    if isinstance(golden, MaterialTable):
+        assert isinstance(shipped, MaterialTable)
+        assert golden.by_name == shipped.by_name
+    else:
+        assert golden == shipped
 
 
 def _newer(text: str) -> str:
