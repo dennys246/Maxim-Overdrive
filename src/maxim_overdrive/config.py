@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import dataclasses
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -45,9 +45,11 @@ class RigProfile:
         path = Path(name_or_path)
         if not path.suffix:
             path = data_dir() / "rigs" / f"{name_or_path}.yaml"
-        raw = known_keys(read_yaml(path), RIG_KEYS, f"rig profile {path}")
+        raw = known_keys(read_yaml(path), f"rig profile {path}", required=RIG_KEYS)
+        if not isinstance(raw["name"], str):
+            raise ValueError(f"rig profile {path}: name must be a string, got {raw['name']!r}")
         return cls(
-            name=str(raw["name"]),
+            name=raw["name"],
             cell_size_m=finite_real(raw["cell_size_m"], "cell_size_m"),
             min_substeps_per_turn=whole_number(raw["min_substeps_per_turn"], "min_substeps_per_turn"),
             full_res_radius_m=finite_real(raw["full_res_radius_m"], "full_res_radius_m"),
@@ -87,7 +89,12 @@ def _colour(value: object, what: str) -> tuple[int, int, int]:
 
 
 AIR_ID = 0
-MATERIAL_KEYS = frozenset({f.name for f in dataclasses.fields(Material)} - {"name"})
+# Declared beside the reader, not derived from Material: a field added to the dataclass and forgotten here must not
+# become a key the file may carry and the reader ignores. A test holds the two sets to the dataclass.
+MATERIAL_REQUIRED = frozenset(
+    {"id", "density_kg_m3", "specific_heat_j_kgk", "conductivity_w_mk", "fracture_energy_j_m3", "color_rgb"}
+)
+MATERIAL_OPTIONAL = frozenset({"degrade_above_c", "degrade_rate_per_s_per_100c"})
 
 
 class MaterialTable:
@@ -129,12 +136,14 @@ class MaterialTable:
     @classmethod
     def load(cls, path: str | Path | None = None) -> MaterialTable:
         path = Path(path) if path is not None else data_dir() / "materials" / "core.yaml"
-        raw = known_keys(read_yaml(path), {"materials"}, "material table").get("materials")
+        raw = known_keys(read_yaml(path), "material table", required={"materials"})["materials"]
         if not isinstance(raw, Mapping):
             raise ValueError(f"materials must be a mapping, got {type(raw).__name__}")
         mats = {}
         for name, entry in raw.items():
-            v = known_keys(entry, MATERIAL_KEYS, f"material {name}")
+            if not isinstance(name, str):
+                raise ValueError(f"material names must be strings, got {name!r}")
+            v = known_keys(entry, f"material {name}", required=MATERIAL_REQUIRED, optional=MATERIAL_OPTIONAL)
             mats[name] = Material(
                 name=name,
                 id=whole_number(v["id"], f"{name}.id"),
@@ -171,7 +180,7 @@ def _no_duplicate_keys(loader: _StrictLoader, node: yaml.MappingNode) -> dict[An
     for key in written:
         if not isinstance(key, (str, int, float, bool)) and key is not None:
             raise ValueError(f"a mapping key must be a plain value, got {type(key).__name__}")
-    repeated = sorted({str(k) for k in written if written.count(k) > 1})
+    repeated = sorted({str(k) for k, n in Counter(written).items() if n > 1})
     if repeated:
         raise ValueError(f"repeated key(s) {repeated} in a mapping")
     loader.flatten_mapping(node)  # resolve merge keys (<<:) as SafeLoader does; the written keys come last and win
@@ -232,13 +241,8 @@ class ActionLimits:
         version = raw.get("version") if isinstance(raw, dict) else raw
         if type(version) is not int or version != ACTION_LIMITS_VERSION:  # True and 0.0 are not version 0
             raise ValueError(f"{path}: action limits version must be {ACTION_LIMITS_VERSION}, got {version!r}")
-        assert isinstance(raw, dict)
-        if set(raw) != {"version", *_LIMIT_FIELDS}:
-            raise ValueError(f"{path}: expected sections {sorted(_LIMIT_FIELDS)}, got {sorted(set(raw) - {'version'})}")
+        top = known_keys(raw, f"{path}", required={"version", *_LIMIT_FIELDS})
         values: dict[str, Any] = {}
         for section, names in _LIMIT_FIELDS.items():
-            block = raw[section]
-            if not isinstance(block, dict) or set(block) != set(names):
-                raise ValueError(f"{path}: {section} must have exactly {list(names)}, got {block!r}")
-            values.update(block)
+            values.update(known_keys(top[section], f"{path}: {section}", required=names))
         return cls(**values)

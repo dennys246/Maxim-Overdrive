@@ -12,6 +12,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Literal
 
 from maxim_overdrive.checks import finite_real, finite_vector, known_keys
@@ -151,12 +152,14 @@ MAX_AMBIENT_C = 3000.0
 MAX_EXTENT_M = 1000.0
 
 
-# The closed key sets of a scene written as data (Scene.from_dict): a key outside these is refused, not ignored.
-SCENE_KEYS = frozenset({"extent_m", "primitives", "ambient_c"})
-PRIMITIVE_KEYS = {
-    "box": frozenset({"kind", "min_m", "max_m", "material", "name"}),
-    "cylinder": frozenset({"kind", "center_xy_m", "radius_m", "z_m", "material", "name"}),
-}
+# The keys each primitive kind requires when a scene is written as data (Scene.from_dict); "kind" and "name" are
+# optional for both. Read-only, so no caller can widen a schema at run time.
+PRIMITIVE_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
+    {
+        "box": frozenset({"min_m", "max_m", "material"}),
+        "cylinder": frozenset({"center_xy_m", "radius_m", "z_m", "material"}),
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -193,7 +196,7 @@ class Scene:
         """A scene from parsed YAML or JSON. Any malformed shape is a ValueError that says what was wrong."""
         if not isinstance(raw, Mapping):
             raise ValueError(f"a scene must be a mapping, got {type(raw).__name__}")
-        known_keys(raw, SCENE_KEYS, "scene")
+        known_keys(raw, "scene", required={"extent_m"}, optional={"primitives", "ambient_c"})
         listed = raw.get("primitives", [])
         if isinstance(listed, (str, bytes, Mapping)) or not isinstance(listed, Sequence):
             raise ValueError(f"primitives must be a list, got {type(listed).__name__}")
@@ -202,11 +205,12 @@ class Scene:
             if not isinstance(p, Mapping):
                 raise ValueError(f"each primitive must be a mapping, got {p!r}")
             kind = p.get("kind", "box")
-            if kind not in PRIMITIVE_KEYS:
+            if not isinstance(kind, str) or kind not in PRIMITIVE_KEYS:  # a list or a mapping isn't hashed
                 raise ValueError(f"unknown primitive kind {kind!r}")
-            known_keys(p, PRIMITIVE_KEYS[kind], f"{kind} primitive")
+            known_keys(p, f"{kind} primitive", required=PRIMITIVE_KEYS[kind], optional={"kind", "name"})
             if kind == "box":
                 prims.append(Box(p["min_m"], p["max_m"], p["material"], p.get("name")))
             else:
                 prims.append(Cylinder(p["center_xy_m"], p["radius_m"], p["z_m"], p["material"], p.get("name")))
-        return cls(tuple(raw["extent_m"]), tuple(prims), raw.get("ambient_c", 20.0))
+        e = finite_vector(raw["extent_m"], 3, "extent_m")
+        return cls((e[0], e[1], e[2]), tuple(prims), raw.get("ambient_c", 20.0))

@@ -41,8 +41,9 @@ def _offset(p: Primitive, o: tuple[float, float, float]) -> Primitive:
     )
 
 
-# The keys an imagined object may carry. A new one (a description, provenance, a licence) is added here and to the
-# content its id hashes, as one list (docs/design/ip_and_licensing.md on phase1/realtime-design, section 6).
+# The keys an imagined object may carry; each is checked by _read itself, with its own refusal ("needs a name", "at
+# least one primitive"). A new one (a description, provenance, a licence) is added here and to the content its id
+# hashes, as one list (the IP note on phase1/realtime-design, docs/design/ip_and_licensing.md section 6).
 SPEC_KEYS = frozenset({"name", "primitives"})
 
 
@@ -51,7 +52,7 @@ def _read(grid: MaterialGrid, spec: object, origin_m: object) -> tuple[str, list
     if not isinstance(spec, Mapping):
         raise SpecRejected(f"an imagined object must be a mapping, got {type(spec).__name__}")
     try:
-        known_keys(spec, SPEC_KEYS, "an imagined object")
+        known_keys(spec, "an imagined object", required=(), optional=SPEC_KEYS)
     except ValueError as exc:  # reported as the refusal
         raise SpecRejected(str(exc)) from exc
     name = spec.get("name")

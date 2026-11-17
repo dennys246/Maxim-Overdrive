@@ -496,11 +496,14 @@ def test_the_shipped_limits_load_as_floats():
         (GOOD_LIMITS.replace("version: 0", "version: 1"), "version must be 0, got 1"),
         (GOOD_LIMITS.replace("version: 0", "version: false"), "version must be 0, got False"),
         (GOOD_LIMITS.replace("version: 0", "version: 0.0"), "version must be 0, got 0.0"),
-        (GOOD_LIMITS + "teleport: {}\n", "expected sections"),
-        ("version: 0\n" + GOOD_LIMITS.split("\n")[1] + "\n", "expected sections"),
-        (GOOD_LIMITS.replace("ignite: {", "ignite: {extra: 1, "), "ignite must have exactly"),
-        (GOOD_LIMITS.replace("strike: {max_energy_j: 1.0e+9, ", "strike: {"), "strike must have exactly"),
-        ("version: 0\nignite: [1, 2]\n" + GOOD_LIMITS.split("\n")[2] + "\n", "ignite must have exactly"),
+        (GOOD_LIMITS + "teleport: {}\n", r"unknown key\(s\) \['teleport'\]"),
+        ("version: 0\n" + GOOD_LIMITS.split("\n")[1] + "\n", r"missing key\(s\) \['strike'\]"),
+        (GOOD_LIMITS.replace("ignite: {", "ignite: {extra: 1, "), r"ignite: unknown key\(s\) \['extra'\]"),
+        (
+            GOOD_LIMITS.replace("strike: {max_energy_j: 1.0e+9, ", "strike: {"),
+            r"strike: missing key\(s\) \['max_energy_j'\]",
+        ),
+        ("version: 0\nignite: [1, 2]\n" + GOOD_LIMITS.split("\n")[2] + "\n", "ignite must be a mapping"),
         ("version: 0\nignite: {max_power_w: [1\n", "not valid YAML"),
         (GOOD_LIMITS.replace("500000.0", ".nan"), "max_power_w must be a finite number"),
         (GOOD_LIMITS.replace("500000.0", "-1"), "max_power_w must be positive"),
@@ -645,7 +648,9 @@ def test_yaml_merge_keys_still_work_in_the_limits_file(tmp_path):
     )
     path = tmp_path / "actions.yaml"
     path.write_text(text)
-    with pytest.raises(ValueError, match="expected sections"):  # merged fine; "base" is then an unknown section
+    with pytest.raises(
+        ValueError, match=r"unknown key\(s\) \['base'\]"
+    ):  # merged fine; "base" is then an unknown section
         ActionLimits.load(path)
 
 
@@ -702,7 +707,9 @@ def test_a_yaml_merge_key_can_be_overridden_but_a_written_key_cannot_repeat(tmp_
     strike = GOOD_LIMITS.split("\n")[2] + "\n"
     path = tmp_path / "actions.yaml"
     path.write_text("version: 0\n" + base + "ignite: {<<: *b, max_power_w: 500000.0}\n" + strike)
-    with pytest.raises(ValueError, match="expected sections"):  # merged and overridden fine; "base" is unknown
+    with pytest.raises(
+        ValueError, match=r"unknown key\(s\) \['base'\]"
+    ):  # merged and overridden fine; "base" is unknown
         ActionLimits.load(path)
     path.write_text("version: 0\nignite: {<<: *b, max_power_w: 1.0, max_power_w: 2.0}\n".replace("*b", "{}"))
     with pytest.raises(ValueError, match="repeated key"):

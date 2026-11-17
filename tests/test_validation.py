@@ -6,12 +6,15 @@ author of a data file or to a caller, so each is tested.
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import math
 
 import numpy as np
 import pytest
 import yaml
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from maxim_overdrive import Box, MaterialTable, RigProfile, Scene, World
 from maxim_overdrive.config import ActionLimits, data_dir
@@ -635,3 +638,118 @@ def test_a_material_colour_must_be_three_whole_numbers(tmp_path, value):
     path = _material_file(tmp_path, lambda raw: raw["materials"]["wood"].update(color_rgb=value))
     with pytest.raises(ValueError, match=r"wood\.color_rgb must be three whole numbers"):
         MaterialTable.load(path)
+
+
+# -- closed schemas, the other half: required keys, and shapes that must not crash -------------------------------------
+
+
+@pytest.mark.parametrize("kind", [["box"], {}, 3, None])
+def test_a_primitive_kind_that_is_not_a_name_is_refused_not_crashed_on(kind):
+    with pytest.raises(ValueError, match="unknown primitive kind"):
+        Scene.from_dict({"extent_m": [1, 1, 1], "primitives": [{**BOX_RAW, "kind": kind}]})
+
+
+@pytest.mark.parametrize(
+    ("raw", "message"),
+    [
+        ({"primitives": []}, r"scene: missing key\(s\) \['extent_m'\]"),
+        (
+            {"extent_m": [1, 1, 1], "primitives": [{"kind": "box", "max_m": [1, 1, 1], "material": "wood"}]},
+            r"box primitive: missing key\(s\) \['min_m'\]",
+        ),
+        (
+            {"extent_m": [1, 1, 1], "primitives": [{k: v for k, v in CYLINDER_RAW.items() if k != "radius_m"}]},
+            r"cylinder primitive: missing key\(s\) \['radius_m'\]",
+        ),
+        ({"extent_m": 5}, "extent_m must be 3 numbers"),
+    ],
+)
+def test_a_scene_refuses_a_missing_key_by_name(raw, message):
+    with pytest.raises(ValueError, match=message):
+        Scene.from_dict(raw)
+
+
+def test_a_rig_file_refuses_a_missing_key_by_name(tmp_path):
+    path = tmp_path / "t.yaml"
+    path.write_text("name: t\ncell_size_m: 0.25\n")
+    with pytest.raises(ValueError, match=r"missing key\(s\) \['full_res_radius_m', 'min_substeps_per_turn'\]"):
+        RigProfile.load(path)
+
+
+@pytest.mark.parametrize(("text", "message"), [("name: [1]\n", "name must be a string"), ("name: 7\n", "name must be")])
+def test_a_rig_name_must_be_a_string(tmp_path, text, message):
+    path = tmp_path / "t.yaml"
+    path.write_text(RIG_FILE.replace("name: t\n", text))
+    with pytest.raises(ValueError, match=message):
+        RigProfile.load(path)
+
+
+@pytest.mark.parametrize(
+    ("edit", "message"),
+    [
+        (lambda raw: raw["materials"]["wood"].pop("id"), r"material wood: missing key\(s\) \['id'\]"),
+        (lambda raw: raw["materials"].update({5: raw["materials"]["wood"]}), "material names must be strings"),
+    ],
+)
+def test_a_material_file_refuses_a_missing_key_and_a_name_that_is_not_a_string(tmp_path, edit, message):
+    with pytest.raises(ValueError, match=message):
+        MaterialTable.load(_material_file(tmp_path, edit))
+
+
+def test_a_material_without_its_optional_degradation_keys_loads(tmp_path):
+    def edit(raw):
+        del raw["materials"]["wood"]["degrade_above_c"], raw["materials"]["wood"]["degrade_rate_per_s_per_100c"]
+
+    table = MaterialTable.load(_material_file(tmp_path, edit))
+    assert table["wood"].degrade_above_c is None
+    assert table["wood"].degrade_rate_per_s_per_100c == 0.0
+
+
+def test_the_material_schema_names_every_field_the_reader_fills():
+    from maxim_overdrive.config import MATERIAL_OPTIONAL, MATERIAL_REQUIRED, Material  # noqa: PLC0415
+
+    assert {f.name for f in dataclasses.fields(Material)} - {"name"} == MATERIAL_REQUIRED | MATERIAL_OPTIONAL
+
+
+class _OddMapping(dict[str, object]):  # a Python caller's mapping with a key no YAML or JSON could produce
+    def __iter__(self):
+        yield ["unhashable"]
+
+
+def test_an_imagined_object_with_an_unhashable_key_is_refused_not_crashed_on(rig, materials):
+    g = Scene((3.0, 3.0, 2.0)).build(rig, materials)
+    with pytest.raises(SpecRejected, match="unknown key"):
+        place(g, _OddMapping(name="crate", primitives=[BOX_RAW]), (1.0, 1.0, 0.0))
+
+
+_json = st.recursive(
+    st.none() | st.booleans() | st.integers() | st.floats() | st.text(max_size=8),
+    lambda inner: st.lists(inner, max_size=4) | st.dictionaries(st.text(max_size=12), inner, max_size=5),
+    max_leaves=20,
+)
+_scene_like = st.fixed_dictionaries(
+    {},
+    optional={
+        "extent_m": _json,
+        "ambient_c": _json,
+        "primitives": st.lists(
+            st.fixed_dictionaries(
+                {},
+                optional={
+                    k: _json
+                    for k in ("kind", "min_m", "max_m", "material", "name", "center_xy_m", "radius_m", "z_m", "colour")
+                },
+            ),
+            max_size=3,
+        )
+        | _json,
+        "bogus": _json,
+    },
+)
+
+
+@settings(max_examples=300, deadline=None)
+@given(raw=_scene_like | _json)
+def test_a_scene_built_from_any_json_is_built_or_refused_never_crashed_on(raw):
+    with contextlib.suppress(ValueError):  # a refusal is expected for most inputs; anything else fails the test
+        Scene.from_dict(raw)

@@ -36,18 +36,27 @@ def whole_number(value: object, what: str) -> int:
     return int(value)
 
 
-def known_keys(raw: object, allowed: Collection[str], what: str) -> Mapping[str, object]:
-    """``raw`` as a mapping whose keys are all in ``allowed``, or a ValueError that names the unknown ones.
+def known_keys(
+    raw: object, what: str, *, required: Collection[str], optional: Collection[str] = ()
+) -> Mapping[str, object]:
+    """``raw`` as a mapping that has every ``required`` key and no key outside ``required`` and ``optional``, or a
+    ValueError that names the keys at fault.
 
-    A closed schema: a key the reader doesn't know is refused, never ignored, so a typo such as ``degrade_above`` for
-    ``degrade_above_c`` can't silently change what the world does. A new field is added here and to the format's
-    version, not slipped in.
+    A closed schema, held from both sides: a key the reader doesn't know is refused, never ignored, so a typo such as
+    ``degrade_above`` for ``degrade_above_c`` can't silently change what the world does; and a missing key is named,
+    never left to surface as a bare KeyError. A key that isn't a string is unknown (nothing is hashed that might not
+    be hashable). A new field is added to its reader's sets and to the format's version, not slipped in.
     """
     if not isinstance(raw, Mapping):
         raise ValueError(f"{what} must be a mapping, got {type(raw).__name__}")
-    unknown = sorted(str(k) for k in raw if k not in allowed)
+    keys = list(raw)
+    names = {k for k in keys if isinstance(k, str)}
+    unknown = sorted(str(k) for k in keys if not isinstance(k, str) or (k not in required and k not in optional))
     if unknown:
-        raise ValueError(f"{what}: unknown key(s) {unknown}; it takes {sorted(allowed)}")
+        raise ValueError(f"{what}: unknown key(s) {unknown}; it takes {sorted({*required, *optional})}")
+    missing = sorted(k for k in required if k not in names)
+    if missing:
+        raise ValueError(f"{what}: missing key(s) {missing}")
     return raw
 
 
