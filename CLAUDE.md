@@ -73,8 +73,8 @@ only review holds.
   it. Mark it in the code as `TEMPORARY(phaseN[/step]): <why, and what the real fix is>`, and list its file under
   that phase in `docs/roadmap.md`. The lint fails on a marker with no reason, an unknown or finished phase, or a file
   the phase doesn't list, so every open band-aid shows in the roadmap. A finding with no code to mark is deferred as
-  a backlog row or a known gap instead, so a document never holds a marker or a pragma: it quotes one in code.
-  Guard: `scripts/lint_standards.py::check_markers`
+  a backlog row or a known gap instead. A document holds neither markers nor pragmas; it quotes them in a Markdown
+  code span or code block. Guard: `scripts/lint_standards.py::check_markers`
 - **When debugging stalls, audit the layer beneath.** If two explanations for a bad result have died, stop
   generating a third. Check what else changed, and whether the action you commanded actually happened (did the fire
   actually get added, did the message actually arrive) before theorizing about the sensor. Guard: B1 (review asks how
@@ -88,7 +88,7 @@ only review holds.
 - **Critical functionality is tested exhaustively, by kind.** Physics: a closed-form test and a cross-tier test.
   Trust boundaries (protocol, intents, `imagination.spec`, every loader): every rejection path, aiming at 100% branch
   coverage. Wire and save formats: a round trip plus committed golden fixtures. Determinism: a bit-identical rerun.
-  Guard: `tests/test_cross_tier.py`, `tests/test_imagination.py`, `tests/test_determinism.py`, B3, B4
+  Guard: `tests/test_cross_tier.py`, `tests/test_imagination.py`, `tests/test_determinism.py`, B3, B4, B12
 - **Coverage only ratchets up.** Branch coverage must stay above `fail_under` in `pyproject.toml`; raise the floor
   when coverage rises, never lower it. Coverage measures `src/` and `scripts/`. Lines changed on a branch must be at
   least 95% covered. A `pragma: no cover` must say why (`# pragma: no cover - <why>`), and reviewers question it.

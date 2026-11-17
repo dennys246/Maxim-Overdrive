@@ -112,8 +112,10 @@ proposed as findings for the next delta round of that design rather than edited 
 
 1. **Specs are content-addressed, by content alone.** A `SpecId` is a hash of the canonical encoding of the
    object's content: every key the spec reader accepts except `name`, which is today `primitives` alone (sorted
-   keys, fixed number format, no `hash()`). A key added later, such as a description, joins the accepted set and the
-   hashed content together, as one list. The same object made twice has the same id, which is what lets a re-upload
+   keys, fixed number format, no `hash()`). Each primitive's own optional `name` is left out too, so two identical
+   objects whose parts are named differently share an id. A key added later, such as a description, joins the
+   accepted set and the hashed content together, as one list. This depends on item 3: until the reader refuses
+   unknown keys, "every key it accepts" is undefined. The same object made twice has the same id, which is what lets a re-upload
    be spotted by hash (section 4). `place` stores the spec in a spec store keyed by id, and the region keeps a
    reference to its id. Today `imagination.spec.place` keeps only a name and a mask and drops the spec.
 2. **Provenance and licence are a separate record per placement, not part of the id.**

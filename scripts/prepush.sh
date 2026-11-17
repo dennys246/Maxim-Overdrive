@@ -17,7 +17,7 @@ step() { printf '\n== %s\n' "$*"; }
 
 PY="${PYTHON:-.venv/bin/python}"
 command -v "$PY" >/dev/null 2>&1 || die "no Python at '$PY'; create .venv (CLAUDE.md, Commands) or set PYTHON"
-"$PY" -c 'import maxim, ruff, mypy, diff_cover, pytest_cov' 2>/dev/null \
+"$PY" -c 'import maxim, ruff, mypy, diff_cover, pytest_cov, markdown_it, tomli' 2>/dev/null \
   || die "'$PY' lacks the gate's tools; install with: $PY -m pip install -e '.[dev,maxim]'"
 
 if [ -z "${BASE:-}" ]; then

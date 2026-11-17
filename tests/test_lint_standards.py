@@ -99,6 +99,9 @@ def test_exempt_files_may_mention_markers():
         "```\n~~~\nTEMPORARY(soon) after tildes, which don't close a backtick fence\n```",
         "   ```\nTEMPORARY(soon) in a fence indented three spaces\n   ```",
         "Prose.\n\n    TEMPORARY(soon) in an indented code block",
+        "> ```\n> TEMPORARY(soon) in a fence inside a blockquote\n> ```",
+        "- item\n  ```\n  TEMPORARY(soon) in a fence its list item closes\nafter",
+        "> ```\n> TEMPORARY(soon) in a fence its blockquote closes\n\nafter",
     ],
 )
 def test_markdown_code_is_a_quotation_not_a_marker(text):
@@ -112,7 +115,7 @@ def test_markdown_code_is_a_quotation_not_a_marker(text):
         ("x  # pragma: no cover - a reason, in a document", 1),
         ("```\nquoted\n```\nTEMPORARY(soon): after the fence closes", 4),
         ("A paragraph\nthat wraps, then TEMPORARY(soon) on its second line", 2),
-        ("A paragraph with a hard break  \nthen TEMPORARY(soon) on its second line", 2),
+        ("A paragraph with a hard break  \nTEMPORARY(soon) right after it", 2),
         ("Old Mac line endings\rTEMPORARY(soon) on the second line", 2),
         ("Windows line endings\r\nTEMPORARY(soon) on the second line", 2),
         ('Raw HTML <a title="TEMPORARY(soon)">counts</a> as text', 1),
@@ -126,6 +129,19 @@ def test_markdown_code_is_a_quotation_not_a_marker(text):
         ("``` a`b\nTEMPORARY(soon) after a backtick info string, which is not a fence", 2),
         ("<div>\n`TEMPORARY(soon)` inside an HTML block, which renders raw\n</div>", 2),
         ("[a link TEMPORARY(soon)](https://example.com)", 1),
+        ("![TEMPORARY(soon): alt text](x.png)", 1),
+        ("- a `b\n  c` d\n  TEMPORARY(soon) after a code span that wraps", 3),
+        ("> a <span\n> title=x> b\n> TEMPORARY(soon) after inline HTML that wraps", 3),
+        ("a ![b\nc](i.png)\nTEMPORARY(soon) after an image whose alt text wraps", 3),
+        ("`TEMPORARY(x)` quoted first\nthen TEMPORARY(soon) in prose", 2),
+        ("x[^1]\n\n[^1]: TEMPORARY(soon)", 3),  # a link definition to CommonMark, a visible footnote on GitHub
+        ('x [a][1]\n\n[1]: https://example.com "pragma: no cover in a definition title"', 3),
+        ("> x\n>\n> [^1]: TEMPORARY(soon)", 3),  # a container's lines are not covered: only leaf blocks are
+        ("a`x`TEMPORARY(soon) right after a code span", 1),
+        ("A marker split TEMPORARY\n(soon): across a soft break", 1),
+        ("a\u2028b\nTEMPORARY(soon) after a line separator, which is not a line break", 2),
+        ("intro\n&#84;EMPORARY(soon) spelt with an entity falls back to the paragraph's first line", 1),
+        ("<div>\nTEMPORARY(soon) in an HTML block\n</div>", 2),
     ],
 )
 def test_markdown_prose_is_still_checked(text, line):
@@ -142,8 +158,7 @@ def test_review_documents_get_no_exemption():
 def test_a_fence_in_a_list_item_ends_with_the_item():
     text = "- item\n  ```\n  code\nTEMPORARY(soon): a visible paragraph\n```"
     assert lint.check_markers({"docs/x.md": text}, ROADMAP) == [
-        "docs/x.md:4: a document holds no band-aid markers or pragmas: quote one in `code`, and defer a finding with "
-        "no code to mark as a backlog row or a known gap",
+        f"docs/x.md:4: {lint.DOC_FINDING}",
         "docs/x.md:5: this code fence is never closed, so nothing after it is checked",
     ]
 
@@ -154,6 +169,9 @@ def test_a_fence_in_a_list_item_ends_with_the_item():
         ("prose\n```\nTEMPORARY(soon)\n", 2),
         ("prose\n```", 2),
         ("````\ncode\n```", 1),
+        ("```\ncode\n``` y", 1),
+        ("```\ncode\n~~~", 1),
+        ("```\nx\n    ```", 1),
     ],
 )
 def test_an_unclosed_fence_is_reported_where_it_opens(text, line):
