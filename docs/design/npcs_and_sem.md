@@ -25,7 +25,8 @@ this part says so; it never quietly extends one (Arch S7).
 - **`think` resumes only at the modelled landing tick;** a cancelled reply carries the speech delivered in world time;
   the planted-render sentinel goes in the machinery clock, with an offset-and-scale test.
 - **A correction to what we told Maxim:** NAc's eligibility traces decay per loop tick, not on the wall clock, so
-  credit needs step-size-invariant decay (OD-A19, `reviews/maxim_response_1/correction_1.md`).
+  credit depends on Maxim's own plan to decay on experience time (#1361 S3a, our OD-A1; OD-A19 was withdrawn as a
+  duplicate), plus a temporal-anchor fallback that still reads the host clock (`reviews/maxim_response_1/correction_1.md`).
 - **A hung worker never freezes the world;** parse failures end as `thought_failed`; one guest-text gate refuses
   every format character on decoded text; memory provenance survives relay and extraction.
 
@@ -911,10 +912,12 @@ every time field stripped (§3.1): outcome kind and measured effect only.
 - **Credit's real dependency (BF3-1).** NAc's eligibility traces decay by ×0.9 **per loop tick**
   (`decisions/nac.py:3707` `decay_eligibility`, run from `_loop_bio_tick_maintenance`, `runtime/agent_loop.py:800-840`,
   with five sibling decays), not on the wall clock; `nac.py:1162` is the 300 s causal-link buffer. So credit depends
-  on how often an agent ticks: two NPCs at different rate divisors (§2.1) credit the same 3 s-delayed receipt about 13×
-  differently, and a parity guard at one step size can't see it. Dispatch/settle (OD-A18) depends on
-  **step-size-invariant decay** (OD-A19: decay as `exp(−Δt/τ)` on the machinery clock, with an exit test crediting
-  one delayed receipt equally at two divisors), not on the clock seam alone. Our earlier claim to Maxim was wrong; the
+  on how often an agent ticks. NAc normalises credit, so a lone trace is credited fully at any step rate (the "13×"
+  figure an earlier draft gave was wrong); the real step-rate effects are how credit is shared among traces and when a
+  trace expires into the temporal-anchor fallback, which reads the host clock (`nac.py:3625-3640`, `:3714`).
+  Dispatch/settle (OD-A18) depends on Maxim's own experience-time decay (#1361 S3a, our OD-A1), with the fallback
+  raised as a question to S3a; OD-A19 was withdrawn as a duplicate. Its exit test credits several traces at two
+  divisors and checks their shares match. Our earlier claim to Maxim was wrong; the
   correction is `reviews/maxim_response_1/correction_1.md`.
 - **The settle horizon (BF3-2):** dopamine's 0.3–2 s window (Yagishita et al. 2014, *verified* in BD-19) supports
   immediate credit only. A horizon of seconds to minutes for slow effects (OD-A16) is `[engineering]`; its route is
@@ -1030,7 +1033,7 @@ Most are now roadmap Phase 3 rows (the Phase 3 fold added them); the rest are fo
 | Embedder-supplied modelled latency for the learned hold window | OD-H2 |
 | Deliberation started during the other speaker's turn | OD-H5 (folds in OD-H4) |
 | **Keyed RNG substreams,** not sequential ones (DR-S4, BD-13) | OD-A7 |
-| **Step-size-invariant decay,** with its exit test (X-11; BF3-1 makes it load-bearing, since NAc's traces decay per loop tick) | OD-A19 (OD-EA12) |
+| **Step-size-invariant decay,** with its exit test (X-11; BF3-1 makes it load-bearing, since NAc's traces decay per loop tick) | OD-A1 (#1361 S3a; OD-A19 withdrawn as a duplicate), the anchor fallback a question to S3a; exit test OD-EA12 |
 | **Retrieval strengthening as a returned write** on a host-called `think` (BF3-6), arguing against the draft's read-only think as Maxim accepted it | OD-A15 |
 | **World-time staleness thresholds** (`LLMWorker`'s 5 s, `_STALE_PROPOSAL_AGE_S`, the orchestrator's 15, 30 and 60 s; world_v2 BF-5.4) | not yet placed explicitly; nearest OD-A15 |
 
@@ -1140,7 +1143,7 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
    pass, owned by `phase1/protocol`. Proposed by the review, for the owner: the OS sandbox for guest sessions, with
    guest sessions on real NPCs refused where there is none (§6.6), and a sixth gate, remote model egress (item 2),
    refused with guests present unless disclosed and accepted (TB3-S8).
-2. **Local or remote LLM.** If a remote provider is ever used, it receives players' words; that needs a stated
+2. **Local or remote LLM: decided (O18).** If a remote provider is ever used, it receives players' words; that needs a stated
    disclosure (TB2-S9).
 3. **The stale-refusal fix gates Phase 4.** Roadmap Phase 3's exit now requires OD-A16, so the first NPCs never learn
    from stale refusals (Arch S14). Confirm that ordering, since it puts the credit amendment on Phase 4's critical
@@ -1160,7 +1163,7 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
      the same keyed draw, since filler rates differ between speakers (Bortfeld et al. 2001, *verified* abstract).
    - **Optional slow tail** (`[engineering]`): real populations have a heavier slow tail than a lognormal; a small
      slow group (about 5% of NPCs, twice the sigma) would give it.
-6. **Phase 4's interim live-play policy.** Floor-holding needs OD-H5, a paper plan in Maxim's 1.5 line, while
+6. **Phase 4's interim live-play policy: decided (O16).** Floor-holding needs OD-H5, a paper plan in Maxim's 1.5 line, while
    Phase 4's real NPCs wait only for 1.4.0. Until OD-H5 lands, live play needs one of these, and each has a real cost:
    - **Dilate:** the world slows while an NPC thinks. With D = 1 s and L = 3 s that is about **0.33×** in a
      conversation, and about **0.11×** when the thought goes through 3 PFC cycles (§4.5). In co-op every player's world
@@ -1174,7 +1177,7 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
    Proposed: dilate for single-player, with the three-handed clock showing it; silent late landing for co-op, where
    dilation's cost falls on other players. The owner decides.
 
-7. **Retention of guest speech agent-side (TBR-13).** Agent homes hold logs and memories derived from guests' words
+7. **Retention of guest speech agent-side (TBR-13): decided (O17).** Agent homes hold logs and memories derived from guests' words
    (provenance, lane decisions, utterances). How long are they kept, and does a guest leaving a session purge them by
    default, or only on request? Proposed: purged on request, and never shipped in a bug report (§5.2).
 
@@ -1200,7 +1203,8 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
 - LLM-bypassing replies on the core path (prefetch, the short-question shortcut, the parse-failure template, which
   does echo the guest's words); closes with OD-A17, whose parser bypass covers every reply, not only cancelled ones
   (TB3-S1), and the worker process contains them meanwhile.
-- Credit depends on the tick rate, because NAc's traces decay per loop tick; closes with OD-A19 (§6.6).
+- Credit depends on the tick rate, because NAc's traces decay per loop tick; closes with OD-A1 (#1361 S3a), and the
+  temporal-anchor fallback's host-clock read with S3a if its scope covers it (§6.6).
 - Model calls outside `think` (`AdaptivePlanner`, the `ToolPainBridge` reflection, `FearAgent`); they fail closed in
   the worker, which holds no backend, and close with OD-A17.
 - Any shared router serialises inference (`_inference_lock`); the host never shares one across NPCs, and closes it
