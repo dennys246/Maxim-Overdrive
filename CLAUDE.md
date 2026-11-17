@@ -240,6 +240,12 @@ only review holds.
   Never work around it in this repo, and never stay quiet because the decision was recorded. Each proposal is an
   item under Phase 3 in `docs/roadmap.md`, with its draft in `docs/maxim_upstream/` when it needs one.
   Guard: `docs/code_review.md` (the Bio-faithful integration lens asks it), B15
+- **Search Maxim before proposing to it.** Before any proposal, ask or design that depends on what Maxim has or plans,
+  read Maxim's `origin/main` (fetched, never its stale working tree) for the topic: `docs/plans/`, `DECISIONS.md`,
+  the relevant `src/` and the open plans' scopes. The proposal cites what was found, or says "searched, nothing
+  found" with the terms searched. An ask that duplicates a plan Maxim already has becomes a question to that plan,
+  not a new item. Guard: `docs/code_review.md` (the Bio-faithful integration lens asks it of every upstream draft),
+  B22
 - **Record lessons as they're learned.** Whenever the work teaches something about putting Maxim into a game (a
   finding, a measurement, a pushback, a design reversal), add or update an entry in `docs/lessons_maxim_in_games.md`
   in the same commit as the work that taught it, with its evidence and its consequence. Don't save lessons for a

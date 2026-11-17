@@ -100,3 +100,16 @@ experience-clock decay.
 **If the world waits for an LLM, fast-forward and slow motion change how smart NPCs are; if the NPC waits, the hybrid
 mode isn't working.** *Evidence:* the real-time design's review. *Consequence:* waiting is defined in world time; the
 substrate carries the NPC while it deliberates; the hybrid line in Maxim tunes this by experiment.
+
+## Working with Maxim
+
+### 13. Search Maxim before proposing to it (2026-11-17)
+
+**A game that drives Maxim hard will keep rediscovering what Maxim has already built or planned, so search Maxim's
+plans and code before asking it for anything.** *Evidence:* three of Overdrive's upstream asks duplicated Maxim's own
+work: a new world clock (Maxim already had several clock mechanisms), a sealed tool roster and effect ceiling (the
+shipped `maxim.advisor`), and step-size-invariant trace decay (`docs/plans/experience_clock_decay.md`, #1361 S3a,
+which Overdrive's roadmap already tracked as OD-A1). Each was caught by a review, the last one only after a
+correction note had been written (`docs/design/reviews/npcs_v3_1/determinism_bio.md` on `phase1/design-v2`).
+*Consequence:* every ask cites what Maxim's `origin/main` has on the topic, and a duplicate becomes a question to the
+existing plan (CLAUDE.md, "Search Maxim before proposing to it"; backlog B22).
