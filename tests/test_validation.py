@@ -919,7 +919,7 @@ def test_every_data_loader_loads_or_refuses_any_file(tmp_path_factory, raw, as_y
             load(path)
 
 
-# -- format versions: every data format names its version, and a reader refuses one it doesn't know (B20) --------------
+# -- format versions: every data format names its version, and a reader refuses one it doesn't know (B21) --------------
 
 BAD_VERSIONS = [("1", "got 1"), ("true", "got True"), ("0.0", "got 0.0"), ("'0'", "got '0'"), ("~", "got None")]
 
