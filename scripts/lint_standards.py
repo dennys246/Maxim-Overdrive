@@ -107,7 +107,8 @@ def _markdown_problems(rel: str, text: str) -> list[str]:
     """
     src = text.replace("\r\n", "\n").replace("\r", "\n")
     raw = src.split("\n")
-    last = max((i for i, line in enumerate(raw) if line.strip()), default=-1)
+    # The last non-blank line; CommonMark counts only spaces and tabs as blank, not NBSP or a form feed.
+    last = max((i for i, line in enumerate(raw) if line.strip(" \t")), default=-1)
     covered: set[int] = set()
     lines: set[int] = set()
     open_fences: list[int] = []

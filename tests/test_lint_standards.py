@@ -100,6 +100,7 @@ def test_exempt_files_may_mention_markers():
         "   ```\nTEMPORARY(soon) in a fence indented three spaces\n   ```",
         "Prose.\n\n    TEMPORARY(soon) in an indented code block",
         "```\nTEMPORARY(soon) a\u2028b, a line separator inside a closed fence\n```\n",
+        "- a\n  ```\n  TEMPORARY(soon) in a fence its list item closes\n\u00a0\n",  # NBSP is text, not blank
         "> ```\n> TEMPORARY(soon) in a fence inside a blockquote\n> ```",
         "- item\n  ```\n  TEMPORARY(soon) in a fence its list item closes\nafter",
         "> ```\n> TEMPORARY(soon) in a fence its blockquote closes\n\nafter",
@@ -184,6 +185,8 @@ def test_a_fence_in_a_list_item_ends_with_the_item():
         ("> - a\n>   ```\n>   x\n", 2),
         (">-\t```\n>\t  code\n>\t  TEMPORARY(soon): a tab after the list marker\n", 1),
         ("```\nx\n\n\n", 1),  # trailing blank lines are still inside the open fence
+        ("> ```\n> x\n   \n", 1),  # a whitespace-only last line is blank
+        ("> ```\n> x\n\t\n", 1),
     ],
 )
 def test_an_unclosed_fence_is_reported_where_it_opens(text, line):
