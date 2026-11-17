@@ -100,6 +100,11 @@ See `docs/book_to_world.md`. Extraction, timeline and the perspective split, the
 - More tiles and a world map.
 - **Steam:** the Steamworks SDK in a private module, a trademark search and filing for the name, and the WashU OTM
   question settled before any store page.
+- **A creator marketplace, decided, not assumed.** Once players exist, decide whether to run one, from the costs in
+  `docs/design/ip_and_licensing.md` §5 (copyright takedowns and the safe harbour a cut puts at risk, EU seller
+  verification, payouts through a merchant of record, Steam's rules on purchases and trading, curation, unit
+  economics). Nothing for a marketplace is built before that decision; content identity (Phase 1) and the IP gate
+  (Phase 6) are needed with or without one.
 - **Exit:** a store page.
 
 ## Standing rules
