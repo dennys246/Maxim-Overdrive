@@ -13,7 +13,7 @@ import math
 import numpy as np
 import pytest
 import yaml
-from hypothesis import given, settings
+from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from maxim_overdrive import Box, MaterialTable, RigProfile, Scene, World
@@ -709,6 +709,37 @@ def test_the_material_schema_names_every_field_the_reader_fills():
     from maxim_overdrive.config import MATERIAL_OPTIONAL, MATERIAL_REQUIRED, Material  # noqa: PLC0415
 
     assert {f.name for f in dataclasses.fields(Material)} - {"name"} == MATERIAL_REQUIRED | MATERIAL_OPTIONAL
+    assert not MATERIAL_REQUIRED & MATERIAL_OPTIONAL
+
+
+@pytest.mark.parametrize("key", sorted(__import__("maxim_overdrive.config").config.MATERIAL_REQUIRED))
+def test_every_required_material_key_is_named_when_missing(tmp_path, key):
+    path = _material_file(tmp_path, lambda raw: raw["materials"]["wood"].pop(key))
+    with pytest.raises(ValueError, match=rf"material wood: missing key\(s\) \['{key}'\]"):
+        MaterialTable.load(path)
+
+
+def test_every_optional_material_key_is_read_not_just_accepted(tmp_path):
+    def edit(raw):
+        raw["materials"]["wood"].update(degrade_above_c=123.5, degrade_rate_per_s_per_100c=0.0625)
+
+    wood = MaterialTable.load(_material_file(tmp_path, edit))["wood"]
+    assert (wood.degrade_above_c, wood.degrade_rate_per_s_per_100c) == (123.5, 0.0625)
+
+
+def test_a_key_cannot_be_both_required_and_optional():
+    from maxim_overdrive.checks import known_keys  # noqa: PLC0415
+
+    with pytest.raises(TypeError, match="both required and optional"):
+        known_keys({}, "x", required={"a"}, optional={"a", "b"})
+
+
+@pytest.mark.parametrize("load", [RigProfile.load, MaterialTable.load, ActionLimits.load])
+def test_a_data_file_nested_too_deeply_is_refused_with_its_name(tmp_path, load):
+    path = tmp_path / "deep.yaml"
+    path.write_text("x: " + "[" * 5000 + "]" * 5000 + "\n")
+    with pytest.raises(ValueError, match=r"deep\.yaml: nested too deeply"):
+        load(path)
 
 
 class _OddMapping(dict[str, object]):  # a Python caller's mapping with a key no YAML or JSON could produce
@@ -727,24 +758,42 @@ _json = st.recursive(
     lambda inner: st.lists(inner, max_size=4) | st.dictionaries(st.text(max_size=12), inner, max_size=5),
     max_leaves=20,
 )
-_scene_like = st.fixed_dictionaries(
-    {},
-    optional={
-        "extent_m": _json,
-        "ambient_c": _json,
-        "primitives": st.lists(
-            st.fixed_dictionaries(
-                {},
-                optional={
-                    k: _json
-                    for k in ("kind", "min_m", "max_m", "material", "name", "center_xy_m", "radius_m", "z_m", "colour")
-                },
-            ),
-            max_size=3,
-        )
-        | _json,
-        "bogus": _json,
+# Well-formed values, so the search reaches the checks behind each field, mixed with malformed ones. A strategy that
+# is mostly junk is refused at its first key and never builds a primitive (a review counted 0 in 300).
+_number = st.floats(-5, 5) | st.integers(-5, 5)
+_low = st.lists(st.floats(0.0, 1.0), min_size=3, max_size=3)
+_high = st.lists(st.floats(1.1, 2.0), min_size=3, max_size=3)
+_material = st.sampled_from(["wood", "steel", "concrete", "air", "unobtainium"])
+_good_box = st.fixed_dictionaries(
+    {"min_m": _low, "max_m": _high, "material": _material},
+    optional={"kind": st.just("box"), "name": st.text(min_size=1, max_size=6)},
+)
+_good_cylinder = st.fixed_dictionaries(
+    {
+        "kind": st.just("cylinder"),
+        "center_xy_m": st.lists(st.floats(1.0, 2.0), min_size=2, max_size=2),
+        "radius_m": st.floats(0.1, 0.9),
+        "z_m": st.lists(st.floats(0.0, 0.9), min_size=2, max_size=2).map(sorted),
+        "material": _material,
     },
+    optional={"name": st.text(min_size=1, max_size=6)},
+)
+_bad_primitive = st.fixed_dictionaries(
+    {"kind": st.sampled_from(["box", "cylinder"]) | _json},
+    optional={k: _number | _json for k in ("min_m", "max_m", "material", "center_xy_m", "radius_m", "z_m", "x")},
+)
+_primitive = _good_box | _good_cylinder | _bad_primitive | _json
+_built_scene = st.fixed_dictionaries(  # always reaches Box and Cylinder, and their own checks
+    {"extent_m": st.just([3.0, 3.0, 2.0]), "primitives": st.lists(_good_box | _good_cylinder, min_size=1, max_size=3)},
+    optional={"ambient_c": _number},
+)
+_scene_like = (
+    _built_scene
+    | st.fixed_dictionaries(
+        {"extent_m": st.just([3.0, 3.0, 2.0]) | st.lists(_number, min_size=3, max_size=3) | _json},
+        optional={"ambient_c": _number | _json, "primitives": st.lists(_primitive, max_size=3) | _json},
+    )
+    | st.dictionaries(st.text(max_size=12), _json, max_size=4)
 )
 
 
@@ -753,3 +802,38 @@ _scene_like = st.fixed_dictionaries(
 def test_a_scene_built_from_any_json_is_built_or_refused_never_crashed_on(raw):
     with contextlib.suppress(ValueError):  # a refusal is expected for most inputs; anything else fails the test
         Scene.from_dict(raw)
+
+
+_spec_like = st.fixed_dictionaries(
+    {
+        "name": st.text(min_size=1, max_size=8),
+        "primitives": st.lists(_good_box | _good_cylinder, min_size=1, max_size=2),
+    },
+) | st.fixed_dictionaries(
+    {"name": st.text(min_size=1, max_size=8) | _json, "primitives": st.lists(_primitive, max_size=3) | _json},
+    optional={"licence": _json},
+)
+
+
+@settings(max_examples=200, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
+@given(spec=_spec_like | _json, origin=st.lists(st.floats(0, 3), min_size=3, max_size=3) | _json)
+def test_an_imagined_object_from_any_json_is_placed_or_refused_and_a_refusal_changes_nothing(
+    rig, materials, spec, origin
+):
+    g = Scene((3.0, 3.0, 2.0)).build(rig, materials)
+    before = g.material.copy()
+    try:
+        place(g, spec, origin)
+    except SpecRejected:
+        assert np.array_equal(g.material, before)
+        assert not g.regions
+
+
+@settings(max_examples=150, deadline=None)
+@given(raw=_json | st.dictionaries(st.text(max_size=20), _json, max_size=6), as_yaml=st.booleans(), text=st.text())
+def test_every_data_loader_loads_or_refuses_any_file(tmp_path_factory, raw, as_yaml, text):
+    path = tmp_path_factory.mktemp("fuzz") / "f.yaml"
+    path.write_text(yaml.safe_dump(raw) if as_yaml else text)
+    for load in (RigProfile.load, MaterialTable.load, ActionLimits.load):
+        with contextlib.suppress(ValueError):
+            load(path)

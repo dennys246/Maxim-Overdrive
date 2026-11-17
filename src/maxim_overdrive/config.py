@@ -199,6 +199,8 @@ def read_yaml(path: Path) -> object:
         return yaml.load(path.read_text(), Loader=_StrictLoader)  # a SafeLoader subclass
     except yaml.YAMLError as exc:  # reported, with the file, as the refusal
         raise ValueError(f"{path}: not valid YAML: {exc}") from None
+    except RecursionError:  # the parser recurses per level; no data file nests this deep
+        raise ValueError(f"{path}: nested too deeply to be a data file") from None
     except ValueError as exc:
         raise ValueError(f"{path}: {exc}") from None
 

@@ -648,9 +648,8 @@ def test_yaml_merge_keys_still_work_in_the_limits_file(tmp_path):
     )
     path = tmp_path / "actions.yaml"
     path.write_text(text)
-    with pytest.raises(
-        ValueError, match=r"unknown key\(s\) \['base'\]"
-    ):  # merged fine; "base" is then an unknown section
+    # Merged fine; "base" is then an unknown section.
+    with pytest.raises(ValueError, match=r"unknown key\(s\) \['base'\]"):
         ActionLimits.load(path)
 
 
@@ -707,9 +706,8 @@ def test_a_yaml_merge_key_can_be_overridden_but_a_written_key_cannot_repeat(tmp_
     strike = GOOD_LIMITS.split("\n")[2] + "\n"
     path = tmp_path / "actions.yaml"
     path.write_text("version: 0\n" + base + "ignite: {<<: *b, max_power_w: 500000.0}\n" + strike)
-    with pytest.raises(
-        ValueError, match=r"unknown key\(s\) \['base'\]"
-    ):  # merged and overridden fine; "base" is unknown
+    # Merged and overridden fine; "base" is unknown.
+    with pytest.raises(ValueError, match=r"unknown key\(s\) \['base'\]"):
         ActionLimits.load(path)
     path.write_text("version: 0\nignite: {<<: *b, max_power_w: 1.0, max_power_w: 2.0}\n".replace("*b", "{}"))
     with pytest.raises(ValueError, match="repeated key"):

@@ -47,6 +47,9 @@ def known_keys(
     never left to surface as a bare KeyError. A key that isn't a string is unknown (nothing is hashed that might not
     be hashable). A new field is added to its reader's sets and to the format's version, not slipped in.
     """
+    both = sorted(set(required) & set(optional))
+    if both:  # a reader's own schema contradicting itself is a programming error, not bad input
+        raise TypeError(f"{what}: {both} can't be both required and optional")
     if not isinstance(raw, Mapping):
         raise ValueError(f"{what} must be a mapping, got {type(raw).__name__}")
     keys = list(raw)
