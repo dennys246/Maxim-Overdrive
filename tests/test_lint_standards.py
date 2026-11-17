@@ -114,10 +114,10 @@ def test_markdown_code_is_a_quotation_not_a_marker(text):
         ("Prose: TEMPORARY(phase2): a real reason, but documents hold no markers.", 1),
         ("x  # pragma: no cover - a reason, in a document", 1),
         ("```\nquoted\n```\nTEMPORARY(soon): after the fence closes", 4),
-        ("A paragraph\nthat wraps, then TEMPORARY(soon) on its second line", 2),
-        ("A paragraph with a hard break  \nTEMPORARY(soon) right after it", 2),
-        ("Old Mac line endings\rTEMPORARY(soon) on the second line", 2),
-        ("Windows line endings\r\nTEMPORARY(soon) on the second line", 2),
+        ("A paragraph\nthat wraps, then TEMPORARY(soon): reported at the paragraph's first line", 1),
+        ("A paragraph with a hard break  \nTEMPORARY(soon) right after it", 1),
+        ("<div>\rTEMPORARY(soon) in HTML, after an old Mac line ending\r</div>", 2),
+        ("<div>\r\nTEMPORARY(soon) in HTML, after a Windows line ending\r\n</div>", 2),
         ('Raw HTML <a title="TEMPORARY(soon)">counts</a> as text', 1),
         ("- a `b\n- TEMPORARY(soon): x c`", 2),
         ("| a | b |\n|---|---|\n| `x | TEMPORARY(soon) |\n| y` | z |", 3),
@@ -126,20 +126,20 @@ def test_markdown_code_is_a_quotation_not_a_marker(text):
         ("``a` TEMPORARY(soon) with unequal runs", 1),
         ("Use \\`TEMPORARY(soon)` where the opener is escaped", 1),
         ("    ```\nTEMPORARY(soon) after a fence indented four spaces, which is not a fence", 2),
-        ("``` a`b\nTEMPORARY(soon) after a backtick info string, which is not a fence", 2),
+        ("``` a`b\nTEMPORARY(soon) after a backtick info string, which is not a fence", 1),
         ("<div>\n`TEMPORARY(soon)` inside an HTML block, which renders raw\n</div>", 2),
         ("[a link TEMPORARY(soon)](https://example.com)", 1),
         ("![TEMPORARY(soon): alt text](x.png)", 1),
-        ("- a `b\n  c` d\n  TEMPORARY(soon) after a code span that wraps", 3),
-        ("> a <span\n> title=x> b\n> TEMPORARY(soon) after inline HTML that wraps", 3),
-        ("a ![b\nc](i.png)\nTEMPORARY(soon) after an image whose alt text wraps", 3),
-        ("`TEMPORARY(x)` quoted first\nthen TEMPORARY(soon) in prose", 2),
+        ("- a `b\n  c` d\n  TEMPORARY(soon) after a code span that wraps", 1),
+        ("> a <span\n> title=x> b\n> TEMPORARY(soon) after inline HTML that wraps", 1),
+        ("a ![b\nc](i.png)\nTEMPORARY(soon) after an image whose alt text wraps", 1),
+        ("`TEMPORARY(x)` quoted first\nthen TEMPORARY(soon) in prose", 1),
         ("x[^1]\n\n[^1]: TEMPORARY(soon)", 3),  # a link definition to CommonMark, a visible footnote on GitHub
         ('x [a][1]\n\n[1]: https://example.com "pragma: no cover in a definition title"', 3),
         ("> x\n>\n> [^1]: TEMPORARY(soon)", 3),  # a container's lines are not covered: only leaf blocks are
         ("a`x`TEMPORARY(soon) right after a code span", 1),
         ("A marker split TEMPORARY\n(soon): across a soft break", 1),
-        ("a\u2028b\nTEMPORARY(soon) after a line separator, which is not a line break", 2),
+        ("<div>\na\u2028b\nTEMPORARY(soon) after a line separator, which is not a line break\n</div>", 3),
         ("intro\n&#84;EMPORARY(soon) spelt with an entity falls back to the paragraph's first line", 1),
         ("<div>\nTEMPORARY(soon) in an HTML block\n</div>", 2),
     ],
@@ -172,11 +172,25 @@ def test_a_fence_in_a_list_item_ends_with_the_item():
         ("```\ncode\n``` y", 1),
         ("```\ncode\n~~~", 1),
         ("```\nx\n    ```", 1),
+        ("- item\n  ```\n  code\n  TEMPORARY(soon) meant as prose", 2),
+        ("> ```\n> code\n> TEMPORARY(soon) meant as prose", 1),
+        ("> - a\n>   ```\n>   x\n>   TEMPORARY(soon)", 2),
+        ("- ```\n  code opened on the bullet's line", 1),
+        ("10. ```\n    code opened on an ordered item's line", 1),
     ],
 )
 def test_an_unclosed_fence_is_reported_where_it_opens(text, line):
     problems = lint.check_markers({"docs/x.md": text}, ROADMAP)
     assert problems == [f"docs/x.md:{line}: this code fence is never closed, so nothing after it is checked"]
+
+
+def test_two_findings_on_one_line_are_one_finding_and_the_wording_matches_claude_md():
+    problems = lint.check_markers({"docs/x.md": "TEMPORARY(a): x, and TEMPORARY(b): y"}, ROADMAP)
+    assert problems == [
+        "docs/x.md:1: a document holds no band-aid markers or pragmas: quote one in a Markdown code span or code "
+        "block, and defer a finding with no code to mark as a backlog row or a known gap"
+    ]
+    assert "quotes them in a Markdown\n  code span or code block" in (ROOT / "CLAUDE.md").read_text()
 
 
 def test_backticks_in_code_files_do_not_hide_a_marker():

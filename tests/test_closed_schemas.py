@@ -2,7 +2,10 @@
 
 Today each one ignores unknown keys, so a misspelt key vanishes silently: a material with ``degrade_above:`` for
 ``degrade_above_c`` never degrades. Each gate is strict and fails only because nothing was raised, so a fix that raises
-the wrong type stays red. When closed schemas land, these flip and the markers come off.
+the wrong type stays red. The fix must also name the key as "unknown" in its message, which ``match`` checks.
+
+When closed schemas land, these flip: remove the markers and move each refusal test into its loader's own tests
+(config, scene, imagination), so this file doesn't outlive the row it is named for.
 """
 
 from __future__ import annotations

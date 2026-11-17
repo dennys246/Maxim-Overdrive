@@ -69,9 +69,10 @@ def phase_sections(roadmap: str) -> dict[int, tuple[str, str]]:
     return out
 
 
-# Appended to a document to find the fences that run to its end: a fence that is still open swallows this line.
+# Appended after a fence that reaches the end of a document, inside the fence's own containers: a fence that is
+# still open swallows this line, and a closed one doesn't.
 END_SENTINEL = "lint-standards end-of-document sentinel"
-KEYWORD = re.compile(r"temporary|pragma", re.IGNORECASE)
+LIST_MARKER = re.compile(r"[-*+]|\d{1,9}[.)]")
 LEAF_BLOCKS = ("inline", "fence", "code_block", "html_block")
 DOC_FINDING = (
     "a document holds no band-aid markers or pragmas: quote one in a Markdown code span or code block, and defer a "
@@ -79,73 +80,70 @@ DOC_FINDING = (
 )
 
 
-def _inline_text(children: list[Token]) -> tuple[str, list[bool]]:
-    """The rendered text of an inline token, and, for each keyword in source order, whether it sits in code.
-
-    Code spans are left out of the text (a space keeps their neighbours apart). Breaks render as newlines, so a marker
-    split across lines still matches. Image alt text counts.
-    """
-    text, in_code = [], []
+def _inline_text(children: list[Token]) -> str:
+    """The rendered text of an inline token: code spans are left out (a space keeps their neighbours apart), breaks
+    render as newlines so a marker split across lines still matches, and image alt text counts."""
+    text = []
     for child in children:
         if child.type == "code_inline":
             text.append(" ")
-            in_code += [True] * len(KEYWORD.findall(child.content))
         elif child.type in ("softbreak", "hardbreak"):
             text.append("\n")
         elif child.type in ("text", "html_inline"):
             text.append(child.content)
-            in_code += [False] * len(KEYWORD.findall(child.content))
         elif child.type == "image":
-            alt, alt_code = _inline_text(child.children or [])
-            text.append(alt)
-            in_code += alt_code
-    return "".join(text), in_code
+            text.append(_inline_text(child.children or []))
+    return "".join(text)
 
 
-def _finding_lines(text: str, in_code: list[bool], raw: list[str], first: int, end: int) -> list[int]:
-    """Source lines (1-based) of the markers and pragmas in one inline token's rendered text.
+def _open_to_the_end(src: str, raw: list[str], fence: Token) -> bool:
+    """Whether a fence that reaches the end of the document is still open there.
 
-    The parser gives a paragraph's lines, not each word's. A finding is placed on the line of its keyword: the nth
-    keyword outside code in the text is the nth such keyword in the source lines, counting code ones in order. When
-    the source spells a keyword differently (an entity, say), the finding falls back to the paragraph's first line.
+    The sentinel is appended with the opener's container prefix (blockquote markers kept, list markers as spaces),
+    so it stays inside the fence's list item or blockquote, and CommonMark decides whether the fence swallows it.
     """
-    source = [i for i in range(first, end) for _ in KEYWORD.finditer(raw[i])]
-    prose = [k for k, code in enumerate(in_code) if not code]
-    lines = []
-    for m in (*TEMP_MARKER.finditer(text), *PRAGMA.finditer(text)):
-        nth = len(KEYWORD.findall(text, 0, m.start()))
-        k = prose[nth] if nth < len(prose) else None
-        lines.append(source[k] + 1 if k is not None and k < len(source) else first + 1)
-    return lines
+    assert fence.map is not None
+    first = fence.map[0]
+    opener = raw[first]
+    prefix = LIST_MARKER.sub(lambda m: " " * len(m.group(0)), opener[: opener.index(fence.markup)])
+    for tok in MARKDOWN.parse(f"{src}\n{prefix}{END_SENTINEL}"):
+        if tok.type == "fence" and tok.map is not None and tok.map[0] == first:
+            return END_SENTINEL in tok.content
+    return False  # pragma: no cover - appending a line after a fence can't remove the fence
 
 
 def _markdown_problems(rel: str, text: str) -> list[str]:
     """Markers and pragmas in what a document renders as text, and fences that hide the rest of it.
 
-    markdown-it decides what is code, so this holds no CommonMark rules of its own. Inline text is checked as rendered;
-    raw HTML, and any source line no leaf block covers (a footnote or link definition, which CommonMark drops but
-    GitHub shows), are checked as written. Fenced and indented code are skipped.
+    markdown-it decides what is code, so this holds no CommonMark rules of its own. A finding in rendered inline text
+    is reported at the first line of its paragraph, heading or table row: the parser places blocks, not words. Raw
+    HTML, and any source line no leaf block covers (a footnote or link definition, which CommonMark drops but GitHub
+    shows), are checked line by line as written. Fenced and indented code are skipped.
     """
     src = text.replace("\r\n", "\n").replace("\r", "\n")
     raw = src.split("\n")
+    last = max((i for i, line in enumerate(raw) if line.strip()), default=-1)
     covered: set[int] = set()
-    lines: list[int] = []
+    lines: set[int] = set()
+    open_fences: list[int] = []
     for tok in MARKDOWN.parse(src):
         if tok.map is None or tok.type not in LEAF_BLOCKS:
             continue
         first, end = tok.map
         covered.update(range(first, end))
         if tok.type == "inline":
-            lines += _finding_lines(*_inline_text(tok.children or []), raw, first, end)
+            rendered = _inline_text(tok.children or [])
+            if TEMP_MARKER.search(rendered) or PRAGMA.search(rendered):
+                lines.add(first + 1)
         elif tok.type == "html_block":
-            lines += [i + 1 for i in range(first, end) if TEMP_MARKER.search(raw[i]) or PRAGMA.search(raw[i])]
-    lines += [
+            lines.update(i + 1 for i in range(first, end) if TEMP_MARKER.search(raw[i]) or PRAGMA.search(raw[i]))
+        elif tok.type == "fence" and end > last and _open_to_the_end(src, raw, tok):
+            open_fences.append(first + 1)
+    lines.update(
         i + 1 for i, line in enumerate(raw) if i not in covered and (TEMP_MARKER.search(line) or PRAGMA.search(line))
-    ]
-    problems = [f"{rel}:{n}: {DOC_FINDING}" for n in sorted(set(lines))]
-    for tok in MARKDOWN.parse(src + "\n" + END_SENTINEL):
-        if tok.type == "fence" and tok.map is not None and END_SENTINEL in tok.content:
-            problems.append(f"{rel}:{tok.map[0] + 1}: this code fence is never closed, so nothing after it is checked")
+    )
+    problems = [f"{rel}:{n}: {DOC_FINDING}" for n in sorted(lines)]
+    problems += [f"{rel}:{n}: this code fence is never closed, so nothing after it is checked" for n in open_fences]
     return problems
 
 
