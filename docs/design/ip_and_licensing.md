@@ -114,8 +114,8 @@ proposed as findings for the next delta round of that design rather than edited 
    object's content: every key the spec reader accepts except `name`, which is today `primitives` alone (sorted
    keys, fixed number format, no `hash()`). Each primitive's own optional `name` is left out too, so two identical
    objects whose parts are named differently share an id. A key added later, such as a description, joins the
-   accepted set and the hashed content together, as one list. This depends on item 3: until the reader refuses
-   unknown keys, "every key it accepts" is undefined. The same object made twice has the same id, which is what lets a re-upload
+   accepted set and the hashed content together, as one list. This depends on item 3: the accepted set is the
+   reader's closed key set. The same object made twice has the same id, which is what lets a re-upload
    be spotted by hash (section 4). `place` stores the spec in a spec store keyed by id, and the region keeps a
    reference to its id. Today `imagination.spec.place` keeps only a name and a mask and drops the spec.
 2. **Provenance and licence are a separate record per placement, not part of the id.**
@@ -124,9 +124,9 @@ proposed as findings for the next delta round of that design rather than edited 
      one world, "who made it first" is the earliest tick; ticks from different worlds don't compare, so proving
      priority across players needs a timestamp signed at publish (an open question for the design review).
    - Licence reference: one value today, `first-party/all-rights-reserved`. The reader refuses unknown values.
-3. **The spec reader refuses unknown keys.** Today `_read` ignores them, so a misspelt key vanishes silently. That
-   is a present trust-boundary defect, not part of this proposal, and it is wider than specs: every loader ignores
-   unknown keys. It is recorded under backlog B12.
+3. **The spec reader refuses unknown keys.** On this branch `_read` still ignores them, and so does every loader.
+   The fix is on `phase1/act-validation` (the owner's choice, 2026-11-17): closed key sets at every level through
+   `checks.known_keys`, with `imagination.spec.SPEC_KEYS` as the accepted set this item names.
 4. **Region identity crosses the wire.** The `welcome` region list carries each region's spec id. The intent log
    header hashes the *initial* spec store, as the v0 header design (`realtime_lanes_coop.md` §7) hashes the scene,
    rig, material table, world config and roster. Specs imagined mid-session arrive later as logged thought

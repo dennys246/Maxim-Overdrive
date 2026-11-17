@@ -69,10 +69,6 @@ def phase_sections(roadmap: str) -> dict[int, tuple[str, str]]:
     return out
 
 
-# Appended after a fence that reaches the end of a document, inside the fence's own containers: a fence that is
-# still open swallows this line, and a closed one doesn't.
-END_SENTINEL = "lint-standards end-of-document sentinel"
-LIST_MARKER = re.compile(r"[-*+]|\d{1,9}[.)]")
 LEAF_BLOCKS = ("inline", "fence", "code_block", "html_block")
 DOC_FINDING = (
     "a document holds no band-aid markers or pragmas: quote one in a Markdown code span or code block, and defer a "
@@ -96,20 +92,9 @@ def _inline_text(children: list[Token]) -> str:
     return "".join(text)
 
 
-def _open_to_the_end(src: str, raw: list[str], fence: Token) -> bool:
-    """Whether a fence that reaches the end of the document is still open there.
-
-    The sentinel is appended with the opener's container prefix (blockquote markers kept, list markers as spaces),
-    so it stays inside the fence's list item or blockquote, and CommonMark decides whether the fence swallows it.
-    """
-    assert fence.map is not None
-    first = fence.map[0]
-    opener = raw[first]
-    prefix = LIST_MARKER.sub(lambda m: " " * len(m.group(0)), opener[: opener.index(fence.markup)])
-    for tok in MARKDOWN.parse(f"{src}\n{prefix}{END_SENTINEL}"):
-        if tok.type == "fence" and tok.map is not None and tok.map[0] == first:
-            return END_SENTINEL in tok.content
-    return False  # pragma: no cover - appending a line after a fence can't remove the fence
+def _line_count(text: str) -> int:
+    """Lines in ``text``, split on ``\\n`` alone as CommonMark splits them; a last line needs no newline."""
+    return text.count("\n") + (text != "" and not text.endswith("\n"))
 
 
 def _markdown_problems(rel: str, text: str) -> list[str]:
@@ -137,7 +122,10 @@ def _markdown_problems(rel: str, text: str) -> list[str]:
                 lines.add(first + 1)
         elif tok.type == "html_block":
             lines.update(i + 1 for i in range(first, end) if TEMP_MARKER.search(raw[i]) or PRAGMA.search(raw[i]))
-        elif tok.type == "fence" and end > last and _open_to_the_end(src, raw, tok):
+        elif tok.type == "fence" and end > last and _line_count(tok.content) == end - first - 1:
+            # A fence that reaches the end of the document is open when its lines are the opener and its content
+            # alone: a closed fence's lines also hold its closer. Its container's end (a blockquote or list item the
+            # document's end closes) doesn't count as closing it: the rest is still shown as code.
             open_fences.append(first + 1)
     lines.update(
         i + 1 for i, line in enumerate(raw) if i not in covered and (TEMP_MARKER.search(line) or PRAGMA.search(line))

@@ -28,9 +28,9 @@ dev = [
     "mypy>=1.15",
     "types-PyYAML>=6.0",
     "tomli>=2.0",
-    # The standards lint parses docs as they render (CommonMark plus tables); MIT. The floor is the version tested. No
-    # cap: a release that changes token maps turns the lint's tests red with no local change, which is drift caught.
-    "markdown-it-py>=4.0",
+    # The standards lint parses docs as they render (CommonMark plus tables); MIT. Its tests pass on 3.0.0, 4.0.0 and
+    # 4.3.0. No cap: a release that changes token maps turns them red with no local change, which is drift caught.
+    "markdown-it-py>=3.0",
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -99,6 +99,7 @@ def test_exempt_files_may_mention_markers():
         "```\n~~~\nTEMPORARY(soon) after tildes, which don't close a backtick fence\n```",
         "   ```\nTEMPORARY(soon) in a fence indented three spaces\n   ```",
         "Prose.\n\n    TEMPORARY(soon) in an indented code block",
+        "```\nTEMPORARY(soon) a\u2028b, a line separator inside a closed fence\n```\n",
         "> ```\n> TEMPORARY(soon) in a fence inside a blockquote\n> ```",
         "- item\n  ```\n  TEMPORARY(soon) in a fence its list item closes\nafter",
         "> ```\n> TEMPORARY(soon) in a fence its blockquote closes\n\nafter",
@@ -177,6 +178,12 @@ def test_a_fence_in_a_list_item_ends_with_the_item():
         ("> - a\n>   ```\n>   x\n>   TEMPORARY(soon)", 2),
         ("- ```\n  code opened on the bullet's line", 1),
         ("10. ```\n    code opened on an ordered item's line", 1),
+        ("> ```\n> code\n> TEMPORARY(soon) x\n", 1),  # real files end with a newline
+        ("> ```\n> code\n\n", 1),
+        (">```\n>code\n", 1),
+        ("> - a\n>   ```\n>   x\n", 2),
+        (">-\t```\n>\t  code\n>\t  TEMPORARY(soon): a tab after the list marker\n", 1),
+        ("```\nx\n\n\n", 1),  # trailing blank lines are still inside the open fence
     ],
 )
 def test_an_unclosed_fence_is_reported_where_it_opens(text, line):
@@ -190,7 +197,8 @@ def test_two_findings_on_one_line_are_one_finding_and_the_wording_matches_claude
         "docs/x.md:1: a document holds no band-aid markers or pragmas: quote one in a Markdown code span or code "
         "block, and defer a finding with no code to mark as a backlog row or a known gap"
     ]
-    assert "quotes them in a Markdown\n  code span or code block" in (ROOT / "CLAUDE.md").read_text()
+    claude_md = " ".join((ROOT / "CLAUDE.md").read_text().split())  # the rule's words, however CLAUDE.md wraps
+    assert "quotes them in a Markdown code span or code block" in claude_md
 
 
 def test_backticks_in_code_files_do_not_hide_a_marker():
