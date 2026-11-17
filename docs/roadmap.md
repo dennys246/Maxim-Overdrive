@@ -21,6 +21,12 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   2026-11-15; `docs/architecture.md`, "Transport").
 - The first tile authored in metres: the ripperdoc clinic and the alley outside it.
 - Save format v0: the world grid plus the scene spec. Agent homes join in Phase 4.
+- Review the content-identity proposal (`docs/design/ip_and_licensing.md` §6: content-addressed spec ids, a
+  provenance and licence record per placement) at the real-time design's next delta round, before protocol v0,
+  the intent log v0 and save v0 freeze. Its design review uses the note's own lenses.
+- Temporary: `src/maxim_overdrive/imagination/spec.py` ignores unknown spec keys, so a misspelt key vanishes
+  silently. The spec reader refuses them, with a red test first, on the act-validation branch that is reworking
+  `_read`.
 - Fires that go out when their fuel is gone, so a burnt-out crate's fire stops instead of heating air to millions of
   degrees (`docs/architecture.md`, Known gaps; the red gate is
   `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`). Needed before the tile's crate
@@ -79,6 +85,8 @@ They are the prerequisites for Exp 64 and for NPCs that remember.
 
 - In-game imagination, bound to the materials table and a power budget. The world validates every spec before the
   object exists.
+- An IP gate in front of `imagination.spec.place`, shipped with the LLM caller that feeds it, never after it
+  (design: `docs/design/ip_and_licensing.md` §3, once reviewed).
 - Assets are derived deterministically from specs: meshes from cells, procedural impact and burn sounds from
   material properties. Image-model art is cached decoration only and never decides physics.
 - **Exit:** a player imagines an object mid-scene and it burns and breaks like an authored one, at every rig.

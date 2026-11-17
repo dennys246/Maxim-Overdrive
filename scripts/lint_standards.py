@@ -4,8 +4,10 @@
    roadmap phase that exists, is not done, and lists the marker's file in its section of docs/roadmap.md. So a
    band-aid can't outlive the moment promised to remove it, and the roadmap shows every one that is open.
 2. ``pragma: no cover`` must say why the line can't be tested.
-   In Markdown, code (an inline span or a fenced block) is a quotation, not a marker or a pragma: a document that
-   explains or reviews the rule quotes its syntax in code. Markdown prose is still checked.
+   Markdown holds no band-aids, so it holds no markers or pragmas. A document that explains or reviews the rule
+   quotes their syntax in code (an inline span on one line, or a fenced block), and anything outside code is a
+   finding. A Markdown misparse must over-report, never hide: a span never crosses a line, an escaped backtick never
+   opens one, and a fence left open at the end of a file is itself a finding.
 3. Guard citations. Every rule bullet under CLAUDE.md's "Engineering standards" ends with ``Guard:`` and names files
    that exist (``path``, or ``path::symbol`` where the symbol appears as a whole word outside comments, and, in a
    ``.py`` file, as a definition) and/or backlog rows (``B7``) in docs/standards_backlog.md. A rule whose only
@@ -44,26 +46,9 @@ COMMENT_PREFIX = {".py": "#", ".toml": "#", ".sh": "#", ".yml": "#", ".yaml": "#
 
 # The lint and its tests write markers and pragmas as data. Documents need no entry: they quote them in code.
 MARKER_EXEMPT = {"scripts/lint_standards.py", "tests/test_lint_standards.py"}
-FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
-# CommonMark code span: a backtick run closed by a run of the same length, within one paragraph.
-CODE_SPAN = re.compile(r"(?<!`)(`+)(?!`)((?:(?!\n\s*\n).)+?)(?<!`)\1(?!`)", re.S)
-
-
-def markdown_prose(text: str) -> str:
-    """The Markdown with fenced blocks and inline code spans blanked, keeping every newline so line numbers hold."""
-    lines, fence = [], ""
-    for line in text.splitlines():
-        m = FENCE.match(line)
-        if fence:
-            if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) and not line[m.end() :].strip():
-                fence = ""
-            lines.append("")
-        elif m:
-            fence = m.group(1)
-            lines.append("")
-        else:
-            lines.append(line)
-    return CODE_SPAN.sub(lambda c: re.sub(r"[^\n]", " ", c.group(0)), "\n".join(lines))
+FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
+# A CommonMark code span on one line: a backtick run, not escaped, closed by a run of the same length.
+CODE_SPAN = re.compile(r"(?<![`\\])(`+)(?!`)(.+?)(?<!`)\1(?!`)")
 
 
 def phase_sections(roadmap: str) -> dict[int, tuple[str, str]]:
@@ -83,14 +68,54 @@ def phase_sections(roadmap: str) -> dict[int, tuple[str, str]]:
     return out
 
 
+def markdown_prose(text: str) -> tuple[list[str], int | None]:
+    """The Markdown's lines with code blanked, and the line of a fence left open at the end, if any.
+
+    Fenced blocks follow CommonMark: an opener of three or more backticks or tildes indented at most three spaces (a
+    backtick opener's info string may not contain a backtick); a closer of the same character, at least as long, with
+    nothing after it. Inline spans are matched within one line, so a stray backtick can hide at most that line's text.
+    """
+    lines: list[str] = []
+    fence, opened = "", 0
+    for lineno, line in enumerate(text.splitlines(), 1):
+        m = FENCE.match(line)
+        if fence:
+            run = m.group(1) if m else ""
+            if run[:1] == fence[0] and len(run) >= len(fence) and m is not None and not m.group(2).strip():
+                fence = ""
+            lines.append("")
+        elif m and not (m.group(1)[0] == "`" and "`" in m.group(2)):
+            fence, opened = m.group(1), lineno
+            lines.append("")
+        else:
+            lines.append(CODE_SPAN.sub(lambda c: " " * len(c.group(0)), line))
+    return lines, (opened if fence else None)
+
+
+def _markdown_problems(rel: str, text: str) -> list[str]:
+    lines, open_fence = markdown_prose(text)
+    problems = []
+    for lineno, line in enumerate(lines, 1):
+        if TEMP_MARKER.search(line) or PRAGMA.search(line):
+            problems.append(
+                f"{rel}:{lineno}: a document holds no band-aid markers or pragmas: quote one in `code`, and defer a "
+                "finding with no code to mark as a backlog row or a known gap"
+            )
+    if open_fence is not None:
+        problems.append(f"{rel}:{open_fence}: this code fence is never closed, so nothing after it is checked")
+    return problems
+
+
 def check_markers(files: dict[str, str], roadmap: str) -> list[str]:
     sections = phase_sections(roadmap)
     problems = []
     for rel, text in sorted(files.items()):
         if rel in MARKER_EXEMPT:
             continue
-        checked = markdown_prose(text) if rel.endswith(".md") else text
-        for lineno, line in enumerate(checked.splitlines(), 1):
+        if rel.endswith(".md"):
+            problems += _markdown_problems(rel, text)
+            continue
+        for lineno, line in enumerate(text.splitlines(), 1):
             where = f"{rel}:{lineno}"
             if PRAGMA.search(line) and not PRAGMA_REASON.search(line):
                 problems.append(f"{where}: 'pragma: no cover' needs a reason: '# pragma: no cover - <why>'")
@@ -169,11 +194,17 @@ def _path_problem(root: Path, ref: str) -> str | None:
 
 def check_guards(claude_md: str, backlog: str, root: Path) -> tuple[list[str], int, int]:
     """Findings, plus how many rules a check enforces and how many only review holds."""
-    rows = {int(m.group(1)) for ln in backlog.splitlines() if (m := BACKLOG_ROW.match(ln))}
+    ids = [int(m.group(1)) for ln in backlog.splitlines() if (m := BACKLOG_ROW.match(ln))]
+    rows = set(ids)
     bullets = standards_bullets(claude_md)
     if not bullets:
         return [f"CLAUDE.md: no '{STANDARDS_HEADING}' section with rule bullets"], 0, 0
-    problems: list[str] = []
+    # Branches add rows in parallel; a merge that keeps two rows with one id would let a guard cite the wrong row.
+    problems = [
+        f"docs/standards_backlog.md: backlog row B{b} is defined {ids.count(b)} times"
+        for b in sorted(rows)
+        if ids.count(b) > 1
+    ]
     checked = review_only = 0
     for lineno, text in bullets:
         where = f"CLAUDE.md:{lineno}"

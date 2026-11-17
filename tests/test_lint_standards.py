@@ -91,9 +91,12 @@ def test_exempt_files_may_mention_markers():
     [
         "A review quotes `TEMPORARY(phaseN)` and `# pragma: no cover` as syntax.",
         "A double-backtick span ``TEMPORARY(phaseN) with a ` inside`` is code too.",
-        "A span that wraps `TEMPORARY(phaseN):\n<why>` across a line is still one span.",
         "```python\nx = 1  # TEMPORARY(soon)\n# pragma: no cover\n```",
         "~~~~\n```\nTEMPORARY(soon) inside a longer fence a shorter one cannot close\n~~~~",
+        "````\n```\nTEMPORARY(soon) after a shorter run of the same character, which doesn't close\n````",
+        "```\n``` y\nTEMPORARY(soon) after a closer with trailing text, which doesn't close\n```",
+        "```\n~~~\nTEMPORARY(soon) after tildes, which don't close a backtick fence\n```",
+        "   ```\nTEMPORARY(soon) in a fence indented three spaces\n   ```",
     ],
 )
 def test_markdown_code_is_a_quotation_not_a_marker(text):
@@ -101,18 +104,31 @@ def test_markdown_code_is_a_quotation_not_a_marker(text):
 
 
 @pytest.mark.parametrize(
-    ("text", "line", "complaint"),
+    ("text", "line"),
     [
-        ("Prose: TEMPORARY(phaseN) with no code span.", 1, "must cite a roadmap phase"),
-        ("```\nquoted\n```\nTEMPORARY(soon): after the fence closes, with a reason", 4, "must cite a roadmap phase"),
-        ("An unclosed ` backtick\n\nTEMPORARY(soon): a blank line ends the paragraph`", 3, "must cite a roadmap phase"),
-        ("x  pragma: no cover, in prose", 1, "needs a reason"),
+        ("Prose: TEMPORARY(phase2): a real reason, but documents hold no markers.", 1),
+        ("x  # pragma: no cover - a reason, in a document", 1),
+        ("```\nquoted\n```\nTEMPORARY(soon): after the fence closes", 4),
+        ("A span that wraps `TEMPORARY(phaseN):\n<why>` is not one span: spans stay on a line.", 1),
+        ("- a `b\n- TEMPORARY(soon): x c`", 2),
+        ("| a | `x |\n| b | TEMPORARY(soon) | y` |", 2),
+        ("``TEMPORARY(soon)` has no closing run of two", 1),
+        ("`TEMPORARY(soon)`` has no closing run of one", 1),
+        ("``a` TEMPORARY(soon) with unequal runs", 1),
+        ("Use \\`TEMPORARY(soon)` where the opener is escaped", 1),
+        ("    ```\nTEMPORARY(soon) after a fence indented four spaces, which is not a fence", 2),
+        ("``` a`b\nTEMPORARY(soon) after a backtick info string, which is not a fence", 2),
     ],
 )
-def test_markdown_prose_is_still_checked(text, line, complaint):
+def test_markdown_prose_is_still_checked(text, line):
     problems = lint.check_markers({"docs/x.md": text}, ROADMAP)
-    assert any(complaint in p for p in problems), problems
-    assert all(p.startswith(f"docs/x.md:{line}:") for p in problems), problems
+    assert problems, text
+    assert all(p.startswith(f"docs/x.md:{line}: a document holds no band-aid markers") for p in problems), problems
+
+
+def test_an_unclosed_fence_is_reported_where_it_opens():
+    problems = lint.check_markers({"docs/x.md": "prose\n```\nTEMPORARY(soon)\n"}, ROADMAP)
+    assert problems == ["docs/x.md:2: this code fence is never closed, so nothing after it is checked"]
 
 
 def test_backticks_in_code_files_do_not_hide_a_marker():
@@ -152,6 +168,11 @@ STANDARDS = """\
 - not a rule. No guard needed.
 """
 BACKLOG = "| B1 | something |\n"
+
+
+def test_a_backlog_id_defined_twice_is_reported():
+    problems, _, _ = lint.check_guards("## Engineering standards\n\n- **R.** Guard: B1", BACKLOG + BACKLOG, ROOT)
+    assert problems == ["docs/standards_backlog.md: backlog row B1 is defined 2 times"]
 
 
 def test_guard_citations_are_checked():

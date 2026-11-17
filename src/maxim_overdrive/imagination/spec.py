@@ -51,6 +51,8 @@ def _read(grid: MaterialGrid, spec: object, origin_m: object) -> tuple[str, list
         raise SpecRejected(f"something called {name!r} already exists")
     try:
         origin = finite_vector(origin_m, 3, "origin_m")
+        # TEMPORARY(phase1): unknown spec keys are ignored, so a misspelt one vanishes silently; the real fix refuses
+        # them in _read with a red test first, on the act-validation branch that is reworking this function.
         prims = Scene.from_dict({"extent_m": grid.extent_m, "primitives": spec.get("primitives", [])}).primitives
         placed = [_offset(p, (origin[0], origin[1], origin[2])) for p in prims]  # offsetting re-validates
     except (KeyError, TypeError, ValueError) as exc:

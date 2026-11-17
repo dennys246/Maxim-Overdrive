@@ -8,9 +8,10 @@ Trust boundary, Wire integrity and Determinism and replay as lenses.
 
 1. **An IP gate in front of `imagination.spec.place`** ships in the same phase as the LLM caller that feeds it
    (Phase 6). It does not wait for a marketplace.
-2. **Content identity starts now**, in protocol v0, intent log v0 and save v0. Every placed object refers to a
-   content-addressed spec, and every spec carries provenance and a licence reference. That is cheap now and a
-   migration of every save later.
+2. **Content identity is proposed for protocol v0, intent log v0 and save v0.** Every placed object refers to a
+   content-addressed spec, with a provenance record and a licence reference beside it. That is cheap before those
+   formats freeze and a migration of every save after. It is a proposal for the real-time design's next delta
+   round, not settled scope (section 6).
 3. **The marketplace is a business decision, not an infrastructure task.** No marketplace code is written until
    players exist and the owner decides to run one. Section 5 lists what it would cost.
 4. **No DRM.** Creators are protected by where their content lives, by licences and by takedowns, not by encrypting
@@ -109,17 +110,23 @@ The precedents that fit best:
 These belong in protocol v0, intent log v0 and save v0 (`realtime_lanes_coop.md` §7, roadmap Phase 1), and are
 proposed as findings for the next delta round of that design rather than edited into it here.
 
-1. **Specs are content-addressed.** A `SpecId` is a hash of the canonical spec encoding (sorted keys, fixed number
-   format, no `hash()`). `place` stores the spec in a spec store keyed by id, and the region keeps a reference to
-   its id. Today `place` keeps only a name and a mask and drops the spec (`imagination/spec.py:95-96`).
-2. **A spec carries provenance and a licence reference.**
+1. **Specs are content-addressed, by content alone.** A `SpecId` is a hash of the canonical encoding of the
+   object's content: its primitives, materials and description (sorted keys, fixed number format, no `hash()`). The
+   same object made twice has the same id, which is what lets a re-upload be spotted by hash (section 4). `place`
+   stores the spec in a spec store keyed by id, and the region keeps a reference to its id. Today `place` keeps only
+   a name and a mask and drops the spec (`imagination/spec.py:95-96`).
+2. **Provenance and licence are a separate record per placement, not part of the id.**
    - Provenance: origin (`authored`, `imagined`, later `licensed`), creator actor, tick, and parent spec ids (the
-     derivation chain).
+     derivation chain). Two people who make the same object get one `SpecId` and two provenance records, and
+     "who made it first" is the earliest tick.
    - Licence reference: one value today, `first-party/all-rights-reserved`. The reader refuses unknown values.
-3. **The spec reader refuses unknown keys.** Today they are ignored, which would let a misspelt licence field vanish
-   silently.
+3. **The spec reader refuses unknown keys.** Today `_read` ignores them, so a misspelt key vanishes silently. That
+   is a present trust-boundary defect, not part of this proposal. It is marked in `imagination/spec.py` and
+   scheduled under Phase 1 in the roadmap, with the act-validation branch that is reworking `_read`.
 4. **Region identity crosses the wire.** The `welcome` region list carries each region's spec id. The intent log
-   header hashes the spec store, as it already hashes the scene, rig and material table.
+   header hashes the *initial* spec store, as the v0 header design (`realtime_lanes_coop.md` §7) hashes the scene,
+   rig, material table, world config and roster. Specs imagined mid-session arrive later as logged thought
+   results, so their content is in the records, not the header.
 5. **Material ids are not a creator namespace.** `data/materials/core.yaml` ids are permanent `uint8` values (at most
    255). Third-party materials, if they come, get string ids mapped to per-world compact indices at load, recorded
    in the save. Nothing changes now; the constraint is written down so nobody spends the `uint8` space on content.
