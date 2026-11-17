@@ -57,8 +57,10 @@ class RigProfile:
         )
 
 
-# Format versions of the data files. A change a reader of the old version can't read bumps one, with a migration
-# for the files that ship (CLAUDE.md, "Every format is versioned").
+# Each data format has its own version (RIG_PROFILE_VERSION, MATERIAL_TABLE_VERSION, ACTION_LIMITS_VERSION), checked
+# by checks.format_version before the keys. A change a reader of the old version can't read bumps it, and the reader
+# then migrates or loudly refuses the committed v0 files in tests/fixtures/formats/ (CLAUDE.md, "Every format is
+# versioned").
 RIG_PROFILE_VERSION = 0
 RIG_KEYS = frozenset({"version", "name", "cell_size_m", "min_substeps_per_turn", "full_res_radius_m"})
 
@@ -141,8 +143,9 @@ class MaterialTable:
     @classmethod
     def load(cls, path: str | Path | None = None) -> MaterialTable:
         path = Path(path) if path is not None else data_dir() / "materials" / "core.yaml"
-        table = format_version(read_yaml(path), MATERIAL_TABLE_VERSION, "material table")
-        raw = known_keys(table, "material table", required={"version", "materials"})["materials"]
+        what = f"material table {path}"
+        table = format_version(read_yaml(path), MATERIAL_TABLE_VERSION, what)
+        raw = known_keys(table, what, required={"version", "materials"})["materials"]
         if not isinstance(raw, Mapping):
             raise ValueError(f"materials must be a mapping, got {type(raw).__name__}")
         mats = {}

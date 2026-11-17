@@ -1,0 +1,13 @@
+# Golden file at format version 0, copied from data/world/actions.yaml with its comments removed. Never edit it to match a
+# newer format: tests/test_validation.py::test_the_committed_v0_files_still_load holds the reader to it.
+version: 0
+ignite:
+  max_power_w: 500000.0
+  min_radius_m: 0.3
+  max_radius_m: 3.0
+  default_radius_m: 0.3
+strike:
+  max_energy_j: 1000000000.0  # 1 GJ: a large explosion
+  min_sigma_m: 0.2            # at least the coarsest rig's cell; near-threshold craters still differ (Known gaps)
+  max_sigma_m: 2.0
+  default_sigma_m: 0.2

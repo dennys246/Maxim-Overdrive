@@ -581,7 +581,7 @@ def _material_file(tmp_path, edit):
 @pytest.mark.parametrize(
     ("edit", "message"),
     [
-        (lambda raw: raw.update(materails={}), r"material table: unknown key\(s\) \['materails'\]"),
+        (lambda raw: raw.update(materails={}), r"material table .*: unknown key\(s\) \['materails'\]"),
         # A misspelt degrade_above_c: without the refusal, wood would silently never degrade.
         (lambda raw: raw["materials"]["wood"].update(degrade_above=250.0), r"material wood: unknown key\(s\)"),
         (lambda raw: raw["materials"].update(steel=[1, 2]), "material steel must be a mapping"),
@@ -942,7 +942,7 @@ def test_a_rig_file_without_a_version_is_refused(tmp_path):
 @pytest.mark.parametrize("value", [1, True, 0.0, "0", None])
 def test_a_material_file_refuses_a_version_it_does_not_know(tmp_path, value):
     path = _material_file(tmp_path, lambda raw: raw.update(version=value))
-    with pytest.raises(ValueError, match=f"material table version must be 0, got {value!r}"):
+    with pytest.raises(ValueError, match=f"material table .* version must be 0, got {value!r}"):
         MaterialTable.load(path)
 
 
@@ -953,8 +953,58 @@ def test_a_scene_refuses_a_version_it_does_not_know(value):
 
 
 def test_every_shipped_data_file_is_at_its_formats_current_version():
-    from maxim_overdrive.config import MATERIAL_TABLE_VERSION, RIG_PROFILE_VERSION  # noqa: PLC0415
+    from maxim_overdrive.config import ACTION_LIMITS_VERSION, MATERIAL_TABLE_VERSION, RIG_PROFILE_VERSION  # noqa: PLC0415
 
-    for rig in (data_dir() / "rigs").glob("*.yaml"):
-        assert yaml.safe_load(rig.read_text())["version"] == RIG_PROFILE_VERSION, rig
-    assert yaml.safe_load((data_dir() / "materials" / "core.yaml").read_text())["version"] == MATERIAL_TABLE_VERSION
+    # Each data directory has one reader and one format; a file in a directory no reader owns is an error, so a new
+    # kind of data file can't ship without a version and a loader.
+    readers: dict[str, tuple[Callable[[Path], object], int]] = {
+        "rigs": (RigProfile.load, RIG_PROFILE_VERSION),
+        "materials": (MaterialTable.load, MATERIAL_TABLE_VERSION),
+        "world": (ActionLimits.load, ACTION_LIMITS_VERSION),
+    }
+    files = sorted(p for p in data_dir().rglob("*") if p.is_file())
+    assert files
+    for path in files:
+        kind = path.relative_to(data_dir()).parts[0]
+        assert kind in readers, f"{path}: no reader owns data/{kind}/"
+        load, version = readers[kind]
+        assert path.suffix == ".yaml", path
+        shipped = yaml.safe_load(path.read_text())["version"]
+        assert type(shipped) is int, path  # False == 0, but false is not version 0
+        assert shipped == version, path
+        load(path)
+
+
+@pytest.mark.parametrize(
+    ("load", "fixture"),
+    [(RigProfile.load, "rig.yaml"), (MaterialTable.load, "core.yaml"), (ActionLimits.load, "actions.yaml")],
+)
+def test_the_committed_v0_files_still_load(load, fixture):
+    # Golden files at version 0. When a format moves on, its reader must still load these (a migration) or refuse
+    # them loudly for their version; they are never rewritten to match.
+    load(Path(__file__).parent / "fixtures" / "formats" / "v0" / fixture)
+
+
+def _newer(text: str) -> str:
+    """A file from a future version: its version bumped, and a field that version added."""
+    return text.replace("version: 0", "version: 1", 1) + "added_in_v1: true\n"
+
+
+@pytest.mark.parametrize(
+    ("load", "source", "message"),
+    [
+        (RigProfile.load, data_dir() / "rigs" / "rig.yaml", "rig profile .* version must be 0, got 1"),
+        (MaterialTable.load, data_dir() / "materials" / "core.yaml", "material table .* version must be 0, got 1"),
+        (ActionLimits.load, data_dir() / "world" / "actions.yaml", "action limits version must be 0, got 1"),
+    ],
+)
+def test_a_file_from_a_newer_format_is_refused_for_its_version_not_its_new_fields(tmp_path, load, source, message):
+    path = tmp_path / source.name
+    path.write_text(_newer(source.read_text()))
+    with pytest.raises(ValueError, match=message):
+        load(path)
+
+
+def test_a_scene_from_a_newer_format_is_refused_for_its_version_not_its_new_fields():
+    with pytest.raises(ValueError, match="scene version must be 0, got 1"):
+        Scene.from_dict({"version": 1, "extent_m": [1, 1, 1], "added_in_v1": True})
