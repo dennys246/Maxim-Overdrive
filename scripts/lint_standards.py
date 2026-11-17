@@ -5,9 +5,9 @@
    band-aid can't outlive the moment promised to remove it, and the roadmap shows every one that is open.
 2. ``pragma: no cover`` must say why the line can't be tested.
    Markdown holds no band-aids, so it holds no markers or pragmas. A document that explains or reviews the rule
-   quotes their syntax in code (an inline span on one line, or a fenced block), and anything outside code is a
-   finding. A Markdown misparse must over-report, never hide: a span never crosses a line, an escaped backtick never
-   opens one, and a fence left open at the end of a file is itself a finding.
+   quotes their syntax in code (an inline span or a code block), and anything that renders as text is a finding.
+   Documents are parsed by markdown-it as CommonMark plus GitHub's tables, the way they render, rather than by a
+   hand-written approximation; raw HTML counts as text, and a fence left open at the end of a file is a finding.
 3. Guard citations. Every rule bullet under CLAUDE.md's "Engineering standards" ends with ``Guard:`` and names files
    that exist (``path``, or ``path::symbol`` where the symbol appears as a whole word outside comments, and, in a
    ``.py`` file, as a definition) and/or backlog rows (``B7``) in docs/standards_backlog.md. A rule whose only
@@ -27,6 +27,7 @@ import sys
 from pathlib import Path
 
 import tomli  # the stdlib's tomllib, from PyPI on every version: one code path, including Python 3.10
+from markdown_it import MarkdownIt
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -46,9 +47,8 @@ COMMENT_PREFIX = {".py": "#", ".toml": "#", ".sh": "#", ".yml": "#", ".yaml": "#
 
 # The lint and its tests write markers and pragmas as data. Documents need no entry: they quote them in code.
 MARKER_EXEMPT = {"scripts/lint_standards.py", "tests/test_lint_standards.py"}
-FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})(.*)$")
-# A CommonMark code span on one line: a backtick run, not escaped, closed by a run of the same length.
-CODE_SPAN = re.compile(r"(?<![`\\])(`+)(?!`)(.+?)(?<!`)\1(?!`)")
+# How GitHub renders the docs: CommonMark plus tables (cells are parsed one by one, so a span can't cross rows).
+MARKDOWN = MarkdownIt("commonmark").enable(["table", "strikethrough"])
 
 
 def phase_sections(roadmap: str) -> dict[int, tuple[str, str]]:
@@ -69,27 +69,37 @@ def phase_sections(roadmap: str) -> dict[int, tuple[str, str]]:
 
 
 def markdown_prose(text: str) -> tuple[list[str], int | None]:
-    """The Markdown's lines with code blanked, and the line of a fence left open at the end, if any.
+    """Each line's rendered text, with code left out, and the line of a fence left open at the end, if any.
 
-    Fenced blocks follow CommonMark: an opener of three or more backticks or tildes indented at most three spaces (a
-    backtick opener's info string may not contain a backtick); a closer of the same character, at least as long, with
-    nothing after it. Inline spans are matched within one line, so a stray backtick can hide at most that line's text.
+    Inline text, link text and raw HTML (inline or a block) count; code spans, fenced and indented code don't.
+    Lines are split as CommonMark splits them (``\\n``, ``\\r\\n`` or ``\\r``), so line numbers match the source.
     """
-    lines: list[str] = []
-    fence, opened = "", 0
-    for lineno, line in enumerate(text.splitlines(), 1):
-        m = FENCE.match(line)
-        if fence:
-            run = m.group(1) if m else ""
-            if run[:1] == fence[0] and len(run) >= len(fence) and m is not None and not m.group(2).strip():
-                fence = ""
-            lines.append("")
-        elif m and not (m.group(1)[0] == "`" and "`" in m.group(2)):
-            fence, opened = m.group(1), lineno
-            lines.append("")
-        else:
-            lines.append(CODE_SPAN.sub(lambda c: " " * len(c.group(0)), line))
-    return lines, (opened if fence else None)
+    src = text.replace("\r\n", "\n").replace("\r", "\n")
+    raw = src.split("\n")
+    lines = [""] * len(raw)
+    open_fence = None
+    for tok in MARKDOWN.parse(src):
+        if tok.map is None:
+            continue
+        first, end = tok.map
+        if tok.type == "html_block":
+            for i in range(first, end):
+                lines[i] += raw[i]
+        elif tok.type == "fence":
+            closer = raw[end - 1].strip()
+            fence_char = tok.markup[0]
+            closed = end - first >= 2 and len(closer) >= len(tok.markup) and closer == fence_char * len(closer)
+            if not closed:
+                open_fence = first + 1
+        elif tok.type == "inline":
+            line = first
+            lines[line] += " "  # table cells share a line; one cell's text must not run into the next
+            for child in tok.children or []:
+                if child.type in ("softbreak", "hardbreak"):
+                    line += 1
+                elif child.type in ("text", "html_inline"):
+                    lines[line] += child.content
+    return lines, open_fence
 
 
 def _markdown_problems(rel: str, text: str) -> list[str]:
@@ -196,15 +206,15 @@ def check_guards(claude_md: str, backlog: str, root: Path) -> tuple[list[str], i
     """Findings, plus how many rules a check enforces and how many only review holds."""
     ids = [int(m.group(1)) for ln in backlog.splitlines() if (m := BACKLOG_ROW.match(ln))]
     rows = set(ids)
-    bullets = standards_bullets(claude_md)
-    if not bullets:
-        return [f"CLAUDE.md: no '{STANDARDS_HEADING}' section with rule bullets"], 0, 0
     # Branches add rows in parallel; a merge that keeps two rows with one id would let a guard cite the wrong row.
     problems = [
         f"docs/standards_backlog.md: backlog row B{b} is defined {ids.count(b)} times"
         for b in sorted(rows)
         if ids.count(b) > 1
     ]
+    bullets = standards_bullets(claude_md)
+    if not bullets:
+        return [*problems, f"CLAUDE.md: no '{STANDARDS_HEADING}' section with rule bullets"], 0, 0
     checked = review_only = 0
     for lineno, text in bullets:
         where = f"CLAUDE.md:{lineno}"

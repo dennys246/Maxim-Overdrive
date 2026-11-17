@@ -73,8 +73,8 @@ only review holds.
   it. Mark it in the code as `TEMPORARY(phaseN[/step]): <why, and what the real fix is>`, and list its file under
   that phase in `docs/roadmap.md`. The lint fails on a marker with no reason, an unknown or finished phase, or a file
   the phase doesn't list, so every open band-aid shows in the roadmap. A finding with no code to mark is deferred as
-  a backlog row or a known gap instead, so a document never holds a marker: it quotes one in code on one line or in
-  a fence. Guard: `scripts/lint_standards.py::check_markers`
+  a backlog row or a known gap instead, so a document never holds a marker or a pragma: it quotes one in code.
+  Guard: `scripts/lint_standards.py::check_markers`
 - **When debugging stalls, audit the layer beneath.** If two explanations for a bad result have died, stop
   generating a third. Check what else changed, and whether the action you commanded actually happened (did the fire
   actually get added, did the message actually arrive) before theorizing about the sensor. Guard: B1 (review asks how

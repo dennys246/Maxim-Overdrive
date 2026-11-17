@@ -28,6 +28,7 @@ dev = [
     "mypy>=1.15",
     "types-PyYAML>=6.0",
     "tomli>=2.0",
+    "markdown-it-py>=3.0",  # the standards lint parses docs as they render (CommonMark plus tables); MIT
 ]
 
 [tool.hatch.build.targets.wheel]

@@ -111,18 +111,20 @@ These belong in protocol v0, intent log v0 and save v0 (`realtime_lanes_coop.md`
 proposed as findings for the next delta round of that design rather than edited into it here.
 
 1. **Specs are content-addressed, by content alone.** A `SpecId` is a hash of the canonical encoding of the
-   object's content: its primitives, materials and description (sorted keys, fixed number format, no `hash()`). The
-   same object made twice has the same id, which is what lets a re-upload be spotted by hash (section 4). `place`
-   stores the spec in a spec store keyed by id, and the region keeps a reference to its id. Today `place` keeps only
-   a name and a mask and drops the spec (`imagination/spec.py:95-96`).
+   object's content: every key the spec reader accepts except `name`, which is today `primitives` alone (sorted
+   keys, fixed number format, no `hash()`). A key added later, such as a description, joins the accepted set and the
+   hashed content together, as one list. The same object made twice has the same id, which is what lets a re-upload
+   be spotted by hash (section 4). `place` stores the spec in a spec store keyed by id, and the region keeps a
+   reference to its id. Today `imagination.spec.place` keeps only a name and a mask and drops the spec.
 2. **Provenance and licence are a separate record per placement, not part of the id.**
    - Provenance: origin (`authored`, `imagined`, later `licensed`), creator actor, tick, and parent spec ids (the
-     derivation chain). Two people who make the same object get one `SpecId` and two provenance records, and
-     "who made it first" is the earliest tick.
+     derivation chain). Two people who make the same object get one `SpecId` and two provenance records. Within
+     one world, "who made it first" is the earliest tick; ticks from different worlds don't compare, so proving
+     priority across players needs a timestamp signed at publish (an open question for the design review).
    - Licence reference: one value today, `first-party/all-rights-reserved`. The reader refuses unknown values.
 3. **The spec reader refuses unknown keys.** Today `_read` ignores them, so a misspelt key vanishes silently. That
-   is a present trust-boundary defect, not part of this proposal. It is marked in `imagination/spec.py` and
-   scheduled under Phase 1 in the roadmap, with the act-validation branch that is reworking `_read`.
+   is a present trust-boundary defect, not part of this proposal, and it is wider than specs: every loader ignores
+   unknown keys. It is recorded under backlog B12.
 4. **Region identity crosses the wire.** The `welcome` region list carries each region's spec id. The intent log
    header hashes the *initial* spec store, as the v0 header design (`realtime_lanes_coop.md` §7) hashes the scene,
    rig, material table, world config and roster. Specs imagined mid-session arrive later as logged thought

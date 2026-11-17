@@ -24,9 +24,6 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
 - Review the content-identity proposal (`docs/design/ip_and_licensing.md` §6: content-addressed spec ids, a
   provenance and licence record per placement) at the real-time design's next delta round, before protocol v0,
   the intent log v0 and save v0 freeze. Its design review uses the note's own lenses.
-- Temporary: `src/maxim_overdrive/imagination/spec.py` ignores unknown spec keys, so a misspelt key vanishes
-  silently. The spec reader refuses them, with a red test first, on the act-validation branch that is reworking
-  `_read`.
 - Fires that go out when their fuel is gone, so a burnt-out crate's fire stops instead of heating air to millions of
   degrees (`docs/architecture.md`, Known gaps; the red gate is
   `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`). Needed before the tile's crate
