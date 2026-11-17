@@ -19,7 +19,7 @@ import numpy as np
 
 from maxim_overdrive.checks import finite_vector, known_keys
 from maxim_overdrive.world.grid import MaterialGrid, entity_key
-from maxim_overdrive.world.scene import Box, Cylinder, Primitive, Scene, boxes_overlap, footprint_of
+from maxim_overdrive.world.scene import Box, Cylinder, Primitive, boxes_overlap, footprint_of, primitives_from_data
 
 
 @dataclass(frozen=True)
@@ -63,7 +63,7 @@ def _read(grid: MaterialGrid, spec: object, origin_m: object) -> tuple[str, list
         raise SpecRejected(f"something called {clash!r} already exists")
     try:
         origin = finite_vector(origin_m, 3, "origin_m")
-        prims = Scene.from_dict({"extent_m": grid.extent_m, "primitives": spec.get("primitives", [])}).primitives
+        prims = primitives_from_data(spec.get("primitives", []))
         placed = [_offset(p, (origin[0], origin[1], origin[2])) for p in prims]  # offsetting re-validates
     except (KeyError, TypeError, ValueError) as exc:
         raise SpecRejected(f"malformed spec: {exc}") from exc

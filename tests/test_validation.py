@@ -120,7 +120,7 @@ def test_a_scene_must_be_a_mapping(raw):
 
 def test_a_scene_refuses_unknown_primitive_kinds():
     with pytest.raises(ValueError, match="unknown primitive kind 'torus'"):
-        Scene.from_dict({"extent_m": [1, 1, 1], "primitives": [{"kind": "torus", "material": "wood"}]})
+        Scene.from_dict({"version": 0, "extent_m": [1, 1, 1], "primitives": [{"kind": "torus", "material": "wood"}]})
 
 
 # -- heat, damage, world ----------------------------------------------------------------------------------------------
@@ -234,7 +234,7 @@ def test_an_imagined_object_over_its_mass_budget_is_refused(rig, materials):
 
 def test_a_rig_loads_by_name_or_by_path(tmp_path):
     custom = tmp_path / "tiny.yaml"
-    custom.write_text("name: tiny\ncell_size_m: 0.25\nmin_substeps_per_turn: 2\nfull_res_radius_m: 4.0\n")
+    custom.write_text("version: 0\nname: tiny\ncell_size_m: 0.25\nmin_substeps_per_turn: 2\nfull_res_radius_m: 4.0\n")
     assert RigProfile.load(custom) == RigProfile("tiny", 0.25, 2, 4.0)
     assert RigProfile.load("rig").cell_size_m == 0.1
     with pytest.raises(FileNotFoundError):
@@ -248,7 +248,7 @@ def test_a_rig_loads_by_name_or_by_path(tmp_path):
     ("ambient", "message"), [("nan", "finite number"), (".nan", "finite number"), (-300, "absolute zero")]
 )
 def test_a_scene_refuses_an_impossible_ambient_temperature(ambient, message):
-    raw = yaml.safe_load(f"extent_m: [1, 1, 1]\nprimitives: []\nambient_c: {ambient}\n")
+    raw = yaml.safe_load(f"version: 0\nextent_m: [1, 1, 1]\nprimitives: []\nambient_c: {ambient}\n")
     with pytest.raises(ValueError, match=message):
         Scene.from_dict(raw)
 
@@ -257,7 +257,13 @@ def test_a_scene_refuses_an_impossible_ambient_temperature(ambient, message):
     ("field", "value"), [("cell_size_m", "'0.1'"), ("cell_size_m", ".inf"), ("full_res_radius_m", "true")]
 )
 def test_a_rig_file_refuses_a_value_that_is_not_a_finite_number(tmp_path, field, value):
-    good = {"name": "t", "cell_size_m": "0.25", "min_substeps_per_turn": "2", "full_res_radius_m": "4.0"}
+    good = {
+        "version": "0",
+        "name": "t",
+        "cell_size_m": "0.25",
+        "min_substeps_per_turn": "2",
+        "full_res_radius_m": "4.0",
+    }
     good[field] = value
     path = tmp_path / "t.yaml"
     path.write_text("".join(f"{k}: {v}\n" for k, v in good.items()))
@@ -306,7 +312,7 @@ def test_a_scenes_ambient_bounds_are_exact(ambient, ok):
 @pytest.mark.parametrize("value", ["2.9", "true", "'4'", ".inf"])
 def test_a_rig_files_substep_count_must_be_a_whole_number(tmp_path, value):
     path = tmp_path / "t.yaml"
-    path.write_text(f"name: t\ncell_size_m: 0.25\nmin_substeps_per_turn: {value}\nfull_res_radius_m: 4.0\n")
+    path.write_text(f"version: 0\nname: t\ncell_size_m: 0.25\nmin_substeps_per_turn: {value}\nfull_res_radius_m: 4.0\n")
     with pytest.raises(ValueError, match="min_substeps_per_turn must be a whole number"):
         RigProfile.load(path)
 
@@ -545,7 +551,7 @@ def test_paint_refuses_a_confusable_name_before_painting(rig, materials):
 
 # -- closed schemas: every loader refuses a key it doesn't know, at every level (B12) ----------------------------------
 
-RIG_FILE = "name: t\ncell_size_m: 0.25\nmin_substeps_per_turn: 2\nfull_res_radius_m: 4.0\n"
+RIG_FILE = "version: 0\nname: t\ncell_size_m: 0.25\nmin_substeps_per_turn: 2\nfull_res_radius_m: 4.0\n"
 
 
 @pytest.mark.parametrize(
@@ -602,10 +608,22 @@ CYLINDER_RAW = {"kind": "cylinder", "center_xy_m": [0.5, 0.5], "radius_m": 0.2, 
 @pytest.mark.parametrize(
     ("raw", "message"),
     [
-        ({"extent_m": [1, 1, 1], "primitives": [], "ambient": 30.0}, r"scene: unknown key\(s\) \['ambient'\]"),
-        ({"extent_m": [1, 1, 1], "primitives": [{**BOX_RAW, "colour": "red"}]}, r"box primitive: unknown key"),
-        ({"extent_m": [1, 1, 1], "primitives": [{**CYLINDER_RAW, "radius": 1}]}, r"cylinder primitive: unknown key"),
-        ({"extent_m": [1, 1, 1], "primitives": [{**BOX_RAW, "radius_m": 0.2}]}, r"box primitive: unknown key"),
+        (
+            {"version": 0, "extent_m": [1, 1, 1], "primitives": [], "ambient": 30.0},
+            r"scene: unknown key\(s\) \['ambient'\]",
+        ),
+        (
+            {"version": 0, "extent_m": [1, 1, 1], "primitives": [{**BOX_RAW, "colour": "red"}]},
+            r"box primitive: unknown key",
+        ),
+        (
+            {"version": 0, "extent_m": [1, 1, 1], "primitives": [{**CYLINDER_RAW, "radius": 1}]},
+            r"cylinder primitive: unknown key",
+        ),
+        (
+            {"version": 0, "extent_m": [1, 1, 1], "primitives": [{**BOX_RAW, "radius_m": 0.2}]},
+            r"box primitive: unknown key",
+        ),
     ],
 )
 def test_a_scene_refuses_unknown_keys_at_every_level(raw, message):
@@ -614,7 +632,9 @@ def test_a_scene_refuses_unknown_keys_at_every_level(raw, message):
 
 
 def test_a_scene_accepts_every_key_it_knows():
-    scene = Scene.from_dict({"extent_m": [1, 1, 1], "primitives": [BOX_RAW, CYLINDER_RAW], "ambient_c": 25.0})
+    scene = Scene.from_dict(
+        {"version": 0, "extent_m": [1, 1, 1], "primitives": [BOX_RAW, CYLINDER_RAW], "ambient_c": 25.0}
+    )
     assert [p.kind for p in scene.primitives] == ["box", "cylinder"]
     assert scene.ambient_c == 25.0
 
@@ -648,22 +668,30 @@ def test_a_material_colour_must_be_three_whole_numbers(tmp_path, value):
 @pytest.mark.parametrize("kind", [["box"], {}, 3, None])
 def test_a_primitive_kind_that_is_not_a_name_is_refused_not_crashed_on(kind):
     with pytest.raises(ValueError, match="unknown primitive kind"):
-        Scene.from_dict({"extent_m": [1, 1, 1], "primitives": [{**BOX_RAW, "kind": kind}]})
+        Scene.from_dict({"version": 0, "extent_m": [1, 1, 1], "primitives": [{**BOX_RAW, "kind": kind}]})
 
 
 @pytest.mark.parametrize(
     ("raw", "message"),
     [
-        ({"primitives": []}, r"scene: missing key\(s\) \['extent_m'\]"),
+        ({"version": 0, "primitives": []}, r"scene: missing key\(s\) \['extent_m'\]"),
         (
-            {"extent_m": [1, 1, 1], "primitives": [{"kind": "box", "max_m": [1, 1, 1], "material": "wood"}]},
+            {
+                "version": 0,
+                "extent_m": [1, 1, 1],
+                "primitives": [{"kind": "box", "max_m": [1, 1, 1], "material": "wood"}],
+            },
             r"box primitive: missing key\(s\) \['min_m'\]",
         ),
         (
-            {"extent_m": [1, 1, 1], "primitives": [{k: v for k, v in CYLINDER_RAW.items() if k != "radius_m"}]},
+            {
+                "version": 0,
+                "extent_m": [1, 1, 1],
+                "primitives": [{k: v for k, v in CYLINDER_RAW.items() if k != "radius_m"}],
+            },
             r"cylinder primitive: missing key\(s\) \['radius_m'\]",
         ),
-        ({"extent_m": 5}, "extent_m must be 3 numbers"),
+        ({"version": 0, "extent_m": 5}, "extent_m must be 3 numbers"),
     ],
 )
 def test_a_scene_refuses_a_missing_key_by_name(raw, message):
@@ -673,7 +701,7 @@ def test_a_scene_refuses_a_missing_key_by_name(raw, message):
 
 def test_a_rig_file_refuses_a_missing_key_by_name(tmp_path):
     path = tmp_path / "t.yaml"
-    path.write_text("name: t\ncell_size_m: 0.25\n")
+    path.write_text("version: 0\nname: t\ncell_size_m: 0.25\n")
     with pytest.raises(ValueError, match=r"missing key\(s\) \['full_res_radius_m', 'min_substeps_per_turn'\]"):
         RigProfile.load(path)
 
@@ -786,13 +814,20 @@ _bad_primitive = st.fixed_dictionaries(
 )
 _primitive = _good_box | _good_cylinder | _bad_primitive | _json
 _built_scene = st.fixed_dictionaries(  # always reaches Box and Cylinder, and their own checks
-    {"extent_m": st.just([3.0, 3.0, 2.0]), "primitives": st.lists(_good_box | _good_cylinder, min_size=1, max_size=3)},
+    {
+        "version": st.just(0),
+        "extent_m": st.just([3.0, 3.0, 2.0]),
+        "primitives": st.lists(_good_box | _good_cylinder, min_size=1, max_size=3),
+    },
     optional={"ambient_c": _number},
 )
 _scene_like = (
     _built_scene
     | st.fixed_dictionaries(
-        {"extent_m": st.just([3.0, 3.0, 2.0]) | st.lists(_number, min_size=3, max_size=3) | _json},
+        {
+            "version": st.just(0),
+            "extent_m": st.just([3.0, 3.0, 2.0]) | st.lists(_number, min_size=3, max_size=3) | _json,
+        },
         optional={"ambient_c": _number | _json, "primitives": st.lists(_primitive, max_size=3) | _json},
     )
     | st.dictionaries(st.text(max_size=12), _json, max_size=4)
@@ -882,3 +917,44 @@ def test_every_data_loader_loads_or_refuses_any_file(tmp_path_factory, raw, as_y
     for load in (RigProfile.load, MaterialTable.load, ActionLimits.load):
         with contextlib.suppress(ValueError):
             load(path)
+
+
+# -- format versions: every data format names its version, and a reader refuses one it doesn't know (B20) --------------
+
+BAD_VERSIONS = [("1", "got 1"), ("true", "got True"), ("0.0", "got 0.0"), ("'0'", "got '0'"), ("~", "got None")]
+
+
+@pytest.mark.parametrize(("value", "shown"), BAD_VERSIONS)
+def test_a_rig_file_refuses_a_version_it_does_not_know(tmp_path, value, shown):
+    path = tmp_path / "t.yaml"
+    path.write_text(RIG_FILE.replace("version: 0\n", f"version: {value}\n"))
+    with pytest.raises(ValueError, match=f"rig profile .* version must be 0, {shown}"):
+        RigProfile.load(path)
+
+
+def test_a_rig_file_without_a_version_is_refused(tmp_path):
+    path = tmp_path / "t.yaml"
+    path.write_text(RIG_FILE.replace("version: 0\n", ""))
+    with pytest.raises(ValueError, match="version must be 0, got None"):
+        RigProfile.load(path)
+
+
+@pytest.mark.parametrize("value", [1, True, 0.0, "0", None])
+def test_a_material_file_refuses_a_version_it_does_not_know(tmp_path, value):
+    path = _material_file(tmp_path, lambda raw: raw.update(version=value))
+    with pytest.raises(ValueError, match=f"material table version must be 0, got {value!r}"):
+        MaterialTable.load(path)
+
+
+@pytest.mark.parametrize("value", [1, True, 0.0, "0", None])
+def test_a_scene_refuses_a_version_it_does_not_know(value):
+    with pytest.raises(ValueError, match=f"scene version must be 0, got {value!r}"):
+        Scene.from_dict({"version": value, "extent_m": [1, 1, 1]})
+
+
+def test_every_shipped_data_file_is_at_its_formats_current_version():
+    from maxim_overdrive.config import MATERIAL_TABLE_VERSION, RIG_PROFILE_VERSION  # noqa: PLC0415
+
+    for rig in (data_dir() / "rigs").glob("*.yaml"):
+        assert yaml.safe_load(rig.read_text())["version"] == RIG_PROFILE_VERSION, rig
+    assert yaml.safe_load((data_dir() / "materials" / "core.yaml").read_text())["version"] == MATERIAL_TABLE_VERSION

@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Literal
 
-from maxim_overdrive.checks import finite_real, finite_vector, known_keys
+from maxim_overdrive.checks import finite_real, finite_vector, format_version, known_keys
 from maxim_overdrive.config import MaterialTable, RigProfile
 from maxim_overdrive.world.grid import Bounds, Footprint, Mask, MaterialGrid, Point
 
@@ -162,6 +162,29 @@ PRIMITIVE_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
 )
 
 
+SCENE_VERSION = 0  # the scene file format's version; Scene.from_dict refuses any other
+
+
+def primitives_from_data(listed: object) -> tuple[Primitive, ...]:
+    """Primitives from a parsed list of mappings, each held to its kind's keys, or a ValueError that says what was
+    wrong. Shared by scene files and imagined specs: a spec is not a scene file, so it has no scene version."""
+    if isinstance(listed, (str, bytes, Mapping)) or not isinstance(listed, Sequence):
+        raise ValueError(f"primitives must be a list, got {type(listed).__name__}")
+    prims: list[Primitive] = []
+    for p in listed:
+        if not isinstance(p, Mapping):
+            raise ValueError(f"each primitive must be a mapping, got {p!r}")
+        kind = p.get("kind", "box")
+        if not isinstance(kind, str) or kind not in PRIMITIVE_KEYS:  # a list or a mapping isn't hashed
+            raise ValueError(f"unknown primitive kind {kind!r}")
+        known_keys(p, f"{kind} primitive", required=PRIMITIVE_KEYS[kind], optional={"kind", "name"})
+        if kind == "box":
+            prims.append(Box(p["min_m"], p["max_m"], p["material"], p.get("name")))
+        else:
+            prims.append(Cylinder(p["center_xy_m"], p["radius_m"], p["z_m"], p["material"], p.get("name")))
+    return tuple(prims)
+
+
 @dataclass(frozen=True)
 class Scene:
     extent_m: tuple[float, float, float]
@@ -193,24 +216,12 @@ class Scene:
 
     @classmethod
     def from_dict(cls, raw: object) -> Scene:
-        """A scene from parsed YAML or JSON. Any malformed shape is a ValueError that says what was wrong."""
+        """A scene from parsed YAML or JSON, at ``SCENE_VERSION``. Any malformed shape is a ValueError that says what
+        was wrong."""
         if not isinstance(raw, Mapping):
             raise ValueError(f"a scene must be a mapping, got {type(raw).__name__}")
-        known_keys(raw, "scene", required={"extent_m"}, optional={"primitives", "ambient_c"})
-        listed = raw.get("primitives", [])
-        if isinstance(listed, (str, bytes, Mapping)) or not isinstance(listed, Sequence):
-            raise ValueError(f"primitives must be a list, got {type(listed).__name__}")
-        prims: list[Primitive] = []
-        for p in listed:
-            if not isinstance(p, Mapping):
-                raise ValueError(f"each primitive must be a mapping, got {p!r}")
-            kind = p.get("kind", "box")
-            if not isinstance(kind, str) or kind not in PRIMITIVE_KEYS:  # a list or a mapping isn't hashed
-                raise ValueError(f"unknown primitive kind {kind!r}")
-            known_keys(p, f"{kind} primitive", required=PRIMITIVE_KEYS[kind], optional={"kind", "name"})
-            if kind == "box":
-                prims.append(Box(p["min_m"], p["max_m"], p["material"], p.get("name")))
-            else:
-                prims.append(Cylinder(p["center_xy_m"], p["radius_m"], p["z_m"], p["material"], p.get("name")))
+        format_version(raw, SCENE_VERSION, "scene")
+        known_keys(raw, "scene", required={"version", "extent_m"}, optional={"primitives", "ambient_c"})
+        prims = primitives_from_data(raw.get("primitives", []))
         e = finite_vector(raw["extent_m"], 3, "extent_m")
-        return cls((e[0], e[1], e[2]), tuple(prims), raw.get("ambient_c", 20.0))
+        return cls((e[0], e[1], e[2]), prims, raw.get("ambient_c", 20.0))

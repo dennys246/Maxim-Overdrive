@@ -11,7 +11,7 @@ from typing import Any
 import numpy as np
 import yaml
 
-from maxim_overdrive.checks import finite_real, known_keys, whole_number
+from maxim_overdrive.checks import finite_real, format_version, known_keys, whole_number
 
 
 def data_dir() -> Path:
@@ -45,7 +45,8 @@ class RigProfile:
         path = Path(name_or_path)
         if not path.suffix:
             path = data_dir() / "rigs" / f"{name_or_path}.yaml"
-        raw = known_keys(read_yaml(path), f"rig profile {path}", required=RIG_KEYS)
+        what = f"rig profile {path}"
+        raw = known_keys(format_version(read_yaml(path), RIG_PROFILE_VERSION, what), what, required=RIG_KEYS)
         if not isinstance(raw["name"], str):
             raise ValueError(f"rig profile {path}: name must be a string, got {raw['name']!r}")
         return cls(
@@ -56,7 +57,10 @@ class RigProfile:
         )
 
 
-RIG_KEYS = frozenset({"name", "cell_size_m", "min_substeps_per_turn", "full_res_radius_m"})
+# Format versions of the data files. A change a reader of the old version can't read bumps one, with a migration
+# for the files that ship (CLAUDE.md, "Every format is versioned").
+RIG_PROFILE_VERSION = 0
+RIG_KEYS = frozenset({"version", "name", "cell_size_m", "min_substeps_per_turn", "full_res_radius_m"})
 
 
 @dataclass(frozen=True)
@@ -89,6 +93,7 @@ def _colour(value: object, what: str) -> tuple[int, int, int]:
 
 
 AIR_ID = 0
+MATERIAL_TABLE_VERSION = 0
 # Declared beside the reader, not derived from Material: a field added to the dataclass and forgotten here must not
 # become a key the file may carry and the reader ignores. A test holds the two sets to the dataclass.
 MATERIAL_REQUIRED = frozenset(
@@ -136,7 +141,8 @@ class MaterialTable:
     @classmethod
     def load(cls, path: str | Path | None = None) -> MaterialTable:
         path = Path(path) if path is not None else data_dir() / "materials" / "core.yaml"
-        raw = known_keys(read_yaml(path), "material table", required={"materials"})["materials"]
+        table = format_version(read_yaml(path), MATERIAL_TABLE_VERSION, "material table")
+        raw = known_keys(table, "material table", required={"version", "materials"})["materials"]
         if not isinstance(raw, Mapping):
             raise ValueError(f"materials must be a mapping, got {type(raw).__name__}")
         mats = {}
@@ -239,10 +245,7 @@ class ActionLimits:
     @classmethod
     def load(cls, path: str | Path | None = None) -> ActionLimits:
         path = Path(path) if path is not None else data_dir() / "world" / "actions.yaml"
-        raw = read_yaml(path)
-        version = raw.get("version") if isinstance(raw, dict) else raw
-        if type(version) is not int or version != ACTION_LIMITS_VERSION:  # True and 0.0 are not version 0
-            raise ValueError(f"{path}: action limits version must be {ACTION_LIMITS_VERSION}, got {version!r}")
+        raw = format_version(read_yaml(path), ACTION_LIMITS_VERSION, f"{path}: action limits")
         top = known_keys(raw, f"{path}", required={"version", *_LIMIT_FIELDS})
         values: dict[str, Any] = {}
         for section, names in _LIMIT_FIELDS.items():

@@ -4,6 +4,7 @@
 # stay resolution-independent.
 #
 # id 0 is reserved for air (empty space). Ids must stay stable: saves store them.
+version: 0  # the material table format (config.MATERIAL_TABLE_VERSION)
 materials:
   air:
     id: 0

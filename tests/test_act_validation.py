@@ -491,8 +491,8 @@ def test_the_shipped_limits_load_as_floats():
 @pytest.mark.parametrize(
     ("text", "message"),
     [
-        ("[1, 2]\n", "version must be 0"),
-        ("", "version must be 0, got None"),
+        ("[1, 2]\n", "action limits must be a mapping, got list"),
+        ("", "action limits must be a mapping, got NoneType"),
         (GOOD_LIMITS.replace("version: 0", "version: 1"), "version must be 0, got 1"),
         (GOOD_LIMITS.replace("version: 0", "version: false"), "version must be 0, got False"),
         (GOOD_LIMITS.replace("version: 0", "version: 0.0"), "version must be 0, got 0.0"),

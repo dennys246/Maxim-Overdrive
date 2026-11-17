@@ -1,3 +1,4 @@
+version: 0  # the rig profile format (config.RIG_PROFILE_VERSION)
 name: rig
 cell_size_m: 0.1
 min_substeps_per_turn: 16

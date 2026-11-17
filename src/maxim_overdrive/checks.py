@@ -63,6 +63,20 @@ def known_keys(
     return raw
 
 
+def format_version(raw: object, expected: int, what: str) -> Mapping[str, object]:
+    """``raw`` as a mapping whose ``version`` is exactly ``expected``, or a ValueError that names what it found.
+
+    Checked before the keys, so a file from a newer format is refused for its version, not for the fields it added.
+    Only an int counts: ``true`` and ``0.0`` are not version 0, and a file with no version is refused, not assumed.
+    """
+    if not isinstance(raw, Mapping):
+        raise ValueError(f"{what} must be a mapping, got {type(raw).__name__}")
+    version = raw.get("version")
+    if type(version) is not int or version != expected:
+        raise ValueError(f"{what} version must be {expected}, got {version!r}")
+    return raw
+
+
 def finite_vector(value: object, n: int, what: str) -> tuple[float, ...]:
     """``value`` as ``n`` finite floats, or a ValueError that names the field."""
     if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or len(value) != n:
