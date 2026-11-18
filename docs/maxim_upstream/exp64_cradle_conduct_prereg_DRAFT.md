@@ -10,7 +10,7 @@
 | Campaign key / experiment | `64` (provisional; this draft moves to Maxim `docs/experiments/`) |
 | Verdict kind | `exp64_verdict` (new) |
 | Data directory | `docs/experiments/data/64_cradle_conduct/` |
-| Related rows | T1-16 (carried recall, STALE), T1-2 (surfaced ≠ rendered ≠ acted), Roy-1a (persona carry-over, NULL) |
+| Related rows | T1-16 (carried recall, EARNED narrow on Exp 63c as of 2026-11-13, `floor: not measured`; Exp 64 must not lean on its floor), T1-2 (surfaced ≠ rendered ≠ acted), Roy-1a (persona carry-over, NULL) |
 
 ## Why
 

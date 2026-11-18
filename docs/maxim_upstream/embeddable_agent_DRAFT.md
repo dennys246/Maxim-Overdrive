@@ -7,7 +7,7 @@ review of them; v2.1 folds Overdrive's five-lens review of its own design (`docs
 correction we owe Maxim (`correction_1.md`: NAc's traces decay per loop tick). Everything here is `[engineering]`; it claims no behaviour. Citations are to `origin/main` 7084f561;
 Maxim's ranked candidates doc, when written, re-checks them on a fresh tree and supersedes this draft's ordering.
 
-- **Overdrive ids:** OD-A10 to OD-A12, OD-A14, OD-A15, OD-A17 to OD-A19 (tier A), and the issue OD-I3 (pickle).
+- **Overdrive ids:** OD-A10 to OD-A12, OD-A14, OD-A15, OD-A17, OD-A18 (tier A; OD-A19 withdrawn), and the issue OD-I3 (pickle).
 - **Depends on:** the world clock plans (OD-A2 to OD-A8: the machinery clock, the perceived-time port, keyed
   substreams, ids); the propose/settle amendment (OD-A16), which joins the dispatch/settle split (OD-A18).
 
@@ -100,8 +100,7 @@ phrase commands, `input_handlers.py:202`, `:274-312`), the internet tools, `buil
 | 1 | The embedded roster: sealed, `Effect`-ceilinged, refused at construction | own clock (engineering; robot defaults stay experiment-gated) |
 | 2 | `AgentHome`: the remaining global stores routed through one per-agent object; the ConceptExtractor thread made host-driven (`runtime/bio_stack.py:654`) | own clock |
 | 3 | The leak closure (§3) and its four tests | own clock |
-| 4a | Step-size-invariant decay (OD-A19): NAc's eligibility traces and their five siblings in `_loop_bio_tick_maintenance` decay as `exp(−Δt/τ)` on the machinery clock, not ×0.9 per loop tick | after the clock seam (OD-A2) |
-| 4 | Dispatch/settle split of `execute_and_learn`, with generate-vs-apply (with provenance by source actor), D53 `outcome_valence` and OD-A16's keys; robots settle right after dispatch | after PR 4a, behind a bit-identical state-digest parity guard |
+| 4 | Dispatch/settle split of `execute_and_learn`, with generate-vs-apply (with provenance by source actor), D53 `outcome_valence` and OD-A16's keys; robots settle right after dispatch | after #1361 S3a and S3b and cand. A3 A-post (Maxim's own decay work; PR 4a, OD-A19, was withdrawn as a duplicate), behind a bit-identical state-digest parity guard |
 | 5 | The stepped `think`, the continuation and the reply variants, on §A.1b's seam: one design for the submit path, so OD-H6's submit clock, the request/reply cut (OD-A14) and the cancelled-reply parser bypass land as parts of it, not before | after the 1.4.0 cut, with the agent-loop decomposition slices |
 | 6 | Flip §5's gates; docs | last |
 
@@ -121,7 +120,7 @@ The pickle-free load is the issue OD-I3, filed now; it must land before PR 2 mak
 | OD-EA9 | a stub whose every reply requests a follow-up, one that asks for 3 PFC cycles forever, and one that returns 100,000 tokens all stop at the host's budget |
 | OD-EA10 | the four closure tests of §3 pass, and a planted read in a lazy path fails the static ban |
 | OD-EA11 | a sentinel planted in the **machinery** clock never appears in a rendered prompt in raw, clock, date or duration form, and two runs whose machinery clocks differ by an offset and a scale, with equal perceived-time bins, render byte-identical prompts (with the world clock plans) |
-| OD-EA12 | one receipt delayed by the same world time is credited equally by agents stepping at two rate divisors (OD-A19) |
+| OD-EA12 | several traces credited by one receipt delayed by the same world time share it equally between agents stepping at two rate divisors (#1361 S3a; a strict red gate against pymaxim) |
 | OD-EA13 | a stub that calls a model outside `think` fails closed, naming the call |
 
 OD-EA3 (no pickle) moves to the issue OD-I3.

@@ -170,7 +170,7 @@ L71, Phase 3 "Issues now").** Plan: "Pending from Maxim: the ranked candidates d
 …, OD-I4 … and OD-I5", and "Issues, to file now". Maxim `origin/main` has `docs/plans/overdrive_refactor_candidates.md`
 (PR #1688, merged `a7825aa1`, 2026-11-17 00:31 −0700), whose "Filed alongside this list" names #1684 (OD-I1, open),
 #1685 (OD-I3, open), #1686 (OD-I4, open), #1687 (Windows `maxim._offline`, closed) and a draft private security
-advisory for the redaction forgery (OD-I5), "proven end to end, with both `\n` and U+2028". It also maps OD-A7 onto
+advisory for a redaction defect (OD-I5; details redacted 2026-11-17). It also maps OD-A7 onto
 #1305 (a 1.4.0 release gate) and OD-A18 onto #1150, and lists five "Not decided here" questions back to us. Failure
 scenario: a session takes §3/§4 at face value and files OD-I1 again, which is the very failure B22 and lesson 13
 exist to stop. Fix: rewrite §4 and the Phase 3 table from the candidates doc; record the issue numbers in roadmap

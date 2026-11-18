@@ -18,7 +18,7 @@ our pre-`OD-` "Was" ids (which also say A1, B1, C1: see N4).
 | OD-I2 | No | — | Consistent with our downgrade to a docstring nit |
 | OD-I3 | Yes, filed **#1685** (open) as cand. A5 | 1.3.x, order step 1 | Done. Cites `similarity/semantic.py::EmbeddingStore.load:662` (verified) |
 | OD-I4 | Yes, filed **#1686** (open) | — | Done |
-| OD-I5 | Yes, as a **private security advisory** (per Maxim's `SECURITY.md`), not an issue | "Filed alongside" | Maxim proved it end to end with **both `\n` and U+2028**: any header-shaped content line ends a `strict` private section. Broader than our U+2028-only framing. Our public repo already spells out the mechanism (B2 below) |
+| OD-I5 | Yes, as a **private security advisory** (per Maxim's `SECURITY.md`), not an issue | "Filed alongside" | Maxim proved it end to end, more broadly than we framed it (details redacted 2026-11-17; private notes). Our public repo spelled out the mechanism (B2 below) |
 | OD-A1 (#1361) | Yes: cand. A3 "rides on" #1361 and disclaims decay, eligibility and windows | A-post with 1.3.6 | Agrees. #1361 S3b (not S3a) moves anchor age/expiry/prune; S3a moves trace decay |
 | OD-A2 | Yes, cand. A3 (perceived-time port + host injection into `ExperienceClockDriver`) | A-pre own clock; A-post 1.3.6 | **Disagrees (S4):** on a robot the machinery clock **is** the driver, not the wall clock; no new `AgentTime` type (rides on `ExperienceClockDriver`); M72 extended rather than a second static ban. "One plan or two" is in its *Not decided* list |
 | OD-A3 | Yes, cand. A3 prompt guards | A-pre | Wider than ours: **seven** prompt sites (adds `_build_engage_prompt` `:2400/:2417`, `exec_agent.py:1189` `time.localtime`, `tools/http_fetch.py`, `tools/reachy.py`), plus recall timing (`retrieval/temporal_signal.py:101`, TZ-dependent `fromtimestamp` in `temporal_signature`/`similarity/signature.py`). Lint list adds `datetime.fromtimestamp` |
@@ -86,9 +86,8 @@ Update plan §4 "Owed to Maxim" and `npcs_and_sem.md:1207` to match.
 **B2. OD-I5 is a security issue Maxim holds privately, and our public repo spells out how to exploit it.**
 The candidates doc files the cloud-redaction defect as a draft private advisory under `SECURITY.md`: "the details stay
 in the advisory until the owner publishes it". Both repos are public (checked: `gh repo view`). Our pushed branch
-publishes the mechanism: `docs/design/reviews/maxim_response_1/trust_boundary.md:291-303` (the `^=== .* ===$` header
-rule, `splitlines()` splitting on U+2028/U+2029, the forged header) and `docs/roadmap.md` OD-I5 with
-`cloud_redaction.py:205`/`:246` (still accurate on `6fee7377`). Plan §4 lists OD-I5 as "pending filing" and roadmap
+publishes the mechanism in `docs/design/reviews/maxim_response_1/trust_boundary.md` and `docs/roadmap.md` OD-I5
+(redacted 2026-11-17). Plan §4 lists OD-I5 as "pending filing" and roadmap
 Phase 3 as "to file now", which invites a public issue.
 *Fix:* the owner decides on disclosure; this review can't. At least: (1) re-word OD-I5 everywhere as "reported privately
 (advisory); details withheld", and stop repeating the mechanism in new documents. (2) Tell the advisory that the
@@ -197,7 +196,7 @@ treats our change as tier C. Under host-called `think`, the submit cadence is th
   - `agents/agent_factory.py:1168-1172` is a path that never existed (it is `runtime/agent_factory.py`;
     `persistence_dir_for` is at about `:1168`): in `embeddable_agent_DRAFT.md:27` and `npcs_and_sem.md:665`.
   - Verified unchanged: `nac.py:1162/1163/3625-3640/3707/3714`, `agent_loop.py:521/800-840/3194`,
-    `loop_controller.py:157`, `api.py:113`, `semantic.py:662`, `cloud_redaction.py:205/246`, `cli_utils.py:608`;
+    `loop_controller.py:157`, `api.py:113`, `semantic.py:662`, `cli_utils.py:608`;
     `orchestrator.py` still has 5 `strftime`. The other cited `src/` files are untouched since `7084f561`.
 - **N2. Errors in the candidates doc itself,** to tell Maxim: `_resolve_persistence_dir` is at `:1174`, not `:770`; its
   router lines are stale after #1657 (`:945/:985/:186/:1081` → `:958/:998/:192/:1094`); `exec_agent.py:1495` is right on

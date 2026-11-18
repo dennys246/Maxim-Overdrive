@@ -18,7 +18,7 @@ O15a in `docs/design/npcs_and_sem.md`.
   close prefetch: it refuses `find`, which `prefetch.py:595` swallows at debug level, but `scan_cwd_tree` and the
   file reads under `get_effective_cwd()` (`prefetch.py:304-338`) still reach the prompt; gate prefetch off
   structurally or set the working directory to the empty agent home. Everything else confirmed (`test_no_effect` at
-  `:1261`). The U+2028 redaction forgery is plausible but unproven, and goes to its own security issue. Risk: the
+  `:1261`). The redaction question goes to its own security issue (OD-I5; details redacted 2026-11-17). Risk: the
   latch refuses `fork` and `forkserver`, so workers must start with `spawn`, IPC open before the latch.
 - **§5–§6: accepted.** uuid4 is 36 in 24 files; NAc is `decisions/nac.py` (`:1163` ids, `:4324` load-time decay).
   Keyed substreams accepted, but `random.Random(stable_hash_64(seed, agent, stream))` suffices; Philox isn't needed.

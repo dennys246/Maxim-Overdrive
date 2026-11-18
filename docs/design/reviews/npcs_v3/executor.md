@@ -19,7 +19,7 @@ and `git grep` only. Nothing in either repo was checked out, fetched or written,
   `prompt_builder.py:237`, `:1125-1127`; `context_pool.py:468`, `:493`; `llm_fallback.py:290`;
   `memory_hub.py:719-727`; `semantic.py:662`; `tool_bridge.py:580-582`, `:864-892`; `tool_dispatch.py:370`,
   `:1290-1291`; `nac.py:1162` (wall `now`) and `:1163` (`time_ns` ids, OD-A7); `sem.py:113-116`;
-  `loop_controller.py:157`; `cloud_redaction.py:205`, `:246` (`splitlines()`, OD-I5); `api.py:113` (`force=True`);
+  `loop_controller.py:157`; OD-I5 (a private advisory; location redacted); `api.py:113` (`force=True`);
   `lane_backends.py:1246`; `hybrid_arbitration.md` `basis_seq` (`:91`, `:256`); and `test_no_effect` in
   `tests/integration/test_advisor_gate.py`.
 - **Counts:** 608 `time.time()` lines in 178 files, 145 `time.monotonic()`, 36 `default_factory=time.time` in 19
@@ -158,8 +158,8 @@ tests under Phase 4, or under a co-op step.
   - a finding written in prose without the expected pattern would be silently skipped;
   - no gate reruns it, so a later hand edit of the table goes unnoticed.
   None of these makes the current output wrong.
-- **N9. Owner decision O14's text was edited in this commit** ("forge redaction headers" became "may forge prompt
-  and redaction headers ... its own security issue, OD-I5"), and nothing marks the edit. The edit matches Maxim's
+- **N9. Owner decision O14's text was edited in this commit** (the OD-I5 wording changed;
+  details redacted 2026-11-17), and nothing marks the edit. The edit matches Maxim's
   answer, but an owner row should carry a dated note when it changes.
 - **N10. The shortcut citations differ between the documents.** §6.1 cites only `llm_fallback.py:290-330` for "fires
   on any input". The gate that makes it fire is `prompt_builder.py:1102-1132`, which the draft cites. §12.1 item 1's

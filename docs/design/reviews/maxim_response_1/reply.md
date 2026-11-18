@@ -61,7 +61,7 @@ never reads env vars") is right. These need naming, because some sit on the core
 - **Working-directory files:** `cloud_audit.py:49` writes `data/logs/cloud_audit.jsonl` and `response_config.py:65`
   reads `data/util/`, both relative to the working directory, where they collide with a host's own `data/`.
 - **The root logger** is replaced with `force=True` (`api.py:113`).
-- **Redaction headers can be forged:** redaction splits on `str.splitlines()`, which also splits on U+2028 and U+2029.
+- **A redaction defect,** now a private advisory (OD-I5; details redacted 2026-11-17).
 - **`MAXIM_OFFLINE` in the host's environment** latches the whole process at `import maxim` (`__init__.py:25-31`).
 
 The tests: the advisor relies on three, not two. `test_no_effect` (`tests/integration/test_advisor_gate.py:1258`) is

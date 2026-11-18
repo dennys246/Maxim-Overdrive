@@ -598,7 +598,8 @@ Fields and tests laid now (detail and test designs in `npcs_and_sem.md` §2–§
   first, validates it per chunk, and stamps syllables in integer world microseconds below the tick, interruptible. Segment times are computed by the host from the cost model, never parsed from model output
   (foundations TB2-S5).
 - **The host's `latency_policy`** is a host-only control: live play holds the floor once Maxim's turn-taking
-  substrate exists (`npcs_and_sem.md` O11, O11a); otherwise it dilates, with DLP-B2's fixes (the wait is a
+  substrate exists (`npcs_and_sem.md` O11, O11a); until then, O16: it dilates in single-player and lands late and
+  silently in co-op, with DLP-B2's fixes (the wait is a
   state on the simulation lane's inbox, dispatch by deadline, a wall ceiling that ends a thought as a logged
   `thought_failed`); `abandon` is the logged alternative (foundations Arch B2, TB2-B3).
 - **The tick size** is decided in sim-clock, with `apply_us` already in the record.
@@ -613,7 +614,7 @@ Fields and tests laid now (detail and test designs in `npcs_and_sem.md` §2–§
 | Adapter | Package | Surface |
 |---|---|---|
 | SEM membrane | `engine.adapters.sem` | bodies, percepts, acts (`Entity`, `Modulator`, `SensorReading`, `ModulatorResult`, `AffordanceSchema`) |
-| Agent stepping | `engine.adapters.agents` | host-called `step`, `think` and `settle`, the request/reply values (model calls run by the host, never injected into Maxim), the worker process, the tool-roster check, the per-agent home, clock and RNG injection, the experience driver, agent-state save (foundations Arch B3, DR-B2) |
+| Agent stepping | `engine.adapters.agents` | host-called `step`, `think`, `apply` and `settle`, the request/reply values (model calls run by the host, never injected into Maxim), the worker process, the tool-roster check, the per-agent home, clock and RNG injection, the experience driver, agent-state save (foundations Arch B3, DR-B2) |
 | NPC authoring | game, when it exists | `AgentFactory`, seed memory, the arc loader |
 | Experiment harness | `maxim_experiments` | the experiment and ledger tooling |
 
@@ -711,7 +712,7 @@ major version is proposed.
 | A version rule for the SEM vocabulary on `ENTITY_FORMAT_VERSION` | OD-C9 | additive |
 | `world_set_axis` for sub-sensors | OD-C10 | additive (unverified) |
 | A mental-fatigue drive that rises with load; `CouplingSpec` can't carry it | OD-B12 | tier B, earned by OD-X2 |
-| The `x or time.time()` bug at five sites; the pickle-capable load; the stale `ARCHITECTURE.md:182`; the U+2028 redaction question (its own security issue) | OD-I1, OD-I3, OD-I4, OD-I5 | issues now; OD-I2 (a missing CC3 note on `ModulatorResult`) is a docstring nit |
+| The `x or time.time()` bug at five sites; the pickle-capable load; the stale `ARCHITECTURE.md:182`; the redaction question (a private advisory; its own security issue) | OD-I1, OD-I3, OD-I4, OD-I5 | issues now; OD-I2 (a missing CC3 note on `ModulatorResult`) is a docstring nit |
 
 ## 10. Enforcement
 
@@ -772,10 +773,10 @@ harness is born in `engine.verify`:
   - Validating constructors (§5.1); the gate contract and registry (§5.2, §5.4); budgets and bounded echo.
   - **Not in 2c:** `observed_tick` on intents and the integer tick (sim-clock); the cross-thread frame test (lanes).
 - **The agent foundations, `phase1/agents`** (a new row in world_model §10, after sim-clock and before lanes): the
-  `AgentPort` (`step`, `think`, `settle`), `StepOutput`, `Pending`, `Reply`, the continuation blob, receipts and settle, thought request types, the
+  `AgentPort` (`step`, `think`, `apply`, `settle`), `StepOutput`, `Pending`, `Reply`, the continuation blob, receipts and settle, thought request types, the
   `data/agents/` files and their gates, the per-NPC streams, the tool-roster and home checks, the agent-step-path
   seal, the scripted test double, and real Maxim as a strict red gate. It removes the TEMPORARY marker
-  scheduled for it. The barrier's concurrency, the thinking lane's threads, the worker processes and the meters arrive with `phase1/lanes`.
+  scheduled for it. The barrier's concurrency and the meters arrive with `phase1/lanes`; the thinking lane and the worker processes with `phase1/agents` (npcs §6.2).
 
 ### 11.2 What the rename must get right (W2, W5–W7, W10–W14)
 

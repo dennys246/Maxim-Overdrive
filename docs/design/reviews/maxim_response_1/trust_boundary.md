@@ -290,14 +290,8 @@ them are in the NPC's own path:
 - **Strict redaction makes cloud NPCs useless.** The strict policy redacts the conversation history, recent speech
   and memories (`src/maxim/utils/cloud_redaction.py:69-101`, `:162-168`). An operator who wants a working cloud
   NPC must pick `relaxed`, which sends everything.
-- **Redaction works on section headers, and guests can forge them.** `_redact_sections` splits on
-  `str.splitlines()` and ends a bounded private section at the next line that matches `^=== .* ===$`
-  (`cloud_redaction.py:128`, `:204-230`). `str.splitlines()` also splits on U+2028 and U+2029, which are
-  categories Zl and Zp, **not control characters** (checked: `"a === Public === b".splitlines()` has
-  three lines). Overdrive's `speak` validator refuses "control and bidi-override characters" (`npcs_and_sem.md`
-  §5.2; `boundaries.md` §5.3), so U+2028 passes it. A guest line can then forge a section header, which:
-  - ends the redaction of the speech and conversation sections;
-  - forges a prompt section for the model (`=== Your inner deliberation ===`).
+- **A redaction defect a guest can trigger.** Redacted 2026-11-17: Maxim holds it as a private advisory (OD-I5);
+  the details are in private notes. Overdrive's side of the fix is the `speak` gate below.
 - **The cloud audit log writes into the host's CWD** (`cloud_audit.py:49`); see TBR-3.
 - **CHANGE-OURS:**
   - The `speak` validator refuses every character `str.splitlines()` splits on (`\n \r \x0b \x0c \x1c \x1d \x1e
@@ -336,7 +330,7 @@ them are in the NPC's own path:
 ### TBR-14. CHANGE-OURS: tighten §12.1 Q1's precondition for guest sessions
 
 The proposal is "refuse guest sessions while real-Maxim NPCs are live, until the prompt test passes". That is
-necessary but too narrow, given TBR-7 (replies that skip the prompt) and TBR-11 (redaction forgery). Guest sessions
+necessary but too narrow, given TBR-7 (replies that skip the prompt) and TBR-11 (a redaction defect, OD-I5). Guest sessions
 with real-Maxim NPCs should wait for all of these:
 1. the worker boundary with a scrubbed env (TBR-5);
 2. the effect test on the worker, with every file under the home (TBR-2, TBR-13);
@@ -365,7 +359,7 @@ Each is a strict red gate until it lands. Smaller, related changes:
 | TBR-8 | MISSING | Injected content persists in memory; needs provenance and purge |
 | TBR-9 | PUSH BACK | Effect ceilings exclude the router (`tools/base.py:119-122`); the guarantee needs AgentHome and a host-owned model path |
 | TBR-10 | AGREE / PUSH BACK | Corrections verified; enabling semantic brings pickle, an HF download and a thread; AgentHome makes the pickle reachable from saves, so order it first |
-| TBR-11 | MISSING | Cloud fallback is ambient; U+2028 in guest speech forges redaction and prompt headers |
+| TBR-11 | MISSING | Cloud fallback is ambient; guest speech can forge prompt headers; a redaction defect (OD-I5, private) |
 | TBR-12 | MISSING | Env surface over 120 plus helpers plus non-`MAXIM_` vars; the owner's shell is the real source |
 | TBR-13 | MISSING | Provenance and lane-decision JSONL put guest words in `~/.maxim` |
 | TBR-14 | CHANGE-OURS | Guest sessions wait for five gates, not one prompt test |

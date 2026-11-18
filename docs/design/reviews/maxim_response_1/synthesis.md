@@ -30,7 +30,7 @@ proposals would break our time model as worded.
    - a parse-failure template echoes the guest's text, which a cancelled reply would trigger on every barge-in;
    - cwd-relative `data/` files that collide with ours;
    - the root logger replaced with `force=True`;
-   - redaction headers can be forged with U+2028/U+2029, which `splitlines` splits on.
+   - a redaction defect, now a private advisory (OD-I5; details redacted 2026-11-17).
 4. **Two dynamic tests aren't enough** (trust). The advisor uses three (`test_no_effect` is the one that catches
    writes), and dynamic tests miss lazy imports on paths they don't run.
 5. **The offline latch is half right** (executor, trust). Inbound listening survives; loopback connect, DNS, spawn

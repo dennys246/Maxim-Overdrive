@@ -40,7 +40,7 @@ temperature plus phase-change progress as the stored heat state.
 - **D26. Tile first (owner, 2026-11-17, after the plan review).** Phase 1's exit is the roadmap's original one: walk
   into the alley, set a crate on fire, watch it crack, glow and burn away. The crate burns out by a fuel-mass law
   in open air. The lab's sealed and vented fires (O₂, zones, combustion per zone, products) move to Phase 2, and so
-  do phase change and the CSG footprints. This amends D23: the lab is Phase 2's benchmark tile, not Phase 1's. §10's
+  do fuel recession and pyrolysis, phase change and the CSG footprints. This amends D23: the lab is Phase 2's benchmark tile, not Phase 1's. §10's
   order is replaced for Phase 1 by `docs/plans/foundations_plan.md` §2.
 
 ## 1. Resolution: one truth
@@ -255,7 +255,7 @@ On the 16×10×4 m synthetic tile (DLP, measured):
 | 8b | `phase1/fuel-combustion` | Combustion per zone, products, extinction, flame feedback debited. Fines from destroyed mass. The CSG footprints (§5). |
 | 9 | | Phase-change progress, with bound water as the first transition. |
 | 9b | `phase1/agents` | The agent foundations: one host-called `AgentPort` (`step`, resumable `think`, `apply`, `settle`), `StepOutput`, `Pending`, `Reply` and `ThoughtOutput`, the continuation's host-owned header, receipts and settle, `data/agents/`, per-NPC streams, the tool-roster and home checks, the worker channel and its codec (a registered gate), the scripted test double in a spawned worker behind that channel; real Maxim a strict red gate until its tier A (`boundaries.md` §11.1, `npcs_and_sem.md` §6.2, §6.6). |
-| 10 | `phase1/lanes` | The host's thinking lane executing request values (no gateway handed to an agent), the agent barrier over worker channels, `agent_failed` on a hung or dead worker, meters (the channel round trip per park), crash injection (`npcs_and_sem.md` §4.4, §6.3, §6.6). |
+| 10 | `phase1/lanes` | The agent barrier over worker channels, `agent_failed` on a hung or dead worker, meters (the channel round trip per park), crash injection (`npcs_and_sem.md` §4.4, §6.3, §6.6). The thinking lane is `phase1/agents`' (npcs §6.2). |
 | 11 | | **Save v0, after the lanes,** so in-flight thoughts are part of the saved `Simulation` state with a load rule (A-SF-12, DA-6). |
 | 12 | `phase1/lab` | The lab as a physics benchmark tile, and the Godot client (part 3). |
 
