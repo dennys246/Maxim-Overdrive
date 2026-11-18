@@ -103,6 +103,11 @@ means recalled from memory, to be checked before it enters `data/`.
 | O18 | **A sixth guest gate (owner, 2026-11-17): guest sessions use a local model only, by default.** A remote model needs a disclosure the guest sees and accepts before their words leave the machine. | O14, §12.1 |
 | O19 | **The agent half is frozen at v3.1; its remaining findings become tests (owner, 2026-11-17).** Three rounds found blockers of new kinds at ever finer implementation grain (the pipe unpickles, `-I` ignores `PYTHONHASHSEED`, an unset `HOME` falls back to the real home, a resume test that can't fail): divergence, which paper can describe and only code can prove. No more design rounds on the agent half. The delta findings (`reviews/npcs_v3_1/`) are its known-issues list, and each open BLOCKER becomes a red-first test in the `phase1/agents` PR against the scripted double behind the real worker channel: a hash probe in the worker's first frame, the worker's home and `XDG_*` set with no read of the host's home, the codec refusing pickles, an agent-state digest so the resume test can fail. The world half proceeds to `phase1/boundaries` and `phase1/gates`. | §6, §12 |
 | O20 | **An LLM measurement spike is allowed (owner, 2026-11-17).** A throwaway script outside `src/` makes raw model calls, with no Maxim, to measure latency to the first token and to the full reply, tokens per reply, cost or local throughput, and how many NPCs one local model can serve. It makes no claim and never enters the replayable core. It doesn't amend O10, which is about real Maxim. | §4.5 |
+| O26 | **A guest's purge leaves redaction records (owner, 2026-11-17; TB-B3).** O17's reach is the agent stores, continuation bodies, the response cache's requests, saves and the intent log. Each purged span becomes a record (actor, tick, length) in the log. Replay never re-runs a model on purged text: it replays the recorded model replies. A reply that quoted the purged words is redacted too, and replay is bit-identical only up to the first redacted reply, which the log marks as a replay boundary. The `purge(actor, session)` kind and a host-computed provenance lower bound are in the agent line's codec. The mechanism is designed in the agent PR. | §5.2, §6.6 |
+| O27 | **Co-op listeners perceive lateness (owner, 2026-11-17; DB-S5 (a)).** Under O16's silent late landing, listeners hear the whole silence, the modelled part plus the lateness, and that is recorded as a Known gap, not hidden by an oracle. | §6.6 |
+| O28 | **Co-op is Phase 5 or later (owner, 2026-11-17; skeptic S-S5).** No more review rounds on co-op or guest sessions until single-player NPCs exist. The recorded decisions (O14, O16–O18, O26, O27) stand. | §0 |
+| O29 | **Bound the Maxim dependency (owner, 2026-11-17; skeptic S-S6, MS-S9).** Name the minimal tier-A subset Phase 4's first NPC needs, from the exit tests; the rest of Phase 3 is non-blocking. Ask Maxim for a date range for 1.4.0. The Phase 3 items Maxim's candidates doc doesn't cover go to a second candidates round after tier A. | §12 |
+| O30 | **§12.1's remaining items answered as recommended (owner, 2026-11-17).** OD-A16 gates Phase 4. `speak` text stays out of bug reports by default. The speed trait takes the age shift, the general-plus-domain factor and the weak gap loading. Deferred by name: the OS sandbox for guest workers (before guest sessions), the speed trait's slow tail and filler propensity (after the LLM spike). | §12.1 |
 | O7a | **O7's condition is met:** Maxim answered (`reviews/maxim_response_1/`). The agent half is unparked for one revision, folding the response and its review, then one review round. | §4, §6 |
 | OA4 | Speech is stamped per syllable. | §5.3 |
 | OA5 | One mental-fatigue drive that rises with load, with per-kind load weights; it recovers with rest and sleep, feeds sleep pressure, and is separate from stamina. | §2.3, §4.6 |
@@ -1134,7 +1139,7 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
 
 ## 12. Open questions and divergences
 
-### 12.1 For the owner
+### 12.1 For the owner (items 1, 3, 4 and 5 answered or deferred by name in O30, 2026-11-17)
 
 1. **Guest sessions with real-Maxim NPCs: decided (O14).** They wait for five gates: the worker process (O13); a
    no-effect test; a dialogue-level bypass test (prefetch, the shortcut, the parse-failure template, phrase commands,
@@ -1185,6 +1190,10 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
    default, or only on request? Proposed: purged on request, and never shipped in a bug report (§5.2).
 
 ### 12.2 Known OPEN divergences (each with a red gate when there is code)
+
+- **Co-op lateness is heard (O27):** until OD-H5 and latency close it, a co-op listener hears a late NPC's whole
+  silence, modelled part and host lateness together, so the host's speed reaches other NPCs' memories. Accepted as
+  a known gap; the alternative was an oracle.
 
 - Real Maxim reads the host clock on the live path (608 `time.time()`, 145 `time.monotonic()`, 20 `datetime.now`
   on 7084f561); determinism closes with tier A's machinery clock on the ~30 step-path files.

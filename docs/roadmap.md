@@ -191,7 +191,7 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
 - **Starts on tier A** (owner decisions O6 and O15a): no real Maxim NPC runs before the embeddable agent plan and its
   dependencies ship (Phase 3, OD-A1 to OD-A21, without the withdrawn OD-A19), and before Maxim's 1.4.0 cut with the agent-loop decomposition slice
   that carries the stepped `think` (OD-A15).
-- **Guest sessions with real NPCs wait for O14's gates,** held by a strict red gate that refuses guest joins while
+- **Guest sessions with real NPCs (Phase 5 or later, O28) wait for O14's gates,** held by a strict red gate that refuses guest joins while
   real-Maxim NPCs are live (owned by `phase1/protocol`), and flipped only when each passes:
   - the worker process and its channel gate (`npcs_and_sem.md` §6.6);
   - a no-effect test (no file reads or writes, sockets or spawns outside the agent home);
@@ -200,7 +200,7 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
   - the guest-text gate refusing line separators and format characters on decoded text;
   - memory provenance with a purge that survives relay and extraction.
   - O18's local model by default, remote only with the guest's informed consent (decided).
-  Proposed for the owner: an OS sandbox for workers in guest sessions.
+  Deferred by name (O30): an OS sandbox for workers in guest sessions, decided before guest sessions open.
 - The cradle writer: a fixed event pool from an arc plus handcrafted inflection points, assembled per NPC in code.
 - Three NPCs on the first tile (the ripperdoc, a fixer and a street kid), each cradled from an authored life.
 - A dialogue screen and turn order. Movement runs in substrate-primary mode (no LLM); speech goes to the LLM.

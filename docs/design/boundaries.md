@@ -51,6 +51,9 @@ the end map each finding to where it landed.
 | O7a | O7's condition is met: Maxim answered (`reviews/maxim_response_1/`), so the agent half is unparked for one revision and one review round. Each real agent runs in its own worker process, the process boundary being the trust boundary (`npcs_and_sem.md` O13). |
 | O21 | **Merge, never rebase (owner, 2026-11-17).** Pushed branches are merged forward (`phase1/standards` into each, and the merge line in `docs/merge_notes.md` on `phase1/realtime-design`), never rebased, so no branch needs a force-push. PR #1 targets `main`. This replaces §11.3's rebase order. |
 | O22 | **A word budget for documents (owner, 2026-11-17; a standards change still to make).** No existing design document grows; a new design document is at most 6,000 words, the plan at most 2,500, a review report at most 3,000. |
+| O23 | **§12's questions answered as recommended (owner, 2026-11-17, after the plan's fold).** The engine package is `simcore`. Two PRs, structure then behaviour. `phase1/transport` and `foundations/world-server-v0` are abandoned (`phase1/standards` contains both). Imagination budgets are engine mechanism with per-actor values in game data. Frames publish on change, not per tick. |
+| O24 | **Three or four layers, not twelve (owner, 2026-11-17; skeptic S-S4).** `phase1/boundaries` builds the engine core, the adapters, the game and the client protocol as layers, with import contracts; a layer splits when a module passes the 500-line tripwire. This amends §11.1's twelve-layer list, which becomes the map of where splits are expected to fall. |
+| O25 | **Reviewers, not authors, set fold status (owner, 2026-11-17).** A finding's status (`fixed`, `deferred`, `rejected`, `open`) in a fold table is set by a reviewer reading the tree, as in `docs/plans/reviews/fold.md`; an author's own status is marked as such. A standards change still to make, with O22's budget. |
 | O8 | **The write window is a dev and test-build check; correctness rests on structure.** Only the applier and the physics laws hold the write handle. The window's ownership check, and a reference-count check at window exit that finds any surviving view, run in dev and test builds, as engine job-safety checks do. A shipped build doesn't copy frames at exit: measured at about 5.7 ms against a 5 ms tick. |
 
 ## 1. Why now, and what the code is today
@@ -812,7 +815,7 @@ harness is born in `engine.verify`:
 - Any branch that survives the rename checks after rebasing that `git diff --name-status` against its pre-rebase tip
   shows no file added under the old path. With no game package, git stops with a conflict instead (W1).
 
-## 12. Open questions for the owner
+## 12. Open questions for the owner (all answered as recommended: O23, 2026-11-17)
 
 1. **The engine's package name.** A Maxim-neutral name is recommended (`engine` is a working placeholder).
 2. **Two PRs (structure, then behaviour) or one.** Two is recommended: the rename touches about 70 references in 25

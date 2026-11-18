@@ -41,6 +41,12 @@ name against Q1 ("one set of world-second taus, converted so the calibrated fixt
 
 We track it as OD-A21 and agree it is an owner decision with its own experiment, through your process.
 
+## 3a. One request: a date range for 1.4.0
+
+Our Phase 4 (the first real NPCs) waits on your tier A and the stepped `think` after 1.4.0 (cand. B1). We're naming
+the smallest tier-A subset our first NPC needs and treating the rest as non-blocking. A rough date range for 1.4.0,
+even a wide one, would let us plan around it. No commitment is implied.
+
 ## 4. Where we adopt your design over ours
 
 - **Keyed substreams:** we'd take your A2 derivation (one joined key into `stable_hash_64_signed`) over our

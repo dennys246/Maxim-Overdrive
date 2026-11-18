@@ -86,7 +86,7 @@ NITs (N1–N16): not audited one by one; open.
 | MS-S6 | Two keyed-substream derivations | fixed | roadmap OD-A7 (conditional on cand. A2, settled in #1305); `erratum_1.md` §4 |
 | MS-S7 | #1687 makes real NPCs POSIX-only | deferred | plan §3 (the gap); `checklists.md` agent PR "Platform and latch" (Windows as an owner decision and a Known gap) |
 | MS-S8 | #1396 changes what O18 must guard | deferred | `checklists.md` agent PR "The lane's model" |
-| MS-S9 | Large parts of Phase 3 have no Maxim answer | deferred | to the owner: plan §5 "new in the fold" item 5 (a second candidates round after tier A) |
+| MS-S9 | Large parts of Phase 3 have no Maxim answer | fixed (owner) | O29 (`npcs_and_sem.md` §0): a second candidates round after tier A; plan §4. Status set by the author from the owner's decision |
 | MS-S10 | OD-H6 against #1361 §(g) | fixed | roadmap OD-H6 (lands inside cand. B1) |
 | MS-S11 | Smaller mismatches (parse bypass tier, the shortcut, T1-16 STALE) | fixed | roadmap OD-A17 (shortcut fixed at its root in Maxim, TBR-13; parse-failure bypass with cand. B1); `exp64_cradle_conduct_prereg_DRAFT.md:13` |
 
@@ -127,10 +127,10 @@ NITs (SEQ-N1–SEQ-N8): not audited one by one; open.
 | S-S1 | Build the agent line later | rejected | plan §2 agent line: "It stays in Phase 1 against S-S1: O19 chose tests over paper" |
 | S-S2 | Freeze is against rounds, not change; name reopen triggers | fixed | `checklists.md` "Reopening the frozen agent half"; plan §6 "errata only" |
 | S-S3 | Owner bandwidth is the critical path | fixed | plan step 1 before code; `boundaries.md` O22 word budget |
-| S-S4 | Boundaries refactor oversized (12 layers) | deferred | to the owner: plan §5 "new in the fold" item 4 (3–4 layers recommended) |
-| S-S5 | Co-op and guest privacy designed before single-player | deferred | to the owner: plan §5 "new in the fold" item 4 (co-op in Phase 5+) |
-| S-S6 | Maxim dependency unbounded | deferred | to the owner: plan §5 "new in the fold" item 4 (minimal tier-A subset, 1.4.0 date range) |
-| S-S7 | Core loop and fun underweighted | deferred | to the owner: plan §5 "new in the fold" item 4 (grey-box heat-debt prototype after the tile) |
+| S-S4 | Boundaries refactor oversized (12 layers) | fixed (owner) | O24 (`boundaries.md` §0); plan step 3a. Status set by the author from the owner's decision |
+| S-S5 | Co-op and guest privacy designed before single-player | fixed (owner) | O28 (`npcs_and_sem.md` §0); roadmap Phase 4 guest line. Status set by the author from the owner's decision |
+| S-S6 | Maxim dependency unbounded | fixed (owner) | O29: the subset is still to be named from the exit tests, and the date asked in `erratum_1.md`. Status set by the author |
+| S-S7 | Core loop and fun underweighted | fixed (owner) | D28 (`world_model.md` §0); plan step 10. Status set by the author from the owner's decision |
 | S-S8 | Calibration ledger has no caller | fixed | absent from the plan |
 
 NITs (S-N1–S-N4): not audited one by one; open.
@@ -166,14 +166,14 @@ NITs (N1–N5): not audited one by one; open.
 |---|---|---|---|
 | TB-B1 | Tests 2 and 4 pass whatever the code does | fixed | plan agent line tests 2 (probe, planted real-home read) and 4 (digest folds steps and staleness) |
 | TB-B2 | Guest gates have no step | fixed | plan step 7 (guest-join red gate); `checklists.md` step 7; roadmap Phase 4 gate list (O18 added); plan §5 npcs item 1 (sandbox) |
-| TB-B3 | O17's purge versus replay needs an owner choice | fixed | plan §5 "new in the fold" item 1 (before the codec kinds freeze). "Never in a bug report" for the cache and agent homes is not stated |
+| TB-B3 | O17's purge versus replay needs an owner choice | fixed (owner) | O26 (`npcs_and_sem.md` §0: redaction records, replay boundary, the `purge` kind); `checklists.md` agent PR. Status set by the author |
 | TB-S1 | Correction carried a new error and an answered question | fixed | `erratum_1.md` §1 (split test), §2, §3 (names #1361 Q1) |
 | TB-S2 | Push-backs had no Phase 3 rows | fixed | roadmap OD-A20, OD-A21; `npcs_and_sem.md` §12.2 |
 | TB-S3 | Test 5 is a strict red gate, not red-first | fixed | plan agent line test 5 |
 | TB-S4 | Real-Maxim red gates only inside the worker, after test 2 | deferred | `checklists.md` agent PR "Real Maxim stays off the test process" |
 | TB-S5 | `npcs_v3_1` findings override frozen §6.6; list of trust findings | deferred | `checklists.md` agent PR "Precedence" (ATR-S1, S3, S6, S8, S9, S10, N1, N2) |
 | TB-S6 | *To verify* numbers enter `data/agents/` | deferred | `checklists.md` agent PR "Provenance" (option (b)) |
-| TB-S7 | O16 gives up O4 and O12 in co-op | fixed | plan §4 O16; §5 "new in the fold" item 2 (DB-S5) |
+| TB-S7 | O16 gives up O4 and O12 in co-op | fixed | plan §4 O16; O27 and its known gap in `npcs_and_sem.md` §12.2. Status set by the author |
 | TB-S8 | O12 at full strength in conversation while the evidence is open | deferred | plan §5 npcs item 5: slow tail and filler propensity after the LLM spike |
 | TB-S9 | Agent step skips the PRs its trust rests on | fixed | plan agent line "after steps 5 and 7", owns the thinking lane; `checklists.md` agent PR; `world_model.md` row 10 |
 

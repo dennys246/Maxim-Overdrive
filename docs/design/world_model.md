@@ -42,6 +42,12 @@ temperature plus phase-change progress as the stored heat state.
   in open air. The lab's sealed and vented fires (O₂, zones, combustion per zone, products) move to Phase 2, and so
   do fuel recession and pyrolysis, phase change and the CSG footprints. This amends D23: the lab is Phase 2's benchmark tile, not Phase 1's. §10's
   order is replaced for Phase 1 by `docs/plans/foundations_plan.md` §2.
+- **D27. The clinic follows the exit (owner, 2026-11-17).** Phase 1 builds the alley; the ripperdoc clinic is authored
+  after the exit passes and before Phase 4, whose first NPCs live there. §12's three questions are answered as
+  recommended: truth at 0.1 m, the band gate for binary outcomes, CSG footprints in Phase 2.
+- **D28. A grey-box heat-debt prototype follows the tile (owner, 2026-11-17; skeptic S-S7).** Once the tile renders,
+  a rough playable test of "Overdrive as heat debt" (`world_v2.md` §10) comes before more physics breadth, to find
+  out whether pushing past limits in a burning space is fun.
 
 ## 1. Resolution: one truth
 
@@ -273,7 +279,7 @@ k_y,θ; char strength; wood's critical heat flux; angle of repose and packing fr
 Verified: Huggett's 13.1 MJ per kg of O₂; the thermally thick ignition closed form and its constants; the voxel-sphere
 area limit; the sealed room's 3.96 kg of O₂ (cross-tier scene) and about 4.95 kg (the gate's scene).
 
-## 12. Open questions for the owner
+## 12. Open questions for the owner (all answered as recommended: D27, 2026-11-17)
 
 1. The truth resolution: 0.1 m, as measured above, or another value?
 2. The band gate (§3) as the answer to v2's Q3, how the resolution rule treats binary outcomes?

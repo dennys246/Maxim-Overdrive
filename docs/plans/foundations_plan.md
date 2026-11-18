@@ -29,12 +29,12 @@ fuel-mass law, the same apart from detail at each rendering tier.
 | # | Step | Blocked by | Owner | First action | Done when | Lenses beyond the three always run | Closes |
 |---|---|---|---|---|---|---|---|
 | 0a | A `.venv` per worktree | nothing | each session | `python3 -m venv .venv && .venv/bin/pip install -e '.[dev,maxim]'`; record `pip show pymaxim` | the gate runs with no `PYTHON=` | none | shared-venv hazard (B20) |
-| 0b | Owner answers §4's open questions | nothing | owner | read §4 | each answered or deferred by name | none | |
+| 0b | Owner answers §5's open questions | nothing | owner | read §5 | done 2026-11-17, bar copyright | none | |
 | 0c | Send `docs/design/reviews/maxim_response_1/erratum_1.md` (answering `response_3.md`) to the Maxim design session | nothing | owner | paste it there | Maxim acknowledges | none | |
 | 0d | Tile spec, `docs/design/tile_and_client.md` (≤ 6,000 words): the alley in metres, player movement, camera, the exit scenario, snapshot channels to 3-D textures, one shader, the golden-screenshot method | nothing | this line | draft it | its design review is folded and accepted | Bio-faithful, Client and rendering, Physics | |
 | 1 | The merge line, per `docs/merge_notes.md` on `phase1/realtime-design`: act-validation into realtime-design, then standards, then design-v2; merge, never rebase (O21). Until it lands, `phase1/standards:CLAUDE.md` governs. This line's items: `checklists.md` | 0a | owner merges; each session does its branch's items | read the notes | CI's `prepush` passes on each merge commit; `main` carries the four branches | per merge | |
 | 2 | Godot skeleton in `client/`: 4.7.2 pinned, typed GDScript, warnings as errors, a headless check in the gate and CI, one golden frame | 1 (PR #1 on `main`) | this line | `client/project.godot` | the gate runs Godot headless and passes | Client and rendering | B6 |
-| 3a | `phase1/boundaries`, structure only: the engine package (`simcore`, proposed), the layers, import contracts | 1, 0b (Q1, Q2) | this line | split `scripts/lint_standards.py` into one module per check first | no behaviour change; import-linter in the gate | Determinism | B19 (1), B19 (4) |
+| 3a | `phase1/boundaries`, structure only: the engine package `simcore`, 3–4 layers (O24), import contracts | 1 | this line | split `scripts/lint_standards.py` into one module per check first | no behaviour change; import-linter in the gate | Determinism | B19 (1), B19 (4) |
 | 3b | `phase1/gates`, scoped to what the tile calls: frames as copies, validating constructors, the gate registry, the write window as a dev check (O8) | 3a | this line | `simcore` gate registry | every gate's rejection paths tested | Trust boundary, Determinism | |
 | 4 | `phase1/verify`, slim: refine space and time separately; heat retrofitted; the resolution rule becomes the verification rule (D20) | 3b | this line | the harness | heat's order-of-accuracy test passes for the right reason | Physics and resolution | |
 | 5 | `phase1/sim-clock`: `Simulation`, integer tick, 0.1 m truth, preallocated buffers, the intent log and a replay test | 4, 0d (turn length) | this line | `Simulation` | bit-identical replay; turn time measured on a quiet machine | Physics, Determinism, Performance | B2, B5 |
@@ -42,6 +42,7 @@ fuel-mass law, the same apart from detail at each rendering tier.
 | 7 | `phase1/protocol` v0: versioned `welcome`, `act_result`, `error`; WebSocket on 127.0.0.1 with the token and the `Origin` refusal; golden wire fixtures read by Python and Godot; the lane skeleton; the guest-join red gate | 5, 2, 0d | this line | `tests/fixtures/wire/` | both readers pass the fixtures | Wire, Trust, Concurrency, Determinism | B3, B14 |
 | 8 | The tile: the alley, movement, the client drawing snapshots, one crack-and-glow shader (never colour alone), golden screenshots per tier | 6, 7, 0d | this line | the alley scene | the exit scenario passes automatically, then a playtest | Client and rendering, Physics | B7 |
 | 9 | Save v0: grid plus scene spec | 8 | this line | save fixture | round trip, golden save | Wire, Determinism | B4 |
+| 10 | Grey-box heat-debt prototype (D28), then the clinic (D27) | 8 | this line | a one-page design note | a playtest verdict: fun or not, and why | Client and rendering | |
 
 **In parallel, off the path:**
 - **The LLM spike (O20):** a throwaway `spikes/llm/` script, raw model calls, no Maxim, on a quiet machine: latency,
@@ -112,7 +113,15 @@ discloses OD-I5's exposure, and answers the front gate (why the 1.1.4 seam can't
 | O19 | The agent half frozen at v3.1; its findings become red-first tests (§2) | npcs §0 |
 | O20 | The LLM spike is allowed, without Maxim | npcs §0 |
 | O21 | Merge, never rebase; PR #1 targets `main` | boundaries §0 |
-| O22 | Word budget: design docs don't grow; new ≤ 6,000; plan ≤ 2,500; review ≤ 3,000 (proposed) | boundaries §0 |
+| O22 | Word budget: design docs don't grow; new ≤ 6,000; plan ≤ 2,500; review ≤ 3,000 | boundaries §0 |
+| O23 | boundaries §12 answered as recommended | boundaries §0 |
+| O24 | Three or four layers, splitting at the tripwire | boundaries §0 |
+| O25 | Reviewers set fold status | boundaries §0 |
+| O26 | A purge leaves redaction records; replay exact to the first redacted reply | npcs §0 |
+| O27 | Co-op listeners perceive lateness (a known gap) | npcs §0 |
+| O28 | Co-op in Phase 5 or later; no more co-op rounds | npcs §0 |
+| O29 | A minimal tier-A subset, a 1.4.0 date range, a second candidates round | npcs §0 |
+| O30 | §12.1's rest answered; sandbox and slow tail deferred by name | npcs §0 |
 | OA1 | A thought's kind from the agent's policy, a closed vocabulary; a logged host table sets cost | npcs §0 |
 | OA2 | Dilation shown on a three-handed clock | npcs §0 |
 | OA3 | No conversational repertoire of our own; proposed to Maxim as OD-H5 | npcs §0 |
@@ -125,51 +134,42 @@ discloses OD-I5's exposure, and answers the front gate (why the 1.1.4 seam can't
 | D24 | Three design documents, each reviewed | world_model §0 |
 | D25 | Reconstruct, decide at the point, integrate upward | world_model §0 |
 | D26 | Tile first; the exit as above; lab fires to Phase 2 | world_model §0 |
+| D27 | The clinic after the exit; §12 answered | world_model §0 |
+| D28 | A grey-box heat-debt prototype before more physics | world_model §0 |
 
 Unnumbered (npcs §0): the thought-cost unit as fine as useful; test per Maxim tier. New standards on
 `phase1/standards`: separation of concerns, size tripwires, concurrent agents, search Maxim first, the push rule.
 
-## 5. Open questions, with recommendations
+## 5. Open questions
 
 ### Open: boundaries §12
-1. Engine package name: `simcore` (proposed).
-2. Structure, then behaviour: yes (3a, 3b).
-3. Abandon `phase1/transport` and `foundations/world-server-v0`: yes, `phase1/standards` contains both.
-4. Imagination budgets: engine mechanism, per-actor values in game data: yes.
-5. Frames on change, not per tick: yes.
+1. O23 (`simcore`).
+2. O23.
+3. O23.
+4. O23.
+5. O23.
 
 ### Open: world_model §12
-1. Truth at 0.1 m: yes.
-2. The band gate for binary outcomes: yes.
-3. CSG: Phase 2.
+1. D27.
+2. D27.
+3. D27.
 
 ### Open: npcs_and_sem §12.1
-1. Decided (O14); the OS sandbox for guest workers is open: decide before guest sessions.
-2. Decided (O18).
-3. OD-A16 gates Phase 4: yes.
-4. `speak` text out of bug reports by default: yes.
-5. The speed trait: take the age shift, the general-plus-domain factor, the weak gap loading; the slow tail and
-   filler propensity after the LLM spike.
-6. Decided (O16).
-7. Decided (O17).
-
-### Open: new in the fold
-1. Purge versus replay (O17; TB-B3): guests' words sit in stores, continuation bodies, cache, saves and the log.
-   Redaction records, or refuse replaying a purged session? Before the codec's kinds freeze (`purge` is one).
-   Recommend redaction records.
-2. Co-op lateness (O16; DB-S5): listeners perceive it (a Known gap), or it is hidden (an oracle). Phase 4; recommend
-   perceive.
-3. The clinic: the roadmap's tile names it; this plan builds the alley. Recommend it after the exit.
-4. Skeptic S-S4 to S-S7, all recommended yes: 3–4 boundary layers; co-op in Phase 5+; a minimal tier-A subset and
-   a 1.4.0 date range from Maxim; a grey-box heat-debt prototype after the tile.
-5. Phase 3 items the candidates doc lacks (MS-S9): a second candidates round after tier A.
+1. O14; the OS sandbox deferred to before guest sessions (O30).
+2. O18.
+3. O30.
+4. O30.
+5. O30; the slow tail and filler propensity after the LLM spike.
+6. O16.
+7. O17, with O26's mechanism.
 
 ### Open: roadmap
 1. Turn length: settle in the tile spec (0d).
 2. The world server as a pip dependency of Maxim: Phase 3.
-3. Copyright holder: owner's call.
+3. Copyright holder: still the owner's call.
 
-**Also open:** reviewers, not authors, set fold status? Recommend yes.
+**Still open elsewhere:** Windows NPCs before Phase 8 (`checklists.md`); the guest-text gate's ZWNJ and ZWJ rule
+(step 7); whether F-S9's exit-test line is Phase 3's checklist (`fold.md`).
 
 ## 6. Risks
 
