@@ -143,6 +143,13 @@ only review holds.
 - **A design that changes the architecture is reviewed before code,** on its design document, and Bio-faithful
   integration is always one of its lenses. Each lens's findings are kept in `docs/design/reviews/`.
   Guard: `docs/code_review.md` ("Design reviews"), B1
+- **A reviewer, not the author, sets each finding's fold status** (owner, 2026-11-17, O25): `fixed`, `deferred`
+  (named, with a reason and a trigger), `rejected` (with a reason) or `open`, read from the tree, not from the
+  author's claim. A status the author sets (after the owner decides, say) is marked as the author's. Fold tables
+  overstated five times before this rule. Guard: B23
+- **Documents have a word budget** (owner, 2026-11-17, O22): an existing design document doesn't grow; a new one is
+  at most 6,000 words, a plan at most 2,500, a review report at most 3,000. Cut or move text rather than raise a
+  limit. Guard: B24
 - **`scripts/prepush.sh` must print `prepush: PASS <sha>` for the exact commit handed over.** It refuses a dirty
   tree (`ALLOW_DIRTY=1` checks work in progress but says the result doesn't count). Rerun it after every fold.
   Guard: `scripts/prepush.sh::HEAD_SHA`, B11
