@@ -48,6 +48,19 @@ temperature plus phase-change progress as the stored heat state.
 - **D28. A grey-box heat-debt prototype follows the tile (owner, 2026-11-17; skeptic S-S7).** Once the tile renders,
   a rough playable test of "Overdrive as heat debt" (`world_v2.md` §10) comes before more physics breadth, to find
   out whether pushing past limits in a burning space is fun.
+- **D29. Step 6 carries three laws D26 deferred (owner, 2026-11-18, after the tile spec's review).** D26's claim that
+  an open-air crate fire needs no Phase 2 physics was wrong (`reviews/tile_v1/physics.md` PH-B1 to PH-B3): the crate's
+  ~1.6 GJ had no sink, a cell mean hides a glowing surface, and burn-away time doesn't converge without recession.
+  So step 6 becomes 6a open-air heat loss on exposed faces, metered on the energy ledger; 6b the per-face surface
+  skin (§3, §8's face table), which drives glow, crack and ignition by area; 6c sub-cell fuel recession. Zones,
+  combustion products, phase change, CSG and the lab stay in Phase 2. This amends D26.
+- **D30. The crate is a porous fuel bed, and its embers glow (owner, 2026-11-18, after the delta review).** A lone
+  solid 0.6 m block goes out in open air: its faces lose ~63 kW at 600 °C against a ~58 kW mean release, and glow
+  needs char oxidation (`reviews/tile_v1/delta_physics.md` DPH-B1, DPH-B2). A real crate is slats around air. So
+  step 6 models it as fire engineers model fuel beds: each cell holds a fuel volume fraction and a surface area per
+  volume, its burn driven by heat reaching that surface; and char oxidation makes the embers glow. Step 6 becomes 6a
+  open-air loss, 6b the surface skin, 6c the porous fuel bed, 6d char oxidation. Sub-cell recession of solid fuel
+  moves to Phase 2. This amends D29.
 
 ## 1. Resolution: one truth
 

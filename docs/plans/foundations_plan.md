@@ -5,49 +5,49 @@ For the owner and any session starting cold: where things stand, what comes next
 open question, or passes 2,500 words; it checks presence, not truth. Source: the review in `docs/plans/reviews/`;
 `reviews/fold.md` maps each finding to where it went and keys the ids; `checklists.md` holds the steps' items.
 
-## 1. Status, as of 2026-11-17
+## 1. Status, as of 2026-11-18
 
-| PR | Branch (worktree) | Base | Head (local / origin) | Owner |
-|---|---|---|---|---|
-| #1 | `phase1/standards` (`.worktrees/standards`) | `main` (retargeted) | `87593fe` / `87593fe` | this line |
-| #2 | `phase1/act-validation` (`.worktrees/act-validation`) | `phase1/standards` | `0480ab6` / `0480ab6` | the other session |
-| #3 | `phase1/realtime-design` (`.worktrees/realtime-design`) | `phase1/standards` | `6291fd0` / `6291fd0` | the other session |
-| #4 | `phase1/design-v2` (`.worktrees/design-v2`) | `phase1/standards` | ahead / `72bf36c` | this line |
+| PR | Branch (worktree) | Base | Owner |
+|---|---|---|---|
+| #1 | `phase1/standards` | `main` | this line |
+| #2 | `phase1/act-validation` | `phase1/standards` | the other session |
+| #3 | `phase1/realtime-design` | `phase1/standards` | the other session |
+| #4 | `phase1/design-v2` | `phase1/standards` | this line |
+| — | `phase1/tile-spec` (step 0d) | `phase1/design-v2` | this line |
 
-"This line" works in `.worktrees/standards` and `.worktrees/design-v2`; "the other session" in the other two. The
-main checkout is the owner's, on `main`. Nothing has merged to `main` yet.
+Each branch has a worktree of its name under `.worktrees/`. Heads: `git log`. Nothing has merged to `main` yet.
 
-**Security gate.** Private since 2026-11-17. `phase1/design-v2`'s history and PR #4 hold an advisory's details
-(OD-I5). Before going public, the owner decides on history: an approved force-push, plus GitHub support for PR #4's
-refs. Security findings go to private notes.
+**Security gate.** Private since 2026-11-17. design-v2's history and PR #4 hold OD-I5's details; before going
+public, the owner decides on a force-push plus GitHub support for PR #4's refs. Security findings go to private notes.
 
 ## 2. The order: tile first (D26)
 
 Phase 1's exit (`docs/roadmap.md`): walk into the alley, set a crate on fire, watch it crack, glow and burn away by a
 fuel-mass law, the same apart from detail at each rendering tier.
 
-| # | Step | Blocked by | Owner | First action | Done when | Lenses beyond the three always run | Closes |
+| # | Step | Blocked by | Owner | First action | Done when | Extra lenses | Closes |
 |---|---|---|---|---|---|---|---|
 | 0a | A `.venv` per worktree | nothing | each session | `python3 -m venv .venv && .venv/bin/pip install -e '.[dev,maxim]'`; record `pip show pymaxim` | the gate runs with no `PYTHON=` | none | shared-venv hazard (B20) |
 | 0b | Owner answers §5's open questions | nothing | owner | read §5 | done 2026-11-17, bar copyright | none | |
-| 0c | Send `docs/design/reviews/maxim_response_1/erratum_1.md` (answering `response_3.md`) to the Maxim design session | nothing | owner | paste it there | Maxim acknowledges | none | |
-| 0d | Tile spec, `docs/design/tile_and_client.md` (≤ 6,000 words): the alley in metres, player movement, camera, the exit scenario, snapshot channels to 3-D textures, one shader, the golden-screenshot method | nothing | this line | draft it | its design review is folded and accepted | Bio-faithful, Client and rendering, Physics | |
+| 0c | Send `erratum_1.md` to the Maxim session | nothing | owner | paste it | sent 2026-11-18 | none | |
+| 0d | Tile spec: `tile_and_client.md` (world) and `client_rendering.md` (Godot), each ≤ 6,000 words (O31) | nothing | this line | draft it | its review folded and accepted | Bio-faithful, Client, Physics | |
 | 1 | The merge line, per `docs/merge_notes.md` on `phase1/realtime-design`: act-validation into realtime-design, then standards, then design-v2; merge, never rebase (O21). Until it lands, `phase1/standards:CLAUDE.md` governs. This line's items: `checklists.md` | 0a | owner merges; each session does its branch's items | read the notes | CI's `prepush` passes on each merge commit; `main` carries the four branches | per merge | |
-| 2 | Godot skeleton in `client/`: 4.7.2 pinned, typed GDScript, warnings as errors, a headless check in the gate and CI, one golden frame | 1 (PR #1 on `main`) | this line | `client/project.godot` | the gate runs Godot headless and passes | Client and rendering | B6 |
+| 2 | Godot skeleton in `client/`: 4.7.2 pinned, typed GDScript, warnings as errors, `godot_check.py` in the gate, a Linux CI golden job | 1 (PR #1 on `main`) | this line | `client/project.godot` | deletion fixtures go red; the golden job passes | Client and rendering | B6 |
 | 3a | `phase1/boundaries`, structure only: the engine package `simcore`, 3–4 layers (O24), import contracts | 1 | this line | split `scripts/lint_standards.py` into one module per check first | no behaviour change; import-linter in the gate | Determinism | B19 (1), B19 (4) |
 | 3b | `phase1/gates`, scoped to what the tile calls: frames as copies, validating constructors, the gate registry, the write window as a dev check (O8) | 3a | this line | `simcore` gate registry | every gate's rejection paths tested | Trust boundary, Determinism | |
 | 4 | `phase1/verify`, slim: refine space and time separately; heat retrofitted; the resolution rule becomes the verification rule (D20) | 3b | this line | the harness | heat's order-of-accuracy test passes for the right reason | Physics and resolution | |
-| 5 | `phase1/sim-clock`: `Simulation`, integer tick, 0.1 m truth, preallocated buffers, the intent log and a replay test | 4, 0d (turn length) | this line | `Simulation` | bit-identical replay; turn time measured on a quiet machine | Physics, Determinism, Performance | B2, B5 |
-| 6 | Fuel by mass: fuel by volume overlap, a burn law, burnout, material table v1 with provenance | 5 | this line | flip `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating` red-first | closed-form and verification tests pass; the gap closes | Physics, Determinism | fire burnout gap |
-| 7 | `phase1/protocol` v0: versioned `welcome`, `act_result`, `error`; WebSocket on 127.0.0.1 with the token and the `Origin` refusal; golden wire fixtures read by Python and Godot; the lane skeleton; the guest-join red gate | 5, 2, 0d | this line | `tests/fixtures/wire/` | both readers pass the fixtures | Wire, Trust, Concurrency, Determinism | B3, B14 |
+| 5a | `phase1/sim-clock` (O34): `Simulation`, tick (T3), 0.1 m truth, law list, field registry, intent log | 4, 3b | this line | a composition note | bit-identical replay; CPU time measured | Physics, Determinism, Performance | B2, B5 |
+| 5b | `phase1/bodies`: bodies, `move`/`move_to`, vocabulary v1 | 5a | this line | the actor table | replay of a movement script | Determinism, Wire | |
+| 6 | Fire (D30, T13): 6a open-air loss, 6b skin, 6c porous bed, 6d char oxidation; constants cited, never fitted | 5b | this line | flip `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating` red-first | tile §6.3 passes at three grids, or fails to the owner | Physics, Determinism | fire burnout gap |
+| 7 | `phase1/protocol` v0: versioned `welcome`, `intent_result`, `regions`; WebSocket on 127.0.0.1 with the token and `Origin` refusal; golden fixtures read by Python and Godot; the guest-join red gate | 5b, 2, 0d | this line | `tests/fixtures/wire/` | both readers pass the fixtures | Wire, Trust, Concurrency, Determinism | B3, B14 |
 | 8 | The tile: the alley, movement, the client drawing snapshots, one crack-and-glow shader (never colour alone), golden screenshots per tier | 6, 7, 0d | this line | the alley scene | the exit scenario passes automatically, then a playtest | Client and rendering, Physics | B7 |
-| 9 | Save v0: grid plus scene spec | 8 | this line | save fixture | round trip, golden save | Wire, Determinism | B4 |
+| 9 | Save v0: grid, scene, actor and pilots tables | 8 | this line | save fixture | round trip, golden save | Wire, Determinism | B4 |
 | 10 | Grey-box heat-debt prototype (D28), then the clinic (D27) | 8 | this line | a one-page design note | a playtest verdict: fun or not, and why | Client and rendering | |
 
 **In parallel, off the path:**
-- **The LLM spike (O20):** a throwaway `spikes/llm/` script, raw model calls, no Maxim, on a quiet machine: latency,
-  tokens, cost, NPCs per local model. Results in `docs/design/research/llm_spike.md`.
-- **The agent line, as tests (O19),** against the scripted double behind the real worker channel, after steps 5 and 7: types,
+- **The LLM spike (O20):** a throwaway `spikes/llm/` script, no Maxim: latency, tokens, cost, NPCs per local
+  model, into `docs/design/research/llm_spike.md`.
+- **The agent line, as tests (O19),** against the scripted double behind the real worker channel, after steps 5a and 7: types,
   codec, `data/agents/` gates; the worker channel; `AgentPort`, the double, the membrane. Red-first tests:
   1. a hash probe in the worker's first frame, so a worker started with `-I` (which ignores `PYTHONHASHSEED`) fails;
   2. the worker's `HOME`, `XDG_*`, `TMPDIR`, `HF_HOME` under the agent home, probed, with a planted real-home read;
@@ -58,10 +58,9 @@ fuel-mass law, the same apart from detail at each rendering tier.
 
   It owns the thinking lane (npcs §6.2). It stays in Phase 1 against S-S1: O19 chose tests over paper. Its PR
   checklist, reopen triggers included, is in `checklists.md`.
-- **Real NPCs** wait for Maxim's stepped `think` (cand. B1; O15a), not only 1.4.0.
+- **Real NPCs** wait for Maxim's stepped `think` (O15a, O29).
 
-**Deferred to Phase 2 (D26):** zones and vents, combustion per zone, fuel recession and pyrolysis, phase change, the
-CSG footprints, the lab. Save with agents: Phase 4 (roadmap). The clinic: §5.
+**Deferred to Phase 2 (D26, D29):** zones and vents, combustion per zone, pyrolysis, phase change, CSG, the lab. Save with agents: Phase 4 (roadmap). The clinic: §5.
 
 ## 3. Maxim, as of `origin/main` 6fee7377
 
@@ -79,63 +78,102 @@ discloses OD-I5's exposure, and answers the front gate (why the 1.1.4 seam can't
   with #984); OD-A11, OD-A17 (A4, behind the front gate).
 - Tier B: OD-A10, OD-A14, OD-A15 (B1, B3); OD-A16, OD-A18 (B2, #1150).
 - Tier C: OD-H2 (C2), OD-H4 and OD-H5 (C5), OD-H6 (C3, disagreeing), OD-H1, OD-HX1, OD-HX5 (cautions).
-- Not in it yet: OD-A6, OD-A9, OD-H3, OD-X1, OD-X2; OD-B1, OD-B2, OD-B3, OD-B4, OD-B5, OD-B6, OD-B7 (Exp 64a's
+- Not in it yet: OD-C11 (proposed, tile §9), OD-A6, OD-A9, OD-H3, OD-X1, OD-X2; OD-B1, OD-B2, OD-B3, OD-B4, OD-B5, OD-B6, OD-B7 (Exp 64a's
   prerequisites), OD-B8, OD-B9, OD-B10, OD-B11, OD-B12, OD-B13; OD-C1, OD-C2, OD-C3, OD-C4, OD-C5, OD-C6, OD-C7,
   OD-C8, OD-C9, OD-C10.
 - Exit tests: OD-WC1, OD-EA4, OD-EA5, OD-EA6, OD-EA9, OD-EA10, OD-EA11, OD-EA12.
 
 ## 4. Decisions
 
-| Id | Decision | Where |
-|---|---|---|
-| O1 | One repository, an enforced engine/game boundary, a written split trigger | boundaries §0 |
-| O2 | Superseded by O6 | boundaries §0 |
-| O3 | The substrate outside the sealed core behind `AgentPort`, in ticks; refined by O6, O6a | both §0 |
-| O4 | Three clocks; no time field reaches cognition; thought cost modelled in world time; late thoughts dilate; thinking couples to fatigue `[engineering]` | both §0 |
-| O5 | Refining SEM is in scope, through Maxim's process, additive first | both §0 |
-| O6 | A host-driven embeddable agent contract; mechanism corrected by O6a | both §0 |
-| O6a | `think` host-called, resumable, returning model requests as values | npcs §0 |
-| O7 | World half proceeds, agent half parked; its condition is met (O7a) | both §0 |
-| O7a | The agent half unparked for one revision; a worker process per real agent | both §0 |
-| O8 | The write window is a dev check; correctness rests on structure | boundaries §0 |
-| O9 | A reply's content may only make it land later, never earlier | npcs §0 |
-| O10 | No real Maxim before tier A, except in strict red gates | npcs §0 |
-| O11 | End state: live play holds the floor rather than dilating; amended by O11a; until OD-H5, O16 applies | npcs §0 |
-| O11a | Filler, then an account (onset 600–1000 ms), then a yield after 1 s of silence; per world, *to verify* | npcs §0 |
-| O12 | Processing speed is a per-NPC trait in world time, never the hardware's | npcs §0 |
-| O13 | A worker process per real agent is the trust boundary (§6.6: subprocess, socketpair, env allowlist) | npcs §0, §6.6 |
-| O14 | Guest sessions wait for five gates (sixth: O18) | npcs §0 |
-| O15 | Engineering seams accepted on engineering grounds | npcs §0 |
-| O15a | The stepped `think`: after 1.4.0 and the decomposition slice, in the 1.5 hybrid src phase | npcs §0 |
-| O16 | Until OD-H5, in both modes: dilate in single-player, silent late landing in co-op, an explicit exception to O4 and O12 | npcs §0 |
-| O17 | Guests' speech purged on request, never in a bug report | npcs §0 |
-| O18 | Guest sessions use a local model by default; remote needs the guest's informed consent | npcs §0 |
-| O19 | The agent half frozen at v3.1; its findings become red-first tests (§2) | npcs §0 |
-| O20 | The LLM spike is allowed, without Maxim | npcs §0 |
-| O21 | Merge, never rebase; PR #1 targets `main` | boundaries §0 |
-| O22 | Word budget: design docs don't grow; new ≤ 6,000; plan ≤ 2,500; review ≤ 3,000 | boundaries §0 |
-| O23 | boundaries §12 answered as recommended | boundaries §0 |
-| O24 | Three or four layers, splitting at the tripwire | boundaries §0 |
-| O25 | Reviewers set fold status | boundaries §0 |
-| O26 | A purge leaves redaction records; replay exact to the first redacted reply | npcs §0 |
-| O27 | Co-op listeners perceive lateness (a known gap) | npcs §0 |
-| O28 | Co-op in Phase 5 or later; no more co-op rounds | npcs §0 |
-| O29 | A minimal tier-A subset, a 1.4.0 date range, a second candidates round | npcs §0 |
-| O30 | §12.1's rest answered; sandbox and slow tail deferred by name | npcs §0 |
-| OA1 | A thought's kind from the agent's policy, a closed vocabulary; a logged host table sets cost | npcs §0 |
-| OA2 | Dilation shown on a three-handed clock | npcs §0 |
-| OA3 | No conversational repertoire of our own; proposed to Maxim as OD-H5 | npcs §0 |
-| OA4 | Speech stamped per syllable | npcs §0 |
-| OA5 | One mental-fatigue drive feeding sleep pressure `[engineering]` | npcs §0 |
-| D20 | One simulation truth, 0.1 m cells; rigs are rendering tiers | world_model §0 |
-| D21 | Resolution follows the world, not the machine | world_model §0 |
-| D22 | Rubble and collapse in Phase 2, foundations now | world_model §0 |
-| D23 | Amended by D26: the lab is Phase 2's benchmark tile | world_model §0 |
-| D24 | Three design documents, each reviewed | world_model §0 |
-| D25 | Reconstruct, decide at the point, integrate upward | world_model §0 |
-| D26 | Tile first; the exit as above; lab fires to Phase 2 | world_model §0 |
-| D27 | The clinic after the exit; §12 answered | world_model §0 |
-| D28 | A grey-box heat-debt prototype before more physics | world_model §0 |
+**boundaries §0:**
+
+| Id | Decision |
+|---|---|
+| O1 | One repository, an enforced engine/game boundary, a written split trigger |
+| O2 | Superseded by O6 |
+| O8 | The write window is a dev check; correctness rests on structure |
+| O21 | Merge, never rebase; PR #1 targets `main` |
+| O22 | Word budget: design docs don't grow; new ≤ 6,000; plan ≤ 2,500; review ≤ 3,000 |
+| O23 | boundaries §12 answered as recommended |
+| O24 | Three or four layers, splitting at the tripwire |
+| O25 | Reviewers set fold status |
+| O32 | Lock every dependency; a scheduled drift job |
+| O33 | Python 3.12+ |
+| O34 | Step 5 splits into 5a and 5b |
+
+**both §0:**
+
+| Id | Decision |
+|---|---|
+| O3 | The substrate outside the sealed core behind `AgentPort`, in ticks; refined by O6, O6a |
+| O4 | Three clocks; no time field reaches cognition; thought cost modelled in world time; late thoughts dilate; thinking couples to fatigue `[engineering]` |
+| O5 | Refining SEM is in scope, through Maxim's process, additive first |
+| O6 | A host-driven embeddable agent contract; mechanism corrected by O6a |
+| O7 | World half proceeds, agent half parked; its condition is met (O7a) |
+| O7a | The agent half unparked for one revision; a worker process per real agent |
+
+**npcs §0:**
+
+| Id | Decision |
+|---|---|
+| O6a | `think` host-called, resumable, returning model requests as values |
+| O9 | A reply's content may only make it land later, never earlier |
+| O10 | No real Maxim before tier A, except in strict red gates |
+| O11 | End state: live play holds the floor rather than dilating; amended by O11a; until OD-H5, O16 applies |
+| O11a | Filler, then an account (onset 600–1000 ms), then a yield after 1 s of silence; per world, *to verify* |
+| O12 | Processing speed is a per-NPC trait in world time, never the hardware's |
+| O13 | A worker process per real agent is the trust boundary (§6.6: subprocess, socketpair, env allowlist) |
+| O14 | Guest sessions wait for five gates (sixth: O18) |
+| O15 | Engineering seams accepted on engineering grounds |
+| O15a | The stepped `think`: after 1.4.0 and the decomposition slice, in the 1.5 hybrid src phase |
+| O16 | Until OD-H5, in both modes: dilate in single-player, silent late landing in co-op, an explicit exception to O4 and O12 |
+| O17 | Guests' speech purged on request, never in a bug report |
+| O18 | Guest sessions use a local model by default; remote needs the guest's informed consent |
+| O19 | The agent half frozen at v3.1; its findings become red-first tests (§2) |
+| O20 | The LLM spike is allowed, without Maxim |
+| O26 | A purge leaves redaction records; replay exact to the first redacted reply |
+| O27 | Co-op listeners perceive lateness (a known gap) |
+| O28 | Co-op in Phase 5 or later; no more co-op rounds |
+| O29 | A minimal tier-A subset, a 1.4.0 date range, a second candidates round |
+| O30 | §12.1's rest answered; sandbox and slow tail deferred by name |
+| OA1 | A thought's kind from the agent's policy, a closed vocabulary; a logged host table sets cost |
+| OA2 | Dilation shown on a three-handed clock |
+| OA3 | No conversational repertoire of our own; proposed to Maxim as OD-H5 |
+| OA4 | Speech stamped per syllable |
+| OA5 | One mental-fatigue drive feeding sleep pressure `[engineering]` |
+
+**world_model §0:**
+
+| Id | Decision |
+|---|---|
+| D20 | One simulation truth, 0.1 m cells; rigs are rendering tiers |
+| D21 | Resolution follows the world, not the machine |
+| D22 | Rubble and collapse in Phase 2, foundations now |
+| D23 | Amended by D26: the lab is Phase 2's benchmark tile |
+| D24 | Three design documents, each reviewed |
+| D25 | Reconstruct, decide at the point, integrate upward |
+| D26 | Tile first; the exit as above; lab fires to Phase 2 |
+| D27 | The clinic after the exit; §12 answered |
+| D28 | A grey-box heat-debt prototype before more physics |
+| D29 | Step 6 adds open-air loss, the surface skin, sub-cell recession |
+
+**tile §0:**
+
+| Id | Decision |
+|---|---|
+| T1 | Isometric 3/4 camera |
+| T2 | Click-to-move and WASD, both validated intents |
+| T3 | Tick 0.1 s, physics every 0.5 s |
+| T4 | `kindle`, power from a held item |
+| T5 | A body heat state from Phase 1 |
+| T6 | File OD-C11 |
+| T7 | Walk direction an integer vector, canonical |
+| T8 | Compatibility renderer |
+| T9 | No client prediction |
+| T10 | Elevation 40° |
+| T11 | Walls-down with stumps |
+| T12 | Goldens gated in Linux CI |
+| T13 | Tile spec frozen at v3 |
 
 Unnumbered (npcs §0): the thought-cost unit as fine as useful; test per Maxim tier. New standards on
 `phase1/standards`: separation of concerns, size tripwires, concurrent agents, search Maxim first, the push rule.
@@ -163,6 +201,14 @@ Unnumbered (npcs §0): the thought-cost unit as fine as useful; test per Maxim t
 6. O16.
 7. O17, with O26's mechanism.
 
+### Open: tile §9
+1. Flame radiation into bodies: yes.
+2. 20 mm slats at φ 0.25: yes.
+3. v0 freezes only sent kinds: yes.
+
+### Open: client §10
+None (T8–T12).
+
 ### Open: roadmap
 1. Turn length: settle in the tile spec (0d).
 2. The world server as a pip dependency of Maxim: Phase 3.
@@ -173,8 +219,7 @@ Unnumbered (npcs §0): the thought-cost unit as fine as useful; test per Maxim t
 
 ## 6. Risks
 
-- **Designing forever.** About 372,000 words of design and review against under 1,700 lines of code
-  (`reviews/skeptic.md`). The answer: O22, tile first, the agent half frozen (O19) with errata only.
-- **Fold tables overstated five times;** a reviewer set this round's (`fold.md`).
+- **Designing forever:** about 372,000 words against under 1,700 lines of code (`reviews/skeptic.md`). Answer:
+  O22, tile first, O19.
 - **Timing on a shared machine:** load passes 20 with concurrent sessions, so budgets gate CPU time, the minimum
   of N runs, never wall time (SEQ-S10).

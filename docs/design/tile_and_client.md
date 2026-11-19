@@ -1,44 +1,50 @@
-# The tile and the client (design, step 0d, 2026-11-18)
+# The tile: world side (design, step 0d, v3, 2026-11-18)
 
-**Status:** DRAFT, for a design review before code (Executor, Architecture, Wire integrity, Bio-faithful
-integration, Client and rendering, Physics and resolution). Step 0d of `docs/plans/foundations_plan.md` §2; it feeds
-steps 2 (Godot skeleton), 5 (clock), 6 (fuel), 7 (protocol v0) and 8 (the tile).
+**Status:** v3, frozen (owner T13, 2026-11-18); the final physics review's FPH-B1 to B3 are step 6 requirements (`docs/plans/checklists.md`). v1 (f6afd66) had a six-lens review, v2 a delta review
+(`docs/design/reviews/tile_v1/`, with the reviewer's fold status in `fold.md`, O25). This document holds the world
+side: the alley, bodies, intents and their pipeline, the simulation `Frame`, what step 6 must deliver, the exit
+scenario and the Bio-faithful note. `client_rendering.md` holds the client protocol layer's wire encoding and the
+Godot side (the split is O31). Finding ids (PH-, AR-, WT-, BF-, EX-, CR-, DPH-, DC-) point into the review files.
 
-**Numbers** are *measured* (with source), *derived* (arithmetic shown), *from memory, to verify*, or `[engineering]`
-(a choice, not physics). Godot API names not checked against 4.7.2 are *to verify*; step 2 probes each headless
-before code depends on it.
+**Numbers** are *measured*, *derived*, *from memory, to verify*, or `[engineering]`; §5's literature constants are
+in §5.1.
 
-**Corrections to the repo's text** (each lands with the PR that touches the file):
-- `docs/architecture.md:20`, "The game is turn-based (classic Fallout)", is stale: superseded by real time with pause
-  on a fixed tick (`origin/phase1/realtime-design:docs/design/realtime_lanes_coop.md`, decisions 1–4). Its Transport
-  note that head-of-line blocking "is harmless for a turn-based game" is restated for real time in §5.3.
-- `docs/roadmap.md` Phase 1 still lists the clinic (moved after the exit by D27) and an exit "at the laptop and rig
-  profiles" (rendering tiers since D20). The comments in `data/rigs/*.yaml` still describe physics precision.
+**Corrections to the repo's text** (each lands in the plan step named):
+- `docs/architecture.md:20` ("turn-based, classic Fallout") is stale: real time with pause on a fixed tick
+  (`origin/phase1/realtime-design:docs/design/realtime_lanes_coop.md`, decisions 1–4); its Transport caveats are
+  restated in `client_rendering.md` §4. Step 7.
+- `docs/roadmap.md` Phase 1 lists the clinic (D27) and a "laptop and rig profiles" exit (D20): step 8.
+  `data/rigs/*.yaml`'s comments and tier fields (D20): step 3a's `config` split. `docs/standards_backlog.md` B5–B7's
+  stale step numbers (EX-N7): step 2.
+- realtime §7's v0 message table (`act`, `act_result`) is superseded by §3.3 here; it is amended at the merge (step 1).
 
 ## 0. Decisions this document rests on
 
 | Id | Decision | Owner, date | Source |
 |---|---|---|---|
-| T1 | **Camera: isometric 3/4,** fixed elevation, rotatable in 90° steps, zoom within limits; walls between camera and player get a cut-away rule | owner, 2026-11-18 | §3 |
-| T2 | **Movement: click-to-move and WASD,** both reduced to validated intents through the one intent door, in canonical order, logged for replay; the client never moves the player authoritatively | owner, 2026-11-18 | §2, §4 |
-| RT1–4 | Real time with pause on a fixed tick; a time dial; pause is a state, not a dial value; host-only time control behind `TimeAuthority` | owner, 2026-11-15 | realtime decisions 1–4, §2–§3 |
-| D20 | One simulation truth at 0.1 m; rigs become rendering tiers only | owner, 2026-11-16 | world_model §0, §1 |
-| D25 | Reconstruct, decide at the point, integrate; the client reads at its own level of detail, never "a cell" | owner, 2026-11-16 | world_model §0 |
-| D26 | Tile first; exit: walk into the alley, set a crate on fire, watch it crack, glow and burn away by a fuel-mass law in open air; zones, combustion, CSG, phase change in Phase 2 | owner, 2026-11-17 | world_model §0 |
-| D27, D28 | Clinic after the exit; grey-box heat-debt prototype after the tile | owner, 2026-11-17 | world_model §0 |
-| O23 | Frames publish on change, not per tick | owner, 2026-11-17 | boundaries §0, §4.2 |
+| T1 | Camera: isometric 3/4, fixed elevation, 90° steps, bounded zoom, a cut-away rule | owner, 2026-11-18 | `client_rendering.md` |
+| T2 | Movement: click-to-move and WASD, both validated intents through the one door, logged; the client never moves the player | owner, 2026-11-18 | §2, §3 |
+| T3 | Tick 0.1 s, physics every 0.5 s; the 6 s turn is retired | owner, 2026-11-18 | §6.1 |
+| T4 | `kindle`, with power from a held item; `ignite` retired | owner, 2026-11-18 | §3.2 |
+| T5 | A body heat state from Phase 1 | owner, 2026-11-18 | §2.1 |
+| T6 | File OD-C11 (egocentric locomotion) with Maxim | owner, 2026-11-18 | §3.1 |
+| T7 | The walk direction is an integer vector, canonicalised at stage 1 | owner, 2026-11-18 | §2.3 |
+| T13 | Frozen at v3; no more paper rounds on the fire physics. Step 6's PR carries a short design note under the Physics lens, the final review's FPH-B1 to B3 are its requirements, and its convergence tests and pre-registered failure path decide | owner, 2026-11-18 | §5 |
+| RT1–4 | Real time with pause on a fixed tick; a dial; pause a state; host-only time control | owner, 2026-11-15 | realtime decisions 1–4 |
+| D20, D25 | One truth at 0.1 m, rigs are rendering tiers; reconstruct, decide at the point, integrate | owner, 2026-11-16 | world_model §0 |
+| D26–D28 | Tile first, exit as written; clinic after; heat-debt prototype after the tile | owner, 2026-11-17 | world_model §0 |
+| D29, D30 | Step 6 = 6a open-air loss, 6b surface skin, 6c porous fuel bed, 6d char oxidation; solid sub-cell recession moves to Phase 2 | owner, 2026-11-18 | world_model §0 |
+| O23, O24, O31 | Frames publish on change; `simcore` in four layers (core, adapters, game, client protocol); this split | owner, 2026-11-17/18 | boundaries §0 |
 
-Nothing here redecides these. New proposals sit in their section; real choices are also in §12.
+T8–T12 are client decisions (`client_rendering.md` §0).
 
 ## 1. The alley in metres
 
 ### 1.1 Geometry
 
 - **Extent 12.0 × 4.0 × 4.8 m** (x east along the alley, y north, z up): 60 × 20 × 24 cells at 0.2 m, whole on every
-  axis, so `MaterialGrid.empty` accepts it at 0.2, 0.1 and 0.05 m.
-- **A dead-end alley off a street.** x 0–1.2 m is pavement (the spawn); walls run from x = 1.2 m to the end wall.
-  Clear width 3.2 m, walls 4.0 m tall `[engineering]`.
-- **Every solid, and every air gap a test relies on, is ≥ 0.4 m** (two coarse cells).
+  axis. A dead-end alley off a street: x 0–1.2 m is pavement (the spawn); walls from x = 1.2 m; clear width 3.2 m;
+  walls 4.0 m tall `[engineering]`. Every solid and every air gap a test relies on is ≥ 0.4 m.
 
 | Name | Material | min_m | max_m |
 |---|---|---|---|
@@ -46,505 +52,448 @@ Nothing here redecides these. New proposals sit in their section; real choices a
 | `wall_south` | concrete | (1.2, 0, 0.4) | (12.0, 0.4, 4.4) |
 | `wall_north` | concrete | (1.2, 3.6, 0.4) | (12.0, 4.0, 4.4) |
 | `wall_end` | concrete | (11.6, 0.4, 0.4) | (12.0, 3.6, 4.4) |
-| `crate` | wood | (6.0, 2.6, 0.4) | (6.6, 3.2, 1.0) |
-| `crate_control` | wood | (9.0, 0.8, 0.4) | (9.6, 1.4, 1.0) |
+| `crate` | wood bed | (6.0, 2.6, 0.4) | (6.6, 3.2, 1.0) |
+| `crate_far` | wood bed | (9.0, 0.8, 0.4) | (9.6, 1.4, 1.0) |
 
-- **The crate is the cross-tier crate,** a 0.6 m wood cube as in `tests/test_cross_tier.py::SCENE`, so the evidence
-  measured on it (`docs/architecture.md`, Known gaps) carries over. It sits 0.4 m off the north wall.
-- **`crate_control` is the negative control,** 2.68 m from the crate corner to corner (derived: √(2.4² + 1.2²)). It
-  must stay intact (§7.3).
-- **No bounding-box overlaps between named solids,** which `origin/phase1/act-validation`'s
-  `scene._check_no_solid_overlaps` refuses: walls start on the floor's top face, the end wall sits between the sides.
-- **No other props in Phase 1.** Sheet-metal props can't satisfy the thin-feature rule, and a solid steel block would
-  be a false heat sink. Props come with the clinic (D27).
-- **Material:** `wood` exists in `data/materials/core.yaml` (id 4) with thermal and degrade properties only, **no fuel
-  properties** (heat of combustion, burn rate, char). Plan step 6 adds them in material table v1, with provenance.
+- **The crate is a porous fuel bed** (D30): slats around air, authored as a 0.6 m box whose cells carry a fuel volume
+  fraction φ and a surface area per volume σ. Content values `[engineering]`: 20 mm slats, φ = 0.25, so σ = 2φ/δ =
+  **25 m²/m³**; 0.054 m³ of wood, **32.4 kg**, **5.4 m²** of fuel surface (derived). The thin-feature rule applies to
+  the box, not the slats, which live inside the cell's state.
+- **`crate_far` is a placement guard,** not a fire-spread control (PH-S3): heat can't reach it 2.68 m away through
+  air (diffusion length √(αt) = 0.34 m over the 5,400 s cap, α_air 2.2×10⁻⁵ m²/s, PH's value).
+- **No bounding-box overlaps between named solids** (`scene._check_no_solid_overlaps`); no other props until D27.
 
-### 1.2 Light and "open air"
+### 1.2 Light and open air
 
-- **No light field in Phase 1** (Phase 2). The shader's key light, ambient and bloom are rendering only, never sensed,
-  never fed back. Ambient is low (night) so glow reads `[engineering]`. The sky's tint follows the world's time of day
-  from the `tick` message, never the client's clock.
-- **"Open air" (D26) means no O₂ limit, not an open heat boundary.** `heat.py` is insulated at the extent and has no
-  convection or radiation (Known gaps), so the alley's open end and top lose no heat. The fuel law decides burn-out;
-  the tile's air stays hot. Recorded as a Known gap with the tile's numbers.
+- **No light field in Phase 1.** The client's fixed night is rendering only (BF-N1).
+- **Open air (D29, D30):** every exposed surface loses heat to ambient through 6a; the flame's convective plume leaves
+  the open-topped alley; the flame's radiation is exported unreceived except by bodies, a metered Known gap (§5.4).
+  The domain boundary stays insulated for conduction, which carries almost nothing through air.
 
-### 1.3 Scene YAML
+### 1.3 Scene format and files
 
-In `Scene.from_dict`'s format on `origin/phase1/act-validation` (closed keys `version`, `extent_m`, `primitives`,
-`ambient_c`). The spawn is new, so this is **scene format v1**, with a v0 migration test.
+- **Scene v1 = world_model F13's strict loader plus a required `spawns` list** (WT-S8), in step 3b; zones become v2
+  in Phase 2. v0 migrates by the literal `spawns: []` (F12); `join` with no spawn for its archetype is refused.
+- **The format checks syntax and extent only;** clearance is checked at construction and `join` (AR-S9); spawns
+  convert to integer mm by F13's rule; a bed's φ and σ are validated (0 < φ < 1, σ > 0) where the primitive is made.
+- **Files:** `content/scenes/alley.yaml` (rights reserved, step 8); engine tests and step 5 use an Apache fixture
+  with the same boxes, `tests/fixtures/scenes/alley_box.yaml`. Cut-away walls are client data (DC-N4).
 
 ```yaml
 version: 1
 extent_m: [12.0, 4.0, 4.8]
 ambient_c: 15.0
-spawns:   # new in v1: named points in metres, validated inside the extent and on free floor
-  - {name: player, at_m: [0.6, 2.0, 0.4]}
+spawns:
+  - {name: player, archetype: human, holding: torch, at_m: [0.6, 2.0, 0.4]}
 primitives:
-  - {kind: box, name: floor,         material: concrete, min_m: [0.0, 0.0, 0.0],   max_m: [12.0, 4.0, 0.4]}
-  - {kind: box, name: wall_south,    material: concrete, min_m: [1.2, 0.0, 0.4],   max_m: [12.0, 0.4, 4.4]}
-  - {kind: box, name: wall_north,    material: concrete, min_m: [1.2, 3.6, 0.4],   max_m: [12.0, 4.0, 4.4]}
-  - {kind: box, name: wall_end,      material: concrete, min_m: [11.6, 0.4, 0.4], max_m: [12.0, 3.6, 4.4]}
-  - {kind: box, name: crate,         material: wood,     min_m: [6.0, 2.6, 0.4],   max_m: [6.6, 3.2, 1.0]}
-  - {kind: box, name: crate_control, material: wood,     min_m: [9.0, 0.8, 0.4],   max_m: [9.6, 1.4, 1.0]}
+  - {kind: box, name: floor,      material: concrete, min_m: [0.0, 0.0, 0.0],   max_m: [12.0, 4.0, 0.4]}
+  - {kind: box, name: wall_south, material: concrete, min_m: [1.2, 0.0, 0.4],   max_m: [12.0, 0.4, 4.4]}
+  - {kind: box, name: wall_north, material: concrete, min_m: [1.2, 3.6, 0.4],   max_m: [12.0, 4.0, 4.4]}
+  - {kind: box, name: wall_end,   material: concrete, min_m: [11.6, 0.4, 0.4], max_m: [12.0, 3.6, 4.4]}
+  - {kind: box, name: crate,      material: wood, bed: {phi: 0.25, sigma_m2_m3: 25.0}, min_m: [6.0, 2.6, 0.4], max_m: [6.6, 3.2, 1.0]}
+  - {kind: box, name: crate_far,  material: wood, bed: {phi: 0.25, sigma_m2_m3: 25.0}, min_m: [9.0, 0.8, 0.4], max_m: [9.6, 1.4, 1.0]}
 ```
 
-`data/scenes/alley.yaml`; its loader test checks 0.2 m alignment in integers, not floats (world_model §8, F13).
+### 1.4 Size (derived; counts recomputed by PH)
 
-### 1.4 Size and memory (derived)
+230,400 cells at the 0.1 m truth (28,800 at 0.2 m, 1,843,200 at 0.05 m); 59,312 solid (25.7%); 23–29 MB at
+100–125 B/cell. Today's uncached heat substep on the alley: **0.59 / 4.5 / 38.3 ms** at 0.2 / 0.1 / 0.05 m (PH,
+measured). With caching, **1.4 ms** at 0.1 m is a projection (world_model §9's 3.9 ms × 230,400/640,000), not a
+measurement. `stable_dt` is 46.9 s at 0.1 m: one substep per 0.5 s physics step.
 
-| Grid | Cells | At 100–125 B/cell (world_model §9) | Role |
-|---|---|---|---|
-| 0.2 m | 28,800 | 2.9–3.6 MB | verification |
-| **0.1 m** | **120 × 40 × 48 = 230,400** | **23–29 MB** | **truth** |
-| 0.05 m | 1,843,200 | 184–230 MB | reference |
+## 2. Bodies: one model for every actor
 
-Solid at 0.1 m: 59,312 cells (floor 19,200, sides 17,280 each, end 5,120, crates 216 each), 26%. The truth grid is
-36% of the 640,000-cell synthetic tile whose cached heat substep measured 3.9 ms (world_model §9), so about 1.4 ms
-here (derived estimate); step 5 measures it.
+### 2.1 The model (BF-B2, AR-S1, AR-S3, BF-S2, BF-S6, DPH-S4)
 
-## 2. The player
+- **One body model, world-owned, in the `simcore` core** beside `Simulation`. Players and, from Phase 4, NPCs are
+  actors with bodies in one actor table. Maxim's `Entity` holds only what is felt, fed by `world_set_axis`
+  (boundaries §4.3); Overdrive never models a body twice (npcs §2.2).
+- **A body archetype** is an engine type with a strict loader; the game supplies instances under `content/bodies/`.
+  Phase 1 has `human`:
 
-### 2.1 The body
-
-Nothing in the repo models a body or a position (checked: `world/`, `sem_env/`; the realtime design's `actors` is an
-id allocator). Minimal proposal:
-- **An actor, not cells.** The `Simulation` holds an actor table: `actor_id`, `pos_mm` (3 × int32), `held` heading
-  (int8, −1 none), `path` (int32 waypoints). **Integer millimetres** `[engineering]`: exact, so replay needs no float
-  care.
-- **Collision volume:** an upright cylinder, radius 0.25 m, height 1.8 m `[engineering]` (shoulder half-width about
-  0.2–0.25 m, *from memory, to verify*). Feet on the floor's top (z = 0.4 m); no gravity or steps in Phase 1.
-- **Speed:** 1.4 m/s, a common preferred walking speed (*from memory, to verify*): 140 mm per 0.1 s tick. No running.
-- **Not painted into cells:** the body doesn't block heat, burn or take damage. Standing in the fire is harmless, a
-  Known gap until bodies have physics (Phase 4/5).
-- **Data:** `data/world/player.yaml`, versioned, closed keys, strict loader like `ActionLimits.load`.
-
-### 2.2 Movement on the server
-
-- **Tick order** (realtime §2.1) gains one stage: apply records, **move bodies**, agents (no-op), physics on physics
-  ticks, outputs.
-- **Headings in integers:** h ∈ 0..7 is h × 45° counter-clockwise from +x; axis steps are 140 mm, diagonals (99, 99)
-  mm (140/√2 = 98.99; 0.007% speed error, derived). The table is data.
-- **Blocked** = the cylinder at the candidate position overlaps a solid truth cell in the band [feet + 0.05 m, feet +
-  1.8 m], or leaves the extent less the radius; a disc–square test in integer mm. A reduction over the body's volume
-  in metres, identical on every machine (D20) `[engineering]`.
-- **Sliding:** full step, else its x part, else its y part, else stay. A step (140 mm) is shorter than the radius and
-  walls are ≥ 0.4 m, so nothing tunnels (derived).
-- **Burned-away cells become walkable;** `topology_version` (world_model §7) invalidates paths.
-
-### 2.3 "Set a crate on fire" as an intent
-
-**What exists** (`origin/phase1/act-validation:src/maxim_overdrive/sem_env/bridge.py`): `parse_action` over `strike
-{energy_j, sigma_m, point_m}`, `ignite {power_w, radius_m}`, `extinguish {}`, with ceilings in `data/world/actions.yaml`
-(ignite ≤ 500 kW, radius 0.3–3.0 m). `_ignite` places a `HeatSource` at the **region's centroid**, burning until
-extinguished. The YAML says the ceilings are "not what a body can do"; world_model §8 retires `extinguish` for `douse`.
-
-**What the tile needs instead:**
-- **A point on the surface.** A centroid fire starts inside the crate. `ignite` gains `point_m`, validated as
-  `strike`'s is: on the region's authored footprint, within 0.1 m of its surface `[engineering]`.
-- **A pilot, not a fire.** After step 6 the fire belongs to the fuel law; the player supplies `ignite {point_m,
-  power_w, duration_s}`, limited by `data/world/player.yaml` (narrower than the ceilings). Step 6 owns the pilot's
-  physics (area-overlap deposit, world_model §3) and picks the tile's values **outside the band gate**: ≥ 2× the
-  reference grid's minimum igniting pilot energy `[engineering]`.
-- **Reach and rate:** the body's axis within 1.5 m of the point `[engineering]`; one live pilot per actor; ≤ 1 ignite
-  per second per session (`data/server/`). No line-of-sight check yet (a Known gap; nothing thin to reach through).
-- **One door:** stage-1 `engine.intents.parse_action`, the log, stage-2 against the world at apply (boundaries §6).
-  Refusal codes: `out_of_reach`, `not_on_region`, `limit`, `not_finite`, `busy`.
-
-This changes another branch's vocabulary: a Wire item for step 7, a Physics item for step 6 (§12 Q3).
-
-## 3. Camera and occlusion (T1)
-
-### 3.1 The camera
-
-- **`Camera3D` with `projection = PROJECTION_ORTHOGONAL`.** Parallel projection keeps sizes constant with depth, which
-  is what makes a 3/4 view read as a map. Engine why: a camera property, no custom matrix.
-- **Elevation 40°** `[engineering]` (true isometric is 35.26°, arctan 1/√2). Steeper shows more floor between 4 m
-  walls; a 4 m wall hides 4.8 m of floor behind it at 40° and 5.7 m at 35.26° (derived), more than the 3.2 m alley, so
-  the cut-away is required at any angle in range.
-- **Yaw 45° + k·90°,** Q/E, tweened over 0.25 s. **Zoom:** orthographic `size` (view height) 6–24 m, default 12 m,
-  ×1.25 per wheel step `[engineering]`.
-- **Follow:** a critically damped spring on the interpolated player, about 0.2 s. Camera 60 m back, clip 0.1–200 m.
-- **Golden camera:** yaw 45°, elevation 40°, size 10 m, centred on the crate, 1280 × 720.
-
-### 3.2 The cut-away rule
-
-A fade still covers the player in colour, so this design cuts (as The Sims' walls-down mode does, *from memory*):
-- **A cell is cut** when (a) it is on the camera's side of the player, dot(cell − player, f) < −0.3 m, f the camera's
-  horizontal forward; (b) within 4.0 m of the player horizontally; (c) its bottom is > 1.0 m above the player's feet
-  `[engineering]`.
-- **Cut faces are hatched** (a shape, not a colour), so a cut never reads as burned-away wall. The 1.0 m stumps keep
-  the layout legible.
-- **Always on:** no occlusion test, no popping. **Visual only:** shader uniforms; the server's walls stay whole.
-- **Tests:** golden G5 (§8); the player's ID-mask pixels (§8.4) ≥ 95% visible at all four yaws `[engineering]`.
-
-## 4. Input to intents (T2)
-
-### 4.1 WASD as a held direction
-
-- **Camera-relative keys, world-frame wire.** The client resolves the keys and camera yaw to one of 8 world headings
-  or none; with yaw at 45° + k·90° every combination lands exactly on one (derived).
-- **Sent on change only:** `move {heading: 0..7 | null}`. The server holds it per actor and steps the body each tick.
-  The log stores changes; replay reproduces every step. A per-tick stream would add records and make the client track
-  the server's tick for nothing; TCP on localhost loses nothing, and a leave is a logged stop.
-- **Validation:** integer in [0, 7] or null; ≤ 30 per second per session.
-- **While paused,** a `move` applies at the next tick; press-and-release nets to nothing.
-
-### 4.2 Click-to-move, pathed on the server
-
-- **The client sends a target, never a path:** `move_to {target_mm: [x, y]}`, picked by a CPU DDA ray through the
-  material bytes it holds (§6.1). The pick is re-validated.
-- **Walk grid:** 2-D at 0.1 m, a cell free if the body centred there isn't blocked: a disc convolution of column
-  occupancy, 4,800 nodes, rebuilt when `topology_version` changes.
-- **A\*:** 8-connected, integer octile costs (10, 14), no corner cutting, ties broken by (f, h, j, i), ≤ 10,000
-  expansions else `no_path`. A blocked target snaps to the nearest free node within 0.3 m, else `unreachable`. Paths
-  are pruned by deterministic line of sight, walked at 1.4 m/s, arrival within 50 mm `[engineering]`.
-- **Reply** `move_result {tick_applied, success, error, path_mm}`: the client draws the server's route. A `move`
-  cancels a path; a new `move_to` replaces it; a topology change replans once, else the body stops with
-  `path_blocked`. While paused, the path is planned at the next tick and walked on resume.
-
-### 4.3 Controls
-
-| Input | Message | Who |
+| Field | Value | Tag |
 |---|---|---|
-| Space | `time {request: pause}` / `{request: resume}` | host; guests refused by `TimeAuthority` |
-| `,` / `.` | `time {request: set_scale, scale}` over presets 0.25, 0.5, 1, 2, 5, 10, 20 from `data/server/` `[engineering]` | host |
-| `F` on a region | `act {region, action: ignite, params: {point_m, power_w, duration_s}}` | any actor |
-| Q, E, wheel | none (camera) | client |
+| collision cylinder | radius 0.25 m, height 1.8 m | `[engineering]`; shoulder width *from memory* |
+| walk speed | 140 mm per tick (1.4 m/s) | *from memory, to verify* |
+| reach | 1.5 m, 3-D, from the body's axis segment (feet to head) (DC-N9) | `[engineering]` |
+| heat store | 70 kg × 3,500 J/kg·K = 245 kJ/K | *from memory, to verify* |
+| convection | h = 10 W/m²·K over 1.9 m² | *from memory, to verify* |
+| radiation | ε = 0.95; projected area 0.5 m² toward a source | *from memory, to verify* |
+| exchange volume | the cylinder grown by 0.2 m radially and on top | ≥ 0.4 m across: two coarse cells |
 
-The HUD shows requested and effective scale and **"dilated"** when effective < requested (realtime §3.1). It hides
-time controls when `welcome.role` isn't host; the server refuses them regardless, tested in step 7 with the controls
-forced visible.
+- **Convection is a reduction over a volume in metres:** T_env is the volume-overlap weighted mean of the exchange
+  volume's cells (never a centre test); the same weights debit them (ledger line `bodies`). That volume's air holds
+  1.53 kJ/K against the body's 245 kJ/K, so it reaches the body's temperature in about 80 s (DPH, derived): convection
+  alone makes the body fire-blind.
+- **So the body also receives radiation** (§9 Q1): from each hot exposed skin face by a view factor computed in
+  metres, debiting that face's 6a loss; and from the flame by the point-source model q'' = χ_r·Q̇/(4πd²) (*from memory,
+  to verify*), debiting the unreceived flame line (§5.4). It radiates to ambient at εσ(T_b⁴ − T_amb⁴): about 240 W at
+  37 °C in 15 °C surroundings (derived). No metabolism in Phase 1 (a named gap; D28's note and Maxim's drives own it).
+- **What it feels near the fire (derived from §5's numbers):** in the flaming phase (Q̇ ≈ 780 kW, χ_r 0.3), 18.5 kW/m²
+  at 1 m and 2.1 kW/m² at 3 m; absorbed over 0.5 m², 9.3 kW (+2.3 K/min) and 1.0 kW (+0.25 K/min). In the ember phase,
+  4–12 kW/m² at 1 m from a face (envelope 640–920 °C), under 1 kW/m² at 3 m. D28's body is therefore
+  location-dependent.
+- **Tests:** two closed forms (a body in a box clamped at T_env relaxes with τ = 245 kJ/K ÷ (10 × 1.9) W/K = 12,900 s;
+  a body facing a fixed point source heats at α·q''·A/(m·c)), and a cross-grid test at 0.2 / 0.1 / 0.05 m.
+- **Receptor volumes** (head, hands) are declared in the schema with no Phase 1 caller (DC-N8); a head is under two
+  coarse cells, a Known gap needing the reconstruct-then-integrate path (BF-S6).
+- **Body occupancy is derived from the bodies part of the `Frame` at reduction time,** never stored in the cell part
+  (DC-S3). The actor table as a direct view is an ANALOG divergence until occupancy percepts exist (AR-S3).
+- **Identity:** `actor_id` is session-scoped; save v0 maps each body to a persistent `body_key` (BF-N3).
 
-### 4.4 What the client may and may not do
+### 2.2 The actor table and pilots
 
-| May (visual only) | May not (feeds back) |
+Frozen per tick, replaced by `Simulation.step`; column-major, integer key, no strings (world_model §8):
+
+| Column | dtype | Meaning |
+|---|---|---|
+| `actor_id` | u32 | key |
+| `archetype` | u8 | 1-based index into `welcome`'s archetype list |
+| `pos_mm` | 3 × i32 | feet position |
+| `facing` | 2 × i16 | unit vector × 1000, set from movement, kept when stopped (BF-S2) |
+| `motion`, `path_state` | u8, u8 | idle/held/path; none/walking/arrived/blocked |
+| `path_version` | u16 | bumps on every new or replanned path |
+| `held_item` | u8 | 1-based index into `welcome`'s item list, 0 none (DC-N10) |
+| `body_temp_mk` | i32 | body temperature in millikelvin (the core holds float64) |
+| `energy`, `dose` | i32, i32 | present as zero with a `derivation_version` until Phase 4/5 (DC-N2; F5) |
+
+38 B per actor (derived). **Pilots** are a second per-tick table (DC-S4): `actor_id` (u32), `region_id` (u16),
+`end_tick` (u32), 10 B each.
+
+### 2.3 Movement in integers
+
+- **Tick order** (realtime §2.1): records, **move bodies**, agents, physics, outputs; stage 2 reads the body as of the
+  tick's start.
+- **Direction (T7; DC-S8):** stage 1 canonicalises `dir` = (dx, dy), integers, not both zero, to m = max(|dx|, |dy|)
+  = 1000: d'_i = sign(d_i)·((2000·|d_i| + m) // (2m)). Only the canonical form is logged, so (1, 1) and (1000, 1000)
+  are one record. The core's step: n = isqrt((dx'² + dy'²)·10⁶), step_i = sign·(140·|d'_i|·1000 // n); axis steps
+  140 mm, (1000, 1000) gives (98, 98), 1.0% slow (derived). The vector is allocentric on the wire; Phase 4's adapter
+  reduces an egocentric body command to it (OD-C11).
+- **One blocked predicate** (AR-S4): the cylinder overlaps a solid truth cell in [feet + 0.05 m, feet + 1.8 m], or
+  leaves the extent less the radius; disc–square in integer mm. A fuel-bed cell counts as solid while its remaining
+  fuel fraction is above zero. **Sliding:** full step, else x part, else y part, else stay; 140 mm < the radius.
+- **Walk grid:** 2-D, 0.1 m, a node free iff the blocked predicate is false at its centre. **A\*:** 8-connected,
+  octile 10/14, no corner cutting, ties (f, h, j, i), cap = the grid's 4,800 nodes.
+- **Path walking** (EX-S6): first leg from the exact position; last waypoint the exact target if free, else the
+  nearest free node within 0.3 m (ties (distance², j, i)), else `unreachable`; pruning keeps the farthest waypoint
+  whose segment passes the predicate sampled every ≤ 50 mm; each tick steps by the normalisation, landing exactly when
+  the remainder ≤ 140 mm. Property test: every per-tick step passes the predicate.
+- **Precedence:** a non-null `move` cancels a path; `move {dir: null}` clears only a held direction; `move_to`
+  replaces any path.
+- **Replanning:** only `imagine` and admin `set_material` can block a path in Phase 1; a corridor change replans once
+  (bumping `path_version`), else `path_state` = blocked. Bit-identical on one machine; outcome class across (PH-S6).
+
+## 3. Intents: one door
+
+### 3.1 The pipeline (AR-B2, WT-B1)
+
+Decode → stage 1 (`simcore` core intents; today `sem_env.bridge.parse_action`) → log → stage 2 against the world at
+apply → one receipt. The record is boundaries §6.2's: `schema_version`, `kind`, `actor_id` (from the session token),
+`seq`, `observed_tick`, `issued_tick`, `apply_tick`, `apply_us`, canonical `params`, `target`. Ordering key
+`(apply_tick, kind_rank, apply_us, actor_id, seq)`.
+- **`observed_tick`** is the tick of the last cell frame sent to that session (DC-S1, boundaries §4.2), not the last
+  `tick` message. Phase 1 has no stale rule, so it has no caller yet; it is logged for Phase 4 (DC-N8).
+- **Authority** (boundaries §6.1's column is the emitter's role): `move`, `move_to`, `kindle` are "any actor".
+  Having a body or an igniter is capability, checked at stage 2 (`no_body`, `no_igniter`) (DC-N1).
+- **`kind_rank`** `[engineering]`: join/leave 0, `time` 1, `move`/`move_to` 2, `kindle`, `strike`, `douse`,
+  `imagine` 3.
+- **A held direction is a logged intent that applies every tick until replaced.**
+- **Walking is a body affordance NPCs will share** (T6, OD-C11). On Maxim `origin/main` 6fee7377 (`fold.md` Check 1),
+  `src/maxim/_data/components/bodies/base_humanoid.yaml` has `legs.move {direction: str, speed: str}`, compass words
+  only in its description (an LLM may pass any string); `src/maxim/_data/components/bodies/minecraft_player.yaml` has
+  `avatar.move_to {x: float, z: float}`; `minecraft_bench57.yaml` feeds signed world offsets as sensors. A compass, a
+  GPS and a position oracle no body has. Proposed: egocentric `move {forward, turn}` and target-by-percept-id.
+
+### 3.2 `kindle` (T4; WT-B2, BF-S4, BF-S5, PH-S4, DC-S5–S7)
+
+- **Action vocabulary v1** adds `kindle` (a bounded pilot) and retires `ignite`, as F7 retired `extinguish`. It ships
+  with the first log writer (step 5), so no v0 intent log ever exists and the v0-log refusal test is moot (DC-S5).
+  Until step 6's skin exists, step 5's `kindle` deposits by sphere volume overlap at the point with the item's radius,
+  a marked, scheduled band-aid that step 6 removes. The red gate
+  `test_a_fire_that_has_burned_its_fuel_stops_heating` is rewritten to use `kindle` when step 6 flips it.
+- **`data/world/actions.yaml` v1** carries `kindle`'s physics-safety ceiling (`max_power_w`, `max_duration_ticks`,
+  `min_radius_m` = 0.2) and drops `ignite`. A registered migration `actions_v0_to_v1` loads the committed v0 fixture
+  to its expected v1 value. Limits are the ceiling intersected with the item's capability (boundaries §6.1 rule 3).
+- **Power belongs to the item.** `content/items/torch.yaml`: `power_w`, footprint `radius_m` (≥ 0.2 m),
+  `max_duration_ticks`, `restrike_ticks` (world time). Phase 1's torch is a propane pilot of order 2 kW, 15.9 kW/m²
+  over its 0.2 m disc (*from memory*); its values come from step 6's band measurement (§6.3).
+- **Checks:** stage 1 checks types and the ceiling; the item's maximum is a logged stage-2 code, `over_item_max`
+  (DC-S6). Stage 2 derives the region: the named solid whose authored box surface lies within 50 mm of `point_mm`
+  with the point no deeper than 50 mm inside; two candidates is `ambiguous_point`. Exact for boxes; non-box fuel waits
+  for the CSG (AR-N4).
+- **A body affordance, not a region one** (DC-S7): an NPC's `kindle` comes through its per-actor body modulator
+  (boundaries §7.2), never `crate.kindle`. The log carries `target: null`; the derived region is in the receipt,
+  recomputed on replay. The agent-facing parameter is `hold: brief | steady | long`, which the adapter converts to
+  ticks from the item's data, so no tick count reaches an agent (npcs §3).
+- **Deposit:** the footprint disc by face-area overlap onto the bed's skin (6b), no single-cell fallback. The pilot
+  covers ticks [apply_tick, apply_tick + D); a physics step at tick t covers (t − 5, t], and receives P × 0.1 s per
+  overlapping tick (DC-N6).
+- **Lifecycle:** one live pilot per actor (`pilot_live`), in the pilots table; it ends on expiry, on leave and when
+  its region is gone.
+- **Receipt meaning:** `applied` means placed, not ignited. Credit for a pilot that never lit is the **OPEN divergence
+  OD-A16 / OD-C5**; the tile's numbers go to the OD-A16 draft as evidence.
+
+### 3.3 Protocol v0's client messages (DC-B2)
+
+This table replaces realtime §7's (`act`, `act_result` retired); realtime §7 is amended to match at the merge.
+
+| Client → server | Fields | Final reply |
+|---|---|---|
+| `hello` | `protocol: 0`, `token` | `welcome`, or `error` then close |
+| `move` | `seq`, `dir: [int, int] \| null` | `intent_result` |
+| `move_to` | `seq`, `target_mm: [int, int]` | `intent_result` (+ `path_mm`) |
+| `kindle` | `seq`, `point_mm: [int, int, int]`, `duration_ticks` | `intent_result` |
+| `time` | `seq`, `pause \| resume \| set_scale`, `scale` | `time_decision` |
+| `snapshot` | `seq` | a cell frame with `in_reply_to` |
+
+- **No client message carries a region or an actor.**
+- **`strike`, `douse` and `imagine` have no wire message in v0,** because no Phase 1 client sends them. They join
+  as versioned additions when a client caller exists. NPCs reach them through the adapter, not the wire.
+- **One receipt shape for every intent** (boundaries §7.2): `(actor_id, seq)`, outcome (`applied`, `refused`, `stale`,
+  `cancelled`; the last two have no Phase 1 producer), refusal code, measured effect, before and after frame ids.
+  `intent_result` wraps it with wire-only `apply_tick` and `path_mm`. Agent-facing receipts carry no tick.
+- **Server → client** messages (`welcome`, `regions`, `tick`, cell frames, `error`) are specified in
+  `client_rendering.md` §4.
+
+### 3.4 Refusals (WT-S1, EX-S8), in check order
+
+| Code | Stage | Reply | Logged | Step |
+|---|---|---|---|---|
+| `bad_json`, `unknown_kind`, `unknown_field`, `busy` | decode | `error` | no | 7 |
+| `not_int` (bool, `5500.0`, `1e3`), `bad_shape` | stage 1 | `error` | no | 7 |
+| `out_of_range` (`dir` both zero, a ceiling exceeded), `outside_extent` | stage 1 | `intent_result` | no | 7 |
+| `rate_limited` (wall-clock flood guards: `kindle` ≤ 5/s, `move_to` ≤ 10/s), `coalesced` | stage 1 (client protocol layer) | `intent_result` | no | 7 |
+| `out_of_reach`, `not_on_surface`, `ambiguous_point`, `region_gone`, `no_igniter`, `over_item_max`, `pilot_live`, `restrike_wait` | stage 2 | `intent_result` | yes | 6 |
+| `no_body`, `no_path`, `unreachable` | stage 2 | `intent_result` | yes | 5 |
+| time refused (role) | `TimeAuthority` | `time_decision` | yes | 7, by a direct `HostOnly` test (WT-S9) |
+
+- **The code enum lives in the core;** the client protocol layer produces `rate_limited` and `coalesced` (DC-N7).
+- **A stop is never refused** (WT-S5): `move` and `move_to` are latest-wins per session per tick; the superseded
+  one gets `coalesced`. Test: fill the queue while paused, release, resume; the body is still.
+- **Planning:** at most one plan per actor per tick, timed as a B5 meter (WT-S4).
+
+### 3.5 The log header
+
+Its content digests (boundaries §6.3) gain the body archetypes, items, spawns, the vocabulary and `actions.yaml`
+versions, and the navigation constants (WT-S3). Rate limits are pre-log and stay out.
+
+## 4. The simulation `Frame` (BF-B1, AR-S2, DC-S2–S4)
+
+- **Two parts, one tick stamp; frame ids are ticks.** The cells part is a copy published when cells' version changes,
+  shared by reference otherwise. The bodies part holds the actor table, the pilots table and that tick's events
+  (`arrived`, `path_blocked`, `pilot_ended`, each with its new state).
+- **A `Frame` is published every tick on which any intent was applied or refused, or any actor or pilot changed**
+  (DC-S2; O23). Usually that is the bodies part plus a reference to the unchanged cells. So a receipt's after-frame
+  always exists.
+- **Perceivers read the `Frame`, never the wire.** Test: an adapter's pinned actor table at tick T is identical at
+  1×, at 20× and under a wire stall.
+- **State carries what events announce,** so nothing is lost at speed: a pilot is a row until it ends, and a path
+  is `path_version` plus `path_state`. The client's events and their bounds are `client_rendering.md` §4.
+
+## 5. What step 6 must deliver (D29, D30)
+
+### 5.1 Constants, each with provenance (DPH-B1)
+
+Each goes into material table v1 with a provenance row. **No constant is fitted to make the exit pass:** one changes
+only with a new citation, and the exit's outcome follows from it.
+
+| Constant | Value | Tag |
+|---|---|---|
+| ΔH_c,eff of wood volatiles | 12.4 MJ/kg | *from memory* (world_model §11) |
+| char yield χ | 0.25 | *from memory* (0.2–0.3) |
+| ΔH of char to CO₂ | 32.8 MJ/kg | *from memory* |
+| heat of gasification L_g | 1.8 MJ/kg | *from memory* |
+| pyrolysis surface temperature T_p | 380 °C | *from memory* |
+| flame feedback q''_f, per m² of burning fuel surface | 25 kW/m² (literature range 15–35) | *from memory*: the cited source decides |
+| critical heat flux | 12 kW/m² | *from memory* |
+| radiative fraction χ_r | 0.3 | *from memory* |
+| surface ε, h_c | 0.9, 10 W/m²·K | *from memory* |
+
+### 5.2 The four laws
+
+- **6a open-air loss:** each exposed face loses h_c(T_s − T_amb) + εσ(T_s⁴ − T_amb⁴) from its skin. In a bed, the
+  envelope's loss is spread over a radiative penetration depth ℓ = 4/σ = 0.16 m (derived; a random-slat bed's
+  extinction coefficient σ/4, *from memory*), in metres, so it doesn't depend on dx (D25).
+- **6b the skin:** a 1 mm surface layer `[engineering]` on every exposed face and on each bed cell's fuel surface,
+  carrying its own temperature and stored energy. Explicit stability at 0.5 s: ρc·δ/h_r = 600 × 1,700 × 0.001 / 420 =
+  2.4 s (derived; h_r at 1,000 °C ≈ 420 W/m²·K, DPH-N3). Ignition is by area overlap with a critical heat flux.
+- **6c the porous bed:** pyrolysis per m² of burning fuel surface is **m'' = q''_net / L_g**, with q''_net = q''_f +
+  q''_pilot − the 6a envelope loss per m² of fuel surface. Volatiles burn at ΔH_c,eff; the flame deposits q''_f per m²
+  of burning surface; the rest of the release leaves as plume. Char accumulates at χ per kg pyrolysed.
+- **6d char oxidation:** diffusion-limited, m''_c = h_m·Y_O₂·ρ_air·(12/32), with h_m = h_c/(ρ_air·c_p) = 8.3 mm/s
+  (derived): **0.86 g/m²s, 28 kW/m²** of char surface (derived, CO₂ assumed).
+- **Thresholds on cell means:** `thermal_degrade` no longer drives fuel. It still drives concrete, a recorded D25
+  Known gap.
+
+### 5.3 The bed's numbers (derived from §5.1; DPH-B1, DPH-B2)
+
+| Quantity | q''_f = 25 kW/m² | q''_f = 15 kW/m² |
+|---|---|---|
+| Envelope loss at T_p, 1.8 m² × 12.6 kW/m² | 22.7 kW | 22.7 kW |
+| Sustains if σ·V·q''_f > envelope loss: σ_min | 4.2 m²/m³ (the bed has 25: 6×) | 7.0 m²/m³ (3.6×) |
+| m'' = (q''_f − 22.7 kW / 5.4 m²) / L_g | 11.6 g/m²s | 6.0 g/m²s |
+| Flaming heat release, m''·5.4 m²·12.4 MJ/kg | **777 kW** | 402 kW |
+| Flaming phase, 24.3 kg of volatiles | **390 s** | 750 s |
+| Feedback as a share of release per m² | 17% (of 144 kW/m²) | 20% (of 74 kW/m²) |
+
+- **Cross-check:** Heskestad's crib regression rate for 20 mm sticks, about 2.3×10⁻⁵ m/s (*from memory*), gives
+  13.8 g/m²s, the same order as 11.6.
+- **The lone solid block (D30)** is all envelope, keeps none of its re-radiation, and goes out (DPH: 63 kW lost at
+  600 °C against 58 kW released).
+- **Embers (6d):** an envelope ember with the loss spread over ℓ balances 4 × 28 = 112 kW/m² of surface loss at
+  **about 920 °C**. A bare exposed char face balances 28 kW/m² at about 550 °C (both derived). The visible envelope
+  layer is above the 625 °C glow criterion, with margin from constants that are *from memory*.
+- **Ember phase:** 8.1 kg of char at 0.86 g/m²s over 5.4 m², 4.6 g/s: **about 1,750 s** at about 150 kW (derived).
+- **Burn-out:** about 60 s to ignite (the thermally thick closed form at 15.9 kW/m², derived), then flaming, then embers: **t_gone ≈ 2,200 s (37 min)** at q''_f = 25 and 2,560 s at
+  15. Minutes, not hours.
+- **Energy:** 24.3 kg × 12.4 + 8.1 kg × 32.8 = **567 MJ** (derived).
+
+**Pre-registered failure path (DPH-B1, DPH-B2):** if, with cited constants, the bed doesn't sustain or the envelope
+doesn't reach 625 °C, the exit fails, and the measured balance goes to the owner. No constant moves to rescue it, and
+625 °C is never lowered.
+
+### 5.4 The ledger (DPH-S1, DPH-S2; AR-B3)
+
+**Inputs** `sources` (the pilot's P·D·0.1 s) + `combustion` (volatiles and char) = **storage** Δ(cells) + Δ(skins) +
+Δ(bodies) + **outputs** `open_air_loss` + `plume_convective` + `flame_radiative` (received by bodies, and
+`unreceived`) + `removed_with_mass`. Relative tolerance per substep and cumulatively (world_model §4).
+- **The deposit test is not an identity:** Σ deposited = q''_f × A_burning × dt, with A_burning taken independently
+  from the bed state.
+- **Known gap, metered:** the flame's radiation is exported unreceived except by bodies: 0.3 × 777 kW = 233 kW for
+  about 390 s, 91 MJ (derived). On `wall_north`, 0.4 m away, the point-source estimate is 20–40 kW/m², which would
+  raise the concrete face 235–470 K in 390 s (semi-infinite, derived). That passes concrete's 300 °C degrade
+  threshold, but the model's wall stays cold. Phase 2 radiation returns it.
+- **`removed_with_mass`** books a burned-away or destroyed cell's sensible heat, never deleting it silently.
+
+### 5.5 Fuel, char and crack (DPH-S5, PH-S7)
+
+- **Remaining fuel = virgin wood + char, by mass.** `t_gone` is when it falls to 5% of 32.4 kg (1.62 kg). Ash is
+  ignored (Known gap).
+- **`crack` for a bed cell** = 1 − integrity, with integrity the cell's virgin wood fraction of its initial fuel, so
+  charring shows as cracking and shape change.
+
+## 6. The exit scenario
+
+### 6.1 The clock
+
+T3: tick 0.1 s (`tick_us` = 100,000), physics every 5 ticks.
+
+### 6.2 The script (WT-S2, EX-S5)
+
+A versioned script of inputs at apply ticks, `tests/scenarios/alley_exit.yaml`. It runs unpaced through
+`Simulation.step`, and live in realtime §8's stepped host mode, with a Python client that sends each input when the
+server reports the tick before its apply tick. Each run produces a log, and the replay test replays it.
+
+| Tick | Input | Assert |
+|---|---|---|
+| 0 | `join` (host) | actor 1 at (600, 2000, 400) mm, holding `torch` |
+| 10 | `move {dir: [1000, 0]}` | 140 mm per tick |
+| 42 | `move {dir: null}` | `pos_mm` == (5080, 2000, 400) |
+| 50 | `move_to {target_mm: [5500, 2925]}` | one segment, 1,015.9 mm; `pos_mm` == (5500, 2925, 400) at tick 57 |
+| 70 | `kindle {point_mm: [6000, 2925, 725], duration_ticks: D}` | applied; region `crate` in the receipt; 500 mm from the axis |
+| 75 | `time {set_scale: 10}` | granted |
+| ≤ 54,000 | none | §6.3 |
+
+- **The cap is 5,400 s** (54,000 ticks, 10,800 physics steps), 2× the slower estimate `[engineering]`.
+- **Stage-2 variants** each assert their logged refusal and an unchanged world digest: `kindle` from the spawn
+  (`out_of_reach`), at (6000, 2000, 725) (`not_on_surface`), twice (`pilot_live`), with no item (`no_igniter`), over
+  the item's maximum (`over_item_max`). Decode and stage-1 variants are socket tests (§3.4).
+
+### 6.3 Observed, automatically
+
+Areas and masses in metres and kilograms, from the bed and face state. The crate's envelope is its cell faces
+adjacent to air.
+1. **Positions** as in §6.2.
+2. **Ignited:** burning fuel surface ≥ 0.1 m² 60 s after the pilot ends `[engineering]`.
+3. **Crack:** `t_crack` = first tick with ≥ 0.08 m² of envelope over cells with ≥ 10% of their fuel charred.
+4. **Glow:** `t_glow` = first tick with ≥ 0.08 m² of envelope whose envelope-layer skin is ≥ 625 °C.
+5. **Burned away:** `t_gone` (§5.5), before the cap.
+6. **Order:** all exist, and `t_crack` < `t_gone`, `t_glow` < `t_gone`.
+7. **Binary outcomes are band-gated** (S4): ignited, glow reached, burned away, `crate_far` intact. Step 6 measures
+   the band in D (the torch's P fixed) at 0.2, 0.1 and 0.05 m and records its width in Known gaps. The script's D is
+   ≥ 2× the band's upper edge at every grid `[engineering]`.
+8. **Times converge** (DPH-S5), with absolute errors e against the 0.05 m reference and tol = 15% (`t_crack`,
+   `t_glow`) or 10% (`t_gone`) of the reference value. Pass when |e₀.₁| ≤ tol, and (|e₀.₂| ≥ |e₀.₁| or |e₀.₁| ≤ tol/4).
+   Tightened by measurement, never loosened.
+9. **Determinism, on one machine:** two stepped runs, the unpaced run and the replay are bit-identical at every
+   physics tick.
+
+### 6.4 Controls that can fail (DPH-B3, DPH-S3)
+
+| Control | Deletion that must turn it red |
 |---|---|
-| Interpolate poses, one tick behind | Move the drawn body by its own collision |
-| Animate walk and turn from interpolated velocity | Send positions, paths or waypoints |
-| Tween camera; cut-away; bloom; flame particles | Send intents at frame rate or on a timer |
-| Cross-fade `glow` between two frames | Decide reach, region or ignition |
-| Pick a point and region (re-validated) | Put its own clock into anything it sends |
-
-**No prediction in Phase 1** `[engineering]`. Latency (derived): 0–100 ms to the next tick (mean 50), plus 100 ms
-interpolation, plus a 17 ms frame: about 170 ms mean, 220 ms worst. Fine for an iso walk, slow for action. §12 Q2.
-
-### 4.5 Replay
-
-Every `move`, `move_to`, `act` and `time` record gets `(tick, host_seq)` and goes into the intent log (realtime §4.2).
-**Test:** the exit scenario run live through the socket, then replayed from its log with no client, gives
-bit-identical actor tables and grids at every physics tick.
-
-## 5. Snapshot channels to 3-D textures
-
-### 5.1 Channels
-
-From `world.snapshot()`; names are identities (world_model §8):
-
-| Channel | dtype | Meaning | Godot `Image` format |
-|---|---|---|---|
-| `material` | u8 | id, 0 air | `FORMAT_R8`, nearest; id = round(r·255) |
-| `crack` | u8 | round(255·(1 − integrity)) on solids | `FORMAT_R8` |
-| `glow` | u8 | round(255·clip((T − 525)/975, 0, 1)) on solids | `FORMAT_R8` |
-| `temperature_c` | f16 | T clipped to [−273, 6000] °C | `FORMAT_RH`, debug view only |
-
-- **`snapshot()` today returns (x, y, z) arrays and a float `time_s`;** the wire is `[nz, ny, nx]`, x fastest, z-up,
-  integer `tick` (realtime §7). The transpose lives in `engine.encoding` (boundaries), held by the asymmetric golden
-  fixture.
-- **Missing: where it burns.** Cells vanishing shows "burned away", not "burning". The tile needs **a `fire` channel
-  from step 6:** u8 heat release per volume, with its linear scale in the frame header (§12 Q4).
-
-### 5.2 Upload
-
-- **One `ImageTexture3D` per channel,** made on `welcome` by `create(format, nx, ny, nz, false, images)` and refreshed
-  by `update(images)`; `images` is `Array[Image]`, one `Image.create_from_data(nx, ny, false, format, bytes)` per
-  z-slice from `PackedByteArray.slice`. Engine why: the built-in 3-D texture a shader samples as `sampler3D`;
-  separate R8 textures avoid per-byte repacking in GDScript, which would cost more than the upload.
-- **Whole-texture updates** in v0 (`research/states_of_matter/architecture.md` expects no partial update, *to
-  verify*). Two `glow` textures (previous, current) for a 0.5 s cross-fade.
-- **Axes in one place, the shader:** Godot (X, Y, Z) = server (x, z, −y); texture (u, v, w) = (x/nx, y/ny, z/nz).
-- **`WebSocketPeer.inbound_buffer_size`** raised from its 64 KiB default (architecture.md, Transport) to 4 MiB
-  `[engineering]`, `max_queued_packets` bounded; an oversize frame fails the session loudly, with a test.
-
-### 5.3 Cadence and size
-
-- **Cells on change** (O23): after each physics step (every 5 ticks) and each tick that applied an intent, at most
-  `snapshot_hz` (2 Hz during fire, realtime §7), latest-wins.
-- **Actors in the `tick` message,** throttled to ≤ 30 Hz `[engineering]`, under 40 B per actor. They are also a table
-  in the published frame, so a Phase 4 perceiver reads bodies and cells from one frame.
-- **Frame size at 0.1 m (derived):** 230,400 × 5 B = 1,152,000 B plus a < 2 KB header; 2.3 MB/s at 2 Hz;
-  `temperature_c` is 40%. Compression off in v0 (reserved); 74% air suggests zstd pays (*to verify*).
-- **Head-of-line blocking:** a `tick` queued behind a 1.15 MB frame waits on the order of a millisecond on localhost
-  (*to verify*); the one-tick interpolation buffer absorbs it. Meter in §10.
-
-### 5.4 Rendering tiers
-
-Every tier uploads the same 0.1 m channels; tiers change drawing, never the world:
-
-| Tier | `Viewport.scaling_3d_scale` | Crack substeps | Glow filter | Bloom | AO | Flame particles |
-|---|---|---|---|---|---|---|
-| laptop | 0.5 | 2 | nearest | off | off | 64 |
-| rig | 1.0 | 4 | trilinear | on | 4-tap | 256 |
-| max | 1.0 | 8 | trilinear | on | 6-tap | 1,024 |
-
-All `[engineering]`, retuned after §10's first measurements. These fields go to rendering data under `engine.tiers`
-(boundaries S1); `cell_size_m` and `min_substeps_per_turn` leave the tier files when D20 is enforced. "Same apart
-from detail" is a test (§8.3).
-
-## 6. The one shader
-
-### 6.1 Recommendation: raymarch the cell volume
-
-| Option | Per update | Verdict |
-|---|---|---|
-| Greedy meshing on the CPU | remeshing 230,400 cells in GDScript at 2 Hz, likely hundreds of ms (*to verify*), or a C++ GDExtension | no, for a newcomer team |
-| Marching cubes | as above, or compute shaders; smooth surfaces also blur the cells cracks are drawn on | no |
-| **Voxel raymarch (DDA), one fragment shader** | **an upload, nothing else** | **yes** |
-
-- **How:** a `MeshInstance3D` with a `BoxMesh` the size of the extent and a `ShaderMaterial`. Per pixel of the box's
-  front faces, the shader walks the ray cell by cell with Amanatides–Woo traversal (1987: always step to the nearest
-  cell boundary) until it meets a solid, uncut cell; the crossed face gives the normal. Orthographic rays share one
-  direction. Engine why: ordinary Godot, no compute pipeline or GDExtension; the textures are the whole state.
-- **Cost (derived):** ≤ nx + ny + nz = 208 steps per ray, about 40 typical in the golden view: ~37 M texel reads per
-  1280 × 720 frame plus crack substeps. Laptop renders a quarter of the pixels. Measured in §10.
-- **Depth:** the shader writes `DEPTH` from the hit, so the player's `CapsuleMesh` composites in the same opaque pass
-  (reversed-Z formula *to verify*).
-- **Lighting in the shader** (`render_mode unshaded`): fixed key light, three-tone face shading (top brightest,
-  classic iso), neighbour AO on tiers that have it, emission on top. No dynamic shadows in Phase 1. Whether unshaded
-  output above 1.0 drives bloom under the chosen renderer is *to verify*.
-- **Inputs:** `sampler3D` uniforms with `filter_nearest`, `repeat_disable` (*to verify*): material, crack, glow
-  (previous and current), temperature (debug), later fire; a 256 × 1 palette from `welcome`'s `color_rgb` per id;
-  `grid_shape`, `cell_size_m`, `glow_t`, `crack_substeps`, the cut-away's player position, forward, radius and height.
-  The client's picking runs the same DDA on the CPU, ≤ 208 steps per click.
-
-### 6.2 Crack changes shape and shading
-
-- **Shape:** each cell carries a fixed fracture pattern, the edges of a 3-D Voronoi diagram seeded by an integer hash
-  of the cell index (deterministic). Where `crack` = c > 0, points within 0.02 m × c of an edge are **empty**
-  `[engineering]`. On a hit the shader marches `crack_substeps` into the cell; a ray in a fissure goes deeper, and
-  one that leaves the cell resumes the DDA. Cracks are grooves with depth, visible in silhouette and in greyscale.
-- **Shading:** fissure walls darken with depth, and the normal tilts towards the nearest edge, so light catches the
-  lips. Char darkens albedo with c too, but the tests (§8.4) use luminance and edges, never hue.
-
-### 6.3 Glow changes brightness
-
-- **T from `glow`:** T = 525 + 975·g/255 °C (`snapshot()` inverted; 3.8 °C per step). 525 °C is `GLOW_START_C` in
-  `world.py`, near the Draper point (798 K), where hot solids first glow visibly red; the repo cites no source, so
-  *from memory, to verify* before material table v1.
-- **Brightness ∝ (T_K/1773)⁴** (Stefan–Boltzmann, normalised at 1500 °C), with hue from dull red through orange to
-  yellow-white. Bright and dim differ in greyscale (§8.4).
-- **Flames** (with `fire`): emissive flicker on fire cells' exposed faces, plus `GPUParticles3D` seeded at fire cells;
-  visual only, off in goldens.
-
-### 6.4 What glow can show today
-
-The Known gaps record peaks of 538 °C (0.2 m) and 613 °C (0.1 m) while the crate burns: `glow` 3 and 23 of 255
-(derived), barely visible, because wood cells degrade away (from 250 °C) before they get hot. **"Watch it glow"
-depends on step 6's surface law** giving char or embers above 525 °C over an area. If it doesn't, that is a physics
-finding for step 6, never a reason to rescale `glow` in the shader. §7.3 gates the channel, not pixels.
-
-## 7. The exit scenario, scripted
-
-### 7.1 The clock
-
-Tick 0.1 s (`tick_us` = 100,000), physics every 5 ticks (0.5 s), as realtime §2.2 proposes. This replaces the 6 s
-"turn" and answers the plan's open "turn length" (plan §5, roadmap), for the owner to confirm (§12 Q1).
-
-### 7.2 The script
-
-`tests/scenarios/alley_exit.log`, in the intent-log format; ticks are apply ticks.
-
-| Tick | Record | Expect |
-|---|---|---|
-| 0 | `join` host → actor 1 at (600, 2000, 400) mm | `welcome`, role host |
-| 10 | `move {heading: 0}` | east at 140 mm/tick |
-| 42 | `move {heading: null}` | at (5080, 2000) (derived: 600 + 32 × 140) |
-| 50 | `move_to {target_mm: [5500, 2900]}` | a path; arrival by about tick 58 (993 mm at 140 mm/tick) |
-| 70 | `act {region: crate, action: ignite, params: {point_m: [6.0, 2.9, 0.7], power_w: P, duration_s: D}}` | success: the west face, 0.5 m from the body's axis |
-| 75 | `time {request: set_scale, scale: 10}` | granted |
-| ≤ 36,000 | nothing | §7.3 |
-
-- P and D come from step 6 (§2.3). The cap, 3,600 world seconds `[engineering]`, fails a crate not gone by then.
-- **Refusal variants,** each asserting its code and an unchanged world digest: ignite from the spawn
-  (`out_of_reach`), at `[6.0, 2.0, 0.7]` (`not_on_region`), P over the limit (`limit`), NaN (`not_finite`), `time`
-  from a guest token (refused).
-
-### 7.3 What must be observed
-
-**Automated on the server's frames** (Python, unpaced `Simulation.step`, every physics tick):
-1. **Arrival:** x ≥ 1.2 m by tick 40; within reach at tick 70.
-2. **Crack:** `t_crack` = first tick with ≥ 8 crate cells at `crack` ≥ 64 (integrity ≤ 0.75).
-3. **Glow:** `t_glow` = first tick with ≥ 8 crate surface cells at `glow` ≥ 26 (T ≥ 625 °C) `[engineering]`.
-4. **Burned away:** `t_gone` = first tick with crate solid volume ≤ 5% of 0.216 m³, before the cap.
-5. **The fire stops when the fuel is gone:** `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`
-   flips green and its strict red gate is removed (step 6). On the tile: from `t_gone`, `fire` is zero everywhere;
-   no cell ever exceeds 2000 °C (`WOOD_FLAME_C`); from `t_gone` + 600 ticks the tile's maximum only falls.
-6. **Order:** all three times exist, and `t_gone` > `t_glow`.
-7. **Controls:** `crate_control` and walls keep integrity ≥ 0.99; the floor ≥ 0.95, since concrete degrades from
-   300 °C under the crate (measured first, recorded with the threshold) `[engineering]`.
-8. **Determinism:** two runs and the replay are bit-identical at every physics tick (§4.5).
-9. **Convergence:** at 0.2 m and 0.05 m the outcome class matches (gone, stopped, controls intact) and `t_gone`
-   agrees with the 0.05 m reference within the band gate (world_model §3). Thresholds come from measurement and are
-   never loosened to pass.
-
-**Automated on the client:** the goldens (§8).
-
-**Human playtest** (owner, live at 1× then 10×): does walking feel responsive; is the player visible behind the south
-wall at every yaw; does the crack read as a crack and the glow as heat; does burn-out read as fuel running out; does
-the dial feel right. The verdict and the measured latency go in the PR.
-
-## 8. Golden screenshots (B7)
-
-### 8.1 Method
-
-- **Not `--headless`:** it uses a dummy renderer that draws nothing (true of Godot 4.x as I know it; *to verify* in
-  4.7.2). Goldens run the client with a real rendering context and `--fixed-fps 60` (*to verify*).
-- **From recorded frames, not a live server.** The scenario writes frames at chosen ticks to
-  `client/tests/goldens/frames/<tick>.bin` (wire format). `client/tests/golden.tscn` decodes one, sets the golden
-  camera, turns off particles, animation and cross-fade, waits 3 frames and saves
-  `get_viewport().get_texture().get_image()` as PNG. A render is a pure function of (frame, camera, tier).
-- **Frames:** G1 tick 70 (cold, player at the crate), G2 `t_crack`, G3 `t_glow`, G4 `t_gone` + 100, G5 camera on the
-  south side with `wall_south` between it and the player. Five per tier, 15 PNGs.
-- **Renderer goldens** use fixed frame fixtures and catch shader regressions; **scenario goldens** are re-recorded
-  deliberately when physics changes.
-
-### 8.2 Tolerance
-
-- **Metric:** per-pixel CIE76 ΔE in CIELAB, in numpy (no new dependency). Pass: mean ≤ 1.0, 99.5th percentile ≤ 4.0,
-  and no 4-connected blob with ΔE > 10 over 64 pixels `[engineering]`. The blob rule catches a missing crack a mean
-  would hide.
-- **Proved by deletion:** renders with crack carving disabled, and with emission zeroed, must fail G2 and G3.
-
-### 8.3 Same apart from detail
-
-Box-filter each tier's frame to 160 × 90; laptop against rig must pass mean ΔE ≤ 3.0, 99th percentile ≤ 10, and the
-ID-mask areas of the crate, glow region and player agree within 15% `[engineering]`.
-
-### 8.4 Never colour alone, as a test
-
-- **ID pass:** a debug uniform renders region and actor ids as flat colours, giving the crate's and player's pixels.
-- **Greyscale:** in L* only, G2's crate pixels differ from G1's by ≥ 8 in mean with ≥ 2× G1's Sobel edge density;
-  G3's glowing pixels are ≥ 15 L* brighter than G1's `[engineering]`.
-
-### 8.5 Platforms and updates
-
-- **Canonical goldens** render in CI on Linux with Mesa's software rasteriser (llvmpipe), identical across runners,
-  stored as `client/tests/goldens/<renderer>-<driver>/<tier>/G<n>.png`.
-- **The owner's Mac** compares against them and reports without gating; the tier-agreement and greyscale checks
-  (one machine's frames against each other) gate everywhere.
-- **Updates are deliberate:** `scripts/update_goldens.sh <reason>` re-renders, writes a diff image per golden and
-  refuses a dirty tree; the commit carries reason and diffs. Tests never rewrite goldens.
-
-## 9. Godot project shape
-
-### 9.1 Scene tree (`client/scenes/main.tscn`)
-
-```
-Main (Node3D)                     main.gd: wires children, holds no game state
-├── Net (Node)                    net_client.gd: WebSocketPeer, handshake, routing
-├── World (Node3D)
-│   ├── CellVolume (MeshInstance3D: BoxMesh + ShaderMaterial)   cell_volume.gd, cell_volume.gdshader
-│   ├── Actors (Node3D) → Actor_<id> (MeshInstance3D: CapsuleMesh)   actor_view.gd: interpolation
-│   ├── Path (MeshInstance3D: ImmediateMesh)                     the server's route
-│   └── Flames (Node3D) → GPUParticles3D
-├── CameraRig (Node3D, yaw) → Pitch (Node3D) → Camera3D (orthogonal)   camera_rig.gd
-├── WorldEnvironment               background, bloom per tier
-├── IntentInput (Node)             intent_input.gd: InputMap actions → messages
-└── Hud (CanvasLayer) → Control    hud.gd: dial, pause, scales, "dilated", refusals
-```
-
-- **Engine whys:** `Node3D` is anything with a 3-D transform; `MeshInstance3D` draws one mesh with a material;
-  `CanvasLayer` draws UI over the 3-D view; `WorldEnvironment` holds post-processing; `Net` is a plain child, not an
-  autoload singleton, so dependencies show in the tree and tests can swap it.
-- **Pure logic in `RefCounted` scripts** (`protocol/frame_decoder.gd`, `heading.gd`, `dda.gd`): Godot's
-  reference-counted object with no tree, testable without a scene.
-
-### 9.2 GDScript and tests
-
-- **Fully typed;** warnings as Error in `project.godot`: `untyped_declaration`, `inferred_declaration`,
-  `unsafe_property_access`, `unsafe_method_access`, `unsafe_cast`, `unsafe_call_argument`, `return_value_discarded`
-  (names *to verify*). Engine why for GDScript over C#: no .NET toolchain, the editor's own language, headless parse
-  checks with no build.
-- **A minimal test runner** (`client/tests/run.gd`, `godot --headless -s`), not a third-party addon, so no licensed
-  asset to list. It runs the decoder against `tests/fixtures/wire/` (B3), the heading table and the DDA, in the gate
-  (step 2, B6).
-
-### 9.3 Renderer
-
-**Compatibility (OpenGL 3.3)** for Phase 1 `[engineering]`: the shader is unshaded, so Forward+ buys little, and
-Compatibility runs on integrated GPUs and CI's llvmpipe, so goldens match what players run. Bloom support there is
-*to verify*; if absent, a post-process pass on rig and max (§12 Q5).
-
-### 9.4 Connecting
-
-- **The server launches the client** and passes the per-launch token by environment variable (`OS.get_environment`)
-  or a 0600 file, never argv (realtime §5).
-- **`WebSocketPeer.connect_to_url("ws://127.0.0.1:<port>")`,** the literal address; `poll()` each `_process`; text
-  packets are JSON, binary are frames (`was_string_packet()`).
-- **No `Origin` header:** the server refuses any. architecture.md says `WebSocketPeer` sends none unless told,
-  unconfirmed; step 2 proves it with a Python listener that fails on `Origin`, and the client never sets
-  `handshake_headers`.
-- **`hello {protocol: 0, token}` first.** The client refuses unknown protocol, `kind` or dtype loudly, and checks each
-  frame header (shape as in `welcome`, sizes within offsets) before slicing.
-
-## 10. Performance budgets
-
-**Method** (plan §6): Python meters are CPU time (`time.process_time_ns`), minimum of N ≥ 20, never wall time on a
-loaded machine. GDScript has no per-process CPU clock, so client meters are the minimum of N ≥ 50
-`Time.get_ticks_usec()` intervals, which rejects interference, plus GPU time from
-`RenderingServer.viewport_set_measure_render_time` / `viewport_get_measured_render_time_gpu` (*to verify*). Targets
-become the first measurement + 20% (B5).
-
-| Meter | Target | Gate |
-|---|---|---|
-| Frame bytes at 0.1 m | ≤ 1,154,048 B (1,152,000 + header) | exact |
-| Frame encode, server CPU | ≤ 5 ms | B5 |
-| Heat substep on the alley | ≈ 1.4 ms (§1.4) | B5 |
-| Move bodies + replan, per tick | ≤ 0.5 ms | B5 |
-| Client decode + upload | ≤ 6 ms | B5 |
-| GPU frame, rig tier, golden view, owner's Mac | ≤ 8 ms | B5 |
-| GPU frame, laptop tier, integrated GPU | ≤ 12 ms | B5 |
-| `tick` delay behind a frame, p99 | ≤ 5 ms | B5 |
-| Input to photon, WASD | ≤ 220 ms worst (§4.4) | reported |
-
-An upload at 2 Hz may spend one frame's budget each half-second; p99 frame time is reported with it.
-
-## 11. Bio-faithful note
-
-Phase 1 has no NPCs; the tile must not block Phase 4's percepts, which are reductions of physical channels at the
-perceiver, in metres (boundaries §4.4, npcs §7.1):
-- **Everything an NPC could care about is a named region in metres.** "The crate is hot" becomes a surface
-  temperature over the crate's visible area from where the NPC stands, not today's interior `temperature_max` (an
-  instrument). The reductions are one `bincount` over `region_id` (23 ms at 0.05 m on the synthetic tile, world_model
-  §9; less here).
-- **The player is an actor in the world's frame,** so an NPC perceives the body and the ignite event from the same
-  frame and log.
-- **Nothing an NPC would see is client-only.** Light, smoke and sound are Phase 2 fields; the sky follows world time,
-  so a later SCN entrained by world light shares the player's day.
-- **Divergence named:** the player's body has no physics in Phase 1 (§2.1).
-
-## 12. Open questions for the owner
-
-1. **Turn length:** a 0.1 s tick with physics every 0.5 s, retiring the 6 s turn? *Recommend yes;* it unblocks step 5.
-2. **Prediction for the player's own body:** none in Phase 1 (~170 ms mean latency), or visual-only from the start?
-   *Recommend none,* measured in the playtest, added visual-only if walking feels sluggish.
-3. **Ignite as a bounded pilot** (`point_m`, `power_w`, `duration_s`, reach 1.5 m) instead of a centroid fire that
-   burns until put out? *Recommend yes,* values from step 6 outside the band gate.
-4. **A `fire` channel from step 6** so flames can be drawn? *Recommend yes;* otherwise "burning" shows only as cells
-   disappearing.
-5. **Compatibility renderer** rather than Forward+ for Phase 1? *Recommend Compatibility,* matching CI's software
-   goldens and integrated GPUs; revisit with Phase 2 light.
-6. **Elevation 40°** rather than true isometric 35.26°? *Recommend 40°* for the narrow alley.
-
-## 13. What this does not settle
-
-- **Step 6:** the burn law, the pilot's physics and values, `fire`'s definition, whether glow reaches the §7.3
-  threshold, and the three times.
-- **Step 7:** `move`, `move_to`, `move_result` as message kinds with golden fixtures; the actor table in frames; the
-  `tick` throttle; `ignite`'s new params.
-- **Later in Phase 1:** the clinic and its doorway (D27); save v0 with the actor table (step 9); the heat-debt
-  prototype (D28).
-- **Phase 2:** light, sound, smoke, convection, open boundaries, zones; delta frames, zstd, partial uploads, dynamic
-  shadows; refinement near fronts.
-- **Phase 4/5:** bodies with physics, NPC percepts here, line of sight for reach. **Phase 5+ (O28):** co-op guests.
-- **Not designed:** gamepad (a 16-heading vocabulary would be a versioned change), audio, menus, client-side saves.
+| The ledger closes (§5.4) | drop one line |
+| Max skin ≤ 1,300 °C, the surface balance at 4× the flaming release flux (DPH, derived) | disable 6a |
+| Destroyed concrete within 1.0 m of the crate ≤ V_floor | deposit `plume_convective` into the floor |
+| `crate_far` keeps every cell and rises ≤ 1 °C | resolve the pilot's region as the last wood region in the map |
+| max(burning area) > 0 in (70, `t_gone`); after `t_gone`, burning and `combustion` are zero | never populate burning |
+| `test_a_fire_that_has_burned_its_fuel_stops_heating` flips green; its gate is removed | (the gate itself) |
+
+**V_floor is not circular** (DPH-S3). The contact temperature is fixed before the run at a 900 °C bound (the ember
+balance, §5.3) for the cap's 5,400 s. V_floor is the same `thermal_degrade` law applied to the closed-form profile's
+cell averages at each grid. For scale (derived), concrete passes 300 °C to 0.092 m under that bound. The control
+inherits concrete's cell-mean threshold consistently per grid; that is the §5.2 gap, not a looser gate.
+
+### 6.5 Runtime and tiers (EX-S11)
+
+Heat cost from PH's uncached measurements: the **default gate** runs to tick 6,000 at 0.2 and 0.1 m (positions,
+refusals, ignition, crack), 1,200 × 4.5 ms ≈ 5 s; **`slow`** runs to the cap, 10,800 × 4.5 ms ≈ 49 s; the
+**verification run** (0.05 m reference, band sweep) takes 10,800 × 38.3 ms ≈ 7 min per run, results committed.
+
+### 6.6 By the human
+
+The owner plays at 1× through flaming (about 8 minutes), then 10× (about 3 minutes): walking, visibility behind every
+wall, crack read as crack, glow as heat, burn-out as fuel running out, the dial. Verdict and latency go in the PR.
+
+## 7. Placement (AR-B1, O24's four layers; DC-N7)
+
+| What | Layer |
+|---|---|
+| Actor and pilots tables, body archetype type, motion, blocked predicate, walk grid, A\*, path walking, body heat (convection and radiation), the bed and laws 6a–6d, intents, the refusal-code enum, receipts, `Frame` | core (motion and navigation as two modules, AR-N3) |
+| File gates (archetypes, items, scene v1, `actions.yaml` v1), the SEM membrane and agent adapter (the `hold` conversion) | adapters |
+| The alley, `human`, `torch`, the bed's φ and σ, fuel calibrations | game (`content/`, rights reserved, step 8) |
+| Wire encoding, sessions, latest-wins slots, rate limits, `TimeAuthority`, the network lane | client protocol |
+| Godot | `client/` (`client_rendering.md` §7) |
+
+## 8. Bio-faithful note
+
+- **Perceivers read the simulation `Frame`,** never the wire. The fire is perceived through physical channels at the
+  perceiver: heat now (convection and radiation into a body, §2.1), light and sound in Phase 2. Never through the log
+  (BF-S1).
+- **One world-owned body model.** Regions in metres are what Phase 4's surface percepts reduce over (world_model §9).
+- **Divergences named:**
+  - the actor table as a direct view (ANALOG);
+  - receptors under two coarse cells (Known gap);
+  - `kindle` credit (OPEN, OD-A16/OD-C5);
+  - allocentric locomotion and position sensors in Maxim (OD-C11);
+  - no metabolism (a gap; Maxim's drives).
+- **The world's day** is realtime §2.2's `epoch_us` and `day_length_ticks`. An SCN entrains on Phase 2 light at the
+  perceiver, never on a time-of-day number or the client's sky.
+
+## 9. Open questions for the owner
+
+1. **Bodies receive the flame's radiation by a point-source model in Phase 1** (so D28's body feels the fire), while
+   walls don't until Phase 2? *Recommend yes;* it's cheap, metered, and it is what makes the body location-dependent.
+2. **The crate as 20 mm slats at φ = 0.25** (σ = 25 m²/m³, 32.4 kg)? *Recommend yes,* as the content value step 6
+   tests. A denser crate burns longer and a sparser one may not sustain (σ_min 4.2–7.0 m²/m³).
+3. **Protocol v0 freezes only the kinds a Phase 1 client sends;** `strike`, `douse` and `imagine` get wire messages
+   when a client caller exists? *Recommend yes.*
+
+## 10. What this does not settle
+
+- **Step 6's measurements:** constants, torch values, band widths, the three times, ember temperature.
+- **Phase 2:** flame radiation to surfaces, convection, zones, solid sub-cell recession, non-box fuel (CSG), ash.
+- **Phase 4/5:** receptors, damage and pain, metabolism, line of sight, `turn`, egocentric locomotion (OD-C11).
+- **The boundaries PR:** `cell_size_m` leaves the bridge's readings and metadata (BF-N4).
+
+## 11. Requirements by plan step
+
+| Requirement | Step |
+|---|---|
+| Amend realtime §7 to §3.3's table; architecture.md line 20 | 1 |
+| Scene v1 (+ `spawns`, bed fields), loader types for archetypes and items, the refusal-code enum | 3b |
+| `Simulation` with actor and pilots tables, body motion, walk grid, A\*, body heat (convection; radiation closed forms), `move`/`move_to`, vocabulary v1 with the interim `kindle` deposit, `actions.yaml` v1 and its migration, the `Frame` rule, the alley fixture and its B5 meters | 5 |
+| 6a–6d, the constants' provenance, the ledger lines, the skin deposit for `kindle`, the torch's band, the 0.05 m reference, V_floor, the red gate's flip | 6 |
+| §3.3's messages, `intent_result`, `observed_tick` stamping, the wire (`client_rendering.md` §4) | 7 |
+| The game package and `content/`, the exit script, the controls by deletion, the stage-2 refusal scripts, the playtest | 8 |
+| Save v0 with the actor and pilots tables and `body_key` | 9 |

@@ -4,9 +4,9 @@ It checks presence, not truth: each id and question must appear in docs/plans/fo
 still checks that the plan states each one correctly. Sources:
 
 - decision ids (``O12``, ``O11a``, ``OA3``) and Phase 3 ids (``OD-A17``) from the design documents and the roadmap,
-  and world-model decisions (``D26``) from ``world_model.md``;
+  world-model decisions (``D26``) from ``world_model.md``, and the tile's decisions (``T1``) from its two documents;
 - every open question: the numbered items of ``boundaries.md`` §12, ``world_model.md`` §12 and ``npcs_and_sem.md``
-  §12.1, and the bullets of the roadmap's "Open questions". The plan lists each source's questions under a heading
+  §12.1, ``tile_and_client.md`` §9, ``client_rendering.md`` §10, and the bullets of the roadmap's "Open questions". The plan lists each source's questions under a heading
   ``### Open: <source>``, numbered from 1, one item per question.
 
 Run: ``python scripts/check_plan.py`` (exit 1 on any finding).
@@ -27,10 +27,14 @@ ID_SOURCES = (
     "docs/design/npcs_and_sem.md",
     "docs/roadmap.md",
     "docs/design/world_model.md",
+    "docs/design/tile_and_client.md",
+    "docs/design/client_rendering.md",
 )
+TILE_DOCS = ("docs/design/tile_and_client.md", "docs/design/client_rendering.md")
 DECISION = re.compile(r"\b(O\d+[a-z]?|OA\d+)\b")
 PHASE3 = re.compile(r"\bOD-[A-Z]+\d+\b")
 WORLD_DECISION = re.compile(r"\bD\d+\b")
+TILE_DECISION = re.compile(r"\bT\d+\b")
 
 
 @dataclass(frozen=True)
@@ -47,6 +51,8 @@ QUESTIONS = (
     QuestionSource("docs/design/boundaries.md", "## 12. Open questions", True, "boundaries §12"),
     QuestionSource("docs/design/world_model.md", "## 12. Open questions", True, "world_model §12"),
     QuestionSource("docs/design/npcs_and_sem.md", "### 12.1", True, "npcs_and_sem §12.1"),
+    QuestionSource("docs/design/tile_and_client.md", "## 9. Open questions", True, "tile §9"),
+    QuestionSource("docs/design/client_rendering.md", "## 10. Open questions", True, "client §10"),
     QuestionSource("docs/roadmap.md", "## Open questions", False, "roadmap"),
 )
 
@@ -70,6 +76,7 @@ def count_items(body: str, numbered: bool) -> int:
 def missing_ids(plan: str, sources: dict[str, str]) -> list[str]:
     ids = {i for text in sources.values() for i in DECISION.findall(text) + PHASE3.findall(text)}
     ids |= set(WORLD_DECISION.findall(sources["docs/design/world_model.md"]))
+    ids |= {i for doc in TILE_DOCS for i in TILE_DECISION.findall(sources[doc])}
     return [f"{i} is in the sources but not in the plan" for i in sorted(ids) if not re.search(rf"\b{i}\b", plan)]
 
 

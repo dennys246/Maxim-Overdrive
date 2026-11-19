@@ -23,8 +23,10 @@ SOURCES = {
     "docs/design/world_model.md": "- **D20.** One truth.\n\n## 12. Open questions for the owner\n\n1. 0.1 m?\n",
     "docs/design/npcs_and_sem.md": "| O11a | floor |\n\n### 12.1 For the owner\n\n1. **Guests.**\n\n### 12.2 Div\n",
     "docs/roadmap.md": "| OD-A1 | decay |\n\n## Open questions\n\n- Turn length?\n- Copyright?\n",
+    "docs/design/tile_and_client.md": "| T1 | camera |\n\n## 9. Open questions for the owner\n\n1. Tick?\n\n## 10. Not\n",
+    "docs/design/client_rendering.md": "| T2 | moves |\n\n## 10. Open questions for the owner\n\n1. Renderer?\n",
 }
-PLAN = """O1, O11a, D20 and OD-A1.
+PLAN = """O1, O11a, D20, T1, T2 and OD-A1.
 
 ### Open: boundaries §12
 1. Name.
@@ -35,6 +37,12 @@ PLAN = """O1, O11a, D20 and OD-A1.
 
 ### Open: npcs_and_sem §12.1
 1. Guests.
+
+### Open: tile §9
+1. Tick.
+
+### Open: client §10
+1. Renderer.
 
 ### Open: roadmap
 1. Turn length.
@@ -60,7 +68,11 @@ def test_a_complete_plan_passes(repo: Path, capsys: pytest.CaptureFixture[str]) 
     [
         ("O1, ", "O1 is in the sources"),
         ("O11a, ", "O11a is in the sources"),
-        ("D20 and ", "D20 is in the sources"),
+        ("D20, ", "D20 is in the sources"),
+        ("T1, ", "T1 is in the sources"),
+        ("T2 and", "T2 is in the sources"),
+        ("### Open: tile §9\n1. Tick.\n", "tile §9 question 1"),
+        ("### Open: client §10\n1. Renderer.\n", "client §10 question 1"),
         (" and OD-A1", "OD-A1 is in the sources"),
         ("2. Two PRs.\n", "boundaries §12 question 2"),
         ("1. 0.1 m.\n", "world_model §12 question 1"),
