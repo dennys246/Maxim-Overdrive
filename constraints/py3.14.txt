@@ -1,0 +1,97 @@
+# Locked dependencies for Python 3.14 (owner decision O32). The gate and CI install with -c this file.
+# Regenerate: uv pip compile pyproject.toml --extra dev --extra maxim --python-version 3.14 --no-header -o constraints/py3.14.txt
+# The scheduled drift job (.github/workflows/drift.yml) runs the gate unpinned and shows what a regeneration would change.
+anyio==4.16.0
+    # via httpx
+ast-serialize==0.13.1
+    # via mypy
+certifi==2026.10.23
+    # via
+    #   httpcore
+    #   httpx
+chardet==7.7.0
+    # via diff-cover
+coverage==7.17.3
+    # via pytest-cov
+diff-cover==11.0.4
+    # via maxim-overdrive (pyproject.toml)
+filelock==3.32.7
+    # via pymaxim
+h11==0.16.0
+    # via httpcore
+httpcore==1.0.9
+    # via httpx
+httpx==0.28.1
+    # via pymaxim
+hypothesis==6.170.15
+    # via maxim-overdrive (pyproject.toml)
+idna==3.20
+    # via
+    #   anyio
+    #   httpx
+    #   pymaxim
+iniconfig==2.3.1
+    # via pytest
+jinja2==3.1.6
+    # via diff-cover
+json-repair==0.64.9
+    # via pymaxim
+librt==0.16.0
+    # via mypy
+markdown-it-py==4.3.0
+    # via rich
+markupsafe==3.0.4
+    # via jinja2
+mdurl==0.1.2
+    # via markdown-it-py
+mypy==2.4.1
+    # via maxim-overdrive (pyproject.toml)
+mypy-extensions==1.2.0
+    # via mypy
+numpy==2.5.5
+    # via
+    #   maxim-overdrive (pyproject.toml)
+    #   pymaxim
+    #   scipy
+packaging==26.3
+    # via pytest
+pathspec==1.1.1
+    # via mypy
+pluggy==1.7.0
+    # via
+    #   diff-cover
+    #   pytest
+    #   pytest-cov
+pygments==2.21.0
+    # via
+    #   diff-cover
+    #   pytest
+    #   rich
+pymaxim==1.3.3
+    # via maxim-overdrive (pyproject.toml)
+pytest==9.2.0
+    # via
+    #   maxim-overdrive (pyproject.toml)
+    #   pytest-cov
+pytest-cov==7.1.0
+    # via maxim-overdrive (pyproject.toml)
+pyyaml==6.0.3
+    # via
+    #   maxim-overdrive (pyproject.toml)
+    #   pymaxim
+rich==13.9.4
+    # via pymaxim
+ruff==0.17.5
+    # via maxim-overdrive (pyproject.toml)
+scipy==1.18.1
+    # via
+    #   maxim-overdrive (pyproject.toml)
+    #   pymaxim
+sortedcontainers==2.4.0
+    # via hypothesis
+types-pyyaml==6.0.12.20261113
+    # via maxim-overdrive (pyproject.toml)
+typing-extensions==4.16.0
+    # via
+    #   anyio
+    #   mypy
