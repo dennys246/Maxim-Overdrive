@@ -179,9 +179,11 @@ only review holds.
 - **Dependencies are locked** (owner, 2026-11-18, O32, O33): Python 3.12 or later; the gate and CI install from
   `constraints/py<version>.txt`, and the gate refuses an environment that differs from it. A scheduled job runs the
   gate unpinned, so upstream drift shows on a schedule instead of turning every branch red; its failure means
-  regenerate the lock or update the SEM mirror, never loosen a test. Replay goldens are recorded on the locked stack.
+  regenerate the lock or update the SEM mirror, never loosen a test. Only that job may skip the check. Both lockfiles
+  resolve one numerical stack, and replay goldens are recorded on it; a regeneration that splits them is a decision.
   Guard: `scripts/check_lock.py`, `tests/test_check_lock.py::test_every_ci_python_has_a_lockfile_and_ci_installs_from_it`,
-  `tests/test_check_lock.py::test_the_drift_job_runs_on_a_schedule_and_unpinned`
+  `tests/test_check_lock.py::test_the_drift_job_runs_on_a_schedule_and_unpinned`,
+  `tests/test_check_lock.py::test_only_the_scheduled_drift_job_may_skip`
 - **Data and assets.** Tunables live in `data/` YAML, not code, and every data file loads and validates in a test.
   Every non-code asset is listed with its source and licence before it is committed. Never commit the Steamworks SDK,
   licensed third-party assets or `.env` files. Guard: B8, B12

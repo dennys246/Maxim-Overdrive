@@ -17,6 +17,9 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         python-version: ["3.12", "3.14"]
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      issues: write
     env:
       MAXIM_OVERDRIVE_UNLOCKED: "1"  # scripts/check_lock.py: this job runs unpinned on purpose
     steps:
@@ -30,7 +33,16 @@ jobs:
         run: |
           python -m venv .venv
           .venv/bin/pip install --upgrade -e '.[dev,maxim]'
+      - name: What moved against the lock
+        run: .venv/bin/python scripts/check_lock.py --report
       - name: Gate
         env:
           BASE: origin/main
         run: scripts/prepush.sh
+      - name: Open an issue when the gate fails unpinned
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh issue create --title "Dependency drift: the gate fails unpinned (${{ matrix.os }}, Python ${{ matrix.python-version }})"
+          --body "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Regenerate the lock, or update the SEM mirror if pymaxim changed its types (O32); never loosen a test."

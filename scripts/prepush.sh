@@ -40,10 +40,11 @@ refuse_main_branch
 PY="${PYTHON:-.venv/bin/python}"
 command -v "$PY" >/dev/null 2>&1 || die "no Python at '$PY'; create .venv (CLAUDE.md, Commands) or set PYTHON"
 if ! "$PY" -c 'import maxim, ruff, mypy, diff_cover, pytest_cov' 2>/dev/null; then
+  PYV="$("$PY" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo '<major.minor>')"
   # An editable install points the venv at one checkout, so installing into a venv another worktree shares re-points
   # it for every session. Only a venv inside this worktree is this session's to install into.
   case "$(cd "$(dirname "$PY")" && pwd -P)" in
-    "$(pwd -P)"/*) die "'$PY' lacks the gate's tools; install with: $PY -m pip install -c constraints/py<major.minor>.txt -e '.[dev,maxim]'" ;;
+    "$(pwd -P)"/*) die "'$PY' lacks the gate's tools; install with: $PY -m pip install -c constraints/py$PYV.txt -e '.[dev,maxim]'" ;;
     *) die "'$PY' lacks the gate's tools, and it is shared with other worktrees: don't install into it; make this worktree its own venv (python3.12 -m venv .venv && .venv/bin/pip install -c constraints/py3.12.txt -e '.[dev,maxim]')" ;;
   esac
 fi
@@ -68,6 +69,7 @@ fi
 
 step "dependencies match the lockfile (O32)"
 "$PY" scripts/check_lock.py
+if [ "${MAXIM_OVERDRIVE_UNLOCKED:-}" = "1" ]; then SKIPPED="$SKIPPED (lock check skipped: the drift job)"; fi
 step "ruff lint"
 "$PY" -m ruff check src tests scripts
 step "ruff format"
