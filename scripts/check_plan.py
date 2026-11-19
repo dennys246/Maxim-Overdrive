@@ -5,9 +5,10 @@ still checks that the plan states each one correctly. Sources:
 
 - decision ids (``O12``, ``O11a``, ``OA3``) and Phase 3 ids (``OD-A17``) from the design documents and the roadmap,
   world-model decisions (``D26``) from ``world_model.md``, and the tile's decisions (``T1``) from its two documents;
-- every open question: the numbered items of ``boundaries.md`` §12, ``world_model.md`` §12 and ``npcs_and_sem.md``
-  §12.1, ``tile_and_client.md`` §9, ``client_rendering.md`` §10, and the bullets of the roadmap's "Open questions". The plan lists each source's questions under a heading
-  ``### Open: <source>``, numbered from 1, one item per question.
+- every open question: the numbered items of ``boundaries.md`` §12, ``world_model.md`` §12, ``npcs_and_sem.md``
+  §12.1, ``tile_and_client.md`` §9 and ``client_rendering.md`` §10, and the bullets of the roadmap's "Open
+  questions". The plan lists each source's questions under a heading ``### Open: <source>``, numbered from 1, one
+  item per question.
 
 Run: ``python scripts/check_plan.py`` (exit 1 on any finding).
 """

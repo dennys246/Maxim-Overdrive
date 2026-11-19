@@ -23,7 +23,7 @@ SOURCES = {
     "docs/design/world_model.md": "- **D20.** One truth.\n\n## 12. Open questions for the owner\n\n1. 0.1 m?\n",
     "docs/design/npcs_and_sem.md": "| O11a | floor |\n\n### 12.1 For the owner\n\n1. **Guests.**\n\n### 12.2 Div\n",
     "docs/roadmap.md": "| OD-A1 | decay |\n\n## Open questions\n\n- Turn length?\n- Copyright?\n",
-    "docs/design/tile_and_client.md": "| T1 | camera |\n\n## 9. Open questions for the owner\n\n1. Tick?\n\n## 10. Not\n",
+    "docs/design/tile_and_client.md": "| T1 | camera |\n\n## 9. Open questions\n\n1. Tick?\n\n## 10. Not\n",
     "docs/design/client_rendering.md": "| T2 | moves |\n\n## 10. Open questions for the owner\n\n1. Renderer?\n",
 }
 PLAN = """O1, O11a, D20, T1, T2 and OD-A1.
