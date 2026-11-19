@@ -113,3 +113,49 @@ which Overdrive's roadmap already tracked as OD-A1). Each was caught by a review
 correction note had been written (`docs/design/reviews/npcs_v3_1/determinism_bio.md` on `phase1/design-v2`).
 *Consequence:* every ask cites what Maxim's `origin/main` has on the topic, and a duplicate becomes a question to the
 existing plan (CLAUDE.md, "Search Maxim before proposing to it"; backlog B22).
+
+### 14. A staleness basis tied to frame ids goes stale every tick (2026-11-19)
+
+**In a stepped world every tick makes a new frame, so a thought marked stale "when the frame moved on" is always
+stale; staleness has to mean that something the agent didn't cause happened on a channel it tracks.** *Evidence:*
+the embeddable-agent draft v3 based staleness on the step sequence and frame id, with `fresh`, `stale` and
+`superseded` verdicts; Maxim's plan review found that this basis goes stale every step, and that "superseded" has no
+Maxim definition (`docs/design/reviews/agent_draft_v3/maxim_review.md`). Maxim's hybrid §A.1b.5 already had the fix:
+stale only when a non-self-caused event on a tracked right arrives after `basis_seq`, with the agent's own actions
+excluded by attribution (efference copy), since otherwise every in-flight answer is stale. *Consequence:* O38 adopts
+§A.1b.5 and routes staleness through Maxim's typed pre-emption handler (`npcs_and_sem.md` §6.6). For any game: key
+staleness to typed, attributed events, never to the clock or the frame counter.
+
+### 15. Read the partner's existing utilities before proposing a mechanism (2026-11-19)
+
+**Lesson 13 again, at a finer grain: the duplicates are now helpers and recent fixes, not whole plans.** *Evidence:*
+in one review Maxim pointed to three: `utils/seeding.py::make_agent_rng` already derived per-agent seeds with
+SHA-256, so our `stable_hash_64_signed` formula would have been a second derivation; the short-question shortcut we
+argued about had already been deleted for everyone (#1689, PR #1694; candidates A4, decided 2026-11-17); and `MaximHandle` already embeds an
+agent, so our entry point is a separate constructor beside it, and its `stop()` runs blocking consolidation, which a
+`save()` must not inherit. Our "machinery side" lean for OD-A20 was wrong for the same reason: SCN features already
+reach the model through `temporal_patterns` and `[TEMPORAL]`. *Consequence:* before a draft goes out, grep the
+partner's `origin/main` for each mechanism it names (seeding, the shortcut's symbols, the handle, every reader of a
+clock it classifies), and re-read the issue tracker for the past week (O40; the draft v4).
+
+### 16. A second write door needs its own reason (2026-11-19)
+
+**Each path by which state can change is a door to guard, test and keep in the parity digest, so one more door is
+a cost, not a free refinement.** *Evidence:* the draft v3's port had `apply` (memory writes) beside `settle`
+(credit), both host-called; Maxim's candidate A6 already applies proposed writes at settle under B2's digest, and its
+review asked for a front-gate reason for the second door or a merge. We had none. *Consequence:* O39 merges `apply`
+into `settle`, so `AgentPort` is three calls and the write gate has one place (`npcs_and_sem.md` §6.6). In a game
+engine the same rule keeps one intent door into the world.
+
+### 17. A partner's "no" on a determinism leak becomes a red gate, not a workaround (2026-11-19)
+
+**When the partner declines a fix the game needs, record the divergence with numbers and a strict red gate, so the
+evidence builds until it can be argued again.** *Evidence:* Maxim's owner kept NAc's anchor similarity on the host
+calendar (OD-A20, 2026-11-19). A receipt settled after its trace expires is credited by `0.3 × similarity ×
+activation`; a crossed midnight moves the similarity by about 0.017, and a 12 h pause inside the 300 s window drops it
+from about 1 to about 0.70, so replay and learning follow the host's clock. Because credit is normalised, the
+calendar only moves how a receipt is shared between live-trace and anchor-only nodes, a narrower crack than first
+written. *Consequence:* a known divergence (`npcs_and_sem.md` §12.2) and a red gate on a shared receipt across
+midnight (`checklists.md`); no faked time in the worker, which CLAUDE.md's push-back rule forbids. Two first designs
+of that gate could not fail (an hour shift moves both timestamps; a lone node takes the full share): a red gate
+against a partner's system needs the same can-it-fail proof as any other test.
