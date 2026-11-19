@@ -62,16 +62,15 @@ fuel-mass law, the same apart from detail at each rendering tier.
 
 **Deferred to Phase 2 (D26, D29):** zones and vents, combustion per zone, pyrolysis, phase change, CSG, the lab. Save with agents: Phase 4 (roadmap). The clinic: §5.
 
-## 3. Maxim, as of `origin/main` 6fee7377
+## 3. Maxim (`origin/main` 6fee7377)
 
 **Done there:** the candidates doc (`docs/plans/overdrive_refactor_candidates.md`, #1688); #1684 (OD-I1), #1685
 (OD-I3, absorbing OD-A13), #1686 (OD-I4); OD-I5 a private advisory; #1687 closed (the latch refuses off POSIX, so
-real NPCs are macOS and Linux only); #1396 (routers ask before a download; O18 must guard a silent cloud fallback and
-a blocking prompt). OD-I2 stays a nit.
+real NPCs are macOS and Linux only); #1396 (O18 must guard a silent cloud fallback and a blocking prompt). OD-I2
+stays a nit.
 
-**We owe:** `erratum_1.md`, our reply to Maxim's answer to `correction_1.md`: it splits the planted-render test,
-brings evidence to Maxim's #1361 question on anchor similarity (OD-A20), argues τ_elig against #1361 Q1 (OD-A21),
-discloses OD-I5's exposure, and answers the front gate (why the 1.1.4 seam can't serve Overdrive). OD-A19 is withdrawn.
+**Exchanged:** `erratum_1.md` sent 2026-11-18 (OD-A20, OD-A21; OD-A19 withdrawn). Maxim's answer
+(`response_4.md`): 1.4.0 planned March–May 2027; the world-seam front gate accepted. Next: O35's draft.
 
 **Phase 3 ids, by where Maxim put them** (detail: `docs/plans/reviews/maxim_side.md` §1):
 - Tier A: OD-A1 (#1361), OD-A20, OD-A21 (#1361 questions), OD-A2, OD-A3, OD-A4, OD-A8 (A3); OD-A5 (split with #1361); OD-A7 (A2, #1305); OD-A12 (A1,
@@ -136,6 +135,9 @@ discloses OD-I5's exposure, and answers the front gate (why the 1.1.4 seam can't
 | O28 | Co-op in Phase 5 or later; no more co-op rounds |
 | O29 | A minimal tier-A subset, a 1.4.0 date range, a second candidates round |
 | O30 | §12.1's rest answered; sandbox and slow tail deferred by name |
+| O35 | Refresh the agent draft; send it to Maxim now |
+| O36 | Maxim's review reopens the agent half |
+| O37 | Bridge prototype NPC after the tile |
 | OA1 | A thought's kind from the agent's policy, a closed vocabulary; a logged host table sets cost |
 | OA2 | Dilation shown on a three-handed clock |
 | OA3 | No conversational repertoire of our own; proposed to Maxim as OD-H5 |
