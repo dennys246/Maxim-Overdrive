@@ -137,3 +137,8 @@ def test_the_drift_job_runs_on_a_schedule_and_unpinned() -> None:
     assert drift[True]["schedule"]  # PyYAML reads the bare key `on` as True
     install = next(s["run"] for s in drift["jobs"]["drift"]["steps"] if s.get("name") == "Install, unpinned")
     assert "-c " not in install
+
+
+def test_installed_names_lists_this_environment() -> None:
+    names = {check.normalise(n) for n in check.installed_names()}
+    assert {"pyyaml", "numpy", "pytest"} <= names
