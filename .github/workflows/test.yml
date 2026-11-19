@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ["3.10", "3.14"]
+        python-version: ["3.12", "3.14"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +23,7 @@ jobs:
       - name: Install
         run: |
           python -m venv .venv
-          .venv/bin/pip install -e '.[dev,maxim]'
+          .venv/bin/pip install -c constraints/py${{ matrix.python-version }}.txt -e '.[dev,maxim]'
       - name: Gate
         env:
           BASE: origin/main

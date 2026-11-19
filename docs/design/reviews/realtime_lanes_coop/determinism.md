@@ -2,7 +2,7 @@
 
 Reader brief: `docs/code_review.md`, the **Determinism and replay** row. Reviewed: `docs/design/realtime_lanes_coop.md`
 against CLAUDE.md ("Game engineering"), `tests/test_determinism.py`, `docs/standards_backlog.md` (B2, B14),
-`src/maxim_overdrive/world/{world,heat}.py`, and pymaxim's source at `/Users/dennyschaedig/Scripts/Maxim/src/maxim`.
+`src/maxim_overdrive/world/{world,heat}.py`, and pymaxim's source at the Maxim repo's `src/maxim`.
 
 Counts: **2 BLOCKER, 7 SHOULD-FIX, 3 NIT.**
 

@@ -107,17 +107,19 @@ The precedents that fit best:
 
 ## 6. What changes now
 
-These belong in protocol v0, intent log v0 and save v0 (`realtime_lanes_coop.md` §7, roadmap Phase 1), and are
-proposed as findings for the next delta round of that design rather than edited into it here.
+These belong in protocol v0, intent log v0 and save v0 (`boundaries.md` §6.3 for the log header,
+`tile_and_client.md` §3.3 for the client messages, roadmap Phase 1), and are proposed for their design review rather
+than edited into them here.
 
-1. **Specs are content-addressed, by content alone.** A `SpecId` is a hash of the canonical encoding of the
-   object's content: every key the spec reader accepts except `name`, which is today `primitives` alone (sorted
-   keys, fixed number format, no `hash()`). Each primitive's own optional `name` is left out too, so two identical
-   objects whose parts are named differently share an id. A key added later, such as a description, joins the
-   accepted set and the hashed content together, as one list. This depends on item 3: the accepted set is the
-   reader's closed key set. The same object made twice has the same id, which is what lets a re-upload
-   be spotted by hash (section 4). `place` stores the spec in a spec store keyed by id, and the region keeps a
-   reference to its id. Today `imagination.spec.place` keeps only a name and a mask and drops the spec.
+1. **Specs are content-addressed, by content alone.** A `SpecId` is a SHA-256 of the object's content under the log
+   header's one canonicalizer (`boundaries.md` §6.3: sorted keys, fixed number format, no `hash()`). The content is
+   every key the spec reader accepts except `name`, today `primitives` alone, with each primitive's own optional
+   `name` left out too, so two identical objects whose parts are named differently share an id. A key added later,
+   such as a description, joins the accepted set and the hashed content together, as one list; this depends on
+   item 3, since the accepted set is the reader's closed key set. The same object made twice has the same id, which
+   is what lets a re-upload be spotted by hash (section 4). `place` stores the spec in a spec store keyed by id, and
+   the region keeps a reference to its id. Today `imagination.spec.place` keeps only a name and a mask and drops the
+   spec.
 2. **Provenance and licence are a separate record per placement, not part of the id.**
    - Provenance: origin (`authored`, `imagined`, later `licensed`), creator actor, tick, and parent spec ids (the
      derivation chain). Two people who make the same object get one `SpecId` and two provenance records. Within
@@ -128,8 +130,8 @@ proposed as findings for the next delta round of that design rather than edited 
    The fix is on `phase1/act-validation` (the owner's choice, 2026-11-17): closed key sets at every level through
    `checks.known_keys`, with `imagination.spec.SPEC_KEYS` as the accepted set this item names.
 4. **Region identity crosses the wire.** The `welcome` region list carries each region's spec id. The intent log
-   header hashes the *initial* spec store, as the v0 header design (`realtime_lanes_coop.md` §7) hashes the scene,
-   rig, material table, world config and roster. Specs imagined mid-session arrive later as logged thought
+   header digests the *initial* spec store, as it digests the scene, the material files, the action limits and the
+   imagination budgets (`boundaries.md` §6.3). Specs imagined mid-session arrive later as logged thought
    results, so their content is in the records, not the header.
 5. **Material ids are not a creator namespace.** `data/materials/core.yaml` ids are permanent `uint8` values (at most
    255). Third-party materials, if they come, get string ids mapped to per-world compact indices at load, recorded

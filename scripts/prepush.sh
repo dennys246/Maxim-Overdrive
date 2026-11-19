@@ -15,10 +15,39 @@ step() { printf '\n== %s\n' "$*"; }
 
 # -- preconditions, all checked before a minute of tests ------------------------------------------------------------
 
+# Other agents may be working in this repository right now (CLAUDE.md, "Assume other agents are working"). Work happens
+# on a branch in its own worktree under .worktrees/; the main checkout and main itself are the owner's. GitHub Actions
+# runs in a fresh clone where no other session exists, so it is exempt, and the PASS line says the check was skipped.
+SKIPPED=""
+refuse_main_branch() {
+  if [ "${GITHUB_ACTIONS:-}" = "true" ]; then
+    SKIPPED=" (isolation check skipped: GitHub Actions)"
+    return 0
+  fi
+  local branch git_dir common_dir
+  branch="$(git symbolic-ref -q --short HEAD || true)"
+  case "$branch" in
+    main | master) die "HEAD is on $branch; work on a phaseN/<step> branch in its own worktree (git worktree add .worktrees/<name> -b phaseN/<step>)" ;;
+  esac
+  git_dir="$(cd "$(git rev-parse --git-dir)" && pwd -P)"
+  common_dir="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)"
+  if [ "$git_dir" = "$common_dir" ]; then
+    die "this is the main checkout, which is the owner's; run the gate from your worktree under .worktrees/"
+  fi
+}
+refuse_main_branch
+
 PY="${PYTHON:-.venv/bin/python}"
 command -v "$PY" >/dev/null 2>&1 || die "no Python at '$PY'; create .venv (CLAUDE.md, Commands) or set PYTHON"
-"$PY" -c 'import maxim, ruff, mypy, diff_cover, pytest_cov, markdown_it, tomli' 2>/dev/null \
-  || die "'$PY' lacks the gate's tools; install with: $PY -m pip install -e '.[dev,maxim]'"
+if ! "$PY" -c 'import maxim, ruff, mypy, diff_cover, pytest_cov, markdown_it' 2>/dev/null; then
+  PYV="$("$PY" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo '<major.minor>')"
+  # An editable install points the venv at one checkout, so installing into a venv another worktree shares re-points
+  # it for every session. Only a venv inside this worktree is this session's to install into.
+  case "$(cd "$(dirname "$PY")" && pwd -P)" in
+    "$(pwd -P)"/*) die "'$PY' lacks the gate's tools; install with: $PY -m pip install -c constraints/py$PYV.txt -e '.[dev,maxim]'" ;;
+    *) die "'$PY' lacks the gate's tools, and it is shared with other worktrees: don't install into it; make this worktree its own venv (python3.12 -m venv .venv && .venv/bin/pip install -c constraints/py3.12.txt -e '.[dev,maxim]')" ;;
+  esac
+fi
 
 if [ -z "${BASE:-}" ]; then
   if git rev-parse --verify -q main >/dev/null; then BASE=main; else BASE=origin/main; fi
@@ -38,13 +67,16 @@ fi
 
 # -- the gate -------------------------------------------------------------------------------------------------------
 
+step "dependencies match the lockfile (O32)"
+"$PY" scripts/check_lock.py
+if [ "${MAXIM_OVERDRIVE_UNLOCKED:-}" = "1" ]; then SKIPPED="$SKIPPED (lock check skipped: the drift job)"; fi
 step "ruff lint"
 "$PY" -m ruff check src tests scripts
 step "ruff format"
 "$PY" -m ruff format --check src tests scripts
 step "mypy (strict on src and scripts; test bodies checked)"
 "$PY" -m mypy
-step "standards lint (TEMPORARY markers, pragmas, guard citations, coverage ratchet against $BASE)"
+step "standards lint (TEMPORARY markers, pragmas, guard citations, size limits, coverage and size ratchets against $BASE)"
 "$PY" scripts/lint_standards.py --base "$BASE"
 
 step "tests, every tier, with branch coverage (floor in pyproject.toml)"
@@ -64,5 +96,5 @@ fi
 if [ -n "$DIRTY" ]; then
   printf '\nprepush: PASS on a dirty tree (HEAD %s plus uncommitted changes); this does not clear a hand-off\n' "$HEAD_SHA"
 else
-  printf '\nprepush: PASS %s\n' "$HEAD_SHA"
+  printf '\nprepush: PASS %s%s\n' "$HEAD_SHA" "$SKIPPED"
 fi
