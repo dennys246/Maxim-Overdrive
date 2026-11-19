@@ -27,17 +27,17 @@ serious depends on it.
 ## Commands
 
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -e '.[dev,maxim]'   # Python >= 3.10; the gate needs both extras
+python3.12 -m venv .venv && .venv/bin/pip install -c constraints/py3.12.txt -e '.[dev,maxim]'  # 3.12 or 3.14; both extras
 .venv/bin/pytest                            # laptop + rig profiles, a few seconds; run the module you touched first
 MAXIM_OVERDRIVE_ALL_TIERS=1 .venv/bin/pytest  # adds the 0.05 m max profile (about a minute)
 scripts/prepush.sh                          # the full gate: lint, types, standards, every tier, coverage, diff coverage
 ```
 
 `[maxim]` is optional for running the server, but the gate needs it: mypy checks the SEM bridge against Maxim's own
-classes, and `tests/test_sem_compat.py` compares the mirror with whichever pymaxim is installed. A pymaxim release
-that changes those classes turns the gate red with no local change; that is the drift check working, so update the
-mirror rather than pinning it away. In a worktree without its own `.venv`, run `PYTHON=<venv>/bin/python
-scripts/prepush.sh`.
+classes, and `tests/test_sem_compat.py` compares the mirror with whichever pymaxim is installed. The gate runs on the
+locked pymaxim; the weekly drift job (`.github/workflows/drift.yml`) runs it against the newest release, and when a
+release changes those classes that job turns red: update the mirror then, never pin the release away (O32). In a
+worktree without its own `.venv`, run `PYTHON=<venv>/bin/python scripts/prepush.sh`.
 
 Godot 4.7.2 is installed at `/Applications/Godot.app` (binary: `Contents/MacOS/Godot`).
 
@@ -48,7 +48,7 @@ Godot 4.7.2 is installed at `/Applications/Godot.app` (binary: `Contents/MacOS/G
   `world.py` (turn loop, heat sources, `snapshot`)
 - `src/maxim_overdrive/sem_env/bridge.py`: environment regions as Maxim SEM Entities
 - `src/maxim_overdrive/imagination/spec.py`: imagined objects as validated specs that become cells
-- `scripts/`: `prepush.sh` (the gate) and `lint_standards.py`
+- `scripts/`: `prepush.sh` (the gate), `lint_standards.py` and `check_lock.py`; `constraints/`: the lockfiles
 - `docs/code_review.md`: the pre-push review charter. `docs/standards_backlog.md`: rules waiting for a check
 - `docs/maxim_upstream/`: drafts that belong in the Maxim repo (the Exp 64 pre-registration)
 - `docs/lessons_maxim_in_games.md`: what building this game teaches about applying Maxim to games, kept current
@@ -176,6 +176,12 @@ only review holds.
   shown by colour alone (cracks also change shape and shading, glow also changes brightness). Guard: B6, B7
 - **Exit tests are automated where they can be:** a scripted scenario plus golden screenshots per profile, then a
   human playtest. Guard: B7
+- **Dependencies are locked** (owner, 2026-11-18, O32, O33): Python 3.12 or later; the gate and CI install from
+  `constraints/py<version>.txt`, and the gate refuses an environment that differs from it. A scheduled job runs the
+  gate unpinned, so upstream drift shows on a schedule instead of turning every branch red; its failure means
+  regenerate the lock or update the SEM mirror, never loosen a test. Replay goldens are recorded on the locked stack.
+  Guard: `scripts/check_lock.py`, `tests/test_check_lock.py::test_every_ci_python_has_a_lockfile_and_ci_installs_from_it`,
+  `tests/test_check_lock.py::test_the_drift_job_runs_on_a_schedule_and_unpinned`
 - **Data and assets.** Tunables live in `data/` YAML, not code, and every data file loads and validates in a test.
   Every non-code asset is listed with its source and licence before it is committed. Never commit the Steamworks SDK,
   licensed third-party assets or `.env` files. Guard: B8, B12

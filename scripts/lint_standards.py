@@ -25,10 +25,9 @@ import ast
 import re
 import subprocess
 import sys
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-
-import tomli  # the stdlib's tomllib, from PyPI on every version: one code path, including Python 3.10
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -125,7 +124,7 @@ class SizeLimits:
 
 
 def size_limits(pyproject: str) -> tuple[SizeLimits | None, list[str]]:
-    table = tomli.loads(pyproject).get("tool", {}).get("maxim_overdrive", {}).get("size_limits")
+    table = tomllib.loads(pyproject).get("tool", {}).get("maxim_overdrive", {}).get("size_limits")
     names = ("function_lines", "module_lines", "public_methods")
     if not isinstance(table, dict) or set(table) != set(names):
         return None, [f"pyproject.toml: [tool.maxim_overdrive.size_limits] must set exactly {', '.join(names)}"]
@@ -318,7 +317,7 @@ def check_guards(claude_md: str, backlog: str, root: Path) -> tuple[list[str], i
 
 
 def fail_under(pyproject: str) -> float | None:
-    value = tomli.loads(pyproject).get("tool", {}).get("coverage", {}).get("report", {}).get("fail_under")
+    value = tomllib.loads(pyproject).get("tool", {}).get("coverage", {}).get("report", {}).get("fail_under")
     return None if value is None else float(value)
 
 

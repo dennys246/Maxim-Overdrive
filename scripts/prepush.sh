@@ -43,8 +43,8 @@ if ! "$PY" -c 'import maxim, ruff, mypy, diff_cover, pytest_cov' 2>/dev/null; th
   # An editable install points the venv at one checkout, so installing into a venv another worktree shares re-points
   # it for every session. Only a venv inside this worktree is this session's to install into.
   case "$(cd "$(dirname "$PY")" && pwd -P)" in
-    "$(pwd -P)"/*) die "'$PY' lacks the gate's tools; install with: $PY -m pip install -e '.[dev,maxim]'" ;;
-    *) die "'$PY' lacks the gate's tools, and it is shared with other worktrees: don't install into it; make this worktree its own venv (python3 -m venv .venv && .venv/bin/pip install -e '.[dev,maxim]')" ;;
+    "$(pwd -P)"/*) die "'$PY' lacks the gate's tools; install with: $PY -m pip install -c constraints/py<major.minor>.txt -e '.[dev,maxim]'" ;;
+    *) die "'$PY' lacks the gate's tools, and it is shared with other worktrees: don't install into it; make this worktree its own venv (python3.12 -m venv .venv && .venv/bin/pip install -c constraints/py3.12.txt -e '.[dev,maxim]')" ;;
   esac
 fi
 
@@ -66,6 +66,8 @@ fi
 
 # -- the gate -------------------------------------------------------------------------------------------------------
 
+step "dependencies match the lockfile (O32)"
+"$PY" scripts/check_lock.py
 step "ruff lint"
 "$PY" -m ruff check src tests scripts
 step "ruff format"
