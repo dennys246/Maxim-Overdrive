@@ -227,4 +227,5 @@ unknown continuation version loads it as a logged `thought_failed(reloaded)`, no
 **Reopening the frozen agent half (S-S2).** Edits are errata only until one of these fires:
 - Maxim's stepped-`think` API lands (cand. B1);
 - the LLM spike measures latency;
-- Maxim answers a second candidates round (the first, #1688, is answered by errata).
+- Maxim answers a second candidates round (the first, #1688, is answered by errata);
+- Maxim's review of `embeddable_agent_DRAFT.md` (O36).

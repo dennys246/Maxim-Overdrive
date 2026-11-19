@@ -36,7 +36,8 @@ this part says so; it never quietly extends one (Arch S7).
 - **Maxim has no inner tool loop** (verified). A tool call is an intent the host validates; its result comes back as
   the next tick's follow-up. So `AgentPort` is `step`, a resumable `think`, `apply` and `settle`, all called by the host; the
   host service protocol, `request_thought` and the cancellable-backend gateway are deleted (§6).
-- **One thought can still be up to 3 model calls by default** (PFC deliberation), so speech before deliberation can take up to
+- **One thought can still be up to 3 model calls by default with a percept source, 2 without** (PFC deliberation,
+  `agent_loop.py:3089-3093`; erratum 2026-11-19), so speech before deliberation can take up to
   3·L, and budgets are counted per triggering input across follow-up chains (§4.2, §4.5, §4.7).
 - **Floor-holding has three steps** (O11a): filler, account, yield (§4.4, §5.1).
 - **Each real agent runs in its own worker process,** which is the trust boundary (O13, §6.3); guest sessions with
@@ -331,7 +332,7 @@ roster), not through the SCN work (BF2-7, X-9).
 - **Never the World's generator,** so a noisy sense never changes a fire's outcome.
 - **Keyed by stable identity, not by order (DR-S4, Wire S3):**
   - `SeedSequence(root, spawn_key=(NS_AGENT, npc_key, stream_key))`, never `spawn()`, which numbers children by
-    spawn order;
+    spawn order; unless Maxim's cand. A2 derivation is adopted on OD-A7's two conditions (erratum 2026-11-19);
   - `npc_key` is the persisted NPC identity from the roster (stable across saves and roster edits), not the actor
     allocator's integer;
   - `stream_key` from a registry of fixed integers in `data/` (or the first 8 bytes of SHA-256 of the name), never
@@ -861,8 +862,9 @@ section pins them. Where it and an earlier section differ, this section wins, an
   reach cognition (TB3-S5). A chunk the guest-text gate refuses mid-stream ends the reply as
   `truncated(prefix, reason=validation)` (Arch N6).
 - **The planted-render guard plants in the machinery clock** (an instant with unusual seconds, TZ pinned, checked in
-  raw, clock, date and duration forms), and adds an **offset-and-scale test**: two runs whose machinery clocks differ
-  by an offset and a scale, with identical perceived-time bins, must render byte-identical prompts. That catches a
+  raw, clock, date and duration forms), and adds an **offset test end to end, offset and scale only at render level on a frozen store**
+  (erratum 2026-11-19: a scaled machinery clock legitimately changes decay end to end): runs whose machinery clocks
+  differ, with identical perceived-time bins, must render byte-identical prompts. That catches a
   rendered duration (`f"{now - t:.0f}s ago"`) and a rendered order, which a sentinel instant can't (BF3-7).
 - **Floor-holding events are host records:** `floor_event(npc, filler | account | yield, tick, cause = modelled |
   lateness)`. A run with any lateness-caused event is tier 3 for reruns; tier-1 replay reads the records (DET-S1).
@@ -874,7 +876,8 @@ section pins them. Where it and an earlier section differ, this section wins, an
   from the perceived-time port, and only for the **modelled** part of a gap; lateness-caused extension is never
   written into another NPC's memory (DET-S6, BF3-4). Fatigue load counts modelled phase durations, never real or late
   time (DET-S7).
-- **One derivation for agent randomness (Exec S3, DET-N4).** §3.4's `SeedSequence` tree is the only derivation: the
+- **One derivation for agent randomness (Exec S3, DET-N4).** §3.4's `SeedSequence` tree is the only derivation (or
+  Maxim's cand. A2 on OD-A7's conditions; erratum 2026-11-19): the
   host derives one 64-bit integer per `(npc_key, stream_key)` and hands it to Maxim, which seeds a `random.Random` per
   stream (Maxim's choice; it needs no Philox). `npc_key` is the persisted NPC key, never Maxim's ordinal agent id. Each
   stream's state is saved pickle-free in the agent home. The `stable_hash_64(seed, agent, stream)` named in v3 doesn't
@@ -889,7 +892,7 @@ section pins them. Where it and an earlier section differ, this section wins, an
   reflection on the settle path (`tool_pain_bridge.py:806`, its error swallowed) and `FearAgent(fear_llm)` (`_analyze_with_llm`,
   `fear_agent.py:317`) call a model outside `think`. **The worker holds no model backend at all,** so each such call fails closed, and a test asserts the
   refusal; each becomes a request through the cut, or is off on the embedded path. OD-A17 names them.
-- **Cognition tools inside `think` would be an inner tool loop** (Maxim's C10 question; Arch S3). Until Maxim decides
+- **Cognition tools inside `think` would be an inner tool loop** (Maxim's cand. C1 question; Arch S3; erratum 2026-11-19: was "C10"). Until Maxim decides
   it by experiment, cognition tools go through follow-ups like world tools. If adopted, each resolution is a counted
   cycle with a modelled cost.
 
