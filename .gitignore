@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.pytest_cache/
+.env
+.env.*
+# Steamworks SDK: its license forbids redistribution. Fetch it in the build step.
+steamworks_sdk*/
+sdk/steamworks/
+# Licensed third-party assets live outside this repo.
+assets/licensed/
+.coverage
+htmlcov/
+coverage.xml
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.worktrees/

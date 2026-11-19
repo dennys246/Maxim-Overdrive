@@ -1,0 +1,4 @@
+name: rig
+cell_size_m: 0.1
+min_substeps_per_turn: 16
+full_res_radius_m: 16.0

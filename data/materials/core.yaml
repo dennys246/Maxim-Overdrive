@@ -1,0 +1,61 @@
+# Material table. Thermal properties are textbook room-temperature values (order of magnitude is what matters
+# here). fracture_energy_j_m3 and degrade_* are GAMEPLAY CALIBRATION, not measured physics: they set how much
+# energy destroys a unit volume and how fast heat weakens a material. Tune them; keep them per unit volume so they
+# stay resolution-independent.
+#
+# id 0 is reserved for air (empty space). Ids must stay stable: saves store them.
+materials:
+  air:
+    id: 0
+    density_kg_m3: 1.2
+    specific_heat_j_kgk: 1005
+    conductivity_w_mk: 0.026
+    fracture_energy_j_m3: 0.0      # nothing to break
+    degrade_above_c: null
+    degrade_rate_per_s_per_100c: 0.0
+    color_rgb: [0, 0, 0]
+  concrete:
+    id: 1
+    density_kg_m3: 2400
+    specific_heat_j_kgk: 880
+    conductivity_w_mk: 1.7
+    fracture_energy_j_m3: 2.0e7
+    degrade_above_c: 300
+    degrade_rate_per_s_per_100c: 0.0005
+    color_rgb: [150, 150, 145]
+  steel:
+    id: 2
+    density_kg_m3: 7850
+    specific_heat_j_kgk: 490
+    conductivity_w_mk: 50
+    fracture_energy_j_m3: 2.0e8
+    degrade_above_c: 550
+    degrade_rate_per_s_per_100c: 0.001
+    color_rgb: [120, 125, 135]
+  glass:
+    id: 3
+    density_kg_m3: 2500
+    specific_heat_j_kgk: 840
+    conductivity_w_mk: 1.0
+    fracture_energy_j_m3: 1.0e6
+    degrade_above_c: 500
+    degrade_rate_per_s_per_100c: 0.002
+    color_rgb: [180, 220, 230]
+  wood:
+    id: 4
+    density_kg_m3: 600
+    specific_heat_j_kgk: 1700
+    conductivity_w_mk: 0.15
+    fracture_energy_j_m3: 4.0e6
+    degrade_above_c: 250
+    degrade_rate_per_s_per_100c: 0.01
+    color_rgb: [140, 95, 55]
+  drywall:
+    id: 5
+    density_kg_m3: 800
+    specific_heat_j_kgk: 1090
+    conductivity_w_mk: 0.17
+    fracture_energy_j_m3: 1.5e6
+    degrade_above_c: 150
+    degrade_rate_per_s_per_100c: 0.005
+    color_rgb: [225, 222, 215]

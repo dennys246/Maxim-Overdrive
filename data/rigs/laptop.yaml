@@ -1,0 +1,6 @@
+# Rig profile: what resolution this machine can afford. Profiles change precision, never the outcome class
+# (docs/architecture.md, "The resolution rule").
+name: laptop
+cell_size_m: 0.2          # edge of one material cell
+min_substeps_per_turn: 4  # the heat solver takes more if stability needs it
+full_res_radius_m: 8.0    # reserved: cells beyond this from any agent may run coarser (not used in v0)
