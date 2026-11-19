@@ -66,7 +66,7 @@ all read against Maxim `origin/main` `7084f561` (2026-11-16).
   frame. It returns intents, memory writes and thought requests as values, never calls a model itself (it returns
   requests, which the host's thinking lane runs; O6a), uses only declared tools, and keeps state only in a home the host names.
   - Overdrive builds no interim mode in which Maxim's agent runs its own loop beside the world.
-  - **Phase 4's NPCs wait for tier A.**
+  - **Phase 4's NPCs wait for tier A's named subset (O29),** plus OD-B1 to OD-B7 for Exp 64a.
 - **After Maxim's answers (2026-11-17, `docs/design/reviews/maxim_response_1/`):** Maxim has no inner tool loop, so
   `think` is host-called and resumable and the gateway is the host's (O6a). The engineering seams are accepted on
   engineering grounds behind parity guards, and the stepped `think` lands **after Maxim's 1.4.0 cut** with the
@@ -90,7 +90,21 @@ Both decisions are recorded in Overdrive. The Maxim-side record is proposed in
 | OD-I4 | `ARCHITECTURE.md:182` is stale: the DM runtime doesn't build NPCs through `AgentFactory` (`create_npc_agent` has no caller) | new (Maxim's answer) |
 | OD-I5 | A security issue in cloud redaction, held by Maxim as a private advisory; details in private notes, not here | new (TBR-11) |
 
-### Tier A: an agent a host drives (Phase 4 waits on all of it)
+### Tier A: an agent a host drives (Phase 4 waits on a named subset)
+
+**The subset Phase 4's first NPC needs (O29):** OD-A1 (only #1361 S3a, S3b and S4), OD-A2 to OD-A11, OD-A12's
+host-driven ConceptExtractor thread, OD-A14 to OD-A18 and OD-A20, with the issues OD-I1 and OD-I3. Each is needed for
+host stepping, world time only, bit-identical replay, one intent door or the single-player worker boundary, through
+OD-WC1, OD-EA4, OD-EA5, OD-EA10 to OD-EA12 and the draft's thread-count test, or by O30 (OD-A16). Exp 64a also
+needs OD-B1 to OD-B7. Not blocking: #1361 S5 and S6, and OD-A21. OD-A12's store routing waits for two agents in one
+process. So the subset is most of tier A, and its long pole, OD-A15, stays.
+
+**Timing, from Maxim (2026-11-19, `reviews/maxim_response_1/response_4.md`; a planning range, not a commitment):**
+1.4.0 earliest February 2027, planned March to May 2027, after 1.3.4 to 1.3.6 and 1.4.0's release gates (#1305's
+owned RNG, where cand. A2 lives). The stepped `think` (cand. B1) comes after 1.4.0, in the 1.5 hybrid line's `src`
+phase, with no range yet, so Phase 4's first real NPC is after mid-2027 at the earliest. Maxim accepted the world-seam
+front gate (the case for a host-driven runtime mode); `embeddable_agent_DRAFT.md` gets Maxim's review round before
+any Maxim `src/` lands for it.
 
 Drafts:
 - `world_clock_release_DRAFT.md`: two plans. **A-pre** goes on its own clock, touching no fenced file. **A-post**
@@ -180,7 +194,7 @@ Drafts: `sem_breaking_change_plan_DRAFT.md` (now an additive refinement plan; th
 and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
 
 - **Exit:**
-  - Tier A has shipped, and Overdrive's agent port drives a real Maxim agent bit-identically under the world clock
+  - Tier A's subset (O29) has shipped, and Overdrive's agent port drives a real Maxim agent bit-identically under the world clock
     (exit tests OD-WC1, OD-EA5, OD-EA10, OD-EA11 and OD-EA12).
   - OD-A16 has closed the stale-refusal divergence before Phase 4.
   - Exp 64a's prerequisites (OD-B1 to OD-B7) are met, and its pre-registration is frozen.
@@ -188,9 +202,10 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
 
 ## Phase 4: Cradles and the first NPCs (later)
 
-- **Starts on tier A** (owner decisions O6 and O15a): no real Maxim NPC runs before the embeddable agent plan and its
-  dependencies ship (Phase 3, OD-A1 to OD-A21, without the withdrawn OD-A19), and before Maxim's 1.4.0 cut with the agent-loop decomposition slice
-  that carries the stepped `think` (OD-A15).
+- **Starts on tier A's subset** (owner decisions O6, O15a and O29): no real Maxim NPC runs before the subset under
+  Phase 3's tier A heading ships (OD-A1's #1361 S3a, S3b and S4; OD-A2 to OD-A11; OD-A12's thread; OD-A14 to OD-A18;
+  OD-A20; the issues OD-I1 and OD-I3), and before Maxim's 1.4.0 cut with the agent-loop decomposition slice that
+  carries the stepped `think` (OD-A15). OD-A21, #1361 S5 and S6, and OD-A12's store routing don't block it.
 - **Guest sessions with real NPCs (Phase 5 or later, O28) wait for O14's gates,** held by a strict red gate that refuses guest joins while
   real-Maxim NPCs are live (owned by `phase1/protocol`), and flipped only when each passes:
   - the worker process and its channel gate (`npcs_and_sem.md` §6.6);
