@@ -3,7 +3,7 @@
 **Status:** a proposal drafted in Maxim Overdrive on 2026-11-16, as an **amendment to an ACTIVE plan**
 (`docs/plans/tool_failure_credit.md`, owner decisions TF1–TF3, `DECISIONS.md` 2026-10-10). It is not a new
 mechanism beside it. It goes through the plan's own review, and every edit is sequenced after #1200's stages and 1.3.6.
-Nothing is built, run or claimed. Read against `origin/main` `7084f561`.
+Nothing is built, run or claimed. Read against `origin/main` `7084f561`; §3.3 re-read on `f0b1cea4`.
 
 - **Overdrive id:** OD-A16 (tier A: embedded NPCs can't learn from their actions without it). It folds Overdrive's
   earlier P3, P2/P7, item 16's credit half and the boundaries reviews' BF-1, BF2-3, X-6 and Wire S12.
@@ -62,24 +62,30 @@ Additive: a modulator may declare `default_outcome_valence = "neutral"` (a class
 absent, so today's POSITIVE stays the default for every existing tool). World modulators whose effects are measured
 from frames declare it. Overdrive's adapter self-reports either way.
 
-### 3.3 Three refusal kinds that ran but don't teach
+### 3.3 Three refusal kinds that don't teach
 
-Extending TF2's ran/not-ran classification:
-- **`stale`**: the action was valid when proposed, but the moment passed (the world changed while the agent
-  deliberated). It is context for the next thought, never credit.
-- **`call_error`**: a malformed argument. A cognitive error, as TF2 already rules for "a hallucinated or inactive tool
-  name". It is not a tool failure. The executor produces it, validating the call against the declared
-  `AffordanceSchema` (types, unknown keys, finiteness) and exempting keys it adds itself (`OrchestratorActorTool`'s
-  `target`). Today a typo is pain twice over (`origin/main` `f0b1cea4`): `Tool.run` calls `_validate_input`, which
-  checks only required keys, inside its own `except Exception`, and `INVALID_INPUT` maps to
-  `PainType.TOOL_INVALID_INPUT`. The same catch books a modulator's own exception as the tool's failure, so a host bug
-  that fails loudly becomes a false lesson. Evidence: Overdrive PR 1's probes (`tests/test_act_validation.py`).
-- **`wrong_target`**: a call aimed where the affordance's direction (OD-C3) doesn't allow. A choice error, booked like
-  `call_error`, never against the tool.
+Extending TF2's ran/not-ran classification (read against `origin/main` `f0b1cea4`):
+- **`stale`** (ran): the action was valid when proposed, but the moment passed (the world changed while the agent
+  deliberated). It is context for the next thought, never credit. It travels as a kind on the failure path that
+  dispatch reads, which needs the bridge's failure return to carry the kind: the one wire change in this amendment. A
+  test goes through `ModulatorAffordanceTool.execute`, not only `tool_dispatch`, so the kind is proven to arrive.
+- **`call_error`** (never ran): a malformed argument. A cognitive error, as TF2 already rules for "a hallucinated or
+  inactive tool name", not a tool failure. The executor produces it before the tool runs, validating the call against
+  the declared `AffordanceSchema` (types, unknown keys, finiteness, declared ranges) and exempting the keys it adds
+  itself (`OrchestratorActorTool`'s `target`).
+- **`wrong_target`** (never ran): a call aimed where the affordance's direction (OD-C3) doesn't allow. A choice
+  error, booked like `call_error`, never against the tool. The executor produces it from the declared direction; a
+  modulator can't flag its own refusal without breaking #1315's rule.
 
-All three travel as a kind on the failure path that dispatch reads. That needs the bridge's failure return to carry the
-kind, the one wire change in this amendment. A test goes through `ModulatorAffordanceTool.execute`, not only
-`tool_dispatch`, so the kind is proven to arrive.
+`call_error` and `wrong_target` join `GATE_REFUSAL_KINDS` (#1315): only the executor produces them, and
+`_retag_body_gate_kind` already re-types a body that claims one, so a tool body can't exempt itself from NAc.
+
+**Today a typo is booked as a failure that ran.** `Tool.run` calls `_validate_input`, which checks only required keys,
+inside its own `except Exception` and returns a failure with no kind; `ModulatorAffordanceTool.execute` drops the kind
+too. The executor's `_book_failure` then books a NAc NEGATIVE, and `_report_failure` reports it as
+`EXTERNAL_FAILURE`, a `PainType.TOOL_FAILURE`. The same catch books a modulator's own exception as the tool's failure,
+so a host bug that fails loudly becomes a false lesson. Evidence: Overdrive PR 1's probes
+(`tests/test_act_validation.py`).
 
 ## 4. Order
 

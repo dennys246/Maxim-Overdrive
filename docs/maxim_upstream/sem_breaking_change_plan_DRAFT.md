@@ -60,8 +60,10 @@ Every item enters `[engineering]`. Those that claim behaviour say what would ear
 - **Bio basis:** affordances (Gibson) are relations between an actor and an object.
 - **Evidence,** through Maxim's real tools: `actor(entity="crate", affordance="ignite")` is refused (default target
   "player"), `target="crate"` succeeds, `target="wall"` is refused (Overdrive
-  `tests/test_act_validation.py::test_maxims_actor_tool_must_name_the_region_as_its_own_target`). Argues against
-  `scene_actor_affordances.md`'s model, an act by the entity on a target. A refusal for the wrong direction is OD-A16's
+  `tests/test_act_validation.py::test_maxims_actor_tool_must_name_the_region_as_its_own_target`); through
+  `ModulatorAffordanceTool`, no target or "crate" succeed and "wall" or "self" are refused. Argues against
+  `scene_actor_affordances.md` invariant 5 (`OrchestratorActorTool`'s docstring rule 2) and the schema default
+  `"target": (str, "player")` (read on `f0b1cea4`): every scene affordance an act by the entity on a target. A refusal for the wrong direction is OD-A16's
   `wrong_target`. Making a strike the NPC's own affordance with a `target_effect` can't work: that is sensor deltas, so
   it can't run the region's modulator.
 
