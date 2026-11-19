@@ -1,8 +1,8 @@
 # Foundations plan: from here to the first visible tile
 
 For the owner and any session starting cold: where things stand, what comes next, what is open. Paths are on
-`phase1/design-v2` unless a branch is named. `scripts/check_plan.py` fails if this drops a decision, a Phase 3 id or an
-open question, or passes 2,500 words; it checks presence, not truth. Source: the review in `docs/plans/reviews/`;
+`phase1/design-v2` unless a branch is named. `scripts/check_plan.py` checks that every decision, Phase 3 id and open
+question is present (not true) and the 2,500-word budget. Source: the review in `docs/plans/reviews/`;
 `reviews/fold.md` maps each finding to where it went and keys the ids; `checklists.md` holds the steps' items.
 
 ## 1. Status, as of 2026-11-18
@@ -15,7 +15,7 @@ open question, or passes 2,500 words; it checks presence, not truth. Source: the
 | #4 | `phase1/design-v2` | `phase1/standards` | this line |
 | — | `phase1/tile-spec` (step 0d) | `phase1/design-v2` | this line |
 
-Each branch has a worktree of its name under `.worktrees/`. Heads: `git log`. Nothing has merged to `main` yet.
+Each branch has a worktree of its name under `.worktrees/`. Heads: `git log`.
 
 **Security gate.** Private since 2026-11-17. design-v2's history and PR #4 hold OD-I5's details; before going
 public, the owner decides on a force-push plus GitHub support for PR #4's refs. Security findings go to private notes.
@@ -49,38 +49,37 @@ fuel-mass law, the same apart from detail at each rendering tier.
   model, into `docs/design/research/llm_spike.md`.
 - **The agent line, as tests (O19),** against the scripted double behind the real worker channel, after steps 5a and 7: types,
   codec, `data/agents/` gates; the worker channel; `AgentPort`, the double, the membrane. Red-first tests:
-  1. a hash probe in the worker's first frame, so a worker started with `-I` (which ignores `PYTHONHASHSEED`) fails;
+  1. a hash probe in the worker's first frame (`-I` ignores `PYTHONHASHSEED`);
   2. the worker's `HOME`, `XDG_*`, `TMPDIR`, `HF_HOME` under the agent home, probed, with a planted real-home read;
   3. the codec refuses a pickle;
-  4. resume at the modelled landing tick, with a state digest folding the double's steps and staleness, so it can go red;
-  5. credit shares at two step rates: a strict red gate against pymaxim, not a test the double can turn green;
-  6. a tool's duration comes from the host in world time, never `tool_dispatch.py:1343`'s wall clock.
+  4. resume at the modelled landing tick, with a state digest that can go red;
+  5. credit shares at two step rates, a strict red gate against pymaxim;
+  6. a tool's duration comes from the host in world time, never `tool_dispatch.py:1419`'s wall clock.
 
-  It owns the thinking lane (npcs §6.2). It stays in Phase 1 against S-S1: O19 chose tests over paper. Its PR
-  checklist, reopen triggers included, is in `checklists.md`.
+  It owns the thinking lane (npcs §6.2) and stays in Phase 1 (O19, against S-S1). Checklist: `checklists.md`.
 - **Real NPCs** wait for Maxim's stepped `think` (O15a, O29).
 
 **Deferred to Phase 2 (D26, D29):** zones and vents, combustion per zone, pyrolysis, phase change, CSG, the lab. Save with agents: Phase 4 (roadmap). The clinic: §5.
 
-## 3. Maxim (`origin/main` 6fee7377)
+## 3. Maxim (`origin/main` f0b1cea4)
 
 **Done there:** the candidates doc (`docs/plans/overdrive_refactor_candidates.md`, #1688); #1684 (OD-I1), #1685
-(OD-I3, absorbing OD-A13), #1686 (OD-I4); OD-I5 a private advisory; #1687 closed (the latch refuses off POSIX, so
-real NPCs are macOS and Linux only); #1396 (O18 must guard a silent cloud fallback and a blocking prompt). OD-I2
+(OD-I3, absorbing OD-A13), #1686 (OD-I4); OD-I5 a private advisory; #1687 closed (real NPCs on macOS and
+Linux only); #1396 (O18's guards). OD-I2
 stays a nit.
 
 **Exchanged:** `erratum_1.md` sent 2026-11-18 (OD-A20, OD-A21; OD-A19 withdrawn). Maxim's answer
-(`response_4.md`): 1.4.0 planned March–May 2027; the world-seam front gate accepted. Next: O35's draft.
+(`response_4.md`): 1.4.0 planned March–May 2027; the world-seam front gate accepted. Its plan review of O35's draft: SOUND WITH CONDITIONS (2026-11-19); v4 folds it.
 
 **Phase 3 ids, by where Maxim put them** (detail: `docs/plans/reviews/maxim_side.md` §1):
-- Tier A: OD-A1 (#1361), OD-A20, OD-A21 (#1361 questions), OD-A2, OD-A3, OD-A4, OD-A8 (A3); OD-A5 (split with #1361); OD-A7 (A2, #1305); OD-A12 (A1,
+- Tier A: OD-A1 (#1361), OD-A20 (declined), OD-A21 (#1361 Q1), OD-A2, OD-A3, OD-A4, OD-A8 (A3); OD-A5 (split with #1361); OD-A7 (A2, a gate item after 1.4.0); OD-A12 (A1,
   with #984); OD-A11, OD-A17 (A4, behind the front gate).
 - Tier B: OD-A10, OD-A14, OD-A15 (B1, B3); OD-A16, OD-A18 (B2, #1150).
 - Tier C: OD-H2 (C2), OD-H4 and OD-H5 (C5), OD-H6 (C3, disagreeing), OD-H1, OD-HX1, OD-HX5 (cautions).
 - Not in it yet: OD-C11 (proposed, tile §9), OD-A6, OD-A9, OD-H3, OD-X1, OD-X2; OD-B1, OD-B2, OD-B3, OD-B4, OD-B5, OD-B6, OD-B7 (Exp 64a's
   prerequisites), OD-B8, OD-B9, OD-B10, OD-B11, OD-B12, OD-B13; OD-C1, OD-C2, OD-C3, OD-C4, OD-C5, OD-C6, OD-C7,
   OD-C8, OD-C9, OD-C10.
-- Exit tests: OD-WC1, OD-EA4, OD-EA5, OD-EA6, OD-EA9, OD-EA10, OD-EA11, OD-EA12.
+- Exit tests: OD-WC1, OD-EA4, OD-EA5, OD-EA6, OD-EA7, OD-EA9, OD-EA10, OD-EA11, OD-EA12, OD-EA14, OD-EA15.
 
 ## 4. Decisions
 
@@ -138,6 +137,9 @@ stays a nit.
 | O35 | Refresh the agent draft; send it to Maxim now |
 | O36 | Maxim's review reopens the agent half |
 | O37 | Bridge prototype NPC after the tile |
+| O38 | Staleness is Maxim's §A.1b.5, via its typed pre-emption handler |
+| O39 | `apply` merged into `settle`: three host calls |
+| O40 | Maxim's `make_agent_rng`, keyed by NPC key, with a stream argument |
 | OA1 | A thought's kind from the agent's policy, a closed vocabulary; a logged host table sets cost |
 | OA2 | Dilation shown on a three-handed clock |
 | OA3 | No conversational repertoire of our own; proposed to Maxim as OD-H5 |

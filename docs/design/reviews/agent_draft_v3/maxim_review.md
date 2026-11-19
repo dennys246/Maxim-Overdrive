@@ -89,3 +89,9 @@ f0b1cea4. **Verdict: SOUND WITH CONDITIONS.** This review is O36's reopen trigge
   - §2's basis and staleness stay out of B2.
 
   A2 before the cut means a new gate item (an owner call).
+
+## Maxim owner decisions (2026-11-19)
+
+- Q2: A2's per-agent RNG key lands after the 1.4.0 cut, as a new release-gate item. 1305.owned-rng's scope is unchanged for 1.4.0.
+- Q9 / OD-A20: event similarity stays on the host calendar, as #1361 S3b has it. OD-A20 is noted, not adopted. Events and anchors still age on the experience clock.
+- Q10: a host save() does not take MaximHandle.stop()'s contract. Consolidation becomes its own bounded host call.
