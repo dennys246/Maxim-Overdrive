@@ -9,7 +9,6 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import math
-import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
@@ -27,6 +26,7 @@ from maxim_overdrive.world import damage, heat
 from maxim_overdrive.world.grid import Footprint, MaterialGrid
 from maxim_overdrive.world.scene import Cylinder
 from maxim_overdrive.world.world import HeatSource
+from tests._gitutil import git
 
 LIMITS = ActionLimits.load()
 
@@ -923,7 +923,7 @@ def test_every_data_loader_loads_or_refuses_any_file(tmp_path_factory, raw, as_y
 # -- format versions: every data format names its version, and a reader refuses one it doesn't know (B21) --------------
 
 ROOT = Path(__file__).resolve().parents[1]
-BAD_VERSIONS = [("1", "got 1"), ("true", "got True"), ("0.0", "got 0.0"), ("'0'", "got '0'"), ("~", "got None")]
+BAD_VERSIONS = [("1", "got 1"), ("true", "got True"), ("0.0", "got 0.0"), ("'0'", "got '0'"), ("null", "got None")]
 
 
 @pytest.mark.parametrize(("value", "shown"), BAD_VERSIONS)
@@ -965,7 +965,7 @@ def test_every_shipped_data_file_is_at_its_formats_current_version():
         "world": (ActionLimits.load, ACTION_LIMITS_VERSION),
     }
     # The files git tracks, not whatever is on disk: a Finder .DS_Store is not a data file.
-    listed = subprocess.run(["git", "ls-files", "data"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    listed = git(ROOT, "ls-files", "data").stdout
     files = [ROOT / line for line in listed.splitlines()]
     assert files
     for path in files:

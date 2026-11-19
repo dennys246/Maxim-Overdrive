@@ -1,0 +1,48 @@
+# Dependency drift (owner decision O32). The gate and CI run on locked dependencies (constraints/); this job runs the
+# same gate unpinned against the newest releases, the SEM drift test (tests/test_sem_compat.py) among it. A red run
+# is the signal to regenerate the lock, or to update the SEM mirror when pymaxim changed its types; drift is never
+# pinned away, only surfaced here instead of on every branch.
+name: drift
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"  # Mondays 06:17 UTC
+  workflow_dispatch:
+
+jobs:
+  drift:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.12", "3.14"]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      issues: write
+    env:
+      MAXIM_OVERDRIVE_UNLOCKED: "1"  # scripts/check_lock.py: this job runs unpinned on purpose
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install, unpinned
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade -e '.[dev,maxim]'
+      - name: What moved against the lock
+        run: .venv/bin/python scripts/check_lock.py --report
+      - name: Gate
+        env:
+          BASE: origin/main
+        run: scripts/prepush.sh
+      - name: Open an issue when the gate fails unpinned
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh issue create --title "Dependency drift: the gate fails unpinned (${{ matrix.os }}, Python ${{ matrix.python-version }})"
+          --body "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Regenerate the lock, or update the SEM mirror if pymaxim changed its types (O32); never loosen a test."

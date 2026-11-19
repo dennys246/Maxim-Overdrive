@@ -8,7 +8,7 @@ version = "0.0.1"
 description = "World server for Maxim Overdrive: material cells, physics fields and an SEM bridge for Maxim agents"
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [{ name = "Denny Schaedig" }]
 dependencies = [
     "numpy>=1.26,<3.0",
@@ -27,7 +27,6 @@ dev = [
     "ruff>=0.15",
     "mypy>=1.15",
     "types-PyYAML>=6.0",
-    "tomli>=2.0",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -48,10 +47,10 @@ filterwarnings = ["error"]   # warnings are bugs until proven otherwise
 # no-silent-swallow rule, B905 makes every zip say whether lengths must match.
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "RUF", "SIM", "BLE", "S110", "PT", "NPY", "PL"]
+select = ["E", "F", "W", "I", "B", "UP", "RUF", "SIM", "BLE", "S110", "PT", "NPY", "PL", "C90"]
 ignore = [
     "PLR2004",  # magic numbers: physics constants are named where they mean something, literal where they don't
     "PLR0913",  # many arguments: physics functions take their parameters explicitly
@@ -60,9 +59,20 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["PLR0915"]
 
+# Separation of concerns (CLAUDE.md, "Code"). Ruff's PL rules already cap returns, branches and statements per function;
+# mccabe caps the paths through it. scripts/lint_standards.py::check_sizes holds the limits ruff has no rule for, and
+# refuses a noqa for any of these codes in src/ and scripts/.
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.maxim_overdrive.size_limits]
+function_lines = 40   # body lines, docstring excluded; a nested function counts towards its parent too
+module_lines = 500
+public_methods = 12   # per class, defined in its own body
+
 # mypy: strict everywhere. pymaxim ships py.typed.
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 strict = true
 warn_unreachable = true
 files = ["src", "tests", "scripts"]

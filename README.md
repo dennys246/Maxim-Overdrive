@@ -19,7 +19,7 @@ act on the environment. There is no game client yet.
 ## Quick start
 
 ```bash
-pip install -e '.[dev,maxim]'
+pip install -c constraints/py3.12.txt -e '.[dev,maxim]'   # Python 3.12 or 3.14; match the lockfile
 pytest                                   # laptop and rig profiles
 MAXIM_OVERDRIVE_ALL_TIERS=1 pytest       # adds the 0.05 m 'max' profile (slow)
 ```

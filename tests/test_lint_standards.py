@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import importlib.util
-import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+
+from tests._gitutil import git
 
 ROOT = Path(__file__).resolve().parents[1]
 _spec = importlib.util.spec_from_file_location("lint_standards", ROOT / "scripts" / "lint_standards.py")
@@ -83,6 +84,15 @@ def test_prose_about_temporary_things_is_not_a_marker():
 
 def test_exempt_files_may_mention_markers():
     assert lint.check_markers({"CLAUDE.md": "# TEMPORARY(soon): x  # pragma: no cover"}, ROADMAP) == []
+
+
+@pytest.mark.parametrize(
+    "rel", ["docs/design/reviews/x/architecture.md", "docs/design/research/y/sem.md", "docs/plans/reviews/z.md"]
+)
+def test_review_and_research_records_may_quote_markers(rel):
+    assert lint.check_markers({rel: "the TEMPORARY(phase1) marker in actions.yaml"}, ROADMAP) == []
+    # a design document itself is not a record, so a marker there is still checked
+    assert lint.check_markers({"docs/design/world_v2.md": "TEMPORARY(phase1)"}, ROADMAP) != []
 
 
 # -- guard citations --------------------------------------------------------------------------------------------------
@@ -189,8 +199,11 @@ def test_symbols_are_whole_words_outside_comments(tmp_path, name, text, symbol, 
 # -- coverage ratchet -------------------------------------------------------------------------------------------------
 
 
-def _pyproject(floor: float | None) -> str:
-    return "[tool.coverage.report]\n" + ("" if floor is None else f"fail_under = {floor}\n")
+LIMITS = "[tool.maxim_overdrive.size_limits]\nfunction_lines = 40\nmodule_lines = 500\npublic_methods = 12\n"
+
+
+def _pyproject(floor: float | None, limits: str = LIMITS) -> str:
+    return "[tool.coverage.report]\n" + ("" if floor is None else f"fail_under = {floor}\n") + limits
 
 
 @pytest.mark.parametrize(
@@ -220,13 +233,12 @@ def test_a_base_without_a_floor_has_nothing_to_ratchet_against():
 
 
 def _git(repo: Path, *args: str) -> None:
-    subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+    git(repo, *args)
 
 
 def _commit(repo: Path, message: str) -> None:
-    """A throwaway commit in a temp repo: a fixed identity, unsigned because it never leaves the test."""
-    identity = ["-c", "user.email=t@example.com", "-c", "user.name=t", "-c", "commit.gpgsign=false"]
-    _git(repo, *identity, "commit", "-qm", message)
+    """A throwaway commit in a temp repo (tests/_gitutil.py: a fixed identity, unsigned, no inherited git state)."""
+    git(repo, "commit", "-qm", message)
 
 
 @pytest.fixture
@@ -284,3 +296,186 @@ def test_a_base_with_no_pyproject_has_nothing_to_ratchet_against(repo):
 
 def test_the_repository_itself_passes(capsys):
     assert lint.main([], root=ROOT) == 0, capsys.readouterr().err
+
+
+# -- Separation of concerns: size and complexity tripwires -------------------------------------------------------------
+
+SMALL = lint.SizeLimits(function_lines=4, module_lines=20, public_methods=2)
+
+
+def _function(name: str, body_lines: int, docstring: bool = False) -> str:
+    doc = '    """A docstring\n    over two lines."""\n' if docstring else ""
+    return f"def {name}():\n" + doc + "".join(f"    x{i} = {i}\n" for i in range(body_lines))
+
+
+def test_the_real_limits_load_and_match_the_standard():
+    limits, problems = lint.size_limits((ROOT / "pyproject.toml").read_text())
+    assert problems == []
+    assert limits == lint.SizeLimits(function_lines=40, module_lines=500, public_methods=12)
+
+
+@pytest.mark.parametrize(
+    "table",
+    [
+        "",  # missing
+        "[tool.maxim_overdrive.size_limits]\nfunction_lines = 40\nmodule_lines = 500\n",  # one missing
+        LIMITS + "class_lines = 9\n",  # an unknown key would be a limit nobody enforces
+        LIMITS.replace("40", "0"),
+        LIMITS.replace("40", "40.5"),
+        LIMITS.replace("40", "true"),
+    ],
+)
+def test_a_missing_or_malformed_limits_table_is_a_finding(table):
+    limits, problems = lint.size_limits(_pyproject(100, limits=table))
+    assert limits is None
+    assert len(problems) == 1
+
+
+def test_code_within_the_limits_passes():
+    code = _function("f", 4) + _function("g", 4, docstring=True)
+    assert lint.check_sizes({"src/a.py": code}, SMALL) == []
+
+
+def test_a_long_function_is_found_and_the_docstring_does_not_count():
+    problems = lint.check_sizes({"src/a.py": _function("long", 5)}, SMALL)
+    assert problems == ["src/a.py:1: long has a 5-line body (limit 4); split it by responsibility"]
+
+
+def test_a_nested_function_counts_towards_its_parent_and_is_checked_itself():
+    inner = "".join("    " + ln + "\n" for ln in _function("inner", 5).splitlines())
+    problems = lint.check_sizes({"scripts/a.py": "def outer():\n" + inner}, SMALL)
+    assert any("outer has a 6-line body" in p for p in problems)
+    assert any("inner has a 5-line body" in p for p in problems)
+
+
+def test_a_long_module_is_found():
+    problems = lint.check_sizes({"src/a.py": "x = 1\n" * 21}, SMALL)
+    assert problems == ["src/a.py: 21 lines (limit 20); split the module by concern"]
+
+
+def test_a_class_with_too_many_public_methods_is_found_and_private_ones_do_not_count():
+    methods = "".join(f"    def m{i}(self): pass\n" for i in range(3))
+    private = "".join(f"    def _p{i}(self): pass\n" for i in range(5))
+    problems = lint.check_sizes({"src/a.py": "class God:\n" + methods + private}, SMALL)
+    assert problems == ["src/a.py:1: class God has 3 public methods (limit 2); it is doing more than one job"]
+    assert (
+        lint.check_sizes({"src/a.py": "class Fine:\n" + methods[: methods.index("    def m2")] + private}, SMALL) == []
+    )
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "def f():  # noqa: C901",
+        "def f():  # noqa: PLR0912",
+        "def f():  # noqa: E501, PLR0915",
+        "def f():  # NOQA:C90",
+        "def f():  # noqa",  # a blanket noqa silences every rule, these included
+        "# ruff: noqa",
+        "# ruff: noqa: C901",
+        "# flake8: noqa",  # ruff honours it as a file-wide exemption
+    ],
+)
+def test_a_noqa_may_not_silence_the_complexity_rules(line):
+    problems = lint.check_sizes({"src/a.py": line + "\n"}, SMALL)
+    assert any("a noqa may not silence the complexity rules" in p for p in problems)
+
+
+def test_a_noqa_for_another_rule_is_allowed():
+    assert lint.check_sizes({"src/a.py": "import os  # noqa: F401\n"}, SMALL) == []
+
+
+def test_the_limits_apply_to_src_and_scripts_only():
+    long = _function("long", 9) + "# noqa: C901\n"
+    files = {"tests/test_a.py": long, "docs/a.md": long, "src/a.txt": long, "tools/a.py": long}
+    assert lint.check_sizes(files, SMALL) == []
+
+
+def test_an_unparseable_file_is_a_finding_not_a_pass():
+    problems = lint.check_sizes({"src/a.py": "def f(:\n"}, SMALL)
+    assert len(problems) == 1
+    assert "does not parse" in problems[0]
+
+
+def test_main_reports_a_god_function(repo, capsys):
+    (repo / "src").mkdir()
+    (repo / "src/god.py").write_text(_function("god", 41))
+    assert lint.main([], root=repo) == 1
+    assert "god has a 41-line body (limit 40)" in capsys.readouterr().err
+
+
+def test_main_reports_a_malformed_limits_table(repo, capsys):
+    (repo / "pyproject.toml").write_text(_pyproject(100, limits=""))
+    assert lint.main([], root=repo) == 1
+    assert "size_limits] must set exactly" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("base", "complaint"),
+    [
+        (None, None),
+        (_pyproject(100), None),
+        (_pyproject(100, limits=LIMITS.replace("40", "60")), None),  # tightening is fine
+        (_pyproject(100, limits=LIMITS.replace("40", "30")), "function_lines rose from 30 to 40"),
+        (_pyproject(100, limits=LIMITS.replace("500", "400")), "module_lines rose from 400 to 500"),
+        (_pyproject(100, limits=LIMITS.replace("12", "10")), "public_methods rose from 10 to 12"),
+        (_pyproject(100, limits=""), None),  # a base from before the limits existed
+    ],
+)
+def test_the_size_limits_only_tighten(base, complaint):
+    current = lint.SizeLimits(function_lines=40, module_lines=500, public_methods=12)
+    problems = lint.check_size_ratchet(current, base)
+    assert problems == [] if complaint is None else [p for p in problems if complaint in p] == problems != []
+
+
+def test_main_refuses_a_loosened_limit(repo, capsys):
+    (repo / "pyproject.toml").write_text(_pyproject(100, limits=LIMITS.replace("40", "80")))
+    assert lint.main(["--base", "HEAD"], root=repo) == 1
+    assert "function_lines rose from 40 to 80" in capsys.readouterr().err
+
+
+def test_comments_and_blank_lines_do_not_count_towards_a_body():
+    code = (
+        "def f():\n    # why the first step\n    a = 1\n\n"
+        "    # why the second\n    b = 2\n    c = 3\n    return a + b + c\n"
+    )
+    assert lint.check_sizes({"src/a.py": code}, SMALL) == []
+    assert lint.check_sizes({"src/a.py": code.replace("    return", "    d = 4\n    return")}, SMALL) != []
+
+
+def test_a_body_that_is_only_a_docstring_counts_as_empty():
+    code = 'def f():\n    """One\n    two\n    three\n    four\n    five."""\n'
+    assert lint.check_sizes({"src/a.py": code}, SMALL) == []
+
+
+def test_async_functions_and_methods_are_checked():
+    body = "".join(f"    x{i} = {i}\n" for i in range(5))
+    problems = lint.check_sizes({"src/a.py": "async def f():\n" + body}, SMALL)
+    assert problems == ["src/a.py:1: f has a 5-line body (limit 4); split it by responsibility"]
+    methods = "".join(f"    async def m{i}(self): pass\n" for i in range(3))
+    assert any("3 public methods" in p for p in lint.check_sizes({"src/a.py": "class C:\n" + methods}, SMALL))
+
+
+@pytest.mark.parametrize(
+    ("base", "base_text", "expected"),
+    [
+        (None, None, []),
+        ("main", None, ["coverage and size ratchets have nothing to compare"]),
+        ("main", "[tool.coverage.report]\n", ["no coverage floor", "no valid size limits"]),
+        ("main", _pyproject(100, limits=""), ["no valid size limits"]),
+        ("main", _pyproject(100), []),
+    ],
+)
+def test_a_ratchet_with_nothing_to_compare_says_so(base, base_text, expected):
+    notes = lint.ratchet_notes(base, base_text)
+    assert len(notes) == len(expected)
+    assert all(e in n for e, n in zip(expected, notes, strict=True))
+
+
+def test_main_prints_the_ratchet_notes(repo, capsys):
+    _git(repo, "checkout", "-q", "--orphan", "bare")
+    _git(repo, "rm", "-q", "-r", "--cached", "pyproject.toml")
+    _commit(repo, "a base with no pyproject")
+    _git(repo, "add", "-A")
+    assert lint.main(["--base", "bare"], root=repo) == 0
+    assert "bare has no pyproject.toml" in capsys.readouterr().out
