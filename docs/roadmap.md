@@ -99,13 +99,12 @@ OD-WC1, OD-EA4, OD-EA5, OD-EA10 to OD-EA12 and the draft's thread-count test, or
 needs OD-B1 to OD-B7. Not blocking: #1361 S5 and S6, and OD-A21. OD-A12's store routing waits for two agents in one
 process. So the subset is most of tier A, and its long pole, OD-A15, stays.
 
-**Planning assumption: the stepped `think` lands a year or more out.** An assumption from evidence, not a forecast;
-Maxim's date range for 1.4.0 (O29) replaces it. The evidence, on Maxim `origin/main` `6fee7377` (2026-11-17): cand.
-B1 lands after the 1.4.0 cut, in the 1.5 hybrid line's `src` phase. The latest release is v1.3.3 (2026-10-24), and
-the 1.3.4, 1.3.5 and 1.3.6 lines still come first. In `release_gates.json`, 32 of 1.4.0's 33 items are open, and the
-file is unchanged since 2026-10-24. `start_simulation_mode` (1,905 lines) and `_run_agentic_loop_body` (2,144) exceed
-its 1,000-line cap (`execute_and_learn`, 357, doesn't). 1.4.0 also needs T1 to T4, which include E1, still being
-redesigned.
+**Timing, from Maxim (2026-11-19, `reviews/maxim_response_1/response_4.md`; a planning range, not a commitment):**
+1.4.0 earliest February 2027, planned March to May 2027, after 1.3.4 to 1.3.6 and 1.4.0's release gates (#1305's
+owned RNG, where cand. A2 lives). The stepped `think` (cand. B1) comes after 1.4.0, in the 1.5 hybrid line's `src`
+phase, with no range yet, so Phase 4's first real NPC is after mid-2027 at the earliest. Maxim accepted the world-seam
+front gate (the case for a host-driven runtime mode); `embeddable_agent_DRAFT.md` gets Maxim's review round before
+any Maxim `src/` lands for it.
 
 Drafts:
 - `world_clock_release_DRAFT.md`: two plans. **A-pre** goes on its own clock, touching no fenced file. **A-post**
