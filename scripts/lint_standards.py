@@ -54,6 +54,9 @@ COMMENT_PREFIX = {".py": "#", ".toml": "#", ".sh": "#", ".yml": "#", ".yaml": "#
 
 # Files that discuss markers and pragmas without being band-aids or exclusions.
 MARKER_EXEMPT = {"scripts/lint_standards.py", "tests/test_lint_standards.py", "CLAUDE.md", "docs/code_review.md"}
+# Review findings and research reports are records of what a reader wrote, kept verbatim; they quote marker syntax
+# when they discuss band-aids, and quoting one isn't placing one.
+MARKER_EXEMPT_DIRS = ("docs/design/reviews/", "docs/design/research/", "docs/plans/reviews/")
 
 
 def phase_sections(roadmap: str) -> dict[int, tuple[str, str]]:
@@ -105,7 +108,7 @@ def check_markers(files: dict[str, str], roadmap: str) -> list[str]:
     sections = phase_sections(roadmap)
     problems = []
     for rel, text in sorted(files.items()):
-        if rel in MARKER_EXEMPT:
+        if rel in MARKER_EXEMPT or rel.startswith(MARKER_EXEMPT_DIRS):
             continue
         for lineno, line in enumerate(text.splitlines(), 1):
             where = f"{rel}:{lineno}"

@@ -86,6 +86,15 @@ def test_exempt_files_may_mention_markers():
     assert lint.check_markers({"CLAUDE.md": "# TEMPORARY(soon): x  # pragma: no cover"}, ROADMAP) == []
 
 
+@pytest.mark.parametrize(
+    "rel", ["docs/design/reviews/x/architecture.md", "docs/design/research/y/sem.md", "docs/plans/reviews/z.md"]
+)
+def test_review_and_research_records_may_quote_markers(rel):
+    assert lint.check_markers({rel: "the TEMPORARY(phase1) marker in actions.yaml"}, ROADMAP) == []
+    # a design document itself is not a record, so a marker there is still checked
+    assert lint.check_markers({"docs/design/world_v2.md": "TEMPORARY(phase1)"}, ROADMAP) != []
+
+
 # -- guard citations --------------------------------------------------------------------------------------------------
 
 STANDARDS = """\
