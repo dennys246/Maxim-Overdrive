@@ -331,11 +331,13 @@ vocabulary (W-N3), and the world is unchanged. The intent validator is the same 
 NPCs, LLM results and clients pass one gate. Per-session rate limits and a cap on heat sources bound what valid intents
 can cost (TB-10).
 
-**Server to client** (amended at the merge): the messages are `client_rendering.md` §4.1's, which replace the
-table this section held (a separate `regions` message, `regions_version`, the catalogue hash, `intent_result` and `time_decision`). A
-`snapshot` request is served from the last published frame, coalesced and rate-limited per session (TB-9, D11). The
-rules below stay:
+**Server to client** (amended at the merge): the messages are `client_rendering.md` §4.1's, which replace the table this
+section held (a separate `regions` message, `regions_version`, the catalogue hash, `intent_result` and `time_decision`).
+A `snapshot` request is served from the last published frame, coalesced and rate-limited per session (TB-9, D11); 2 Hz
+is the normal `snapshot_hz` during any fire (CP-8). The rules below stay:
 
+- **`welcome` also carries the session's own `actor` id,** the body the client's camera follows, and the material
+  table (ids to names and colours) (W-F12). §4.1's `welcome` row omits both; they stay here until it is amended.
 - **Readers refuse** an unknown protocol version, `kind`, dtype or compression, loudly (W-F6).
 - **Axis order is Godot's** (W-F4, X-N2): arrays are sent z, y, x with x varying fastest, one `Image` per z-slice for
   `ImageTexture3D`. The server is z-up and Godot y-up, so the client maps axes in one place, the shader. An
