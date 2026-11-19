@@ -157,7 +157,7 @@ before #1685. §6's red gates come first.
 **Timing, as you gave it:** 1.4.0 planned March to May 2027; B1 follows with no range, so our first real NPC is after
 mid-2027. Meanwhile one unreplayed bridge NPC measures latency, cost and feel, claiming nothing.
 
-**What our first NPC needs (O29):** #1361 S3a, S3b and S4; OD-A2 to OD-A11; OD-A12's host-driven thread; OD-A14 to
+**What our first NPC needs (O29):** #1361 S3a, S3b and S4; OD-A2 to OD-A11; the host-driven worker thread (your A4 closure, `build_memory_hub(start_background_workers=False)`); OD-A14 to
 OD-A18; #1684 and #1685. OD-A20 would be needed, but is declined, so our replay exit carries a known divergence. Not
 blocking: #1361 S5 and S6, OD-A21, and OD-A12's store routing.
 

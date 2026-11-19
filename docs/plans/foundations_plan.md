@@ -98,6 +98,7 @@ stays a nit.
 | O32 | Lock every dependency; a scheduled drift job |
 | O33 | Python 3.12+ |
 | O34 | Step 5 splits into 5a and 5b |
+| O41 | Roadmap exempt from O22 |
 
 **both §0:**
 
@@ -137,9 +138,9 @@ stays a nit.
 | O35 | Refresh the agent draft; send it to Maxim now |
 | O36 | Maxim's review reopens the agent half |
 | O37 | Bridge prototype NPC after the tile |
-| O38 | Staleness is Maxim's §A.1b.5, via its typed pre-emption handler |
+| O38 | Maxim's §A.1b.5 staleness |
 | O39 | `apply` merged into `settle`: three host calls |
-| O40 | Maxim's `make_agent_rng`, keyed by NPC key, with a stream argument |
+| O40 | `make_agent_rng` plus a stream argument |
 | OA1 | A thought's kind from the agent's policy, a closed vocabulary; a logged host table sets cost |
 | OA2 | Dilation shown on a three-handed clock |
 | OA3 | No conversational repertoire of our own; proposed to Maxim as OD-H5 |

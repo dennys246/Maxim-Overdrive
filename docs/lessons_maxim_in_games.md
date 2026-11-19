@@ -153,6 +153,9 @@ engine the same rule keeps one intent door into the world.
 evidence builds until it can be argued again.** *Evidence:* Maxim's owner kept NAc's anchor similarity on the host
 calendar (OD-A20, 2026-11-19). A receipt settled after its trace expires is credited by `0.3 × similarity ×
 activation`; a crossed midnight moves the similarity by about 0.017, and a 12 h pause inside the 300 s window drops it
-from about 1 to about 0.70, so replay and learning follow the host's clock. *Consequence:* a known divergence
-(`npcs_and_sem.md` §12.2) and a red gate replaying one delayed-credit scenario at two host hours (`checklists.md`);
-no faked time in the worker, which CLAUDE.md's push-back rule forbids.
+from about 1 to about 0.70, so replay and learning follow the host's clock. Because credit is normalised, the
+calendar only moves how a receipt is shared between live-trace and anchor-only nodes, a narrower crack than first
+written. *Consequence:* a known divergence (`npcs_and_sem.md` §12.2) and a red gate on a shared receipt across
+midnight (`checklists.md`); no faked time in the worker, which CLAUDE.md's push-back rule forbids. Two first designs
+of that gate could not fail (an hour shift moves both timestamps; a lone node takes the full share): a red gate
+against a partner's system needs the same can-it-fail proof as any other test.
