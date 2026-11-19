@@ -224,8 +224,18 @@ is out of the plan (S-S8), so this test is the whole mechanism.
 (Maxim's B1 shape isn't settled; O26 makes replies part of the log). A save whose in-flight thought has an
 unknown continuation version loads it as a logged `thought_failed(reloaded)`, not a refusal.
 
+**OD-A20's divergence, a strict red gate (`npcs_and_sem.md` §12.2).** One receipt credits two nodes: one
+with a live trace and one anchor-only (its trace expired, inside the 300 s window). Run it under host clocks 09:00
+and 23:59:50 (the second crosses midnight) and expect equal shares. Credit is normalised (`reward × strength /
+Σ strength`, `nac.py::distribute_reward`), so a lone anchor-only node takes the full share at any similarity: the
+live-trace node is what makes the gate able to fail. A second assertion: after a 12 h host pause inside the window
+the anchor still exists (today `decay_eligibility` prunes it after 300 wall-seconds, `nac.py:3715-3738`; after
+#1361 S3b it ages on the experience clock, and the shares assertion carries the gate). Red against real Maxim, its
+reason naming OD-A20 (declined 2026-11-19), so the evidence exists to re-raise it. Each assertion proven able to fail
+before it is trusted.
+
 **Reopening the frozen agent half (S-S2).** Edits are errata only until one of these fires:
 - Maxim's stepped-`think` API lands (cand. B1);
 - the LLM spike measures latency;
 - Maxim answers a second candidates round (the first, #1688, is answered by errata);
-- Maxim's review of `embeddable_agent_DRAFT.md` (O36).
+- Maxim's review of `embeddable_agent_DRAFT.md` (O36; fired 2026-11-19, folded in npcs v3.2).
