@@ -2,7 +2,7 @@
 
 A checklist for whoever merges `phase1/act-validation` with `phase1/realtime-design`. Each item comes from a review
 round's merge check (see the named commits). The `phase1/standards` and `phase1/design-v2` items were done when
-`main` was merged into this branch (O21), after PRs #1 and #4 landed. Delete this file in the merge below.
+`main` was merged into this branch (O21), after PRs #1, #4 and #5 landed. Delete this file in the merge below.
 
 ## `phase1/act-validation` into `phase1/realtime-design`
 

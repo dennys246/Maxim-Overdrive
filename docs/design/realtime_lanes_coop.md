@@ -325,20 +325,16 @@ this table. `act` and `act_result` are retired: one message per kind (`move`, `m
 `seq` is an integer in `[0, 2^31)` and must increase within a session (W-F5).
 
 **Validation runs in two stages** (TB-13). The network lane checks the schema: types, finiteness, ranges, caps from
-`data/server/`. The simulation lane checks what depends on the world at the record's tick: the target exists, the
-intent is allowed, the per-tick limits. Both refusals are `error` or `intent_result` replies with a code from a
-listed vocabulary (W-N3), and the world is unchanged. The intent validator is the same one PR 1 (§8) adds to the
-SEM bridge, so NPCs, LLM results and clients pass one gate. Per-session rate limits and a cap on heat sources bound what valid
-intents can cost (TB-10).
+`data/server/`. The simulation lane checks what depends on the world at the record's tick: the target exists, the intent
+is allowed, the per-tick limits. Both refusals are `error` or `intent_result` replies with a code from a listed
+vocabulary (W-N3), and the world is unchanged. The intent validator is the same one PR 1 (§8) adds to the SEM bridge, so
+NPCs, LLM results and clients pass one gate. Per-session rate limits and a cap on heat sources bound what valid intents
+can cost (TB-10).
 
-**Server to client.**
-
-| Message | When | Carries |
-|---|---|---|
-| `welcome` | after a valid `hello` | `session`, `actor`, `role`, the world config, the rig, `dx`, `shape` with its axis order, the region list with each region's affordances, the material table, and the current time state (W-F12) |
-| `tick` | each tick, throttled per session | `tick`, `world_time_us`, `time_of_day_us`, requested and effective scale, paused |
-| snapshot (binary) | when cells' version changed, at most `snapshot_hz` per session (2 Hz is the normal rate during any fire, CP-8), and on request | `[u32 header length][JSON header][array bytes]`, little-endian; the header has `kind: "full"`, `protocol`, `tick`, `shape: [nz, ny, nx]`, `axis_order: "zyx"`, `frame: "z-up"`, and for each array its name, dtype from a listed vocabulary (`u8`, `<f2`), offset from the start of the array section, stored and uncompressed size, and compression (`none`) |
-| `error` | a refused message | `code`, `message`, `in_reply_to`; the world is unchanged |
+**Server to client** (amended at the merge): the messages are `client_rendering.md` §4.1's, which replace the
+table this section held (a separate `regions` message, `regions_version`, the catalogue hash, `intent_result` and `time_decision`). A
+`snapshot` request is served from the last published frame, coalesced and rate-limited per session (TB-9, D11). The
+rules below stay:
 
 - **Readers refuse** an unknown protocol version, `kind`, dtype or compression, loudly (W-F6).
 - **Axis order is Godot's** (W-F4, X-N2): arrays are sent z, y, x with x varying fastest, one `Image` per z-slice for
