@@ -1,0 +1,73 @@
+{
+ "t_ignite": 0.5,
+ "ignited_60s_after_pilot": true,
+ "t_crack": 45.5,
+ "t_crack_rec": 45.5,
+ "t_glow": NaN,
+ "t_glow_bright": NaN,
+ "glow_longest_s": 0.0,
+ "glow_bright_longest_s": 0.0,
+ "glow_area_max": 0.0,
+ "t_layer_max_c": 380.00000000000057,
+ "t_gone": NaN,
+ "t_flameout": 770.0,
+ "wood_at_flameout_frac": 0.00581776417331455,
+ "peak_flaming_area": 5.368584073464103,
+ "ember_peak_c": 380.0000000000001,
+ "ember_mean_c": 30.813422720437643,
+ "fuel_end_frac": 0.254294417046943,
+ "draught_max_kgs": 0.15545556041040107,
+ "digest": "40d93bcd0efae2e054b6a44671b4a58b6dd238169dd87eb26a1352b8c5d0a25e",
+ "ledger_worst_rel": 7.928108988368963e-15,
+ "release_total_MJ": 299.6353366119374,
+ "ledger_deletion": {
+  "sources": 7.928108988368963e-15,
+  "combustion_flaming": 1.0000000000000056,
+  "combustion_char": 0.00022809496842027214,
+  "plume_convective": 0.5701071253662475,
+  "flame_radiative": 0.2443316251569703,
+  "open_air_rad": 0.04627346977496108,
+  "open_air_conv": 0.0034055132446880786,
+  "open_air_pilotface": 7.928108988368963e-15,
+  "open_air_draught": 0.10759701652629117,
+  "removed_with_mass": 0.14022580645161864,
+  "bodies": 7.928108988368963e-15,
+  "d_cells": 0.01254342592087126,
+  "d_skins": 0.006579145583303577
+ },
+ "ledger_final_MJ": {
+  "sources": 0.0,
+  "combustion_flaming": 299.5669912992954,
+  "combustion_char": 0.06834531264197703,
+  "plume_convective": 140.20928180420722,
+  "flame_radiative": 72.44274633108581,
+  "open_air_rad": 13.865166692222916,
+  "open_air_conv": 1.0204121074086807,
+  "open_air_pilotface": 0.0,
+  "open_air_draught": 32.2398682652956,
+  "removed_with_mass": 39.85469271275211,
+  "bodies": 0.0,
+  "d_cells": 1.9745127707412187,
+  "d_skins": -1.9713440717760182
+ },
+ "name": "F_nom_005",
+ "dx": 0.05,
+ "pilot_ticks": 0,
+ "overrides": {
+  "ignite_base_m": 0.6
+ },
+ "t_end": null,
+ "wall_s": 596.3540079593658,
+ "cpu_s": 39.748064,
+ "loadavg_start": [
+  125.29296875,
+  108.4208984375,
+  84.0966796875
+ ],
+ "loadavg_end": [
+  61.126953125,
+  85.98681640625,
+  88.82666015625
+ ],
+ "steps": 4817
+}

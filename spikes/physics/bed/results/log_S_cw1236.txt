@@ -1,0 +1,1 @@
+{"name": "S_cw1236", "t_ignite": NaN, "t_crack": NaN, "t_glow": NaN, "t_gone": NaN, "glow_longest_s": 0.0, "ember_peak_c": 380.0000000000001, "ember_mean_c": 60.65372643838301, "ledger_worst_rel": 5.864346045806693e-15, "wall_s": 81.04209208488464}

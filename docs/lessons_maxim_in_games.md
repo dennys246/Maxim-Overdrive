@@ -224,6 +224,19 @@ as a host-side collision test. For any engine: whoever saw every issued id (the 
 counter's floor after a restart, never the snapshot alone; and a fresh id namespace per restore removes the need
 for a floor at all.
 
+### 22. An agent's semantic layer reads the world; it never runs it (2026-11-20)
+
+**SEM is where an agent perceives and acts, so it is tempting to let it carry world rules too.** *Evidence:* the
+accelerant design (T18) began as SEM labels (porous, flammable, an accelerant with speed and intensity modifiers)
+and a spread mechanism keyed on those labels. Our bridge already defines an Entity as sensors that reduce over
+cells and modulators that act on them (`simcore/adapters/sem/bridge.py`), so a spread rule there would have made the
+agent interface decide outcomes the authoritative server should, thresholded a whole entity's mean (D25), and taught
+Maxim our rule table instead of fire's regularities. *Consequence:* T18: the accelerant is a per-cell pore-loading
+field in the physics; SEM sensors derive porous, flammable and soaked from fields, and a `soak` modulator (Phase 2)
+writes the field through the physics. For any engine embedding agents: tags an agent perceives are read-outs of
+simulated state, so they can't disagree with the world, and interactions come from one set of laws rather than a
+growing table of tag pairs. New sensors and modulators need no Maxim change; a new SEM concept would.
+
 ### 23. Maxim's sensors pull, so a frame must be published when an action applies, not only when time moves (2026-11-20)
 
 **Maxim's `Sensor.read()` is a pull with no tick argument, and its modulator tool reads every sensor on the entity

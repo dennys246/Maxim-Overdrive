@@ -1,0 +1,1 @@
+{"name": "F_diff_005", "t_ignite": 0.5, "t_crack": 45.5, "t_glow": 399.0, "t_gone": 904.0, "glow_longest_s": 695.0, "ember_peak_c": 911.2781899488883, "ember_mean_c": 747.977584782247, "ledger_worst_rel": 7.928108988368963e-15, "wall_s": 307.78767585754395}

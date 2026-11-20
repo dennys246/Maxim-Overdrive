@@ -1,0 +1,103 @@
+{
+ "thread_sensitive": {
+  "matmul (A @ B)": false,
+  "matvec (A @ x)": false,
+  "np.dot(v, v)": false,
+  "np.einsum optimize=True": false,
+  "np.linalg.solve": false,
+  "np.sum(v)": false,
+  "np.cumsum(v)": false,
+  "elementwise exp/mul": false,
+  "np.power(v, 4)": false,
+  "np.bincount weights": false,
+  "scipy splu solve": false,
+  "scipy spsolve": false,
+  "scipy cg": false
+ },
+ "hashes": {
+  "matmul (A @ B)": {
+   "1": "50e541fa9b93af2a",
+   "2": "50e541fa9b93af2a",
+   "8": "50e541fa9b93af2a",
+   "unset": "50e541fa9b93af2a"
+  },
+  "matvec (A @ x)": {
+   "1": "a5da0eb3e93aa7de",
+   "2": "a5da0eb3e93aa7de",
+   "8": "a5da0eb3e93aa7de",
+   "unset": "a5da0eb3e93aa7de"
+  },
+  "np.dot(v, v)": {
+   "1": "0970bf704ac81f18",
+   "2": "0970bf704ac81f18",
+   "8": "0970bf704ac81f18",
+   "unset": "0970bf704ac81f18"
+  },
+  "np.einsum optimize=True": {
+   "1": "b15cee053222227d",
+   "2": "b15cee053222227d",
+   "8": "b15cee053222227d",
+   "unset": "b15cee053222227d"
+  },
+  "np.linalg.solve": {
+   "1": "c1f06056276f3ce1",
+   "2": "c1f06056276f3ce1",
+   "8": "c1f06056276f3ce1",
+   "unset": "c1f06056276f3ce1"
+  },
+  "np.sum(v)": {
+   "1": "2c67b3570edbf283",
+   "2": "2c67b3570edbf283",
+   "8": "2c67b3570edbf283",
+   "unset": "2c67b3570edbf283"
+  },
+  "np.cumsum(v)": {
+   "1": "2df373c2be99b6e0",
+   "2": "2df373c2be99b6e0",
+   "8": "2df373c2be99b6e0",
+   "unset": "2df373c2be99b6e0"
+  },
+  "elementwise exp/mul": {
+   "1": "3ea4bb79271e1457",
+   "2": "3ea4bb79271e1457",
+   "8": "3ea4bb79271e1457",
+   "unset": "3ea4bb79271e1457"
+  },
+  "np.power(v, 4)": {
+   "1": "c7c5a4fdabcfa9be",
+   "2": "c7c5a4fdabcfa9be",
+   "8": "c7c5a4fdabcfa9be",
+   "unset": "c7c5a4fdabcfa9be"
+  },
+  "np.bincount weights": {
+   "1": "de90fc9aaa091cd2",
+   "2": "de90fc9aaa091cd2",
+   "8": "de90fc9aaa091cd2",
+   "unset": "de90fc9aaa091cd2"
+  },
+  "scipy splu solve": {
+   "1": "f4de44ffafdb604e",
+   "2": "f4de44ffafdb604e",
+   "8": "f4de44ffafdb604e",
+   "unset": "f4de44ffafdb604e"
+  },
+  "scipy spsolve": {
+   "1": "f4de44ffafdb604e",
+   "2": "f4de44ffafdb604e",
+   "8": "f4de44ffafdb604e",
+   "unset": "f4de44ffafdb604e"
+  },
+  "scipy cg": {
+   "1": "0222eb41e3a64a03",
+   "2": "0222eb41e3a64a03",
+   "8": "0222eb41e3a64a03",
+   "unset": "0222eb41e3a64a03"
+  }
+ },
+ "layout": {
+  "np.sum C-order == np.sum of transposed copy": true,
+  "np.sum(contiguous) == np.sum(strided view of the same values)": true,
+  "np.sum(x) == sequential python sum(x)": true,
+  "x.sum(axis=0).sum() == x.sum()": true
+ }
+}

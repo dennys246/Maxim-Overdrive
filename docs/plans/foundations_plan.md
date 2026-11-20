@@ -5,17 +5,9 @@ Where things stand, what comes next, what is open. Paths are on
 question is present (not true) and the 2,500-word budget. Source: the review in `docs/plans/reviews/`;
 `reviews/fold.md` maps each finding to where it went and keys the ids; `checklists.md` holds the steps' items.
 
-## 1. Status, as of 2026-11-18
+## 1. Status, as of 2026-11-20
 
-| PR | Branch (worktree) | Base | Owner |
-|---|---|---|---|
-| #1 | `phase1/standards` | `main` | this line |
-| #2 | `phase1/act-validation` | `phase1/standards` | the other session |
-| #3 | `phase1/realtime-design` | `phase1/standards` | the other session |
-| #4 | `phase1/design-v2` | `phase1/standards` | this line |
-| — | `phase1/tile-spec` (step 0d) | `phase1/design-v2` | this line |
-
-Each branch has a same-named worktree under `.worktrees/`.
+PRs #1–#13 are merged into `main`; open PRs are on GitHub. Each branch has a same-named worktree under `.worktrees/`.
 
 **Security gate.** Private since 2026-11-17. design-v2's history and PR #4 hold OD-I5's details; before going
 public, the owner decides on a force-push plus GitHub support for PR #4's refs. Security findings go to private notes.
@@ -38,7 +30,7 @@ fuel-mass law, the same apart from detail at each rendering tier.
 | 4 | `phase1/verify`, slim: refine space and time separately; heat retrofitted; the resolution rule becomes the verification rule (D20) | 3b | this line | the harness | heat's order-of-accuracy test passes for the right reason | Physics and resolution | |
 | 5a | `phase1/sim-clock` (O34): `Simulation`, tick (T3), 0.1 m truth, law list, field registry, intent log | 4, 3b | this line | a composition note | bit-identical replay; CPU time measured | Physics, Determinism, Performance | B2, B5 |
 | 5b | `phase1/bodies`: bodies, `move`/`move_to`, vocabulary v1 | 5a | this line | the actor table | replay of a movement script | Determinism, Wire | |
-| 6 | Fire (D30, T13): 6a open-air loss, 6b skin, 6c porous bed, 6d char oxidation; constants cited, never fitted | 5b | this line | flip `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating` red-first | tile §6.3 passes at three grids, or fails to the owner | Physics, Determinism | fire burnout gap |
+| 6 | Fire (D30, T13, T17): char-oxidation research first; 6a open-air loss, 6b skin, 6c porous bed, 6d char oxidation, the accelerant's pore loading (T18); constants cited, never fitted | 5b | this line | flip `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating` red-first | tile §6.3 passes at three grids, or fails to the owner | Physics, Determinism | fire burnout gap |
 | 7 | `phase1/protocol` v0: versioned `welcome`, `intent_result`, `regions`; WebSocket on 127.0.0.1 with the token and `Origin` refusal; golden fixtures read by Python and Godot; the guest-join red gate | 5b, 2, 0d | this line | `tests/fixtures/wire/` | both readers pass the fixtures | Wire, Trust, Concurrency, Determinism | B3, B14 |
 | 8 | The tile: the alley, movement, the client drawing snapshots, one crack-and-glow shader (never colour alone), golden screenshots per tier | 6, 7, 0d | this line | the alley scene | the exit scenario passes automatically, then a playtest | Client and rendering, Physics | B7 |
 | 9 | Save v0: grid, scene, actor and pilots tables | 8 | this line | save fixture | round trip, golden save | Wire, Determinism | B4 |
@@ -185,6 +177,8 @@ stays a nit; OD-I6 is new.
 | T14 | Point-source flame radiation into bodies |
 | T15 | 20 mm slats at φ 0.25 |
 | T16 | Protocol v0 freezes only sent kinds |
+| T17 | An accelerant lights the crate; char research first |
+| T18 | Accelerant as a pore-loading field; SEM reads, never decides |
 
 Unnumbered (npcs §0): the thought-cost unit as fine as useful; test per Maxim tier.
 
@@ -215,6 +209,7 @@ Unnumbered (npcs §0): the thought-cost unit as fine as useful; test per Maxim t
 1. T14.
 2. T15.
 3. T16.
+4. T18.
 
 ### Open: client §10
 None (T8–T12).

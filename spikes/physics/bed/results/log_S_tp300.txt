@@ -1,0 +1,1 @@
+{"name": "S_tp300", "t_ignite": NaN, "t_crack": NaN, "t_glow": NaN, "t_gone": NaN, "glow_longest_s": 0.0, "ember_peak_c": 300.0000000000001, "ember_mean_c": 70.19646074793272, "ledger_worst_rel": 5.798028723802417e-15, "wall_s": 119.42200183868408}

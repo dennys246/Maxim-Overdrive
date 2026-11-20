@@ -1,0 +1,1 @@
+{"name": "F_kw15", "t_ignite": 0.5, "t_crack": 41.5, "t_glow": NaN, "t_gone": NaN, "glow_longest_s": 0.0, "ember_peak_c": 380.0000000000001, "ember_mean_c": 36.32741175163943, "ledger_worst_rel": 1.6510927435477363e-14, "wall_s": 122.7043468952179}

@@ -1,0 +1,1 @@
+{"name": "F_chir33", "t_ignite": 0.5, "t_crack": 42.0, "t_glow": NaN, "t_gone": NaN, "glow_longest_s": 0.0, "ember_peak_c": 380.0000000000001, "ember_mean_c": 35.56600317498728, "ledger_worst_rel": 1.2532273962422589e-14, "wall_s": 130.12864208221436}

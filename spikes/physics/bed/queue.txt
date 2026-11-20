@@ -1,0 +1,40 @@
+F_nom_005 0.05 0 ignite_base_m=0.6
+F_nom_01 0.1 0 ignite_base_m=0.6
+F_nom_02 0.2 0 ignite_base_m=0.6
+S_nom_005 0.05 6000 1800
+S_nom_01 0.1 6000 1800
+S_nom_02 0.2 6000 1800
+F_nom_01_rerun 0.1 0 ignite_base_m=0.6
+B_nom_01 0.1 0 1800 ignite_base_m=0.1
+B_nom_005 0.05 0 1800 ignite_base_m=0.1
+F_qf15 0.1 0 ignite_base_m=0.6 q_f=15000
+F_qf35 0.1 0 ignite_base_m=0.6 q_f=35000
+F_tp300 0.1 0 ignite_base_m=0.6 t_p_c=300
+F_tp364 0.1 0 ignite_base_m=0.6 t_p_c=364
+F_chi20 0.1 0 ignite_base_m=0.6 chi_char=0.2
+F_chi30 0.1 0 ignite_base_m=0.6 chi_char=0.3
+F_eps85 0.1 0 ignite_base_m=0.6 eps=0.85
+F_eps95 0.1 0 ignite_base_m=0.6 eps=0.95
+F_henv5 0.1 0 ignite_base_m=0.6 h_env=5
+F_mc25 0.1 0 ignite_base_m=0.6 m_crit=0.0025
+F_mc393 0.1 0 ignite_base_m=0.6 m_crit=0.00393
+F_diff 0.1 0 ignite_base_m=0.6 kinetics=0
+F_co2 0.1 0 ignite_base_m=0.6 product=co2
+F_cobed 0.1 0 ignite_base_m=0.6 co_burns_in_bed=1
+F_spec6d 0.1 0 ignite_base_m=0.6 kinetics=0 product=co2
+F_chir27 0.1 0 ignite_base_m=0.6 chi_r=0.27
+F_chir33 0.1 0 ignite_base_m=0.6 chi_r=0.33
+F_kw106 0.1 0 ignite_base_m=0.6 k_wood=0.106
+F_kw15 0.1 0 ignite_base_m=0.6 k_wood=0.15
+F_cw1236 0.1 0 ignite_base_m=0.6 c_wood=1236
+F_cw2630 0.1 0 ignite_base_m=0.6 c_wood=2630
+F_p1 0.1 0 ignite_base_m=0.6 feedback_mode=p1
+S_tp300 0.1 6000 1800 t_p_c=300
+S_qf35 0.1 6000 1800 q_f=35000
+S_p1 0.1 6000 1800 feedback_mode=p1
+S_kw106 0.1 6000 1800 k_wood=0.106
+S_cw1236 0.1 6000 1800 c_wood=1236
+S_henv5 0.1 6000 1800 h_env=5
+S_eps95 0.1 6000 1800 eps=0.95
+S_mc25 0.1 6000 1800 m_crit=0.0025
+S_longpilot_01 0.1 18000 2400

@@ -1,0 +1,1 @@
+{"name": "F_chi30", "t_ignite": 0.5, "t_crack": 39.0, "t_glow": NaN, "t_gone": NaN, "glow_longest_s": 0.0, "ember_peak_c": 380.0000000000001, "ember_mean_c": 41.47316434120839, "ledger_worst_rel": 1.5182742886284463e-14, "wall_s": 140.45460104942322}
