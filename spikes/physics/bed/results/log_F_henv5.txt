@@ -1,0 +1,1 @@
+{"name": "F_henv5", "t_ignite": 0.5, "t_crack": 41.0, "t_glow": NaN, "t_gone": NaN, "glow_longest_s": 0.0, "ember_peak_c": 380.0000000000001, "ember_mean_c": 37.23649880640338, "ledger_worst_rel": 1.5455767908272475e-14, "wall_s": 132.67863607406616}

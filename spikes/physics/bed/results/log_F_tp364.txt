@@ -1,0 +1,1 @@
+{"name": "F_tp364", "t_ignite": 0.5, "t_crack": 41.0, "t_glow": NaN, "t_gone": NaN, "glow_longest_s": 0.0, "ember_peak_c": 364.0000000000001, "ember_mean_c": 36.52099814928897, "ledger_worst_rel": 1.8899098691806264e-14, "wall_s": 165.85446310043335}

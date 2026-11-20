@@ -1,0 +1,2818 @@
+{
+ "determinism": {
+  "bit_identical": true,
+  "runs": 2,
+  "sha256": "5b91a98313f99166c53d2322eb654e37f931a240b20f0b5236a860053cc78e76"
+ },
+ "results": {
+  "rows": [
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 6037.550167134172,
+     "gross_K_per_min[c=2980]": 1.7365916108727244,
+     "gross_K_per_min[c=3470]": 1.4913668589051061,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 1.5886957984485104,
+     "net_K_per_min[c=3470]": 1.3643554695609685
+    },
+    "d": 1.0,
+    "model": "point",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 18.545628102918606,
+    "q_mean": 12.710631930808784,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 299.70279762970483,
+      "t_burn1": 4.11,
+      "t_burn2": 4.44,
+      "t_pain": {
+       "43.0C": 0.9881279606961383,
+       "44.8C": 1.2490528205526044
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 188.1885311966049,
+      "t_burn1": 20.36,
+      "t_burn2": 21.830000000000002,
+      "t_pain": {
+       "43.0C": 8.726444441781577,
+       "44.8C": 10.107585171492943
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 193.57632890004516,
+      "t_burn1": 16.35,
+      "t_burn2": 17.71,
+      "t_pain": {
+       "43.0C": 5.9146036613559,
+       "44.8C": 7.003862869188416
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 5375.408756163923,
+     "gross_K_per_min[c=2980]": 1.546138664284925,
+     "gross_K_per_min[c=3470]": 1.327807844256218,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 1.398242851860711,
+     "net_K_per_min[c=3470]": 1.2007964549120804
+    },
+    "d": 1.0,
+    "model": "solid E=chi_rQ/A",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 12.409173079355925,
+    "q_mean": 11.31665001297668,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 226.79794374649003,
+      "t_burn1": 7.640000000000001,
+      "t_burn2": 8.33,
+      "t_pain": {
+       "43.0C": 1.8287405200648557,
+       "44.8C": 2.3647456100747504
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 136.16372055605802,
+      "t_burn1": 34.92,
+      "t_burn2": 37.92,
+      "t_pain": {
+       "43.0C": 13.508297197721333,
+       "44.8C": 16.22990542545357
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 141.50528644071676,
+      "t_burn1": 28.900000000000002,
+      "t_burn2": 31.6,
+      "t_pain": {
+       "43.0C": 9.473157417221781,
+       "44.8C": 11.76218185964014
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 7992.09740045276,
+     "gross_K_per_min[c=2980]": 2.2987816108684833,
+     "gross_K_per_min[c=3470]": 1.974169798382732,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 2.150885798444269,
+     "net_K_per_min[c=3470]": 1.8471584090385944
+    },
+    "d": 1.0,
+    "model": "solid E=Shokri-Beyler",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 18.44981924315348,
+    "q_mean": 16.825468211479496,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 298.65986716185625,
+      "t_burn1": 4.14,
+      "t_burn2": 4.48,
+      "t_pain": {
+       "43.0C": 0.995618408088564,
+       "44.8C": 1.2589109699152277
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 187.39222483894594,
+      "t_burn1": 20.5,
+      "t_burn2": 21.990000000000002,
+      "t_pain": {
+       "43.0C": 8.773073832467423,
+       "44.8C": 10.165476349456721
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 192.78293903436793,
+      "t_burn1": 16.47,
+      "t_burn2": 17.84,
+      "t_pain": {
+       "43.0C": 5.948224837386765,
+       "44.8C": 7.047271162301558
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 3387.872521826785,
+     "gross_K_per_min[c=2980]": 0.9744599775148951,
+     "gross_K_per_min[c=3470]": 0.8368561190185554,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.8265641650906812,
+     "net_K_per_min[c=3470]": 0.7098447296744178
+    },
+    "d": 1.0,
+    "model": "point",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 9.596991230164447,
+    "q_mean": 7.1323632038458635,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 188.70498440145684,
+      "t_burn1": 11.48,
+      "t_burn2": 12.57,
+      "t_pain": {
+       "43.0C": 2.7923635923299837,
+       "44.8C": 3.65742761808275
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 111.90371688028137,
+      "t_burn1": 49.88,
+      "t_burn2": 54.54,
+      "t_pain": {
+       "43.0C": 18.434227693750373,
+       "44.8C": 22.839130771684367
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 116.96835589570941,
+      "t_burn1": 41.72,
+      "t_burn2": 45.83,
+      "t_pain": {
+       "43.0C": 13.336409549909561,
+       "44.8C": 17.1507461822568
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 3462.5095721025336,
+     "gross_K_per_min[c=2980]": 0.9959279689652543,
+     "gross_K_per_min[c=3470]": 0.8552926073534459,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.8480321565410402,
+     "net_K_per_min[c=3470]": 0.7282812180093082
+    },
+    "d": 1.0,
+    "model": "solid E=chi_rQ/A",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 8.311886018846971,
+    "q_mean": 7.2894938360053345,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 170.19154349867648,
+      "t_burn1": 14.44,
+      "t_burn2": 15.83,
+      "t_pain": {
+       "43.0C": 3.570601009567587,
+       "44.8C": 4.707816856442916
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 100.83287487851129,
+      "t_burn1": 61.04,
+      "t_burn2": 67.0,
+      "t_pain": {
+       "43.0C": 22.228074986292384,
+       "44.8C": 28.045041414072326
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 105.67997676055256,
+      "t_burn1": 51.2,
+      "t_burn2": 56.39,
+      "t_pain": {
+       "43.0C": 16.404938301900668,
+       "44.8C": 21.466122842685582
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 7222.258724766795,
+     "gross_K_per_min[c=2980]": 2.077351502809241,
+     "gross_K_per_min[c=3470]": 1.78400791883906,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 1.9294556903850273,
+     "net_K_per_min[c=3470]": 1.6569965294949225
+    },
+    "d": 1.0,
+    "model": "solid E=Shokri-Beyler",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 17.33730696444903,
+    "q_mean": 15.204755210035358,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 286.3437440718292,
+      "t_burn1": 4.55,
+      "t_burn2": 4.93,
+      "t_pain": {
+       "43.0C": 1.0909722191215647,
+       "44.8C": 1.3846153605743399
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 178.10276091356127,
+      "t_burn1": 22.240000000000002,
+      "t_burn2": 23.900000000000002,
+      "t_pain": {
+       "43.0C": 9.357922817468907,
+       "44.8C": 10.894820899728877
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 183.52095589710518,
+      "t_burn1": 17.96,
+      "t_burn2": 19.5,
+      "t_pain": {
+       "43.0C": 6.371818004523881,
+       "44.8C": 7.597097307773767
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "550C",
+    "core": {
+     "absorbed_W": 1321.786941590585,
+     "gross_K_per_min[c=2980]": 0.3801879985399574,
+     "gross_K_per_min[c=3470]": 0.32650150883258583,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.23229218611574345,
+     "net_K_per_min[c=3470]": 0.19949011948844828
+    },
+    "d": 1.0,
+    "model": "point",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 5.3911812915661015,
+    "q_mean": 2.7827093507170213,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 125.37735560248512,
+      "t_burn1": 28.54,
+      "t_burn2": 31.37,
+      "t_pain": {
+       "43.0C": 7.7511568517245655,
+       "44.8C": 10.386282106201001
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 76.01342597040082,
+      "t_burn1": 113.53,
+      "t_burn2": 126.32000000000001,
+      "t_pain": {
+       "43.0C": 41.38634441770445,
+       "44.8C": 54.68668794305538
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 80.0341523880528,
+      "t_burn1": 94.98,
+      "t_burn2": 105.64,
+      "t_pain": {
+       "43.0C": 32.221281357962134,
+       "44.8C": 43.393881014169416
+      }
+     }
+    },
+    "z_at_max": 0.3
+   },
+   {
+    "case": "550C",
+    "core": {
+     "absorbed_W": 1199.8757183530481,
+     "gross_K_per_min[c=2980]": 0.34512245014948656,
+     "gross_K_per_min[c=3470]": 0.29638757966728235,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.19722663772527263,
+     "net_K_per_min[c=3470]": 0.1693761903231448
+    },
+    "d": 1.0,
+    "model": "view factor",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 4.338802331199366,
+    "q_mean": 2.5260541439011543,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 108.27326759070934,
+      "t_burn1": 39.83,
+      "t_burn2": 43.82,
+      "t_pain": {
+       "43.0C": 11.607719222185775,
+       "44.8C": 15.587093326124707
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 67.31168945665951,
+      "t_burn1": 156.71,
+      "t_burn2": 176.02,
+      "t_pain": {
+       "43.0C": 58.08179868872716,
+       "44.8C": 78.15701681313693
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 70.86907509753928,
+      "t_burn1": 130.15,
+      "t_burn2": 145.82,
+      "t_pain": {
+       "43.0C": 45.85492389605627,
+       "44.8C": 62.244074801641744
+      }
+     }
+    },
+    "z_at_max": 0.3
+   },
+   {
+    "case": "920C",
+    "core": {
+     "absorbed_W": 5908.578825647922,
+     "gross_K_per_min[c=2980]": 1.6994953477414925,
+     "gross_K_per_min[c=3470]": 1.459508972988371,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 1.5515995353172785,
+     "net_K_per_min[c=3470]": 1.3324975836442332
+    },
+    "d": 1.0,
+    "model": "point",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 24.099360208722146,
+    "q_mean": 12.43911331715352,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 355.8081885076948,
+      "t_burn1": 2.7800000000000002,
+      "t_burn2": 2.99,
+      "t_pain": {
+       "43.0C": 0.6839486548096303,
+       "44.8C": 0.8506011135633923
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 233.22803541397843,
+      "t_burn1": 14.63,
+      "t_burn2": 15.540000000000001,
+      "t_pain": {
+       "43.0C": 6.718776599695187,
+       "44.8C": 7.652248344076948
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 238.3422126084393,
+      "t_burn1": 11.44,
+      "t_burn2": 12.290000000000001,
+      "t_pain": {
+       "43.0C": 4.488595700058237,
+       "44.8C": 5.1963247122437854
+      }
+     }
+    },
+    "z_at_max": 0.3
+   },
+   {
+    "case": "920C",
+    "core": {
+     "absorbed_W": 5363.618023293997,
+     "gross_K_per_min[c=2980]": 1.542747274197698,
+     "gross_K_per_min[c=3470]": 1.324895353633758,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 1.3948514617734842,
+     "net_K_per_min[c=3470]": 1.1978839642896204
+    },
+    "d": 1.0,
+    "model": "view factor",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 19.39507402906168,
+    "q_mean": 11.291827417461047,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 308.8302265912823,
+      "t_burn1": 3.84,
+      "t_burn2": 4.15,
+      "t_pain": {
+       "43.0C": 0.9260931574962076,
+       "44.8C": 1.1674634202139997
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 195.22189546512328,
+      "t_burn1": 19.22,
+      "t_burn2": 20.57,
+      "t_pain": {
+       "43.0C": 8.335780621844043,
+       "44.8C": 9.6240901356031
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 200.58041489968326,
+      "t_burn1": 15.36,
+      "t_burn2": 16.62,
+      "t_pain": {
+       "43.0C": 5.633804045297192,
+       "44.8C": 6.642697995902123
+      }
+     }
+    },
+    "z_at_max": 0.3
+   },
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 1922.2590361411415,
+     "gross_K_per_min[c=2980]": 0.5529028867136553,
+     "gross_K_per_min[c=3470]": 0.47482726294141003,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.4050070742894414,
+     "net_K_per_min[c=3470]": 0.3478158735972724
+    },
+    "d": 2.0,
+    "model": "point",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 4.637134590472152,
+    "q_mean": 4.046861128718192,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 113.17390655578595,
+      "t_burn1": 35.99,
+      "t_burn2": 39.58,
+      "t_pain": {
+       "43.0C": 10.251588484639589,
+       "44.8C": 13.766427081417898
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 69.75905030341795,
+      "t_burn1": 141.82,
+      "t_burn2": 158.8,
+      "t_pain": {
+       "43.0C": 52.27194453084236,
+       "44.8C": 69.95065720433219
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 73.45956113041609,
+      "t_burn1": 118.10000000000001,
+      "t_burn2": 132.0,
+      "t_pain": {
+       "43.0C": 41.13661434376001,
+       "44.8C": 55.70019170359007
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 2042.8732130776912,
+     "gross_K_per_min[c=2980]": 0.5875953633013493,
+     "gross_K_per_min[c=3470]": 0.5046208019129744,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.4396995508771354,
+     "net_K_per_min[c=3470]": 0.3776094125688368
+    },
+    "d": 2.0,
+    "model": "solid E=chi_rQ/A",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 4.749304856052589,
+    "q_mean": 4.300785711742508,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 115.0058776139781,
+      "t_burn1": 34.69,
+      "t_burn2": 38.160000000000004,
+      "t_pain": {
+       "43.0C": 9.804757396447888,
+       "44.8C": 13.164526755246989
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 70.68351003785324,
+      "t_burn1": 136.86,
+      "t_burn2": 153.08,
+      "t_pain": {
+       "43.0C": 50.346089750789304,
+       "44.8C": 67.2404320977022
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 74.4352883851231,
+      "t_burn1": 114.07000000000001,
+      "t_burn2": 127.38000000000001,
+      "t_pain": {
+       "43.0C": 39.56648668219466,
+       "44.8C": 53.52820218595924
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 3037.3209622377067,
+     "gross_K_per_min[c=2980]": 0.8736301904806443,
+     "gross_K_per_min[c=3470]": 0.7502645439862594,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.7257343780564305,
+     "net_K_per_min[c=3470]": 0.6232531546421218
+    },
+    "d": 2.0,
+    "model": "solid E=Shokri-Beyler",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 7.061213149695973,
+    "q_mean": 6.394359920500436,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 151.47482083594036,
+      "t_burn1": 18.71,
+      "t_burn2": 20.53,
+      "t_pain": {
+       "43.0C": 4.753534727947932,
+       "44.8C": 6.311519414447106
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 90.1219825707887,
+      "t_burn1": 76.92,
+      "t_burn2": 84.82000000000001,
+      "t_pain": {
+       "43.0C": 27.819352837200324,
+       "44.8C": 35.79115086435828
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 94.68180162811501,
+      "t_burn1": 64.58,
+      "t_burn2": 71.35000000000001,
+      "t_pain": {
+       "43.0C": 21.003864615451523,
+       "44.8C": 27.894823605844945
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 1039.1826014882718,
+     "gross_K_per_min[c=2980]": 0.2989019946754377,
+     "gross_K_per_min[c=3470]": 0.25669393202674473,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.15100618225122384,
+     "net_K_per_min[c=3470]": 0.1296825426826072
+    },
+    "d": 2.0,
+    "model": "point",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 2.3992575272070824,
+    "q_mean": 2.187752845238467,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 75.4163911471577,
+      "t_burn1": 97.55,
+      "t_burn2": 108.35000000000001,
+      "t_pain": {
+       "43.0C": 34.54434765033226,
+       "44.8C": 45.79869744249227
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 51.934881793114585,
+      "t_burn1": 410.85,
+      "t_burn2": 483.90000000000003,
+      "t_pain": {
+       "43.0C": 160.24729663021412,
+       "44.8C": 232.74394275257274
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 54.258161563038016,
+      "t_burn1": 326.3,
+      "t_burn2": 379.15000000000003,
+      "t_pain": {
+       "43.0C": 125.13891117968039,
+       "44.8C": 177.80508440216303
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 1182.2291397938473,
+     "gross_K_per_min[c=2980]": 0.3400467324431008,
+     "gross_K_per_min[c=3470]": 0.29202860595978114,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.19215092001888695,
+     "net_K_per_min[c=3470]": 0.16501721661564356
+    },
+    "d": 2.0,
+    "model": "solid E=chi_rQ/A",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 2.7372171068312996,
+    "q_mean": 2.4889034521975737,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 81.26495028894095,
+      "t_burn1": 79.85000000000001,
+      "t_burn2": 88.4,
+      "t_pain": {
+       "43.0C": 27.23450075839409,
+       "44.8C": 36.190523296381485
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 54.5318670243978,
+      "t_burn1": 326.12,
+      "t_burn2": 378.35,
+      "t_pain": {
+       "43.0C": 125.924025887971,
+       "44.8C": 178.3653637616143
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 57.115933503470785,
+      "t_burn1": 262.75,
+      "t_burn2": 301.85,
+      "t_pain": {
+       "43.0C": 99.20375009059988,
+       "44.8C": 138.70267744832472
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 2465.946892491887,
+     "gross_K_per_min[c=2980]": 0.7092848204674651,
+     "gross_K_per_min[c=3470]": 0.6091264452429528,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.5613890080432512,
+     "net_K_per_min[c=3470]": 0.4821150558988152
+    },
+    "d": 2.0,
+    "model": "solid E=Shokri-Beyler",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 5.709410969047242,
+    "q_mean": 5.191467142088183,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 130.44890063341205,
+      "t_burn1": 26.11,
+      "t_burn2": 28.69,
+      "t_pain": {
+       "43.0C": 6.976027227870284,
+       "44.8C": 9.333499492132976
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 78.67810150877716,
+      "t_burn1": 104.43,
+      "t_burn2": 115.94,
+      "t_pain": {
+       "43.0C": 37.94412374025332,
+       "44.8C": 49.882864388909304
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 82.81808196924715,
+      "t_burn1": 87.47,
+      "t_burn2": 97.14,
+      "t_pain": {
+       "43.0C": 29.382524915703794,
+       "44.8C": 39.48223871456338
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "550C",
+    "core": {
+     "absorbed_W": 364.57937554359063,
+     "gross_K_per_min[c=2980]": 0.10486463342576911,
+     "gross_K_per_min[c=3470]": 0.09005665925325416,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": -0.04303117899844476,
+     "net_K_per_min[c=3470]": -0.036954730090883396
+    },
+    "d": 2.0,
+    "model": "point",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 0.9140757207153597,
+    "q_mean": 0.7675355274601909,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 49.11244016947495,
+      "t_burn1": 526.92,
+      "t_burn2": 635.92,
+      "t_pain": {
+       "43.0C": 212.92666919041702,
+       "44.8C": 311.8029208044272
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 41.13638372609671,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": null,
+       "44.8C": null
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 41.97604528465479,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": null,
+       "44.8C": null
+      }
+     }
+    },
+    "z_at_max": 0.3
+   },
+   {
+    "case": "550C",
+    "core": {
+     "absorbed_W": 357.1268651021594,
+     "gross_K_per_min[c=2980]": 0.10272105420004585,
+     "gross_K_per_min[c=3470]": 0.0882157756530653,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": -0.04517475822416803,
+     "net_K_per_min[c=3470]": -0.038795613691072255
+    },
+    "d": 2.0,
+    "model": "view factor",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 0.8777037333132582,
+    "q_mean": 0.7518460317940199,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 48.456190822815074,
+      "t_burn1": 578.85,
+      "t_burn2": 705.84,
+      "t_pain": {
+       "43.0C": 233.49673122306973,
+       "44.8C": 348.32076262344344
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 40.88757849644111,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": null,
+       "44.8C": null
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 41.68222559653725,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": null,
+       "44.8C": null
+      }
+     }
+    },
+    "z_at_max": 0.3
+   },
+   {
+    "case": "920C",
+    "core": {
+     "absorbed_W": 1629.7225451573836,
+     "gross_K_per_min[c=2980]": 0.46876008010279485,
+     "gross_K_per_min[c=3470]": 0.4025662935753109,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.320864267678581,
+     "net_K_per_min[c=3470]": 0.2755549042311733
+    },
+    "d": 2.0,
+    "model": "point",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 4.086050692828322,
+    "q_mean": 3.430994831910281,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 104.08924945907745,
+      "t_burn1": 43.63,
+      "t_burn2": 48.03,
+      "t_pain": {
+       "43.0C": 12.987045576163487,
+       "44.8C": 17.429817483605873
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 65.25219785633595,
+      "t_burn1": 171.64000000000001,
+      "t_burn2": 193.4,
+      "t_pain": {
+       "43.0C": 63.95518705015985,
+       "44.8C": 86.50363134362652
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 68.68014371742811,
+      "t_burn1": 142.17000000000002,
+      "t_burn2": 159.67000000000002,
+      "t_pain": {
+       "43.0C": 50.59760931480099,
+       "44.8C": 68.8510647318933
+      }
+     }
+    },
+    "z_at_max": 0.3
+   },
+   {
+    "case": "920C",
+    "core": {
+     "absorbed_W": 1596.408745477102,
+     "gross_K_per_min[c=2980]": 0.4591779708946602,
+     "gross_K_per_min[c=3470]": 0.3943372775982961,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.3112821584704463,
+     "net_K_per_min[c=3470]": 0.2673258882541585
+    },
+    "d": 2.0,
+    "model": "view factor",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 3.9234626479258816,
+    "q_mean": 3.3608605167938994,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 101.38223133705736,
+      "t_burn1": 46.39,
+      "t_burn2": 51.09,
+      "t_pain": {
+       "43.0C": 14.011662733841192,
+       "44.8C": 18.79327814928982
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 63.934717856237455,
+      "t_burn1": 182.65,
+      "t_burn2": 206.27,
+      "t_pain": {
+       "43.0C": 68.30711322302503,
+       "44.8C": 92.72343220687426
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 67.27516098095163,
+      "t_burn1": 150.99,
+      "t_burn2": 169.86,
+      "t_pain": {
+       "43.0C": 54.09479261284494,
+       "44.8C": 73.74372194693551
+      }
+     }
+    },
+    "z_at_max": 0.3
+   },
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 915.6696825141329,
+     "gross_K_per_min[c=2980]": 0.26337574760713317,
+     "gross_K_per_min[c=3470]": 0.2261843596165005,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.11547993518291927,
+     "net_K_per_min[c=3470]": 0.09917297027236294
+    },
+    "d": 3.0,
+    "model": "point",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 2.061008598029277,
+    "q_mean": 1.9277256473981745,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 69.51141592208421,
+      "t_burn1": 123.29,
+      "t_burn2": 137.6,
+      "t_pain": {
+       "43.0C": 45.32719878595775,
+       "44.8C": 60.07516448995673
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 49.38054270492114,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": 215.47989448530885,
+       "44.8C": 326.88764845445513
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 51.41821540421421,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": 165.53115556482538,
+       "44.8C": 241.70009175352695
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 1045.3895974735794,
+     "gross_K_per_min[c=2980]": 0.30068732429729034,
+     "gross_K_per_min[c=3470]": 0.2582271545838401,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.1527915118730765,
+     "net_K_per_min[c=3470]": 0.13121576523970255
+    },
+    "d": 3.0,
+    "model": "solid E=chi_rQ/A",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 2.3563915012490226,
+    "q_mean": 2.2008202052075356,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 74.67089553313821,
+      "t_burn1": 100.28,
+      "t_burn2": 111.43,
+      "t_pain": {
+       "43.0C": 35.67957367646558,
+       "44.8C": 47.295125908697784
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 51.608577362970834,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": 165.78635145339592,
+       "44.8C": 241.79008750162126
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 53.89708415286498,
+      "t_burn1": 336.39,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": 129.26336614717,
+       "44.8C": 184.15456459648908
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 1554.2735191716401,
+     "gross_K_per_min[c=2980]": 0.44705853859203454,
+     "gross_K_per_min[c=3470]": 0.3839292348715455,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.29916272616782064,
+     "net_K_per_min[c=3470]": 0.256917845527408
+    },
+    "d": 3.0,
+    "model": "solid E=Shokri-Beyler",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 3.503456433891889,
+    "q_mean": 3.272154777203453,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 94.33305934878246,
+      "t_burn1": 55.04,
+      "t_burn2": 60.69,
+      "t_pain": {
+       "43.0C": 17.3051879945215,
+       "44.8C": 23.151321952272788
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 60.560563440580154,
+      "t_burn1": 217.86,
+      "t_burn2": 247.73000000000002,
+      "t_pain": {
+       "43.0C": 82.31665496279437,
+       "44.8C": 112.96554290137617
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 63.65832269899278,
+      "t_burn1": 178.93,
+      "t_burn2": 202.38,
+      "t_pain": {
+       "43.0C": 65.26037936127166,
+       "44.8C": 89.49288006326678
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 485.1270264312444,
+     "gross_K_per_min[c=2980]": 0.13953797500419304,
+     "gross_K_per_min[c=3470]": 0.11983376527737613,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": -0.008357837420020855,
+     "net_K_per_min[c=3470]": -0.007177624066761425
+    },
+    "d": 3.0,
+    "model": "point",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 1.0663374787344115,
+    "q_mean": 1.021320055644725,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 51.853495179265906,
+      "t_burn1": 380.8,
+      "t_burn2": 446.53000000000003,
+      "t_pain": {
+       "43.0C": 153.59281267701098,
+       "44.8C": 214.82243801880955
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 42.18741426677042,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": null,
+       "44.8C": null
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 43.210207679098914,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": null,
+       "44.8C": null
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 572.4159672299518,
+     "gross_K_per_min[c=2980]": 0.16464505289452114,
+     "gross_K_per_min[c=3470]": 0.14139546329270114,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.016749240470307247,
+     "net_K_per_min[c=3470]": 0.01438407394856357
+    },
+    "d": 3.0,
+    "model": "solid E=chi_rQ/A",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 1.27175920733535,
+    "q_mean": 1.2050862467998986,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 55.53570568484156,
+      "t_burn1": 273.58,
+      "t_burn2": 314.24,
+      "t_pain": {
+       "43.0C": 108.88350735951444,
+       "44.8C": 148.04812026444858
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 43.62849576599763,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": null,
+       "44.8C": null
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 44.885467392985674,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": 497.8290926308431,
+       "44.8C": null
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 1193.9710569556573,
+     "gross_K_per_min[c=2980]": 0.34342408157880844,
+     "gross_K_per_min[c=3470]": 0.2949290383587462,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.19552826915459456,
+     "net_K_per_min[c=3470]": 0.1679176490146086
+    },
+    "d": 3.0,
+    "model": "solid E=Shokri-Beyler",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 2.6526927477641196,
+    "q_mean": 2.513623277801384,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 79.80705048034042,
+      "t_burn1": 83.73,
+      "t_burn2": 92.77,
+      "t_pain": {
+       "43.0C": 28.827390410592464,
+       "44.8C": 38.281017950036194
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 53.87843752142129,
+      "t_burn1": 344.13,
+      "t_burn2": 400.55,
+      "t_pain": {
+       "43.0C": 133.2173600781557,
+       "44.8C": 189.6906694547261
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 56.39943160259992,
+      "t_burn1": 276.40000000000003,
+      "t_burn2": 318.32,
+      "t_pain": {
+       "43.0C": 104.77002308114965,
+       "44.8C": 146.97919961694828
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "550C",
+    "core": {
+     "absorbed_W": 164.3722607466187,
+     "gross_K_per_min[c=2980]": 0.047278694366237405,
+     "gross_K_per_min[c=3470]": 0.04060245222230186,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": -0.10061711805797646,
+     "net_K_per_min[c=3470]": -0.0864089371218357
+    },
+    "d": 3.0,
+    "model": "point",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 0.362370210269875,
+    "q_mean": 0.3460468647297236,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 39.09782051044925,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": null,
+       "44.8C": null
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 37.46472247781537,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": null,
+       "44.8C": null
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 37.56370797977138,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": null,
+       "44.8C": null
+      }
+     }
+    },
+    "z_at_max": 0.3
+   },
+   {
+    "case": "550C",
+    "core": {
+     "absorbed_W": 162.6865731469535,
+     "gross_K_per_min[c=2980]": 0.04679383695502018,
+     "gross_K_per_min[c=3470]": 0.04018606170776949,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": -0.1011019754691937,
+     "net_K_per_min[c=3470]": -0.08682532763636808
+    },
+    "d": 3.0,
+    "model": "view factor",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 0.3565065663457626,
+    "q_mean": 0.34249804873042844,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 38.990694529200994,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": null,
+       "44.8C": null
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 37.42695352819533,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": null,
+       "44.8C": null
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 37.517352259427696,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": null,
+       "44.8C": null
+      }
+     }
+    },
+    "z_at_max": 0.3
+   },
+   {
+    "case": "920C",
+    "core": {
+     "absorbed_W": 734.7677820168508,
+     "gross_K_per_min[c=2980]": 0.21134260268941057,
+     "gross_K_per_min[c=3470]": 0.18149883458629498,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.0634467902651967,
+     "net_K_per_min[c=3470]": 0.0544874452421574
+    },
+    "d": 3.0,
+    "model": "point",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 1.6198472568276883,
+    "q_mean": 1.5468795410881069,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 61.73330611594878,
+      "t_burn1": 181.0,
+      "t_burn2": 204.25,
+      "t_pain": {
+       "43.0C": 69.74467492139487,
+       "44.8C": 93.03418795863865
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 46.12602369425741,
+      "t_burn1": 943.89,
+      "t_burn2": 1213.05,
+      "t_pain": {
+       "43.0C": 369.3877952586952,
+       "44.8C": 670.0317658834505
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 47.74897814073353,
+      "t_burn1": 684.3100000000001,
+      "t_burn2": 846.66,
+      "t_pain": {
+       "43.0C": 269.4867749966028,
+       "44.8C": 429.38947882340017
+      }
+     }
+    },
+    "z_at_max": 0.3
+   },
+   {
+    "case": "920C",
+    "core": {
+     "absorbed_W": 727.2325146113084,
+     "gross_K_per_min[c=2980]": 0.20917521992655083,
+     "gross_K_per_min[c=3470]": 0.17963750875536644,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.061279407502336944,
+     "net_K_per_min[c=3470]": 0.05262611941122885
+    },
+    "d": 3.0,
+    "model": "view factor",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 1.5936359203096728,
+    "q_mean": 1.5310158202343334,
+    "ref": "axis",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 61.26846871275899,
+      "t_burn1": 185.92000000000002,
+      "t_burn2": 210.0,
+      "t_pain": {
+       "43.0C": 71.82975163338773,
+       "44.8C": 95.89399762673273
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 45.93567442854766,
+      "t_burn1": 986.3100000000001,
+      "t_burn2": 1274.64,
+      "t_pain": {
+       "43.0C": 385.11178819752877,
+       "44.8C": 718.5298656630346
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 47.532330699274894,
+      "t_burn1": 709.49,
+      "t_burn2": 881.5600000000001,
+      "t_pain": {
+       "43.0C": 279.3664327685545,
+       "44.8C": 449.69636842440417
+      }
+     }
+    },
+    "z_at_max": 0.3
+   },
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 3996.7251229019776,
+     "gross_K_per_min[c=2980]": 1.1495853661271267,
+     "gross_K_per_min[c=3470]": 0.9872519858959187,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 1.001689553702913,
+     "net_K_per_min[c=3470]": 0.8602405965517811
+    },
+    "d": 1.0,
+    "model": "point",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 10.974681829302257,
+    "q_mean": 8.414158153477848,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 207.77035811922235,
+      "t_burn1": 9.28,
+      "t_burn2": 10.13,
+      "t_pain": {
+       "43.0C": 2.2328188543213248,
+       "44.8C": 2.905498200682259
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 123.79653885853025,
+      "t_burn1": 41.38,
+      "t_burn2": 45.09,
+      "t_pain": {
+       "43.0C": 15.616839181494019,
+       "44.8C": 19.030298637993965
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 129.02590812130757,
+      "t_burn1": 34.45,
+      "t_burn2": 37.75,
+      "t_pain": {
+       "43.0C": 11.106031318998753,
+       "44.8C": 14.024610053986347
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 3821.2475773790675,
+     "gross_K_per_min[c=2980]": 1.0991124383640654,
+     "gross_K_per_min[c=3470]": 0.9439063591714452,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.9512166259398516,
+     "net_K_per_min[c=3470]": 0.8168949698273076
+    },
+    "d": 1.0,
+    "model": "solid E=chi_rQ/A",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 8.94793283219021,
+    "q_mean": 8.044731741850669,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 179.444209381807,
+      "t_burn1": 12.84,
+      "t_burn2": 14.06,
+      "t_pain": {
+       "43.0C": 3.1451549434548056,
+       "44.8C": 4.133014453632856
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 106.3069471401293,
+      "t_burn1": 55.03,
+      "t_burn2": 60.28,
+      "t_pain": {
+       "43.0C": 20.168504861781145,
+       "44.8C": 25.210770546907803
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 111.27039856362455,
+      "t_burn1": 46.1,
+      "t_burn2": 50.7,
+      "t_pain": {
+       "43.0C": 14.731511715138847,
+       "44.8C": 19.113438578256506
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 5681.388005077384,
+     "gross_K_per_min[c=2980]": 1.634148035976237,
+     "gross_K_per_min[c=3470]": 1.4033893795991892,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 1.486252223552023,
+     "net_K_per_min[c=3470]": 1.2763779902550516
+    },
+    "d": 1.0,
+    "model": "solid E=Shokri-Beyler",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 13.303686095605359,
+    "q_mean": 11.960816852794492,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 238.25571737240853,
+      "t_burn1": 6.8500000000000005,
+      "t_burn2": 7.46,
+      "t_pain": {
+       "43.0C": 1.636885127720604,
+       "44.8C": 2.1088245099146214
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 143.85157447297547,
+      "t_burn1": 31.740000000000002,
+      "t_burn2": 34.4,
+      "t_pain": {
+       "43.0C": 12.475536422316717,
+       "44.8C": 14.878288476711077
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 149.23819394977744,
+      "t_burn1": 26.16,
+      "t_burn2": 28.57,
+      "t_pain": {
+       "43.0C": 8.68662315213859,
+       "44.8C": 10.68620802832328
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 2217.483372298321,
+     "gross_K_per_min[c=2980]": 0.6378188031538794,
+     "gross_K_per_min[c=3470]": 0.5477521710082307,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.4899229907296655,
+     "net_K_per_min[c=3470]": 0.4207407816640932
+    },
+    "d": 1.0,
+    "model": "point",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 5.678705559081848,
+    "q_mean": 4.668386046943834,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 129.96158833489352,
+      "t_burn1": 26.330000000000002,
+      "t_burn2": 28.94,
+      "t_pain": {
+       "43.0C": 7.045270297519042,
+       "44.8C": 9.427608676785466
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 78.42041817776862,
+      "t_burn1": 105.25,
+      "t_burn2": 116.88,
+      "t_pain": {
+       "43.0C": 38.25324142625739,
+       "44.8C": 50.313926767729996
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 82.54926861261566,
+      "t_burn1": 88.15,
+      "t_burn2": 97.9,
+      "t_pain": {
+       "43.0C": 29.637786763078395,
+       "44.8C": 39.83403420746494
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 2365.325502421821,
+     "gross_K_per_min[c=2980]": 0.6803429057780884,
+     "gross_K_per_min[c=3470]": 0.5842714291696552,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.5324470933538746,
+     "net_K_per_min[c=3470]": 0.45726003982551766
+    },
+    "d": 1.0,
+    "model": "solid E=chi_rQ/A",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 5.679876954788538,
+    "q_mean": 4.979632636677518,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 129.9801870076551,
+      "t_burn1": 26.32,
+      "t_burn2": 28.93,
+      "t_pain": {
+       "43.0C": 7.042608208886584,
+       "44.8C": 9.423991221627722
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 78.43024649489928,
+      "t_burn1": 105.22,
+      "t_burn2": 116.84,
+      "t_pain": {
+       "43.0C": 38.24136422041489,
+       "44.8C": 50.29736307041677
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 82.55952297623196,
+      "t_burn1": 88.13,
+      "t_burn2": 97.88,
+      "t_pain": {
+       "43.0C": 29.6279800543162,
+       "44.8C": 39.820519186892064
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 4933.702677508015,
+     "gross_K_per_min[c=2980]": 1.4190899360042228,
+     "gross_K_per_min[c=3470]": 1.2186997144935403,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 1.2711941235800088,
+     "net_K_per_min[c=3470]": 1.0916883251494025
+    },
+    "d": 1.0,
+    "model": "solid E=Shokri-Beyler",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 11.847343678941497,
+    "q_mean": 10.386742478964242,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 219.4432236986592,
+      "t_burn1": 8.22,
+      "t_burn2": 8.97,
+      "t_pain": {
+       "43.0C": 1.970578410531785,
+       "44.8C": 2.554309185835219
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 131.32435978614456,
+      "t_burn1": 37.22,
+      "t_burn2": 40.47,
+      "t_pain": {
+       "43.0C": 14.257501111400943,
+       "44.8C": 17.219063550396868
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 136.62831623237287,
+      "t_burn1": 30.88,
+      "t_burn2": 33.8,
+      "t_pain": {
+       "43.0C": 10.049356698007752,
+       "44.8C": 12.556723896038832
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "550C",
+    "core": {
+     "absorbed_W": 813.816236382969,
+     "gross_K_per_min[c=2980]": 0.2340794543766929,
+     "gross_K_per_min[c=3470]": 0.20102500692868727,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.08618364195247903,
+     "net_K_per_min[c=3470]": 0.07401361758454972
+    },
+    "d": 1.0,
+    "model": "point",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 2.641678832867389,
+    "q_mean": 1.7132973397536189,
+    "ref": "face",
+    "skin": {},
+    "z_at_max": 0.3
+   },
+   {
+    "case": "550C",
+    "core": {
+     "absorbed_W": 773.7816081502566,
+     "gross_K_per_min[c=2980]": 0.22256422094446499,
+     "gross_K_per_min[c=3470]": 0.19113584392348867,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.07466840852025111,
+     "net_K_per_min[c=3470]": 0.06412445457935109
+    },
+    "d": 1.0,
+    "model": "view factor",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 2.3599779345795464,
+    "q_mean": 1.6290139118952773,
+    "ref": "face",
+    "skin": {},
+    "z_at_max": 0.3
+   },
+   {
+    "case": "920C",
+    "core": {
+     "absorbed_W": 3637.8762953086402,
+     "gross_K_per_min[c=2980]": 1.0463690207023892,
+     "gross_K_per_min[c=3470]": 0.8986108592775564,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.8984732082781756,
+     "net_K_per_min[c=3470]": 0.7715994699334188
+    },
+    "d": 1.0,
+    "model": "point",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 11.808686502273849,
+    "q_mean": 7.658686937491875,
+    "ref": "face",
+    "skin": {},
+    "z_at_max": 0.3
+   },
+   {
+    "case": "920C",
+    "core": {
+     "absorbed_W": 3458.915716091661,
+     "gross_K_per_min[c=2980]": 0.9948942615795765,
+     "gross_K_per_min[c=3470]": 0.8544048701749677,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.8469984491553626,
+     "net_K_per_min[c=3470]": 0.7273934808308301
+    },
+    "d": 1.0,
+    "model": "view factor",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 10.549442738837504,
+    "q_mean": 7.281927823350866,
+    "ref": "face",
+    "skin": {},
+    "z_at_max": 0.3
+   },
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 1496.0086966922302,
+     "gross_K_per_min[c=2980]": 0.43029972100447655,
+     "gross_K_per_min[c=3470]": 0.36953693619404615,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.28240390858026265,
+     "net_K_per_min[c=3470]": 0.24252554684990857
+    },
+    "d": 2.0,
+    "model": "point",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 3.5063846799681246,
+    "q_mean": 3.149491993036274,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 94.38248584064434,
+      "t_burn1": 54.97,
+      "t_burn2": 60.61,
+      "t_pain": {
+       "43.0C": 17.278341919417105,
+       "44.8C": 23.115920400104567
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 60.58393196317502,
+      "t_burn1": 217.57,
+      "t_burn2": 247.39000000000001,
+      "t_pain": {
+       "43.0C": 82.20201448435148,
+       "44.8C": 112.79848548448939
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 63.683471101881764,
+      "t_burn1": 178.70000000000002,
+      "t_burn2": 202.12,
+      "t_pain": {
+       "43.0C": 65.16956123161896,
+       "44.8C": 89.36395859474224
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 1635.5560432533043,
+     "gross_K_per_min[c=2980]": 0.47043797984275293,
+     "gross_K_per_min[c=3470]": 0.40400725646438146,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.322542167418539,
+     "net_K_per_min[c=3470]": 0.27699586712024393
+    },
+    "d": 2.0,
+    "model": "solid E=chi_rQ/A",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 3.7670687285916413,
+    "q_mean": 3.4432758805332724,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 98.7668647005803,
+      "t_burn1": 49.34,
+      "t_burn2": 54.35,
+      "t_pain": {
+       "43.0C": 15.117852795239651,
+       "44.8C": 20.260774170885536
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 62.673209942400376,
+      "t_burn1": 194.49,
+      "t_burn2": 220.16,
+      "t_pain": {
+       "43.0C": 73.00422618955608,
+       "44.8C": 99.47203580922397
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 65.92617864541927,
+      "t_burn1": 160.42000000000002,
+      "t_burn2": 180.81,
+      "t_pain": {
+       "43.0C": 57.853778667073605,
+       "44.8C": 79.0234849859328
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 2431.726366221092,
+     "gross_K_per_min[c=2980]": 0.6994419078296527,
+     "gross_K_per_min[c=3470]": 0.6006734539862721,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.5515460954054388,
+     "net_K_per_min[c=3470]": 0.4736620646421346
+    },
+    "d": 2.0,
+    "model": "solid E=Shokri-Beyler",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 5.600835500850242,
+    "q_mean": 5.119423928886509,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 128.723801224827,
+      "t_burn1": 26.900000000000002,
+      "t_burn2": 29.57,
+      "t_pain": {
+       "43.0C": 7.2259249768090505,
+       "44.8C": 9.673087643084333
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 77.76745917397187,
+      "t_burn1": 107.38,
+      "t_burn2": 119.31,
+      "t_pain": {
+       "43.0C": 39.05818044745356,
+       "44.8C": 51.43669477174168
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 81.8677289069986,
+      "t_burn1": 89.92,
+      "t_burn2": 99.9,
+      "t_pain": {
+       "43.0C": 30.302188764211465,
+       "44.8C": 40.74960173046286
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 802.4318554672002,
+     "gross_K_per_min[c=2980]": 0.23080494404617455,
+     "gross_K_per_min[c=3470]": 0.19821289142870321,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.08290913162196067,
+     "net_K_per_min[c=3470]": 0.07120150208456565
+    },
+    "d": 2.0,
+    "model": "point",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 1.8141839828183988,
+    "q_mean": 1.689330222036211,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 65.1702727541824,
+      "t_burn1": 150.72,
+      "t_burn2": 169.09,
+      "t_pain": {
+       "43.0C": 56.91181590667056,
+       "44.8C": 75.59424351858479
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 47.548178108953664,
+      "t_burn1": 716.82,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": 282.53153596774854,
+       "44.8C": 456.5062752816183
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 49.360135856462875,
+      "t_burn1": 540.91,
+      "t_burn2": 652.79,
+      "t_pain": {
+       "43.0C": 212.3969663259455,
+       "44.8C": 321.37994050523974
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 927.260724041633,
+     "gross_K_per_min[c=2980]": 0.2667097001078523,
+     "gross_K_per_min[c=3470]": 0.22904752343556187,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.11881388768363836,
+     "net_K_per_min[c=3470]": 0.10203613409142431
+    },
+    "d": 2.0,
+    "model": "solid E=chi_rQ/A",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 2.1145998336666416,
+    "q_mean": 1.9521278400876487,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 70.45039549371495,
+      "t_burn1": 118.47,
+      "t_burn2": 132.1,
+      "t_pain": {
+       "43.0C": 43.298604855755094,
+       "44.8C": 57.37782495006548
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 49.7820284990168,
+      "t_burn1": 520.7,
+      "t_burn2": 625.24,
+      "t_pain": {
+       "43.0C": 204.61506312359154,
+       "44.8C": 307.6223679581777
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 51.86671441185399,
+      "t_burn1": 406.07,
+      "t_burn2": 478.55,
+      "t_pain": {
+       "43.0C": 157.71360951744586,
+       "44.8C": 229.02217251004893
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 1934.1222644697855,
+     "gross_K_per_min[c=2980]": 0.5563151288024311,
+     "gross_K_per_min[c=3470]": 0.4777576610464682,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.4084193163782172,
+     "net_K_per_min[c=3470]": 0.35074627170233064
+    },
+    "d": 2.0,
+    "model": "solid E=Shokri-Beyler",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 4.410727762642867,
+    "q_mean": 4.07183634625218,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 109.45852784431042,
+      "t_burn1": 38.84,
+      "t_burn2": 42.74,
+      "t_pain": {
+       "43.0C": 11.256296739644476,
+       "44.8C": 15.116167957519401
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 67.90015700082489,
+      "t_burn1": 152.87,
+      "t_burn2": 171.58,
+      "t_pain": {
+       "43.0C": 56.58049978794725,
+       "44.8C": 76.03188724258507
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 71.49297716690609,
+      "t_burn1": 127.06,
+      "t_burn2": 142.26,
+      "t_pain": {
+       "43.0C": 44.63829948565776,
+       "44.8C": 60.55410519236317
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "550C",
+    "core": {
+     "absorbed_W": 278.3851555125797,
+     "gross_K_per_min[c=2980]": 0.0800724320745675,
+     "gross_K_per_min[c=3470]": 0.06876537394300034,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": -0.06782338034964638,
+     "net_K_per_min[c=3470]": -0.05824601540113724
+    },
+    "d": 2.0,
+    "model": "point",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 0.6604197082168475,
+    "q_mean": 0.5860740116054309,
+    "ref": "face",
+    "skin": {},
+    "z_at_max": 0.3
+   },
+   {
+    "case": "550C",
+    "core": {
+     "absorbed_W": 273.9285229926905,
+     "gross_K_per_min[c=2980]": 0.07879056270163677,
+     "gross_K_per_min[c=3470]": 0.0676645178244604,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": -0.0691052497225771,
+     "net_K_per_min[c=3470]": -0.05934687151967718
+    },
+    "d": 2.0,
+    "model": "view factor",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 0.6412113823626265,
+    "q_mean": 0.5766916273530326,
+    "ref": "face",
+    "skin": {},
+    "z_at_max": 0.3
+   },
+   {
+    "case": "920C",
+    "core": {
+     "absorbed_W": 1244.4219136080842,
+     "gross_K_per_min[c=2980]": 0.35793535386617953,
+     "gross_K_per_min[c=3470]": 0.3073911684499179,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.21003954144196568,
+     "net_K_per_min[c=3470]": 0.1803797791057803
+    },
+    "d": 2.0,
+    "model": "point",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 2.952171625568463,
+    "q_mean": 2.619835607595967,
+    "ref": "face",
+    "skin": {},
+    "z_at_max": 0.3
+   },
+   {
+    "case": "920C",
+    "core": {
+     "absorbed_W": 1224.500121591419,
+     "gross_K_per_min[c=2980]": 0.3522052123465251,
+     "gross_K_per_min[c=3470]": 0.3024701823609927,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.20430939992231123,
+     "net_K_per_min[c=3470]": 0.17545879301685519
+    },
+    "d": 2.0,
+    "model": "view factor",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 2.8663076305120274,
+    "q_mean": 2.5778949928240404,
+    "ref": "face",
+    "skin": {},
+    "z_at_max": 0.3
+   },
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 764.9384942278584,
+     "gross_K_per_min[c=2980]": 0.22002065989296024,
+     "gross_K_per_min[c=3470]": 0.188951460080986,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.07212484746874637,
+     "net_K_per_min[c=3470]": 0.06194007073684846
+    },
+    "d": 3.0,
+    "model": "point",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 1.7033197634086343,
+    "q_mean": 1.6103968299533862,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 63.21161070430463,
+      "t_burn1": 166.78,
+      "t_burn2": 187.69,
+      "t_pain": {
+       "43.0C": 63.71579446109494,
+       "44.8C": 84.80691199419736
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 46.73456026364369,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": 326.63762847805316,
+       "44.8C": null
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 48.43996925658462,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": 241.91096119136222,
+       "44.8C": 375.42814731466257
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 883.9185413228248,
+     "gross_K_per_min[c=2980]": 0.2542431087218096,
+     "gross_K_per_min[c=3470]": 0.21834134408962327,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.10634729629759575,
+     "net_K_per_min[c=3470]": 0.09132995474548569
+    },
+    "d": 3.0,
+    "model": "solid E=chi_rQ/A",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 1.9768285010892401,
+    "q_mean": 1.8608811396269995,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 68.03390080044437,
+      "t_burn1": 131.59,
+      "t_burn2": 147.1,
+      "t_pain": {
+       "43.0C": 48.82616082422579,
+       "44.8C": 64.74129922563296
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 48.7524662612999,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": 234.79425934521524,
+       "44.8C": 362.1912421927031
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 50.71488296885519,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": 179.27473751307397,
+       "44.8C": 264.38623315081486
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=25",
+    "core": {
+     "absorbed_W": 1314.200165376729,
+     "gross_K_per_min[c=2980]": 0.3780058002042365,
+     "gross_K_per_min[c=3470]": 0.32462745954139044,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.23010998778002267,
+     "net_K_per_min[c=3470]": 0.19761607019725289
+    },
+    "d": 3.0,
+    "model": "solid E=Shokri-Beyler",
+    "phase": "flaming",
+    "phase_s": 390.0,
+    "q_max": 2.939126425795935,
+    "q_mean": 2.766737190266798,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 84.73443358542107,
+      "t_burn1": 71.71000000000001,
+      "t_burn2": 79.28,
+      "t_pain": {
+       "43.0C": 23.923338030582016,
+       "44.8C": 31.847431060169917
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 56.10269624905061,
+      "t_burn1": 289.35,
+      "t_burn2": 333.46,
+      "t_pain": {
+       "43.0C": 111.05795171647638,
+       "44.8C": 155.63787598158274
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 58.83196128493131,
+      "t_burn1": 234.62,
+      "t_burn2": 268.15,
+      "t_pain": {
+       "43.0C": 87.76242378858282,
+       "44.8C": 121.87915145498582
+      }
+     }
+    },
+    "z_at_max": 1.35
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 403.8381266131291,
+     "gross_K_per_min[c=2980]": 0.1161566998887236,
+     "gross_K_per_min[c=3470]": 0.09975416878051768,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": -0.03173911253549027,
+     "net_K_per_min[c=3470]": -0.027257220563619886
+    },
+    "d": 3.0,
+    "model": "point",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 0.8812707353764447,
+    "q_mean": 0.8501855297118507,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 48.520574251533105,
+      "t_burn1": 573.32,
+      "t_burn2": 698.34,
+      "t_pain": {
+       "43.0C": 231.321989057359,
+       "44.8C": 344.37517787007465
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 40.91193935948587,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": null,
+       "44.8C": null
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 41.71102320120599,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": null,
+       "44.8C": null
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 478.82985827505405,
+     "gross_K_per_min[c=2980]": 0.13772670899570105,
+     "gross_K_per_min[c=3470]": 0.11827826882051562,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": -0.010169103428512809,
+     "net_K_per_min[c=3470]": -0.008733120523621952
+    },
+    "d": 3.0,
+    "model": "solid E=chi_rQ/A",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 1.0555023169552955,
+    "q_mean": 1.0080628595264296,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 51.658767308454856,
+      "t_burn1": 388.61,
+      "t_burn2": 456.38,
+      "t_pain": {
+       "43.0C": 156.81282386612983,
+       "44.8C": 219.81816846992962
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 42.112126942747864,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": null,
+       "44.8C": null
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 43.12216503194287,
+      "t_burn1": null,
+      "t_burn2": null,
+      "t_pain": {
+       "43.0C": null,
+       "44.8C": null
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "q_f=15",
+    "core": {
+     "absorbed_W": 998.7649274586471,
+     "gross_K_per_min[c=2980]": 0.287276585079189,
+     "gross_K_per_min[c=3470]": 0.2467101508749231,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.13938077265497512,
+     "net_K_per_min[c=3470]": 0.11969876153078554
+    },
+    "d": 3.0,
+    "model": "solid E=Shokri-Beyler",
+    "phase": "flaming",
+    "phase_s": 750.0,
+    "q_max": 2.201614366372129,
+    "q_mean": 2.1026630051760993,
+    "ref": "face",
+    "skin": {
+     "bare": {
+      "initial_receptor_C": 32.45069378609884,
+      "steady_receptor_C": 71.97225802870793,
+      "t_burn1": 111.31,
+      "t_burn2": 123.94,
+      "t_pain": {
+       "43.0C": 40.29130016691381,
+       "44.8C": 53.389373725138135
+      }
+     },
+     "heavy shirt, 25 mm gap": {
+      "initial_receptor_C": 35.1859812958711,
+      "steady_receptor_C": 50.43654918272006,
+      "t_burn1": 481.78000000000003,
+      "t_burn2": 574.57,
+      "t_pain": {
+       "43.0C": 188.92991926307172,
+       "44.8C": 280.4913325709459
+      }
+     },
+     "light shirt, 6.4 mm gap": {
+      "initial_receptor_C": 34.72231603245348,
+      "steady_receptor_C": 52.59612262105924,
+      "t_burn1": 378.14,
+      "t_burn2": 443.44,
+      "t_pain": {
+       "43.0C": 146.31763205653496,
+       "44.8C": 210.8182869431683
+      }
+     }
+    },
+    "z_at_max": 0.95
+   },
+   {
+    "case": "550C",
+    "core": {
+     "absorbed_W": 135.54684541764902,
+     "gross_K_per_min[c=2980]": 0.0389875873684513,
+     "gross_K_per_min[c=3470]": 0.03348213554985155,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": -0.10890822505576257,
+     "net_K_per_min[c=3470]": -0.09352925379428602
+    },
+    "d": 3.0,
+    "model": "point",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 0.2935198703185988,
+    "q_mean": 0.2853617798266295,
+    "ref": "face",
+    "skin": {},
+    "z_at_max": 0.3
+   },
+   {
+    "case": "550C",
+    "core": {
+     "absorbed_W": 134.36219063579478,
+     "gross_K_per_min[c=2980]": 0.03864684294414039,
+     "gross_K_per_min[c=3470]": 0.033189507773354,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": -0.10924896948007348,
+     "net_K_per_min[c=3470]": -0.09382188157078357
+    },
+    "d": 3.0,
+    "model": "view factor",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 0.29028967326087624,
+    "q_mean": 0.28286776975956796,
+    "ref": "face",
+    "skin": {},
+    "z_at_max": 0.95
+   },
+   {
+    "case": "920C",
+    "core": {
+     "absorbed_W": 605.914005894426,
+     "gross_K_per_min[c=2980]": 0.1742801550990679,
+     "gross_K_per_min[c=3470]": 0.1496699891052514,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.026384342674854018,
+     "net_K_per_min[c=3470]": 0.022658599761113826
+    },
+    "d": 3.0,
+    "model": "point",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 1.3120762780304276,
+    "q_mean": 1.2756084334619495,
+    "ref": "face",
+    "skin": {},
+    "z_at_max": 0.3
+   },
+   {
+    "case": "920C",
+    "core": {
+     "absorbed_W": 600.6184276589934,
+     "gross_K_per_min[c=2980]": 0.17275697823365102,
+     "gross_K_per_min[c=3470]": 0.14836190061564267,
+     "losses_W": 514.1844411948503,
+     "net_K_per_min[c=2980]": 0.02486116580943714,
+     "net_K_per_min[c=3470]": 0.021350511271505092
+    },
+    "d": 3.0,
+    "model": "view factor",
+    "phase": "ember",
+    "phase_s": 1750.0,
+    "q_max": 1.297636829933776,
+    "q_mean": 1.2644598477031441,
+    "ref": "face",
+    "skin": {},
+    "z_at_max": 0.95
+   }
+  ]
+ },
+ "validations": {
+  "bare_anchors": [
+   {
+    "model_s": {
+     "43.0C": 13.514535839510753,
+     "44.8C": 18.132286481358683
+    },
+    "published_s": 15.0,
+    "q": 4.0,
+    "src": "Hoschke (1981) diagram, as quoted by IFV/Heus (2016): verified"
+   },
+   {
+    "model_s": {
+     "43.0C": 5.832115811026648,
+     "44.8C": 7.777843064926712
+    },
+    "published_s": 8.0,
+    "q": 6.3,
+    "src": "API 521 example via brojowesi blog (2009): secondary, unverified against API 521"
+   },
+   {
+    "model_s": {
+     "43.0C": 2.8661885679183117,
+     "44.8C": 3.7568613834435345
+    },
+    "published_s": 6.0,
+    "q": 9.45,
+    "src": "API RP 521 (1997) 'approx. six seconds', via the same blog: secondary"
+   }
+  ],
+  "clothed_anchors": [
+   {
+    "RadMan_43C_s": [
+     33.0,
+     88.0
+    ],
+    "model_43C_s": {
+     "heavy shirt, 25 mm gap": 107.16495701714092,
+     "light shirt, 6.4 mm gap": 84.7446174342351
+    },
+    "q": 3.0
+   },
+   {
+    "RadMan_43C_s": [
+     20.0,
+     58.0
+    ],
+    "model_43C_s": {
+     "heavy shirt, 25 mm gap": 52.93837170760797,
+     "light shirt, 6.4 mm gap": 41.67923049941635
+    },
+    "q": 4.6
+   },
+   {
+    "RadMan_43C_s": [
+     18.0,
+     68.0
+    ],
+    "model_43C_s": {
+     "heavy shirt, 25 mm gap": 32.78565884155098,
+     "light shirt, 6.4 mm gap": 25.115374810974327
+    },
+    "q": 6.3
+   },
+   {
+    "RadMan_43C_s": [
+     13.0,
+     20.0
+    ],
+    "model_43C_s": {
+     "heavy shirt, 25 mm gap": 17.504779648079555,
+     "light shirt, 6.4 mm gap": 12.59519645490572
+    },
+    "q": 10.0
+   }
+  ],
+  "cylinder_vf_closed_vs_quadrature_max_rel": 5.481715435256154e-06,
+  "face_vf_closed_vs_quadrature_max_rel": 9.967964364852916e-07,
+  "jasinski_2003_example1": {
+   "published_s": [
+    16.25,
+    17.8
+   ],
+   "this_model_s": [
+    17.1,
+    null
+   ]
+  },
+  "numerics_sensitivity": [
+   {
+    "base": 63.4004479648647,
+    "clothed": false,
+    "dt_half_rel": -1.8833985183564374e-05,
+    "grid_x2_rel": -0.0003457685185806586,
+    "q": 2.0
+   },
+   {
+    "base": 2.5002838643372822,
+    "clothed": false,
+    "dt_half_rel": -0.0005113787690464554,
+    "grid_x2_rel": -0.0007573061684635717,
+    "q": 12.0
+   },
+   {
+    "base": 257.76512590989137,
+    "clothed": true,
+    "dt_half_rel": -9.181092879869053e-06,
+    "grid_x2_rel": -0.00019868394446166765,
+    "q": 2.0
+   },
+   {
+    "base": 12.330466118821402,
+    "clothed": true,
+    "dt_half_rel": -0.00013575201074384033,
+    "grid_x2_rel": -0.00019572376900722937,
+    "q": 12.0
+   }
+  ]
+ }
+}

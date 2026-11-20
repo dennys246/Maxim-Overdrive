@@ -1,0 +1,47 @@
+{
+ "scenario": "established",
+ "dx": 0.05,
+ "scheme": "strang",
+ "order": [
+  "conduction",
+  "skin",
+  "bed",
+  "open_air"
+ ],
+ "refine": 10,
+ "t_ignite": 90,
+ "t_glow": 4485,
+ "t_gone": 17820,
+ "bound_failures": [],
+ "fuel0_kg": 32.39999999999999,
+ "end_tick": 17820,
+ "wall_s": 2183.52,
+ "hash": "0542c3df11034793f8dc9911f7ac63b8",
+ "peak_skin_c": 933.7052216592878,
+ "max_T_c": 932.17770591327,
+ "longest_glow_s": 1334.0,
+ "fuel_end_kg": 1.6192113863656963,
+ "substeps_hist": {
+  "10": 402,
+  "20": 94,
+  "30": 494,
+  "40": 336,
+  "50": 2238
+ },
+ "limiter": {
+  "conduction": 3564
+ },
+ "audit_violations": 0,
+ "worst_audit_ratio": 0.0,
+ "ledger_worst_rel_closure": 4.0335040115952687e-10,
+ "ledger": {
+  "sources": 240000.0,
+  "flame_deposit": 52176159.34244773,
+  "combustion": 513889866.52690643,
+  "gasification": 43739999.99999577,
+  "removed_with_mass": 16810416.34811439,
+  "plume_convective": 249143840.65754172,
+  "open_air_loss": 196322727.24575692
+ },
+ "threads_env": "1"
+}

@@ -1,0 +1,1 @@
+{"name": "F_p1", "t_ignite": 0.5, "t_crack": 57.0, "t_glow": NaN, "t_gone": NaN, "glow_longest_s": 0.0, "ember_peak_c": 473.5534726576692, "ember_mean_c": 40.08661958799546, "ledger_worst_rel": 1.0667586949126241e-14, "wall_s": 145.07009625434875}

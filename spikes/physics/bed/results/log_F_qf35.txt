@@ -1,0 +1,1 @@
+{"name": "F_qf35", "t_ignite": 0.5, "t_crack": 28.5, "t_glow": NaN, "t_gone": NaN, "glow_longest_s": 0.0, "ember_peak_c": 380.10951518118236, "ember_mean_c": 40.507020076710816, "ledger_worst_rel": 4.973131378145151e-15, "wall_s": 204.74848628044128}

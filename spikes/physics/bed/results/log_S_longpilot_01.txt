@@ -1,0 +1,1 @@
+{"name": "S_longpilot_01", "t_ignite": NaN, "t_crack": NaN, "t_glow": NaN, "t_gone": NaN, "glow_longest_s": 0.0, "ember_peak_c": 380.0000000000001, "ember_mean_c": 129.6861259248706, "ledger_worst_rel": 5.798028723802417e-15, "wall_s": 116.87987208366394}

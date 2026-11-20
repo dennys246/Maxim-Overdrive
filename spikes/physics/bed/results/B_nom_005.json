@@ -1,0 +1,73 @@
+{
+ "t_ignite": 0.5,
+ "ignited_60s_after_pilot": true,
+ "t_crack": 55.5,
+ "t_crack_rec": 56.5,
+ "t_glow": NaN,
+ "t_glow_bright": NaN,
+ "glow_longest_s": 0.0,
+ "glow_bright_longest_s": 0.0,
+ "glow_area_max": 0.0,
+ "t_layer_max_c": 380.0,
+ "t_gone": NaN,
+ "t_flameout": 722.5,
+ "wood_at_flameout_frac": 0.8333333333333335,
+ "peak_flaming_area": 0.9000000000000001,
+ "ember_peak_c": 380.0000000000001,
+ "ember_mean_c": 45.36328707546476,
+ "fuel_end_frac": 0.8749923714495126,
+ "draught_max_kgs": 0.15636145955690015,
+ "digest": "9c5ef691fb4b5aa6d444655d306b646217018cdc1fdefcbe05def9a13de64e69",
+ "ledger_worst_rel": 1.7800371273133225e-15,
+ "release_total_MJ": 50.22758559847157,
+ "ledger_deletion": {
+  "sources": 1.7800371273133225e-15,
+  "combustion_flaming": 1.0000000000000009,
+  "combustion_char": 0.00015102454918329415,
+  "plume_convective": 0.5410561464107876,
+  "flame_radiative": 0.2347153468618484,
+  "open_air_rad": 0.08332821658935033,
+  "open_air_conv": 0.012907684050206258,
+  "open_air_pilotface": 1.7800371273133225e-15,
+  "open_air_draught": 0.48895725163633846,
+  "removed_with_mass": 0.1402258064516137,
+  "bodies": 1.7800371273133225e-15,
+  "d_cells": 0.14521946956961287,
+  "d_skins": 0.19112491253161856
+ },
+ "ledger_final_MJ": {
+  "sources": 0.0,
+  "combustion_flaming": 50.22000000000006,
+  "combustion_char": 0.0075855984715091345,
+  "plume_convective": 0.3776368593308555,
+  "flame_radiative": 11.697445312500001,
+  "open_air_rad": 4.185375131509632,
+  "open_air_conv": 0.6483218055098222,
+  "open_air_pilotface": 0.0,
+  "open_air_draught": 24.559142210557656,
+  "removed_with_mass": 6.680890355817475,
+  "bodies": 0.0,
+  "d_cells": 2.243360243148166,
+  "d_skins": -0.16458631990197645
+ },
+ "name": "B_nom_005",
+ "dx": 0.05,
+ "pilot_ticks": 0,
+ "overrides": {
+  "ignite_base_m": 0.1
+ },
+ "t_end": 1800.0,
+ "wall_s": 483.9873878955841,
+ "cpu_s": 29.790065,
+ "loadavg_start": [
+  132.46044921875,
+  116.2890625,
+  91.0244140625
+ ],
+ "loadavg_end": [
+  63.7705078125,
+  84.3408203125,
+  88.1357421875
+ ],
+ "steps": 3600
+}
