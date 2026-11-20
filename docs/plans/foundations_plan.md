@@ -98,7 +98,8 @@ stays a nit.
 | O32 | Lock every dependency; a scheduled drift job |
 | O33 | Python 3.12+ |
 | O34 | Step 5 splits into 5a and 5b |
-| O41 | Roadmap exempt from O22 |
+| O41 | Roadmap exempt |
+| O42 | Checklists exempt from O22 |
 
 **both §0:**
 
@@ -135,9 +136,9 @@ stays a nit.
 | O28 | Co-op in Phase 5 or later; no more co-op rounds |
 | O29 | A minimal tier-A subset, a 1.4.0 date range, a second candidates round |
 | O30 | §12.1's rest answered; sandbox and slow tail deferred by name |
-| O35 | Refresh the agent draft; send it to Maxim now |
-| O36 | Maxim's review reopens the agent half |
-| O37 | Bridge prototype NPC after the tile |
+| O35 | Send the agent draft to Maxim |
+| O36 | Maxim's review reopens the agent |
+| O37 | Bridge NPC after the tile |
 | O38 | Maxim's §A.1b.5 staleness |
 | O39 | `apply` merged into `settle`: three host calls |
 | O40 | `make_agent_rng` plus a stream argument |

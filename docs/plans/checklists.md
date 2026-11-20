@@ -2,7 +2,8 @@
 
 For whoever runs the step. Each item names the review finding it comes from (`reviews/fold.md` has the key). The plan
 (`foundations_plan.md`) keeps the order and the decisions; this file keeps the items, so the plan stays inside its
-word budget. An item is done when its test exists and passes, or its text has landed.
+word budget. An item is done when its test exists and passes, or its text has landed. This file is exempt from
+O22's budget (O42), and each step's section is deleted when that step's PR merges.
 
 ## Step 1, the merge: this line's items
 
