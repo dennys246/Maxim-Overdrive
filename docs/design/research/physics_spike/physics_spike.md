@@ -106,7 +106,7 @@ decision for the owner when the research lands, not a default.
 
 What it commits step 6 to, which this spike did *not* show:
 
-- **Scenario F was an idealization.** It lit the whole bed at t = 0; nothing here modelled an accelerant doing that.
+- **Scenario F was an idealization (see T18 below for the form).** It lit the whole bed at t = 0; nothing here modelled an accelerant doing that.
   The accelerant is new physics: a liquid pool fire with a cited burning rate and heat of combustion, deposited by
   face-area overlap like any source, with its own closed-form and cross-tier tests. Before step 6 is designed, a
   rerun of Q1 with that pool fire must show it lights the whole bed. If it lights only part, this is the T13 failure
@@ -114,7 +114,26 @@ What it commits step 6 to, which this spike did *not* show:
 - **The pilot still matters.** The torch ignites the accelerant, not the wood, so the `kindle` receipt's meaning
   (tile §3.2: `applied` means placed, not ignited) is unchanged.
 
-**Open: the accelerant's form.** Either the scene authors the crate as soaked (no new intent kind, so protocol v0
-and T16 hold), or the player pours it with a new `douse` intent (fire as a prepared tool, but a new kind in v0, a
-validated quantity and a per-region fuel field). *Recommended: authored in the scene for Phase 1, `douse` in Phase
-2,* because the exit only needs the crate lit, and a new intent kind reopens the protocol freeze.
+## The accelerant's form (T18, owner, 2026-11-20)
+
+The owner proposed marrying SEM with composable materials: an accelerant with modifiers for speed and intensity,
+porous and flammable labels on other entities, a soak modifier, and spread when a soaked body ignites. Decided:
+
+- **Physics owns the mechanism; SEM reads it.** A liquid held in a porous solid's pores is a per-cell **loading
+  field** (kg/m³ per liquid species, capped by the cell's porosity) on the cell's one material, the same kind of
+  state as wood's moisture. It keeps world_model §2 (free liquid lives in zones) and §5 (one material per cell);
+  general solid mixtures per cell are not part of this.
+- **The SEM bridge derives labels from fields**: porous from φ, flammable from the material's constants, soaked from
+  the loading. A label can't disagree with the world because it is computed from it.
+- **Accelerants differ as real liquids,** not dials: flash point, burning rate and heat of combustion, cited per
+  species in `data/materials/`.
+- **Spread comes only from heat transfer, never an SEM rule.** A rule on labels would make the agent interface
+  decide outcomes (the server stops being authoritative), threshold a whole entity's mean (D25), and teach Maxim our
+  rules instead of fire's. A soaked bed spreads because its fuel is distributed, which gives scenario F a mechanism.
+- **Phase 1:** the crate is authored soaked; the bridge exposes the derived sensors. Protocol v0 (T16) holds.
+  **Phase 2:** a `soak` modulator (and the intent that reaches it), with wicking, pooling and evaporation.
+- **Maxim:** new sensors and modulators on our entities need no Maxim change. A new SEM concept (a label or
+  modifier vocabulary) would be a Phase 3 proposal under Maxim's process.
+
+T17's requirement now reads: the Q1 rerun uses a bed carrying a cited accelerant loading, and must show it sustains
+across the whole crate before step 6 is designed.
