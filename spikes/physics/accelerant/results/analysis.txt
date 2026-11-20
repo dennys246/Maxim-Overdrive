@@ -1,0 +1,36 @@
+## Nominal at each grid
+02: A PASS, B1 MISS, B2 MISS, C MISS | t_A 47.5, lambda_max 0.005818, t_L95 none, lambda_w_tL95 0.005818, lambda_w_max 0.005818, t_B none, t_out 558.5 | wood at flame-out 0.9942 | cpu 5 s wall 8 s
+01: A PASS, B1 MISS, B2 MISS, C MISS | t_A 47.5, lambda_max 0.005818, t_L95 none, lambda_w_tL95 0.005818, lambda_w_max 0.005818, t_B none, t_out 556.5 | wood at flame-out 0.9942 | cpu 11 s wall 18 s
+005: A PASS, B1 MISS, B2 MISS, C MISS | t_A 47.5, lambda_max 0.01289, t_L95 none, lambda_w_tL95 0.01161, lambda_w_max 0.01161, t_B none, t_out 1220 | wood at flame-out 0.9890 | cpu 60 s wall 95 s
+D1 class identical across grids: PASS
+D2 / D3:
+  t_A: 47.5 / 47.5 / 47.5: 2a PASS (e0.1 = +0 (tol 7.125), e0.2 = +0); p MISS (differences +0, +0: sign change or zero)
+  t_B: none / none / none: 2a MISS (missing on a grid); p MISS (missing on a grid)
+  t_L95: none / none / none: 2a MISS (missing on a grid); p MISS (missing on a grid)
+  t_out: 558.5 / 556.5 / 1220: 2a MISS (e0.1 = -663.5 (tol 183), e0.2 = -661.5); p MISS (differences +2, -663.5: sign change or zero)
+  lambda_max at 0.1 vs 0.05: |diff| = 7.07e-03: PASS
+  lambda_w_tL95 at 0.1 vs 0.05: |diff| = 5.79e-03: PASS
+## E1 worst closure over 24 runs: 2.04e-13 (PASS)
+## E3 liquid mass worst: 3.85e-16 (PASS)
+E2 delete combustion_accelerant: largest residual 0.814 (Surf_01): PASS
+E2 delete vapour_unburnt: largest residual 0.00217 (Tb175_01): MISS
+E2 delete liquid_sensible: largest residual 0.125 (X_N_0025): PASS
+## E5 rerun bit-identical: PASS
+E5 10x substeps classes (True, False, False, False) vs (True, False, False, False): PASS
+   10x: {'t_A': '47.5', 'lambda_max': '0.005818', 't_out': '558.5', 'wood_at_out_frac': '0.9942'}
+## F: range ends at 0.1 m
+L32_01: PASS classes (True, False, False, False) | t_A 44 lambda_max 0.0058 t_out 545 wood 0.9942 | peak 86 kW
+L96_01: PASS classes (True, False, False, False) | t_A 50.5 lambda_max 0.0066 t_out 607.5 wood 0.9940 | peak 129 kW
+Surf_01: PASS classes (True, False, False, False) | t_A 70 lambda_max 0.0058 t_out 445 wood 0.9945 | peak 138 kW
+Tb175_01: PASS classes (True, False, False, False) | t_A 25 lambda_max 0.0361 t_out 2162 wood 0.9703 | peak 136 kW
+Tb325_01: PASS classes (True, False, False, False) | t_A 166 lambda_max 0.0058 t_out 955.5 wood 0.9945 | peak 125 kW
+Qc25_01: PASS classes (True, False, False, False) | t_A 47.5 lambda_max 0.0058 t_out 556.5 wood 0.9942 | peak 129 kW
+Qc393_01: PASS classes (True, False, False, False) | t_A 47.5 lambda_max 0.0058 t_out 556.5 wood 0.9942 | peak 129 kW
+Qmass_01: PASS classes (True, False, False, False) | t_A 47.5 lambda_max 0.0058 t_out 561.5 wood 0.9942 | peak 129 kW
+Chir27_01: PASS classes (True, False, False, False) | t_A 47.5 lambda_max 0.0058 t_out 544.5 wood 0.9942 | peak 133 kW
+Chir33_01: PASS classes (True, False, False, False) | t_A 47.5 lambda_max 0.0058 t_out 569.5 wood 0.9942 | peak 126 kW
+Chir35_01: PASS classes (True, False, False, False) | t_A 47.5 lambda_max 0.0058 t_out 578.5 wood 0.9942 | peak 123 kW
+Qf15_01: PASS classes (True, False, False, False) | t_A 47.5 lambda_max 0.0058 t_out 600.5 wood 0.9948 | peak 91 kW
+Qf35_01: PASS classes (True, False, False, False) | t_A 47.5 lambda_max 0.0066 t_out 1065 wood 0.9934 | peak 162 kW
+P1_01: PASS classes (True, False, False, False) | t_A 47.5 lambda_max 0.0079 t_out 600.5 wood 0.9988 | peak 39 kW
+F overall: PASS

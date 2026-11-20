@@ -1,0 +1,104 @@
+{
+ "name": "L32_01",
+ "dx": 0.1,
+ "pilot_ticks": 6000,
+ "overrides": {
+  "loading_wood": 32.0
+ },
+ "t_end": null,
+ "criteria": {
+  "t_A": 44.0,
+  "A": true,
+  "lambda_max": 0.005817764173314431,
+  "B1": false,
+  "t_L95": NaN,
+  "lambda_w_tL95": 0.005817764173314431,
+  "lambda_w_loose_tL95": 0.005817764173314431,
+  "lambda_w_max": 0.005817764173314431,
+  "B2": false,
+  "t_B": NaN,
+  "t_out": 545.0,
+  "wood_at_out_frac": 0.9941822358266857,
+  "C": false,
+  "t_ignite_01": NaN,
+  "ignited_60s_after_pilot": false,
+  "t_crack": NaN
+ },
+ "reported": {
+  "E_accelerant_MJ": 0.4278775608491091,
+  "E_wood_flaming_MJ": 1.7530087007031054,
+  "E_char_MJ": 0.00022324671994228428,
+  "vented_frac": 7.265212702472968e-05,
+  "burnt_frac": 0.005745112046289699,
+  "peak_qdot_kW": 85.62959872244228,
+  "peak_flaming_area": 0.031415926535897934,
+  "o2_over_frac_before_tL95": 0.0,
+  "o2_unverified": false,
+  "o2_demand_peak_gs": 6.536610589499411,
+  "o2_supply_at_peak_gs": 7.690071729506551,
+  "ember_peak_c": 380.0000000000001,
+  "fuel_end_frac": 0.9956364530439387
+ },
+ "bed_compatible": {
+  "t_ignite": NaN,
+  "t_flameout": 600.5,
+  "wood_at_flameout_frac": 0.9941822358266857,
+  "peak_flaming_area": 0.031415926535897934,
+  "t_crack": NaN,
+  "fuel_end_frac": 0.9956364530439387,
+  "digest": "7ebb52bbc74ee4310b0eddd095bcc29fe9fa4c8b2d9077235c6a5ef5ea401e00"
+ },
+ "ledger": {
+  "E1_worst_rel": 8.787992555880917e-15,
+  "E2_deletion": {
+   "sources": 1.000000000000005,
+   "combustion_flaming": 0.5474917358782835,
+   "combustion_char": 6.602765139487756e-05,
+   "combustion_accelerant": 0.32481026082581754,
+   "plume_convective": 0.2252817615288344,
+   "flame_radiative": 0.1786894617016698,
+   "open_air_rad": 0.09869952843166538,
+   "open_air_conv": 0.0221832677069922,
+   "open_air_pilotface": 0.04573044327125165,
+   "open_air_draught": 0.5002988619652888,
+   "removed_with_mass": 0.10083682953014812,
+   "bodies": 8.787992555880917e-15,
+   "vapour_unburnt": 0.0002596109945016331,
+   "d_cells": 0.5156341610443672,
+   "d_skins": 0.861875162816376
+  },
+  "E3_liquid_worst_rel": 1.2849803525754132e-16
+ },
+ "ledger_final_MJ": {
+  "sources": 1.2000000000000002,
+  "combustion_flaming": 1.7530087007031054,
+  "combustion_char": 0.00022324671994228428,
+  "plume_convective": 0.041913100630075445,
+  "flame_radiative": 0.5686159842772954,
+  "open_air_rad": 0.3337139140422795,
+  "open_air_conv": 0.07500405736865591,
+  "open_air_pilotface": 0.004024279007870074,
+  "open_air_draught": 1.691565239168575,
+  "removed_with_mass": 0.32809438394504836,
+  "bodies": 0.0,
+  "combustion_accelerant": 0.4278775608491091,
+  "vapour_unburnt": 9.360476797185522e-05,
+  "d_cells": 0.3115146754636659,
+  "d_skins": 0.026570269600717244
+ },
+ "digest": "7d00b6c387100eedb4ce236cb2bd47fecda3d2c51bf2cf59edfa0a75907d6a1c",
+ "liq0_kg": 1.7279999999999993,
+ "steps": 3515,
+ "wall_s": 18.395474195480347,
+ "cpu_s": 10.264506,
+ "loadavg_start": [
+  40.62646484375,
+  36.47021484375,
+  29.517578125
+ ],
+ "loadavg_end": [
+  39.76953125,
+  36.4931640625,
+  29.64697265625
+ ]
+}

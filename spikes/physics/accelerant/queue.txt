@@ -1,0 +1,22 @@
+N_005 0.05 6000
+N_01 0.1 6000
+N_02 0.2 6000
+Z_S_01 0.1 6000 1800 loading_wood=0
+Z_F_01 0.1 0 ignite_base_m=0.6 loading_wood=0
+L32_01 0.1 6000 loading_wood=32
+L96_01 0.1 6000 loading_wood=96
+Surf_01 0.1 6000 distribution=surface
+Tb175_01 0.1 6000 t_b_c=175
+Tb325_01 0.1 6000 t_b_c=325
+Qc25_01 0.1 6000 m_crit=0.0025
+Qc393_01 0.1 6000 m_crit=0.00393
+Qmass_01 0.1 6000 crit_form=mass
+Chir27_01 0.1 6000 chi_r=0.27
+Chir33_01 0.1 6000 chi_r=0.33
+Chir35_01 0.1 6000 chi_r=0.35
+Qf15_01 0.1 6000 q_f=15000
+Qf35_01 0.1 6000 q_f=35000
+P1_01 0.1 6000 feedback_mode=p1
+D30_01 0.1 300
+N_01_rerun 0.1 6000
+N_01_sub10 0.1 6000 sub_mult=10

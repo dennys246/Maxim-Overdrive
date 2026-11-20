@@ -1,0 +1,14 @@
+q=  5.0 kW/m2 m_L=0.064 dt=0.0500: plateau    3.250 s, closed form    3.200 s, PASS
+q=  5.0 kW/m2 m_L=0.064 dt=0.0714: plateau    3.286 s, closed form    3.200 s, MISS
+q=  5.0 kW/m2 m_L=0.488 dt=0.0500: plateau   24.450 s, closed form   24.400 s, MISS
+q=  5.0 kW/m2 m_L=0.488 dt=0.0714: plateau   24.500 s, closed form   24.400 s, MISS
+q= 15.9 kW/m2 m_L=0.064 dt=0.0500: plateau    1.050 s, closed form    1.006 s, PASS
+q= 15.9 kW/m2 m_L=0.064 dt=0.0714: plateau    1.071 s, closed form    1.006 s, PASS
+q= 15.9 kW/m2 m_L=0.488 dt=0.0500: plateau    7.750 s, closed form    7.673 s, MISS
+q= 15.9 kW/m2 m_L=0.488 dt=0.0714: plateau    7.714 s, closed form    7.673 s, PASS
+q= 40.0 kW/m2 m_L=0.064 dt=0.0500: plateau    0.450 s, closed form    0.400 s, PASS
+q= 40.0 kW/m2 m_L=0.064 dt=0.0714: plateau    0.429 s, closed form    0.400 s, PASS
+q= 40.0 kW/m2 m_L=0.488 dt=0.0500: plateau    3.100 s, closed form    3.050 s, PASS
+q= 40.0 kW/m2 m_L=0.488 dt=0.0714: plateau    3.143 s, closed form    3.050 s, MISS
+E4(i) first measurement (substep count): worst |error| / dt = 1.541 (MISS)
+E4(i) interpolated (deviation, added after the miss): worst |error| / dt = 2.83e-11
