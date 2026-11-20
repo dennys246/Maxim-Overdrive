@@ -60,6 +60,22 @@ Each new field ships with a closed-form test and a cross-tier test, under the re
 - **Close the known gap:** the coarsest rig's late-burn lag (`docs/architecture.md`).
 - **Moved from Phase 1 by D26:** zones and vents, combustion per zone and its products, fuel recession and pyrolysis,
   phase change, the CSG footprints, and the lab as Phase 2's benchmark tile.
+- **Plasma, slowly, aiming at plasma as a state of matter** (owner, 2026-11-19). The reason is what Maxim's NPCs can
+  sense, learn and use from environmental effects:
+  - an arc is a flash in the light field, a crackle in the sound field and ozone in the gas field;
+  - its electromagnetic interference touches cyberware sensors.
+
+  In order, each step a law in step 5a's list and a field in the registry:
+  1. **Plasma effects:** plasma cutters, weapons and welders as very hot, bright sources. This step needs the light
+     field.
+  2. **Electric fields and arcs:** a potential field solved locally around active charges, conductivity per material,
+     and breakdown as a band-gated binary outcome. The breakdown is evaluated on the reconstructed field at sharp
+     features, never on a cell mean (D25), with stochastic channels drawn from the world's seeded RNG.
+  3. **Ionised gas:** an ionisation fraction (Saha), conductivity and radiative cooling, coupled to gas and zones.
+     This step needs both.
+
+  Out of scope for good: first-principles plasma physics (magnetohydrodynamics, particle-in-cell). Its scales are
+  about 10⁵ finer and 10⁸ faster than the grid, and no player could perceive it.
 
 ## Phase 3: Maxim upstream, in three tiers (later; in Maxim, through its own process)
 
