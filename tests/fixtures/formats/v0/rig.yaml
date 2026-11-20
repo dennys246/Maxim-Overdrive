@@ -1,0 +1,7 @@
+# Golden file at format version 0, copied from data/rigs/rig.yaml with its comments removed. Never edit it to match a
+# newer format: tests/test_validation.py::test_the_committed_v0_files_still_load holds the reader to it.
+version: 0  # the rig profile format (config.RIG_PROFILE_VERSION)
+name: rig
+cell_size_m: 0.1
+min_substeps_per_turn: 16
+full_res_radius_m: 16.0

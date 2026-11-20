@@ -329,7 +329,7 @@ So the world simulates and SEM exposes.
 
 | | Proposal | Argues against |
 |---|---|---|
-| P1 | An appended `acts_on` field that separates done-to from done-by (PR 1's item 11) | reading "shape-frozen" as "no appended fields"; `scene_actor_affordances.md` invariant 2 |
+| P1 | An appended `acts_on` field that separates done-to from done-by (PR 1's item 11) | reading "shape-frozen" as "no appended fields"; `scene_actor_affordances.md` invariant 5 |
 | P2 | Validation in the executor, with a call-error kind and declared ranges, exempting Maxim's own injected keys (PR 1's item 10) | TF2 |
 | **P3** | **Measured credit for effects that arrive after the call** ("act now, credit later", generalising D53's measured transitions). Maxim's cerebellum learns from sensor values read in the same call, and Overdrive changes cells only in `advance`, so today every phase transition would be learned as having no effect. | the assumption that an action's effect is complete when the call returns |
 | P4 | `world_set_axis` for sub-sensors such as `arms.thermal` | |
