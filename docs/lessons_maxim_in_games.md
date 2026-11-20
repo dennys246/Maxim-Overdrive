@@ -236,3 +236,17 @@ field in the physics; SEM sensors derive porous, flammable and soaked from field
 writes the field through the physics. For any engine embedding agents: tags an agent perceives are read-outs of
 simulated state, so they can't disagree with the world, and interactions come from one set of laws rather than a
 growing table of tag pairs. New sensors and modulators need no Maxim change; a new SEM concept would.
+
+### 24. A sensor must be something a receptor could sense; read-outs that are true can still be oracles (2026-11-20)
+
+**Lesson 22 was half right.** *Evidence:* the fire redesign's bio-faithful research (`docs/design/fire_model.md`
+§5, `research/fire_ladder/6_biofaithful_sem.md` §1.3) found that two of T18's derived labels, flammable and porous,
+can't disagree with the world but still give every NPC knowledge no receptor delivers: they are material constants,
+so an agent reading them learns our table, not fire. The other labels (soaked, burning) were yes/no, which thresholds
+a whole entity's mean, the D25 hazard lesson 22 itself cites; `states_of_matter/sem.md` N2 ("fractions, never
+labels") had already said so. *Consequence (pending the owner's ruling on fire_model §11):* the world computes the
+physical stimulus at the receptor (flux and skin temperature per body region, concentrations at the nose, luminous
+flame in view), Maxim's receptors transduce it, and state reaches an NPC only as continuous fractions through a
+percept. Two leak tests decide where a quantity lives: could an instrument at that spot measure it without a
+nervous system (the world's), and does it have a value in a physiology paper (the receptor's). For any engine
+embedding agents: "computed from the world" is necessary for a sensor, not sufficient; it must also be sensible.
