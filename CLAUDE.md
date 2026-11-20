@@ -30,7 +30,8 @@ serious depends on it.
 python3.12 -m venv .venv && .venv/bin/pip install -c constraints/py3.12.txt -e '.[dev,maxim]'  # 3.12 or 3.14; both extras
 .venv/bin/pytest                            # laptop + rig profiles, a few seconds; run the module you touched first
 MAXIM_OVERDRIVE_ALL_TIERS=1 .venv/bin/pytest  # adds the 0.05 m max profile (about a minute)
-scripts/prepush.sh                          # the full gate: lint, types, standards, every tier, coverage, diff coverage
+scripts/prepush.sh                          # the full gate: lint, types, standards, Godot, every tier, coverage, diff coverage
+.venv/bin/python scripts/godot_check.py     # the gate's Godot step alone: pinned version, import, every script loads, client tests
 ```
 
 `[maxim]` is optional for running the server, but the gate needs it: mypy checks the SEM bridge against Maxim's own
@@ -39,7 +40,11 @@ locked pymaxim; the weekly drift job (`.github/workflows/drift.yml`) runs it aga
 release changes those classes that job turns red: update the mirror then, never pin the release away (O32). In a
 worktree without its own `.venv`, run `PYTHON=<venv>/bin/python scripts/prepush.sh`.
 
-Godot 4.7.2 is installed at `/Applications/Godot.app` (binary: `Contents/MacOS/Godot`).
+Godot 4.7.2 is installed at `/Applications/Godot.app` (binary: `Contents/MacOS/Godot`); elsewhere set `GODOT`, or
+install the pinned build with `ci/install_godot.sh` (CI does). The gate needs it: `scripts/godot_check.py` fails without
+it, and its fixture tests (`tests/test_godot_gate_fixtures.py`, `slow`) run Godot under `MAXIM_OVERDRIVE_ALL_TIERS=1`.
+The golden job runs in Docker: `docker build --platform linux/amd64 -f ci/godot-golden/Dockerfile -t overdrive-golden .`,
+then `ci/godot-golden/run.sh` in it (its header has the command); its result counts only on CI (T12).
 
 ## Layout
 
@@ -48,7 +53,11 @@ Godot 4.7.2 is installed at `/Applications/Godot.app` (binary: `Contents/MacOS/G
   `world.py` (turn loop, heat sources, `snapshot`)
 - `src/maxim_overdrive/sem_env/bridge.py`: environment regions as Maxim SEM Entities
 - `src/maxim_overdrive/imagination/spec.py`: imagined objects as validated specs that become cells
-- `scripts/`: `prepush.sh` (the gate), `lint_standards.py` and `check_lock.py`; `constraints/`: the lockfiles
+- `client/`: the Godot 4.7.2 client (`docs/design/client_rendering.md` §7): `addons/engine/` (the engine half),
+  `game/` (this game), `tests/` (`run.gd` the runner, `unit/`, `load_all.gd`, the golden scene and `goldens/`,
+  `probes/`); `ci/`: the Godot pin (`godot.env`), `install_godot.sh` and the golden image (`godot-golden/`)
+- `scripts/`: `prepush.sh` (the gate), `lint_standards.py`, `check_lock.py`, `godot_check.py` (the gate's Godot step)
+  and `golden_compare.py` (the golden tolerance); `constraints/`: the lockfiles
 - `docs/code_review.md`: the pre-push review charter. `docs/standards_backlog.md`: rules waiting for a check
 - `docs/maxim_upstream/`: drafts that belong in the Maxim repo (the Exp 64 pre-registration)
 - `docs/lessons_maxim_in_games.md`: what building this game teaches about applying Maxim to games, kept current
@@ -173,9 +182,12 @@ only review holds.
   Optimize only from a profile. Guard: B5
 - **Client standards (Godot).** The engine version is pinned (4.7.2), and an upgrade is its own branch. GDScript is
   fully typed, with typed-GDScript warnings as errors. Visuals come from snapshot channels, not art. State is never
-  shown by colour alone (cracks also change shape and shading, glow also changes brightness). Guard: B6, B7
+  shown by colour alone (cracks also change shape and shading, glow also changes brightness). Guard:
+  `scripts/godot_check.py`, `tests/test_godot_gate_fixtures.py`,
+  `tests/test_client_project.py::test_every_gdscript_warning_is_an_error_and_none_is_exempt_by_directory`, B6, B7
 - **Exit tests are automated where they can be:** a scripted scenario plus golden screenshots per profile, then a
-  human playtest. Guard: B7
+  human playtest. Goldens are gated only in the Linux CI image. Guard: `scripts/golden_compare.py`,
+  `.github/workflows/golden.yml`, B7
 - **Dependencies are locked** (owner, 2026-11-18, O32, O33): Python 3.12 or later; the gate and CI install from
   `constraints/py<version>.txt`, and the gate refuses an environment that differs from it. A scheduled job runs the
   gate unpinned, so upstream drift shows on a schedule instead of turning every branch red; its failure means

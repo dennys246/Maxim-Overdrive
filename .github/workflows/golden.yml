@@ -1,0 +1,28 @@
+# The Linux golden job (client_rendering.md §6.5; T12, CR-B3, EX-B3). Goldens are gated here only: the image pins the
+# base by digest, Mesa by package version from a dated snapshot, and Godot by SHA-256, and llvmpipe runs at a fixed
+# vector width under Xvfb. The owner's Mac renders the same scene advisorily. Every run keeps its frames, so a new
+# golden is taken from CI's own output, never from a laptop.
+name: golden
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  golden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the golden image
+        run: docker build --platform linux/amd64 -f ci/godot-golden/Dockerfile -t overdrive-golden .
+      - name: Render and compare
+        run: |
+          mkdir -p "$RUNNER_TEMP/golden"
+          docker run --rm --platform linux/amd64 -v "$PWD:/repo:ro" -v "$RUNNER_TEMP/golden:/out" \
+            overdrive-golden ci/godot-golden/run.sh /out
+      - name: Keep the frames
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-frames
+          path: ${{ runner.temp }}/golden

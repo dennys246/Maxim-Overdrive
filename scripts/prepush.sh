@@ -61,10 +61,6 @@ if [ -n "$DIRTY" ] && [ -z "${ALLOW_DIRTY:-}" ]; then
   die "the tree has uncommitted changes, so a PASS would not describe HEAD (commit them, or ALLOW_DIRTY=1)"
 fi
 
-if [ -d client ]; then
-  die "client/ exists but its Godot checks are not wired into this gate yet (docs/standards_backlog.md B6)"
-fi
-
 # -- the gate -------------------------------------------------------------------------------------------------------
 
 step "dependencies match the lockfile (O32)"
@@ -78,6 +74,9 @@ step "mypy (strict on src and scripts; test bodies checked)"
 "$PY" -m mypy
 step "standards lint (TEMPORARY markers, pragmas, guard citations, size limits, coverage and size ratchets against $BASE)"
 "$PY" scripts/lint_standards.py --base "$BASE"
+
+step "Godot client: pinned version, fresh import, every script loads, client tests (B6, CR-B1)"
+"$PY" scripts/godot_check.py
 
 step "tests, every tier, with branch coverage (floor in pyproject.toml)"
 rm -f .coverage coverage.xml
