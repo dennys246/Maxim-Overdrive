@@ -184,11 +184,21 @@ gives its heat to the flaming cell's own unlit fuel, which leaves less for the c
 380 °C. **So outcome 6 (H1 misses, H2 spreads) does not occur in any completed run.**
 
 **K2_005 did not complete.** H2 in the soaked crate at 0.05 m was stopped by the owner's decision after 217 min 44 s
-of CPU (every other run took 3–86 s), with no result written. The likely cause, not verified: the char-layer
-stability limit in `hotbed.py::_substeps` (0.9·C/(k_c/δ_c + h_r + 120)) grows the substep count without bound as δ_c
-thins, and this arm's extra in-cell exchange keeps thin layers alive. It doesn't decide the hypothesis, since H1
-alone does (preregistration §1.3), but it leaves outcome 6 unchecked at the reference grid for K: at 0.1 m K2 reached
-λ_max 0.0179, class none. For step 6 it is a finding in itself: an explicit char-layer update has no bounded cost.
+of CPU (every other run took 3–86 s), with no result written. It doesn't decide the hypothesis, since H1 alone
+does (preregistration §1.3), but it leaves outcome 6 unchecked at the reference grid for K: at 0.1 m K2 reached
+λ_max 0.0179, class none.
+
+**Why it stalled (corrected 2026-11-20; the first version of this section blamed the char layer, wrongly).** The step
+6 numerics review reran a copy and logged the substep count (`.worktrees/_durable/ladder_research/numerics_scratch/`,
+not committed). The char layer was never thinner than 8.3 mm, and its term asked for 1–2 substeps. From t ≈ 523 s one
+pilot-face cell kept a wetted area `A_ia` of 1.5 × 10⁻¹⁹ m², floating-point residue. `wetbed.py::_pilot_split` counts
+any `A_ia > 0` as live and sends it the cell's whole pilot share (8.96 W), and `_step_ia` divides that power by
+`A_ia`: 6 × 10¹⁹ W/m². When the sliver dried at 528.5 s its node reached 2.9 × 10¹⁶ K, and the explicit stability
+limit returned 2.8 × 10³⁹ substeps. The fault is three things together: power divided by a part's area, a part with no
+physical size counted as live, and no cap on substeps. The bug is in the accelerant spike's `WetBed`, so every run
+with an accelerant loading carries it. The completed runs' ledgers close, but whether a sliver arose in them wasn't
+checked. The energy involved is at most one cell's pilot share, about 9 W of the torch's 2 kW. For step 6: route power
+by area share, never divide by a part's area, give every part a minimum size in metres, and cap every substep count.
 
 ### 3.3 F: the char layer stops a fully lit crate
 
