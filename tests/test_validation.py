@@ -245,7 +245,7 @@ def test_an_imagined_object_over_its_mass_budget_is_refused(dx_m, materials):
 def test_the_game_data_is_found_installed_or_in_a_checkout_or_refused(tmp_path):
     here = tmp_path / "src" / "maxim_overdrive"
     here.mkdir(parents=True)
-    with pytest.raises(FileNotFoundError, match=r"no game data: neither .*_data.* nor .*data"):
+    with pytest.raises(FileNotFoundError, match=r"no game data .*: none of .*_data, .*data is a directory"):
         data.data_dir(here)
     (tmp_path / "data").mkdir()
     assert data.data_dir(here) == tmp_path / "data"  # a checkout
@@ -261,6 +261,13 @@ def test_a_rig_profile_loads_by_path_and_the_game_finds_its_own_by_name(tmp_path
     assert data.rig_profile("rig").name == "rig"
     with pytest.raises(FileNotFoundError):
         data.rig_profile("no_such_rig")
+
+
+@pytest.mark.parametrize("name", ["../../x", "rigs/rig", "/etc/passwd", "..", "", "rig.yaml", 7, "a b"])
+def test_a_rig_name_with_a_separator_dots_or_an_absolute_path_is_refused(name):
+    # delta round 4, Trust D4-N2: an operator's rig flag joined unchecked into a path read any reachable *.yaml.
+    with pytest.raises(ValueError, match="a rig name is letters, digits"):
+        data.rig_profile(name)
 
 
 # -- every number in a data file is a finite real number, or the loader says which one isn't -------------------------
@@ -1065,3 +1072,12 @@ def test_primitives_from_data_refuses_every_malformed_list(listed, message):
 
     with pytest.raises(ValueError, match=message):
         primitives_from_data(listed)
+
+
+def test_the_directory_gate_names_every_candidate_it_refused(tmp_path):
+    from simcore.adapters.loaders import existing_directory  # noqa: PLC0415
+
+    (tmp_path / "a_file").write_text("x")
+    with pytest.raises(FileNotFoundError, match=r"thing: none of .*missing, .*a_file is a directory"):
+        existing_directory([tmp_path / "missing", str(tmp_path / "a_file")], "thing")
+    assert existing_directory([str(tmp_path)], "thing") == tmp_path

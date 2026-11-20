@@ -61,7 +61,7 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
     (`pyproject.toml` `skip-layer`, proven by a planted import in `tests/test_tooling_config.py`);
   - done: §3's writer non-vacuity test: every function assigning into a cell array, `regions` or `sources` is in the
     core (`tests/test_ownership.py`);
-  - done: B-4's input-primitive allowlist and banned unsafe calls (`input-primitives`, `scripts/lint_inputs.py`);
+  - done: B-4's input-primitive allowlist and banned unsafe calls (`tests/test_input_allowlist.py`, `scripts/lint_inputs.py`);
     B-10's `Observation` protocol and frame tests (`simcore/core/frames.py`, `tests/test_frames.py`); B-13's import
     half (`membrane-reads-frames`; the field registry joins its allowed list in step 5a).
 - Scene v1: F13 plus a required `spawns`; scene v0 is refused by version, not migrated (it would migrate to a

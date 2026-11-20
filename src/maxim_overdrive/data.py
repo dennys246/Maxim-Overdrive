@@ -6,12 +6,20 @@ loaded tables to the engine as required parameters.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
-from simcore.adapters.loaders import load_action_limits, load_materials
+from simcore.adapters.loaders import existing_directory, load_action_limits, load_materials
+from simcore.core.checks import shown
 from simcore.core.limits import ActionLimits
 from simcore.core.materials import MaterialTable
 from simcore.protocol.tiers import RigProfile
+
+__all__ = ["action_limits", "data_dir", "materials", "rig_profile"]
+
+# This module does path arithmetic only; the file gate (simcore.adapters.loaders) touches the filesystem.
+# tests/test_input_allowlist.py holds its Path attributes to PATH_ARITHMETIC (delta round 4, S-d).
+RIG_NAME = re.compile(r"[A-Za-z0-9_-]+")
 
 
 def data_dir(here: Path | None = None) -> Path:
@@ -19,12 +27,7 @@ def data_dir(here: Path | None = None) -> Path:
     that names both, never a path that silently doesn't exist (boundaries §11.2, W5). ``here`` is this package's
     directory; a test passes another."""
     here = Path(__file__).resolve().parent if here is None else here
-    for candidate in (here / "_data", here.parents[1] / "data"):
-        if candidate.is_dir():
-            return candidate
-    raise FileNotFoundError(
-        f"no game data: neither {here / '_data'} (installed) nor {here.parents[1] / 'data'} (checkout)"
-    )
+    return existing_directory([here / "_data", here.parents[1] / "data"], "no game data (installed, then checkout)")
 
 
 def materials() -> MaterialTable:
@@ -38,5 +41,8 @@ def action_limits() -> ActionLimits:
 
 
 def rig_profile(name: str) -> RigProfile:
-    """A shipped rendering tier by name (``data/rigs/<name>.yaml``)."""
+    """A shipped rendering tier by name (``data/rigs/<name>.yaml``). The name is a bare name: no separator, no ``..``
+    and no absolute path, so it can't reach a file outside ``data/rigs/`` (delta round 4, D4-N2)."""
+    if not isinstance(name, str) or not RIG_NAME.fullmatch(name):
+        raise ValueError(f"a rig name is letters, digits, '_' and '-' only, got {shown(name)}")
     return RigProfile.load(data_dir() / "rigs" / f"{name}.yaml")

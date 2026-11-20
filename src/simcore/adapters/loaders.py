@@ -21,6 +21,23 @@ from simcore.core.materials import Material, MaterialTable
 # RIG_PROFILE_VERSION in simcore.protocol.tiers), checked by checks.format_version before the keys. A change a reader
 # of the old version can't read bumps it, and the reader then migrates or loudly refuses the committed v0 files in
 # tests/fixtures/formats/ (CLAUDE.md, "Every format is versioned").
+# The gate's API. Code outside the gates imports only these names from here, never a module this file imports
+# (pathlib, yaml): tests/test_input_allowlist.py holds every import from a gate to its __all__ (delta round 4, D4-S2).
+__all__ = [
+    "ACTION_LIMITS_VERSION",
+    "MATERIAL_OPTIONAL",
+    "MATERIAL_REQUIRED",
+    "MATERIAL_TABLE_VERSION",
+    "FilePath",
+    "existing_directory",
+    "load_action_limits",
+    "load_materials",
+    "read_yaml",
+]
+
+# A path a caller hands a gate: the only file-reading module is this one, so callers name paths without pathlib.
+FilePath = str | Path
+
 MATERIAL_TABLE_VERSION = 0
 # Declared beside the reader, not derived from Material: a field added to the dataclass and forgotten here must not
 # become a key the file may carry and the reader ignores. A test holds the two sets to the dataclass.
@@ -57,13 +74,23 @@ def _no_duplicate_keys(loader: _StrictLoader, node: yaml.MappingNode) -> dict[An
 _StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicate_keys)
 
 
-def read_yaml(path: Path) -> object:
+def existing_directory(candidates: Sequence[FilePath], what: str) -> Path:
+    """The first of ``candidates`` that is a directory, or a FileNotFoundError that names them all.
+
+    The game's data locator asks this gate, so the game itself only does path arithmetic (delta round 4, S-d)."""
+    for candidate in candidates:
+        if Path(candidate).is_dir():
+            return Path(candidate)
+    raise FileNotFoundError(f"{what}: none of {', '.join(str(c) for c in candidates)} is a directory")
+
+
+def read_yaml(path: FilePath) -> object:
     """A data file parsed strictly: invalid YAML and repeated keys are refused, with the file named.
 
     Every data loader reads through here, so none of them can keep the last of two values for one key.
     """
     try:
-        return yaml.load(path.read_text(), Loader=_StrictLoader)  # a SafeLoader subclass
+        return yaml.load(Path(path).read_text(), Loader=_StrictLoader)  # a SafeLoader subclass
     except yaml.YAMLError as exc:  # reported, with the file, as the refusal
         raise ValueError(f"{path}: not valid YAML: {exc}") from None
     except RecursionError:  # the parser recurses per level; no data file nests this deep
@@ -100,7 +127,7 @@ def _material(name: object, entry: object) -> Material:
     )
 
 
-def load_materials(path: str | Path) -> MaterialTable:
+def load_materials(path: FilePath) -> MaterialTable:
     """The material table in the file at ``path``, at ``MATERIAL_TABLE_VERSION``, or a ValueError saying why not."""
     path = Path(path)
     what = f"material table {path}"
@@ -111,7 +138,7 @@ def load_materials(path: str | Path) -> MaterialTable:
     return MaterialTable({name: _material(name, entry) for name, entry in raw.items()})
 
 
-def load_action_limits(path: str | Path) -> ActionLimits:
+def load_action_limits(path: FilePath) -> ActionLimits:
     """The action limits in the file at ``path``, at ``ACTION_LIMITS_VERSION``, or a ValueError saying why not."""
     path = Path(path)
     raw = format_version(read_yaml(path), ACTION_LIMITS_VERSION, f"{path}: action limits")

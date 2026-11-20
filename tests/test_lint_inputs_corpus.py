@@ -3,8 +3,9 @@
 Each rewrite of the lint once silently dropped spellings an earlier round had probed (``os.environ.get`` was caught at
 3a0d482 and lost at 8c1de1e), because the probes were never pinned. Here they are pinned, each with the round that
 reported it, plus clean spellings that must not be flagged. A spelling a review finds is added here, never only to
-the lint. Since delta round 3 each row is judged by the import contracts and the lint together: the contract is
-the rule for modules (``input-primitives``), the lint covers the builtins and numpy's IO.
+the lint. Each row is judged by the fail-closed import allowlist (``tests/_imports.py``: each layer's external
+imports, a gate's ``__all__``, the data locator's attributes) and the lint together; the allowlist is the rule for
+modules, the lint covers the builtins and numpy's and scipy's IO.
 ``docs/design/reviews/step3b/fold.md`` records how each revision of the lint scored on this corpus.
 """
 
@@ -16,12 +17,15 @@ from pathlib import Path
 
 import pytest
 
+from tests import _imports
 from tests.test_lint_standards import _load
 
 inputs = _load("lint_inputs")
 ROOT = Path(__file__).resolve().parents[1]
+DATA_SOURCE = (ROOT / "src" / "maxim_overdrive" / "data.py").read_text()
 
 SRC = "src/simcore/protocol/x.py"  # in the engine, outside the gates; planted rows go beside it
+DATA = "src/maxim_overdrive/data.py"  # the module that holds pathlib for the game; rows here judge its attributes
 ANY = "tests/test_x.py"  # the unsafe rule holds in every file
 
 # (rule, file, source, flagged, where it was reported)
@@ -90,6 +94,48 @@ CASES: list[tuple[str, str, str, bool, str]] = [
     ("input", SRC, "def f(open: bool):\n    return open", False, "delta 3"),
     ("input", SRC, "json = x.to_dict()", False, "delta 3"),
     ("input", SRC, "yaml = x", False, "delta 3"),
+    # -- input, delta 4 (D4-S1): routes past the old denylist, now refused by the allowlist ---------------------------
+    ("input", SRC, "import _io\nt = _io.open(p).read()", True, "delta 4"),
+    ("input", SRC, "import xml.etree.ElementTree as ET\nt = ET.parse(p)", True, "delta 4"),
+    ("input", SRC, "import inspect\nt = inspect.getsource(f)", True, "delta 4"),
+    ("input", SRC, "import genericpath\nok = genericpath.exists(p)", True, "delta 4"),
+    ("input", SRC, "import wave\nw = wave.open(p)", True, "delta 4"),
+    ("input", SRC, "import logging.config\nlogging.config.fileConfig(p)", True, "delta 4"),
+    ("input", SRC, "import zipimport", True, "delta 4"),
+    ("input", SRC, "import posixpath\nh = posixpath.expanduser('~')", True, "delta 4"),
+    ("input", SRC, "import platform\nn = platform.node()", True, "delta 4"),
+    ("input", SRC, "import getpass\nu = getpass.getuser()", True, "delta 4"),
+    ("input", SRC, "import pwd", True, "delta 4"),
+    ("input", SRC, "import locale", True, "delta 4"),
+    ("input", SRC, "import sysconfig", True, "delta 4"),
+    ("input", SRC, "import site", True, "delta 4"),
+    ("input", SRC, "import netrc", True, "delta 4"),
+    ("input", SRC, "import _socket", True, "delta 4"),
+    ("input", SRC, "import _posixsubprocess", True, "delta 4"),
+    ("input", SRC, "from concurrent.futures import ProcessPoolExecutor", True, "delta 4"),
+    ("input", SRC, "import signal", True, "delta 4"),
+    ("input", SRC, "import fcntl", True, "delta 4"),
+    ("input", SRC, "from scipy.io import loadmat\nm = loadmat(p)", True, "delta 4"),
+    ("input", SRC, "import scipy.io\nm = scipy.io.loadmat(p)", True, "delta 4"),
+    ("input", SRC, "a = np.lib.npyio.load(p)", True, "delta 4"),
+    ("input", SRC, "z = np.lib.npyio.NpzFile(f, True)", True, "delta 4"),
+    ("input", SRC, "t = np.DataSource().open(u)", True, "delta 4"),
+    ("input", SRC, "f = getattr(np, name)\na = f(p)", True, "delta 4"),
+    ("input", SRC, "v = getattr(obj, name)", True, "round 1: covered again in fold 5 (a computed getattr in simcore)"),
+    # -- input, delta 4 (D4-S2, Executor S-d): through a gate, and through the module that holds pathlib -------------
+    ("input", SRC, "from simcore.adapters.loaders import Path\nt = Path(p).read_text()", True, "delta 4"),
+    ("input", SRC, "from simcore.adapters.loaders import yaml\nd = yaml.safe_load(s)", True, "delta 4"),
+    ("input", SRC, "from simcore.adapters import loaders\nd = loaders.yaml.safe_load(s)", True, "delta 4"),
+    (
+        "input",
+        SRC,
+        "from pathlib import Path\ndef sneak(path):\n    return Path(path).read_text()",
+        True,
+        "delta 4: S-d in tiers",
+    ),
+    ("input", DATA, "def sneak(path):\n    return Path(path).read_text()", True, "delta 4: S-d in data"),
+    ("input", DATA, "ok = Path(p).is_dir()", True, "delta 4"),
+    ("input", DATA, "q = Path(p).parent / 'x'", False, "delta 4: path arithmetic"),
     # -- input: clean, must not be flagged ----------------------------------------------------------------------------
     ("input", "src/simcore/adapters/loaders.py", "t = path.read_text()", False, "build: the gate itself"),
     ("input", "scripts/x.py", "t = path.read_text()", False, "build: outside src"),
@@ -97,7 +143,7 @@ CASES: list[tuple[str, str, str, bool, str]] = [
     ("input", SRC, "v = getattr(obj, 'name', None)", False, "round 1"),
     ("input", SRC, "v = params.get('energy_j')", False, "fold 3"),
     ("input", SRC, "e = self.environ\nr = record.argv", False, "fold 3"),
-    ("input", SRC, "import re\np = re.compile('x')", False, "fold 3"),
+    ("input", SRC, "p = pattern.compile('x')", False, "fold 3: an attribute named compile is not the builtin"),
     # -- unsafe decoders, reported when the lint was built -------------------------------------------------------------
     ("unsafe", ANY, "import pickle", True, "build"),
     ("unsafe", ANY, "import marshal", True, "build"),
@@ -175,6 +221,9 @@ CASES: list[tuple[str, str, str, bool, str]] = [
     ("unsafe", ANY, "import ctypes\nctypes.pythonapi.PyRun_SimpleString(b'x')", True, "delta 3"),
     ("unsafe", ANY, "import jsonpickle\nx = jsonpickle.decode(s)", True, "delta 3"),
     ("unsafe", ANY, "eval = model.evaluate()", False, "delta 3: a local named eval"),
+    # -- unsafe, delta 4 (D4-N1): allow_pickle by position to the other readers ------------------------------------
+    ("unsafe", ANY, "a = np.lib.npyio.load(f, None, True)", True, "delta 4"),
+    ("unsafe", ANY, "z = np.lib.npyio.NpzFile(f, False, True)", True, "delta 4"),
     # -- unsafe: clean, must not be flagged ---------------------------------------------------------------------------
     ("unsafe", ANY, "import yaml\nx = yaml.load(text, Loader=yaml.SafeLoader)", False, "build"),
     ("unsafe", ANY, "import yaml\nx = yaml.load(text, yaml.CSafeLoader)", False, "build"),
@@ -204,7 +253,6 @@ NOT_COVERED: list[tuple[str, str, str, str]] = [
     ("input", "m = sock.recv(1024)", "build", "a method on an object handed in; values aren't followed"),
     ("input", "h = path.open()", "build", "a method on an object handed in; values aren't followed"),
     ("input", "v = getenv('X')", "build", "getenv unbound is a NameError; importing it is a contract finding"),
-    ("input", "v = getattr(obj, name)", "round 1", "a computed attribute reads no input; importlib is forbidden"),
     (
         "input",
         "async def f(r):\n    return await r.readline()",
@@ -214,6 +262,12 @@ NOT_COVERED: list[tuple[str, str, str, str]] = [
     ("unsafe", "import yaml\nf = getattr(yaml, name)", "round 1", "a computed name, a value; in src yaml is forbidden"),
     ("unsafe", "from numpy import *\na = load(f, None, True)", "delta 3", "a star import; ruff's F403 refuses it"),
     ("unsafe", "import operator, yaml\nf = operator.attrgetter('unsafe_load')(yaml)", "delta 3", "a name as a value"),
+    (
+        "unsafe",
+        "import functools\nf = functools.partial(np.load, mmap_mode=None)\na = f(p, None, True)",
+        "delta 4",
+        "a function passed as a value; in src naming np.load is already refused",
+    ),
 ]
 
 
@@ -226,23 +280,26 @@ def _planted(rule: str, rel: str) -> bool:
 
 @pytest.fixture(scope="module")
 def contract_hits(tmp_path_factory) -> set[str]:
-    """Plant every input row as its own module in a copy of src/ and run the gate's import contracts once; the rows
-    whose module breaks a contract, as their planted module names."""
-    from tests.test_tooling_config import _lint_imports  # noqa: PLC0415 - the gate's own command
-
+    """Plant every input row as its own module in a copy of src/, build the import graph once, and return the rows
+    the import allowlist or a gate's ``__all__`` refuses, as their planted module names."""
     tree = tmp_path_factory.mktemp("corpus")
     shutil.copytree(ROOT / "src", tree / "src", ignore=shutil.ignore_patterns("__pycache__"))
-    shutil.copy(ROOT / "pyproject.toml", tree)
     rows = [(c[0], c[1], c[2]) for c in CASES] + [(n[0], SRC, n[1]) for n in NOT_COVERED]
+    hits = set()
     for i, (rule, rel, source) in enumerate(rows):
-        if _planted(rule, rel):
+        if _planted(rule, rel) and rel != DATA:
             (tree / "src" / "simcore" / "protocol" / f"_corpus_{i}.py").write_text(source + "\n")
-    out = _lint_imports(tree).stdout
-    return set(re.findall(r"simcore\.protocol\.(_corpus_\d+) ->", out))
+            if _imports.gate_reexports(f"simcore.protocol._corpus_{i}", source + "\n"):
+                hits.add(f"_corpus_{i}")
+        elif _planted(rule, rel) and _imports.data_attribute_violations(DATA_SOURCE + "\n" + source + "\n"):
+            hits.add(f"_corpus_{i}")
+    violations = _imports.allowlist_violations(_imports.external_imports(tree))
+    return hits | set(re.findall(r"simcore\.protocol\.(_corpus_\d+) imports", "\n".join(violations)))
 
 
 def _flagged(rule: str, rel: str, source: str, index: int, hits: set[str]) -> bool:
-    """The joint verdict: the import contracts (for a planted input row) or the lint."""
+    """The joint verdict: the import allowlist, a gate's __all__ and the data locator's attributes (for a planted
+    input row), or the lint."""
     if rule == "unsafe":
         return bool(inputs.unsafe_findings(rel, source + "\n"))
     return f"_corpus_{index}" in hits or bool(inputs.input_findings(rel, source + "\n"))
@@ -269,6 +326,6 @@ def test_a_spelling_the_design_leaves_out_is_still_left_out(contract_hits, index
 
 def test_the_corpus_holds_every_round_and_both_verdicts():
     origins = {c[4].split(":")[0] for c in CASES}
-    assert {"build", "round 1", "delta 1", "delta 2", "delta 3"} <= origins
+    assert {"build", "round 1", "delta 1", "delta 2", "delta 3", "delta 4"} <= origins
     assert {c[3] for c in CASES if c[0] == "input"} == {True, False}
     assert {c[3] for c in CASES if c[0] == "unsafe"} == {True, False}

@@ -11,9 +11,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
 
-from simcore.adapters.loaders import read_yaml
+from simcore.adapters.loaders import FilePath, read_yaml
 from simcore.core.checks import format_version, known_keys, shown
 
 RIG_PROFILE_VERSION = 1
@@ -36,8 +35,8 @@ class RigProfile:
             raise ValueError(f"a rig profile needs a name, got {shown(self.name)}")
 
     @classmethod
-    def load(cls, path: str | Path) -> RigProfile:
-        path = Path(path)
+    def load(cls, path: FilePath) -> RigProfile:
+        """The rig profile in the file at ``path``. The gate (``loaders.read_yaml``) reads it; this only decodes."""
         what = f"rig profile {path}"
         raw = read_yaml(path)
         if isinstance(raw, Mapping) and type(raw.get("version")) is int and raw["version"] == 0:

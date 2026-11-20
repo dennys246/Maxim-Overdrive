@@ -61,6 +61,8 @@ GATE_MODULES = (
 GATES: dict[str, Gate] = {
     # file gates: strict YAML, a version, closed keys, ValueError only, bounded echo; not agent-facing
     "src/simcore/adapters/loaders.py::read_yaml": Gate(_V, _ACT, "meets"),
+    "src/simcore/adapters/loaders.py::existing_directory": Gate(_V, _VAL, "meets"),
+    "src/maxim_overdrive/data.py::rig_profile": Gate(_V, _VAL, "meets"),  # an operator's rig name: a bare name only
     "src/simcore/adapters/loaders.py::load_materials": Gate(_V, _VAL, "meets"),
     "src/simcore/adapters/loaders.py::load_action_limits": Gate(_V, _ACT, "meets"),
     "src/simcore/protocol/tiers.py::RigProfile": Gate(_V, _VAL, "meets"),

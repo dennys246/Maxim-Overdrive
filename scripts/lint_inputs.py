@@ -1,26 +1,29 @@
 """Standards check 5: what an import can't show about untrusted input (boundaries §5.2, B-4).
 
-The load-bearing rule for modules is ``pyproject.toml``'s ``input-primitives`` import contract: outside the file gates,
-nothing in ``simcore`` or ``maxim_overdrive`` imports a module that reads the filesystem, the environment, the network
-or another process, runs code by name, or decodes. This lint covers only what needs no import, in closed lists:
+The load-bearing rule for modules is an allowlist, fail closed (``tests/_imports.py``): every layer of ``simcore`` and
+``maxim_overdrive`` imports only the external modules its list names, and code outside the gates takes from a gate
+only its ``__all__``. This lint covers what an import can't show, in closed lists:
 
 - **The builtins:** ``open``, ``input`` and ``__import__`` in ``src/``; ``eval``, ``exec`` and ``compile`` in every
   file. They count by any spelling (``builtins.open``, ``__builtins__.eval``, ``__builtins__['eval']``,
   ``vars(builtins)['exec']``, ``globals()['__builtins__']``), and a bare name counts only when the module doesn't bind
   it itself (a parameter, an assignment, a loop or ``with`` target, an import, a ``def`` or ``class``).
-- **numpy's IO** in ``src/``: ``load``, ``fromfile``, ``memmap``, ``loadtxt``, ``genfromtxt``, ``fromregex`` and
-  ``lib.format.read_array``/``open_memmap``, through any import alias.
+- **numpy's and scipy's IO** in ``src/``, which the allowlist can't tell from the rest of the package (grimp records
+  ``numpy.lib.npyio`` as ``numpy``): ``load``, ``fromfile``, ``memmap``, ``loadtxt``, ``genfromtxt``, ``fromregex``,
+  ``DataSource``, ``lib.npyio``, ``lib.format.read_array``/``open_memmap``, ``lib._datasource`` and ``scipy.io``,
+  through any import alias; and, in ``src/simcore/``, ``getattr`` with a computed name, which could reach any of them.
 - **Decoders and code runners in every file**, since the contract can't reach ``scripts/`` or ``tests/``: importing or
   naming ``pickle``, ``_pickle``, ``marshal``, ``shelve``, ``dill``, ``cloudpickle``, ``jsonpickle``,
   ``multiprocessing.reduction``, ``runpy``, ``code`` or ``ctypes`` (by import, ``importlib.import_module``,
   ``__import__`` or ``sys.modules`` with a literal name); yaml's unsafe loaders and ``yaml.constructor``;
   ``yaml.load`` without a ``SafeLoader`` (or a subclass defined beside it); an ``allow_pickle`` that is not a literal
-  ``False`` (by keyword, or by position to ``numpy.load`` and ``read_array``); and ``*`` or ``**`` arguments to
-  either.
+  ``False`` (by keyword, or by position to ``numpy.load``, ``lib.npyio.load``, ``NpzFile`` and ``read_array``); and
+  ``*`` or ``**`` arguments to any of them.
 
 What it can't see: a value passed through a variable, a container or a function (``f = pick(yaml)``,
-``operator.attrgetter('unsafe_load')(yaml)``), a method on an object handed in (a stream's ``readline``), a name
-built at run time, and ``from x import *`` (ruff's F403 refuses that). It guards mistakes, not adversaries.
+``operator.attrgetter('unsafe_load')(yaml)``, ``functools.partial(np.load, ...)`` outside ``src/``), a method on an
+object handed in (a stream's ``readline``), a name built at run time, and ``from x import *`` (ruff's F403 refuses
+that). It guards mistakes, not adversaries.
 ``tests/test_lint_inputs_corpus.py`` judges every reported spelling by this lint and the contract together.
 """
 
@@ -40,11 +43,13 @@ EVERYWHERE = {
 }  # fmt: skip
 IN_SRC = {
     "builtins.open", "builtins.input", "builtins.__import__", "numpy.load", "numpy.fromfile", "numpy.memmap",
-    "numpy.loadtxt", "numpy.genfromtxt", "numpy.fromregex", "numpy.lib.format.read_array",
-    "numpy.lib.format.open_memmap",
+    "numpy.loadtxt", "numpy.genfromtxt", "numpy.fromregex", "numpy.DataSource", "numpy.lib.npyio",
+    "numpy.lib.format.read_array", "numpy.lib.format.open_memmap", "numpy.lib._datasource", "scipy.io",
 }  # fmt: skip
 # allow_pickle by position, per reader: numpy.load(file, mmap_mode, allow_pickle), read_array(fp, allow_pickle).
-PICKLE_POSITION = {"numpy.load": 2, "numpy.lib.format.read_array": 1}
+PICKLE_POSITION = {
+    "numpy.load": 2, "numpy.lib.npyio.load": 2, "numpy.lib.npyio.NpzFile": 2, "numpy.lib.format.read_array": 1,
+}  # fmt: skip
 SAFE_LOADERS = {"SafeLoader", "CSafeLoader"}
 IMPORTERS = {"importlib.import_module", "builtins.__import__", "importlib.__import__"}
 NAMESPACES = {"builtins.vars", "builtins.globals", "builtins.locals"}  # vars(x) is x's names; globals() the module's
@@ -206,11 +211,25 @@ def unsafe_findings(rel: str, source: str) -> list[str]:
     return _findings(rel, source, EVERYWHERE, calls=True)
 
 
+def _computed_getattr(rel: str, source: str) -> list[str]:
+    tree = ast.parse(source)
+    names = _Names(tree)
+    return [
+        f"{rel}:{node.lineno}: calls getattr with a computed name (boundaries §5.2)"
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and names.of(node.func) == "builtins.getattr"
+        and len(node.args) > 1
+        and not isinstance(_literal(node.args[1]), str)
+    ]
+
+
 def input_findings(rel: str, source: str) -> list[str]:
-    """The input builtins and numpy's IO, in a ``src/`` module that is not an input gate."""
+    """The input builtins and numpy's and scipy's IO, in a ``src/`` module that is not an input gate."""
     if not rel.startswith("src/") or rel in INPUT_GATES:
         return []
-    return _findings(rel, source, IN_SRC, calls=False)
+    computed = _computed_getattr(rel, source) if rel.startswith("src/simcore/") else []
+    return _findings(rel, source, IN_SRC, calls=False) + computed
 
 
 def check_inputs(files: dict[str, str]) -> list[str]:

@@ -30,7 +30,7 @@ def _repo_files() -> dict[str, str]:
 
 
 def test_a_planted_open_in_a_module_that_is_not_a_gate_goes_red():
-    # A json.loads there is the input-primitives contract's (tests/test_tooling_config.py plants one per family); the
+    # A json.loads there is the import allowlist's (tests/test_input_allowlist.py plants one per route); the
     # lint holds what needs no import, such as the open builtin.
     files = _repo_files()
     assert inputs.check_inputs(files) == []

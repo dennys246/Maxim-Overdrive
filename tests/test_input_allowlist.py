@@ -1,0 +1,152 @@
+"""Only the file gates read input, fail closed (boundaries §5.2, B-4; step 3b delta round 4).
+
+The rule is three allowlists (``tests/_imports.py``): each layer's external imports, what non-gate code may take
+from a gate, and the attributes the game's data locator may use. A route nobody named is refused. Each test plants
+what a review found getting past the earlier denylist and watches it go red.
+"""
+
+from __future__ import annotations
+
+import shutil
+from collections import defaultdict
+from pathlib import Path
+
+import pytest
+
+from tests import _imports
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(scope="module")
+def real_imports() -> dict[str, list[str]]:
+    return _imports.external_imports(ROOT)
+
+
+def test_every_layer_imports_only_the_externals_its_allowlist_names(real_imports):
+    assert _imports.allowlist_violations(real_imports) == []
+
+
+def test_each_allowlist_names_exactly_what_its_layer_imports_today(real_imports):
+    used: dict[str, set[str]] = defaultdict(set)
+    for module, externals in real_imports.items():
+        used[_imports._layer(module)] |= set(externals)
+    assert {layer: set(allowed) for layer, allowed in _imports.ALLOWED.items()} == {
+        layer: used[layer] for layer in _imports.ALLOWED
+    }
+
+
+# One plant per route; delta round 4 (D4-S1) found the first group past the denylist contract.
+PLANTS = {
+    "io_c": "import _io\nt = _io.open(p).read()",
+    "xml": "import xml.etree.ElementTree as ET\nt = ET.parse(p)",
+    "inspect": "import inspect\nt = inspect.getsource(f)",
+    "genericpath": "import genericpath\nok = genericpath.exists(p)",
+    "wave": "import wave\nw = wave.open(p)",
+    "logging_config": "import logging.config\nlogging.config.fileConfig(p)",
+    "zipimport": "import zipimport",
+    "posixpath": "import posixpath\nh = posixpath.expanduser('~')",
+    "platform": "import platform\nn = platform.node()",
+    "getpass": "import getpass\nu = getpass.getuser()",
+    "pwd": "import pwd",
+    "locale": "import locale",
+    "sysconfig": "import sysconfig",
+    "site": "import site",
+    "netrc": "import netrc",
+    "socket_c": "import _socket",
+    "posixsubprocess": "import _posixsubprocess",
+    "futures": "from concurrent.futures import ProcessPoolExecutor",
+    "signal": "import signal",
+    "fcntl": "import fcntl",
+    "scipy_io": "from scipy.io import loadmat\nm = loadmat(p)",  # scipy is a package the protocol doesn't hold
+    # the families the earlier contract named, so the allowlist is shown to cover them too
+    "os": "import os\nv = os.environ.get('X')",
+    "pathlib": "from pathlib import Path\nt = Path(p).read_text()",  # delta round 4, S-d: tiers' route
+    "urllib": "from urllib.request import urlopen",
+    "subprocess": "import subprocess",
+    "importlib": "import importlib",
+    "json": "import json",
+    "pickle": "import pickle",
+}
+
+
+@pytest.fixture(scope="module")
+def planted_imports(tmp_path_factory) -> dict[str, list[str]]:
+    tree = tmp_path_factory.mktemp("plants")
+    shutil.copytree(ROOT / "src", tree / "src", ignore=shutil.ignore_patterns("__pycache__"))
+    for name, source in PLANTS.items():
+        (tree / "src" / "simcore" / "protocol" / f"_plant_{name}.py").write_text(source + "\n")
+    (tree / "src" / "simcore" / "core" / "_plant_core_os.py").write_text("import os\n")
+    (tree / "src" / "simcore" / "adapters" / "loaders.py").write_text(
+        (ROOT / "src" / "simcore" / "adapters" / "loaders.py").read_text() + "\nimport importlib\n"
+    )  # a gate gets only what its allowlist names
+    return _imports.external_imports(tree)
+
+
+@pytest.mark.parametrize("name", [*PLANTS, "core_os"])
+def test_a_planted_input_route_is_refused_by_the_allowlist(planted_imports, name):
+    module = f"simcore.protocol._plant_{name}" if name != "core_os" else "simcore.core._plant_core_os"
+    assert any(v.startswith(f"{module} imports") for v in _imports.allowlist_violations(planted_imports)), name
+
+
+def test_a_gate_gets_no_import_its_allowlist_doesnt_name(planted_imports):
+    assert "simcore.adapters.loaders imports importlib, which simcore.adapters.loaders's allowlist doesn't name" in (
+        _imports.allowlist_violations(planted_imports)
+    )
+
+
+# -- what code outside the gates may take from a gate (delta round 4, D4-S2) ------------------------------------------
+
+
+def _src_modules():
+    for path in sorted((ROOT / "src").rglob("*.py")):
+        rel = path.relative_to(ROOT / "src").with_suffix("")
+        yield ".".join(rel.parts).removesuffix(".__init__"), path
+
+
+def test_code_outside_the_gates_takes_only_their_api():
+    found = [hit for module, path in _src_modules() for hit in _imports.gate_reexports(module, path.read_text())]
+    assert found == []
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "from simcore.adapters.loaders import Path\nt = Path(p).read_text()",
+        "from simcore.adapters.loaders import yaml\nd = yaml.safe_load(s)",
+        "from simcore.adapters import loaders\nd = loaders.yaml.safe_load(s)",
+        "import simcore.adapters.loaders as L\nP = L.Path",
+        "from maxim_overdrive.data import Path",
+        "from maxim_overdrive import data\nr = data.RIG_NAME",
+    ],
+)
+def test_a_name_taken_from_a_gate_beyond_its_all_is_refused(line):
+    assert _imports.gate_reexports("simcore.protocol.encoding", line + "\n"), line
+
+
+def test_every_gate_declares_its_api():
+    for gate in _imports.GATES:
+        assert _imports._gate_all(gate), gate
+
+
+# -- the game's data locator does path arithmetic only (delta round 4, Executor S-d) -----------------------------------
+
+
+def test_the_data_locator_uses_only_path_arithmetic():
+    source = (ROOT / "src" / "maxim_overdrive" / "data.py").read_text()
+    assert _imports.data_attribute_violations(source) == []
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "t = Path(p).read_text()",
+        "ok = Path(p).is_dir()",
+        "for f in Path(p).iterdir():\n    pass",
+        "h = Path(p).open()",
+        "Path(p).write_text('x')",
+    ],
+)
+def test_a_path_method_that_touches_the_filesystem_is_refused_in_the_data_locator(line):
+    source = (ROOT / "src" / "maxim_overdrive" / "data.py").read_text() + "\n" + line + "\n"
+    assert _imports.data_attribute_violations(source), line
