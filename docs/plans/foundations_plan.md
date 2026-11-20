@@ -63,10 +63,9 @@ fuel-mass law, the same apart from detail at each rendering tier.
 
 ## 3. Maxim (`origin/main` f0b1cea4)
 
-**Done there:** the candidates doc (`docs/plans/overdrive_refactor_candidates.md`, #1688); #1684 (OD-I1), #1685
-(OD-I3, absorbing OD-A13), #1686 (OD-I4); OD-I5 a private advisory; #1687 closed (real NPCs on macOS and
-Linux only); #1396 (O18's guards). OD-I2
-stays a nit.
+**Done there:** the candidates doc (#1688); #1684 (OD-I1), #1685
+(OD-I3, absorbing OD-A13), #1686 (OD-I4); OD-I5 a private advisory; #1687 closed (NPCs on POSIX only); #1396 (O18's guards). OD-I2
+stays a nit; OD-I6 is new.
 
 **Exchanged:** `erratum_1.md` sent 2026-11-18 (OD-A20, OD-A21; OD-A19 withdrawn). Maxim's answer
 (`response_4.md`): 1.4.0 planned March–May 2027; the world-seam front gate accepted. Its reviews of O35's draft: v4 to v6 fold them.
