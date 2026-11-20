@@ -142,8 +142,9 @@ stays a nit.
 | O38 | Maxim's §A.1b.5 staleness |
 | O39 | `apply` merged into `settle`: three host calls |
 | O40 | `make_agent_rng` plus a stream argument |
-| O43 | `session_id` from the log header; the seq saved in the agent home |
-| O44 | Restore takes the higher seq; dead workers' pids refused |
+| O43 | `session_id` from the log header; the seq in the agent home |
+| O44 | Dead workers' pids refused |
+| O45 | A log segment per restore |
 | OA1 | A thought's kind from the agent's policy, a closed vocabulary; a logged host table sets cost |
 | OA2 | Dilation shown on a three-handed clock |
 | OA3 | No conversational repertoire of our own; proposed to Maxim as OD-H5 |
