@@ -4,15 +4,12 @@
 (`reviews/agent_draft_v3/maxim_review.md`: O38 staleness, O39 three host calls, O40 `make_agent_rng`, OD-A20
 declined, OD-EA14 and OD-EA15), its delta review (`maxim_delta_review.md`: the embedded efference copy, OD-A20
 widened, wall-clock forgetting, `:` barred from keys) and its review of v5 (`maxim_review_v5.md`: the pid's owners
-and its unbuilt stage, the settle invariant, O43). A reviewer sets fold statuses (O25).
+and its unbuilt stage, the settle invariant, O43) and its review of v6 (O45). A reviewer sets fold statuses (O25).
 
 **History.** v1 (4f7a754) went to the seven-lens foundations review (`reviews/foundations_v1/`); v2 folded it with
 O6 (mode (a) dropped for a host-driven contract; the cognitive reserve replaced by a mental-fatigue drive) and the
-answers OA1–OA5. v3 folded Maxim's two answers and our review of them (`reviews/maxim_response_1/`; O11a, O13–O15a):
-Maxim has no inner tool loop, so `think` is host-called and resumable; a thought is up to 3 model calls; a worker
-process per real agent; the clock seam split in two; real NPCs wait for 1.4.0. v3.1 folded the five-lens npcs_v3
-review into §6.6: the worker channel as a gate, the continuation split by owner, resume at the landing tick, and the
-correction that NAc's traces decay per loop tick (`reviews/maxim_response_1/correction_1.md`, `erratum_1.md`). The
+answers OA1–OA5. v3 folded Maxim's two answers and our review of them (`reviews/maxim_response_1/`; O11a, O13–O15a).
+v3.1 folded the five-lens npcs_v3 review into §6.6, with the correction that NAc's traces decay per loop tick (`reviews/maxim_response_1/correction_1.md`, `erratum_1.md`). The
 fold tables at the end map each round's findings.
 
 Part 2 of three: part 1 is `world_model.md` (the world), part 3 will be `lab_and_core_loop.md`. This part carries the
@@ -72,8 +69,9 @@ means recalled from memory, to be checked before it enters `data/`.
 | O38 | **Staleness is Maxim's hybrid §A.1b.5 (owner, 2026-11-19, Maxim's plan review).** A reply is stale only when a non-self-caused event on a tracked right arrives after its `basis_seq`, with the efference-copy exclusion (Maxim `docs/plans/hybrid_arbitration.md` §A.1b.5). Our `superseded` verdict and the step-sequence/frame-id basis are dropped. Staleness goes through Maxim's typed pre-emption handler, never `_drop_stale_proposal` (§A.1b.4). | §6.6 |
 | O39 | **`apply` merges into `settle` (owner, 2026-11-19, Maxim's plan review).** Maxim's cand. A6 applies proposed writes at settle under B2's digest, so `AgentPort` is three host calls: `step`, `think`, `settle`. | §6 |
 | O40 | **One randomness derivation (owner, 2026-11-19, Maxim's plan review):** Maxim's `utils/seeding.py::make_agent_rng(base_seed, agent_id)`, keyed by the persisted NPC key and extended with a stream argument, proposed to Maxim as part of a new per-agent release-gate item (after 1.4.0, per Maxim's owner). Until it exists, `agent_id` may carry `"npc_key:stream"`. The `stable_hash_64_signed` formula is dropped. | §3.4, §6.6 |
-| O43 | **Replay ids (owner, 2026-11-19, Maxim's review of v5).** `session_id` is derived from the intent log's header (the log's root id plus the NPC key), never the wall clock or a uuid; the sequencer's high-water seq is saved in the NPC's agent home, so a loaded save continues the sequence. | §6.6 |
-| O44 | **Crash recovery and event ids (owner, 2026-11-19).** On restore the sequencer's high-water is max(the saved one, the highest pid the host logged for the agent), so an older save never re-mints a logged id; a dead worker's in-flight pids each get a typed `agent_failed` refusal receipt, so each settles once (OD-EA16). | §6.4, §6.6 |
+| O43 | **Replay ids (owner, 2026-11-19, Maxim's review of v5).** `session_id` is derived from the intent log's header (the log's root id plus the NPC key), never the wall clock or a uuid; the sequencer's high-water seq is saved in the NPC's agent home, so a loaded save continues the sequence. Amended by O45. | §6.6 |
+| O44 | **Crash recovery and event ids (owner, 2026-11-19).** On restore the sequencer's high-water is max(the saved one, the highest pid the host logged for the agent), so an older save never re-mints a logged id; a dead worker's in-flight pids each get a typed `agent_failed` refusal receipt, so each settles once (OD-EA16). Amended by O45. | §6.4, §6.6 |
+| O45 | **A log segment per restore (owner, 2026-11-19, Maxim's review of v6).** Each restore opens a new log segment, and the segment number is part of `session_id`, recorded in the log header so replay reproduces it; ids from different segments can't collide whatever the seq. O44's floor is no longer a requirement: it stays only as a host-side test that no new pid equals a logged one. Amends O43 and O44. | §6.4, §6.6 |
 | O7a | **O7's condition is met:** Maxim answered (`reviews/maxim_response_1/`). The agent half is unparked for one revision, folding the response and its review, then one review round. | §4, §6 |
 | OA4 | Speech is stamped per syllable. | §5.3 |
 | OA5 | One mental-fatigue drive that rises with load, with per-kind load weights; it recovers with rest and sleep, feeds sleep pressure, and is separate from stamina. | §2.3, §4.6 |
@@ -703,8 +701,7 @@ agents)" and "agents step inside the simulation lane's tick" (§11).
 - **Agent isolation.** The worker process gives it by construction for real agents. Tier A still proves it inside
   one process (OD-EA6: one agent's digest is the same alone, alongside another, reversed and concurrent; DR-S5),
   because Maxim's own simulation hosts several agents in one process.
-- **Meters (B5):** park and release per NPC per tick, now a channel round trip (20 NPCs × 200 ticks per wall second ×
-  50–200 µs is 0.2–0.8 s per wall second; §6.6 gives the budget and levers), **pipe round trip per park** and **memory per worker** (both measured before Phase 4 commits to O13), adapter
+- **Meters (B5):** park and release per NPC per tick, now a channel round trip (§6.6 gives its cost, budget and levers), **pipe round trip per park** and **memory per worker** (both measured before Phase 4 commits to O13), adapter
   push and strip, thinking-lane overhead.
 
 ### 6.4 Propose, receipt, settle (Wire S12, Arch S13, X-6)
@@ -716,7 +713,8 @@ agents)" and "agents step inside the simulation lane's tick" (§11).
   dispatch into the same split (`tool_dispatch.py:1290-1291`; TBR-6).
 - **Every minted pid settles exactly once (Maxim's review of v5; OD-EA16).** Each invocation pid an agent mints
   comes back in exactly one terminal receipt, executed or a typed refusal; no receipt arrives without a minted pid;
-  a refusal receipt is the pid's outcome, not a physical event. The host's refusals, deferrals past a budget and
+  a refusal receipt is the pid's outcome, not a physical event, and a refusal's pid never appears in a GL3.B2 row
+  (Maxim's review of v6). The host's refusals, deferrals past a budget and
   drops all end in a typed refusal receipt carrying the pid, so none is orphaned; a dead worker's in-flight pids get
   `agent_failed` refusals (O44).
 - **Settle feeds NAc's existing eligibility traces,** not a second credit path. Dispatch/settle is an engineering
@@ -782,7 +780,7 @@ section pins them. Where it and an earlier section differ, this section wins, an
   host's per-park wall ceiling (`data/agents/thought_budget.yaml`), exits, or sends a refused frame is killed. The
   host logs `agent_failed(npc, reason = hung | crashed | protocol)` as a record, treats the NPC as parked and inert
   (its body processes go on; it takes no actions), and flags the run tier 3. Restarting it from its last saved home is
-  an explicit host control record (its in-flight pids: §6.4, O44).
+  an explicit host control record that opens a new log segment (O45; its in-flight pids: §6.4, O44).
 - **The worker is a container, not a sandbox (TB3-S6).** It runs as the user and can read what the user can. It
   contains the paths Maxim's code takes by default (working directory, home, environment, keys, outbound network); a
   hostile process needs an OS sandbox (macOS `sandbox-exec`, Linux seccomp and namespaces, Windows AppContainer).
@@ -805,8 +803,7 @@ section pins them. Where it and an earlier section differ, this section wins, an
 - **`settle` is the only writer, host-called (O39).** Memory writes, retrieval strengthening (below) and any other
   store change leave `step` and `think` as values. The host gates them (own memory only, provenance stamped, budget),
   orders them canonically (§9), and passes them to `settle` with the receipts; `settle` applies writes and credit by
-  publishing through Maxim's agent bus, never into the stores directly (Maxim's cand. A6, under B2's digest). A
-  second write door would need its own front-gate reason (Maxim's plan review).
+  publishing through Maxim's agent bus, never into the stores directly (Maxim's cand. A6, under B2's digest).
 - **The continuation is split by owner.** The **host-owned header** is a frozen value the host keeps and never sends
   out to be returned: thought id and kind, the triggering input id, the budget counters, the PFC cycle index and
   `max_cycles`, `basis_seq` (O38), each segment's modelled landing tick, cancel status and the
@@ -828,10 +825,8 @@ section pins them. Where it and an earlier section differ, this section wins, an
   `thalamic_relay.md` §5.2) works only if every receipt and frame event an intent causes carries its pid (the codec
   above; `tile_and_client.md` §3.1). B2's dispatch, the `_run_started` equivalent, draws it from the agent's own
   `EventSequencer` inside the worker: the sequencer owns the mint, GL3.B2 the contract, and the host only copies it.
-  The executor's `invocation_id` (`uuid4`, `executor.py:512`) is never the pid or a join key. v3.1's frame-id basis
-  and `superseded` are dropped. A stale reply goes through Maxim's typed pre-emption handler (§A.1b.4), never
-  `_drop_stale_proposal`; the agent returns a re-plan `Pending` (counted) or `ThoughtOutput(abandoned)`. Tracked-right
-  events reach the agent through `step`'s frame, danger tracks only; Maxim keeps this out of B2.
+  The executor's `invocation_id` (`uuid4`, `executor.py:512`) is never the pid or a join key. On a stale reply the agent returns a re-plan `Pending` (counted) or `ThoughtOutput(abandoned)`. Tracked-right
+  events reach the agent through `step`'s frame; Maxim keeps this out of B2.
 
 **Determinism at the edges (DET-B1 to B3, S1, S2, S5 to S7)**
 - **`think` resumes only at the segment's modelled landing tick,** never when the reply arrives. A reply that arrives
@@ -861,9 +856,9 @@ section pins them. Where it and an earlier section differ, this section wins, an
   (until it exists, `agent_id` is `"npc_key:stream"`), keyed by the persisted NPC key, never Maxim's ordinal, with
   `base_seed` from the log header's root. Each stream's state is saved pickle-free in the agent home. Overdrive's own
   streams stay §3.4's tree.
-- **Replay ids and the step thread (O43).** `session_id` comes from the log header (root id plus NPC key); the
-  sequencer's high-water seq is saved in the agent home (save v1, Phase 4), so a loaded save continues it. On
-  restore it is floored at the highest pid the host logged for the agent (O44). Maxim
+- **Replay ids and the step thread (O43, O45).** `session_id` comes from the log header (root id, NPC key and
+  segment number; each restore opens a segment); the sequencer's
+  high-water seq is saved in the agent home (save v1, Phase 4). Maxim
   scopes determinism to single-threaded loop paths (`thalamic_relay.md` §5.5): one worker per agent, stepped by one
   thread, is inside it, so never a pool of agents per worker thread.
 - **The machinery clock's zero (DET-N5):** world µs map onto Maxim's seconds with a fixed nonzero offset until

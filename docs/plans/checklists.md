@@ -240,16 +240,17 @@ the same locus carries none, and an in-flight thought stays fresh across the fir
 - **The settle invariant (OD-EA16, Maxim's SHOULD-FIX 2).** A test that every minted pid resolves exactly once: the
   double mints pids for intents the host then applies, refuses at stage 1 or 2, defers past the budget and drops
   (a superseded move, `coalesced`); each pid comes back in exactly one terminal receipt, the last three as a
-  typed refusal receipt carrying it; no receipt names an unminted pid; refusal receipts book no physical event.
+  typed refusal receipt carrying it; no receipt names an unminted pid; refusal receipts book no physical event, and
+  no refusal's pid appears in a GL3.B2 row (Maxim's review of v6).
   Proven by deletion: a planted drop path that sends no receipt turns it red.
-- **Crash recovery (O44).** On restore the sequencer's high-water is max(the saved high-water, the highest pid the
-  host logged for that agent); a dead worker's in-flight pids each get a typed `agent_failed` refusal receipt. A
-  test: save, let the double mint several pids past the save (some settled, some in flight), kill the worker,
-  restore from the older save, keep stepping; assert no pid repeats in the log and every pid settles exactly once,
-  the in-flight ones as `agent_failed`. Proven by deletion: drop the floor and a duplicate pid turns it red; drop
-  the receipts and an unsettled pid does.
-- **Replay ids (O43).** `session_id` is derived from the log header (the root id plus the NPC key): a test that two
-  runs of one log give equal ids, and that no wall-clock or uuid source feeds it (the determinism scan). The
+- **Crash recovery (O44, O45).** Each restore opens a new log segment, and its number is part of `session_id`; a
+  dead worker's in-flight pids each get a typed `agent_failed` refusal receipt. A test: save, let the double mint
+  several pids past the save (some settled, some in flight), kill the worker, restore from the older save (opening
+  segment k+1), keep stepping; assert no new pid equals any logged pid (O44's floor, now this collision check) and
+  every pid settles exactly once, the in-flight ones as `agent_failed`. Proven by deletion: keep the old segment
+  number on restore and a duplicate pid turns it red; drop the receipts and an unsettled pid does.
+- **Replay ids (O43, O45).** `session_id` is derived from the log header (the root id, the NPC key and the segment
+  number): a test that two runs of one log, restores included, give equal ids, and that no wall-clock or uuid source feeds it (the determinism scan). The
   sequencer's high-water seq round-trips through the agent home: save mid-run, load, and the next pid's seq
   continues. Maxim's determinism claim covers single-threaded loop paths only, so a worker
   steps one agent on one thread, never a pool: a test that a worker refuses to build a second agent.
