@@ -1,61 +1,54 @@
-"""Standards check 5: untrusted input is guarded at its sources (boundaries §5.2, B-4).
+"""Standards check 5: what an import can't show about untrusted input (boundaries §5.2, B-4).
 
-One algorithm. Every name, attribute, subscript and call in a file is canonicalized to a dotted name, and every
-dotted prefix of it is matched against two tables. No node is skipped, so a name can't hide inside a longer chain
-(``os.environ.get`` matches ``os.environ``) and a call can't hide behind the attribute read from its result
-(``open(p).read()`` matches ``builtins.open``).
+The load-bearing rule for modules is ``pyproject.toml``'s ``input-primitives`` import contract: outside the file gates,
+nothing in ``simcore`` or ``maxim_overdrive`` imports a module that reads the filesystem, the environment, the network
+or another process, runs code by name, or decodes. This lint covers only what needs no import, in closed lists:
 
-Canonicalizing resolves:
-- import aliases: ``import yaml as y``, ``from os import environ``, ``from importlib import import_module as im``; and
-  ``np`` is numpy;
-- builtins by any name: ``eval``, ``__builtins__.eval``, ``__builtins__['eval']``, ``vars(builtins)['eval']``,
-  ``builtins.__dict__['eval']``, ``builtins.__dict__.get('eval')`` and ``globals()['__builtins__']`` are all
-  ``builtins.eval``;
-- modules by name: ``sys.modules['pickle']``, ``importlib.import_module('pickle')``, ``__import__('pickle')`` and
-  ``importlib.__import__('pickle')`` are ``pickle``; ``getattr(x, 'name')`` is ``x.name``;
-- a literal key or ``.get`` of a literal: ``os.environ['X']`` and ``os.environ.get('X')`` are ``os.environ.X``.
+- **The builtins:** ``open``, ``input`` and ``__import__`` in ``src/``; ``eval``, ``exec`` and ``compile`` in every
+  file. They count by any spelling (``builtins.open``, ``__builtins__.eval``, ``__builtins__['eval']``,
+  ``vars(builtins)['exec']``, ``globals()['__builtins__']``), and a bare name counts only when the module doesn't bind
+  it itself (a parameter, an assignment, a loop or ``with`` target, an import, a ``def`` or ``class``).
+- **numpy's IO** in ``src/``: ``load``, ``fromfile``, ``memmap``, ``loadtxt``, ``genfromtxt``, ``fromregex`` and
+  ``lib.format.read_array``/``open_memmap``, through any import alias.
+- **Decoders and code runners in every file**, since the contract can't reach ``scripts/`` or ``tests/``: importing or
+  naming ``pickle``, ``_pickle``, ``marshal``, ``shelve``, ``dill``, ``cloudpickle``, ``jsonpickle``,
+  ``multiprocessing.reduction``, ``runpy``, ``code`` or ``ctypes`` (by import, ``importlib.import_module``,
+  ``__import__`` or ``sys.modules`` with a literal name); yaml's unsafe loaders and ``yaml.constructor``;
+  ``yaml.load`` without a ``SafeLoader`` (or a subclass defined beside it); an ``allow_pickle`` that is not a literal
+  ``False`` (by keyword, or by position to ``numpy.load`` and ``read_array``); and ``*`` or ``**`` arguments to
+  either.
 
-The rules:
-- **Unsafe decoders, everywhere** (``src/``, ``scripts/``, ``tests/``): a name with a prefix in ``UNSAFE``;
-  ``yaml.load`` without a ``SafeLoader`` (or a subclass defined beside it); an ``allow_pickle`` (by keyword, or
-  third by position to ``numpy.load``) that is not a literal ``False``; ``numpy.load`` given ``**`` arguments; and
-  ``getattr`` with a computed name on a module in ``GETATTR_UNSAFE_ROOTS``.
-- **Input primitives, in ``src/`` outside ``INPUT_GATES``:** a name with a prefix in ``INPUT``; a call of a method in
-  ``READ_METHODS`` on anything; and, in ``src/simcore/``, a name with a prefix in ``DYNAMIC`` or ``getattr`` with a
-  computed name.
-
-What it can't see: a value passed through a variable (other than an import alias), a container other than a literal
-subscript, or a function's result (``f = pick(yaml)``); a computed name outside ``src/simcore/``; a yaml constructor
-registered without naming ``yaml.constructor``; and code built at run time. It guards mistakes, not adversaries.
-``tests/test_lint_inputs_corpus.py`` holds every spelling any review reported, each with its verdict.
+What it can't see: a value passed through a variable, a container or a function (``f = pick(yaml)``,
+``operator.attrgetter('unsafe_load')(yaml)``), a method on an object handed in (a stream's ``readline``), a name
+built at run time, and ``from x import *`` (ruff's F403 refuses that). It guards mistakes, not adversaries.
+``tests/test_lint_inputs_corpus.py`` judges every reported spelling by this lint and the contract together.
 """
 
 from __future__ import annotations
 
 import ast
 
-# The modules that may read input, each with what it reads. A new gate joins this list and the gate registry
-# (lint_gates.py) in the change that makes it.
+# The modules that may read input, each with what it reads. A new gate joins this list, the contract's ignore list
+# and the gate registry (lint_gates.py) in the change that makes it.
 INPUT_GATES = {"src/simcore/adapters/loaders.py": "the file gates: strict YAML from an explicit path"}
 
-UNSAFE = {
-    "pickle", "_pickle", "marshal", "shelve", "dill", "cloudpickle", "multiprocessing.reduction",
-    "yaml.unsafe_load", "yaml.unsafe_load_all", "yaml.full_load", "yaml.full_load_all", "yaml.Loader",
-    "yaml.UnsafeLoader", "yaml.FullLoader", "yaml.CLoader", "yaml.CUnsafeLoader", "yaml.CFullLoader",
-    "yaml.constructor", "builtins.eval", "builtins.exec",
+EVERYWHERE = {
+    "pickle", "_pickle", "marshal", "shelve", "dill", "cloudpickle", "jsonpickle", "multiprocessing.reduction",
+    "runpy", "code", "ctypes", "yaml.unsafe_load", "yaml.unsafe_load_all", "yaml.full_load", "yaml.full_load_all",
+    "yaml.Loader", "yaml.UnsafeLoader", "yaml.FullLoader", "yaml.CLoader", "yaml.CUnsafeLoader", "yaml.CFullLoader",
+    "yaml.constructor", "builtins.eval", "builtins.exec", "builtins.compile",
 }  # fmt: skip
-INPUT = {
-    "builtins.open", "builtins.input", "io.open", "codecs.open", "json", "yaml", "tomllib", "plistlib",
-    "configparser", "fileinput", "numpy.load", "numpy.loadtxt", "numpy.genfromtxt", "numpy.fromfile",
-    "os.environ", "os.environb", "os.getenv", "os.getenvb", "sys.argv", "sys.stdin", "environ", "getenv",
+IN_SRC = {
+    "builtins.open", "builtins.input", "builtins.__import__", "numpy.load", "numpy.fromfile", "numpy.memmap",
+    "numpy.loadtxt", "numpy.genfromtxt", "numpy.fromregex", "numpy.lib.format.read_array",
+    "numpy.lib.format.open_memmap",
 }  # fmt: skip
-DYNAMIC = {"importlib", "builtins.__import__"}  # in src/simcore: an import by computed name can reach any input
-READ_METHODS = {"read_text", "read_bytes", "open", "recv", "recv_into", "recvfrom"}  # Path, sockets, websockets
+# allow_pickle by position, per reader: numpy.load(file, mmap_mode, allow_pickle), read_array(fp, allow_pickle).
+PICKLE_POSITION = {"numpy.load": 2, "numpy.lib.format.read_array": 1}
 SAFE_LOADERS = {"SafeLoader", "CSafeLoader"}
-GETATTR_UNSAFE_ROOTS = {"yaml", "builtins", "importlib", "pickle", "_pickle", "marshal", "shelve"}
 IMPORTERS = {"importlib.import_module", "builtins.__import__", "importlib.__import__"}
 NAMESPACES = {"builtins.vars", "builtins.globals", "builtins.locals"}  # vars(x) is x's names; globals() the module's
-BUILTINS = {"open", "input", "eval", "exec", "__import__", "getattr", "vars", "globals", "locals", "compile"}
+BUILTINS = {"open", "input", "eval", "exec", "__import__", "compile", "getattr", "vars", "globals", "locals"}
 
 
 def aliases(tree: ast.Module) -> dict[str, str]:
@@ -68,7 +61,23 @@ def aliases(tree: ast.Module) -> dict[str, str]:
                 root = a.name.split(".")[0]
                 out[a.asname or root] = a.name if a.asname else root
         elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-            out |= {(a.asname or a.name): f"{node.module}.{a.name}" for a in node.names}
+            out |= {(a.asname or a.name): f"{node.module}.{a.name}" for a in node.names if a.name != "*"}
+    return out
+
+
+def bound_names(tree: ast.Module) -> set[str]:
+    """Names the module binds itself: parameters, assignment, loop, ``with`` and ``except`` targets, ``def`` and
+    ``class`` names (imports are aliases, resolved separately)."""
+    out: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store | ast.Del):
+            out.add(node.id)
+        elif isinstance(node, ast.arg):
+            out.add(node.arg)
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            out.add(node.name)
+        elif isinstance(node, ast.ExceptHandler):
+            out |= {node.name} if node.name else set()
     return out
 
 
@@ -79,8 +88,8 @@ def _literal(node: ast.AST | None) -> object:
 class _Names:
     """Canonical dotted names of expressions in one module."""
 
-    def __init__(self, table: dict[str, str]) -> None:
-        self.table = table
+    def __init__(self, tree: ast.Module) -> None:
+        self.table, self.bound = aliases(tree), bound_names(tree)
 
     def of(self, node: ast.AST) -> str | None:
         if isinstance(node, ast.Name):
@@ -96,9 +105,11 @@ class _Names:
             return self._call(node)
         return None
 
-    def name(self, ident: str) -> str:
+    def name(self, ident: str) -> str | None:
         if ident in self.table:
             return self.table[ident]
+        if ident in self.bound:
+            return None  # the module's own name: a parameter called input is not the builtin
         return f"builtins.{ident}" if ident in BUILTINS else ident
 
     def _member(self, base: str | None, key: ast.AST) -> str | None:
@@ -128,19 +139,11 @@ class _Names:
         return func
 
 
-def _prefixes(name: str) -> list[str]:
-    parts = name.split(".")
-    return [".".join(parts[: i + 1]) for i in range(len(parts))]
-
-
 def _hit(name: str | None, table: set[str]) -> str | None:
-    return next((p for p in _prefixes(name) if p in table), None) if name else None
-
-
-def _imported(node: ast.Import | ast.ImportFrom) -> list[str]:
-    if isinstance(node, ast.Import):
-        return [a.name for a in node.names]
-    return [f"{node.module}.{a.name}" for a in node.names] if node.module and node.level == 0 else []
+    if not name:
+        return None
+    parts = name.split(".")
+    return next((p for p in (".".join(parts[: i + 1]) for i in range(len(parts))) if p in table), None)
 
 
 def _base_name(node: ast.expr) -> str:
@@ -161,74 +164,53 @@ def _unsafe_call(call: ast.Call, names: _Names, safe: set[str]) -> str | None:
     if func in ("yaml.load", "yaml.load_all"):
         positional = call.args[1] if len(call.args) > 1 else None
         loader = next((k.value for k in call.keywords if k.arg == "Loader"), positional)
-        last = (names.of(loader) or "").rsplit(".", 1)[-1] if loader is not None else ""
-        if last not in SAFE_LOADERS and last not in safe:
-            return f"calls {func} without a SafeLoader"
-    positional = call.args[2] if func == "numpy.load" and len(call.args) > 2 else None  # load(file, mmap, pickle)
+        local = loader.id if isinstance(loader, ast.Name) and loader.id in safe else None  # a class defined here
+        last = local or ((names.of(loader) or "").rsplit(".", 1)[-1] if loader is not None else "")
+        return None if last in SAFE_LOADERS or last in safe else f"calls {func} without a SafeLoader"
+    at = PICKLE_POSITION.get(func)
+    positional = call.args[at] if at is not None and len(call.args) > at else None
     allow = next((k.value for k in call.keywords if k.arg == "allow_pickle"), positional)
     if allow is not None and _literal(allow) is not False:
         return f"calls {func} with allow_pickle that is not a literal False"
-    if func == "numpy.load" and any(k.arg is None for k in call.keywords):
-        return "calls numpy.load with ** arguments, which can carry allow_pickle"
-    computed = len(call.args) > 1 and not isinstance(_literal(call.args[1]), str)
-    if func == "builtins.getattr" and computed and (names.of(call.args[0]) or "").split(".")[0] in GETATTR_UNSAFE_ROOTS:
-        return f"calls getattr with a computed name on {names.of(call.args[0])}"
+    starred = any(isinstance(a, ast.Starred) for a in call.args) or any(k.arg is None for k in call.keywords)
+    if at is not None and starred:
+        return f"calls {func} with * or ** arguments, which can carry allow_pickle"
     return None
 
 
-def unsafe_findings(rel: str, source: str) -> list[str]:
-    """Unsafe decoders and code execution, banned in every Python file of the repository."""
+def _imported(node: ast.Import | ast.ImportFrom) -> list[str]:
+    if isinstance(node, ast.Import):
+        return [a.name for a in node.names]
+    return [f"{node.module}.{a.name}" for a in node.names] if node.module and node.level == 0 else []
+
+
+def _findings(rel: str, source: str, table: set[str], calls: bool) -> list[str]:
     tree = ast.parse(source)
-    names, safe = _Names(aliases(tree)), _safe_loader_classes(tree)
+    names, safe = _Names(tree), _safe_loader_classes(tree)
     out: set[str] = set()
     for node in ast.walk(tree):
         hits: list[str | None] = []
         if isinstance(node, ast.Import | ast.ImportFrom):
-            hits = [f"imports {n}" if _hit(n, UNSAFE) else None for n in _imported(node)]
+            hits = [f"imports {n}" if _hit(n, table) else None for n in _imported(node)]
         elif isinstance(node, ast.Name | ast.Attribute | ast.Subscript | ast.Call):
-            hit = _hit(names.of(node), UNSAFE)
+            hit = _hit(names.of(node), table)
             hits = [f"names {hit}" if hit else None]
-            if isinstance(node, ast.Call):
+            if calls and isinstance(node, ast.Call):
                 hits.append(_unsafe_call(node, names, safe))
-        out |= {f"{rel}:{getattr(node, 'lineno', 0)}: {h} (banned everywhere, boundaries §5.2)" for h in hits if h}
+        out |= {f"{rel}:{getattr(node, 'lineno', 0)}: {h} (boundaries §5.2)" for h in hits if h}
     return sorted(out)
 
 
-def _read_call(call: ast.Call, names: _Names, engine: bool) -> str | None:
-    if isinstance(call.func, ast.Attribute) and call.func.attr in READ_METHODS:
-        return f"calls .{call.func.attr}()"
-    computed = len(call.args) > 1 and not isinstance(_literal(call.args[1]), str)
-    if engine and names.of(call.func) == "builtins.getattr" and computed:
-        return "calls getattr with a computed name"
-    return None
-
-
-def _read_hit(node: ast.AST, names: _Names, engine: bool) -> str | None:
-    if isinstance(node, ast.Import | ast.ImportFrom):
-        banned = [n for n in _imported(node) if _hit(n, INPUT) or (engine and _hit(n, DYNAMIC))]
-        return f"imports {banned[0]}" if banned else None
-    if not isinstance(node, ast.Name | ast.Attribute | ast.Subscript | ast.Call):
-        return None
-    name = names.of(node)
-    if hit := _hit(name, INPUT):
-        return f"reaches {name}, under {hit}"
-    if engine and (hit := _hit(name, DYNAMIC)):
-        return f"reaches {hit}: a dynamic import can reach any input"
-    return _read_call(node, names, engine) if isinstance(node, ast.Call) else None
+def unsafe_findings(rel: str, source: str) -> list[str]:
+    """Decoders, code runners and the code-running builtins, banned in every Python file of the repository."""
+    return _findings(rel, source, EVERYWHERE, calls=True)
 
 
 def input_findings(rel: str, source: str) -> list[str]:
-    """Input primitives in a ``src/`` module that is not an input gate."""
+    """The input builtins and numpy's IO, in a ``src/`` module that is not an input gate."""
     if not rel.startswith("src/") or rel in INPUT_GATES:
         return []
-    tree = ast.parse(source)
-    names, engine = _Names(aliases(tree)), rel.startswith("src/simcore/")
-    out = {
-        f"{rel}:{getattr(node, 'lineno', 0)}: {hit}: only an input gate reads input (boundaries §5.2)"
-        for node in ast.walk(tree)
-        if (hit := _read_hit(node, names, engine))
-    }
-    return sorted(out)
+    return _findings(rel, source, IN_SRC, calls=False)
 
 
 def check_inputs(files: dict[str, str]) -> list[str]:

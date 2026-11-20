@@ -157,16 +157,35 @@ forbidden_modules = [
 ]  # fmt: skip
 allow_indirect_imports = true
 
-# Input primitives by source (boundaries §5.2, B-4): only the file gates parse YAML or JSON, and nothing decodes pickle
-# or marshal. Direct imports only, so a module that calls a gate (tiers, the game's data) passes; the one gate import
-# is named. scripts/lint_inputs.py holds the calls an import can't show (open, read_text, np.load, the environment).
+# Input primitives by source (boundaries §5.2, B-4), the load-bearing rule: outside the file gates, nothing in the
+# engine or the game imports a module that reads the filesystem, the environment, the network or another process,
+# runs code by name, or decodes pickles, JSON, YAML, TOML or INI. scripts/lint_inputs.py covers only what an import
+# can't show (the builtins and numpy's IO). Direct imports only, so a module that calls a gate passes. Each ignored
+# import is one a gate needs today, and only that one:
+# - simcore.adapters.loaders -> pathlib, yaml: the file gates read strict YAML from an explicit path;
+# - maxim_overdrive.data -> pathlib: the game says where its data lives (data_dir looks for the directory);
+# - simcore.protocol.tiers -> pathlib: RigProfile.load takes a path and hands it to loaders.read_yaml, opening nothing
+#   itself (it can't move into loaders, which sit below the protocol layer).
+# tests/test_tooling_config.py plants one import per family and holds the ignore list to these four.
 [[tool.importlinter.contracts]]
 id = "input-primitives"
-name = "only the file gates parse YAML or JSON, and nothing unpickles (boundaries §5.2, B-4)"
+name = "only the file gates read the filesystem, environment, network or processes, or decode (boundaries §5.2, B-4)"
 type = "forbidden"
 source_modules = ["simcore", "maxim_overdrive"]
-forbidden_modules = ["yaml", "json", "pickle", "marshal", "shelve"]
-ignore_imports = ["simcore.adapters.loaders -> yaml"]
+forbidden_modules = [
+    "os", "posix", "nt", "io", "pathlib", "shutil", "glob", "tempfile", "fileinput", "mmap", "linecache", "tokenize",
+    "codecs", "zipfile", "tarfile", "gzip", "bz2", "lzma", "sqlite3", "dbm", "pkgutil", "importlib", "runpy", "code",
+    "codeop", "ctypes", "builtins", "sys",
+    "urllib", "http", "socket", "ssl", "asyncio", "select", "selectors", "ftplib", "smtplib", "xmlrpc", "webbrowser",
+    "subprocess", "multiprocessing",
+    "json", "yaml", "tomllib", "plistlib", "configparser", "csv", "pickle", "_pickle", "marshal", "shelve",
+]  # fmt: skip
+ignore_imports = [
+    "simcore.adapters.loaders -> pathlib",
+    "simcore.adapters.loaders -> yaml",
+    "maxim_overdrive.data -> pathlib",
+    "simcore.protocol.tiers -> pathlib",
+]
 allow_indirect_imports = true
 
 [[tool.importlinter.contracts]]

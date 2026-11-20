@@ -413,8 +413,12 @@ def test_a_cylinder_mask_squares_its_radius_as_fa27d5f_did():
     g = MaterialGrid.empty((3.0, 3.0, 2.0), MATERIALS, dx_m=0.2)
     x, y, z = g.mesh()
     r = KNIFE_EDGE_RADIUS_M
+    mask = Cylinder((1.5, 1.5), r, (0.0, 0.8), "wood").mask(g)
     expected = (((x - 1.5) ** 2 + (y - 1.5) ** 2) < r**2) & (z >= 0.0) & (z < 0.8)
-    assert np.array_equal(Cylinder((1.5, 1.5), r, (0.0, 0.8), "wood").mask(g), expected)
+    assert np.array_equal(mask, expected)
+    # The outcome too (delta 3, Executor N-f): fa27d5f's 20 cells where pow rounds r**2 as this macOS libm does,
+    # and the 24 that fa27d5f's own code gives where pow is exact (then r**2 == r*r and the formula is not visible).
+    assert int(mask.sum()) == (20 if r**2 != r * r else 24)
 
 
 CYLINDER_SCENE = Scene(

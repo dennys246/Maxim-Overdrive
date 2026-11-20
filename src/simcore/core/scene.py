@@ -101,9 +101,10 @@ class Cylinder:
         x, y, z = grid.mesh()
         cx, cy = self.center_xy_m
         r2 = (x - cx) ** 2 + (y - cy) ** 2
-        # radius_m**2, as in fa27d5f: the 1 km bound (``_coordinates``) already rules out the overflow, and r*r would
-        # move knife-edge cells (at r = 0.28284271247461895 m on the 0.2 m grid the barrel was 20 cells, r*r made
-        # it 24). tests/test_determinism.py pins it.
+        # radius_m**2 goes through libm pow, the platform-dependent form; r*r is one correctly rounded multiply, the
+        # same everywhere. It stays **2 only to match fa27d5f's behaviour: at r = 0.28284271247461895 m on the 0.2 m
+        # grid this macOS pow gives 20 cells and r*r 24 (the 1 km bound already rules out the overflow). The real fix
+        # is voxelizing by volume overlap, with no knife edge (docs/standards_backlog.md, B28).
         return (r2 < self.radius_m**2) & (z >= self.z_m[0]) & (z < self.z_m[1])
 
     @property

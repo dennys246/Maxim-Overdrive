@@ -1,6 +1,6 @@
 """scripts/lint_inputs.py and scripts/lint_gates.py: untrusted input by source, and the gate registry (B-4).
 
-Each rule is proven by planting what it forbids (boundaries §5.2): a ``json.loads`` in a module that is not a gate, a
+Each rule is proven by planting what it forbids (boundaries §5.2): an ``open`` in a module that is not a gate, a
 public entry point with no row, a new ``handle(raw: bytes)`` inside a gate module, and a new ``Modulator`` whose
 ``execute`` has no row. All four must go red.
 """
@@ -29,12 +29,14 @@ def _repo_files() -> dict[str, str]:
 # -- input primitives on the real tree (every spelling lives in tests/test_lint_inputs_corpus.py) --------------------
 
 
-def test_a_planted_json_loads_in_a_module_that_is_not_a_gate_goes_red():
+def test_a_planted_open_in_a_module_that_is_not_a_gate_goes_red():
+    # A json.loads there is the input-primitives contract's (tests/test_tooling_config.py plants one per family); the
+    # lint holds what needs no import, such as the open builtin.
     files = _repo_files()
     assert inputs.check_inputs(files) == []
     rel = "src/simcore/protocol/tiers.py"
-    files[rel] += "\n\ndef decode(raw):\n    return json.loads(raw)\n"
-    assert any("json.loads" in p and rel in p for p in inputs.check_inputs(files))
+    files[rel] += "\n\ndef decode(path):\n    return open(path).read()\n"
+    assert any("builtins.open" in p and rel in p for p in inputs.check_inputs(files))
 
 
 # -- the gate registry ------------------------------------------------------------------------------------------------

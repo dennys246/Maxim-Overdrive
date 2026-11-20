@@ -205,8 +205,9 @@ only review holds.
   reply, never a crash or a half-applied change. The server binds to 127.0.0.1, refuses any handshake carrying an
   `Origin` header, and requires the per-launch token. Imagined and authored geometry is validated where primitives
   are made. Only the file gates read input, and nothing unpickles. Guard:
-  `tests/test_imagination.py::test_the_world_refuses_impossible_objects`, `scripts/lint_inputs.py::check_inputs`,
-  B3, B14
+  `tests/test_imagination.py::test_the_world_refuses_impossible_objects`,
+  `tests/test_tooling_config.py::test_only_the_file_gates_read_input_or_decode`,
+  `scripts/lint_inputs.py::check_inputs`, B3, B14
 - **Performance has budgets, measured, not guessed:** turn time and snapshot size per profile, with a regression gate.
   Optimize only from a profile. Guard: B5
 - **Client standards (Godot).** The engine version is pinned (4.7.2), and an upgrade is its own branch. GDScript is

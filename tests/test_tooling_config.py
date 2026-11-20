@@ -235,7 +235,14 @@ PLANTED = [
     ("simcore/host.py", "from maxim_overdrive import data", "the engine never imports the game"),
     ("simcore/protocol/encoding.py", "from simcore.core import grid", "adapters and protocol reach no cells"),
     ("simcore/adapters/sem/bridge.py", "from simcore.core import materials", "the SEM membrane reads frames"),
-    ("simcore/protocol/tiers.py", "import json", "only the file gates parse YAML or JSON"),
+    ("simcore/protocol/tiers.py", "import json", "only the file gates read the filesystem"),  # a decoder
+    # One per family the input-primitives contract forbids (delta round 3: the contract is the rule for modules).
+    ("simcore/protocol/encoding.py", "from pathlib import Path", "only the file gates read the filesystem"),  # files
+    ("simcore/adapters/sem/bridge.py", "import posix", "only the file gates read the filesystem"),  # environment
+    ("maxim_overdrive/data.py", "from urllib.request import urlopen", "only the file gates read the filesystem"),
+    ("simcore/protocol/tiers.py", "import subprocess", "only the file gates read the filesystem"),  # processes
+    ("simcore/adapters/loaders.py", "import importlib", "only the file gates read the filesystem"),  # by name
+    ("simcore/protocol/encoding.py", "import asyncio", "only the file gates read the filesystem"),  # streams
 ]
 
 
@@ -288,11 +295,28 @@ def test_the_membrane_contract_leaves_it_frames_the_applier_and_the_intents_only
     assert contract["allow_indirect_imports"] is True
 
 
-def test_only_the_file_gates_import_a_decoder():
+# The families no module outside the file gates may import (boundaries §5.2): files, the environment, the network,
+# processes, code by name, decoders. The contract may list more, never fewer.
+INPUT_FAMILIES = {
+    "os", "posix", "nt", "io", "pathlib", "shutil", "glob", "tempfile", "fileinput", "mmap", "urllib", "http",
+    "socket", "ssl", "asyncio", "select", "selectors", "subprocess", "importlib", "sys", "builtins",
+    "json", "yaml", "pickle", "marshal", "shelve",
+}  # fmt: skip
+# Each import a gate needs today, and nothing else (the contract's comment gives each one's reason).
+GATE_IMPORTS = [
+    "simcore.adapters.loaders -> pathlib",
+    "simcore.adapters.loaders -> yaml",
+    "maxim_overdrive.data -> pathlib",
+    "simcore.protocol.tiers -> pathlib",
+]
+
+
+def test_only_the_file_gates_read_input_or_decode():
     contract = _contracts()["input-primitives"]
     assert (contract["type"], set(contract["source_modules"])) == ("forbidden", _src_packages())
-    assert set(contract["forbidden_modules"]) == {"yaml", "json", "pickle", "marshal", "shelve"}
-    assert contract["ignore_imports"] == ["simcore.adapters.loaders -> yaml"]  # the one gate, by name
+    assert set(contract["forbidden_modules"]) >= INPUT_FAMILIES
+    assert contract["ignore_imports"] == GATE_IMPORTS
+    assert contract["allow_indirect_imports"] is True  # a module that calls a gate passes
 
 
 def test_the_gate_exports_the_tier_switch_conftest_reads():
