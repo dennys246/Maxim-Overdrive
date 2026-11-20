@@ -41,7 +41,7 @@ def test_red_gates_are_strict_and_warnings_are_errors():
 def test_coverage_measures_branches_over_src_and_scripts():
     coverage = _config()["coverage"]
     assert coverage["run"]["branch"] is True
-    assert set(coverage["run"]["source"]) == {"maxim_overdrive", "scripts"}
+    assert set(coverage["run"]["source"]) == {"src", "scripts"}  # by directory: a new package is measured unasked
     assert "omit" not in coverage["run"]  # an omitted file is uncovered code that nobody sees
 
 
@@ -88,9 +88,7 @@ def _capped_hits(path: str) -> dict[str, set[str]]:
     return hits
 
 
-@pytest.mark.parametrize(
-    "path", ["src/maxim_overdrive/world/canary.py", "src/maxim_overdrive/canary.py", "scripts/canary.py"]
-)
+@pytest.mark.parametrize("path", ["src/simcore/core/canary.py", "src/maxim_overdrive/canary.py", "scripts/canary.py"])
 def test_ruff_enforces_each_complexity_cap_at_its_threshold(path):
     hits = _capped_hits(path)
     assert hits.pop("at_cap") == set()  # complexity 10 is allowed: the cap is 10, not lower
@@ -117,3 +115,68 @@ def test_no_nested_ruff_config_can_override_the_root_one():
     tracked = git(ROOT, "ls-files").stdout
     assert not [f for f in tracked.splitlines() if Path(f).name in {"ruff.toml", ".ruff.toml"}]
     assert [f for f in tracked.splitlines() if Path(f).name == "pyproject.toml"] == ["pyproject.toml"]
+
+
+# -- import contracts (boundaries O24, §8.1, §10) ----------------------------------------------------------------------
+
+
+def _src_packages() -> set[str]:
+    return {p.parent.name for p in (ROOT / "src").glob("*/__init__.py")}
+
+
+def _contracts() -> dict[str, dict[str, Any]]:
+    return {c["id"]: c for c in _config()["importlinter"]["contracts"]}
+
+
+def test_every_package_under_src_is_a_root_of_the_import_graph():
+    # grimp builds no graph for a root that isn't listed, so an unlisted package importing maxim would pass every
+    # contract (foundations X-12, verified).
+    assert set(_config()["importlinter"]["root_packages"]) == _src_packages()
+    assert {"simcore", "maxim_overdrive"} <= _src_packages()
+
+
+def test_the_import_graph_is_built_from_this_worktrees_src():
+    # A shared venv's editable install could point the graph at another checkout's code (boundaries §10, W3).
+    import grimp  # noqa: PLC0415 - only this test needs it
+
+    graph = grimp.build_graph(*sorted(_src_packages()), cache_dir=None)
+    for package in _src_packages():
+        module = sys.modules.get(package) or __import__(package)
+        assert Path(module.__file__ or "").resolve().is_relative_to(ROOT / "src"), package
+        assert package in graph.modules
+
+
+def test_the_layers_contract_orders_game_protocol_adapters_core():
+    layers = _contracts()["layers"]
+    assert layers["type"] == "layers"
+    assert layers["layers"] == ["maxim_overdrive", "simcore.protocol", "simcore.adapters", "simcore.core"]
+
+
+def test_the_sealed_core_bans_at_least_what_the_determinism_scan_bans():
+    from tests.test_determinism import BANNED_MODULES  # noqa: PLC0415
+
+    core = _contracts()["sealed-core"]
+    assert core["source_modules"] == ["simcore.core"]
+    assert set(BANNED_MODULES) | {"maxim", "os", "pathlib", "yaml"} <= set(core["forbidden_modules"])
+    assert _config()["importlinter"]["include_external_packages"] is True  # without it, stdlib bans are vacuous
+
+
+def test_only_the_sem_membrane_may_import_maxim():
+    protected = _contracts()["maxim-through-adapters"]
+    assert (protected["type"], protected["protected_modules"]) == ("protected", ["maxim"])
+    assert protected["allowed_importers"] == ["simcore.adapters.sem"]
+
+
+def test_the_gate_runs_the_import_contracts_on_this_worktrees_src_without_a_cache():
+    gate = (ROOT / "scripts" / "prepush.sh").read_text()
+    assert 'PYTHONPATH="$PWD/src" "$PY" -c \'from importlinter.cli import lint_imports_command' in gate
+    assert "--no-cache" in gate
+    assert "\nlint_imports\n" in gate  # defined and called
+
+
+def test_the_wheel_ships_the_game_data_beside_the_module_that_reads_it():
+    from maxim_overdrive import data  # noqa: PLC0415
+
+    hatch = _config()["hatch"]["build"]["targets"]["wheel"]
+    assert set(hatch["packages"]) == {f"src/{p}" for p in _src_packages()}
+    assert hatch["force-include"] == {"data": f"{data.__name__.rsplit('.', 1)[0]}/_data"}

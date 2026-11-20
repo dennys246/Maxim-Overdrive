@@ -1,7 +1,7 @@
-"""Scenes are authored in metres and voxelized per rig.
+"""Scenes are authored in metres and voxelized at a grid spacing.
 
-Nothing is authored in cells. A scene is a list of primitives with a material and an optional name; the rig's cell
-size decides how finely it is sampled. Imagination produces the same specs (``imagination.spec``), so an imagined
+Nothing is authored in cells. A scene is a list of primitives with a material and an optional name; the grid spacing
+decides how finely it is sampled. Imagination produces the same specs (``simcore.core.imagination``), so an imagined
 object is made of the same cells, burns and breaks like anything else, and needs no special case.
 
 A cell belongs to a primitive when its centre lies inside it; later primitives overwrite earlier ones.
@@ -15,9 +15,9 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Literal
 
-from maxim_overdrive.checks import finite_real, finite_vector, format_version, known_keys
-from maxim_overdrive.config import MaterialTable, RigProfile
-from maxim_overdrive.world.grid import Bounds, Footprint, Mask, MaterialGrid, Point
+from simcore.core.checks import finite_real, finite_vector, format_version, known_keys
+from simcore.core.grid import Bounds, Footprint, Mask, MaterialGrid, Point
+from simcore.core.materials import MaterialTable
 
 
 def _check_labels(material: object, name: object) -> None:
@@ -147,7 +147,7 @@ def footprint_of(primitives: Sequence[Primitive]) -> Footprint:
 
 # Validity bounds, not tunables: no ambient is hotter than a flame (wood's is about 2000 C), and a scene's air at
 # 1e300 C would overflow the first step. A tile is tens of metres. The extent bound only refuses absurd numbers: a
-# real per-rig cell-count budget comes with the memory budget planned for design v2.
+# real cell-count budget comes with the memory budget planned for design v2.
 MAX_AMBIENT_C = 3000.0
 MAX_EXTENT_M = 1000.0
 
@@ -204,12 +204,12 @@ class Scene:
         object.__setattr__(self, "extent_m", (x, y, z))
         object.__setattr__(self, "ambient_c", ambient)
 
-    def build(self, rig: RigProfile, materials: MaterialTable) -> MaterialGrid:
+    def build(self, materials: MaterialTable, *, dx_m: float) -> MaterialGrid:
         for p in self.primitives:
             if p.material not in materials:
                 raise ValueError(f"unknown material {p.material!r} in primitive {p.name or p.kind}")
         _check_no_solid_overlaps(self.primitives)
-        grid = MaterialGrid.empty(self.extent_m, rig, materials, ambient_c=self.ambient_c)
+        grid = MaterialGrid.empty(self.extent_m, materials, dx_m=dx_m, ambient_c=self.ambient_c)
         for p in self.primitives:
             grid.paint(p.mask(grid), p.material, region=p.name, footprint=footprint_of([p]) if p.name else None)
         return grid

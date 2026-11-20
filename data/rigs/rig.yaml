@@ -1,5 +1,3 @@
-version: 0  # the rig profile format (config.RIG_PROFILE_VERSION)
+version: 1  # the rig profile format (simcore.protocol.tiers.RIG_PROFILE_VERSION)
 name: rig
-cell_size_m: 0.1
-min_substeps_per_turn: 16
-full_res_radius_m: 16.0
+detail_radius_m: 16.0

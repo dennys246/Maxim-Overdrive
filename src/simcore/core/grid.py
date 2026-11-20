@@ -2,7 +2,7 @@
 
 Every cell holds a material id, an integrity in [0, 1] and a temperature in °C. Physics fields (heat today; sound,
 light and gas later) and damage read and write these arrays in place. SEM entities for the environment are views
-over sets of cells (``sem_env``); renderers read quantized copies (``world.snapshot``).
+over sets of cells (``simcore.adapters.sem``); renderers read quantized copies (``simcore.protocol.encoding``).
 
 Cell ``(i, j, k)`` covers ``[i*dx, (i+1)*dx) x [j*dx, (j+1)*dx) x [k*dx, (k+1)*dx)`` in metres; z is up.
 """
@@ -14,15 +14,16 @@ from dataclasses import dataclass, field
 import numpy as np
 import numpy.typing as npt
 
-from maxim_overdrive.config import AIR_ID, MaterialTable, RigProfile
+from simcore.core.checks import finite_real
+from simcore.core.materials import AIR_ID, MaterialTable
 
 # Array types for the grid's fields. Typing the element type (not bare np.ndarray) is what strict mypy needs on every
 # supported numpy: older stubs give ndarray no default type parameters.
 Mask = npt.NDArray[np.bool_]
 Field = npt.NDArray[np.float64]
 # A region's authored extent in metres, (min corner, max corner). It is kept beside the region's cells because the
-# cells depend on the rig and the authored bounds don't, so anything that asks "is this point on the region?" gets
-# the same answer at every rig.
+# cells depend on the grid spacing and the authored bounds don't, so anything that asks "is this point on the region?"
+# gets the same answer at every spacing.
 Bounds = tuple[tuple[float, float, float], tuple[float, float, float]]
 Point = tuple[float, float, float]
 
@@ -42,8 +43,9 @@ class Footprint:
 
 @dataclass(frozen=True)
 class Region:
-    """A named part of the world. ``cells`` move with the rig (and lose cells to later paints); ``footprint``, the
-    authored shape, doesn't, so "where is it" and "is this point on it" get the same answer at every rig."""
+    """A named part of the world. ``cells`` move with the grid spacing (and lose cells to later paints);
+    ``footprint``, the authored shape, doesn't, so "where is it" and "is this point on it" get the same answer at
+    every spacing."""
 
     cells: Mask
     footprint: Footprint
@@ -66,17 +68,21 @@ class MaterialGrid:
     def empty(
         cls,
         extent_m: tuple[float, float, float],
-        rig: RigProfile,
         materials: MaterialTable,
+        *,
+        dx_m: float,
         ambient_c: float = 20.0,
     ) -> MaterialGrid:
-        dx = rig.cell_size_m
+        """An all-air grid over ``extent_m`` in cells of edge ``dx_m``, the simulation's truth resolution (D20)."""
+        dx = finite_real(dx_m, "dx_m")
+        if not dx > 0:  # the check RigProfile made on cell_size_m before resolution left the rig
+            raise ValueError(f"dx_m must be positive, got {dx_m}")
         shape = tuple(max(1, int(np.rint(e / dx))) for e in extent_m)  # int: numpy 1.x round() keeps float64
         for e, n in zip(extent_m, shape, strict=True):
             if abs(n * dx - e) > 1e-6 * max(1.0, e):
                 raise ValueError(
                     f"extent {e} m is not a whole number of {dx} m cells; author tile extents as multiples of the "
-                    "coarsest rig's cell size so every rig covers the same space"
+                    "coarsest grid's cell size so every grid spacing covers the same space"
                 )
         return cls(
             dx=dx,

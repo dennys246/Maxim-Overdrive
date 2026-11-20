@@ -1,7 +1,7 @@
 """The pymaxim-free stand-ins match Maxim's frozen SEM types, and the bridge works on them.
 
-CLAUDE.md promises `sem_env/_compat.py` mirrors Maxim "field for field". Until this test existed the promise was held
-by attention, and AffordanceSchema had drifted to two of Maxim's eight fields.
+CLAUDE.md promises `simcore/adapters/sem/_compat.py` mirrors Maxim "field for field". Until this test existed the
+promise was held by attention, and AffordanceSchema had drifted to two of Maxim's eight fields.
 """
 
 from __future__ import annotations
@@ -15,11 +15,12 @@ from types import ModuleType
 
 import pytest
 
-from maxim_overdrive import Box, Scene, World
-from maxim_overdrive.config import ActionLimits
-from maxim_overdrive.sem_env import _compat, bridge
+from maxim_overdrive import data
+from simcore.adapters.sem import _compat, bridge
+from simcore.core.scene import Box, Scene
+from simcore.core.world import World
 
-LIMITS = ActionLimits.load()
+LIMITS = data.action_limits()
 
 MIRRORED = ["SensorReading", "ModulatorResult", "AffordanceSchema"]
 
@@ -66,13 +67,13 @@ def bridge_without_maxim() -> Iterator[ModuleType]:
         importlib.reload(bridge)
 
 
-def test_the_bridge_runs_on_the_stand_ins_without_pymaxim(bridge_without_maxim: ModuleType, rig, materials) -> None:
+def test_the_bridge_runs_on_the_stand_ins_without_pymaxim(bridge_without_maxim: ModuleType, dx_m, materials) -> None:
     b = bridge_without_maxim
     assert b.HAVE_MAXIM is False
     w = World.from_scene(
         Scene((2.0, 2.0, 2.0), (Box((0.8, 0, 0), (1.2, 2, 2), "concrete", "wall"),)),
-        rig,
         materials,
+        dx_m=dx_m,
         limits=LIMITS,
     )
     sensors, mods = b.region_parts(w, "wall")

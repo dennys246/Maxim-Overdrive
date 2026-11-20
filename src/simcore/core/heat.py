@@ -7,8 +7,8 @@ cells' conductivities (the standard choice for a material interface: it keeps fl
 boundary is insulated (zero flux), so with no sources total heat energy is conserved exactly, up to rounding.
 
 The step is explicit, so stability bounds its length. ``step`` takes as many substeps as stability needs and never
-fewer than the rig asks for: a coarse rig gets cheaper, never unstable. Convection and radiation are not modelled
-yet: air here only conducts, which understates how fast a room heats.
+fewer than its caller's floor; ``World`` passes ``min_substeps(dx)``, a floor set by the grid spacing alone.
+Convection and radiation are not modelled yet: air here only conducts, which understates how fast a room heats.
 """
 
 from __future__ import annotations
@@ -18,9 +18,22 @@ from collections.abc import Callable
 
 import numpy as np
 
-from maxim_overdrive.world.grid import Field, MaterialGrid
+from simcore.core.grid import Field, MaterialGrid
 
 STABILITY_SAFETY = 0.9
+
+# The substep floor per call, as an area: min_substeps(dx) = FLOOR_AREA_M2 / dx^2, so the step shrinks as dx^2, as an
+# explicit diffusion step must when the grid is refined (the Fourier number per substep stays fixed). It gives 4, 16
+# and 64 substeps at 0.2, 0.1 and 0.05 m, the values the retired rig profiles carried as min_substeps_per_turn, so
+# results are bit-identical to theirs. It is an accuracy floor, not the stability bound: on every 6 s turn the tests
+# run it is the floor that decides the count, never stability. The floor is per call, whatever its length; plan
+# step 5's fixed physics step replaces it.
+FLOOR_AREA_M2 = 0.16
+
+
+def min_substeps(dx_m: float) -> int:
+    """The fewest substeps one ``step`` call takes at grid spacing ``dx_m`` (at least 1)."""
+    return max(1, round(FLOOR_AREA_M2 / dx_m**2))
 
 
 def _face_conductances(k: Field) -> list[tuple[int, Field]]:

@@ -3,12 +3,13 @@
 import numpy as np
 import pytest
 
-from maxim_overdrive import Box, RigProfile, Scene, World
-from maxim_overdrive.config import ActionLimits
-from maxim_overdrive.sem_env.bridge import region_parts
-from tests.conftest import FAST_TIERS
+from maxim_overdrive import data
+from simcore.adapters.sem.bridge import region_parts
+from simcore.core.scene import Box, Scene
+from simcore.core.world import World
+from tests.conftest import FAST_SPACINGS
 
-LIMITS = ActionLimits.load()
+LIMITS = data.action_limits()
 
 SCENE = Scene(
     (3.0, 3.0, 2.0),
@@ -16,8 +17,8 @@ SCENE = Scene(
 )
 
 
-def _burn(rig, materials, turns=150, power_w=60_000.0):
-    w = World.from_scene(SCENE, rig, materials, limits=LIMITS)
+def _burn(dx_m, materials, turns=150, power_w=60_000.0):
+    w = World.from_scene(SCENE, materials, dx_m=dx_m, limits=LIMITS)
     crate_s, crate_m = region_parts(w, "crate")
     wall_s, wall_m = region_parts(w, "wall")
     assert crate_m["structure"].execute("ignite", {"power_w": power_w, "radius_m": 0.3}).success
@@ -30,8 +31,8 @@ def _burn(rig, materials, turns=150, power_w=60_000.0):
     return onset, crate_s["integrity"].value(), wall_s["integrity"].value()
 
 
-def test_fire_outcomes_agree_across_rigs(rigs, materials):
-    runs = {rig.name: _burn(rig, materials) for rig in rigs}
+def test_fire_outcomes_agree_across_rigs(spacings, materials):
+    runs = {dx_m: _burn(dx_m, materials) for dx_m in spacings}
     onsets = [r[0] for r in runs.values()]
     assert all(o is not None for o in onsets), runs  # the crate catches at every rig
     assert max(onsets) - min(onsets) <= 0.1 * min(onsets), runs  # and at about the same turn
@@ -41,12 +42,12 @@ def test_fire_outcomes_agree_across_rigs(rigs, materials):
     # block. Not gated yet.
 
 
-def test_a_small_fire_changes_nothing_at_any_rig(rigs, materials):
-    for rig in rigs:
-        onset, crate, wall = _burn(rig, materials, turns=60, power_w=20_000.0)
-        assert onset is None, rig.name
-        assert crate > 0.99, rig.name
-        assert wall > 0.99, rig.name
+def test_a_small_fire_changes_nothing_at_any_rig(spacings, materials):
+    for dx_m in spacings:
+        onset, crate, wall = _burn(dx_m, materials, turns=60, power_w=20_000.0)
+        assert onset is None, dx_m
+        assert crate > 0.99, dx_m
+        assert wall > 0.99, dx_m
 
 
 # Wood's adiabatic flame temperature is about 2000 C: no fire burning on wood may heat any cell past it. Before
@@ -54,17 +55,17 @@ def test_a_small_fire_changes_nothing_at_any_rig(rigs, materials):
 WOOD_FLAME_C = 2000.0
 
 
-def test_a_fierce_fire_never_heats_any_cell_past_the_flame_temperature(rigs, materials):
-    for rig in rigs:
-        w = World.from_scene(SCENE, rig, materials, limits=LIMITS)
+def test_a_fierce_fire_never_heats_any_cell_past_the_flame_temperature(spacings, materials):
+    for dx_m in spacings:
+        w = World.from_scene(SCENE, materials, dx_m=dx_m, limits=LIMITS)
         crate_s, crate_m = region_parts(w, "crate")
         assert crate_m["structure"].execute("ignite", {"power_w": 500_000.0, "radius_m": 0.3}).success
         peak = 0.0
         for _ in range(30):
             w.advance()
             peak = max(peak, float(np.max(w.grid.temperature)))
-        assert crate_s["integrity"].value() < 0.5, rig.name  # it really burned
-        assert peak < WOOD_FLAME_C, (rig.name, peak)
+        assert crate_s["integrity"].value() < 0.5, dx_m  # it really burned
+        assert peak < WOOD_FLAME_C, (dx_m, peak)
 
 
 @pytest.mark.xfail(
@@ -76,12 +77,12 @@ def test_a_fierce_fire_never_heats_any_cell_past_the_flame_temperature(rigs, mat
     ),
 )
 def test_a_fire_that_has_burned_its_fuel_stops_heating(materials):
-    for name in FAST_TIERS:
-        w = World.from_scene(SCENE, RigProfile.load(name), materials, limits=LIMITS)
+    for dx_m in FAST_SPACINGS:
+        w = World.from_scene(SCENE, materials, dx_m=dx_m, limits=LIMITS)
         _, crate_m = region_parts(w, "crate")
         assert crate_m["structure"].execute("ignite", {"power_w": 500_000.0, "radius_m": 0.3}).success
         peak = 0.0
         for _ in range(60):
             w.advance()
             peak = max(peak, float(np.max(w.grid.temperature)))
-        assert peak < WOOD_FLAME_C, (name, peak)
+        assert peak < WOOD_FLAME_C, (dx_m, peak)

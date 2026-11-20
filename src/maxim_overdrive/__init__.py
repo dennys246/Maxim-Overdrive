@@ -1,9 +1,5 @@
-"""Maxim Overdrive world server: material cells, physics fields, and SEM for the environment."""
+"""Maxim Overdrive, the game: its data and, from the lab tile on, its content, on top of the ``simcore`` engine.
 
-from maxim_overdrive.config import Material, MaterialTable, RigProfile
-from maxim_overdrive.world.grid import MaterialGrid
-from maxim_overdrive.world.scene import Box, Cylinder, Scene
-from maxim_overdrive.world.world import World, snapshot
-
-__all__ = ["Box", "Cylinder", "Material", "MaterialGrid", "MaterialTable", "RigProfile", "Scene", "World", "snapshot"]
-__version__ = "0.0.1"
+The engine never imports this package (``pyproject.toml``, import-linter). Game rules reach the simulation as data
+only, through the engine's gates (boundaries §2.1).
+"""

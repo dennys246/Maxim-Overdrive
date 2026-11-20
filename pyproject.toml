@@ -31,11 +31,18 @@ dev = [
     # 4.3.0. No cap: a release that changes token maps turns them red with no local change, which is drift caught.
     "markdown-it-py>=3.0",
     "pillow>=11.0",  # reads and writes PNG goldens for scripts/golden_compare.py
+    # The layer contracts (boundaries §10, [tool.importlinter] below); BSD-2-Clause. Pinned, since a release can change
+    # how a contract is read. 2.6 is the newest that resolves beside pymaxim: import-linter 2.7+ needs rich>=14, and
+    # pymaxim 1.3 caps rich below 14 (2026-11-19). Raise both pins when pymaxim lifts its cap.
+    "import-linter==2.6",
+    "grimp==3.13",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/maxim_overdrive"]
+packages = ["src/simcore", "src/maxim_overdrive"]
 
+# The game's data ships inside the game package, beside maxim_overdrive.data.data_dir, which reads it; the engine has
+# no default path into data (boundaries §3).
 [tool.hatch.build.targets.wheel.force-include]
 "data" = "maxim_overdrive/_data"
 
@@ -64,7 +71,7 @@ ignore = [
 "tests/**" = ["PLR0915"]
 
 # Separation of concerns (CLAUDE.md, "Code"). Ruff's PL rules already cap returns, branches and statements per function;
-# mccabe caps the paths through it. scripts/lint_standards.py::check_sizes holds the limits ruff has no rule for, and
+# mccabe caps the paths through it. scripts/lint_sizes.py::check_sizes holds the limits ruff has no rule for, and
 # refuses a noqa for any of these codes in src/ and scripts/.
 [tool.ruff.lint.mccabe]
 max-complexity = 10
@@ -73,6 +80,46 @@ max-complexity = 10
 function_lines = 40   # body lines, docstring excluded; a nested function counts towards its parent too
 module_lines = 500
 public_methods = 12   # per class, defined in its own body
+
+# Import contracts (boundaries O24, §2.2, §3, §8.1, §9.2). The gate runs them as `lint-imports` in scripts/prepush.sh;
+# tests/test_tooling_config.py holds the root packages to the packages under src/ and the banned list to the
+# determinism scan's. A layer imports only the layers below it.
+[tool.importlinter]
+root_packages = ["maxim_overdrive", "simcore"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+id = "layers"
+name = "game > protocol > adapters > core"
+type = "layers"
+layers = ["maxim_overdrive", "simcore.protocol", "simcore.adapters", "simcore.core"]
+
+[[tool.importlinter.contracts]]
+id = "sealed-core"
+name = "the sealed core imports no clock, entropy, OS, file IO, concurrency or Maxim (boundaries §3)"
+type = "forbidden"
+source_modules = ["simcore.core"]
+forbidden_modules = [
+    "time", "timeit", "datetime", "random", "secrets", "uuid",
+    "os", "importlib", "sys", "platform", "locale", "signal", "gc", "weakref",
+    "pathlib", "io", "yaml", "json",
+    "threading", "asyncio", "concurrent", "multiprocessing", "subprocess", "socket", "websockets",
+    "maxim",
+]
+
+[[tool.importlinter.contracts]]
+id = "maxim-through-adapters"
+name = "only the SEM membrane imports maxim (boundaries §8.1)"
+type = "protected"
+protected_modules = ["maxim"]
+allowed_importers = ["simcore.adapters.sem"]
+
+[[tool.importlinter.contracts]]
+id = "tests-out"
+name = "the shipped packages never import test tooling (boundaries §9.2)"
+type = "forbidden"
+source_modules = ["simcore", "maxim_overdrive"]
+forbidden_modules = ["pytest", "hypothesis"]
 
 # mypy: strict everywhere. pymaxim ships py.typed.
 [tool.mypy]
@@ -95,7 +142,7 @@ ignore_missing_imports = true
 
 # Coverage: branch coverage, with a floor that only ratchets up (CLAUDE.md, "Testing").
 [tool.coverage.run]
-source = ["maxim_overdrive", "scripts"]
+source = ["src", "scripts"]  # by directory, so a new package under src/ is measured without an edit here
 branch = true
 
 [tool.coverage.report]

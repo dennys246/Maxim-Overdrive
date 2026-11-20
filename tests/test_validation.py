@@ -18,34 +18,36 @@ import yaml
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from maxim_overdrive import Box, MaterialTable, RigProfile, Scene, World
-from maxim_overdrive.config import ActionLimits, data_dir
-from maxim_overdrive.imagination.spec import Budget, SpecRejected, place
-from maxim_overdrive.sem_env import bridge
-from maxim_overdrive.world import damage, heat
-from maxim_overdrive.world.grid import Footprint, MaterialGrid
-from maxim_overdrive.world.scene import Cylinder
-from maxim_overdrive.world.world import HeatSource
+from maxim_overdrive import data
+from simcore.adapters.loaders import MATERIAL_REQUIRED, load_action_limits, load_materials
+from simcore.adapters.sem import bridge
+from simcore.core import damage, heat
+from simcore.core.grid import Footprint, MaterialGrid
+from simcore.core.imagination import Budget, SpecRejected, place
+from simcore.core.materials import MaterialTable
+from simcore.core.scene import Box, Cylinder, Scene
+from simcore.core.world import HeatSource, World
+from simcore.protocol.tiers import RigProfile
 from tests._gitutil import git
 
-LIMITS = ActionLimits.load()
+LIMITS = data.action_limits()
 
 # -- config ---------------------------------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
-    ("changes", "message"),
+    ("dx_m", "message"),
     [
-        ({"cell_size_m": 0.0}, "cell_size_m must be positive"),
-        ({"cell_size_m": -0.1}, "cell_size_m must be positive"),
-        ({"cell_size_m": math.nan}, "cell_size_m must be positive"),
-        ({"min_substeps_per_turn": 0}, "at least 1"),
+        (0.0, "dx_m must be positive"),
+        (-0.1, "dx_m must be positive"),
+        (math.nan, "dx_m must be a finite number"),
+        (True, "dx_m must be a finite number"),
     ],
 )
-def test_a_rig_profile_refuses_impossible_values(changes, message):
-    good = RigProfile.load("laptop")
+def test_a_grid_refuses_an_impossible_spacing(materials, dx_m, message):
+    # Before resolution left the rig (D20), RigProfile refused these as cell_size_m; the grid holds the line now.
     with pytest.raises(ValueError, match=message):
-        dataclasses.replace(good, **changes)
+        MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
 
 
 def _table_with(materials, **changes_by_name):
@@ -78,19 +80,19 @@ def test_material_ids_must_fit_a_byte(materials):
 
 def test_extents_must_be_whole_cells_at_every_rig(materials):
     with pytest.raises(ValueError, match="whole number"):
-        MaterialGrid.empty((1.05, 1.0, 1.0), RigProfile.load("laptop"), materials)
+        MaterialGrid.empty((1.05, 1.0, 1.0), materials, dx_m=0.2)
 
 
-def test_a_point_outside_the_grid_has_no_cell(rig, materials):
-    g = MaterialGrid.empty((1.0, 1.0, 1.0), rig, materials)
+def test_a_point_outside_the_grid_has_no_cell(dx_m, materials):
+    g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     assert g.cell_of((0.0, 0.0, 0.0)) == (0, 0, 0)
     for point in [(-0.01, 0.5, 0.5), (0.5, 1.0, 0.5), (0.5, 0.5, 7.0)]:
         with pytest.raises(ValueError, match="outside the grid"):
             g.cell_of(point)
 
 
-def test_region_names_are_unique(rig, materials):
-    g = MaterialGrid.empty((1.0, 1.0, 1.0), rig, materials)
+def test_region_names_are_unique(dx_m, materials):
+    g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
     g.paint(
         np.broadcast_to(x < 0.5, g.shape),
@@ -107,10 +109,10 @@ def test_region_names_are_unique(rig, materials):
         )
 
 
-def test_a_scene_refuses_unknown_materials(rig, materials):
+def test_a_scene_refuses_unknown_materials(dx_m, materials):
     scene = Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (0.4, 0.4, 0.4), "adamantium", "thing"),))
     with pytest.raises(ValueError, match="unknown material 'adamantium' in primitive thing"):
-        scene.build(rig, materials)
+        scene.build(materials, dx_m=dx_m)
 
 
 @pytest.mark.parametrize("raw", [["not", "a", "scene"], "scene", None, 3])
@@ -127,8 +129,8 @@ def test_a_scene_refuses_unknown_primitive_kinds():
 # -- heat, damage, world ----------------------------------------------------------------------------------------------
 
 
-def test_no_time_means_no_substeps_and_no_change(rig, materials):
-    g = MaterialGrid.empty((1.0, 1.0, 1.0), rig, materials)
+def test_no_time_means_no_substeps_and_no_change(dx_m, materials):
+    g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     g.temperature[0, 0, 0] = 500.0
     before = g.temperature.copy()
     assert heat.step(g, 0.0) == 0
@@ -137,14 +139,14 @@ def test_no_time_means_no_substeps_and_no_change(rig, materials):
 
 
 @pytest.mark.parametrize(("energy_j", "sigma_m"), [(-1.0, 0.2), (1.0, 0.0), (1.0, -0.2)])
-def test_a_strike_refuses_negative_energy_and_non_positive_width(rig, materials, energy_j, sigma_m):
-    g = MaterialGrid.empty((1.0, 1.0, 1.0), rig, materials)
+def test_a_strike_refuses_negative_energy_and_non_positive_width(dx_m, materials, energy_j, sigma_m):
+    g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     with pytest.raises(ValueError, match="non-negative"):
         damage.strike(g, (0.5, 0.5, 0.5), energy_j, sigma_m)
 
 
-def test_a_region_with_no_solid_cells_cannot_be_breached(rig, materials):
-    g = MaterialGrid.empty((1.0, 1.0, 1.0), rig, materials)
+def test_a_region_with_no_solid_cells_cannot_be_breached(dx_m, materials):
+    g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
     g.paint(
         np.broadcast_to(x < 0.5, g.shape),
@@ -155,11 +157,11 @@ def test_a_region_with_no_solid_cells_cannot_be_breached(rig, materials):
     assert damage.region_breached(g, "doorway") is False
 
 
-def test_a_world_with_no_fire_stays_at_ambient(rig, materials):
+def test_a_world_with_no_fire_stays_at_ambient(dx_m, materials):
     w = World.from_scene(
         Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (0.4, 1, 1), "concrete", "wall"),)),
-        rig,
         materials,
+        dx_m=dx_m,
         limits=LIMITS,
     )
     w.advance()
@@ -167,9 +169,9 @@ def test_a_world_with_no_fire_stays_at_ambient(rig, materials):
     assert w.turn == 1
 
 
-def test_a_source_smaller_than_a_cell_still_delivers_its_full_power(rig, materials):
+def test_a_source_smaller_than_a_cell_still_delivers_its_full_power(dx_m, materials):
     w = World.from_scene(
-        Scene((1.0, 1.0, 1.0)), rig, materials, limits=LIMITS
+        Scene((1.0, 1.0, 1.0)), materials, dx_m=dx_m, limits=LIMITS
     )  # all air: the fire has no solid to sit on
     w.sources["spark"] = HeatSource((0.5, 0.5, 0.5), radius_m=1e-4, power_w=100.0)
     power = w._power_field()
@@ -181,17 +183,17 @@ def test_a_source_smaller_than_a_cell_still_delivers_its_full_power(rig, materia
 # -- SEM bridge -------------------------------------------------------------------------------------------------------
 
 
-def _world(rig, materials):
+def _world(dx_m, materials):
     return World.from_scene(
         Scene((2.0, 2.0, 2.0), (Box((0.8, 0, 0), (1.2, 2, 2), "concrete", "wall"),)),
-        rig,
         materials,
+        dx_m=dx_m,
         limits=LIMITS,
     )
 
 
-def test_sensors_and_modulators_refuse_unknown_names(rig, materials):
-    w = _world(rig, materials)
+def test_sensors_and_modulators_refuse_unknown_names(dx_m, materials):
+    w = _world(dx_m, materials)
     with pytest.raises(ValueError, match="unknown region quantity 'colour'"):
         bridge.RegionSensor(w, "wall", "colour")
     with pytest.raises(KeyError, match="no region 'door'"):
@@ -200,8 +202,8 @@ def test_sensors_and_modulators_refuse_unknown_names(rig, materials):
         bridge.StructureModulator(w, "door")
 
 
-def test_every_sensor_reports_its_schema_and_unit(rig, materials):
-    sensors, _ = bridge.region_parts(_world(rig, materials), "wall")
+def test_every_sensor_reports_its_schema_and_unit(dx_m, materials):
+    sensors, _ = bridge.region_parts(_world(dx_m, materials), "wall")
     assert sensors["integrity"].reading_schema == {"type": "float", "range": [0.0, 1.0]}
     assert sensors["breached"].reading_schema == {"type": "float", "range": [0.0, 1.0]}
     assert sensors["temperature_max"].reading_schema == {"type": "float", "range": [-273.0, 6000.0]}
@@ -214,8 +216,8 @@ def test_every_sensor_reports_its_schema_and_unit(rig, materials):
     assert sensors["temperature_mean"].value() == pytest.approx(20.0)
 
 
-def test_a_region_that_lost_all_its_cells_reads_nan_and_cannot_burn(rig, materials):
-    w = _world(rig, materials)
+def test_a_region_that_lost_all_its_cells_reads_nan_and_cannot_burn(dx_m, materials):
+    w = _world(dx_m, materials)
     sensors, mods = bridge.region_parts(w, "wall")
     w.grid.regions["wall"].cells[:] = False  # a later paint took every cell
     assert math.isnan(sensors["temperature_max"].value())
@@ -225,21 +227,21 @@ def test_a_region_that_lost_all_its_cells_reads_nan_and_cannot_burn(rig, materia
     assert "fire:wall" not in w.sources
 
 
-def test_an_imagined_object_over_its_mass_budget_is_refused(rig, materials):
-    g = Scene((3.0, 3.0, 2.0)).build(rig, materials)
+def test_an_imagined_object_over_its_mass_budget_is_refused(dx_m, materials):
+    g = Scene((3.0, 3.0, 2.0)).build(materials, dx_m=dx_m)
     crate = {"name": "c", "primitives": [{"min_m": [0, 0, 0], "max_m": [0.6, 0.6, 0.6], "material": "wood"}]}
     with pytest.raises(SpecRejected, match="too heavy: 130 kg, the limit is 100 kg"):
         place(g, crate, (1.0, 1.0, 0.0), Budget(max_mass_kg=100.0))
     assert "c" not in g.regions
 
 
-def test_a_rig_loads_by_name_or_by_path(tmp_path):
+def test_a_rig_profile_loads_by_path_and_the_game_finds_its_own_by_name(tmp_path):
     custom = tmp_path / "tiny.yaml"
-    custom.write_text("version: 0\nname: tiny\ncell_size_m: 0.25\nmin_substeps_per_turn: 2\nfull_res_radius_m: 4.0\n")
-    assert RigProfile.load(custom) == RigProfile("tiny", 0.25, 2, 4.0)
-    assert RigProfile.load("rig").cell_size_m == 0.1
+    custom.write_text("version: 1\nname: tiny\ndetail_radius_m: 4.0\n")
+    assert RigProfile.load(custom) == RigProfile("tiny", 4.0)
+    assert data.rig_profile("rig").detail_radius_m == 16.0
     with pytest.raises(FileNotFoundError):
-        RigProfile.load("no_such_rig")
+        data.rig_profile("no_such_rig")
 
 
 # -- every number in a data file is a finite real number, or the loader says which one isn't -------------------------
@@ -255,16 +257,10 @@ def test_a_scene_refuses_an_impossible_ambient_temperature(ambient, message):
 
 
 @pytest.mark.parametrize(
-    ("field", "value"), [("cell_size_m", "'0.1'"), ("cell_size_m", ".inf"), ("full_res_radius_m", "true")]
+    ("field", "value"), [("detail_radius_m", "'0.1'"), ("detail_radius_m", ".inf"), ("detail_radius_m", "true")]
 )
 def test_a_rig_file_refuses_a_value_that_is_not_a_finite_number(tmp_path, field, value):
-    good = {
-        "version": "0",
-        "name": "t",
-        "cell_size_m": "0.25",
-        "min_substeps_per_turn": "2",
-        "full_res_radius_m": "4.0",
-    }
+    good = {"version": "1", "name": "t", "detail_radius_m": "4.0"}
     good[field] = value
     path = tmp_path / "t.yaml"
     path.write_text("".join(f"{k}: {v}\n" for k, v in good.items()))
@@ -276,12 +272,12 @@ def test_a_rig_file_refuses_a_value_that_is_not_a_finite_number(tmp_path, field,
     "field", ["density_kg_m3", "specific_heat_j_kgk", "conductivity_w_mk", "fracture_energy_j_m3", "degrade_above_c"]
 )
 def test_a_material_file_refuses_a_value_that_is_not_a_finite_number(tmp_path, field):
-    raw = yaml.safe_load((data_dir() / "materials" / "core.yaml").read_text())
+    raw = yaml.safe_load((data.data_dir() / "materials" / "core.yaml").read_text())
     raw["materials"]["wood"][field] = "2.0e7"  # YAML 1.1 reads this as a string
     path = tmp_path / "core.yaml"
     path.write_text(yaml.safe_dump(raw))
     with pytest.raises(ValueError, match=f"wood.{field} must be a finite number"):
-        MaterialTable.load(path)
+        load_materials(path)
 
 
 @pytest.mark.parametrize(
@@ -310,35 +306,27 @@ def test_a_scenes_ambient_bounds_are_exact(ambient, ok):
             Scene((1.0, 1.0, 1.0), ambient_c=ambient)
 
 
-@pytest.mark.parametrize("value", ["2.9", "true", "'4'", ".inf"])
-def test_a_rig_files_substep_count_must_be_a_whole_number(tmp_path, value):
-    path = tmp_path / "t.yaml"
-    path.write_text(f"version: 0\nname: t\ncell_size_m: 0.25\nmin_substeps_per_turn: {value}\nfull_res_radius_m: 4.0\n")
-    with pytest.raises(ValueError, match="min_substeps_per_turn must be a whole number"):
-        RigProfile.load(path)
-
-
 @pytest.mark.parametrize(("field", "value"), [("id", True), ("id", 2.0), ("color_rgb", [1, 2, "3"])])
 def test_a_material_files_whole_numbers_are_whole(tmp_path, field, value):
-    raw = yaml.safe_load((data_dir() / "materials" / "core.yaml").read_text())
+    raw = yaml.safe_load((data.data_dir() / "materials" / "core.yaml").read_text())
     raw["materials"]["wood"][field] = value
     path = tmp_path / "core.yaml"
     path.write_text(yaml.safe_dump(raw))
     with pytest.raises(ValueError, match=f"wood.{field} must be a whole number"):
-        MaterialTable.load(path)
+        load_materials(path)
 
 
 def test_a_material_files_degrade_rate_must_be_a_number(tmp_path):
-    raw = yaml.safe_load((data_dir() / "materials" / "core.yaml").read_text())
+    raw = yaml.safe_load((data.data_dir() / "materials" / "core.yaml").read_text())
     raw["materials"]["wood"]["degrade_rate_per_s_per_100c"] = "0.01"
     path = tmp_path / "core.yaml"
     path.write_text(yaml.safe_dump(raw))
     with pytest.raises(ValueError, match=r"wood\.degrade_rate_per_s_per_100c must be a finite number"):
-        MaterialTable.load(path)
+        load_materials(path)
 
 
-def test_a_named_region_needs_its_authored_bounds(rig, materials):
-    g = MaterialGrid.empty((1.0, 1.0, 1.0), rig, materials)
+def test_a_named_region_needs_its_authored_bounds(dx_m, materials):
+    g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
     with pytest.raises(ValueError, match="needs its authored footprint"):
         g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate")
@@ -360,17 +348,17 @@ def test_a_named_region_needs_its_authored_bounds(rig, materials):
     assert Cylinder((0.5, 0.5), 0.2, (0.0, 1.0), "wood").bounds_m == ((0.3, 0.3, 0.0), (0.7, 0.7, 1.0))
 
 
-def test_an_imagined_objects_size_budget_is_judged_the_same_at_every_rig(rigs, materials):
+def test_an_imagined_objects_size_budget_is_judged_the_same_at_every_rig(spacings, materials):
     # A 1.5 m slab whose faces sit off the 0.2 m grid: measured from cells it spans 1.6 m at laptop, and was refused
     # there only. Measured from its authored geometry it is 1.5 m at every rig.
     slab = {"name": "slab", "primitives": [{"min_m": [0, 0, 0], "max_m": [1.5, 0.3, 0.3], "material": "wood"}]}
-    for rig in rigs:
-        g = Scene((4.0, 3.0, 2.0)).build(rig, materials)
+    for dx_m in spacings:
+        g = Scene((4.0, 3.0, 2.0)).build(materials, dx_m=dx_m)
         place(g, slab, (1.25, 1.0, 0.0), Budget(max_extent_m=1.5, max_mass_kg=1000.0))
-        assert g.regions["slab"].footprint.bounds_m == ((1.25, 1.0, 0.0), (2.75, 1.3, 0.3)), rig.name
+        assert g.regions["slab"].footprint.bounds_m == ((1.25, 1.0, 0.0), (2.75, 1.3, 0.3)), dx_m
 
 
-def test_a_multi_primitive_objects_footprint_covers_every_primitive(rig, materials):
+def test_a_multi_primitive_objects_footprint_covers_every_primitive(dx_m, materials):
     spec = {
         "name": "table",
         "primitives": [
@@ -378,7 +366,7 @@ def test_a_multi_primitive_objects_footprint_covers_every_primitive(rig, materia
             {"kind": "cylinder", "center_xy_m": [0.1, 0.1], "radius_m": 0.05, "z_m": [0, 1.4], "material": "wood"},
         ],
     }
-    g = Scene((3.0, 3.0, 2.0)).build(rig, materials)
+    g = Scene((3.0, 3.0, 2.0)).build(materials, dx_m=dx_m)
     place(g, spec, (1.0, 1.0, 0.0), Budget(max_extent_m=1.5, max_mass_kg=1000.0))
     footprint = g.regions["table"].footprint
     low, high = footprint.bounds_m
@@ -388,8 +376,8 @@ def test_a_multi_primitive_objects_footprint_covers_every_primitive(rig, materia
         place(g, {**spec, "name": "tall"}, (0.0, 0.0, 0.0), Budget(max_extent_m=1.2, max_mass_kg=1000.0))
 
 
-def test_a_later_paint_takes_cells_from_earlier_regions_and_a_refused_paint_changes_nothing(rig, materials):
-    g = MaterialGrid.empty((1.0, 1.0, 1.0), rig, materials)
+def test_a_later_paint_takes_cells_from_earlier_regions_and_a_refused_paint_changes_nothing(dx_m, materials):
+    g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
     left = np.broadcast_to(x < 0.6, g.shape)
     g.paint(left, "wood", region="left", footprint=Footprint(((0, 0, 0), (0.6, 1, 1)), (0.3, 0.5, 0.5)))
@@ -405,12 +393,12 @@ def test_a_later_paint_takes_cells_from_earlier_regions_and_a_refused_paint_chan
     ("field", "value"), [("id", -1), ("color_rgb", [256, 5, 3]), ("color_rgb", [1, -5, 3]), ("color_rgb", [1, 2])]
 )
 def test_a_material_files_ids_and_colours_are_in_range(tmp_path, field, value):
-    raw = yaml.safe_load((data_dir() / "materials" / "core.yaml").read_text())
+    raw = yaml.safe_load((data.data_dir() / "materials" / "core.yaml").read_text())
     raw["materials"]["drywall"][field] = value
     path = tmp_path / "core.yaml"
     path.write_text(yaml.safe_dump(raw))
     with pytest.raises(ValueError, match=r"uint8|color_rgb"):
-        MaterialTable.load(path)
+        load_materials(path)
 
 
 @pytest.mark.parametrize(
@@ -424,35 +412,35 @@ def test_a_material_files_ids_and_colours_are_in_range(tmp_path, field, value):
     ],
     ids=["named-over-named", "unnamed-over-named", "air-carves-named", "named-over-unnamed", "touching"],
 )
-def test_a_later_solid_may_not_take_space_from_a_named_solid(rig, materials, primitives, ok):
+def test_a_later_solid_may_not_take_space_from_a_named_solid(dx_m, materials, primitives, ok):
     scene = Scene((3.0, 3.0, 2.0), primitives)
     if ok:
-        scene.build(rig, materials)
+        scene.build(materials, dx_m=dx_m)
     else:
         with pytest.raises(ValueError, match="overlaps the named solid crate"):
-            scene.build(rig, materials)
+            scene.build(materials, dx_m=dx_m)
 
 
 def test_a_footprints_centroid_is_volume_weighted_and_a_cylinders_is_its_middle():
-    from maxim_overdrive.world.scene import footprint_of  # noqa: PLC0415
+    from simcore.core.scene import footprint_of  # noqa: PLC0415
 
     big, small = Box((0, 0, 0), (3, 1, 1), "wood"), Box((3, 0, 0), (4, 1, 1), "wood")
     assert footprint_of([big, small]).centroid_m == pytest.approx((2.0, 0.5, 0.5))  # unweighted would be 2.25
     assert Cylinder((1.0, 2.0), 0.5, (0.4, 1.6), "wood").centroid_m == (1.0, 2.0, 1.0)
 
 
-def test_thermal_degradation_follows_its_closed_form_at_every_rig(rigs, materials):
+def test_thermal_degradation_follows_its_closed_form_at_every_rig(spacings, materials):
     # One step of the law: integrity falls by rate * dt * (T - limit) / 100 in every cell above the limit, whatever
     # the cell size. A rate that scaled with dx (a resolution-dependent law) fails here.
     wood = materials["wood"]
     assert wood.degrade_above_c is not None
     excess, dt = 150.0, 0.5
-    for rig in rigs:
-        g = Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (1, 1, 1), "wood", "block"),)).build(rig, materials)
+    for dx_m in spacings:
+        g = Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (1, 1, 1), "wood", "block"),)).build(materials, dx_m=dx_m)
         g.temperature[:] = wood.degrade_above_c + excess
         damage.thermal_degrade(g, dt)
         expected = 1.0 - wood.degrade_rate_per_s_per_100c * dt * excess / 100.0
-        assert g.integrity == pytest.approx(np.full(g.shape, expected), rel=1e-6), rig.name
+        assert g.integrity == pytest.approx(np.full(g.shape, expected), rel=1e-6), dx_m
 
 
 @pytest.mark.parametrize(
@@ -466,24 +454,24 @@ def test_thermal_degradation_follows_its_closed_form_at_every_rig(rigs, material
     ],
     ids=["y", "z", "beside-y", "stacked-z", "cylinder-corner"],
 )
-def test_the_overlap_rule_judges_every_axis(rig, materials, later, ok):
+def test_the_overlap_rule_judges_every_axis(dx_m, materials, later, ok):
     scene = Scene((3.0, 3.0, 2.0), (Box((0, 0, 0), (1, 1, 1), "wood", "crate"), later))
     if ok:
-        scene.build(rig, materials)
+        scene.build(materials, dx_m=dx_m)
     else:
         with pytest.raises(ValueError, match="overlaps the named solid crate"):
-            scene.build(rig, materials)
+            scene.build(materials, dx_m=dx_m)
 
 
-def test_a_later_solid_may_fill_an_earlier_named_air_region(rig, materials):
+def test_a_later_solid_may_fill_an_earlier_named_air_region(dx_m, materials):
     room = Box((0, 0, 0), (2, 2, 1), "air", "room")
-    Scene((3.0, 3.0, 2.0), (room, Box((0.5, 0.5, 0), (1, 1, 0.5), "wood", "crate"))).build(rig, materials)
+    Scene((3.0, 3.0, 2.0), (room, Box((0.5, 0.5, 0), (1, 1, 0.5), "wood", "crate"))).build(materials, dx_m=dx_m)
 
 
-def test_an_imagined_object_may_not_sit_in_a_named_solids_footprint(rig, materials):
+def test_an_imagined_object_may_not_sit_in_a_named_solids_footprint(dx_m, materials):
     wall = Box((1.0, 0.0, 0.0), (1.6, 3.0, 2.0), "concrete", "wall")
     doorway = Box((1.0, 1.0, 0.0), (1.6, 2.0, 2.0), "air", "doorway")
-    g = Scene((3.0, 3.0, 2.0), (wall, doorway)).build(rig, materials)
+    g = Scene((3.0, 3.0, 2.0), (wall, doorway)).build(materials, dx_m=dx_m)
     box = {"name": "box", "primitives": [{"min_m": [0, 0, 0], "max_m": [0.4, 0.4, 0.4], "material": "wood"}]}
     with pytest.raises(SpecRejected, match="that space belongs to wall"):
         place(g, box, (1.1, 1.3, 0.0))  # in the doorway's air, inside the wall's footprint
@@ -491,22 +479,22 @@ def test_an_imagined_object_may_not_sit_in_a_named_solids_footprint(rig, materia
     assert "box" in g.regions
 
 
-def test_thermal_degradation_is_proportional_to_the_excess(rigs, materials):
+def test_thermal_degradation_is_proportional_to_the_excess(spacings, materials):
     wood = materials["wood"]
     assert wood.degrade_above_c is not None
-    for rig in rigs:
-        g = Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (1, 1, 1), "wood", "block"),)).build(rig, materials)
+    for dx_m in spacings:
+        g = Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (1, 1, 1), "wood", "block"),)).build(materials, dx_m=dx_m)
         x, _, _ = g.mesh()
         excess = np.where(np.broadcast_to(x < 0.5, g.shape), 150.0, 50.0)
         g.temperature[:] = wood.degrade_above_c + excess
         damage.thermal_degrade(g, 0.5)
         expected = 1.0 - wood.degrade_rate_per_s_per_100c * 0.5 * excess / 100.0
-        assert g.integrity == pytest.approx(expected, rel=1e-6), rig.name
+        assert g.integrity == pytest.approx(expected, rel=1e-6), dx_m
 
 
 @pytest.mark.parametrize("name", ["Crate", "CRATE", "crAte"])
-def test_an_imagined_object_named_like_an_existing_region_is_refused_before_painting(rig, materials, name):
-    g = Scene((3.0, 3.0, 2.0), (Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", "crate"),)).build(rig, materials)
+def test_an_imagined_object_named_like_an_existing_region_is_refused_before_painting(dx_m, materials, name):
+    g = Scene((3.0, 3.0, 2.0), (Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", "crate"),)).build(materials, dx_m=dx_m)
     before = g.material.copy()
     box = {"name": name, "primitives": [{"min_m": [0, 0, 0], "max_m": [0.4, 0.4, 0.4], "material": "wood"}]}
     with pytest.raises(SpecRejected, match="something called 'crate' already exists"):
@@ -514,18 +502,18 @@ def test_an_imagined_object_named_like_an_existing_region_is_refused_before_pain
     assert np.array_equal(g.material, before)  # refused, not half-applied
 
 
-def test_name_region_itself_refuses_a_name_maxim_would_confuse(rig, materials):
+def test_name_region_itself_refuses_a_name_maxim_would_confuse(dx_m, materials):
     # Its callers check first; this is the second line, for any future caller that doesn't.
-    g = Scene((3.0, 3.0, 2.0), (Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", "crate"),)).build(rig, materials)
+    g = Scene((3.0, 3.0, 2.0), (Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", "crate"),)).build(materials, dx_m=dx_m)
     footprint = g.regions["crate"].footprint
     with pytest.raises(ValueError, match=r"region 'Crate' already exists \(as 'crate'\)"):
         g.name_region("Crate", g.regions["crate"].cells, footprint, solid=True)
 
 
-def test_an_imagined_object_may_sit_in_a_named_air_room_but_no_primitive_may_enter_a_solids_footprint(rig, materials):
+def test_an_imagined_object_may_sit_in_a_named_air_room_but_no_primitive_may_enter_a_solids_footprint(dx_m, materials):
     room = Box((0.0, 0.0, 0.0), (3.0, 3.0, 2.0), "air", "room")
     crate = Cylinder((2.3, 2.3), 0.3, (0.0, 0.6), "wood", "crate")  # its box's corners are empty space
-    g = Scene((3.0, 3.0, 2.0), (room, crate)).build(rig, materials)
+    g = Scene((3.0, 3.0, 2.0), (room, crate)).build(materials, dx_m=dx_m)
     box = {"name": "box", "primitives": [{"min_m": [0, 0, 0], "max_m": [0.4, 0.4, 0.4], "material": "wood"}]}
     place(g, box, (0.2, 0.2, 0.0))  # inside the air room is fine
     two = {
@@ -539,8 +527,8 @@ def test_an_imagined_object_may_sit_in_a_named_air_room_but_no_primitive_may_ent
         place(g, two, (1.0, 1.0, 0.0))
 
 
-def test_paint_refuses_a_confusable_name_before_painting(rig, materials):
-    g = MaterialGrid.empty((1.0, 1.0, 1.0), rig, materials)
+def test_paint_refuses_a_confusable_name_before_painting(dx_m, materials):
+    g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
     footprint = Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5))
     g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate", footprint=footprint)
@@ -552,16 +540,16 @@ def test_paint_refuses_a_confusable_name_before_painting(rig, materials):
 
 # -- closed schemas: every loader refuses a key it doesn't know, at every level (B12) ----------------------------------
 
-RIG_FILE = "version: 0\nname: t\ncell_size_m: 0.25\nmin_substeps_per_turn: 2\nfull_res_radius_m: 4.0\n"
+RIG_FILE = "version: 1\nname: t\ndetail_radius_m: 4.0\n"
 
 
 @pytest.mark.parametrize(
     ("text", "message"),
     [
-        (RIG_FILE + "cell_size: 0.5\n", r"unknown key\(s\) \['cell_size'\]"),  # a misspelt cell_size_m
-        (RIG_FILE + "cell_size_m: 0.5\n", "repeated key"),  # the second value would silently win
+        (RIG_FILE + "detail_radius: 0.5\n", r"unknown key\(s\) \['detail_radius'\]"),  # a misspelt key
+        (RIG_FILE + "detail_radius_m: 0.5\n", "repeated key"),  # the second value would silently win
         ("- name: t\n", "rig profile .* must be a mapping"),
-        ("cell_size_m: [\n", "not valid YAML"),
+        ("detail_radius_m: [\n", "not valid YAML"),
     ],
 )
 def test_a_rig_file_refuses_unknown_and_repeated_keys(tmp_path, text, message):
@@ -572,7 +560,7 @@ def test_a_rig_file_refuses_unknown_and_repeated_keys(tmp_path, text, message):
 
 
 def _material_file(tmp_path, edit):
-    raw = yaml.safe_load((data_dir() / "materials" / "core.yaml").read_text())
+    raw = yaml.safe_load((data.data_dir() / "materials" / "core.yaml").read_text())
     edit(raw)
     path = tmp_path / "core.yaml"
     path.write_text(yaml.safe_dump(raw))
@@ -591,15 +579,15 @@ def _material_file(tmp_path, edit):
 )
 def test_a_material_file_refuses_unknown_keys_at_every_level(tmp_path, edit, message):
     with pytest.raises(ValueError, match=message):
-        MaterialTable.load(_material_file(tmp_path, edit))
+        load_materials(_material_file(tmp_path, edit))
 
 
 def test_a_material_file_refuses_a_repeated_key(tmp_path):
-    text = (data_dir() / "materials" / "core.yaml").read_text()
+    text = (data.data_dir() / "materials" / "core.yaml").read_text()
     path = tmp_path / "core.yaml"
     path.write_text(text.replace("  wood:\n", "  wood:\n    id: 99\n", 1))
     with pytest.raises(ValueError, match="repeated key"):
-        MaterialTable.load(path)
+        load_materials(path)
 
 
 BOX_RAW = {"kind": "box", "min_m": [0, 0, 0], "max_m": [0.5, 0.5, 0.5], "material": "wood", "name": "crate"}
@@ -649,8 +637,8 @@ def test_a_scene_accepts_every_key_it_knows():
         ({"name": "crate", "primitives": [{**BOX_RAW, "colour": "red"}]}, "malformed spec: box primitive: unknown"),
     ],
 )
-def test_an_imagined_object_refuses_unknown_keys(rig, materials, spec, message):
-    g = Scene((3.0, 3.0, 2.0)).build(rig, materials)
+def test_an_imagined_object_refuses_unknown_keys(dx_m, materials, spec, message):
+    g = Scene((3.0, 3.0, 2.0)).build(materials, dx_m=dx_m)
     with pytest.raises(SpecRejected, match=message):
         place(g, spec, (1.0, 1.0, 0.0))
     assert not g.regions  # refused before anything was painted
@@ -660,7 +648,7 @@ def test_an_imagined_object_refuses_unknown_keys(rig, materials, spec, message):
 def test_a_material_colour_must_be_three_whole_numbers(tmp_path, value):
     path = _material_file(tmp_path, lambda raw: raw["materials"]["wood"].update(color_rgb=value))
     with pytest.raises(ValueError, match=r"wood\.color_rgb must be three whole numbers"):
-        MaterialTable.load(path)
+        load_materials(path)
 
 
 # -- closed schemas, the other half: required keys, and shapes that must not crash -------------------------------------
@@ -702,8 +690,8 @@ def test_a_scene_refuses_a_missing_key_by_name(raw, message):
 
 def test_a_rig_file_refuses_a_missing_key_by_name(tmp_path):
     path = tmp_path / "t.yaml"
-    path.write_text("version: 0\nname: t\ncell_size_m: 0.25\n")
-    with pytest.raises(ValueError, match=r"missing key\(s\) \['full_res_radius_m', 'min_substeps_per_turn'\]"):
+    path.write_text("version: 1\nname: t\n")
+    with pytest.raises(ValueError, match=r"missing key\(s\) \['detail_radius_m'\]"):
         RigProfile.load(path)
 
 
@@ -724,48 +712,49 @@ def test_a_rig_name_must_be_a_string(tmp_path, text, message):
 )
 def test_a_material_file_refuses_a_missing_key_and_a_name_that_is_not_a_string(tmp_path, edit, message):
     with pytest.raises(ValueError, match=message):
-        MaterialTable.load(_material_file(tmp_path, edit))
+        load_materials(_material_file(tmp_path, edit))
 
 
 def test_a_material_without_its_optional_degradation_keys_loads(tmp_path):
     def edit(raw):
         del raw["materials"]["wood"]["degrade_above_c"], raw["materials"]["wood"]["degrade_rate_per_s_per_100c"]
 
-    table = MaterialTable.load(_material_file(tmp_path, edit))
+    table = load_materials(_material_file(tmp_path, edit))
     assert table["wood"].degrade_above_c is None
     assert table["wood"].degrade_rate_per_s_per_100c == 0.0
 
 
 def test_the_material_schema_names_every_field_the_reader_fills():
-    from maxim_overdrive.config import MATERIAL_OPTIONAL, MATERIAL_REQUIRED, Material  # noqa: PLC0415
+    from simcore.adapters.loaders import MATERIAL_OPTIONAL  # noqa: PLC0415
+    from simcore.core.materials import Material  # noqa: PLC0415
 
     assert {f.name for f in dataclasses.fields(Material)} - {"name"} == MATERIAL_REQUIRED | MATERIAL_OPTIONAL
     assert not MATERIAL_REQUIRED & MATERIAL_OPTIONAL
 
 
-@pytest.mark.parametrize("key", sorted(__import__("maxim_overdrive.config").config.MATERIAL_REQUIRED))
+@pytest.mark.parametrize("key", sorted(MATERIAL_REQUIRED))
 def test_every_required_material_key_is_named_when_missing(tmp_path, key):
     path = _material_file(tmp_path, lambda raw: raw["materials"]["wood"].pop(key))
     with pytest.raises(ValueError, match=rf"material wood: missing key\(s\) \['{key}'\]"):
-        MaterialTable.load(path)
+        load_materials(path)
 
 
 def test_every_optional_material_key_is_read_not_just_accepted(tmp_path):
     def edit(raw):
         raw["materials"]["wood"].update(degrade_above_c=123.5, degrade_rate_per_s_per_100c=0.0625)
 
-    wood = MaterialTable.load(_material_file(tmp_path, edit))["wood"]
+    wood = load_materials(_material_file(tmp_path, edit))["wood"]
     assert (wood.degrade_above_c, wood.degrade_rate_per_s_per_100c) == (123.5, 0.0625)
 
 
 def test_a_key_cannot_be_both_required_and_optional():
-    from maxim_overdrive.checks import known_keys  # noqa: PLC0415
+    from simcore.core.checks import known_keys  # noqa: PLC0415
 
     with pytest.raises(TypeError, match="both required and optional"):
         known_keys({}, "x", required={"a"}, optional={"a", "b"})
 
 
-@pytest.mark.parametrize("load", [RigProfile.load, MaterialTable.load, ActionLimits.load])
+@pytest.mark.parametrize("load", [RigProfile.load, load_materials, load_action_limits])
 def test_a_data_file_nested_too_deeply_is_refused_with_its_name(tmp_path, load):
     path = tmp_path / "deep.yaml"
     path.write_text("x: " + "[" * 5000 + "]" * 5000 + "\n")
@@ -778,8 +767,8 @@ class _OddMapping(dict[str, object]):  # a Python caller's mapping with a key no
         yield ["unhashable"]
 
 
-def test_an_imagined_object_with_an_unhashable_key_is_refused_not_crashed_on(rig, materials):
-    g = Scene((3.0, 3.0, 2.0)).build(rig, materials)
+def test_an_imagined_object_with_an_unhashable_key_is_refused_not_crashed_on(dx_m, materials):
+    g = Scene((3.0, 3.0, 2.0)).build(materials, dx_m=dx_m)
     with pytest.raises(SpecRejected, match="unknown key"):
         place(g, _OddMapping(name="crate", primitives=[BOX_RAW]), (1.0, 1.0, 0.0))
 
@@ -856,10 +845,10 @@ _spec_like = st.fixed_dictionaries(
 @settings(max_examples=200, deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
 @given(spec=_spec_like | _json, origin=st.lists(st.floats(0, 3), min_size=3, max_size=3) | _json)
 def test_an_imagined_object_from_any_json_is_placed_or_refused_and_a_refusal_changes_nothing(
-    rig, materials, spec, origin
+    dx_m, materials, spec, origin
 ):
     # A named wall, so the occupied, namesake and footprint refusals are reachable too.
-    g = Scene((3.0, 3.0, 2.0), (Box((0.0, 0.0, 0.0), (0.6, 3.0, 2.0), "concrete", "wall"),)).build(rig, materials)
+    g = Scene((3.0, 3.0, 2.0), (Box((0.0, 0.0, 0.0), (0.6, 3.0, 2.0), "concrete", "wall"),)).build(materials, dx_m=dx_m)
     before, regions = g.material.copy(), set(g.regions)
     try:
         mass = place(g, spec, origin)
@@ -881,9 +870,9 @@ def _mutation_paths(doc: object, prefix: tuple[object, ...] = ()) -> list[tuple[
 
 
 _DATA_FILES: list[tuple[Callable[[Path], object], Path]] = [
-    (RigProfile.load, data_dir() / "rigs" / "rig.yaml"),
-    (MaterialTable.load, data_dir() / "materials" / "core.yaml"),
-    (ActionLimits.load, data_dir() / "world" / "actions.yaml"),
+    (RigProfile.load, data.data_dir() / "rigs" / "rig.yaml"),
+    (load_materials, data.data_dir() / "materials" / "core.yaml"),
+    (load_action_limits, data.data_dir() / "world" / "actions.yaml"),
 ]
 
 
@@ -915,7 +904,7 @@ def test_every_data_loader_loads_or_refuses_one_change_to_its_real_file(tmp_path
 def test_every_data_loader_loads_or_refuses_any_file(tmp_path_factory, raw, as_yaml, text):
     path = tmp_path_factory.mktemp("fuzz") / "f.yaml"
     path.write_text(yaml.safe_dump(raw) if as_yaml else text)
-    for load in (RigProfile.load, MaterialTable.load, ActionLimits.load):
+    for load in (RigProfile.load, load_materials, load_action_limits):
         with contextlib.suppress(ValueError):
             load(path)
 
@@ -926,18 +915,22 @@ ROOT = Path(__file__).resolve().parents[1]
 BAD_VERSIONS = [("1", "got 1"), ("true", "got True"), ("0.0", "got 0.0"), ("'0'", "got '0'"), ("null", "got None")]
 
 
-@pytest.mark.parametrize(("value", "shown"), BAD_VERSIONS)
+# Rig format v1 (D20): 0 is the retired physics format, refused by version and never migrated.
+RIG_BAD_VERSIONS = [("0", "got 0"), ("2", "got 2"), ("true", "got True"), ("1.0", "got 1.0"), ("'1'", "got '1'")]
+
+
+@pytest.mark.parametrize(("value", "shown"), RIG_BAD_VERSIONS)
 def test_a_rig_file_refuses_a_version_it_does_not_know(tmp_path, value, shown):
     path = tmp_path / "t.yaml"
-    path.write_text(RIG_FILE.replace("version: 0\n", f"version: {value}\n"))
-    with pytest.raises(ValueError, match=f"rig profile .* version must be 0, {shown}"):
+    path.write_text(RIG_FILE.replace("version: 1\n", f"version: {value}\n"))
+    with pytest.raises(ValueError, match=f"rig profile .* version must be 1, {shown}"):
         RigProfile.load(path)
 
 
 def test_a_rig_file_without_a_version_is_refused(tmp_path):
     path = tmp_path / "t.yaml"
-    path.write_text(RIG_FILE.replace("version: 0\n", ""))
-    with pytest.raises(ValueError, match="version must be 0, got None"):
+    path.write_text(RIG_FILE.replace("version: 1\n", ""))
+    with pytest.raises(ValueError, match="version must be 1, got None"):
         RigProfile.load(path)
 
 
@@ -945,7 +938,7 @@ def test_a_rig_file_without_a_version_is_refused(tmp_path):
 def test_a_material_file_refuses_a_version_it_does_not_know(tmp_path, value):
     path = _material_file(tmp_path, lambda raw: raw.update(version=value))
     with pytest.raises(ValueError, match=f"material table .* version must be 0, got {value!r}"):
-        MaterialTable.load(path)
+        load_materials(path)
 
 
 @pytest.mark.parametrize("value", [1, True, 0.0, "0", None])
@@ -955,21 +948,22 @@ def test_a_scene_refuses_a_version_it_does_not_know(value):
 
 
 def test_every_shipped_data_file_is_at_its_formats_current_version():
-    from maxim_overdrive.config import ACTION_LIMITS_VERSION, MATERIAL_TABLE_VERSION, RIG_PROFILE_VERSION  # noqa: PLC0415
+    from simcore.adapters.loaders import ACTION_LIMITS_VERSION, MATERIAL_TABLE_VERSION  # noqa: PLC0415
+    from simcore.protocol.tiers import RIG_PROFILE_VERSION  # noqa: PLC0415
 
     # Each data directory has one reader and one format; a file in a directory no reader owns is an error, so a new
     # kind of data file can't ship without a version and a loader.
     readers: dict[str, tuple[Callable[[Path], object], int]] = {
         "rigs": (RigProfile.load, RIG_PROFILE_VERSION),
-        "materials": (MaterialTable.load, MATERIAL_TABLE_VERSION),
-        "world": (ActionLimits.load, ACTION_LIMITS_VERSION),
+        "materials": (load_materials, MATERIAL_TABLE_VERSION),
+        "world": (load_action_limits, ACTION_LIMITS_VERSION),
     }
     # The files git tracks, not whatever is on disk: a Finder .DS_Store is not a data file.
     listed = git(ROOT, "ls-files", "data").stdout
     files = [ROOT / line for line in listed.splitlines()]
     assert files
     for path in files:
-        kind = path.relative_to(data_dir()).parts[0]
+        kind = path.relative_to(data.data_dir()).parts[0]
         assert kind in readers, f"{path}: no reader owns data/{kind}/"
         load, version = readers[kind]
         assert path.suffix == ".yaml", path
@@ -981,7 +975,7 @@ def test_every_shipped_data_file_is_at_its_formats_current_version():
 
 @pytest.mark.parametrize(
     ("load", "fixture"),
-    [(RigProfile.load, "rig.yaml"), (MaterialTable.load, "core.yaml"), (ActionLimits.load, "actions.yaml")],
+    [(load_materials, "core.yaml"), (load_action_limits, "actions.yaml")],
 )
 def test_the_committed_v0_files_still_load(load, fixture):
     # Golden files at version 0. When a format moves on, its reader must still load these (a migration) or refuse
@@ -990,9 +984,8 @@ def test_the_committed_v0_files_still_load(load, fixture):
     golden = load(Path(__file__).parent / "fixtures" / "formats" / "v0" / fixture)
     shipped = load(
         {
-            "rig.yaml": data_dir() / "rigs" / "rig.yaml",
-            "core.yaml": data_dir() / "materials" / "core.yaml",
-            "actions.yaml": data_dir() / "world" / "actions.yaml",
+            "core.yaml": data.data_dir() / "materials" / "core.yaml",
+            "actions.yaml": data.data_dir() / "world" / "actions.yaml",
         }[fixture]
     )
     if isinstance(golden, MaterialTable):
@@ -1002,17 +995,32 @@ def test_the_committed_v0_files_still_load(load, fixture):
         assert golden == shipped
 
 
+def test_the_committed_v0_rig_file_is_refused_by_version_not_migrated():
+    # Rig format v0 carried physics (cell_size_m, min_substeps_per_turn). Under D20 it is a dead format: its golden
+    # stays committed, and the reader refuses it loudly for its version.
+    with pytest.raises(ValueError, match=r"rig profile .* version must be 1, got 0"):
+        RigProfile.load(Path(__file__).parent / "fixtures" / "formats" / "v0" / "rig.yaml")
+
+
+def test_the_committed_v1_rig_file_still_loads():
+    golden = RigProfile.load(Path(__file__).parent / "fixtures" / "formats" / "v1" / "rig.yaml")
+    assert golden == data.rig_profile("rig")
+
+
 def _newer(text: str) -> str:
     """A file from a future version: its version bumped, and a field that version added."""
-    return text.replace("version: 0", "version: 1", 1) + "added_in_v1: true\n"
+    for now in (1, 0):  # the rig format is at 1, the others at 0
+        if f"version: {now}" in text:
+            return text.replace(f"version: {now}", f"version: {now + 1}", 1) + "added_in_next: true\n"
+    raise AssertionError("no version line")
 
 
 @pytest.mark.parametrize(
     ("load", "source", "message"),
     [
-        (RigProfile.load, data_dir() / "rigs" / "rig.yaml", "rig profile .* version must be 0, got 1"),
-        (MaterialTable.load, data_dir() / "materials" / "core.yaml", "material table .* version must be 0, got 1"),
-        (ActionLimits.load, data_dir() / "world" / "actions.yaml", "action limits version must be 0, got 1"),
+        (RigProfile.load, data.data_dir() / "rigs" / "rig.yaml", "rig profile .* version must be 1, got 2"),
+        (load_materials, data.data_dir() / "materials" / "core.yaml", "material table .* version must be 0, got 1"),
+        (load_action_limits, data.data_dir() / "world" / "actions.yaml", "action limits version must be 0, got 1"),
     ],
 )
 def test_a_file_from_a_newer_format_is_refused_for_its_version_not_its_new_fields(tmp_path, load, source, message):

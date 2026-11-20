@@ -17,9 +17,9 @@ from typing import Any, SupportsFloat
 
 import numpy as np
 
-from maxim_overdrive.checks import finite_vector, known_keys
-from maxim_overdrive.world.grid import MaterialGrid, entity_key
-from maxim_overdrive.world.scene import Box, Cylinder, Primitive, boxes_overlap, footprint_of, primitives_from_data
+from simcore.core.checks import finite_vector, known_keys
+from simcore.core.grid import MaterialGrid, entity_key
+from simcore.core.scene import Box, Cylinder, Primitive, boxes_overlap, footprint_of, primitives_from_data
 
 
 @dataclass(frozen=True)
@@ -91,7 +91,7 @@ def place(
     union = np.any(np.stack(masks), axis=0)
     if not union.any():
         raise SpecRejected("the object is smaller than one cell at this resolution, or outside the world")
-    # Size from the authored geometry, like mass, so whether an object is too large doesn't depend on the rig.
+    # Size from the authored geometry, like mass, so whether an object is too large doesn't depend on the grid spacing.
     footprint = footprint_of(placed)
     (x0, y0, z0), (x1, y1, z1) = footprint.bounds_m
     across_m = max(x1 - x0, y1 - y0, z1 - z0)
@@ -104,7 +104,7 @@ def place(
     for other, region in grid.regions.items():
         if region.solid and any(boxes_overlap(region.footprint.bounds_m, p.bounds_m) for p in placed):
             raise SpecRejected(f"that space belongs to {other}")
-    # Mass from the authored geometry, so the budget does not depend on the rig.
+    # Mass from the authored geometry, so the budget does not depend on the grid spacing.
     mass = sum(p.volume_m3 * grid.materials[p.material].density_kg_m3 for p in placed)
     if mass > budget.max_mass_kg:
         raise SpecRejected(f"too heavy: {mass:.0f} kg, the limit is {budget.max_mass_kg:.0f} kg")

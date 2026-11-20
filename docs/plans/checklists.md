@@ -48,12 +48,6 @@ Python 3.10 or later; GPG signing configured, with someone present to answer its
 authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.app` from step 2; a per-worktree
 `.venv` (step 0a).
 
-## Step 3a, boundaries (`reviews/flexibility/architecture.md`)
-
-- Resolution leaves the rig (D20): `MaterialGrid.empty`, `Scene.build` and `World` take a keyword-only `dx_m`;
-  substeps come from stability; `RigProfile` moves to the rendering tiers with no physics fields; physics tests
-  run over grid spacings (0.2, 0.1, 0.05), not rig names. The old rig file is refused by version, not migrated.
-
 ## Step 3b, gates
 
 - Scene v1: F13 plus a required `spawns`; scene v0 is refused by version, not migrated (it would migrate to a
@@ -78,6 +72,10 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 
 ## Step 5a, the simulation core (O34)
 
+- The substep floor (from 3a): `World.advance` still takes `max(heat.min_substeps(dx), stability)` substeps, where
+  `min_substeps` is the retired rigs' 4/16/64 as 0.16 m² / dx². On every 6 s turn the floor, not stability, sets the
+  count; stability alone changes every determinism digest (measured in 3a), so dropping the floor is a behaviour
+  change with new goldens, owed with the fixed physics step.
 - A short composition note first: cell state, body state, ledger, clock, intent log; no god object.
 - The step as a fixed, ordered tuple of laws, each with `stable_dt(state)` and `step(state, dt, ledger)`;
   topology changes read from `topology_version`. No discovery.

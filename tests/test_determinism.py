@@ -1,4 +1,4 @@
-"""Determinism: the same scene, rig and actions give bit-identical state on the same machine.
+"""Determinism: the same scene, grid spacing and actions give bit-identical state on the same machine.
 
 Replays, saves, bug reports and Maxim cradles all depend on it (CLAUDE.md, "Determinism"). Across machines only the
 outcome class is promised, as under the resolution rule.
@@ -15,31 +15,33 @@ from pathlib import Path
 
 import pytest
 
-from maxim_overdrive import Box, RigProfile, Scene, World
-from maxim_overdrive.config import ActionLimits
-from maxim_overdrive.sem_env.bridge import region_parts
-from tests.conftest import FAST_TIERS
+from maxim_overdrive import data
+from simcore.adapters.sem.bridge import region_parts
+from simcore.core.scene import Box, Scene
+from simcore.core.world import World
+from tests.conftest import FAST_SPACINGS
 
-LIMITS = ActionLimits.load()
+LIMITS = data.action_limits()
+MATERIALS = data.materials()
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / "src" / "maxim_overdrive"
+SRC = ROOT / "src"
 
 SCENE = Scene(
     (3.0, 3.0, 2.0),
     (Box((1.2, 1.2, 0), (1.8, 1.8, 0.6), "wood", "crate"), Box((0, 0, 0), (0.6, 3.0, 2.0), "concrete", "wall")),
 )
 TURNS = 30
-FIRE_W = 500_000.0  # hot enough that the crate degrades and loses cells within TURNS, at every fast rig
+FIRE_W = 500_000.0  # hot enough that the crate degrades and loses cells within TURNS, at every fast grid spacing
 
 # Determinism is a property of code paths, not of cell size: the fast tiers run the same code as max, and max would
 # add about 50 s to every pre-push for no new path.
-fast_rigs = pytest.mark.parametrize("rig_name", FAST_TIERS)
+fast_spacings = pytest.mark.parametrize("dx_m", FAST_SPACINGS)
 
 
-def run(rig_name: str) -> World:
+def run(dx_m: float) -> World:
     """Fire on the crate and a strike on the wall: heat, thermal degradation, thermal and mechanical destruction."""
-    w = World.from_scene(SCENE, RigProfile.load(rig_name), limits=LIMITS)
+    w = World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
     _, crate = region_parts(w, "crate")
     assert crate["structure"].execute("ignite", {"power_w": FIRE_W, "radius_m": 0.3}).success
     _, wall = region_parts(w, "wall")
@@ -66,26 +68,26 @@ def digest(w: World) -> str:
     return h.hexdigest()
 
 
-@fast_rigs
-def test_the_scenario_exercises_burning(rig_name):
+@fast_spacings
+def test_the_scenario_exercises_burning(dx_m):
     """Guard on the guard: if the fire stops reaching degradation, the determinism tests below test too little."""
-    w = run(rig_name)
+    w = run(dx_m)
     sensors, _ = region_parts(w, "crate")
     assert sensors["integrity"].value() < 0.9  # thermal degradation ran
     original_crate = w.grid.regions["crate"].cells & (w.grid.original_material != 0)
     assert (original_crate & ~w.grid.solid).any()  # and destroyed crate cells
 
 
-@fast_rigs
-def test_two_runs_are_bit_identical(rig_name):
-    assert digest(run(rig_name)) == digest(run(rig_name))
+@fast_spacings
+def test_two_runs_are_bit_identical(dx_m):
+    assert digest(run(dx_m)) == digest(run(dx_m))
 
 
-@fast_rigs
-def test_runs_in_processes_with_different_hash_seeds_agree(rig_name):
+@fast_spacings
+def test_runs_in_processes_with_different_hash_seeds_agree(dx_m):
     """Catches order that depends on PYTHONHASHSEED (iterating a set of names), which one process cannot see."""
-    here = digest(run(rig_name))
-    code = f"from tests.test_determinism import digest, run; print(digest(run({rig_name!r})))"
+    here = digest(run(dx_m))
+    code = f"from tests.test_determinism import digest, run; print(digest(run({dx_m!r})))"
     # Seeds 0, 3 and 4 iterate a small set of strings in three different orders (1 and 2 happen to agree, so a test
     # on those two passed with a seed-dependent defect injected). The in-process run adds a fourth, random seed.
     for seed in ("0", "3", "4"):
@@ -111,9 +113,12 @@ BANNED_MODULES = {
 }
 NUMPY_RANDOM_ALLOWED = {"default_rng", "Generator", "SeedSequence", "PCG64"}  # seeded construction only
 SEEDED_CONSTRUCTORS = {"default_rng", "PCG64", "SeedSequence"}
-# server/ is the transport: it may read the clock and OS entropy (connection timeouts, the per-launch token), and
-# nothing it reads that way may reach the world (docs/standards_backlog.md B14). Everything else is simulation.
-NOT_SIMULATION = {"server"}
+# Package-qualified directories under src/ that may read the clock or OS entropy because nothing they read reaches the
+# world: the transport, when it lands (simcore/host, docs/standards_backlog.md B14). None exists yet, so every package
+# under src/ is scanned.
+NOT_SIMULATION: set[str] = set()
+# Non-vacuity: the scan must reach the turn loop and the laws, wherever a move puts them (boundaries §11.2, W14).
+MUST_SCAN = {"simcore/core/world.py", "simcore/core/heat.py", "simcore/core/damage.py"}
 
 
 def _dotted(node: ast.AST) -> str | None:
@@ -178,13 +183,20 @@ def findings(path: Path, source: str) -> list[str]:
     return out
 
 
+def _simulated(path: Path) -> bool:
+    rel = path.relative_to(SRC).as_posix()
+    return not any(rel == d or rel.startswith(d + "/") for d in NOT_SIMULATION)
+
+
 def scanned_files() -> list[Path]:
-    files = [p for p in PACKAGE.rglob("*.py") if p.relative_to(PACKAGE).parts[0] not in NOT_SIMULATION]
+    files = [p for p in SRC.rglob("*.py") if _simulated(p)]
     return sorted(files) + sorted((ROOT / "tests").rglob("*.py"))
 
 
 def test_the_simulation_and_tests_have_no_hidden_sources_of_nondeterminism():
-    hits = [f for p in scanned_files() for f in findings(p.relative_to(ROOT), p.read_text())]
+    scanned = scanned_files()
+    assert {p.relative_to(SRC).as_posix() for p in scanned if p.is_relative_to(SRC)} >= MUST_SCAN
+    hits = [f for p in scanned for f in findings(p.relative_to(ROOT), p.read_text())]
     assert not hits, "\n".join(hits)
 
 

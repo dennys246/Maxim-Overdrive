@@ -1,5 +1,5 @@
 # What one SEM action may ask of the world: an NPC's tool call, an LLM's output or a client's intent. These are
-# physics-safety ceilings, checked by sem_env/bridge.py before an action applies; they are not what a body can do,
+# physics-safety ceilings, checked by simcore.adapters.sem.bridge before an action applies; they are not what a body can do,
 # which will come from its body and energy (Phase 4 and 5). Physical validity (finite, non-negative) is checked again
 # where each source or strike is made. Write numbers as plain decimals: YAML 1.1 reads 1.0e7 as a string.
 version: 0

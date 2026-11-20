@@ -132,8 +132,8 @@ def _git_outside_helper(node: ast.Call) -> bool:
 #   "given": an env= must be written (a deliberate choice, reviewed when the site was added).
 ALLOWED_SPAWNS = {
     ("scripts/godot_check.py", "run_godot"): "godot",  # the one way Godot runs
-    ("scripts/lint_standards.py", "tracked_text_files"): "given",  # git, on the repository the gate runs in
-    ("scripts/lint_standards.py", "base_pyproject"): "given",  # git, the same
+    ("scripts/lint_repo.py", "tracked_text_files"): "given",  # git, on the repository the gate runs in
+    ("scripts/lint_repo.py", "base_pyproject"): "given",  # git, the same
     ("tests/_gitutil.py", "git"): "given",  # git with every GIT_* dropped and no global config
     ("tests/test_prepush.py", "_gate"): "given",  # the gate, copied into a tmp repository
     ("tests/test_tooling_config.py", "_ruff"): "given",  # ruff, reading the tree
@@ -364,7 +364,7 @@ SPAWN_FORMS = [
 def test_the_scan_catches_every_way_to_start_a_process_outside_the_allowlist(source: str) -> None:
     for rel in ("tests/test_a.py", "scripts/a.py"):
         assert any("outside ALLOWED_SPAWNS" in f for f in findings(rel, source)), (rel, source)
-    assert findings("src/maxim_overdrive/a.py", source) == []  # the shipped package is the server's to decide
+    assert findings("src/simcore/a.py", source) == []  # the shipped package is the server's to decide
 
 
 @pytest.mark.parametrize(

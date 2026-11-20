@@ -19,9 +19,9 @@ import yaml
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-from maxim_overdrive import Box, RigProfile, Scene, World
-from maxim_overdrive.config import ActionLimits, data_dir
-from maxim_overdrive.sem_env.bridge import (
+from maxim_overdrive import data
+from simcore.adapters.loaders import load_action_limits
+from simcore.adapters.sem.bridge import (
     MAXIM_CALL_KEYS,
     ActionRefused,
     Extinguish,
@@ -30,16 +30,19 @@ from maxim_overdrive.sem_env.bridge import (
     parse_action,
     region_parts,
 )
-from maxim_overdrive.world import damage
-from maxim_overdrive.world.world import HeatSource, sphere_overlap
-from tests.conftest import FAST_TIERS
+from simcore.core import damage
+from simcore.core.limits import ActionLimits
+from simcore.core.scene import Box, Scene
+from simcore.core.world import HeatSource, World, sphere_overlap
+from tests.conftest import COARSEST_M, FAST_SPACINGS
 
-LIMITS = ActionLimits.load()
+LIMITS = data.action_limits()
+MATERIALS = data.materials()
 SCENE = Scene((3.0, 3.0, 2.0), (Box((1.2, 1.2, 0), (1.8, 1.8, 0.6), "wood", "crate"),))
 
 
-def _world(rig="laptop"):
-    return World.from_scene(SCENE, RigProfile.load(rig), limits=LIMITS)
+def _world(dx_m=0.2):
+    return World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
 
 
 def _structure(world):
@@ -159,11 +162,11 @@ def test_a_target_is_accepted_only_when_it_is_this_region():
     # Maxim's orchestrator-actor tool passes target=<Entity>, what the actor acts ON (the player by default). A
     # region's structure is only acted on directly, so another target is refused, never dropped: dropping it would
     # strike the crate when the call meant the wall.
-    from maxim_overdrive.sem_env.bridge import to_maxim_entity  # noqa: PLC0415 - the gate installs pymaxim
+    from simcore.adapters.sem.bridge import to_maxim_entity  # noqa: PLC0415 - the gate installs pymaxim
 
     assert frozenset({"target"}) == MAXIM_CALL_KEYS
     scene = Scene(SCENE.extent_m, (*SCENE.primitives, Box((0, 0, 0), (0.6, 3, 2), "concrete", "wall")))
-    w = World.from_scene(scene, RigProfile.load("laptop"), limits=LIMITS)
+    w = World.from_scene(scene, MATERIALS, dx_m=0.2, limits=LIMITS)
     crate, wall = to_maxim_entity(w, "crate"), to_maxim_entity(w, "wall")
     s = crate.modulators["structure"]
     for target in [None, crate, "crate", "Crate"]:  # case-insensitive, as Maxim's EntityMap resolves names
@@ -251,19 +254,18 @@ def test_extinguishing_nothing_is_refused_in_words():
     assert res.error == "nothing is burning on the crate"
 
 
-def test_every_shipped_rig_is_at_least_as_fine_as_the_smallest_action():
-    # The resolution rule: an action smaller than a coarse cell lands in one cell at that rig and spreads at a finer
-    # one, so its outcome would depend on the rig.
-    coarsest = max(RigProfile.load(p.stem).cell_size_m for p in (data_dir() / "rigs").glob("*.yaml"))
-    assert LIMITS.min_radius_m >= coarsest
-    assert LIMITS.min_sigma_m >= coarsest
+def test_every_verification_grid_is_at_least_as_fine_as_the_smallest_action():
+    # The resolution rule: an action smaller than a coarse cell lands in one cell at that grid spacing and spreads at
+    # a finer one, so its outcome would depend on the spacing.
+    assert LIMITS.min_radius_m >= COARSEST_M
+    assert LIMITS.min_sigma_m >= COARSEST_M
 
 
 WOOD_FLAME_C = 2000.0  # wood's adiabatic flame temperature: no fire on wood may heat a cell past it
 
 
-def _burn_every_turn(rig, turns):
-    w = World.from_scene(SCENE, rig, limits=LIMITS)
+def _burn_every_turn(dx_m, turns):
+    w = World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
     s, m = region_parts(w, "crate")
     assert m["structure"].execute("ignite", {"power_w": LIMITS.max_power_w, "radius_m": LIMITS.min_radius_m}).success
     history = []
@@ -281,8 +283,8 @@ def _burn_every_turn(rig, turns):
     "mean temperature, which lags in coarse cells (docs/architecture.md, Known gaps). The Phase 1 fuel model "
     "(a burn rate driven by heat content) is the fix; this gate then flips.",
 )
-def test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn(rigs):
-    runs = {rig.name: _burn_every_turn(rig, 60) for rig in rigs}
+def test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn(spacings):
+    runs = {dx_m: _burn_every_turn(dx_m, 60) for dx_m in spacings}
     for turn in range(60):
         integrity = [h[turn][0] for h in runs.values()]
         assert max(integrity) - min(integrity) <= 0.1, (turn, runs)
@@ -292,9 +294,9 @@ def test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_tu
 CONCRETE_THRESHOLD_J = 2.0e7 * (2 * math.pi) ** 1.5 * 0.2**3  # where a 0.2 m strike's peak meets fracture
 
 
-def _block_strike(rig, energy_j, thickness_m=1.8, x0=0.6):
+def _block_strike(dx_m, energy_j, thickness_m=1.8, x0=0.6):
     scene = Scene((3.0, 3.0, 2.0), (Box((x0, 0.2, 0), (x0 + thickness_m, 2.8, 1.8), "concrete", "block"),))
-    w = World.from_scene(scene, rig, limits=LIMITS)
+    w = World.from_scene(scene, MATERIALS, dx_m=dx_m, limits=LIMITS)
     sensors, mods = region_parts(w, "block")
     point = [x0 + thickness_m / 2, 1.5, 0.9]
     res = mods["structure"].execute("strike", {"energy_j": energy_j, "sigma_m": 0.2, "point_m": point})
@@ -302,67 +304,67 @@ def _block_strike(rig, energy_j, thickness_m=1.8, x0=0.6):
     return res.metadata["destroyed_volume_m3"], sensors["breached"].value()
 
 
-def test_a_strike_below_the_fracture_threshold_destroys_nothing_at_any_rig(rigs):
-    for rig in rigs:  # exact cell-average deposition makes this a guarantee, not a tolerance
-        assert _block_strike(rig, 0.95 * CONCRETE_THRESHOLD_J)[0] == 0, rig.name
+def test_a_strike_below_the_fracture_threshold_destroys_nothing_at_any_rig(spacings):
+    for dx_m in spacings:  # exact cell-average deposition makes this a guarantee, not a tolerance
+        assert _block_strike(dx_m, 0.95 * CONCRETE_THRESHOLD_J)[0] == 0, dx_m
 
 
 @pytest.mark.parametrize("multiple", [4.0, 5.0, 8.0, 12.0, 40.0, 390.0])
-def test_a_crater_of_radius_at_least_a_third_of_a_metre_matches_the_closed_form_at_every_rig(rigs, multiple):
+def test_a_crater_of_radius_at_least_a_third_of_a_metre_matches_the_closed_form_at_every_rig(spacings, multiple):
     energy = multiple * CONCRETE_THRESHOLD_J
     expected = 4 / 3 * math.pi * damage.analytic_crater_radius_m(energy, 0.2, 2.0e7) ** 3
-    for rig in rigs:
-        assert _block_strike(rig, energy)[0] == pytest.approx(expected, rel=0.25), rig.name
+    for dx_m in spacings:
+        assert _block_strike(dx_m, energy)[0] == pytest.approx(expected, rel=0.25), dx_m
 
 
 @pytest.mark.xfail(
     strict=True,
     raises=AssertionError,
     reason="whether a strike breaches a thin wall flips across rigs near the threshold: a 0.4 m concrete wall "
-    "struck at 1.5x the threshold is breached at rig and max but not laptop (docs/architecture.md, Known gaps). "
-    "Craters narrower than two coarse cells are below what the coarse rig resolves.",
+    "struck at 1.5x the threshold is breached at 0.1 m and 0.05 m but not 0.2 m (docs/architecture.md, Known gaps). "
+    "Craters narrower than two coarse cells are below what the coarse grid resolves.",
 )
-def test_a_strike_breaches_a_thin_wall_the_same_at_every_rig(rigs):
+def test_a_strike_breaches_a_thin_wall_the_same_at_every_rig(spacings):
     # The wall's faces sit off the 0.2 m grid (x from 1.3 to 1.7 m), as most authored walls will.
-    breached = {rig.name: _block_strike(rig, 1.5 * CONCRETE_THRESHOLD_J, 0.4, x0=1.3)[1] for rig in rigs}
+    breached = {dx_m: _block_strike(dx_m, 1.5 * CONCRETE_THRESHOLD_J, 0.4, x0=1.3)[1] for dx_m in spacings}
     assert len(set(breached.values())) == 1, breached
 
 
-def test_a_strike_at_any_face_of_a_region_off_the_coarse_grid_is_judged_the_same_at_every_rig(rigs):
-    # The crate's faces sit between the 0.2 m cells, so its cells (and any reach built from them) move with the rig.
+def test_a_strike_at_any_face_of_a_region_off_the_coarse_grid_is_judged_the_same_at_every_rig(spacings):
+    # The crate's faces sit between the 0.2 m cells, so its cells (and any reach built from them) move with the spacing.
     lo, hi, sigma = (1.25, 1.25, 0.25), (1.75, 1.75, 0.85), LIMITS.default_sigma_m
     scene = Scene((3.0, 3.0, 2.0), (Box(lo, hi, "wood", "crate"),))
     middle = [(a + b) / 2 for a, b in zip(lo, hi, strict=True)]
-    for rig in rigs:
-        w = World.from_scene(scene, rig, limits=LIMITS)
+    for dx_m in spacings:
+        w = World.from_scene(scene, MATERIALS, dx_m=dx_m, limits=LIMITS)
         s = region_parts(w, "crate")[1]["structure"]
         for axis in range(3):
             for edge, outward in [(lo[axis] - sigma, -9.0), (hi[axis] + sigma, 9.0)]:
                 at, past = list(middle), list(middle)
                 at[axis], past[axis] = edge, math.nextafter(edge, outward)
-                assert s.execute("strike", {"energy_j": 1e3, "point_m": at}).success, (rig.name, axis, edge)
+                assert s.execute("strike", {"energy_j": 1e3, "point_m": at}).success, (dx_m, axis, edge)
                 refused = s.execute("strike", {"energy_j": 1e3, "point_m": past})
-                assert refused.error == "point_m is not on the crate", (rig.name, axis, edge)
+                assert refused.error == "point_m is not on the crate", (dx_m, axis, edge)
 
 
-def test_a_strike_past_a_regions_face_into_another_region_belongs_to_that_region(rigs):
+def test_a_strike_past_a_regions_face_into_another_region_belongs_to_that_region(spacings):
     # A wall right against the crate: a strike just past the crate's face, within sigma, lands in the wall.
     crate = Box((1.2, 1.2, 0), (1.8, 1.8, 0.6), "wood", "crate")
     wall = Box((1.8, 0, 0), (2.4, 3, 2), "concrete", "wall")
     room = Box((0.6, 0.6, 0), (2.4, 2.4, 1.2), "air", "room")  # an air room never owns a point
-    for rig in rigs:
-        w = World.from_scene(Scene((3.0, 3.0, 2.0), (room, crate, wall)), rig, limits=LIMITS)
+    for dx_m in spacings:
+        w = World.from_scene(Scene((3.0, 3.0, 2.0), (room, crate, wall)), MATERIALS, dx_m=dx_m, limits=LIMITS)
         parts = {r: region_parts(w, r)[1]["structure"] for r in ("crate", "wall")}
         before = _state(w)
         res = parts["crate"].execute("strike", {"energy_j": 1e7, "point_m": [1.85, 1.5, 0.3]})
-        assert res.error == "point_m is not on the crate", rig.name
+        assert res.error == "point_m is not on the crate", dx_m
         assert _unchanged(before, w)
         assert parts["wall"].execute("strike", {"energy_j": 1e3, "point_m": [1.85, 1.5, 0.3]}).success
         assert (
             parts["crate"].execute("strike", {"energy_j": 1e3, "point_m": [1.15, 1.5, 0.3]}).success
         )  # inside the room
         res = parts["crate"].execute("strike", {"energy_j": 1e3, "point_m": [1.79, 1.5, 0.3]})
-        assert res.success, rig.name  # within sigma of the wall, but on the crate's own footprint
+        assert res.success, dx_m  # within sigma of the wall, but on the crate's own footprint
 
 
 # -- the physics entry points refuse what no caller should ever pass ------------------------------------------------
@@ -409,7 +411,7 @@ def test_an_npc_tool_call_through_maxim_is_refused_or_applied_the_same_way():
     from maxim.embodiment.tool_bridge import generate_tools_for_entity  # noqa: PLC0415 - the gate installs pymaxim
     from maxim.tools.registry import ToolRegistry  # noqa: PLC0415
 
-    from maxim_overdrive.sem_env.bridge import to_maxim_entity  # noqa: PLC0415
+    from simcore.adapters.sem.bridge import to_maxim_entity  # noqa: PLC0415
 
     w = _world()
     tools = generate_tools_for_entity(to_maxim_entity(w, "crate"), ToolRegistry())
@@ -452,11 +454,11 @@ _keys = st.one_of(
 _params = st.one_of(st.dictionaries(_keys, _values, max_size=4), st.none(), st.lists(_values, max_size=2))
 
 
-@pytest.mark.parametrize("rig", FAST_TIERS)
+@pytest.mark.parametrize("dx_m", FAST_SPACINGS)
 @settings(derandomize=True, max_examples=250, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @given(affordance=st.sampled_from(["strike", "ignite", "extinguish", "teleport", 3]), params=_params)
-def test_no_input_crashes_the_modulator_or_leaves_a_bad_cell(rig, affordance, params):
-    w = _world(rig)
+def test_no_input_crashes_the_modulator_or_leaves_a_bad_cell(dx_m, affordance, params):
+    w = _world(dx_m)
     before = _state(w)
     res = _structure(w).execute(affordance, params)  # must not raise
     if not res.success:
@@ -483,7 +485,7 @@ GOOD_LIMITS = (
 
 
 def test_the_shipped_limits_load_as_floats():
-    assert ActionLimits.load() == LIMITS
+    assert load_action_limits(data.data_dir() / "world" / "actions.yaml") == LIMITS
     assert all(isinstance(v, float) for v in vars(LIMITS).values())
     assert isinstance(ActionLimits(**{**vars(LIMITS), "max_power_w": 7}).max_power_w, float)
 
@@ -522,7 +524,7 @@ def test_bad_limits_files_are_refused_loudly(tmp_path, text, message):
     path = tmp_path / "actions.yaml"
     path.write_text(text)
     with pytest.raises(ValueError, match=message):
-        ActionLimits.load(path)
+        load_action_limits(path)
 
 
 def test_parsing_reads_nothing_from_the_world():
@@ -555,7 +557,7 @@ def test_no_data_file_writes_a_number_as_a_string():
                 return
             found.append(".".join(path))
 
-    for path in sorted(data_dir().rglob("*.yaml")):
+    for path in sorted(data.data_dir().rglob("*.yaml")):
         walk(yaml.safe_load(path.read_text()), [path.name])
     assert found == []
 
@@ -637,7 +639,7 @@ def test_more_bad_limits_files_are_refused(tmp_path, text, message):
     path = tmp_path / "actions.yaml"
     path.write_text(text)
     with pytest.raises(ValueError, match=message):
-        ActionLimits.load(path)
+        load_action_limits(path)
 
 
 def test_yaml_merge_keys_still_work_in_the_limits_file(tmp_path):
@@ -650,7 +652,7 @@ def test_yaml_merge_keys_still_work_in_the_limits_file(tmp_path):
     path.write_text(text)
     # Merged fine; "base" is then an unknown section.
     with pytest.raises(ValueError, match=r"unknown key\(s\) \['base'\]"):
-        ActionLimits.load(path)
+        load_action_limits(path)
 
 
 def test_maxims_actor_tool_must_name_the_region_as_its_own_target():
@@ -662,11 +664,12 @@ def test_maxims_actor_tool_must_name_the_region_as_its_own_target():
     from maxim.embodiment.sem import Entity  # noqa: PLC0415
     from maxim.simulation.tools import OrchestratorActorTool  # noqa: PLC0415
 
-    from maxim_overdrive.sem_env.bridge import to_maxim_entity  # noqa: PLC0415
+    from simcore.adapters.sem.bridge import to_maxim_entity  # noqa: PLC0415
 
     w = World.from_scene(
         Scene(SCENE.extent_m, (*SCENE.primitives, Box((0, 0, 0), (0.6, 3, 2), "concrete", "wall"))),
-        RigProfile.load("laptop"),
+        MATERIALS,
+        dx_m=0.2,
         limits=LIMITS,
     )
     npc = Entity("npc", "body")
@@ -690,11 +693,12 @@ def test_maxims_affordance_tool_accepts_only_the_region_itself_as_a_target(targe
     # The second path OD-C3 cites: Maxim's ModulatorAffordanceTool, the per-affordance tool an NPC calls directly.
     from maxim.embodiment.tool_bridge import ModulatorAffordanceTool  # noqa: PLC0415 - the gate installs pymaxim
 
-    from maxim_overdrive.sem_env.bridge import to_maxim_entity  # noqa: PLC0415
+    from simcore.adapters.sem.bridge import to_maxim_entity  # noqa: PLC0415
 
     w = World.from_scene(
         Scene(SCENE.extent_m, (*SCENE.primitives, Box((0, 0, 0), (0.6, 3, 2), "concrete", "wall"))),
-        RigProfile.load("laptop"),
+        MATERIALS,
+        dx_m=0.2,
         limits=LIMITS,
     )
     crate = to_maxim_entity(w, "crate")
@@ -734,19 +738,19 @@ def test_a_yaml_merge_key_can_be_overridden_but_a_written_key_cannot_repeat(tmp_
     path.write_text("version: 0\n" + base + "ignite: {<<: *b, max_power_w: 500000.0}\n" + strike)
     # Merged and overridden fine; "base" is unknown.
     with pytest.raises(ValueError, match=r"unknown key\(s\) \['base'\]"):
-        ActionLimits.load(path)
+        load_action_limits(path)
     path.write_text("version: 0\nignite: {<<: *b, max_power_w: 1.0, max_power_w: 2.0}\n".replace("*b", "{}"))
     with pytest.raises(ValueError, match="repeated key"):
-        ActionLimits.load(path)
+        load_action_limits(path)
 
 
-def test_a_fire_lands_on_the_authored_centroid_at_every_rig(rigs):
-    # The crate's faces sit off the coarse grid, so the centroid of its cells moves with the rig; the fire mustn't.
+def test_a_fire_lands_on_the_authored_centroid_at_every_rig(spacings):
+    # The crate's faces sit off the coarse grid, so the centroid of its cells moves with the spacing; the fire mustn't.
     scene = Scene((3.0, 3.0, 2.0), (Box((1.25, 1.25, 0.25), (1.75, 1.75, 0.85), "wood", "crate"),))
-    for rig in rigs:
-        w = World.from_scene(scene, rig, limits=LIMITS)
+    for dx_m in spacings:
+        w = World.from_scene(scene, MATERIALS, dx_m=dx_m, limits=LIMITS)
         assert region_parts(w, "crate")[1]["structure"].execute("ignite", {"power_w": 1.0}).success
-        assert w.sources["fire:crate"].point_m == (1.5, 1.5, 0.55), rig.name
+        assert w.sources["fire:crate"].point_m == (1.5, 1.5, 0.55), dx_m
 
 
 def test_an_entity_whose_name_is_not_a_plain_string_is_refused():
@@ -764,22 +768,22 @@ def test_a_merged_key_is_overridden_by_the_one_written_after_it(tmp_path):
     path = tmp_path / "actions.yaml"
     merged = "{max_power_w: 1.0, min_radius_m: 0.3, max_radius_m: 3.0, default_radius_m: 0.3}"
     path.write_text(f"version: 0\nignite: &i {merged}\n" + GOOD_LIMITS.split("\n")[2] + "\n")
-    assert ActionLimits.load(path).max_power_w == 1.0
+    assert load_action_limits(path).max_power_w == 1.0
     raw = yaml.load(f"a: &a {merged}\nb: {{<<: *a, max_power_w: 500000.0}}\n", Loader=_strict_loader())
     assert raw["b"]["max_power_w"] == 500000.0  # the written key wins over the merged one
 
 
 def _strict_loader():
-    from maxim_overdrive.config import _StrictLoader  # noqa: PLC0415
+    from simcore.adapters.loaders import _StrictLoader  # noqa: PLC0415
 
     return _StrictLoader
 
 
 def test_an_air_region_has_no_structure_to_act_on():
-    from maxim_overdrive.sem_env.bridge import StructureModulator, to_maxim_entity  # noqa: PLC0415
+    from simcore.adapters.sem.bridge import StructureModulator, to_maxim_entity  # noqa: PLC0415
 
     room = Box((0.6, 0.6, 0), (2.4, 2.4, 1.2), "air", "room")
-    w = World.from_scene(Scene(SCENE.extent_m, (room, *SCENE.primitives)), RigProfile.load("laptop"), limits=LIMITS)
+    w = World.from_scene(Scene(SCENE.extent_m, (room, *SCENE.primitives)), MATERIALS, dx_m=0.2, limits=LIMITS)
     sensors, mods = region_parts(w, "room")
     assert mods == {}
     assert "temperature_mean" in sensors  # still sensed
@@ -790,7 +794,7 @@ def test_an_air_region_has_no_structure_to_act_on():
 
 def test_targets_resolve_by_maxims_own_name_rule():
     scene = Scene(SCENE.extent_m, (Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", "fire door"), *SCENE.primitives))
-    w = World.from_scene(scene, RigProfile.load("laptop"), limits=LIMITS)
+    w = World.from_scene(scene, MATERIALS, dx_m=0.2, limits=LIMITS)
     crate, door = (region_parts(w, r)[1]["structure"] for r in ("crate", "fire door"))
     for target in ["crate", " Crate ", "CRATE"]:
         assert crate.execute("ignite", {"power_w": 1.0, "target": target}).success, target
@@ -803,7 +807,7 @@ def test_region_names_that_maxim_would_confuse_are_refused(materials, first, sec
     a = Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", first)
     b = Box((1.2, 1.2, 0), (1.8, 1.8, 0.6), "wood", second)
     with pytest.raises(ValueError, match="already exists"):
-        Scene(SCENE.extent_m, (a, b)).build(RigProfile.load("laptop"), materials)
+        Scene(SCENE.extent_m, (a, b)).build(materials, dx_m=0.2)
 
 
 @pytest.mark.xfail(
@@ -811,18 +815,18 @@ def test_region_names_that_maxim_would_confuse_are_refused(materials, first, sec
     raises=AssertionError,
     reason="a region carved hollow keeps its authored centroid, so a fire on a wall with a doorway through its middle "
     "lands in the doorway and heats only air (docs/architecture.md, Known gaps). Deciding from the region's cells "
-    "would move with the rig; per-cell ownership with authored geometry (design v2) is the fix.",
+    "would move with the grid spacing; per-cell ownership with authored geometry (design v2) is the fix.",
 )
-def test_a_fire_on_a_region_carved_hollow_heats_the_region_not_air(rigs):
+def test_a_fire_on_a_region_carved_hollow_heats_the_region_not_air(spacings):
     wall = Box((1.0, 0.0, 0.0), (1.6, 3.0, 2.0), "concrete", "wall")
     doorway = Box((1.0, 1.0, 0.0), (1.6, 2.0, 2.0), "air", "doorway")
-    for rig in rigs:
-        w = World.from_scene(Scene((3.0, 3.0, 2.0), (wall, doorway)), rig, limits=LIMITS)
+    for dx_m in spacings:
+        w = World.from_scene(Scene((3.0, 3.0, 2.0), (wall, doorway)), MATERIALS, dx_m=dx_m, limits=LIMITS)
         res = region_parts(w, "wall")[1]["structure"].execute("ignite", {"power_w": 1000.0})
         if res.success:  # a fix may refuse the fire, or place it on the wall; either way it must not heat only air
             source = w.sources["fire:wall"]
             own = w.grid.regions["wall"].cells & w.grid.solid
-            assert (sphere_overlap(w.grid, source.point_m, source.radius_m) * own).any(), rig.name
+            assert (sphere_overlap(w.grid, source.point_m, source.radius_m) * own).any(), dx_m
 
 
 def test_an_entity_that_only_shares_the_regions_name_is_not_the_region():
@@ -836,7 +840,7 @@ def test_an_entity_that_only_shares_the_regions_name_is_not_the_region():
 
 def test_target_names_follow_maxims_lower_not_casefold():
     scene = Scene(SCENE.extent_m, (Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", "straße"),))
-    w = World.from_scene(scene, RigProfile.load("laptop"), limits=LIMITS)
+    w = World.from_scene(scene, MATERIALS, dx_m=0.2, limits=LIMITS)
     s = region_parts(w, "straße")[1]["structure"]
     assert s.execute("ignite", {"power_w": 1.0, "target": "STRASSE"}).success is False  # casefold would match
     assert s.execute("ignite", {"power_w": 1.0, "target": "Straße"}).success

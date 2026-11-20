@@ -22,9 +22,9 @@ Godot client (render, input, UI)  ──intents──▶  World server (Python, 
 
 ## The world is material cells
 
-`world/grid.py` holds the world as a structure of arrays: per cell, a material id (`uint8`), integrity in [0, 1] and
-temperature in °C. Scenes are **authored in metres** (`world/scene.py`) and voxelized at whatever cell size the rig
-profile chooses (`data/rigs/`). Nothing is authored in cells.
+`simcore/core/grid.py` holds the world as a structure of arrays: per cell, a material id (`uint8`), integrity in [0, 1] and
+temperature in °C. Scenes are **authored in metres** (`simcore/core/scene.py`) and voxelized at the grid spacing the world
+is given (`dx_m`). Nothing is authored in cells.
 
 Materials (`data/materials/core.yaml`) carry textbook thermal properties plus two gameplay calibrations that are
 always **per unit volume** (`fracture_energy_j_m3`, `degrade_*`), so they mean the same thing at every resolution.
@@ -109,7 +109,7 @@ How the rule is kept, so far:
   fire into air. "Gone" only means a later paint took every cell. Ownership per cell (the region id array planned
   for design v2) removes it.
 - **Overlap is judged on bounding boxes, and it has an authoring cost.** Named solids may not overlap a later solid
-  (`scene._check_no_solid_overlaps`, and `imagination.spec.place` for imagined objects), and a cylinder's box corners
+  (`scene._check_no_solid_overlaps`, and `imagination.place` for imagined objects), and a cylinder's box corners
   count as its own, so two barrels close together can be refused although they don't touch. A solid window, sign or
   vent inside a named wall is refused too, so such a wall must be split into pieces or left unnamed. Per-cell
   ownership (design v2's region id array) removes both.
@@ -122,7 +122,7 @@ How the rule is kept, so far:
   rule forbids. Held by a strict red gate,
   `tests/test_act_validation.py::test_a_fire_on_a_region_carved_hollow_heats_the_region_not_air`. Per-cell ownership
   with authored geometry (design v2) removes it.
-- **Whether an imagined object fits in the world can depend on the rig.** `imagination.spec.place` refuses an object
+- **Whether an imagined object fits in the world can depend on the rig.** `imagination.place` refuses an object
   "smaller than one cell at this resolution" when it covers no cell centre, which can happen at the coarse rig and
   not at a finer one. Its size and mass budgets come from the authored geometry (rig-independent since
   2026-11-15); this check is still rig-dependent. The thin-features rule (two coarse cells) as a minimum authored size
@@ -136,7 +136,7 @@ How the rule is kept, so far:
 
 ## SEM for the environment
 
-`sem_env/bridge.py` makes any named region (a wall, a door, an imagined crate) an SEM Entity: sensors `integrity`,
+`simcore/adapters/sem/bridge.py` makes any named region (a wall, a door, an imagined crate) an SEM Entity: sensors `integrity`,
 `temperature_max`, `temperature_mean` and `breached`, and a `structure` modulator with `strike`, `ignite` and
 `extinguish`. With pymaxim installed, `to_maxim_entity` returns a real `maxim.embodiment.sem.Entity`, so Maxim's tool
 generation, affordance gating and prompt formatting work on the environment unchanged. The environment has no drives,
@@ -198,7 +198,7 @@ shrink snapshots by 10× or more.
 
 ## Imagination: specs, not assets
 
-`imagination/spec.py`: an imagined object is a spec of primitives made of known materials. Before it exists it must
+`simcore/core/imagination.py`: an imagined object is a spec of primitives made of known materials. Before it exists it must
 pass the world's rules (known materials, size, mass budget, free space); then it is voxelized like anything authored,
 so it burns and breaks like a real object. The plan for every asset type follows the same pattern: generate a
 **validated spec**, then derive the asset deterministically.

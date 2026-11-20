@@ -2,24 +2,25 @@
 
 import pytest
 
-from maxim_overdrive import Box, Scene, World
-from maxim_overdrive.config import ActionLimits
-from maxim_overdrive.sem_env import bridge
+from maxim_overdrive import data
+from simcore.adapters.sem import bridge
+from simcore.core.scene import Box, Scene
+from simcore.core.world import World
 
-LIMITS = ActionLimits.load()
+LIMITS = data.action_limits()
 
 
-def _world(rig, materials):
+def _world(dx_m, materials):
     return World.from_scene(
         Scene((2.0, 3.0, 2.4), (Box((0.8, 0, 0), (1.2, 3, 2.4), "concrete", "wall"),)),
-        rig,
         materials,
+        dx_m=dx_m,
         limits=LIMITS,
     )
 
 
-def test_strike_moves_the_integrity_sensor(rig, materials):
-    w = _world(rig, materials)
+def test_strike_moves_the_integrity_sensor(dx_m, materials):
+    w = _world(dx_m, materials)
     sensors, mods = bridge.region_parts(w, "wall")
     assert sensors["integrity"].read().value == pytest.approx(1.0)
     res = mods["structure"].execute("strike", {"energy_j": 6.3e7, "sigma_m": 0.3, "point_m": [0.8, 1.5, 1.2]})
@@ -29,17 +30,17 @@ def test_strike_moves_the_integrity_sensor(rig, materials):
     assert sensors["breached"].read().value == 1.0
 
 
-def test_bad_actions_fail_cleanly(rig, materials):
-    _, mods = bridge.region_parts(_world(rig, materials), "wall")
+def test_bad_actions_fail_cleanly(dx_m, materials):
+    _, mods = bridge.region_parts(_world(dx_m, materials), "wall")
     assert not mods["structure"].execute("extinguish", {}).success  # nothing burning
     assert not mods["structure"].execute("strike", {}).success  # missing energy
     assert not mods["structure"].execute("teleport", {}).success
 
 
-def test_regions_are_real_maxim_entities(rig, materials):
+def test_regions_are_real_maxim_entities(dx_m, materials):
     sem = pytest.importorskip("maxim.embodiment.sem")
     Modulator, Sensor = sem.Modulator, sem.Sensor
-    ent = bridge.to_maxim_entity(_world(rig, materials), "wall")
+    ent = bridge.to_maxim_entity(_world(dx_m, materials), "wall")
     assert all(isinstance(s, Sensor) for s in ent.sensors.values())
     assert all(isinstance(m, Modulator) for m in ent.modulators.values())
     readings = ent.read_all_sensors()
