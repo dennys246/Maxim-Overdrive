@@ -1,7 +1,7 @@
 """The authoritative world: one grid, its heat sources, and a fixed-length turn.
 
-Godot (later) never simulates; it sends intents and draws snapshots. Cradles and experiments run this same object
-headless, so the physics an NPC grows up in is the physics of the game.
+Godot never simulates; it sends intents and draws snapshots (``simcore.protocol.encoding``). Cradles and experiments
+run this same object headless, so the physics an NPC grows up in is the physics of the game.
 """
 
 from __future__ import annotations
@@ -10,11 +10,12 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from maxim_overdrive.checks import finite_real, finite_vector
-from maxim_overdrive.config import ActionLimits, MaterialTable, RigProfile
-from maxim_overdrive.world import damage, heat
-from maxim_overdrive.world.grid import Field, MaterialGrid
-from maxim_overdrive.world.scene import Scene
+from simcore.core import damage, heat
+from simcore.core.checks import finite_real, finite_vector
+from simcore.core.grid import Field, MaterialGrid
+from simcore.core.limits import ActionLimits
+from simcore.core.materials import MaterialTable
+from simcore.core.scene import Scene
 
 
 @dataclass(frozen=True)
@@ -25,7 +26,7 @@ class HeatSource:
 
     def __post_init__(self) -> None:
         # Physical validity, whoever builds the source. Gameplay limits (how big a fire may be) belong to the action
-        # that asks for it (config.ActionLimits, checked in sem_env.bridge).
+        # that asks for it (simcore.core.limits.ActionLimits, checked in simcore.adapters.sem.bridge).
         object.__setattr__(self, "point_m", finite_vector(self.point_m, 3, "a heat source's point_m"))
         radius = finite_real(self.radius_m, "a heat source's radius_m")
         power = finite_real(self.power_w, "a heat source's power_w")
@@ -42,8 +43,8 @@ def sphere_overlap(
 ) -> Field:
     """Fraction of each cell inside a sphere, estimated on a samples^3 sub-grid per cell.
 
-    Weighting by overlap rather than by "centre inside" keeps a source's power density the same at every rig; with
-    centre-inside, a 0.3 m fire at 0.2 m cells covered 35% more volume than the sphere and ran cooler.
+    Weighting by overlap rather than by "centre inside" keeps a source's power density the same at every grid spacing;
+    with centre-inside, a 0.3 m fire at 0.2 m cells covered 35% more volume than the sphere and ran cooler.
     """
     offs = (np.arange(samples) + 0.5) / samples * grid.dx
     frac = np.zeros(grid.shape, dtype=np.float64)
@@ -62,7 +63,6 @@ def sphere_overlap(
 @dataclass
 class World:
     grid: MaterialGrid
-    rig: RigProfile
     turn_seconds: float = 6.0
     sources: dict[str, HeatSource] = field(default_factory=dict)
     turn: int = 0
@@ -73,14 +73,14 @@ class World:
     def from_scene(
         cls,
         scene: Scene,
-        rig: RigProfile,
-        materials: MaterialTable | None = None,
+        materials: MaterialTable,
         turn_seconds: float = 6.0,
         *,
+        dx_m: float,
         limits: ActionLimits,
     ) -> World:
-        materials = materials or MaterialTable.load()
-        return cls(scene.build(rig, materials), rig, turn_seconds, limits=limits)
+        """The scene voxelized at grid spacing ``dx_m``, the simulation's one truth (world_model D20)."""
+        return cls(scene.build(materials, dx_m=dx_m), turn_seconds, limits=limits)
 
     def _power_field(self) -> Field | None:
         if not self.sources:
@@ -89,7 +89,7 @@ class World:
         for src in self.sources.values():
             frac = sphere_overlap(self.grid, src.point_m, src.radius_m)
             # A fire heats the material it burns on. Air only conducts here (no convection yet), so power dumped
-            # into air cells would sit there, and how much of it did would depend on the rig.
+            # into air cells would sit there, and how much of it did would depend on the grid spacing.
             on_solid = frac * self.grid.solid
             weights = on_solid if on_solid.sum() > 0 else frac
             if weights.sum() == 0:  # a source smaller than a cell heats the cell it sits in
@@ -104,33 +104,9 @@ class World:
         taken = heat.step(
             self.grid,
             seconds,
-            min_substeps=self.rig.min_substeps_per_turn,
+            min_substeps=heat.min_substeps(self.grid.dx),
             power=self._power_field,
             on_substep=damage.thermal_degrade,
         )
         self.turn += 1
         return taken
-
-
-# Glow starts near the Draper point (~525 °C), where hot solids first emit visible red light.
-GLOW_START_C = 525.0
-GLOW_FULL_C = 1500.0
-
-
-def snapshot(grid: MaterialGrid) -> dict[str, object]:
-    """Quantized per-cell state for a renderer: the arrays a client uploads as 3-D textures.
-
-    ``crack`` (1 - integrity) and ``glow`` are ready shader inputs, so the finest physical state shows up directly as
-    cracks, scorching and glowing metal without the renderer knowing any physics.
-    """
-    integrity = np.clip(grid.integrity, 0.0, 1.0)
-    glow = np.clip((grid.temperature - GLOW_START_C) / (GLOW_FULL_C - GLOW_START_C), 0.0, 1.0) * grid.solid
-    return {
-        "shape": grid.shape,
-        "cell_size_m": grid.dx,
-        "time_s": grid.time_s,
-        "material": grid.material.copy(),
-        "crack": np.round((1.0 - integrity) * grid.solid * 255).astype(np.uint8),
-        "glow": np.round(glow * 255).astype(np.uint8),
-        "temperature_c": np.clip(grid.temperature, -273.0, 6000.0).astype(np.float16),
-    }

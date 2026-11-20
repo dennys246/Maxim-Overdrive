@@ -747,9 +747,9 @@ major version is proposed.
 | B-13 physical percepts | import half: `adapters.sem` reads frames and the registry only | boundaries; perceiver half Phase 4 |
 
 **Running import-linter (X-1, W3, W8, X S-6):**
-- Pin `import-linter==2.15` and grimp 3.18. 2.16 requires Python ≥ 3.11 and the repo supports 3.10.
-- Run it as `PYTHONPATH="$PWD/src" "$PY" -m importlinter.cli` in `prepush.sh`. Without it, a worktree checks the
-  main checkout's code through the shared venv's `.pth` (a planted violation reported KEPT).
+- **As built in 3a (2026-11-19):** import-linter 2.6 and grimp 3.13 (pymaxim caps `rich<14`), called as
+  `lint_imports_command()` with `PYTHONPATH="$PWD/src"` (`-m importlinter.cli` checks nothing). The game package
+  exists from 3a, holding only `data.py`, against §2.1; §3's ban covers `logging` too.
 - A tooling test asserts grimp resolves each root package under this repo's `src/`.
 - `.import_linter_cache/` goes in `.gitignore` (or `--no-cache`), so the gate doesn't dirty the tree.
 - `importlinter` joins the preflight import line in `prepush.sh`.

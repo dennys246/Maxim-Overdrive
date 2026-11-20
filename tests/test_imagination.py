@@ -5,9 +5,9 @@ from typing import Any
 import numpy as np
 import pytest
 
-from maxim_overdrive import Box, Scene
-from maxim_overdrive.imagination.spec import Budget, SpecRejected, place
-from maxim_overdrive.world import damage
+from simcore.core import damage
+from simcore.core.imagination import Budget, SpecRejected, place
+from simcore.core.scene import Box, Scene
 
 CRATE: dict[str, Any] = {
     "name": "imagined_crate",
@@ -15,12 +15,12 @@ CRATE: dict[str, Any] = {
 }
 
 
-def _grid(rig, materials):
-    return Scene((3.0, 3.0, 2.0), (Box((0, 0, 0), (0.6, 3.0, 2.0), "concrete", "wall"),)).build(rig, materials)
+def _grid(dx_m, materials):
+    return Scene((3.0, 3.0, 2.0), (Box((0, 0, 0), (0.6, 3.0, 2.0), "concrete", "wall"),)).build(materials, dx_m=dx_m)
 
 
-def test_an_imagined_crate_is_destructible_like_any_other(rig, materials):
-    g = _grid(rig, materials)
+def test_an_imagined_crate_is_destructible_like_any_other(dx_m, materials):
+    g = _grid(dx_m, materials)
     mass = place(g, CRATE, (1.2, 1.2, 0.0))
     assert mass == pytest.approx(0.216 * 600)  # from authored geometry, the same at every rig
     assert g.volume_m3(g.regions["imagined_crate"].cells) == pytest.approx(0.216, rel=1e-6)
@@ -138,16 +138,16 @@ def test_an_imagined_crate_is_destructible_like_any_other(rig, materials):
         ),
     ],
 )
-def test_the_world_refuses_impossible_objects(rig, materials, spec, origin, reason):
-    g = _grid(rig, materials)
+def test_the_world_refuses_impossible_objects(dx_m, materials, spec, origin, reason):
+    g = _grid(dx_m, materials)
     before = g.material.copy()
     with pytest.raises(SpecRejected, match=reason):
         place(g, spec, origin, Budget(max_mass_kg=500, max_extent_m=1.5))
     assert (g.material == before).all()
 
 
-def test_an_imagined_cylinder_lands_where_it_was_placed(rig, materials):
-    g = _grid(rig, materials)
+def test_an_imagined_cylinder_lands_where_it_was_placed(dx_m, materials):
+    g = _grid(dx_m, materials)
     barrel = {
         "name": "barrel",
         "primitives": [
@@ -161,7 +161,7 @@ def test_an_imagined_cylinder_lands_where_it_was_placed(rig, materials):
     assert centre_m[:2] == pytest.approx([2.0, 2.0], abs=g.dx / 2)  # offset by the origin, not left at (0, 0)
 
 
-def test_numpy_scalars_are_numbers(rig, materials):
-    g = _grid(rig, materials)
+def test_numpy_scalars_are_numbers(dx_m, materials):
+    g = _grid(dx_m, materials)
     crate = {**CRATE, "primitives": [{**CRATE["primitives"][0], "max_m": [np.int64(1), np.float64(0.6), 0.6]}]}
     assert place(g, crate, (np.float32(1.2), 1.2, 0)) == pytest.approx(0.36 * 600)

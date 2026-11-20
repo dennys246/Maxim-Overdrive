@@ -39,7 +39,7 @@ refuse_main_branch
 
 PY="${PYTHON:-.venv/bin/python}"
 command -v "$PY" >/dev/null 2>&1 || die "no Python at '$PY'; create .venv (CLAUDE.md, Commands) or set PYTHON"
-if ! "$PY" -c 'import maxim, ruff, mypy, diff_cover, pytest_cov, markdown_it' 2>/dev/null; then
+if ! "$PY" -c 'import maxim, ruff, mypy, diff_cover, pytest_cov, markdown_it, importlinter' 2>/dev/null; then
   PYV="$("$PY" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo '<major.minor>')"
   # An editable install points the venv at one checkout, so installing into a venv another worktree shares re-points
   # it for every session. Only a venv inside this worktree is this session's to install into.
@@ -74,6 +74,14 @@ step "ruff format"
 "$PY" -m ruff format --check src tests scripts
 step "mypy (strict on src and scripts; test bodies checked)"
 "$PY" -m mypy
+step "import contracts: game > protocol > adapters > core, the sealed core, maxim only in the membrane (boundaries O24)"
+# PYTHONPATH names this worktree's src/, so a venv whose editable install points at another checkout can't make the
+# contracts read that checkout's code. No cache, so the gate writes nothing into the tree. importlinter.cli has no
+# __main__ (`python -m importlinter.cli` exits 0 having checked nothing), so the command is called directly.
+lint_imports() {
+  PYTHONPATH="$PWD/src" "$PY" -c 'from importlinter.cli import lint_imports_command; lint_imports_command()' --no-cache
+}
+lint_imports
 step "standards lint (TEMPORARY markers, pragmas, guard citations, size limits, coverage and size ratchets against $BASE)"
 "$PY" scripts/lint_standards.py --base "$BASE"
 

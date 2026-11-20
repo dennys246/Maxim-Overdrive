@@ -19,3 +19,4 @@ coverage.xml
 .ruff_cache/
 .hypothesis/
 .worktrees/
+.import_linter_cache/

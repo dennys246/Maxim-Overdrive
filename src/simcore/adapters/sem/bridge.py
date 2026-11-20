@@ -7,9 +7,9 @@ vocabulary as a body, so a Maxim agent perceives and acts on a wall exactly as i
     modulators  structure.strike(energy_j, sigma_m, point_m), structure.ignite(power_w, radius_m),
                 structure.extinguish()
 
-Sensors are reductions over cells, so a region reads the same at every rig; the cells underneath are as fine as the
-rig allows. With pymaxim installed, ``to_maxim_entity`` returns a real ``maxim.embodiment.sem.Entity``, and Maxim's
-own tool generation, gating and prompt formatting work on it unchanged. Without pymaxim, the same classes run on
+Sensors are reductions over cells, so a region reads the same at every grid spacing; the cells underneath are as
+fine as the spacing. With pymaxim installed, ``to_maxim_entity`` returns a real ``maxim.embodiment.sem.Entity``, and
+Maxim's own tool generation, gating and prompt formatting work on it unchanged. Without pymaxim, the same classes run on
 local stand-ins with the same fields.
 """
 
@@ -23,11 +23,11 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import numpy as np
 import numpy.typing as npt
 
-from maxim_overdrive.checks import finite_real, finite_vector
-from maxim_overdrive.config import ActionLimits
-from maxim_overdrive.world import damage
-from maxim_overdrive.world.grid import entity_key
-from maxim_overdrive.world.world import HeatSource, World
+from simcore.core import damage
+from simcore.core.checks import finite_real, finite_vector
+from simcore.core.grid import entity_key
+from simcore.core.limits import ActionLimits
+from simcore.core.world import HeatSource, World
 
 if TYPE_CHECKING:
     # Type-check against Maxim's own classes; tests/test_sem_compat.py holds the _compat mirror to the same fields.
@@ -40,10 +40,14 @@ else:
 
         HAVE_MAXIM = True
     except ImportError:  # exercised by tests/test_sem_compat.py, which blocks the maxim import
-        from maxim_overdrive.sem_env._compat import AffordanceSchema, ModulatorResult, SensorReading
+        from simcore.adapters.sem._compat import AffordanceSchema, ModulatorResult, SensorReading
 
         Entity = None
         HAVE_MAXIM = False
+
+
+# Where an Entity came from, as a fixed vocabulary value on the wire, never a module path (boundaries §11.2, W10).
+ENTITY_SOURCE = "overdrive_world"
 
 
 class RegionSensor:
@@ -275,7 +279,7 @@ class StructureModulator:
         return np.argwhere(self._world.grid.regions[self._region].cells)
 
     def centroid_m(self) -> tuple[float, float, float]:
-        """Where a fire or an aimless strike lands: the authored centroid, so it doesn't move with the rig."""
+        """Where a fire or an aimless strike lands: the authored centroid, so it doesn't move with the grid spacing."""
         if self._cells().size == 0:
             raise ValueError(f"region {self._region!r} has no cells")
         return self._world.grid.regions[self._region].footprint.centroid_m
@@ -283,11 +287,11 @@ class StructureModulator:
     def _on_region(self, point: tuple[float, float, float], sigma_m: float) -> bool:
         """Whether a strike at ``point`` is a strike on this region, judged from authored footprints in metres.
 
-        A region's cells move with the rig, so a reach built from them would accept a strike at one rig and refuse
-        it at another. Reach is this region's footprint plus the strike's width, except that a point outside this
-        footprint but inside another solid region's belongs to that region: a strike just past the crate's face, into
-        the wall beside it, is a strike on the wall. Solids can't overlap (``scene._check_no_solid_overlaps``), and
-        air regions such as rooms never own a point.
+        A region's cells move with the grid spacing, so a reach built from them would accept a strike at one spacing
+        and refuse it at another. Reach is this region's footprint plus the strike's width, except that a point
+        outside this footprint but inside another solid region's belongs to that region: a strike just past the
+        crate's face, into the wall beside it, is a strike on the wall. Solids can't overlap
+        (``scene._check_no_solid_overlaps``), and air regions such as rooms never own a point.
         """
         grid = self._world.grid
 
@@ -390,7 +394,8 @@ class StructureModulator:
     def _ignite(self, action: Ignite, shown: dict[str, Any]) -> ModulatorResult:
         # A region carved hollow (a wall with a doorway through its middle) can have its centroid in air, so this fire
         # may heat only air: a known gap, held by a strict red gate. Refusing it here would mean deciding from the
-        # region's cells, which move with the rig; the fix is per-cell ownership with authored geometry (design v2).
+        # region's cells, which move with the grid spacing; the fix is per-cell ownership with authored geometry
+        # (design v2).
         source = HeatSource(self.centroid_m(), action.radius_m, action.power_w)
         self._world.sources[f"fire:{self._region}"] = source
         return self._result("ignite", shown, True)
@@ -416,5 +421,5 @@ def to_maxim_entity(world: World, region: str, entity_type: str = "structure") -
         entity_type,
         sensors=sensors,  # type: ignore[arg-type]
         modulators=modulators,  # type: ignore[arg-type]
-        metadata={"source": "maxim_overdrive.sem_env", "cell_size_m": world.grid.dx},
+        metadata={"source": ENTITY_SOURCE, "cell_size_m": world.grid.dx},
     )

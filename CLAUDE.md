@@ -28,8 +28,8 @@ serious depends on it.
 
 ```bash
 python3.12 -m venv .venv && .venv/bin/pip install -c constraints/py3.12.txt -e '.[dev,maxim]'  # 3.12 or 3.14; both extras
-.venv/bin/pytest                            # laptop + rig profiles, a few seconds; run the module you touched first
-MAXIM_OVERDRIVE_ALL_TIERS=1 .venv/bin/pytest  # adds the 0.05 m max profile (about a minute)
+.venv/bin/pytest                            # 0.2 m and 0.1 m grids, several minutes; run the module you touched first
+MAXIM_OVERDRIVE_ALL_TIERS=1 .venv/bin/pytest  # adds the 0.05 m verification grid (about ten minutes)
 MAXIM_OVERDRIVE_GODOT=1 .venv/bin/pytest    # adds the Godot gate fixtures (about a minute; needs Godot)
 scripts/prepush.sh                          # the full gate: lint, types, standards, Godot, every tier, coverage, diff coverage
 .venv/bin/python scripts/godot_check.py     # the gate's Godot step alone: pinned version, import, every script loads, client tests
@@ -50,27 +50,34 @@ result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` dr
 
 ## Layout
 
-- `src/maxim_overdrive/config.py`: rig profiles, the material table and action limits (`data/rigs/`,
-  `data/materials/`, `data/world/`). `checks.py`: every untrusted number becomes a finite float or a whole number
-  there, and every mapping is held to its reader's keys (`known_keys`), or is refused
-- `src/maxim_overdrive/world/`: `grid.py` (cells), `scene.py`
-  (authoring in metres), `heat.py`, `damage.py`,
-  `world.py` (turn loop, heat sources, `snapshot`)
-- `src/maxim_overdrive/sem_env/bridge.py`: environment regions as Maxim SEM Entities
-- `src/maxim_overdrive/imagination/spec.py`: imagined objects as validated specs that become cells
+- `src/simcore/`: the engine, in layers that import only downward (`docs/design/boundaries.md` O24; the contracts are
+  `[tool.importlinter]` in `pyproject.toml`): game > protocol > adapters > core
+- `src/simcore/core/` (the sealed core: no IO, no clock, no `maxim`): `checks.py` (every untrusted number becomes a
+  finite float or a whole number there, and every mapping is held to its reader's keys, `known_keys`, or is
+  refused), `materials.py` (the material table's types), `limits.py` (`ActionLimits`), `grid.py` (cells), `scene.py`
+  (authoring in metres), `heat.py`, `damage.py`, `world.py` (turn loop, heat sources), `imagination.py` (imagined
+  objects as validated specs that become cells)
+- `src/simcore/adapters/`: `loaders.py` (the file gates: material table, action limits, strict YAML) and
+  `sem/bridge.py` (environment regions as Maxim SEM Entities; the only engine code that imports `maxim`)
+- `src/simcore/protocol/`: what the client receives: `tiers.py` (rig profiles as rendering tiers, no physics),
+  `encoding.py` (`snapshot`, display quantization)
+- `src/maxim_overdrive/`: the game. `data.py` says where its data lives (`data/rigs/`, `data/materials/`,
+  `data/world/`) and loads it
 - `client/`: the Godot 4.7.2 client (`docs/design/client_rendering.md` §7): `addons/engine/` (the engine half),
   `game/` (this game), `tests/` (`run.gd` the runner, `unit/`, `load_all.gd`, the golden scene and `goldens/`);
   `tools/godot_probes/`: the §9 probes, a separate Godot project rerun on an upgrade (B26); `ci/`: the Godot pin
   (`godot.env`), `install_godot.sh` and the golden image (`godot-golden/`)
-- `scripts/`: `prepush.sh` (the gate), `lint_standards.py`, `check_lock.py`, `godot_check.py` (the gate's Godot step),
-  `golden_run.py` (the golden job) and `golden_compare.py` (the golden tolerance); `constraints/`: the lockfiles
+- `scripts/`: `prepush.sh` (the gate), `lint_standards.py` (with one `lint_*.py` module per check), `check_lock.py`,
+  `godot_check.py` (the gate's Godot step), `golden_run.py` (the golden job) and `golden_compare.py` (the golden
+  tolerance); `constraints/`: the lockfiles
 - `docs/code_review.md`: the pre-push review charter. `docs/standards_backlog.md`: rules waiting for a check
 - `docs/maxim_upstream/`: drafts that belong in the Maxim repo (the Exp 64 pre-registration)
 - `docs/lessons_maxim_in_games.md`: what building this game teaches about applying Maxim to games, kept current
 
 ## Rules that matter here
 
-- **The resolution rule:** a rig profile may change precision, never the outcome class. Any new physics ships with a
+- **The resolution rule:** a grid spacing may change precision, never the outcome class. Every machine simulates one
+  truth; rig profiles are rendering tiers only, with no physics (world_model D20). Any new physics ships with a
   closed-form test and a cross-tier test (`tests/test_heat.py` and `tests/test_cross_tier.py` are the patterns). If
   a cross-tier test fails, fix the physics; never loosen the test to pass.
 - Author scenes in metres. Keep physics parameters per unit volume. Deposit energy by exact cell average or volume
@@ -82,15 +89,15 @@ result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` dr
   own scale: NPC sensors as reductions over volumes in metres, zones as integrals, the client at its own level of
   detail; none of them reads "a cell". Fineness is spent where the gradients are. Binary outcomes (breached,
   ignited) keep a band near their threshold however fine the cells are, so they are gated with an outcome margin.
-- Thin features must be at least two cells of the coarsest rig thick.
+- Thin features must be at least two cells of the coarsest verification grid (0.2 m) thick.
 - The world server is authoritative. The client never computes anything that feeds back into the world; it may add
   purely visual effects.
 - The SEM bridge uses Maxim's frozen types (`SensorReading`, `ModulatorResult`, `AffordanceSchema`, `Entity`).
-  `sem_env/_compat.py` mirrors the three dataclasses field for field, with the same flags and slots
+  `simcore/adapters/sem/_compat.py` mirrors the three dataclasses field for field, with the same flags and slots
   (`tests/test_sem_compat.py` holds it to that); without pymaxim there is no `Entity`, and `to_maxim_entity` refuses.
   Don't add fields Maxim doesn't have.
-- Imagined objects enter only through `imagination.spec.place`, which validates them. Never write cells directly
-  from LLM output.
+- Imagined objects enter only through `simcore.core.imagination.place`, which validates them. Never write cells
+  directly from LLM output.
 - Actions change cells; only `World.advance` moves time.
 - Record known physics gaps in `docs/architecture.md` ("Known gaps"), with numbers, instead of hiding them.
 
@@ -114,7 +121,7 @@ only review holds.
   that phase in `docs/roadmap.md`. The lint fails on a marker with no reason, an unknown or finished phase, or a file
   the phase doesn't list, so every open band-aid shows in the roadmap. A finding with no code to mark is deferred as
   a backlog row or a known gap instead. A document holds neither markers nor pragmas; it quotes them in a Markdown
-  code span or code block. Guard: `scripts/lint_standards.py::check_markers`
+  code span or code block. Guard: `scripts/lint_markers.py::check_markers`
 - **When debugging stalls, audit the layer beneath.** If two explanations for a bad result have died, stop
   generating a third. Check what else changed, and whether the action you commanded actually happened (did the fire
   actually get added, did the message actually arrive) before theorizing about the sensor. Guard: B1 (review asks how
@@ -126,14 +133,15 @@ only review holds.
   bug and fails. Guard: `scripts/prepush.sh::diff_cover` (changed lines must run under a test), B1 (same commit,
   red first)
 - **Critical functionality is tested exhaustively, by kind.** Physics: a closed-form test and a cross-tier test.
-  Trust boundaries (protocol, intents, `imagination.spec`, every loader): every rejection path, aiming at 100% branch
-  coverage. Wire and save formats: a round trip plus committed golden fixtures. Determinism: a bit-identical rerun.
+  Trust boundaries (protocol, intents, `simcore.core.imagination`, every loader): every rejection path, aiming at
+  100% branch coverage. Wire and save formats: a round trip plus committed golden fixtures. Determinism: a
+  bit-identical rerun.
   Guard: `tests/test_cross_tier.py`, `tests/test_imagination.py`, `tests/test_determinism.py`, B3, B4, B12
 - **Coverage only ratchets up.** Branch coverage must stay above `fail_under` in `pyproject.toml`; raise the floor
   when coverage rises, never lower it. Coverage measures `src/` and `scripts/`. Lines changed on a branch must be at
   least 95% covered. A `pragma: no cover` must say why (`# pragma: no cover - <why>`), and reviewers question it.
-  Guard: `pyproject.toml::fail_under`, `scripts/lint_standards.py::check_coverage_ratchet`,
-  `scripts/lint_standards.py::check_markers`, `scripts/prepush.sh::diff_cover`,
+  Guard: `pyproject.toml::fail_under`, `scripts/lint_coverage.py::check_coverage_ratchet`,
+  `scripts/lint_markers.py::check_markers`, `scripts/prepush.sh::diff_cover`,
   `tests/test_tooling_config.py::test_coverage_measures_branches_over_src_and_scripts`
 - **Prove a guard by deleting what it guards.** Before claiming a test protects something, break the mechanism and
   watch the test go red, and say so in the commit message. A test that cannot fail is a BLOCKER.
@@ -172,13 +180,13 @@ only review holds.
 
 ### Game engineering
 
-- **Determinism.** The same scene, rig and intents give bit-identical state on one machine. Across machines only the
-  outcome class is promised, as with rigs. Randomness, when it arrives, comes from one seeded `numpy.random.Generator`
-  owned by `World`. Time comes from `World.advance`, never the wall clock. No builtin `hash()` in the simulation.
-  Guard: `tests/test_determinism.py::test_runs_in_processes_with_different_hash_seeds_agree`,
+- **Determinism.** The same scene, grid spacing and intents give bit-identical state on one machine. Across machines
+  only the outcome class is promised, as across grid spacings. Randomness, when it arrives, comes from one seeded
+  `numpy.random.Generator` owned by `World`. Time comes from `World.advance`, never the wall clock. No builtin
+  `hash()` in the simulation. Guard: `tests/test_determinism.py::test_runs_in_processes_with_different_hash_seeds_agree`,
   `tests/test_determinism.py::test_the_simulation_and_tests_have_no_hidden_sources_of_nondeterminism`
-- **Replays are first-class.** The intent log plus the scene and rig reproduce any session. It is the bug report, the
-  regression test and the save format's backbone. Guard: B2
+- **Replays are first-class.** The intent log plus the scene and grid spacing reproduce any session. It is the bug
+  report, the regression test and the save format's backbone. Guard: B2
 - **Every format is versioned:** wire protocol, saves, scene files and every data file. Readers refuse versions they
   don't know, loudly. Old fixtures stay committed, and a format change that breaks one needs a migration or a version
   bump. Guard: `tests/test_validation.py::test_every_shipped_data_file_is_at_its_formats_current_version`,
@@ -220,15 +228,17 @@ only review holds.
 - **Separation of concerns; no god functions.** Every module, class and function has one job and one reason to
   change. A function either decides or does; orchestration reads as a short list of named steps, and each step lives
   where its concern lives. Once the boundaries design lands, packages import only downward through its layers. No
-  check can see a mixed concern, so review holds this and the size tripwires below only catch its symptoms.
-  Guard: `docs/code_review.md` (the Architecture lens asks it of every diff), B19
+  check can see a mixed concern, so review holds this and the size tripwires below only catch its symptoms; the
+  layers are checked. Guard: `scripts/prepush.sh::lint_imports`,
+  `tests/test_tooling_config.py::test_every_package_under_src_is_a_root_of_the_import_graph`,
+  `docs/code_review.md` (the Architecture lens asks it of every diff), B19
 - **Size tripwires.** Hard limits in `src/` and `scripts/`: a 40-line function body (code lines: the docstring,
   comments and blank lines don't count), a 500-line module and 12 public methods per class, properties included
   (`[tool.maxim_overdrive.size_limits]`). Ruff caps cyclomatic complexity at 10, plus branches, returns and
   statements, in `tests/` too (tests waive only the statement count). Code that reaches a limit is split along a
   responsibility, never cut at the line count, and never silenced with a `noqa` or a ruff config. The limits only
   tighten; the ratchet compares with the base branch, and until the base carries the table the lint says it has
-  nothing to compare. Guard: `scripts/lint_standards.py::check_sizes`, `scripts/lint_standards.py::check_size_ratchet`,
+  nothing to compare. Guard: `scripts/lint_sizes.py::check_sizes`, `scripts/lint_sizes.py::check_size_ratchet`,
   `tests/test_tooling_config.py::test_ruff_enforces_each_complexity_cap_at_its_threshold`,
   `tests/test_tooling_config.py::test_ruff_lints_every_tracked_python_file`
 - **Push invariants into types.** A collaborator that must be passed is a required keyword-only parameter, so

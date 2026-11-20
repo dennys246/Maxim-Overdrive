@@ -788,7 +788,7 @@ section pins them. Where it and an earlier section differ, this section wins, an
   without one (Windows today) guest sessions with real NPCs are refused.
 - **The host never latches itself (TBR-4, TB3-S7).** The host refuses to start with `MAXIM_OFFLINE` set in its own
   environment (a start-up check, **[now]**), since `import maxim` would latch the world server. Once the adapter is
-  split, the host imports Maxim's types only through `sem_env/_compat.py`, and `maxim` itself only in workers.
+  split, the host imports Maxim's types only through `simcore/adapters/sem/_compat.py`, and `maxim` itself only in workers.
 - **Its cost (Exec S4):** every park is a round trip. 20 NPCs × 200 ticks per wall second × 50–200 µs per round trip
   is 0.2–0.8 wall seconds per second spent on the barrier alone, enough to make 20× unreachable. B5 gets a budget for
   it, and the levers are: only agents due this tick (by rate divisor, §2.1) get a round trip; frames go as deltas;

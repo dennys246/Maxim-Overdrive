@@ -2,28 +2,31 @@ import os
 
 import pytest
 
-from maxim_overdrive.config import ActionLimits, MaterialTable, RigProfile
+from maxim_overdrive import data
 
-# The 'max' rig takes about a minute per fire scenario. Run it with MAXIM_OVERDRIVE_ALL_TIERS=1.
-FAST_TIERS = ["laptop", "rig"]
-ALL_TIERS = FAST_TIERS + (["max"] if os.environ.get("MAXIM_OVERDRIVE_ALL_TIERS") else [])
+# Physics runs over grid spacings, not rig names: every machine simulates one truth (world_model D20), and the 0.2 m
+# and 0.05 m grids are verification grids around it. 0.05 m takes about a minute per fire scenario, so it runs with
+# MAXIM_OVERDRIVE_ALL_TIERS=1 (the gate sets it).
+FAST_SPACINGS = [0.2, 0.1]
+ALL_SPACINGS = FAST_SPACINGS + ([0.05] if os.environ.get("MAXIM_OVERDRIVE_ALL_TIERS") else [])
+COARSEST_M = max(FAST_SPACINGS)
 
 
 @pytest.fixture(scope="session")
 def materials():
-    return MaterialTable.load()
+    return data.materials()
 
 
-@pytest.fixture(params=ALL_TIERS)
-def rig(request):
-    return RigProfile.load(request.param)
+@pytest.fixture(params=ALL_SPACINGS)
+def dx_m(request):
+    return request.param
 
 
 @pytest.fixture
-def rigs():
-    return [RigProfile.load(t) for t in ALL_TIERS]
+def spacings():
+    return list(ALL_SPACINGS)
 
 
 @pytest.fixture(scope="session")
 def limits():
-    return ActionLimits.load()
+    return data.action_limits()

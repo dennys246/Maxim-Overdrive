@@ -10,7 +10,7 @@ the fracture energy,
 
     r* = sigma * sqrt(2 * ln(E / (f * (2*pi)^(3/2) * sigma^3)))
 
-which tests/test_damage.py checks every rig against.
+which tests/test_damage.py checks at every grid spacing.
 """
 
 from __future__ import annotations
@@ -22,9 +22,9 @@ import numpy as np
 from scipy import ndimage
 from scipy.special import ndtr
 
-from maxim_overdrive.checks import finite_real, finite_vector
-from maxim_overdrive.config import AIR_ID
-from maxim_overdrive.world.grid import Field, MaterialGrid
+from simcore.core.checks import finite_real, finite_vector
+from simcore.core.grid import Field, MaterialGrid
+from simcore.core.materials import AIR_ID
 
 
 @dataclass(frozen=True)

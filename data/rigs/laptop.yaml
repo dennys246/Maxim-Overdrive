@@ -1,7 +1,5 @@
-version: 0  # the rig profile format (config.RIG_PROFILE_VERSION)
-# Rig profile: what resolution this machine can afford. Profiles change precision, never the outcome class
-# (docs/architecture.md, "The resolution rule").
+version: 1  # the rig profile format (simcore.protocol.tiers.RIG_PROFILE_VERSION); v0 carried physics and is refused
+# Rendering tier: how much of the world this machine's client draws. Every tier simulates the same world at the same
+# grid spacing (world_model D20); a tier changes what is drawn, never what happens. It holds a name only until the
+# client reads a detail setting.
 name: laptop
-cell_size_m: 0.2          # edge of one material cell
-min_substeps_per_turn: 4  # the heat solver takes more if stability needs it
-full_res_radius_m: 8.0    # reserved: cells beyond this from any agent may run coarser (not used in v0)

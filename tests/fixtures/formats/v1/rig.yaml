@@ -1,0 +1,5 @@
+# Golden file at rig format version 1, copied from data/rigs/rig.yaml with its comments removed. Never edit it to match
+# a newer format: tests/test_validation.py::test_the_committed_v1_rig_file_still_loads holds the reader to it.
+# v1 was redefined once before it shipped (2026-11-19: detail_radius_m dropped, review S3A-S4); it never reached main.
+version: 1
+name: rig
