@@ -22,10 +22,15 @@ from tests.test_lint_standards import _load
 
 inputs = _load("lint_inputs")
 ROOT = Path(__file__).resolve().parents[1]
-DATA_SOURCE = (ROOT / "src" / "maxim_overdrive" / "data.py").read_text()
+HOLDER = {
+    "src/maxim_overdrive/data.py": "maxim_overdrive.data",
+    "src/simcore/protocol/tiers.py": "simcore.protocol.tiers",
+}
+HOLDER_SOURCE = {rel: (ROOT / rel).read_text() for rel in HOLDER}
 
 SRC = "src/simcore/protocol/x.py"  # in the engine, outside the gates; planted rows go beside it
-DATA = "src/maxim_overdrive/data.py"  # the module that holds pathlib for the game; rows here judge its attributes
+DATA = "src/maxim_overdrive/data.py"  # a path holder: rows here judge its attributes
+TIERS = "src/simcore/protocol/tiers.py"  # the other path holder
 ANY = "tests/test_x.py"  # the unsafe rule holds in every file
 
 # (rule, file, source, flagged, where it was reported)
@@ -136,6 +141,24 @@ CASES: list[tuple[str, str, str, bool, str]] = [
     ("input", DATA, "def sneak(path):\n    return Path(path).read_text()", True, "delta 4: S-d in data"),
     ("input", DATA, "ok = Path(p).is_dir()", True, "delta 4"),
     ("input", DATA, "q = Path(p).parent / 'x'", False, "delta 4: path arithmetic"),
+    # -- input, delta 5 (D5-S1, D5-S2, Executor N-g): the last denylist corners, now allowlisted ------------------
+    ("input", SRC, "a = np.lib._npyio_impl.load(p)", True, "delta 5"),
+    ("input", SRC, "a = np.lib._format_impl.read_array(f)", True, "delta 5"),
+    ("input", SRC, "a = np.rec.fromfile(p)", True, "delta 5"),
+    ("input", SRC, "lib = np.ctypeslib.load_library('x', '.')", True, "delta 5"),
+    ("input", SRC, "import scipy.sparse\nm = scipy.sparse.load_npz(p)", True, "delta 5"),
+    ("input", SRC, "b = __loader__.get_data(p)", True, "delta 5"),
+    ("input", SRC, "b = __spec__.loader.get_data(p)", True, "delta 5"),
+    ("input", SRC, "b = globals()['__loader__'].get_data(p)", True, "delta 5"),
+    ("input", SRC, "from simcore.core.grid import np", True, "delta 5"),
+    ("input", SRC, "from simcore.core.grid import np as n\na = n.load(p)", True, "delta 5"),
+    ("input", SRC, "from simcore.core.grid import np\na = np.load(p)", True, "delta 5"),
+    ("input", SRC, "import simcore.core.grid as g\na = g.np.load(p)", True, "delta 5"),
+    ("input", TIERS, "def f(path):\n    return path.read_text()", True, "delta 5: a path handed in"),
+    ("input", TIERS, "import simcore.adapters.loaders as L\nP = getattr(L, 'Path')", True, "delta 5"),
+    ("input", DATA, "t = getattr(Path(p), 'read_text')()", True, "delta 5"),
+    ("input", DATA, "q = Path(p).resolve()", True, "delta 5: realpath reads the filesystem"),
+    ("input", SRC, "from simcore.core.grid import MaterialGrid", False, "delta 5: a name grid defines"),
     # -- input: clean, must not be flagged ----------------------------------------------------------------------------
     ("input", "src/simcore/adapters/loaders.py", "t = path.read_text()", False, "build: the gate itself"),
     ("input", "scripts/x.py", "t = path.read_text()", False, "build: outside src"),
@@ -287,11 +310,13 @@ def contract_hits(tmp_path_factory) -> set[str]:
     rows = [(c[0], c[1], c[2]) for c in CASES] + [(n[0], SRC, n[1]) for n in NOT_COVERED]
     hits = set()
     for i, (rule, rel, source) in enumerate(rows):
-        if _planted(rule, rel) and rel != DATA:
+        if _planted(rule, rel) and rel not in HOLDER:
             (tree / "src" / "simcore" / "protocol" / f"_corpus_{i}.py").write_text(source + "\n")
-            if _imports.gate_reexports(f"simcore.protocol._corpus_{i}", source + "\n"):
+            name = f"simcore.protocol._corpus_{i}"
+            checks = (_imports.gate_reexports, _imports.internal_reexports, _imports.numeric_violations)
+            if any(check(name, source + "\n") for check in checks):
                 hits.add(f"_corpus_{i}")
-        elif _planted(rule, rel) and _imports.data_attribute_violations(DATA_SOURCE + "\n" + source + "\n"):
+        elif _planted(rule, rel) and _imports.path_holder_violations(HOLDER[rel], HOLDER_SOURCE[rel] + "\n" + source):
             hits.add(f"_corpus_{i}")
     violations = _imports.allowlist_violations(_imports.external_imports(tree))
     return hits | set(re.findall(r"simcore\.protocol\.(_corpus_\d+) imports", "\n".join(violations)))
@@ -326,6 +351,6 @@ def test_a_spelling_the_design_leaves_out_is_still_left_out(contract_hits, index
 
 def test_the_corpus_holds_every_round_and_both_verdicts():
     origins = {c[4].split(":")[0] for c in CASES}
-    assert {"build", "round 1", "delta 1", "delta 2", "delta 3", "delta 4"} <= origins
+    assert {"build", "round 1", "delta 1", "delta 2", "delta 3", "delta 4", "delta 5"} <= origins
     assert {c[3] for c in CASES if c[0] == "input"} == {True, False}
     assert {c[3] for c in CASES if c[0] == "unsafe"} == {True, False}

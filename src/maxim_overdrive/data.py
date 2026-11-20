@@ -26,7 +26,7 @@ def data_dir(here: Path | None = None) -> Path:
     """Bundled data: inside the wheel when installed, the repo's ``data/`` in a checkout. Neither is a FileNotFoundError
     that names both, never a path that silently doesn't exist (boundaries §11.2, W5). ``here`` is this package's
     directory; a test passes another."""
-    here = Path(__file__).resolve().parent if here is None else here
+    here = Path(__file__).parent if here is None else here  # the gate resolves the directory it finds
     return existing_directory([here / "_data", here.parents[1] / "data"], "no game data (installed, then checkout)")
 
 

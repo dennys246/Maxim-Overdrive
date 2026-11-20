@@ -1,24 +1,23 @@
 """Standards check 5: what an import can't show about untrusted input (boundaries §5.2, B-4).
 
-The load-bearing rule for modules is an allowlist, fail closed (``tests/_imports.py``): every layer of ``simcore`` and
-``maxim_overdrive`` imports only the external modules its list names, and code outside the gates takes from a gate
-only its ``__all__``. This lint covers what an import can't show, in closed lists:
+The load-bearing rule for modules is a set of allowlists, fail closed (``tests/_imports.py``): each layer's external
+imports and numpy and scipy names, what one module may take from another, and what a path holder may do with its
+path. This lint covers what those can't show, in closed lists:
 
 - **The builtins:** ``open``, ``input`` and ``__import__`` in ``src/``; ``eval``, ``exec`` and ``compile`` in every
   file. They count by any spelling (``builtins.open``, ``__builtins__.eval``, ``__builtins__['eval']``,
   ``vars(builtins)['exec']``, ``globals()['__builtins__']``), and a bare name counts only when the module doesn't bind
   it itself (a parameter, an assignment, a loop or ``with`` target, an import, a ``def`` or ``class``).
-- **numpy's and scipy's IO** in ``src/``, which the allowlist can't tell from the rest of the package (grimp records
-  ``numpy.lib.npyio`` as ``numpy``): ``load``, ``fromfile``, ``memmap``, ``loadtxt``, ``genfromtxt``, ``fromregex``,
-  ``DataSource``, ``lib.npyio``, ``lib.format.read_array``/``open_memmap``, ``lib._datasource`` and ``scipy.io``,
-  through any import alias; and, in ``src/simcore/``, ``getattr`` with a computed name, which could reach any of them.
-- **Decoders and code runners in every file**, since the contract can't reach ``scripts/`` or ``tests/``: importing or
+- **A module's own loader** in ``src/``: ``__loader__`` and ``__spec__`` (``__loader__.get_data(p)`` reads any file
+  with no import); and, in ``src/simcore/``, ``getattr`` with a computed name. numpy's and scipy's IO is held by
+  ``tests/_imports.py::NUMERIC_NAMES``, an allowlist of the names each layer uses.
+- **Decoders and code runners in every file**, since the allowlists can't reach ``scripts/`` or ``tests/``: importing or
   naming ``pickle``, ``_pickle``, ``marshal``, ``shelve``, ``dill``, ``cloudpickle``, ``jsonpickle``,
-  ``multiprocessing.reduction``, ``runpy``, ``code`` or ``ctypes`` (by import, ``importlib.import_module``,
-  ``__import__`` or ``sys.modules`` with a literal name); yaml's unsafe loaders and ``yaml.constructor``;
-  ``yaml.load`` without a ``SafeLoader`` (or a subclass defined beside it); an ``allow_pickle`` that is not a literal
-  ``False`` (by keyword, or by position to ``numpy.load``, ``lib.npyio.load``, ``NpzFile`` and ``read_array``); and
-  ``*`` or ``**`` arguments to any of them.
+  ``multiprocessing.reduction``, ``numpy.ctypeslib``, ``runpy``, ``code`` or ``ctypes`` (by import,
+  ``importlib.import_module``, ``__import__`` or ``sys.modules`` with a literal name); yaml's unsafe loaders and
+  ``yaml.constructor``; ``yaml.load`` without a ``SafeLoader`` (or a subclass defined beside it); an ``allow_pickle``
+  that is not a literal ``False`` (by keyword, or by position to ``numpy.load``, ``lib.npyio.load``, ``NpzFile`` and
+  ``read_array``); and ``*`` or ``**`` arguments to any of them.
 
 What it can't see: a value passed through a variable, a container or a function (``f = pick(yaml)``,
 ``operator.attrgetter('unsafe_load')(yaml)``, ``functools.partial(np.load, ...)`` outside ``src/``), a method on an
@@ -39,13 +38,11 @@ EVERYWHERE = {
     "pickle", "_pickle", "marshal", "shelve", "dill", "cloudpickle", "jsonpickle", "multiprocessing.reduction",
     "runpy", "code", "ctypes", "yaml.unsafe_load", "yaml.unsafe_load_all", "yaml.full_load", "yaml.full_load_all",
     "yaml.Loader", "yaml.UnsafeLoader", "yaml.FullLoader", "yaml.CLoader", "yaml.CUnsafeLoader", "yaml.CFullLoader",
-    "yaml.constructor", "builtins.eval", "builtins.exec", "builtins.compile",
+    "yaml.constructor", "builtins.eval", "builtins.exec", "builtins.compile", "numpy.ctypeslib",
 }  # fmt: skip
-IN_SRC = {
-    "builtins.open", "builtins.input", "builtins.__import__", "numpy.load", "numpy.fromfile", "numpy.memmap",
-    "numpy.loadtxt", "numpy.genfromtxt", "numpy.fromregex", "numpy.DataSource", "numpy.lib.npyio",
-    "numpy.lib.format.read_array", "numpy.lib.format.open_memmap", "numpy.lib._datasource", "scipy.io",
-}  # fmt: skip
+# numpy's and scipy's IO is not listed here: tests/_imports.py::NUMERIC_NAMES allows each layer only the numpy and
+# scipy names it uses, so every other part of those packages is refused (delta round 5, D5-S1).
+IN_SRC = {"builtins.open", "builtins.input", "builtins.__import__", "__loader__", "__spec__"}
 # allow_pickle by position, per reader: numpy.load(file, mmap_mode, allow_pickle), read_array(fp, allow_pickle).
 PICKLE_POSITION = {
     "numpy.load": 2, "numpy.lib.npyio.load": 2, "numpy.lib.npyio.NpzFile": 2, "numpy.lib.format.read_array": 1,
@@ -225,7 +222,7 @@ def _computed_getattr(rel: str, source: str) -> list[str]:
 
 
 def input_findings(rel: str, source: str) -> list[str]:
-    """The input builtins and numpy's and scipy's IO, in a ``src/`` module that is not an input gate."""
+    """The input builtins and a module's own loader, in a ``src/`` module that is not an input gate."""
     if not rel.startswith("src/") or rel in INPUT_GATES:
         return []
     computed = _computed_getattr(rel, source) if rel.startswith("src/simcore/") else []

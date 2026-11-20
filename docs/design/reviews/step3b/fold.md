@@ -131,3 +131,68 @@ one it caught is the `pathlib` plant in a new module; S-d's real route went thro
 | Exec S-d | `tiers` holds no `pathlib`. `data` is held to path arithmetic, and five filesystem methods are planted red. `sneak` is a corpus row in `tiers` and in `data` | reverted (`pathlib` back in `tiers`: red; `is_dir` in `data`: red) | open |
 | Trust D4-N1 | positional `allow_pickle` for `np.lib.npyio.load` and `NpzFile`; a computed `getattr` in `simcore`. `functools.partial` outside `src/` is in `NOT_COVERED` (a function passed as a value) | reverted (red) | open |
 | Trust D4-N2 | `data.rig_profile` refuses anything but `[A-Za-z0-9_-]+`, with eight rejection cases, and has a gate-registry row | reverted (8 red) | open |
+
+
+## Delta round 5
+
+Each table below is copied verbatim from its report.
+
+### Executor and Wire integrity: set by the Executor and Wire integrity reviewer (O25)
+
+S-d status: fixed for the reported route (the report's heading).
+
+| replant | result |
+|---|---|
+| tiers: `from pathlib import Path` + `Path(path).read_text()` | **red**: `test_every_layer_imports_only_...` and `test_each_allowlist_names_exactly_...` |
+| data: `Path(p).read_text()` | **red**: `test_the_data_locator_uses_only_path_arithmetic`, plus a corpus row |
+| data: `open(p).read()` | **red**: the data allowlist, a corpus row, and `test_a_planted_open_...` |
+
+Can each new test fail? (the report's mutation table)
+
+| test | mutation |
+|---|---|
+| per-layer allowlist | `import platform` in `encoding` |
+| "exactly what's imported today" | an unused `"json"` entry in core's allowlist |
+| `__all__` importer check | tiers taking `Path` from loaders |
+| `__all__` contents | adding `"Path"` to loaders' `__all__`: the parametrized refusal cases go red, so `__all__` is effectively pinned |
+| `data` path-arithmetic allowlist | adding `is_dir` to `PATH_ARITHMETIC` |
+| `rig_profile` rejections (refusing a name such as `../../x`) | the regex as `.*` (7 red); the regex allowing dots (`..` and `rig.yaml` red); `match` instead of `fullmatch` (5 red) |
+
+### Trust boundary and Performance: status set by the Trust and Performance reviewer (O25)
+
+| id | status | evidence |
+|---|---|---|
+| D4-S1, the denylist missed modules | **fixed** | Each layer's allowlist now comes from grimp's graph, and every module I planted in round 4 is a permanent plant (`PLANTS`, plus the core `os` plant and a gate given `importlib`). |
+| D4-S2, re-export through a gate | **fixed for the gates** | `gate_reexports` holds importers of `loaders` and `data` to `__all__`, both by `from` import and by attribute. All six of my spellings are permanent rows. The same hole is still open through modules that aren't gates (D5-S2). |
+| D4-N1, positional `allow_pickle` and computed `getattr` | **fixed** | Refused: `np.lib.npyio.load(f, None, True)`; `getattr(np, n)(p)` in `src/simcore/`; and `partial(np.load, ...)` in `src/`, which is caught there by `numpy.load` and named outside `src/` as a blind spot. |
+| D4-N2, `rig_profile` | **fixed**, with a new NIT (D5-N1) | Refused as `ValueError`: `../etc/passwd`, `/abs`, `a/b`, `..`, `rig\x00` and `rig\n`. It has a registry row. |
+
+### The design change: the last denylist corners become allowlists
+
+- **numpy and scipy by name** (`tests/_imports.py::NUMERIC_NAMES`). Each layer may reach only the dotted numpy and
+  scipy names it uses today: 32 in the core and 4 in the protocol, held to exactly that set. They are counted from
+  pure attribute chains and imports, through aliases. Methods on arrays are values, a stated blind spot.
+  - The lint's numpy and scipy IO denylist is gone. `np.lib._npyio_impl`, `np.rec.fromfile`, `np.ctypeslib` and
+    `scipy.sparse.load_npz` are refused because no list names them.
+  - `__loader__` and `__spec__` are in the lint's `IN_SRC`, and `numpy.ctypeslib` is in `EVERYWHERE`.
+- **Re-export through any internal module** (`internal_reexports`). A name taken from a `simcore` or
+  `maxim_overdrive` module must be one it defines (`def`, `class`, assignment) or lists in `__all__`, or be its own
+  submodule. This holds for `from m import n`, for an attribute chain through any import of `m`, and for
+  `getattr(m, 'n')` with a literal name. `from simcore.core.grid import np` in the membrane is refused, and gates
+  stay held to `__all__` by the same routes.
+- **Path holders** (`PATH_HOLDERS`). `tiers` joins `data`: each may use path arithmetic and the few calls it names,
+  by attribute or by literal `getattr`. `resolve` left path arithmetic, because realpath reads the filesystem; the
+  gate `existing_directory` now resolves the directory it finds.
+
+Measured: 7cacb3f's own checkers miss 15 of the 16 delta-5 rows that must be flagged. The one caught is
+`scipy.sparse.load_npz` planted in the protocol, which had no scipy import; in the core it would have passed.
+
+### New findings, and what changed
+
+| id | what changed, and where | red first | status |
+|---|---|---|---|
+| Trust D5-S1 | `NUMERIC_NAMES` with its exactness test and eight plants; `__loader__` and `__spec__` in `IN_SRC`; `numpy.ctypeslib` in `EVERYWHERE`; every spelling is a corpus row | 7cacb3f misses them; reverted (the check passing everything: 22 red; an unused name: red; `__loader__` dropped: red) | open |
+| Trust D5-S2 | `internal_reexports` over every internal module, with six plants; the four rows from the report are in the corpus | 7cacb3f misses them; reverted (imported names counting as defined: 10 red) | open |
+| Exec N-g | `tiers` is a path holder; a literal `getattr` counts as an attribute in path holders and as a hop through modules; `path.read_text()` on a path handed in, `getattr(Path(p), 'read_text')` and `getattr(L, 'Path')` are refused | 7cacb3f misses them; reverted (red) | open |
+| Trust D5-N1 | `rig_profile`'s registry row now reads `partial: a missing rig file raises FileNotFoundError, not ValueError`, which is what it raises | — (registry) | open |
+| Trust D5-N2 | `resolve` left `PATH_ARITHMETIC`; `data_dir` no longer calls it; the gate resolves | reverted (`resolve` allowed again: 3 red) | open |

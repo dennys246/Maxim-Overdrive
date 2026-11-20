@@ -80,7 +80,7 @@ def existing_directory(candidates: Sequence[FilePath], what: str) -> Path:
     The game's data locator asks this gate, so the game itself only does path arithmetic (delta round 4, S-d)."""
     for candidate in candidates:
         if Path(candidate).is_dir():
-            return Path(candidate)
+            return Path(candidate).resolve()  # realpath reads the filesystem, so it happens here, in the gate
     raise FileNotFoundError(f"{what}: none of {', '.join(str(c) for c in candidates)} is a directory")
 
 

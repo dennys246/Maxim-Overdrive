@@ -1,14 +1,17 @@
-"""Untrusted input by source, fail closed (boundaries §5.2, B-4; step 3b delta round 4).
+"""Untrusted input by source, fail closed (boundaries §5.2, B-4; step 3b delta rounds 4 and 5).
 
-Three allowlists, each a set of names with a reason, so a new input route is refused until someone names it:
+Five allowlists, each a set of names with a reason, so a new input route is refused until someone names it:
 
-- **External imports per layer** (``ALLOWED``), read from grimp's graph, the graph import-linter checks. grimp
-  records an external package at its top level (``numpy.lib.npyio`` is recorded as ``numpy``), so numpy's and scipy's
-  IO submodules can't be told apart here; ``scripts/lint_inputs.py`` covers them by name.
-- **What non-gate code may import from a gate** (``GATES``): the gate module's ``__all__``. Nothing else, so a gate's
-  own imports (``pathlib``, ``yaml``) can't be re-exported through it.
-- **The attributes ``maxim_overdrive.data`` may use** (``DATA_ATTRIBUTES``): path arithmetic, so the module that holds
-  ``pathlib`` for the game opens nothing; the file gate does.
+- **External imports per layer** (``ALLOWED``), read from grimp's graph, the graph import-linter checks.
+- **The numpy and scipy names per layer** (``NUMERIC_NAMES``): grimp records ``numpy.lib.npyio`` as ``numpy``, so
+  this names which parts of those packages each layer reaches. Methods on arrays are values, a stated blind spot.
+- **What one internal module may take from another:** a name it defines or lists in ``__all__``, never one it only
+  imported (``internal_reexports``); and from a gate (``GATES``), only its ``__all__``.
+- **The attributes a path-holding module may use** (``PATH_HOLDERS``): path arithmetic, so the modules that hold a
+  path open nothing; the file gate does.
+
+Every route counts: ``from m import n``, an attribute chain through any import of ``m``, and ``getattr(m, 'n')``
+with a literal name.
 """
 
 from __future__ import annotations
@@ -19,6 +22,7 @@ import json
 import os
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 PACKAGES = ("simcore", "maxim_overdrive")
@@ -65,21 +69,81 @@ ALLOWED: dict[str, dict[str, str]] = {
     "maxim_overdrive.data": {
         "__future__": "postponed annotations",
         "re": "the rig-name check",
-        "pathlib": "path arithmetic only (DATA_ATTRIBUTES); the file gate opens the files",
+        "pathlib": "path arithmetic only (PATH_HOLDERS); the file gate opens the files",
     },
 }
+
+# The numpy and scipy names each layer may reach (delta round 5, D5-S1): grimp records numpy.lib.npyio as numpy, so
+# the import allowlist can't see which part of a package a module uses; this can. Pure attribute chains only: a
+# method on an array (a value) is a stated blind spot. Anything else of numpy or scipy (np.rec.fromfile,
+# np.lib._npyio_impl.load, np.ctypeslib, scipy.sparse.load_npz) is refused until it is named here.
+NUMERIC_ROOTS = ("numpy", "scipy")
+# The core's arrays, dtypes and elementwise maths for the cells and laws, and two scipy laws.
+_CORE_NUMERIC = frozenset({
+    "numpy.all", "numpy.arange", "numpy.argmin", "numpy.argwhere", "numpy.array", "numpy.asarray",
+    "numpy.bool_", "numpy.diff", "numpy.errstate", "numpy.flatnonzero", "numpy.float32", "numpy.float64",
+    "numpy.floating", "numpy.floor", "numpy.frombuffer", "numpy.full", "numpy.generic", "numpy.inf",
+    "numpy.integer", "numpy.intersect1d", "numpy.logical_and", "numpy.max", "numpy.mean", "numpy.rint",
+    "numpy.take", "numpy.typing.NDArray", "numpy.uint8", "numpy.where", "numpy.zeros",
+    "scipy.ndimage", "scipy.ndimage.label", "scipy.special.ndtr",
+})  # fmt: skip
+NUMERIC_NAMES: dict[str, frozenset[str]] = {
+    "simcore.core": _CORE_NUMERIC,
+    "simcore.protocol": frozenset({"numpy.clip", "numpy.float16", "numpy.round", "numpy.uint8"}),  # quantization
+}
+
+
+def numeric_names(source: str) -> set[str]:
+    """The numpy and scipy names a module reaches: imported (``from scipy.special import ndtr``) or used as a pure
+    attribute chain (``np.lib.npyio.load``), resolved through its import aliases."""
+    tree = ast.parse(source)
+    bound = {"np": "numpy", **_bindings(tree)}  # np is numpy even unimported, as the lint reads it
+    inner = {id(n.value) for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
+    out = {
+        f"{node.module}.{a.name}"
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] in NUMERIC_ROOTS
+        for a in node.names
+    }
+    for node in ast.walk(tree):
+        if id(node) in inner or not isinstance(node, ast.Attribute | ast.Name):
+            continue
+        if isinstance(node, ast.Name) and not isinstance(node.ctx, ast.Load):
+            continue
+        dotted = _dotted(node, bound)
+        if dotted and dotted.split(".")[0] in NUMERIC_ROOTS:
+            out.add(dotted)
+    return out
+
+
+def numeric_violations(module: str, source: str) -> list[str]:
+    allowed = NUMERIC_NAMES.get(_layer(module), frozenset())
+    return [
+        f"{module} reaches {n}, which {_layer(module)}'s numeric list doesn't name"
+        for n in sorted(numeric_names(source) - allowed)
+    ]
+
 
 # Gate modules: code elsewhere imports from these only the names in their __all__.
 GATES = ("simcore.adapters.loaders", "maxim_overdrive.data")
 
-# Every attribute maxim_overdrive.data may use: path arithmetic, and the two calls it makes on non-paths.
-PATH_ARITHMETIC = {"parent", "parents", "name", "stem", "suffix", "with_suffix", "joinpath", "resolve"}
-DATA_CALLS = {
-    "compile": "re.compile, the rig-name pattern",
-    "fullmatch": "RIG_NAME.fullmatch, the name check",
-    "load": "RigProfile.load, which hands the path on",
+# The modules that hold a path for the game, and every attribute each may use (delta rounds 4 and 5): path
+# arithmetic, and the few calls each makes on values that aren't paths. Any other method on a path could open it.
+# resolve is not here: it reads the filesystem (realpath), so the file gate does it (loaders.existing_directory).
+PATH_ARITHMETIC = {"parent", "parents", "name", "stem", "suffix", "with_suffix", "joinpath"}
+PATH_HOLDERS: dict[str, dict[str, str]] = {
+    "maxim_overdrive.data": {
+        "compile": "re.compile, the rig-name pattern",
+        "fullmatch": "RIG_NAME.fullmatch, the name check",
+        "load": "RigProfile.load, which hands the path on",
+    },
+    "simcore.protocol.tiers": {
+        "get": "Mapping.get on the decoded profile",
+        "name": "the profile's own name field",
+        "strip": "str.strip in the name check",
+    },
 }
-DATA_ATTRIBUTES = PATH_ARITHMETIC | set(DATA_CALLS)
+
 
 _GRAPH = """
 import grimp, json, sys
@@ -143,33 +207,125 @@ def _dotted(node: ast.AST, bound: dict[str, str]) -> str | None:
 
 
 def gate_reexports(module: str, source: str) -> list[str]:
-    """Names a non-gate module takes from a gate that the gate's ``__all__`` doesn't offer: ``from gate import x``,
-    or ``gate.x`` through any import of the gate's module (delta round 4, D4-S2)."""
+    """Names a non-gate module takes from a gate that the gate's ``__all__`` doesn't offer, by any route
+    ``internal_reexports`` follows: ``from gate import x``, ``gate.x``, ``getattr(gate, 'x')`` (delta rounds 4, 5)."""
     if module in GATES:
         return []
     tree = ast.parse(source)
-    bound, out = _bindings(tree), set()
+    return sorted(
+        {
+            f"{module} takes {names[0]} from {start}"
+            for start, names, _ in _routes(tree, _bindings(tree))
+            for gate in GATES
+            if start == gate and names[0] not in _gate_all(gate)
+        }
+    )
+
+
+def _defined(module: str) -> set[str]:
+    """Names a module defines itself (``def``, ``class``, assignment, at its top level or inside a top-level ``if`` or
+    ``try``), plus its ``__all__``: what may be imported from it."""
+    mod = importlib.import_module(module)
+    tree = ast.parse(Path(mod.__file__ or "").read_text())
+    out = set(getattr(mod, "__all__", ()))
+    stack: list[ast.stmt] = list(tree.body)
+    while stack:
+        node = stack.pop()
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef):
+            out.add(node.name)
+        elif isinstance(node, ast.Assign | ast.AnnAssign | ast.AugAssign):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            out |= {n.id for t in targets for n in ast.walk(t) if isinstance(n, ast.Name)}
+        elif isinstance(node, ast.TypeAlias):
+            out.add(node.name.id)
+        elif isinstance(node, ast.If | ast.Try):
+            stack += [
+                *node.body,
+                *node.orelse,
+                *getattr(node, "finalbody", []),
+                *(h for x in getattr(node, "handlers", []) for h in x.body),
+            ]
+    return out
+
+
+def _internal(name: str) -> bool:
+    return name.split(".", maxsplit=1)[0] in PACKAGES
+
+
+def _hop(module: str, name: str) -> str | None:
+    """``module.name``: the submodule it names, or None when ``module`` defines it; KeyError when it is neither."""
+    obj = getattr(importlib.import_module(module), name, None)
+    if isinstance(obj, types.ModuleType) and obj.__name__ == f"{module}.{name}":  # its own submodule, not numpy
+        return f"{module}.{name}"
+    if name in _defined(module):
+        return None
+    raise KeyError(name)
+
+
+def _routes(tree: ast.Module, bound: dict[str, str]) -> list[tuple[str, list[str], int]]:
+    """Every (internal module, names taken from it in turn, line): ``from m import n``, the longest module prefix of an
+    attribute chain, and ``getattr(module, 'n')`` with a literal name."""
+    out = []
     for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module in GATES:
-            out |= {
-                f"{module} takes {a.name} from {node.module}"
-                for a in node.names
-                if a.name not in _gate_all(node.module)
-            }
+        if isinstance(node, ast.ImportFrom) and node.module and _internal(node.module) and node.level == 0:
+            out += [(node.module, [a.name], node.lineno) for a in node.names]
         elif isinstance(node, ast.Attribute) and (dotted := _dotted(node, bound)):
-            for gate in GATES:
-                rest = dotted.removeprefix(gate + ".").split(".")[0] if dotted.startswith(gate + ".") else None
-                if rest is not None and rest not in _gate_all(gate):
-                    out.add(f"{module} takes {rest} from {gate}")
+            parts = dotted.split(".")
+            prefix = next((i for i in range(len(parts) - 1, 0, -1) if _is_internal_module(".".join(parts[:i]))), None)
+            if prefix is not None:
+                out.append((".".join(parts[:prefix]), parts[prefix:], node.lineno))
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "getattr":
+            target = _dotted(node.args[0], bound) if node.args else None
+            literal = node.args[1].value if len(node.args) > 1 and isinstance(node.args[1], ast.Constant) else None
+            if target and _is_internal_module(target) and isinstance(literal, str):
+                out.append((target, [literal], node.lineno))
+    return out
+
+
+def internal_reexports(module: str, source: str) -> list[str]:
+    """A name taken from an internal module that it neither defines nor lists in ``__all__``: something it imported
+    itself, re-exported (delta round 5, D5-S2: ``from simcore.core.grid import np`` gave the membrane numpy)."""
+    tree = ast.parse(source)
+    out = set()
+    for start, names, line in _routes(tree, _bindings(tree)):
+        current: str | None = start
+        for name in names:
+            if current is None:
+                break
+            try:
+                current = _hop(current, name)
+            except KeyError:
+                out.add(f"{module}:{line}: takes {name} from {current}, which only imports it")
+                break
     return sorted(out)
 
 
-def data_attribute_violations(source: str) -> list[str]:
-    """Attributes maxim_overdrive.data uses beyond its allowlist: any Path method but arithmetic opens something."""
-    return sorted(
-        {
-            f"maxim_overdrive.data uses .{n.attr}"
-            for n in ast.walk(ast.parse(source))
-            if isinstance(n, ast.Attribute) and n.attr not in DATA_ATTRIBUTES
-        }
-    )
+def _is_internal_module(name: str) -> bool:
+    return _internal(name) and _is_module(name)
+
+
+def _is_module(name: str) -> bool:
+    try:
+        importlib.import_module(name)
+    except ImportError:
+        return False
+    return True
+
+
+def path_holder_violations(module: str, source: str) -> list[str]:
+    """Attributes a path-holding module uses beyond its allowlist, by attribute or by ``getattr`` with a literal
+    name: any path method but arithmetic could open the path it holds (delta round 5, Executor N-g)."""
+    allowed = PATH_ARITHMETIC | set(PATH_HOLDERS[module])
+    tree = ast.parse(source)
+    used = {n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
+    used |= {
+        n.args[1].value
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Name)
+        and n.func.id == "getattr"
+        and len(n.args) > 1
+        and isinstance(n.args[1], ast.Constant)
+        and isinstance(n.args[1].value, str)
+    }
+    return sorted(f"{module} uses .{a}" for a in used - allowed)

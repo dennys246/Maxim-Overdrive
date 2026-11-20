@@ -118,6 +118,7 @@ def test_code_outside_the_gates_takes_only_their_api():
         "import simcore.adapters.loaders as L\nP = L.Path",
         "from maxim_overdrive.data import Path",
         "from maxim_overdrive import data\nr = data.RIG_NAME",
+        "import simcore.adapters.loaders as L\nP = getattr(L, '_StrictLoader')",  # defined, but not the gate's API
     ],
 )
 def test_a_name_taken_from_a_gate_beyond_its_all_is_refused(line):
@@ -129,14 +130,20 @@ def test_every_gate_declares_its_api():
         assert _imports._gate_all(gate), gate
 
 
-# -- the game's data locator does path arithmetic only (delta round 4, Executor S-d) -----------------------------------
+# -- the modules that hold a path do path arithmetic only (delta rounds 4 and 5: Executor S-d, N-g) --------------------
+
+HOLDERS = {
+    "maxim_overdrive.data": ROOT / "src" / "maxim_overdrive" / "data.py",
+    "simcore.protocol.tiers": ROOT / "src" / "simcore" / "protocol" / "tiers.py",
+}
 
 
-def test_the_data_locator_uses_only_path_arithmetic():
-    source = (ROOT / "src" / "maxim_overdrive" / "data.py").read_text()
-    assert _imports.data_attribute_violations(source) == []
+@pytest.mark.parametrize("module", HOLDERS)
+def test_a_path_holder_uses_only_path_arithmetic_and_what_it_names(module):
+    assert _imports.path_holder_violations(module, HOLDERS[module].read_text()) == []
 
 
+@pytest.mark.parametrize("module", HOLDERS)
 @pytest.mark.parametrize(
     "line",
     [
@@ -145,8 +152,74 @@ def test_the_data_locator_uses_only_path_arithmetic():
         "for f in Path(p).iterdir():\n    pass",
         "h = Path(p).open()",
         "Path(p).write_text('x')",
+        "q = Path(p).resolve()",  # realpath reads the filesystem: the gate does it
+        "def f(path):\n    return path.read_text()",  # a path handed in (N-g)
+        "t = getattr(Path(p), 'read_text')()",  # by literal name (N-g)
     ],
 )
-def test_a_path_method_that_touches_the_filesystem_is_refused_in_the_data_locator(line):
-    source = (ROOT / "src" / "maxim_overdrive" / "data.py").read_text() + "\n" + line + "\n"
-    assert _imports.data_attribute_violations(source), line
+def test_a_path_method_that_touches_the_filesystem_is_refused_in_a_path_holder(module, line):
+    source = HOLDERS[module].read_text() + "\n" + line + "\n"
+    assert _imports.path_holder_violations(module, source), line
+
+
+# -- numpy and scipy by name (delta round 5, D5-S1) ----------------------------------------------------------------
+
+
+def test_each_layer_reaches_only_the_numpy_and_scipy_names_it_lists():
+    found = [v for module, path in _src_modules() for v in _imports.numeric_violations(module, path.read_text())]
+    assert found == []
+
+
+def test_each_numeric_list_names_exactly_what_its_layer_uses_today():
+    used: dict[str, set[str]] = defaultdict(set)
+    for module, path in _src_modules():
+        used[_imports._layer(module)] |= _imports.numeric_names(path.read_text())
+    assert {layer: set(names) for layer, names in _imports.NUMERIC_NAMES.items()} == {
+        layer: used[layer] for layer in _imports.NUMERIC_NAMES
+    }
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "a = np.lib._npyio_impl.load(p)",
+        "a = np.lib._format_impl.read_array(f)",
+        "a = np.rec.fromfile(p)",
+        "lib = np.ctypeslib.load_library('x', '.')",
+        "import scipy.sparse\nm = scipy.sparse.load_npz(p)",
+        "a = np.load(p)",
+        "from numpy.lib.npyio import load",
+        "f = np\na = f.load(p)",  # numpy as a value is itself a name the core doesn't list
+    ],
+)
+def test_a_numpy_or_scipy_name_no_layer_lists_is_refused(line):
+    source = "import numpy as np\n" + line + "\n"
+    assert _imports.numeric_violations("simcore.core.x", source), line
+
+
+# -- what one internal module may take from another (delta round 5, D5-S2) ---------------------------------------
+
+
+def test_no_module_takes_a_name_another_only_imported():
+    found = [v for module, path in _src_modules() for v in _imports.internal_reexports(module, path.read_text())]
+    assert found == []
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "from simcore.core.grid import np",
+        "from simcore.core.grid import np as n\na = n.load(p)",
+        "import simcore.core.grid as g\na = g.np.load(p)",
+        "from simcore.core import grid\na = grid.np",
+        "import simcore\na = simcore.core.grid.np",
+        "import simcore.adapters.loaders as L\nP = getattr(L, 'Path')",  # by literal name (N-g)
+    ],
+)
+def test_a_name_taken_through_another_internal_module_is_refused(line):
+    assert _imports.internal_reexports("simcore.adapters.sem.x", line + "\n"), line
+
+
+def test_a_name_a_module_defines_or_a_submodule_may_be_taken():
+    clean = "from simcore.core.grid import MaterialGrid\nfrom simcore.core import grid\nx = grid.MaterialGrid.empty\n"
+    assert _imports.internal_reexports("simcore.adapters.sem.x", clean) == []
