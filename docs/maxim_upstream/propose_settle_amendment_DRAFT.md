@@ -66,16 +66,20 @@ from frames declare it. Overdrive's adapter self-reports either way.
 
 Extending TF2's ran/not-ran classification (read against `origin/main` `f0b1cea4`):
 - **`stale`** (ran): the action was valid when proposed, but the moment passed (the world changed while the agent
-  deliberated). It is context for the next thought, never credit. It travels as a kind on the failure path that
-  dispatch reads, which needs the bridge's failure return to carry the kind: the one wire change in this amendment. A
-  test goes through `ModulatorAffordanceTool.execute`, not only `tool_dispatch`, so the kind is proven to arrive.
+  deliberated). It is context for the next thought, never credit. The world decides it, not a tool body: the host
+  returns it as a `ModulatorReceipt` outcome at settle (§3.1), so #1315's rule holds. Where a call that ran carries
+  it on the failure path, the bridge's failure return must carry the kind, and the executor's `_fail_ran` must read
+  it before `_book_failure`, which takes no result today and books every failure that ran. A test goes through
+  `ModulatorAffordanceTool.execute`, not only `tool_dispatch`, so the kind is proven to arrive.
 - **`call_error`** (never ran): a malformed argument. A cognitive error, as TF2 already rules for "a hallucinated or
   inactive tool name", not a tool failure. The executor produces it before the tool runs, validating the call against
   the declared `AffordanceSchema` (types, unknown keys, finiteness, declared ranges) and exempting the keys it adds
   itself (`OrchestratorActorTool`'s `target`).
 - **`wrong_target`** (never ran): a call aimed where the affordance's direction (OD-C3) doesn't allow. A choice
-  error, booked like `call_error`, never against the tool. The executor produces it from the declared direction; a
-  modulator can't flag its own refusal without breaking #1315's rule.
+  error, booked like `call_error`, never against the tool. The executor produces it from the declared direction,
+  resolving `entity`, `affordance` and `target` before dispatch: on `OrchestratorActorTool`'s path the target is
+  resolved inside the tool's own `run`, a body, where `_retag_body_gate_kind` would re-type the kind as a failure
+  that ran. A modulator can't flag its own refusal without breaking #1315's rule.
 
 `call_error` and `wrong_target` join `GATE_REFUSAL_KINDS` (#1315): only the executor produces them, and
 `_retag_body_gate_kind` already re-types a body that claims one, so a tool body can't exempt itself from NAc.
@@ -100,7 +104,7 @@ These edits touch functions pinned at 502 lines (`ModulatorAffordanceTool.execut
 | PR | What | Size |
 |---|---|---|
 | 0 | Red gates: a deferred result books no POSITIVE; a receipt is credited exactly once; a stale refusal books nothing; a call error books nothing | S |
-| 1 | `default_outcome_valence`; promotion of the receipt id; the failure kind on the bridge's failure return | M (with extraction) |
+| 1 | `default_outcome_valence`; promotion of the receipt id; the failure kind on the bridge's failure return, read by `_fail_ran` before `_book_failure`; the executor's `AffordanceSchema` validation, with `call_error` and `wrong_target` as `GATE_REFUSAL_KINDS` | M (with extraction) |
 | 2 | `ModulatorReceipt`; cerebellum observation at settle; the exactly-once ledger | L (with extraction) |
 
 ## 5. What it claims

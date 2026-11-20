@@ -655,8 +655,8 @@ def test_yaml_merge_keys_still_work_in_the_limits_file(tmp_path):
 
 def test_maxims_actor_tool_must_name_the_region_as_its_own_target():
     # In Maxim's OrchestratorActorTool the entity acts ON its target (default: the player). Overdrive's affordances
-    # are done TO the region, so only target=<the region> is a coherent call (roadmap Phase 3 item 11 asks Maxim to
-    # tell the two kinds of affordance apart).
+    # are done TO the region, so only target=<the region> is a coherent call (OD-C3 asks Maxim to tell the two kinds
+    # of affordance apart).
     from maxim.embodiment.body import Embodiment  # noqa: PLC0415 - the gate installs pymaxim
     from maxim.embodiment.entity_map import EntityMap  # noqa: PLC0415
     from maxim.embodiment.sem import Entity  # noqa: PLC0415
@@ -683,6 +683,32 @@ def test_maxims_actor_tool_must_name_the_region_as_its_own_target():
     assert actor.run(**ignite, target="crate").success
     assert w.sources["fire:crate"].power_w == 1000.0
     assert not actor.run(entity="crate", affordance="strike", target="wall", params={"energy_j": 1e3}).success
+
+
+@pytest.mark.parametrize(("target", "ok"), [(None, True), ("crate", True), ("wall", False), ("self", False)])
+def test_maxims_affordance_tool_accepts_only_the_region_itself_as_a_target(target, ok):
+    # The second path OD-C3 cites: Maxim's ModulatorAffordanceTool, the per-affordance tool an NPC calls directly.
+    from maxim.embodiment.tool_bridge import ModulatorAffordanceTool  # noqa: PLC0415 - the gate installs pymaxim
+
+    from maxim_overdrive.sem_env.bridge import to_maxim_entity  # noqa: PLC0415
+
+    w = World.from_scene(
+        Scene(SCENE.extent_m, (*SCENE.primitives, Box((0, 0, 0), (0.6, 3, 2), "concrete", "wall"))),
+        RigProfile.load("laptop"),
+        limits=LIMITS,
+    )
+    crate = to_maxim_entity(w, "crate")
+    structure = crate.modulators["structure"]
+    tool = ModulatorAffordanceTool(
+        entity=crate,
+        modulator=structure,
+        affordance_name="ignite",
+        schema=structure.affordances["ignite"],
+        tool_name="crate_ignite",
+    )
+    out = tool.run(power_w=1000.0, **({} if target is None else {"target": target}))
+    assert out.success is ok, out.error
+    assert ("fire:crate" in w.sources) is ok
 
 
 @pytest.mark.parametrize(
