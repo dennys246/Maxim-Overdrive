@@ -143,8 +143,8 @@ forbidden_modules = [
 allow_indirect_imports = true
 
 # B-13's import half (boundaries §4.4): the SEM membrane reads the world through published frames (and, from step 5a,
-# the field registry) and changes it through the applier. On top of the skip-layer rule it gives up the material types
-# and the file gates. tests/test_tooling_config.py holds the list to every core module outside its surface.
+# the field registry) and changes it through the applier, the two capabilities it is handed. On top of the skip-layer
+# rule it gives up the material types, the file gates and the world itself. tests/test_tooling_config.py holds the list to every core module outside its surface.
 [[tool.importlinter.contracts]]
 id = "membrane-reads-frames"
 name = "the SEM membrane reads frames and writes through the applier only (boundaries §4.4, B-13)"
@@ -152,7 +152,8 @@ type = "forbidden"
 source_modules = ["simcore.adapters.sem"]
 forbidden_modules = [
     "simcore.core.damage", "simcore.core.grid", "simcore.core.heat", "simcore.core.imagination",
-    "simcore.core.materials", "simcore.core.readonly", "simcore.core.scene", "simcore.adapters.loaders",
+    "simcore.core.materials", "simcore.core.readonly", "simcore.core.scene", "simcore.core.world",
+    "simcore.adapters.loaders",
 ]  # fmt: skip
 allow_indirect_imports = true
 

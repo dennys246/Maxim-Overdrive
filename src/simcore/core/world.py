@@ -20,8 +20,8 @@ import numpy as np
 
 from simcore.core import damage, heat
 from simcore.core.checks import finite_real, finite_vector
-from simcore.core.frames import CellFrame, Frame, FrameFeed
-from simcore.core.grid import Field, MaterialGrid
+from simcore.core.frames import CellFrame, Frame, FrameFeed, FrameView
+from simcore.core.grid import Field, MaterialGrid, WindowClosed
 from simcore.core.limits import ActionLimits
 from simcore.core.materials import MaterialTable
 from simcore.core.scene import Scene
@@ -87,7 +87,9 @@ class World:
         if not self._turn_seconds > 0:
             raise ValueError(f"turn_seconds must be positive, got {turn_seconds!r}")
         self._sources: Mapping[str, HeatSource] = MappingProxyType(dict(sources or {}))
-        self._frames = FrameFeed(Frame(CellFrame.of(grid, 0)))
+        self._sources_open = False
+        self._feed = FrameFeed(Frame(CellFrame.of(grid, 0)))
+        self._frames = FrameView(self._feed)
         grid.on_close(self._publish)
 
     @classmethod
@@ -125,21 +127,33 @@ class World:
         return self._sources
 
     @property
-    def frames(self) -> FrameFeed:
-        """Where observers read this world: the latest published frame (boundaries §4.2)."""
+    def frames(self) -> FrameView:
+        """Where observers read this world: the latest published frame, and nothing that can publish one (§4.2)."""
         return self._frames
 
     def _publish(self) -> None:
-        self._frames.publish(Frame(CellFrame.of(self._grid, self._frames.latest.sequence + 1)))
+        self._feed.publish(Frame(CellFrame.of(self._grid, self._feed.latest.sequence + 1)))
 
     @contextmanager
-    def writing(self) -> Iterator[dict[str, HeatSource]]:
-        """The write window (boundaries §4.1): the grid's window, plus a writable copy of the heat sources that
-        becomes the world's at exit. A window that raises changes nothing. It publishes a frame when it closes."""
-        sources = dict(self._sources)
-        with self._grid.writing():
-            yield sources
-            self._sources = MappingProxyType(sources)
+    def writing(self, *, cells: bool = True) -> Iterator[dict[str, HeatSource]]:
+        """The write window (boundaries §4.1): a writable copy of the heat sources, a copy of which becomes the
+        world's when the window closes, so the dict handed out never is the world's. With ``cells`` (the default) it is
+        also the grid's window, which publishes a frame when it closes. ``cells=False`` copies no cell and publishes
+        nothing: a frame carries no sources, so a sources-only change is not a change a frame shows (§4.2: published
+        on change). A window that raises, in its body or while it closes, changes nothing."""
+        if self._sources_open:
+            raise WindowClosed("the write window is already open: it has one owner at a time")
+        self._sources_open = True
+        try:
+            sources = dict(self._sources)
+            if cells:
+                with self._grid.writing():
+                    yield sources
+            else:
+                yield sources
+            self._sources = MappingProxyType(dict(sources))  # committed after the grid's window committed
+        finally:
+            self._sources_open = False
 
     def _power_field(self) -> Field | None:
         if not self._sources:
@@ -170,5 +184,5 @@ class World:
                 power=self._power_field,
                 on_substep=damage.thermal_degrade,
             )
-            self._turn += 1
+        self._turn += 1  # after the window, so a step that raises counts no turn
         return taken

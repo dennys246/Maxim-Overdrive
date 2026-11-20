@@ -15,6 +15,7 @@ import pytest
 from maxim_overdrive import data
 from simcore.adapters.sem import bridge
 from simcore.core import frames
+from simcore.core.applier import Applier
 from simcore.core.grid import MaterialGrid
 from simcore.core.scene import Box, Scene
 from simcore.core.world import World
@@ -37,7 +38,7 @@ def _readings(frame: frames.Observation) -> dict[tuple[str, str], float]:
 
 def test_a_reading_taken_at_one_frame_is_unchanged_after_the_world_moves_on():
     w = _world()
-    _, crate = bridge.region_parts(w, "crate")
+    _, crate = bridge.region_parts(Applier(w), w.frames, "crate")
     assert crate["structure"].execute("ignite", {"power_w": 500_000.0, "radius_m": 0.3}).success
     frame = w.frames.latest
     before = _readings(frame)
@@ -85,7 +86,7 @@ def _reachable(root: object, depth: int = 6) -> list[object]:
 
 def test_an_instrument_and_a_modulator_hold_no_world_and_no_grid():
     w = _world()
-    sensors, mods = bridge.region_parts(w, "crate")
+    sensors, mods = bridge.region_parts(Applier(w), w.frames, "crate")
     for part in [*sensors.values()]:
         assert not any(isinstance(o, (World, MaterialGrid)) for o in _reachable(part)), part
     # The modulator holds an applier, which holds the world (it is the write half); the membrane's own surface doesn't.
@@ -108,19 +109,52 @@ def test_a_reading_refuses_an_unknown_quantity_or_region():
 
 
 def test_the_feed_publishes_frames_in_order_only():
-    w = _world()
-    feed = w.frames
-    stale = feed.latest
+    first = _world().frames.latest
+    feed = frames.FrameFeed(first)
     with pytest.raises(ValueError, match="does not follow"):
-        feed.publish(stale)
+        feed.publish(first)
 
 
 def test_nothing_an_instrument_or_an_entity_reports_carries_the_cell_size():
     # BF-N4 (boundaries §4.4): the grid spacing is the simulation's, not something an observer can sense.
     w = _world()
-    sensors, _ = bridge.region_parts(w, "crate")
+    sensors, _ = bridge.region_parts(Applier(w), w.frames, "crate")
     for s in sensors.values():
         assert s.read().extra == {}
         assert s.read().timestamp == w.frames.latest.time_s
-    ent = bridge.to_maxim_entity(w, "crate")
+    ent = bridge.to_maxim_entity(Applier(w), w.frames, "crate")
     assert "cell_size_m" not in ent.metadata
+
+
+def test_a_frame_refuses_writable_arrays_and_a_grid_whose_window_is_open():
+    # Step 3b review, Executor N6 and Architecture N2: frozen means deep, of the type, not only of CellFrame.of.
+    import dataclasses  # noqa: PLC0415
+
+    import numpy as np  # noqa: PLC0415
+
+    from simcore.core.grid import WindowClosed  # noqa: PLC0415
+
+    w = _world()
+    cells = w.frames.latest.cells
+    with pytest.raises(ValueError, match="read-only"):
+        dataclasses.replace(cells, temperature=np.zeros(cells.shape))
+    with w.grid.writing(), pytest.raises(WindowClosed, match="open"):
+        frames.CellFrame.of(w.grid, 1)
+
+
+def test_the_feed_an_observer_holds_cannot_publish():
+    # Step 3b review, Architecture N3: a forged frame with time_s=1e9 was accepted through the membrane's feed.
+    w = _world()
+    assert not hasattr(w.frames, "publish")
+    assert {n for n in dir(w.frames) if not n.startswith("_")} == {"latest"}
+
+
+@pytest.mark.parametrize("bad", [["integrity"], {"q": 1}, 7])
+def test_an_unhashable_or_odd_quantity_or_region_is_a_value_error(bad):
+    w = _world()
+    with pytest.raises(ValueError, match="unknown region quantity"):
+        w.frames.latest.reading("crate", bad)
+    with pytest.raises(ValueError, match="unknown region quantity"):
+        bridge.RegionInstrument(w.frames, "crate", bad)
+    with pytest.raises(ValueError, match="no region"):
+        bridge.RegionInstrument(w.frames, bad, "integrity")

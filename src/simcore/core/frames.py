@@ -21,7 +21,8 @@ import numpy as np
 import numpy.typing as npt
 
 from simcore.core import damage
-from simcore.core.grid import Field, Mask, MaterialGrid, Region
+from simcore.core.checks import shown
+from simcore.core.grid import Field, Mask, MaterialGrid, Region, WindowClosed
 from simcore.core.materials import AIR_ID
 
 # Each quantity a region reading may report, with its unit.
@@ -44,9 +45,18 @@ class CellFrame:
     temperature: Field
     regions: Mapping[str, Region]
 
+    def __post_init__(self) -> None:
+        # Frozen means deep, of the type (step 3b review, Executor N6): a frame holds read-only arrays only.
+        for name in ("material", "original_material", "integrity", "temperature"):
+            if self.__dict__[name].flags.writeable:
+                raise ValueError(f"a frame's {name} must be read-only (simcore.core.readonly.frozen)")
+
     @classmethod
     def of(cls, grid: MaterialGrid, sequence: int) -> CellFrame:
-        """The grid as it is at rest. The region table is copied: the grid's own view of it follows later windows."""
+        """The grid as it is at rest, never inside a window, whose arrays the window goes on writing. The region
+        table is copied: the grid's own view of it follows later windows."""
+        if grid.is_writing:
+            raise WindowClosed("a frame is published at rest, never while the write window is open")
         return cls(
             sequence,
             grid.time_s,
@@ -112,8 +122,8 @@ class Frame:
 
     def reading(self, region: str, quantity: str) -> float:
         """One quantity of ``QUANTITIES`` over one region's cells, as of this frame."""
-        if quantity not in QUANTITIES:
-            raise ValueError(f"unknown region quantity {quantity!r}")
+        if not isinstance(quantity, str) or quantity not in QUANTITIES:
+            raise ValueError(f"unknown region quantity {shown(quantity)}")
         cells = self._region(region).cells
         if quantity == "integrity":
             return damage.region_integrity(self.cells, region)
@@ -125,13 +135,24 @@ class Frame:
         return float(np.max(temps) if quantity == "temperature_max" else np.mean(temps))
 
     def _region(self, region: str) -> Region:
-        if region not in self.cells.regions:
-            raise KeyError(f"no region {region!r} in this world")
+        if not isinstance(region, str) or region not in self.cells.regions:
+            raise KeyError(f"no region {shown(region)} in this world")
         return self.cells.regions[region]
 
 
+class FrameView:
+    """What an observer holds: the latest frame of one feed, and no way to publish one (step 3b review, Arch N3)."""
+
+    def __init__(self, feed: FrameFeed) -> None:
+        self._feed = feed
+
+    @property
+    def latest(self) -> Frame:
+        return self._feed.latest
+
+
 class FrameFeed:
-    """The latest frame one world published. The world publishes; observers only read ``latest``."""
+    """The latest frame one world published. Only the world holds it; observers get a ``FrameView``."""
 
     def __init__(self, first: Frame) -> None:
         self._latest = first

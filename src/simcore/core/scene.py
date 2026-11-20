@@ -20,6 +20,17 @@ from simcore.core.grid import Bounds, Footprint, Mask, MaterialGrid, Point
 from simcore.core.materials import MaterialTable
 
 
+def _coordinates(value: object, n: int, what: str) -> tuple[float, ...]:
+    """``n`` finite coordinates, each within ``MAX_EXTENT_M`` of the origin, or a ValueError (step 3b review, B1).
+
+    Checked before any arithmetic: a tile is at most ``MAX_EXTENT_M`` across, so a larger number is no shape, and
+    squaring one (a 1e200 m radius) overflowed a float inside the voxelizer."""
+    values = finite_vector(value, n, what)
+    if any(abs(v) > MAX_EXTENT_M for v in values):
+        raise ValueError(f"{what} must lie within {MAX_EXTENT_M:g} m of the origin, got {shown(value)}")
+    return values
+
+
 def _check_labels(material: object, name: object) -> None:
     if not isinstance(material, str) or not material:
         raise ValueError(f"primitive {shown(name)} needs a material name, got {shown(material)}")
@@ -37,7 +48,7 @@ class Box:
     kind: Literal["box"] = "box"
 
     def __post_init__(self) -> None:
-        lo, hi = finite_vector(self.min_m, 3, "min_m"), finite_vector(self.max_m, 3, "max_m")
+        lo, hi = _coordinates(self.min_m, 3, "min_m"), _coordinates(self.max_m, 3, "max_m")
         if not all(a < b for a, b in zip(lo, hi, strict=True)):
             raise ValueError(f"box max_m must exceed min_m on every axis, got {lo} and {hi}")
         _check_labels(self.material, self.name)
@@ -76,9 +87,9 @@ class Cylinder:
     kind: Literal["cylinder"] = "cylinder"
 
     def __post_init__(self) -> None:
-        center = finite_vector(self.center_xy_m, 2, "center_xy_m")
-        (radius,) = finite_vector((self.radius_m,), 1, "radius_m")
-        z = finite_vector(self.z_m, 2, "z_m")
+        center = _coordinates(self.center_xy_m, 2, "center_xy_m")
+        (radius,) = _coordinates((self.radius_m,), 1, "radius_m")
+        z = _coordinates(self.z_m, 2, "z_m")
         if radius <= 0 or z[1] <= z[0]:
             raise ValueError(f"cylinder needs a positive radius and z_m[1] > z_m[0], got {radius} and {z}")
         _check_labels(self.material, self.name)
@@ -90,7 +101,7 @@ class Cylinder:
         x, y, z = grid.mesh()
         cx, cy = self.center_xy_m
         r2 = (x - cx) ** 2 + (y - cy) ** 2
-        return (r2 < self.radius_m**2) & (z >= self.z_m[0]) & (z < self.z_m[1])
+        return (r2 < self.radius_m * self.radius_m) & (z >= self.z_m[0]) & (z < self.z_m[1])
 
     @property
     def volume_m3(self) -> float:

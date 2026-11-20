@@ -8,6 +8,10 @@ from __future__ import annotations
 
 import dataclasses
 import math
+import os
+import subprocess
+import sys
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -23,6 +27,7 @@ from simcore.core.scene import Box, Scene
 from simcore.core.world import World
 from simcore.protocol.tiers import RigProfile
 
+ROOT = Path(__file__).resolve().parents[1]
 LIMITS = data.action_limits()
 MATERIALS = data.materials()
 WOOD = MATERIALS["wood"]
@@ -157,7 +162,7 @@ def _world():
 
 @pytest.mark.parametrize(
     ("region", "message"),
-    [("door", "there is no door in this world"), ("room", "the room is air: there is no structure to act on")],
+    [("door", "there is no 'door' in this world"), ("room", "the room is air: there is no structure to act on")],
 )
 def test_the_applier_refuses_a_region_it_cannot_act_on_and_changes_nothing(region, message):
     w = _world()
@@ -178,14 +183,14 @@ def test_an_outcome_reports_the_applied_values_and_is_read_only():
         out.metadata["x"] = 1.0  # type: ignore[index]
 
 
-def test_extinguish_puts_out_the_fire_it_names_and_publishes_the_change():
+def test_extinguish_puts_out_the_fire_it_names_and_publishes_no_frame_for_it():
     w = _world()
     applier = Applier(w)
     assert applier.apply("crate", Ignite(1000.0, 0.3)).success
     lit = w.frames.latest.sequence
     out = applier.apply("crate", Extinguish())
     assert (out.success, out.error, dict(w.sources)) == (True, None, {})
-    assert w.frames.latest.sequence == lit + 1
+    assert w.frames.latest.sequence == lit  # a frame carries no sources, so nothing it shows changed
     again = applier.apply("crate", Extinguish())
     assert (again.success, again.error) == (False, "nothing is burning on the crate")
 
@@ -194,3 +199,96 @@ def test_the_material_table_is_read_only_by_id_too():
     assert MATERIALS.by_id[WOOD.id] is WOOD
     with pytest.raises(TypeError):
         MATERIALS.by_id[99] = WOOD  # type: ignore[index]
+
+
+# -- the bounded echo is deterministic (step 3b review, Architecture S4) ----------------------------------------------
+
+
+class _Thing:
+    pass
+
+
+def test_an_object_echoes_as_its_type_never_its_address():
+    assert shown(_Thing()) == "<a _Thing>"
+    assert shown([1, _Thing(), "a"]) == "[1, <a _Thing>, 'a']"
+    assert shown(np.float64(1.5)) == "<a float64>"
+    assert (shown(True), shown(None), shown(2.5), shown(b"x")) == ("True", "None", "2.5", "<a bytes>")
+    from simcore.core.intents import parse_action  # noqa: PLC0415
+
+    with pytest.raises(ValueError, match=r"got <a _Thing>$"):
+        parse_action("strike", {"energy_j": _Thing()}, LIMITS)
+
+
+SEEDED_ECHO = (
+    "from simcore.core.checks import shown\n"
+    "print(shown(frozenset({'a', b'x', 'bb', b'yy', 1, None})), shown({'b', 'a', 'c'}), shown({2: 0, 'k': 1}))"
+)
+
+
+def test_a_set_echoes_in_the_same_order_under_every_hash_seed():
+    here = shown(frozenset({1, "a", 2.5, b"x", None}))
+    assert here == shown(frozenset({None, b"x", 2.5, "a", 1}))
+    outs = set()
+    for seed in ("0", "1", "2", "3"):  # each orders this mixed set of str and bytes differently (probed)
+        env = {**os.environ, "PYTHONHASHSEED": seed, "PYTHONPATH": str(ROOT / "src")}
+        run = subprocess.run(
+            [sys.executable, "-c", SEEDED_ECHO], cwd=ROOT, env=env, capture_output=True, text=True, check=True
+        )
+        outs.add(run.stdout)
+    assert len(outs) == 1, outs
+
+
+# -- budgets before allocation, bounded refusals (step 3b review, Trust S4, N5, N6, N8) --------------------------------
+
+
+def _no_masks(monkeypatch):
+    def refuse(self, grid):
+        raise AssertionError("a mask was computed before the analytic budgets")
+
+    monkeypatch.setattr(Box, "mask", refuse)
+
+
+@pytest.mark.parametrize(
+    ("box", "reason"),
+    [
+        ({"min_m": [0, 0, 0], "max_m": [10.0, 0.4, 0.4], "material": "wood"}, "too large: 10 m across"),
+        ({"min_m": [0, 0, 0], "max_m": [1.5, 1.5, 1.5], "material": "steel"}, "too heavy"),
+        (
+            {"min_m": [0, 0, 0], "max_m": [0.4, 0.4, 0.4], "material": "wood", "at": (0.1, 1.0, 0.0)},
+            "belongs to 'wall'",
+        ),
+    ],
+)
+def test_extent_mass_and_ownership_are_refused_before_any_mask_is_built(monkeypatch, box, reason):
+    wall = Box((0.0, 0.0, 0.0), (0.6, 3.0, 2.0), "concrete", "wall")
+    g = Scene((3.0, 3.0, 2.0), (wall,)).build(MATERIALS, dx_m=0.2)
+    origin = box.pop("at", (1.0, 1.0, 0.0))
+    _no_masks(monkeypatch)
+    with pytest.raises(SpecRejected, match=reason):
+        place(g, {"name": "x", "primitives": [box] * 32}, origin)
+
+
+def test_the_applier_echoes_a_hostile_region_bounded():
+    out = Applier(_world()).apply("x" * 10_000, Strike(1.0, 0.2, None))
+    assert out.error is not None
+    assert len(out.error) < 200
+
+
+def test_a_point_too_long_to_count_is_refused_as_an_action():
+    from simcore.core.intents import ActionRefused  # noqa: PLC0415
+
+    with pytest.raises(ActionRefused, match="point_m"):
+        Strike(1.0, 0.2, range(10**20))  # type: ignore[arg-type]
+
+
+def test_a_material_built_directly_refuses_a_zero_density():
+    from simcore.core.materials import Material  # noqa: PLC0415
+
+    with pytest.raises(ValueError, match="density_kg_m3 must be positive"):
+        Material("x", 9, 0.0, 1.0, 1.0, 1.0, None, 0.0, (0, 0, 0))
+
+
+def test_a_set_echoes_sorted_and_bounded_in_process():
+    assert (shown(set()), shown(frozenset())) == ("set()", "frozenset()")
+    assert shown({"b", "a", "c"}) == "{'a', 'b', 'c'}"
+    assert shown(set(range(100))).endswith(", ...}")

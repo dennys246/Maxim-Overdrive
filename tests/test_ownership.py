@@ -9,15 +9,21 @@ open the window.
 from __future__ import annotations
 
 import ast
+import importlib
+import tomllib
+import types
 from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
 
 from maxim_overdrive import data
 from simcore.adapters.sem.bridge import region_parts
+from simcore.core.applier import Applier
 from simcore.core.grid import WindowClosed
+from simcore.core.readonly import frozen
 from simcore.core.scene import Box, Scene
 from simcore.core.world import HeatSource, World
 
@@ -151,16 +157,94 @@ def test_a_window_that_raises_changes_nothing():
     with pytest.raises(RuntimeError, match="midway"):
         _write_everything_then_fail(w)
     assert np.array_equal(g.temperature, before[0])
-    assert dict(g.regions) == before[1]
-    assert (g.time_s, dict(w.sources), w.frames.latest) == before[2:]
+    assert _same_regions(g.regions, before[1])
+    assert (g.time_s, dict(w.sources)) == before[2:4]
+    assert w.frames.latest is before[4]
     assert not g.temperature.flags.writeable  # and the owners are read-only again
+
+
+def _same_regions(a, b) -> bool:
+    """Region tables equal by value: names, footprints, solidity and every mask's cells."""
+    return list(a) == list(b) and all(
+        a[n].footprint == b[n].footprint and a[n].solid == b[n].solid and np.array_equal(a[n].cells, b[n].cells)
+        for n in a
+    )
+
+
+def test_the_sources_stay_read_only_after_an_ignite_and_a_dict_kept_past_its_window_changes_nothing():
+    # Step 3b review, Executor S1: the window committed the very dict its caller held, so a write after the window
+    # closed lit a fire no applier had lit, with no frame published.
+    w = _world()
+    _, crate = region_parts(Applier(w), w.frames, "crate")
+    assert crate["structure"].execute("ignite", {"power_w": 1000.0}).success
+    with pytest.raises(TypeError):
+        w.sources["fire:x"] = HeatSource((1.5, 1.5, 0.3), 0.3, 1e6)  # type: ignore[index]
+    with w.writing() as kept:
+        pass
+    kept["fire:x"] = HeatSource((1.5, 1.5, 0.3), 0.3, 1e6)
+    assert set(w.sources) == {"fire:crate"}
+    w.advance()
+    assert "fire:x" not in w.sources
+
+
+def _heat_and_light(w: World) -> None:
+    with w.writing() as sources:
+        w.grid.temperature[:] = 99.0
+        sources["fire:x"] = HeatSource((1.5, 1.5, 0.3), 0.3, 1.0)
+
+
+def test_a_failure_while_the_window_closes_rolls_it_back_and_leaves_the_owners_read_only(monkeypatch):
+    # Step 3b review, Architecture S2: the freeze at exit sat outside the rollback, so a MemoryError there left the
+    # window's writable copies as the world's arrays, committed and unpublished.
+    w = _world()
+    g = w.grid
+    before = (g.temperature.copy(), w.frames.latest, dict(w.sources))
+    real, calls = frozen, []
+
+    def fails_second(arr):
+        calls.append(1)
+        if len(calls) == 2:
+            raise MemoryError("planted")
+        return real(arr)
+
+    monkeypatch.setattr("simcore.core.grid.frozen", fails_second)  # the one test that breaks the window's freeze
+    with pytest.raises(MemoryError, match="planted"):
+        _heat_and_light(w)
+    monkeypatch.setattr("simcore.core.grid.frozen", real)
+    assert not g.temperature.flags.writeable
+    with pytest.raises(ValueError, match="read-only"):
+        g.temperature[0, 0, 0] = 5.0
+    assert np.array_equal(g.temperature, before[0])
+    assert (w.frames.latest, dict(w.sources)) == before[1:]
+
+
+def test_a_region_table_taken_before_a_failed_window_still_shows_the_table_before_it():
+    w = _world()
+    g = w.grid
+    held = g.regions
+    cells = held["crate"].cells.copy()
+    with pytest.raises(RuntimeError, match="midway"):
+        _write_everything_then_fail(w)
+    assert np.array_equal(held["crate"].cells, cells)
+
+
+def test_a_window_that_changes_only_the_sources_copies_no_cells_and_publishes_no_frame():
+    # Step 3b review, Architecture S5: ignite and extinguish copied every channel twice for a change no frame carries.
+    w = _world()
+    owners = w.grid.temperature
+    frame = w.frames.latest
+    _, crate = region_parts(Applier(w), w.frames, "crate")
+    assert crate["structure"].execute("ignite", {"power_w": 1000.0}).success
+    assert crate["structure"].execute("extinguish", {}).success
+    assert w.grid.temperature is owners
+    assert w.frames.latest is frame
 
 
 # -- the writers (boundaries §3, D-B1) ---------------------------------------------------------------------------------
 
 # Names whose element writes change the world: the grid's channels, region masks and tables, and the heat sources.
 OWNED = {"material", "original_material", "integrity", "temperature", "cells", "regions", "sources"}
-OWNER_STORES = {"_channels", "_regions", "_sources"}
+OWNER_STORES = {"_channels", "_regions", "_sources", "_masks", "_meta"}
 CORE = "simcore/core/"
 
 
@@ -172,6 +256,13 @@ def _root(node: ast.AST) -> ast.AST:
     while isinstance(node, ast.Subscript):
         node = node.value
     return node
+
+
+def _flat(targets: list[ast.expr]) -> list[ast.expr]:
+    out: list[ast.expr] = []
+    for t in targets:
+        out += _flat(list(t.elts)) if isinstance(t, ast.Tuple | ast.List) else [t]
+    return out
 
 
 class _Writes(ast.NodeVisitor):
@@ -188,7 +279,7 @@ class _Writes(ast.NodeVisitor):
     def visit_Assign(self, node: ast.Assign) -> None:
         if isinstance(node.value, ast.Attribute) and node.value.attr in OWNED:
             self.aliases |= {t.id for t in node.targets if isinstance(t, ast.Name)}
-        for t in node.targets:
+        for t in _flat(node.targets):  # ``self._channels, self._open = ...`` unpacks into each name
             if (isinstance(t, ast.Subscript) and self._owned(t)) or _attr(t) in OWNER_STORES:
                 self.writes = True
         self.generic_visit(node)
@@ -214,6 +305,10 @@ class _Writes(ast.NodeVisitor):
         func = node.func
         if isinstance(func, ast.Attribute) and func.attr in {"pop", "update", "clear", "setdefault", "popitem"}:
             self.writes |= self._owned(func.value)
+        if isinstance(func, ast.Attribute) and func.attr in {"fill", "put", "itemset", "sort", "resize"}:
+            self.writes |= self._owned(func.value)  # in-place array methods
+        if _attr(func) == "copyto" or (isinstance(func, ast.Name) and func.id == "copyto"):
+            self.writes |= bool(node.args) and self._owned(node.args[0])
         self.generic_visit(node)
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
@@ -253,6 +348,7 @@ KNOWN_WRITERS = {
     "simcore/core/grid.py::MaterialGrid.name_region",
     "simcore/core/grid.py::MaterialGrid.destroy",
     "simcore/core/grid.py::CellStore.writing",
+    "simcore/core/grid.py::CellStore._take_cells",
     "simcore/core/world.py::World.writing",
     "simcore/core/applier.py::Applier._ignite",
     "simcore/core/applier.py::Applier._extinguish",
@@ -276,7 +372,11 @@ def test_every_function_that_writes_the_world_is_in_the_core():
         "def f(w):\n    with w.writing() as s:\n        s['fire:x'] = 1\n",
         "def f(w):\n    with w.writing() as s:\n        del s['fire:x']\n",
         "class C:\n    def f(self):\n        self._sources = {}\n",
+        "class C:\n    def f(self):\n        self._channels, self._open = {}, True\n",
         "def f(g):\n    g.regions['x'].cells[:] = False\n",
+        "def f(g, x):\n    np.copyto(g.temperature, x)\n",
+        "def f(g):\n    g.temperature.fill(0.0)\n",
+        "def f(g):\n    g.integrity.put([0], 0.0)\n",
     ],
 )
 def test_the_writer_scan_catches(source):
@@ -307,7 +407,7 @@ WINDOW_OWNERS = {
     "simcore/core/applier.py::Applier._ignite": "intent application: ignite",
     "simcore/core/applier.py::Applier._extinguish": "intent application: douse",
     "simcore/core/scene.py::Scene.build": "construction",
-    "simcore/core/imagination.py::place": "the applier's imagine, which has no intent kind yet (§6.4)",
+    "simcore/core/imagination.py::_voxelize": "place, under a phase1/sim-clock marker: imagine has no intent kind yet",
 }
 
 
@@ -334,7 +434,7 @@ def test_only_the_named_owners_open_the_write_window():
 
 def test_the_shipped_path_publishes_a_frame_after_each_application_and_each_advance():
     w = _world()
-    _, crate = region_parts(w, "crate")
+    _, crate = region_parts(Applier(w), w.frames, "crate")
     seen = [w.frames.latest.sequence]
     assert crate["structure"].execute("ignite", {"power_w": 1000.0}).success
     seen.append(w.frames.latest.sequence)
@@ -344,4 +444,103 @@ def test_the_shipped_path_publishes_a_frame_after_each_application_and_each_adva
     seen.append(w.frames.latest.sequence)
     assert not crate["structure"].execute("strike", {"energy_j": -1.0}).success  # a refusal publishes nothing
     seen.append(w.frames.latest.sequence)
-    assert seen == [0, 1, 2, 3, 3]
+    assert seen == [0, 0, 1, 2, 2]  # an ignite changes no cell, so no frame (boundaries §4.2: on change)
+
+
+# -- the membrane and the protocol reach the world only through their capabilities (step 3b review, Arch S1, Exec S2)
+
+# Attributes that reach past the public surface: the world's grid, its sources and clock, a window, a frame's cells.
+PEEKS = {"grid", "sources", "advance", "writing", "cells", "publish", "_grid", "_sources", "_world", "_feed"}
+OUTSIDE_CORE = ("simcore/adapters/", "simcore/protocol/")
+
+
+def peeks(rel: str, source: str) -> list[str]:
+    return [
+        f"{rel}:{node.lineno}: reaches .{node.attr}"
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Attribute) and node.attr in PEEKS
+    ]
+
+
+def test_the_adapters_and_the_protocol_reach_no_world_state_by_attribute():
+    found = [
+        hit
+        for p in sorted(SRC.rglob("*.py"))
+        if p.relative_to(SRC).as_posix().startswith(OUTSIDE_CORE)
+        for hit in peeks(p.relative_to(SRC).as_posix(), p.read_text())
+    ]
+    assert not found, found
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "solid = world.grid.regions[region].solid",
+        "fires = w.sources",
+        "w.advance()",
+        "arr = frames.latest.cells.temperature",
+        "feed.publish(frame)",
+        "applier._world.grid",
+    ],
+)
+def test_the_peek_scan_catches(line):
+    assert peeks("x.py", line + "\n"), line
+
+
+def _contract(contract_id: str) -> dict[str, Any]:
+    contracts = tomllib.loads((ROOT / "pyproject.toml").read_text())["tool"]["importlinter"]["contracts"]
+    return next(c for c in contracts if c["id"] == contract_id)
+
+
+def reexports(rel: str, source: str, forbidden: set[str]) -> list[str]:
+    """``from simcore.core.<m> import <name>`` where the name is, or comes from, a forbidden module (a re-export)."""
+    out = []
+    for node in ast.walk(ast.parse(source)):
+        if not (isinstance(node, ast.ImportFrom) and (node.module or "").startswith("simcore.")):
+            continue
+        module = importlib.import_module(node.module or "")
+        for alias in node.names:
+            obj = getattr(module, alias.name, None)
+            origin = obj.__name__ if isinstance(obj, types.ModuleType) else getattr(obj, "__module__", None)
+            if origin in forbidden and node.module not in forbidden:
+                out.append(f"{rel}:{node.lineno}: {alias.name} from {node.module} is {origin}'s")
+    return out
+
+
+def _forbidden_for(rel: str) -> set[str]:
+    out: set[str] = set()
+    for cid in ("skip-layer", "membrane-reads-frames"):
+        contract = _contract(cid)
+        sources = [str(m).replace(".", "/") for m in contract["source_modules"]]
+        if any(rel.startswith(s) for s in sources):
+            out |= set(contract["forbidden_modules"])
+    return out
+
+
+def test_nothing_outside_the_core_imports_a_forbidden_module_through_an_allowed_one():
+    found = []
+    for p in sorted(SRC.rglob("*.py")):
+        rel = p.relative_to(SRC).as_posix()
+        if rel.startswith(OUTSIDE_CORE):
+            found += reexports(rel, p.read_text(), _forbidden_for(rel))
+    assert not found, found
+    assert _forbidden_for("simcore/adapters/sem/bridge.py") >= {"simcore.core.heat", "simcore.core.world"}
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "from simcore.core.frames import MaterialGrid",
+        "from simcore.core.applier import damage",
+        "from simcore.core.frames import damage, QUANTITIES",
+    ],
+)
+def test_the_reexport_scan_catches(line):
+    forbidden = _forbidden_for("simcore/protocol/encoding.py")
+    assert reexports("simcore/protocol/encoding.py", line + "\n", forbidden), line
+
+
+def test_the_world_window_has_one_owner_at_a_time_too():
+    w = _world()
+    with w.writing(cells=False), pytest.raises(WindowClosed, match="one owner at a time"), w.writing(cells=False):
+        pass  # pragma: no cover - the nested window is refused before its body runs

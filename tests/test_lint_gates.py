@@ -197,3 +197,106 @@ def test_the_protocol_members_are_maxims_own():
         protocol = getattr(sem, name)
         declared = {m for m in vars(protocol) if not m.startswith("_")}
         assert declared == members, name
+
+
+# -- evasions the step 3b review found (Trust S1, Architecture N5): each one is a finding ------------------------------
+
+EVASIONS_EVERYWHERE = [
+    "import yaml as y\nx = y.load(s, Loader=y.Loader)",
+    "from yaml import unsafe_load\nx = unsafe_load(s)",
+    "from yaml import load, Loader\nx = load(s, Loader=Loader)",
+    "import yaml\nf = getattr(yaml, 'unsafe_load')",
+    "import importlib\nm = importlib.import_module('pickle')",
+    "m = __import__('pickle')",
+    "import _pickle",
+    "a = np.load(p, allow_pickle=flag)",
+    "a = np.load(p, **{'allow_pickle': True})",
+    "import numpy as n\na = n.load(p, allow_pickle=True)",
+    "a = numpy.lib.format.read_array(f, allow_pickle=True)",
+    "x = builtins.eval(s)",
+    "x = builtins.exec(s)",
+    "e = eval\nx = e(s)",
+]
+
+
+@pytest.mark.parametrize("source", EVASIONS_EVERYWHERE)
+def test_an_evasive_spelling_of_an_unsafe_decoder_is_a_finding_anywhere(source):
+    for rel in ("src/simcore/adapters/loaders.py", "scripts/x.py", "tests/test_x.py"):
+        assert inputs.unsafe_findings(rel, source + "\n"), (rel, source)
+
+
+EVASIONS_IN_SRC = [
+    "import numpy as n\na = n.load(p)",
+    "from numpy import load as ld\na = ld(p)",
+    "from os import environ as env\nv = env['X']",
+    "import sys as s\na = s.argv",
+    "import json as j\nx = j.loads(raw)",
+    "import tomllib\nx = tomllib.loads(raw)",
+    "import importlib\nm = importlib.import_module(name)",
+    "m = __import__(name)",
+    "v = getattr(obj, name)",
+    "import fileinput\nfor line in fileinput.input():\n    pass",
+]
+
+
+@pytest.mark.parametrize("source", EVASIONS_IN_SRC)
+def test_an_evasive_input_primitive_in_the_engine_is_a_finding(source):
+    assert inputs.input_findings("src/simcore/protocol/encoding.py", source + "\n"), source
+
+
+def test_a_literal_getattr_and_an_aliased_safe_loader_are_not_findings():
+    assert inputs.input_findings("src/simcore/core/x.py", "v = getattr(obj, 'name', None)\n") == []
+    safe = "import yaml as y\nx = y.load(s, Loader=y.SafeLoader)\n"
+    assert inputs.unsafe_findings("tests/test_x.py", safe) == []
+
+
+# -- registry gaps (Trust S2, S3, N7) ---------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "src/simcore/core/applier.py::Applier.apply",
+        "src/simcore/core/scene.py::primitives_from_data",
+        "src/simcore/core/scene.py::Box",
+        "src/simcore/core/scene.py::Cylinder",
+        "src/simcore/core/materials.py::Material",
+        "src/simcore/core/materials.py::MaterialTable",
+        "src/simcore/core/limits.py::ActionLimits",
+        "src/simcore/core/world.py::HeatSource",
+    ],
+)
+def test_every_constructor_and_stage_two_entry_that_untrusted_data_reaches_has_a_row(name):
+    assert name in gates.GATES
+
+
+def test_a_subclass_that_overrides_a_modulators_execute_needs_a_row():
+    files = _repo_files()
+    rel = "src/simcore/adapters/doors.py"
+    files[rel] = (
+        "from simcore.adapters.sem.bridge import StructureModulator\n\n\n"
+        "class Door(StructureModulator):\n    def execute(self, affordance, params):\n        return None\n"
+    )
+    assert f"gate registry: {rel}::Door.execute is an entry point with no row" in gates.check_gates(files)
+
+
+def test_an_agent_facing_gate_does_not_claim_the_closed_code_vocabulary_it_lacks():
+    for name in (
+        "src/simcore/adapters/sem/bridge.py::StructureModulator.execute",
+        "src/simcore/core/imagination.py::place",
+        "src/simcore/core/intents.py::parse_action",
+        "src/simcore/core/applier.py::Applier.apply",
+    ):
+        assert gates.GATES[name].status.startswith("partial: "), name
+
+
+def test_a_test_module_names_its_gate_as_code_not_in_a_comment_or_a_string():
+    files = _repo_files()
+    files["tests/test_x.py"] = "# unit, read and value\nx = 'name'\n"
+    rows = {
+        "src/simcore/adapters/sem/bridge.py::RegionInstrument.unit": gates.Gate(
+            "validation", "tests/test_x.py", "no input"
+        )
+    }
+    problems = gates.check_gates(files, rows)
+    assert any("tests/test_x.py never names unit" in p for p in problems)

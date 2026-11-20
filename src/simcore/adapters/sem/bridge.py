@@ -23,7 +23,6 @@ from simcore.core.applier import Applier, Outcome
 from simcore.core.checks import entity_key, shown
 from simcore.core.frames import QUANTITIES, FrameSource
 from simcore.core.intents import ActionRefused, parse_action
-from simcore.core.world import World
 
 if TYPE_CHECKING:
     # Type-check against Maxim's own classes; tests/test_sem_compat.py holds the _compat mirror to the same fields.
@@ -55,9 +54,9 @@ class RegionInstrument:
     """
 
     def __init__(self, frames: FrameSource, region: str, quantity: str) -> None:
-        if quantity not in QUANTITIES:
+        if not isinstance(quantity, str) or quantity not in QUANTITIES:
             raise ValueError(f"unknown region quantity {shown(quantity)}")
-        if region not in frames.latest.region_names:
+        if not isinstance(region, str) or region not in frames.latest.region_names:
             raise ValueError(f"no region {shown(region)} in this world")
         self._frames, self._region, self._quantity = frames, region, quantity
 
@@ -110,7 +109,7 @@ class StructureModulator:
 
     def __init__(self, applier: Applier, frames: FrameSource, region: str) -> None:
         frame = frames.latest
-        if region not in frame.region_names:
+        if not isinstance(region, str) or region not in frame.region_names:
             raise ValueError(f"no region {shown(region)} in this world")
         if not frame.is_solid(region):
             raise ValueError(f"region {shown(region)} is air: there is no structure to act on")
@@ -206,21 +205,23 @@ class StructureModulator:
         return shown(name) if type(name) in (str, int, float) else f"<a {type(name).__name__}>"
 
 
-def region_parts(world: World, region: str) -> tuple[dict[str, RegionInstrument], dict[str, StructureModulator]]:
-    """One region's instruments and modulators. They keep the world's frame feed and an applier, never the world."""
-    frames = world.frames
+def region_parts(
+    applier: Applier, frames: FrameSource, region: str
+) -> tuple[dict[str, RegionInstrument], dict[str, StructureModulator]]:
+    """One region's instruments and modulators, built from the two capabilities the membrane is given: an applier to
+    change the world and a frame view to read it. It never receives the world (step 3b review, Architecture S1)."""
     sensors = {q: RegionInstrument(frames, region, q) for q in QUANTITIES}
     # An air region (a room, a doorway) is sensed, but it has no structure: nothing to strike or set alight.
     solid = frames.latest.is_solid(region)
-    modulators = {"structure": StructureModulator(Applier(world), frames, region)} if solid else {}
+    modulators = {"structure": StructureModulator(applier, frames, region)} if solid else {}
     return sensors, modulators
 
 
-def to_maxim_entity(world: World, region: str, entity_type: str = "structure") -> Entity:
-    """A real Maxim Entity for one region. Requires pymaxim."""
+def to_maxim_entity(applier: Applier, frames: FrameSource, region: str, entity_type: str = "structure") -> Entity:
+    """A real Maxim Entity for one region, from the membrane's two capabilities. Requires pymaxim."""
     if not HAVE_MAXIM:
         raise RuntimeError("pymaxim is not installed: pip install 'maxim-overdrive[maxim]'")
-    sensors, modulators = region_parts(world, region)
+    sensors, modulators = region_parts(applier, frames, region)
     return Entity(
         region,
         entity_type,

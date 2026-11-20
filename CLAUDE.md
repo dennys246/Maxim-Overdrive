@@ -104,8 +104,10 @@ result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` dr
   Don't add fields Maxim doesn't have.
 - Imagined objects enter only through `simcore.core.imagination.place`, which validates them. Never write cells
   directly from LLM output.
-- Actions change cells, through `simcore.core.applier` only; only `World.advance` moves time. Both write inside the
-  write window, and observers read published frames, never the world.
+- Actions change cells through `simcore.core.applier`, and imagined objects through `place`, until step 5a makes
+  `imagine` an intent kind; only `World.advance` moves time. Every write happens inside the write window. The SEM
+  membrane is handed an applier and a frame view, never the world, and the import contracts and the ownership scans
+  hold it to them.
 - Record known physics gaps in `docs/architecture.md` ("Known gaps"), with numbers, instead of hiding them.
 
 ## Engineering standards

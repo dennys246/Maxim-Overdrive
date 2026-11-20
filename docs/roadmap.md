@@ -46,7 +46,9 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   rig: plan step 5a's fixed physics step replaces it with an accuracy floor per step length.
 - The write window's two owners before `Simulation` exists, marked band-aids (`docs/design/boundaries.md` §4.1, 2c):
   `World.advance` in `src/simcore/core/world.py` and the intent applier in `src/simcore/core/applier.py` open the
-  window themselves; `phase1/sim-clock` moves both into `Simulation.step`.
+  window themselves; `phase1/sim-clock` moves both into `Simulation.step`. A third, `place` in
+  `src/simcore/core/imagination.py`, opens it because the `imagine` intent kind doesn't exist yet; step 5a's intent
+  log, where every input joins one pipeline, makes it the applier's stage 2 of that kind.
 - The SEM membrane applies synchronously with no log, a marked band-aid in `src/simcore/adapters/sem/bridge.py`
   (`docs/design/boundaries.md` §6.4): `phase1/agents` makes `execute` only parse, check the bound actor and append
   the intent to the stepping agent's outbox.

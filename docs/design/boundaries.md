@@ -73,12 +73,8 @@ Surveyed on `phase1/act-validation` at 2f200b5 (Executor confirmed each item):
 - No module imports `time`, `random`, `datetime`, `uuid`, `os`, `importlib` or `__import__`. **But** the core does
   reach `pathlib` and `yaml` (`config.py`, file IO on every `World.from_scene` without a table) and `scipy`
   (`damage.py`: `ndimage`, `special.ndtr`). Those bear on determinism (D-N1, D-B2).
-- The code that writes the world on the shipped path lives outside `world/`: `bridge.StructureModulator._strike`
-  (through `damage.strike`), `_ignite` and `apply` (which set and pop `World.sources`), and `imagination.spec.place`
-  (D-B1).
-- Several "typed, frozen" objects are neither deeply frozen nor validated: `Region.cells` is a writable mask in a
-  frozen dataclass; `MaterialTable` is mutable with public arrays; `RigProfile`, `Material` and `Budget` construct
-  invalid values (TB-B2).
+- The world's writers lived outside `world/`, in the bridge and `place` (D-B1); objects called frozen were neither
+  deeply frozen nor validated (TB-B2). Both fixed in 3b.
 - `data/` holds rigs, the material table (physical properties mixed with calibrations the file itself labels
   "GAMEPLAY CALIBRATION"), and action limits.
 
@@ -742,10 +738,12 @@ major version is proposed.
   `lint_imports_command()` with `PYTHONPATH="$PWD/src"` (`-m importlinter.cli` checks nothing). The game package
   exists from 3a, holding only `data.py`, against §2.1; §3's ban covers `logging` too.
 - **As built in 3b(a) (2026-11-20):** a frame holds the read-only owners, which no window writes in place, so it
-  needs no copy; it is stamped by publication sequence and `time_s` until the tick. The window copies in every
-  build (O8's switch has no way into the core). `place` opens it too: `imagine` has no intent kind yet. The
-  skip-layer rule covers `encoding` (it reads a frame). The registry adds a `no input` status. `Budget` values stay
-  engine defaults until game data carries them (O23).
+  needs no copy, but it pins a whole grid (about 100 MB at 5×10⁶ cells; one pinned per agent is a B5
+  row). Stamped by sequence and `time_s` until the tick. A cell window copies all four channels
+  twice in every build, even one that changes nothing (O8's switch can't reach the core); a sources-only window
+  copies none and publishes nothing. `place` opens it too (marked for 5a; `imagine` has no intent kind). The
+  membrane gets an applier and a frame view, not the world. Skip-layer covers `encoding`. The registry adds
+  `no input` and `partial`. `Budget` values are engine defaults (O23).
 - A tooling test asserts grimp resolves each root package under this repo's `src/`.
 - `.import_linter_cache/` goes in `.gitignore` (or `--no-cache`), so the gate doesn't dirty the tree.
 - `importlinter` joins the preflight import line in `prepush.sh`.

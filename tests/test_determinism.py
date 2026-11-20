@@ -17,6 +17,7 @@ import pytest
 
 from maxim_overdrive import data
 from simcore.adapters.sem.bridge import region_parts
+from simcore.core.applier import Applier
 from simcore.core.scene import Box, Scene
 from simcore.core.world import World
 from tests.conftest import FAST_SPACINGS
@@ -42,9 +43,9 @@ fast_spacings = pytest.mark.parametrize("dx_m", FAST_SPACINGS)
 def run(dx_m: float) -> World:
     """Fire on the crate and a strike on the wall: heat, thermal degradation, thermal and mechanical destruction."""
     w = World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
-    _, crate = region_parts(w, "crate")
+    _, crate = region_parts(Applier(w), w.frames, "crate")
     assert crate["structure"].execute("ignite", {"power_w": FIRE_W, "radius_m": 0.3}).success
-    _, wall = region_parts(w, "wall")
+    _, wall = region_parts(Applier(w), w.frames, "wall")
     assert wall["structure"].execute("strike", {"energy_j": 2.0e7, "sigma_m": 0.2}).success
     for _ in range(TURNS):
         w.advance()
@@ -72,7 +73,7 @@ def digest(w: World) -> str:
 def test_the_scenario_exercises_burning(dx_m):
     """Guard on the guard: if the fire stops reaching degradation, the determinism tests below test too little."""
     w = run(dx_m)
-    sensors, _ = region_parts(w, "crate")
+    sensors, _ = region_parts(Applier(w), w.frames, "crate")
     assert sensors["integrity"].value() < 0.9  # thermal degradation ran
     original_crate = w.grid.regions["crate"].cells & (w.grid.original_material != 0)
     assert (original_crate & ~w.grid.solid).any()  # and destroyed crate cells
@@ -87,7 +88,7 @@ TURN_SUBSTEPS = {0.2: 4, 0.1: 16, 0.05: 64}
 @fast_spacings
 def test_each_turn_takes_the_substeps_the_rigs_took(dx_m):
     w = World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
-    _, crate = region_parts(w, "crate")
+    _, crate = region_parts(Applier(w), w.frames, "crate")
     assert crate["structure"].execute("ignite", {"power_w": FIRE_W, "radius_m": 0.3}).success
     assert [w.advance() for _ in range(3)] == [TURN_SUBSTEPS[dx_m]] * 3
 

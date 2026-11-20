@@ -40,7 +40,7 @@ def _world(dx_m=0.2):
 
 
 def _structure(world):
-    return region_parts(world, "crate")[1]["structure"]
+    return region_parts(Applier(world), world.frames, "crate")[1]["structure"]
 
 
 def _apply(world, action):
@@ -166,7 +166,7 @@ def test_a_target_is_accepted_only_when_it_is_this_region():
     assert frozenset({"target"}) == CALL_KEYS
     scene = Scene(SCENE.extent_m, (*SCENE.primitives, Box((0, 0, 0), (0.6, 3, 2), "concrete", "wall")))
     w = World.from_scene(scene, MATERIALS, dx_m=0.2, limits=LIMITS)
-    crate, wall = to_maxim_entity(w, "crate"), to_maxim_entity(w, "wall")
+    crate, wall = to_maxim_entity(Applier(w), w.frames, "crate"), to_maxim_entity(Applier(w), w.frames, "wall")
     s = crate.modulators["structure"]
     for target in [None, crate, "crate", "Crate"]:  # case-insensitive, as Maxim's EntityMap resolves names
         assert s.execute("ignite", {"power_w": 1000.0, "target": target}).success, target
@@ -243,8 +243,8 @@ def test_a_region_that_is_gone_refuses_in_words_the_agent_can_use():
         res = s.execute(affordance, params)
         assert not res.success
         assert res.error == "the crate is gone"
-    with pytest.raises(ActionRefused, match="the crate is gone"):
-        Applier(w).centroid_m("crate")  # a direct caller gets the refusal, not a guess
+    out = Applier(w).apply("crate", Strike(1.0, LIMITS.default_sigma_m, None))  # a direct caller gets the refusal
+    assert (out.success, out.error) == (False, "the crate is gone")
 
 
 def test_extinguishing_nothing_is_refused_in_words():
@@ -265,7 +265,7 @@ WOOD_FLAME_C = 2000.0  # wood's adiabatic flame temperature: no fire on wood may
 
 def _burn_every_turn(dx_m, turns):
     w = World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
-    s, m = region_parts(w, "crate")
+    s, m = region_parts(Applier(w), w.frames, "crate")
     assert m["structure"].execute("ignite", {"power_w": LIMITS.max_power_w, "radius_m": LIMITS.min_radius_m}).success
     history = []
     for _ in range(turns):
@@ -296,7 +296,7 @@ CONCRETE_THRESHOLD_J = 2.0e7 * (2 * math.pi) ** 1.5 * 0.2**3  # where a 0.2 m st
 def _block_strike(dx_m, energy_j, thickness_m=1.8, x0=0.6):
     scene = Scene((3.0, 3.0, 2.0), (Box((x0, 0.2, 0), (x0 + thickness_m, 2.8, 1.8), "concrete", "block"),))
     w = World.from_scene(scene, MATERIALS, dx_m=dx_m, limits=LIMITS)
-    sensors, mods = region_parts(w, "block")
+    sensors, mods = region_parts(Applier(w), w.frames, "block")
     point = [x0 + thickness_m / 2, 1.5, 0.9]
     res = mods["structure"].execute("strike", {"energy_j": energy_j, "sigma_m": 0.2, "point_m": point})
     assert res.success
@@ -336,7 +336,7 @@ def test_a_strike_at_any_face_of_a_region_off_the_coarse_grid_is_judged_the_same
     middle = [(a + b) / 2 for a, b in zip(lo, hi, strict=True)]
     for dx_m in spacings:
         w = World.from_scene(scene, MATERIALS, dx_m=dx_m, limits=LIMITS)
-        s = region_parts(w, "crate")[1]["structure"]
+        s = region_parts(Applier(w), w.frames, "crate")[1]["structure"]
         for axis in range(3):
             for edge, outward in [(lo[axis] - sigma, -9.0), (hi[axis] + sigma, 9.0)]:
                 at, past = list(middle), list(middle)
@@ -353,7 +353,7 @@ def test_a_strike_past_a_regions_face_into_another_region_belongs_to_that_region
     room = Box((0.6, 0.6, 0), (2.4, 2.4, 1.2), "air", "room")  # an air room never owns a point
     for dx_m in spacings:
         w = World.from_scene(Scene((3.0, 3.0, 2.0), (room, crate, wall)), MATERIALS, dx_m=dx_m, limits=LIMITS)
-        parts = {r: region_parts(w, r)[1]["structure"] for r in ("crate", "wall")}
+        parts = {r: region_parts(Applier(w), w.frames, r)[1]["structure"] for r in ("crate", "wall")}
         before = _state(w)
         res = parts["crate"].execute("strike", {"energy_j": 1e7, "point_m": [1.85, 1.5, 0.3]})
         assert res.error == "point_m is not on the crate", dx_m
@@ -413,7 +413,7 @@ def test_an_npc_tool_call_through_maxim_is_refused_or_applied_the_same_way():
     from simcore.adapters.sem.bridge import to_maxim_entity  # noqa: PLC0415
 
     w = _world()
-    tools = generate_tools_for_entity(to_maxim_entity(w, "crate"), ToolRegistry())
+    tools = generate_tools_for_entity(to_maxim_entity(Applier(w), w.frames, "crate"), ToolRegistry())
     ignite = next(t for t in tools if t.name == "crate_ignite")
     refused = ignite.execute(power_w=math.nan)
     assert not refused.success
@@ -674,8 +674,8 @@ def test_maxims_actor_tool_must_name_the_region_as_its_own_target():
     npc = Entity("npc", "body")
     entities = EntityMap()
     entities.register_self(npc)
-    entities.register_scene(to_maxim_entity(w, "crate"))
-    entities.register_scene(to_maxim_entity(w, "wall"))
+    entities.register_scene(to_maxim_entity(Applier(w), w.frames, "crate"))
+    entities.register_scene(to_maxim_entity(Applier(w), w.frames, "wall"))
     actor = OrchestratorActorTool(embodiment=Embodiment(npc), entity_map=entities)
     ignite = {"entity": "crate", "affordance": "ignite", "params": {"power_w": 1000.0}}
     default = actor.run(**ignite)
@@ -700,7 +700,7 @@ def test_maxims_affordance_tool_accepts_only_the_region_itself_as_a_target(targe
         dx_m=0.2,
         limits=LIMITS,
     )
-    crate = to_maxim_entity(w, "crate")
+    crate = to_maxim_entity(Applier(w), w.frames, "crate")
     structure = crate.modulators["structure"]
     tool = ModulatorAffordanceTool(
         entity=crate,
@@ -748,7 +748,7 @@ def test_a_fire_lands_on_the_authored_centroid_at_every_rig(spacings):
     scene = Scene((3.0, 3.0, 2.0), (Box((1.25, 1.25, 0.25), (1.75, 1.75, 0.85), "wood", "crate"),))
     for dx_m in spacings:
         w = World.from_scene(scene, MATERIALS, dx_m=dx_m, limits=LIMITS)
-        assert region_parts(w, "crate")[1]["structure"].execute("ignite", {"power_w": 1.0}).success
+        assert region_parts(Applier(w), w.frames, "crate")[1]["structure"].execute("ignite", {"power_w": 1.0}).success
         assert w.sources["fire:crate"].point_m == (1.5, 1.5, 0.55), dx_m
 
 
@@ -779,18 +779,18 @@ def test_an_air_region_has_no_structure_to_act_on():
 
     room = Box((0.6, 0.6, 0), (2.4, 2.4, 1.2), "air", "room")
     w = World.from_scene(Scene(SCENE.extent_m, (room, *SCENE.primitives)), MATERIALS, dx_m=0.2, limits=LIMITS)
-    sensors, mods = region_parts(w, "room")
+    sensors, mods = region_parts(Applier(w), w.frames, "room")
     assert mods == {}
     assert "temperature_mean" in sensors  # still sensed
     with pytest.raises(ValueError, match="'room' is air"):
         StructureModulator(Applier(w), w.frames, "room")
-    assert to_maxim_entity(w, "room").modulators == {}
+    assert to_maxim_entity(Applier(w), w.frames, "room").modulators == {}
 
 
 def test_targets_resolve_by_maxims_own_name_rule():
     scene = Scene(SCENE.extent_m, (Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", "fire door"), *SCENE.primitives))
     w = World.from_scene(scene, MATERIALS, dx_m=0.2, limits=LIMITS)
-    crate, door = (region_parts(w, r)[1]["structure"] for r in ("crate", "fire door"))
+    crate, door = (region_parts(Applier(w), w.frames, r)[1]["structure"] for r in ("crate", "fire door"))
     for target in ["crate", " Crate ", "CRATE"]:
         assert crate.execute("ignite", {"power_w": 1.0, "target": target}).success, target
     assert door.execute("ignite", {"power_w": 1.0, "target": "fire_door"}).success  # Maxim's spaces-as-underscores
@@ -817,7 +817,7 @@ def test_a_fire_on_a_region_carved_hollow_heats_the_region_not_air(spacings):
     doorway = Box((1.0, 1.0, 0.0), (1.6, 2.0, 2.0), "air", "doorway")
     for dx_m in spacings:
         w = World.from_scene(Scene((3.0, 3.0, 2.0), (wall, doorway)), MATERIALS, dx_m=dx_m, limits=LIMITS)
-        res = region_parts(w, "wall")[1]["structure"].execute("ignite", {"power_w": 1000.0})
+        res = region_parts(Applier(w), w.frames, "wall")[1]["structure"].execute("ignite", {"power_w": 1000.0})
         if res.success:  # a fix may refuse the fire, or place it on the wall; either way it must not heat only air
             source = w.sources["fire:wall"]
             own = w.grid.regions["wall"].cells & w.grid.solid
@@ -836,7 +836,7 @@ def test_an_entity_that_only_shares_the_regions_name_is_not_the_region():
 def test_target_names_follow_maxims_lower_not_casefold():
     scene = Scene(SCENE.extent_m, (Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", "straße"),))
     w = World.from_scene(scene, MATERIALS, dx_m=0.2, limits=LIMITS)
-    s = region_parts(w, "straße")[1]["structure"]
+    s = region_parts(Applier(w), w.frames, "straße")[1]["structure"]
     assert s.execute("ignite", {"power_w": 1.0, "target": "STRASSE"}).success is False  # casefold would match
     assert s.execute("ignite", {"power_w": 1.0, "target": "Straße"}).success
 
@@ -845,3 +845,12 @@ def test_target_names_follow_maxims_lower_not_casefold():
 def test_a_name_with_outer_spaces_is_refused(name):
     with pytest.raises(ValueError, match="no outer spaces"):
         Box((0, 0, 0), (1, 1, 1), "wood", name)
+
+
+def test_each_actions_own_check_refuses_past_its_limits():
+    # The stage-1 limit check, called directly as the applier calls it (step 3b review: the registry's rows name it).
+    with pytest.raises(ActionRefused, match="energy_j must be between"):
+        Strike(LIMITS.max_energy_j * 2, LIMITS.default_sigma_m, None).check(LIMITS)
+    with pytest.raises(ActionRefused, match="radius_m must be between"):
+        Ignite(1.0, LIMITS.max_radius_m * 2).check(LIMITS)
+    Extinguish().check(LIMITS)  # takes nothing, so refuses nothing

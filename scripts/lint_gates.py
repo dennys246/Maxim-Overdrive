@@ -6,8 +6,12 @@ or it is a gate-to-be with the step that hardens it). The check is mechanical, n
 
 - every public callable defined in a gate module (``GATE_MODULES``) has a row, so a new ``handle(raw)`` there fails;
 - every public method of a class implementing one of Maxim's SEM protocols (``Sensor``, ``Modulator``) anywhere in
-  ``src/`` has a row, since Maxim's objects reach the engine only through those methods; a new ``Modulator`` fails;
-- every row names a callable that exists, and its test module exists and names it;
+  ``src/`` has a row, since Maxim's objects reach the engine only through those methods; a class implements one when
+  its body defines the protocol's members or a base class it names does, so a new ``Modulator`` fails, and so does a
+  subclass of one that overrides ``execute``. (Members set in ``__init__`` or bases reached through an alias are not
+  seen.)
+- every row names a callable that exists, and its test module exists and uses that name as code (a name, an
+  attribute or an import, not a comment or a string);
 - every input gate (``lint_inputs.INPUT_GATES``) is a gate module.
 
 Each gate module is held at 100% branch coverage by the repository's floor (``pyproject.toml``, ``fail_under``).
@@ -33,13 +37,18 @@ EXCEPTION_BASES = {"Exception", "ValueError", "TypeError", "RuntimeError", "KeyE
 class Gate:
     kind: str
     tests: str  # the module that holds its rejection paths
-    status: str  # "meets", "no input", or "to-be: <the step or backlog row that hardens it>"
+    status: str  # "meets", "no input", "partial: <what is missing>", or "to-be: <the step that hardens it>"
 
 
 _V = "validation"
 _ACT = "tests/test_act_validation.py"
 _VAL = "tests/test_validation.py"
 _SEM = "tests/test_sem_bridge.py"
+_CON = "tests/test_constructors.py"
+_EXT = "tests/test_extremes.py"
+# §5.4 asks anything agent-facing (errors, receipts) to answer in a closed code vocabulary. These gates answer an LLM's
+# input in free text today, bounded by checks.shown, so they meet every clause but that one (step 3b review, Trust S3).
+_FREE_TEXT = "partial: free-text refusals until the refusal-code enum (plan step 3b part b, WT-S1)"
 
 GATE_MODULES = (
     "src/simcore/adapters/loaders.py",
@@ -50,29 +59,39 @@ GATE_MODULES = (
 )
 
 GATES: dict[str, Gate] = {
-    # file gates: strict YAML, a version, closed keys, ValueError only, bounded echo
+    # file gates: strict YAML, a version, closed keys, ValueError only, bounded echo; not agent-facing
     "src/simcore/adapters/loaders.py::read_yaml": Gate(_V, _ACT, "meets"),
     "src/simcore/adapters/loaders.py::load_materials": Gate(_V, _VAL, "meets"),
     "src/simcore/adapters/loaders.py::load_action_limits": Gate(_V, _ACT, "meets"),
     "src/simcore/protocol/tiers.py::RigProfile": Gate(_V, _VAL, "meets"),
     "src/simcore/protocol/tiers.py::RigProfile.load": Gate(_V, _VAL, "meets"),
+    # validating constructors the loaders and the actions build (§5.1)
+    "src/simcore/core/materials.py::Material": Gate(_V, _CON, "meets"),
+    "src/simcore/core/materials.py::MaterialTable": Gate(_V, _CON, "meets"),
+    "src/simcore/core/limits.py::ActionLimits": Gate(_V, _ACT, "meets"),
+    "src/simcore/core/world.py::HeatSource": Gate(_V, _ACT, "meets"),
     # stage 1 of every action: typed parsing, finiteness and ceilings
-    "src/simcore/core/intents.py::parse_action": Gate(_V, _ACT, "meets"),
-    "src/simcore/core/intents.py::Strike": Gate(_V, _ACT, "meets"),
-    "src/simcore/core/intents.py::Strike.check": Gate(_V, _ACT, "meets"),
-    "src/simcore/core/intents.py::Ignite": Gate(_V, _ACT, "meets"),
-    "src/simcore/core/intents.py::Ignite.check": Gate(_V, _ACT, "meets"),
+    "src/simcore/core/intents.py::parse_action": Gate(_V, _ACT, _FREE_TEXT),
+    "src/simcore/core/intents.py::Strike": Gate(_V, _ACT, _FREE_TEXT),
+    "src/simcore/core/intents.py::Strike.check": Gate(_V, _ACT, _FREE_TEXT),
+    "src/simcore/core/intents.py::Ignite": Gate(_V, _ACT, _FREE_TEXT),
+    "src/simcore/core/intents.py::Ignite.check": Gate(_V, _ACT, _FREE_TEXT),
     "src/simcore/core/intents.py::Extinguish": Gate(_V, _ACT, "no input"),
     "src/simcore/core/intents.py::Extinguish.check": Gate(_V, _ACT, "no input"),
+    # stage 2: the world checks, which the host's step will call directly from phase1/agents
+    "src/simcore/core/applier.py::Applier.apply": Gate("authorization", _CON, _FREE_TEXT),
     # imagined objects: spec constructors, budgets before allocation, then the world's rules
-    "src/simcore/core/imagination.py::Budget": Gate(_V, _VAL, "meets"),
-    "src/simcore/core/imagination.py::place": Gate(_V, "tests/test_imagination.py", "meets"),
+    "src/simcore/core/imagination.py::Budget": Gate(_V, _CON, "meets"),
+    "src/simcore/core/imagination.py::place": Gate(_V, "tests/test_imagination.py", _FREE_TEXT),
+    "src/simcore/core/scene.py::primitives_from_data": Gate(_V, _VAL, _FREE_TEXT),
+    "src/simcore/core/scene.py::Box": Gate(_V, _EXT, _FREE_TEXT),
+    "src/simcore/core/scene.py::Cylinder": Gate(_V, _EXT, _FREE_TEXT),
     "src/simcore/core/scene.py::Scene.from_dict": Gate(_V, _VAL, "to-be: scene v1 (plan step 3b part b)"),
     # the SEM membrane: Maxim's calls arrive through these methods
     "src/simcore/adapters/sem/bridge.py::StructureModulator": Gate(_V, _VAL, "meets"),
     "src/simcore/adapters/sem/bridge.py::StructureModulator.affordances": Gate(_V, _ACT, "no input"),
-    "src/simcore/adapters/sem/bridge.py::StructureModulator.execute": Gate("authorization", _ACT, "meets"),
-    "src/simcore/adapters/sem/bridge.py::RegionInstrument": Gate(_V, _VAL, "meets"),
+    "src/simcore/adapters/sem/bridge.py::StructureModulator.execute": Gate("authorization", _ACT, _FREE_TEXT),
+    "src/simcore/adapters/sem/bridge.py::RegionInstrument": Gate(_V, "tests/test_frames.py", "meets"),
     "src/simcore/adapters/sem/bridge.py::RegionInstrument.name": Gate(_V, _VAL, "no input"),
     "src/simcore/adapters/sem/bridge.py::RegionInstrument.unit": Gate(_V, _VAL, "no input"),
     "src/simcore/adapters/sem/bridge.py::RegionInstrument.reading_schema": Gate(_V, _VAL, "no input"),
@@ -83,9 +102,49 @@ GATES: dict[str, Gate] = {
 }
 
 
+def _base_names(node: ast.ClassDef) -> set[str]:
+    return {b.id if isinstance(b, ast.Name) else getattr(b, "attr", "") for b in node.bases}
+
+
 def _is_exception(node: ast.ClassDef) -> bool:
-    names = {b.id if isinstance(b, ast.Name) else getattr(b, "attr", "") for b in node.bases}
+    names = _base_names(node)
     return bool(names & EXCEPTION_BASES) or any(n.endswith("Error") for n in names)
+
+
+@dataclass(frozen=True)
+class _Class:
+    qualified: str  # path::Name
+    bases: frozenset[str]  # each base's last name
+    methods: tuple[str, ...]  # public methods defined in its own body
+    names: frozenset[str]  # every name its body defines
+
+
+def _module_entries(rel: str, source: str) -> tuple[set[str], list[_Class]]:
+    """A module's public top-level callables, and its public classes (exceptions aside)."""
+    public: set[str] = set()
+    classes: list[_Class] = []
+    for node in ast.parse(source).body:
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and not node.name.startswith("_"):
+            public.add(f"{rel}::{node.name}")
+        elif isinstance(node, ast.ClassDef) and not node.name.startswith("_") and not _is_exception(node):
+            methods, names = _members(node)
+            classes.append(
+                _Class(f"{rel}::{node.name}", frozenset(_base_names(node)), tuple(methods), frozenset(names))
+            )
+            public |= {f"{rel}::{node.name}"} | {f"{rel}::{node.name}.{m}" for m in methods}
+    return public, classes
+
+
+def _protocol_classes(classes: list[_Class]) -> set[str]:
+    """Classes implementing a Maxim protocol: by their members, or by inheriting from one that does, so a subclass
+    that overrides ``execute`` and inherits the rest is one too (step 3b review, Trust S2)."""
+    found = {c.qualified for c in classes if any(m <= c.names for m in MAXIM_PROTOCOLS.values())}
+    while True:
+        short = {q.rsplit("::", 1)[-1] for q in found}
+        more = {c.qualified for c in classes if c.bases & short} - found
+        if not more:
+            return found
+        found |= more
 
 
 def _members(node: ast.ClassDef) -> tuple[list[str], set[str]]:
@@ -96,20 +155,17 @@ def _members(node: ast.ClassDef) -> tuple[list[str], set[str]]:
     return [m for m in methods if not m.startswith("_")], set(methods) | assigned
 
 
-def entry_points(rel: str, source: str) -> tuple[set[str], set[str]]:
-    """(every public callable, the public methods of every Maxim-protocol class) defined at a module's top level."""
-    public: set[str] = set()
-    protocol: set[str] = set()
-    for node in ast.parse(source).body:
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and not node.name.startswith("_"):
-            public.add(f"{rel}::{node.name}")
-        elif isinstance(node, ast.ClassDef) and not node.name.startswith("_") and not _is_exception(node):
-            methods, names = _members(node)
-            qualified = {f"{rel}::{node.name}.{m}" for m in methods}
-            public |= {f"{rel}::{node.name}"} | qualified
-            if any(members <= names for members in MAXIM_PROTOCOLS.values()):
-                protocol |= qualified
-    return public, protocol
+def _identifiers(source: str) -> set[str]:
+    """The names a test module uses as code: names, attributes, imported names. Not comments, not strings."""
+    out: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Name):
+            out.add(node.id)
+        elif isinstance(node, ast.Attribute):
+            out.add(node.attr)
+        elif isinstance(node, ast.alias):
+            out.add((node.asname or node.name).split(".")[-1])
+    return out
 
 
 def _row_problems(name: str, gate: Gate, defined: set[str], files: dict[str, str]) -> list[str]:
@@ -118,12 +174,15 @@ def _row_problems(name: str, gate: Gate, defined: set[str], files: dict[str, str
         out.append(f"gate registry: {name} names no public callable")
     if gate.kind not in KINDS:
         out.append(f"gate registry: {name} has kind {gate.kind!r}; it must be one of {sorted(KINDS)}")
-    if gate.status not in ("meets", "no input") and not gate.status.startswith("to-be: "):
-        out.append(f"gate registry: {name} has status {gate.status!r}; it meets, takes no input, or is 'to-be: <step>'")
+    if gate.status not in ("meets", "no input") and not gate.status.startswith(("to-be: ", "partial: ")):
+        out.append(
+            f"gate registry: {name} has status {gate.status!r}; "
+            "it meets, takes no input, or is 'partial: <what>' or 'to-be: <step>'"
+        )
     short = name.rsplit("::", 1)[-1].rsplit(".", 1)[-1]
     if gate.tests not in files:
         out.append(f"gate registry: {name}'s rejection tests {gate.tests} do not exist")
-    elif short not in files[gate.tests]:
+    elif short not in _identifiers(files[gate.tests]):
         out.append(f"gate registry: {gate.tests} never names {short}, the gate it is the rejection tests of")
     return out
 
@@ -134,11 +193,15 @@ def check_gates(files: dict[str, str], gates: dict[str, Gate] | None = None) -> 
     problems = [p for p in problems if p.split(" ")[2] not in GATE_MODULES]
     defined: set[str] = set()
     needed: set[str] = set()
+    classes: list[_Class] = []
     for rel, text in sorted(files.items()):
         if rel.startswith("src/") and rel.endswith(".py"):
-            public, protocol = entry_points(rel, text)
+            public, found = _module_entries(rel, text)
             defined |= public
-            needed |= protocol | (public if rel in GATE_MODULES else set())
+            classes += found
+            needed |= public if rel in GATE_MODULES else set()
+    protocol = _protocol_classes(classes)
+    needed |= {f"{c.qualified}.{m}" for c in classes if c.qualified in protocol for m in c.methods}
     problems += [
         f"gate registry: {rel} is a gate module that does not exist" for rel in GATE_MODULES if rel not in files
     ]

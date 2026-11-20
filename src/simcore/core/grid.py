@@ -73,6 +73,17 @@ class CellState(Protocol):
     def regions(self) -> Mapping[str, Region]: ...
 
 
+def _bounding_box(mask: Mask) -> tuple[slice, slice, slice] | None:
+    """The smallest box of cells holding every True cell of ``mask``, or None when it has none."""
+    spans = []
+    for axis in range(3):
+        hits = np.flatnonzero(mask.any(axis=tuple(a for a in range(3) if a != axis)))
+        if hits.size == 0:
+            return None
+        spans.append(slice(int(hits[0]), int(hits[-1]) + 1))
+    return spans[0], spans[1], spans[2]
+
+
 class GridGeometry:
     """Where the cells are: the spacing and the shape, and the coordinates that follow from them."""
 
@@ -124,7 +135,9 @@ class CellStore:
     At rest every channel, every region mask and the region table are read-only. ``writing()`` hands out fresh
     writable copies as the channels for the length of the window, and at exit swaps in read-only copies of them as the
     new owners, so no writable handle, and no view of one unlocked inside the window, outlives it: a write through any
-    of them after exit lands in memory the world no longer reads. A window that raises is rolled back whole.
+    of them after exit lands in memory the world no longer reads. The region table works the same way: a window that
+    paints holds writable masks of its own, narrowed in place, and freezes each once at exit. Everything new is built
+    before anything is committed, so a window that raises, in its body or while it closes, is rolled back whole.
     """
 
     def __init__(
@@ -142,6 +155,9 @@ class CellStore:
             "temperature": frozen(temperature),
         }
         self._regions: dict[str, Region] = {}
+        # Inside a window that paints: each region's writable mask, and its footprint and solidity, in table order.
+        self._masks: dict[str, Mask] | None = None
+        self._meta: dict[str, tuple[Footprint, bool]] = {}
         self._time_s = 0.0
         self._open = False
         self._on_close: list[Callable[[], None]] = []
@@ -164,7 +180,7 @@ class CellStore:
 
     @property
     def regions(self) -> Mapping[str, Region]:
-        return MappingProxyType(self._regions)
+        return MappingProxyType(self._region_table())
 
     @property
     def time_s(self) -> float:
@@ -175,31 +191,68 @@ class CellStore:
         self._require_window("the clock")
         self._time_s = value
 
+    @property
+    def is_writing(self) -> bool:
+        """Whether the write window is open now."""
+        return self._open
+
     def on_close(self, callback: Callable[[], None]) -> None:
-        """Call ``callback`` after each window that changed something closes (the world publishes a frame there)."""
+        """Call ``callback`` after each window that closes without raising, whether or not it changed anything (the
+        world publishes a frame there)."""
         self._on_close.append(callback)
 
     def _require_window(self, what: str) -> None:
         if not self._open:
             raise WindowClosed(f"{what} changes only inside the write window (boundaries §4.1)")
 
+    def _window_table(self) -> tuple[dict[str, Mask], dict[str, tuple[Footprint, bool]]]:
+        """This window's changed region masks (writable, narrowed in place) and every region's footprint and
+        solidity in table order, set up at the first paint or naming in the window."""
+        if self._masks is None:
+            self._masks = {}
+            self._meta = {n: (r.footprint, r.solid) for n, r in self._regions.items()}
+        return self._masks, self._meta
+
+    def _take_cells(self, mask: Mask) -> None:
+        """A later paint takes cells from any earlier region. Only a region it actually takes cells from is copied
+        and later refrozen, and only the box the mask covers is read (step 3b review, Trust S5)."""
+        self._window_table()
+        assert self._masks is not None
+        box = _bounding_box(mask)
+        if box is None:
+            return
+        keep = ~mask[box]
+        for name in self._meta:
+            if name in self._masks:
+                np.logical_and(self._masks[name][box], keep, out=self._masks[name][box])
+            elif not np.all(self._regions[name].cells[box] <= keep):  # it holds a cell the paint takes
+                self._masks[name] = self._regions[name].cells.copy()
+                np.logical_and(self._masks[name][box], keep, out=self._masks[name][box])
+
+    def _region_table(self) -> dict[str, Region]:
+        if self._masks is None:
+            return self._regions
+        masks = self._masks
+        return {n: Region(masks[n], *m) if n in masks else self._regions[n] for n, m in self._meta.items()}
+
     @contextmanager
     def writing(self) -> Iterator[None]:
         """The write window. One owner at a time: a window opened inside another is refused."""
         if self._open:
             raise WindowClosed("the write window is already open: it has one owner at a time")
-        owners, regions, time_s = self._channels, dict(self._regions), self._time_s
-        self._channels = {name: arr.copy() for name, arr in owners.items()}
-        self._open = True
+        owners, regions, time_s = self._channels, self._regions, self._time_s
+        self._channels, self._masks, self._open = {name: arr.copy() for name, arr in owners.items()}, None, True
         try:
             yield
+            channels = {name: frozen(arr) for name, arr in self._channels.items()}  # built before anything commits
+            table = self._region_table()
         except BaseException:
             self._channels, self._regions, self._time_s = owners, regions, time_s
             raise
         else:
-            self._channels = {name: frozen(arr) for name, arr in self._channels.items()}
+            self._channels, self._regions = channels, table
         finally:
-            self._open = False
+            self._masks, self._open = None, False
         for callback in self._on_close:
             callback()
 
@@ -267,7 +320,7 @@ class MaterialGrid(GridGeometry, CellStore):
 
         A named region needs its ``footprint``, its authored shape in metres (see ``Region``).
         """
-        if region is not None and any(entity_key(r) == entity_key(region) for r in self._regions):
+        if region is not None and any(entity_key(r) == entity_key(region) for r in self._region_names()):
             raise ValueError(f"region {region!r} already exists")
         if region is not None and footprint is None:
             raise ValueError(f"region {region!r} needs its authored footprint in metres")
@@ -276,9 +329,7 @@ class MaterialGrid(GridGeometry, CellStore):
         self.material[mask] = mid
         self.original_material[mask] = mid
         self.integrity[mask] = 0.0 if mid == AIR_ID else 1.0
-        # A later paint takes cells from any earlier region.
-        for name, other in self._regions.items():
-            self._regions[name] = Region(other.cells & ~mask, other.footprint, other.solid)
+        self._take_cells(mask)
         if region is not None:
             assert footprint is not None
             self.name_region(region, mask, footprint, solid=mid != AIR_ID)
@@ -290,11 +341,17 @@ class MaterialGrid(GridGeometry, CellStore):
         "crate" to whichever entity normalises to it: two regions "Crate" and "crate" would let a call aimed at one
         burn the other.
         """
-        clash = next((r for r in self._regions if entity_key(r) == entity_key(region)), None)
+        clash = next((r for r in self._region_names() if entity_key(r) == entity_key(region)), None)
         if clash is not None:
             raise ValueError(f"region {region!r} already exists" + ("" if clash == region else f" (as {clash!r})"))
         self._require_window("a region")
-        self._regions[region] = Region(mask, footprint, solid)
+        self._window_table()
+        assert self._masks is not None
+        self._masks[region] = np.array(mask, dtype=np.bool_)  # broadcast or not, a mask of its own
+        self._meta[region] = (footprint, solid)
+
+    def _region_names(self) -> Iterator[str]:
+        return iter(self._meta if self._masks is not None else self._regions)
 
     def destroy(self, mask: Mask) -> int:
         """Turn solid cells in ``mask`` to air. Returns how many cells were destroyed."""

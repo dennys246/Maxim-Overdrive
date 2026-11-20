@@ -267,8 +267,9 @@ CORE_PUBLIC_SURFACE = {
     "simcore.core.materials",
     "simcore.core.checks",
 }
-# What the membrane may import from the core (B-13): frames to read, the applier to write, the intents to parse.
-MEMBRANE_SURFACE = CORE_PUBLIC_SURFACE - {"simcore.core.materials"}
+# What the membrane may import from the core (B-13): frames to read, the applier to write, the intents to parse. Not the
+# world: it is handed an applier and a frame view instead (step 3b review, Architecture S1).
+MEMBRANE_SURFACE = CORE_PUBLIC_SURFACE - {"simcore.core.materials", "simcore.core.world"}
 
 
 def test_the_skip_layer_contract_forbids_every_core_module_outside_the_public_surface():

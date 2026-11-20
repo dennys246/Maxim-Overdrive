@@ -208,7 +208,8 @@ def test_sensors_and_modulators_refuse_unknown_names(dx_m, materials):
 
 
 def test_every_sensor_reports_its_schema_and_unit(dx_m, materials):
-    sensors, _ = bridge.region_parts(_world(dx_m, materials), "wall")
+    w = _world(dx_m, materials)
+    sensors, _ = bridge.region_parts(Applier(w), w.frames, "wall")
     assert sensors["integrity"].reading_schema == {"type": "float", "range": [0.0, 1.0]}
     assert sensors["breached"].reading_schema == {"type": "float", "range": [0.0, 1.0]}
     assert sensors["temperature_max"].reading_schema == {"type": "float", "range": [-273.0, 6000.0]}
@@ -223,7 +224,7 @@ def test_every_sensor_reports_its_schema_and_unit(dx_m, materials):
 
 def test_a_region_that_lost_all_its_cells_reads_nan_and_cannot_burn(dx_m, materials):
     w = _world(dx_m, materials)
-    sensors, mods = bridge.region_parts(w, "wall")
+    sensors, mods = bridge.region_parts(Applier(w), w.frames, "wall")
     with w.grid.writing():  # a later paint takes every cell
         w.grid.paint(w.grid.regions["wall"].cells, "air")
     assert math.isnan(sensors["temperature_max"].value())
@@ -379,7 +380,7 @@ def test_a_multi_primitive_objects_footprint_covers_every_primitive(dx_m, materi
     low, high = footprint.bounds_m
     assert low == (1.0, 1.0, 0.0)
     assert high == pytest.approx((2.0, 1.6, 1.4))
-    with pytest.raises(SpecRejected, match=r"too large: 1\.40 m across"):  # the tallest axis, not the first
+    with pytest.raises(SpecRejected, match=r"too large: 1\.4 m across"):  # the tallest axis, not the first
         place(g, {**spec, "name": "tall"}, (0.0, 0.0, 0.0), Budget(max_extent_m=1.2, max_mass_kg=1000.0))
 
 
@@ -482,7 +483,7 @@ def test_an_imagined_object_may_not_sit_in_a_named_solids_footprint(dx_m, materi
     doorway = Box((1.0, 1.0, 0.0), (1.6, 2.0, 2.0), "air", "doorway")
     g = Scene((3.0, 3.0, 2.0), (wall, doorway)).build(materials, dx_m=dx_m)
     box = {"name": "box", "primitives": [{"min_m": [0, 0, 0], "max_m": [0.4, 0.4, 0.4], "material": "wood"}]}
-    with pytest.raises(SpecRejected, match="that space belongs to wall"):
+    with pytest.raises(SpecRejected, match="that space belongs to 'wall'"):
         place(g, box, (1.1, 1.3, 0.0))  # in the doorway's air, inside the wall's footprint
     place(g, box, (2.0, 1.3, 0.0))  # beside the wall is fine
     assert "box" in g.regions
@@ -533,7 +534,7 @@ def test_an_imagined_object_may_sit_in_a_named_air_room_but_no_primitive_may_ent
             {"min_m": [1.0, 1.0, 0], "max_m": [1.08, 1.08, 0.2], "material": "wood"},  # in the box's empty corner
         ],
     }
-    with pytest.raises(SpecRejected, match="that space belongs to crate"):
+    with pytest.raises(SpecRejected, match="that space belongs to 'crate'"):
         place(g, two, (1.0, 1.0, 0.0))
 
 
@@ -1047,3 +1048,20 @@ def test_a_file_from_a_newer_format_is_refused_for_its_version_not_its_new_field
 def test_a_scene_from_a_newer_format_is_refused_for_its_version_not_its_new_fields():
     with pytest.raises(ValueError, match="scene version must be 0, got 1"):
         Scene.from_dict({"version": 1, "extent_m": [1, 1, 1], "added_in_v1": True})
+
+
+@pytest.mark.parametrize(
+    ("listed", "message"),
+    [
+        ("box", "primitives must be a list"),
+        ({"kind": "box"}, "primitives must be a list"),
+        ([7], "each primitive must be a mapping"),
+        ([{"kind": ["box"]}], "unknown primitive kind"),
+        ([{"kind": "box", "material": "wood"}], "missing key"),
+    ],
+)
+def test_primitives_from_data_refuses_every_malformed_list(listed, message):
+    from simcore.core.scene import primitives_from_data  # noqa: PLC0415
+
+    with pytest.raises(ValueError, match=message):
+        primitives_from_data(listed)

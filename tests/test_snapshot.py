@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from maxim_overdrive import data
+from simcore.core.readonly import frozen
 from simcore.core.scene import Box, Scene
 from simcore.core.world import World
 from simcore.protocol.encoding import GLOW_FULL_C, GLOW_START_C, snapshot
@@ -30,7 +31,10 @@ def test_snapshot_shapes_dtypes_and_metadata(dx_m, materials):
     s = snapshot(g)
     assert s["shape"] == g.shape
     assert s["cell_size_m"] == g.dx_m
-    assert s["time_s"] == g.time_s
+    assert s["time_s"] == g.time_s == 0.0
+    w = World.from_scene(Scene((2.0, 2.0, 2.0)), materials, dx_m=dx_m, limits=LIMITS)
+    w.advance()  # a later frame, so a constant time_s can't pass (step 3b review, Executor N1)
+    assert snapshot(w.frames.latest.cells)["time_s"] == w.turn_seconds
     for key, dtype in [("material", np.uint8), ("crack", np.uint8), ("glow", np.uint8), ("temperature_c", np.float16)]:
         arr = s[key]
         assert isinstance(arr, np.ndarray)
@@ -47,7 +51,7 @@ def test_an_intact_cold_world_has_no_crack_and_no_glow(dx_m, materials):
 def test_crack_is_one_minus_integrity_on_solids(dx_m, materials):
     g = _grid(dx_m, materials)
     wall = g.regions["wall"].cells
-    g = replace(g, integrity=np.where(wall, 0.5, g.integrity).astype(np.float32))
+    g = replace(g, integrity=frozen(np.where(wall, 0.5, g.integrity).astype(np.float32)))
     crack = np.asarray(snapshot(g)["crack"])
     assert (crack[wall] == 128).all()  # round(0.5 * 255) under numpy's round-half-even
     assert (crack[~g.solid] == 0).all()
@@ -72,7 +76,7 @@ def test_glow_starts_at_the_draper_point():
 )
 def test_glow_ramps_from_the_draper_point_on_solids_only(dx_m, materials, temp_c, expected):
     g = _grid(dx_m, materials)
-    g = replace(g, temperature=np.full(g.shape, temp_c))
+    g = replace(g, temperature=frozen(np.full(g.shape, temp_c)))
     glow = np.asarray(snapshot(g)["glow"])
     assert (glow[g.solid] == expected).all()
     assert (glow[~g.solid] == 0).all()  # hot air does not glow
@@ -80,11 +84,11 @@ def test_glow_ramps_from_the_draper_point_on_solids_only(dx_m, materials, temp_c
 
 def test_temperature_is_clamped_to_the_float16_range_it_promises(dx_m, materials):
     g = _grid(dx_m, materials)
-    g = replace(g, temperature=np.full(g.shape, 1.0e9))
+    g = replace(g, temperature=frozen(np.full(g.shape, 1.0e9)))
     t = np.asarray(snapshot(g)["temperature_c"])
     assert np.isfinite(t).all()
     assert t.max() == pytest.approx(6000.0, rel=1e-3)
-    g = replace(g, temperature=np.full(g.shape, -1.0e9))
+    g = replace(g, temperature=frozen(np.full(g.shape, -1.0e9)))
     t = np.asarray(snapshot(g)["temperature_c"])
     assert t.min() == pytest.approx(-273.0, rel=1e-3)
 

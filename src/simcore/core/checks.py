@@ -17,13 +17,44 @@ from collections.abc import Collection, Mapping, Sequence
 
 
 class _BoundedRepr(reprlib.Repr):
-    """reprlib with a safe int at every depth: an int too long to convert to text (past 4300 digits) is shown by its
-    size, so a ``10**5000`` anywhere in a value can't crash the message that refuses it."""
+    """reprlib that echoes only plain values by value, so an echo is the same text in every run.
+
+    Strings, numbers, bools, None and lists, tuples, sets and dicts of them print as reprlib prints them. Anything else
+    prints as its type name (``<a Thing>``), never its repr, which may carry a memory address that differs between runs
+    (step 3b review, Architecture S4). A set prints sorted by each element's echo, never in iteration order, which
+    PYTHONHASHSEED decides for str and bytes. An int too long to convert to text (past 4300 digits) is shown by its
+    size.
+    """
 
     def repr_int(self, x: int, level: int) -> str:
         if x.bit_length() > 128:
             return f"<an integer of about {int(x.bit_length() * 0.30103)} digits>"
         return repr(x)
+
+    def repr_bool(self, x: bool, level: int) -> str:
+        return repr(x)
+
+    def repr_NoneType(self, x: None, level: int) -> str:  # reprlib dispatches on the type's name
+        return "None"
+
+    def repr_float(self, x: float, level: int) -> str:
+        return repr(x)
+
+    def repr_instance(self, x: object, level: int) -> str:
+        return f"<a {type(x).__name__}>"
+
+    def _sorted_set(self, x: set[object] | frozenset[object], level: int, left: str, right: str) -> str:
+        if not x:
+            return f"{type(x).__name__}()"
+        items = sorted(self.repr1(e, level - 1) for e in x)
+        shown_items = items[: self.maxset] + (["..."] if len(items) > self.maxset else [])
+        return f"{left}{', '.join(shown_items)}{right}"
+
+    def repr_set(self, x: set[object], level: int) -> str:
+        return self._sorted_set(x, level, "{", "}")
+
+    def repr_frozenset(self, x: frozenset[object], level: int) -> str:
+        return self._sorted_set(x, level, "frozenset({", "})")
 
 
 _SHOW = _BoundedRepr()
@@ -31,9 +62,16 @@ _SHOW.maxstring = _SHOW.maxother = 40
 
 
 def shown(value: object) -> str:
-    """A bounded repr for an error message (boundaries §5.4, bounded echo), so a huge or hostile value can't flood or
-    crash the reply. It bounds length only; it doesn't scrub."""
+    """A bounded, run-independent repr for an error message (boundaries §5.4, bounded echo), so a huge or hostile
+    value can't flood or crash the reply, and a replayed refusal has the same bytes. It bounds length only; it doesn't
+    scrub."""
+    if type(value) not in _PLAIN_TYPES:  # a subclass of one (a numpy float, a str subclass) has a repr of its own
+        return _SHOW.repr_instance(value, 0)
     return _SHOW.repr(value)
+
+
+# The types reprlib prints by value.
+_PLAIN_TYPES = (str, int, float, bool, type(None), list, tuple, set, frozenset, dict)
 
 
 def entity_key(name: str) -> str:
@@ -105,9 +143,16 @@ def format_version(raw: object, expected: int, what: str) -> Mapping[str, object
     return raw
 
 
+def _has_length(value: Sequence[object], n: int) -> bool:
+    try:
+        return len(value) == n
+    except OverflowError:  # a sequence too long to count, such as range(10**20); no JSON value is
+        return False
+
+
 def finite_vector(value: object, n: int, what: str) -> tuple[float, ...]:
     """``value`` as ``n`` finite floats, or a ValueError that names the field."""
-    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or len(value) != n:
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or not _has_length(value, n):
         raise ValueError(f"{what} must be {n} numbers, got {shown(value)}")
     try:
         return tuple(finite_real(v, what) for v in value)

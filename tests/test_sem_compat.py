@@ -17,6 +17,7 @@ import pytest
 
 from maxim_overdrive import data
 from simcore.adapters.sem import _compat, bridge
+from simcore.core.applier import Applier
 from simcore.core.scene import Box, Scene
 from simcore.core.world import World
 
@@ -76,7 +77,7 @@ def test_the_bridge_runs_on_the_stand_ins_without_pymaxim(bridge_without_maxim: 
         dx_m=dx_m,
         limits=LIMITS,
     )
-    sensors, mods = b.region_parts(w, "wall")
+    sensors, mods = b.region_parts(Applier(w), w.frames, "wall")
     reading = sensors["integrity"].read()
     assert type(reading) is _compat.SensorReading
     assert reading.value == pytest.approx(1.0)
@@ -85,4 +86,4 @@ def test_the_bridge_runs_on_the_stand_ins_without_pymaxim(bridge_without_maxim: 
     assert result.success
     assert all(type(a) is _compat.AffordanceSchema for a in mods["structure"].affordances.values())
     with pytest.raises(RuntimeError, match="pymaxim is not installed"):
-        b.to_maxim_entity(w, "wall")
+        b.to_maxim_entity(Applier(w), w.frames, "wall")
