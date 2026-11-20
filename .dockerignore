@@ -1,0 +1,5 @@
+# The golden image needs only the Godot pins and installer, and the lockfile (ci/godot-golden/Dockerfile).
+*
+!ci/godot.env
+!ci/install_godot.sh
+!constraints/py3.12.txt

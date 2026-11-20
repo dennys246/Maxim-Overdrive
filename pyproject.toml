@@ -30,6 +30,7 @@ dev = [
     # The standards lint parses docs as they render (CommonMark plus tables); MIT. Its tests pass on 3.0.0, 4.0.0 and
     # 4.3.0. No cap: a release that changes token maps turns them red with no local change, which is drift caught.
     "markdown-it-py>=3.0",
+    "pillow>=11.0",  # reads and writes PNG goldens for scripts/golden_compare.py
 ]
 
 [tool.hatch.build.targets.wheel]

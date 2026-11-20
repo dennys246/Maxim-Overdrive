@@ -139,11 +139,12 @@ measurement. `stable_dt` is 46.9 s at 0.1 m: one substep per 0.5 s physics step.
   coarse cells, a Known gap needing the reconstruct-then-integrate path (BF-S6).
 - **Body occupancy is derived from the bodies part of the `Frame` at reduction time,** never stored in the cell part
   (DC-S3). The actor table as a direct view is an ANALOG divergence until occupancy percepts exist (AR-S3).
-- **Identity:** `actor_id` is session-scoped; save v0 maps each body to a persistent `body_key` (BF-N3).
+- **Identity:** `actor_id` is session-scoped; save v0 maps each body to a persistent `body_key` (BF-N3), with no
+  `:` (npcs §3.4), so it can serve as an NPC's key.
 
 ### 2.2 The actor table and pilots
 
-Frozen per tick, replaced by `Simulation.step`; column-major, integer key, no strings (world_model §8):
+Frozen per tick, replaced by `Simulation.step`; column-major, integer keys, no strings (world_model §8):
 
 | Column | dtype | Meaning |
 |---|---|---|
@@ -178,31 +179,31 @@ Frozen per tick, replaced by `Simulation.step`; column-major, integer key, no st
   nearest free node within 0.3 m (ties (distance², j, i)), else `unreachable`; pruning keeps the farthest waypoint
   whose segment passes the predicate sampled every ≤ 50 mm; each tick steps by the normalisation, landing exactly when
   the remainder ≤ 140 mm. Property test: every per-tick step passes the predicate.
-- **Precedence:** a non-null `move` cancels a path; `move {dir: null}` clears only a held direction; `move_to`
-  replaces any path.
-- **Replanning:** only `imagine` and admin `set_material` can block a path in Phase 1; a corridor change replans once
+- **Precedence:** a non-null `move` cancels a path; `move {dir: null}` clears a held direction; `move_to` replaces
+  a path.
+- **Replanning:** only `imagine` and admin `set_material` can block a path in Phase 1; a change replans once
   (bumping `path_version`), else `path_state` = blocked. Bit-identical on one machine; outcome class across (PH-S6).
 
 ## 3. Intents: one door
 
 ### 3.1 The pipeline (AR-B2, WT-B1)
 
-Decode → stage 1 (`simcore` core intents; today `sem_env.bridge.parse_action`) → log → stage 2 against the world at
-apply → one receipt. The record is boundaries §6.2's: `schema_version`, `kind`, `actor_id` (from the session token),
+Decode → stage 1 (`simcore` core intents) → log → stage 2 against the world at apply → one receipt. The record is boundaries §6.2's: `schema_version`, `kind`, `actor_id` (from the session token),
 `seq`, `observed_tick`, `issued_tick`, `apply_tick`, `apply_us`, canonical `params`, `target`. Ordering key
 `(apply_tick, kind_rank, apply_us, actor_id, seq)`.
+- **Cause (the efference copy, npcs §6.6).** Receipts carry the intent's id, `(actor_id, seq)`; each bodies-part
+  event and pilots row also carries it as `cause`. An agent's intent logs Maxim's invocation pid as opaque
+  `invocation` (null for players), which its adapter maps `cause` to. Step 5b owns both; step 7 freezes `cause`.
 - **`observed_tick`** is the tick of the last cell frame sent to that session (DC-S1, boundaries §4.2), not the last
-  `tick` message. Phase 1 has no stale rule, so it has no caller yet; it is logged for Phase 4 (DC-N8).
-- **Authority** (boundaries §6.1's column is the emitter's role): `move`, `move_to`, `kindle` are "any actor".
-  Having a body or an igniter is capability, checked at stage 2 (`no_body`, `no_igniter`) (DC-N1).
-- **`kind_rank`** `[engineering]`: join/leave 0, `time` 1, `move`/`move_to` 2, `kindle`, `strike`, `douse`,
-  `imagine` 3.
-- **A held direction is a logged intent that applies every tick until replaced.**
-- **Walking is a body affordance NPCs will share** (T6, OD-C11). On Maxim `origin/main` 6fee7377 (`fold.md` Check 1),
-  `src/maxim/_data/components/bodies/base_humanoid.yaml` has `legs.move {direction: str, speed: str}`, compass words
-  only in its description (an LLM may pass any string); `src/maxim/_data/components/bodies/minecraft_player.yaml` has
-  `avatar.move_to {x: float, z: float}`; `minecraft_bench57.yaml` feeds signed world offsets as sensors. A compass, a
-  GPS and a position oracle no body has. Proposed: egocentric `move {forward, turn}` and target-by-percept-id.
+  `tick` message. Phase 1 has no stale rule, so it has no caller; it is logged for Phase 4 (DC-N8).
+- **Authority** (boundaries §6.1): `move`, `move_to`, `kindle` are "any actor"; a body or an igniter is capability,
+  checked at stage 2 (DC-N1).
+- **`kind_rank`** `[engineering]`: join/leave 0, `time` 1, moves 2, `kindle`, `strike`, `douse`, `imagine` 3.
+- **A held direction applies every tick until replaced.**
+- **Walking is a body affordance NPCs will share** (T6, OD-C11). Maxim's bodies (6fee7377, `fold.md` Check 1):
+  `base_humanoid.yaml`'s `legs.move {direction: str, speed: str}` takes any string, `minecraft_player.yaml`'s
+  `avatar.move_to {x, z}` and `minecraft_bench57.yaml`'s offset sensors are a compass, a GPS and a position oracle
+  no body has. Proposed: egocentric `move {forward, turn}` and target-by-percept-id.
 
 ### 3.2 `kindle` (T4; WT-B2, BF-S4, BF-S5, PH-S4, DC-S5–S7)
 
@@ -228,8 +229,7 @@ apply → one receipt. The record is boundaries §6.2's: `schema_version`, `kind
 - **Deposit:** the footprint disc by face-area overlap onto the bed's skin (6b), no single-cell fallback. The pilot
   covers ticks [apply_tick, apply_tick + D); a physics step at tick t covers (t − 5, t], and receives P × 0.1 s per
   overlapping tick (DC-N6).
-- **Lifecycle:** one live pilot per actor (`pilot_live`), in the pilots table; it ends on expiry, on leave and when
-  its region is gone.
+- **Lifecycle:** one live pilot per actor (`pilot_live`); it ends on expiry, on leave or when its region is gone.
 - **Receipt meaning:** `applied` means placed, not ignited. Credit for a pilot that never lit is the **OPEN divergence
   OD-A16 / OD-C5**; the tile's numbers go to the OD-A16 draft as evidence.
 
@@ -246,7 +246,7 @@ This table replaces realtime §7's (`act`, `act_result` retired); realtime §7 i
 | `time` | `seq`, `pause \| resume \| set_scale`, `scale` | `time_decision` |
 | `snapshot` | `seq` | a cell frame with `in_reply_to` |
 
-- **No client message carries a region or an actor.**
+- **No client message names a region or actor.**
 - **`strike`, `douse` and `imagine` have no wire message in v0,** because no Phase 1 client sends them. They join
   as versioned additions when a client caller exists. NPCs reach them through the adapter, not the wire.
 - **One receipt shape for every intent** (boundaries §7.2): `(actor_id, seq)`, outcome (`applied`, `refused`, `stale`,
@@ -262,7 +262,7 @@ This table replaces realtime §7's (`act`, `act_result` retired); realtime §7 i
 | `bad_json`, `unknown_kind`, `unknown_field`, `busy` | decode | `error` | no | 7 |
 | `not_int` (bool, `5500.0`, `1e3`), `bad_shape` | stage 1 | `error` | no | 7 |
 | `out_of_range` (`dir` both zero, a ceiling exceeded), `outside_extent` | stage 1 | `intent_result` | no | 7 |
-| `rate_limited` (wall-clock flood guards: `kindle` ≤ 5/s, `move_to` ≤ 10/s), `coalesced` | stage 1 (client protocol layer) | `intent_result` | no | 7 |
+| `rate_limited` (wall flood guards: `kindle` ≤ 5/s, `move_to` ≤ 10/s), `coalesced` | stage 1 (client protocol layer) | `intent_result` | no | 7 |
 | `out_of_reach`, `not_on_surface`, `ambiguous_point`, `region_gone`, `no_igniter`, `over_item_max`, `pilot_live`, `restrike_wait` | stage 2 | `intent_result` | yes | 6 |
 | `no_body`, `no_path`, `unreachable` | stage 2 | `intent_result` | yes | 5 |
 | time refused (role) | `TimeAuthority` | `time_decision` | yes | 7, by a direct `HostOnly` test (WT-S9) |
@@ -270,7 +270,7 @@ This table replaces realtime §7's (`act`, `act_result` retired); realtime §7 i
 - **The code enum lives in the core;** the client protocol layer produces `rate_limited` and `coalesced` (DC-N7).
 - **A stop is never refused** (WT-S5): `move` and `move_to` are latest-wins per session per tick; the superseded
   one gets `coalesced`. Test: fill the queue while paused, release, resume; the body is still.
-- **Planning:** at most one plan per actor per tick, timed as a B5 meter (WT-S4).
+- **Planning:** at most one plan per actor per tick, a B5 meter (WT-S4).
 
 ### 3.5 The log header
 
@@ -283,12 +283,11 @@ versions, and the navigation constants (WT-S3). Rate limits are pre-log and stay
   shared by reference otherwise. The bodies part holds the actor table, the pilots table and that tick's events
   (`arrived`, `path_blocked`, `pilot_ended`, each with its new state).
 - **A `Frame` is published every tick on which any intent was applied or refused, or any actor or pilot changed**
-  (DC-S2; O23). Usually that is the bodies part plus a reference to the unchanged cells. So a receipt's after-frame
+  (DC-S2; O23), usually the bodies part plus a reference to the unchanged cells. So a receipt's after-frame
   always exists.
 - **Perceivers read the `Frame`, never the wire.** Test: an adapter's pinned actor table at tick T is identical at
   1×, at 20× and under a wire stall.
-- **State carries what events announce,** so nothing is lost at speed: a pilot is a row until it ends, and a path
-  is `path_version` plus `path_state`. The client's events and their bounds are `client_rendering.md` §4.
+- **State carries what events announce,** so nothing is lost at speed (a pilot row, `path_version`, `path_state`). The client's events and their bounds are `client_rendering.md` §4.
 
 ## 5. What step 6 must deliver (D29, D30)
 
@@ -457,16 +456,11 @@ wall, crack read as crack, glow as heat, burn-out as fuel running out, the dial.
 
 ## 8. Bio-faithful note
 
-- **Perceivers read the simulation `Frame`,** never the wire. The fire is perceived through physical channels at the
-  perceiver: heat now (convection and radiation into a body, §2.1), light and sound in Phase 2. Never through the log
-  (BF-S1).
+- **Perceivers read the simulation `Frame`,** never the wire or the log. The fire is perceived through physical
+  channels at the perceiver: heat now (§2.1), light and sound in Phase 2 (BF-S1).
 - **One world-owned body model.** Regions in metres are what Phase 4's surface percepts reduce over (world_model §9).
-- **Divergences named:**
-  - the actor table as a direct view (ANALOG);
-  - receptors under two coarse cells (Known gap);
-  - `kindle` credit (OPEN, OD-A16/OD-C5);
-  - allocentric locomotion and position sensors in Maxim (OD-C11);
-  - no metabolism (a gap; Maxim's drives).
+- **Divergences named:** the actor table as a direct view (ANALOG); receptors under two coarse cells (Known gap);
+  `kindle` credit (OPEN, OD-A16/OD-C5); allocentric locomotion (OD-C11); no metabolism (Maxim's drives).
 - **The world's day** is realtime §2.2's `epoch_us` and `day_length_ticks`. An SCN entrains on Phase 2 light at the
   perceiver, never on a time-of-day number or the client's sky.
 
@@ -492,8 +486,8 @@ wall, crack read as crack, glow as heat, burn-out as fuel running out, the dial.
 |---|---|
 | Amend realtime §7 to §3.3's table; architecture.md line 20 | 1 |
 | Scene v1 (+ `spawns`, bed fields), loader types for archetypes and items, the refusal-code enum | 3b |
-| `Simulation` with actor and pilots tables, body motion, walk grid, A\*, body heat (convection; radiation closed forms), `move`/`move_to`, vocabulary v1 with the interim `kindle` deposit, `actions.yaml` v1 and its migration, the `Frame` rule, the alley fixture and its B5 meters | 5 |
+| `Simulation` with actor and pilots tables, body motion, walk grid, A\*, body heat (convection; radiation closed forms), `move`/`move_to`, `cause` and `invocation` (§3.1), vocabulary v1 with the interim `kindle` deposit, `actions.yaml` v1 and its migration, the `Frame` rule, the alley fixture and its B5 meters | 5 |
 | 6a–6d, the constants' provenance, the ledger lines, the skin deposit for `kindle`, the torch's band, the 0.05 m reference, V_floor, the red gate's flip | 6 |
-| §3.3's messages, `intent_result`, `observed_tick` stamping, the wire (`client_rendering.md` §4) | 7 |
+| §3.3's messages, `intent_result`, `observed_tick` stamping, `cause` in events, the wire (`client_rendering.md` §4) | 7 |
 | The game package and `content/`, the exit script, the controls by deletion, the stage-2 refusal scripts, the playtest | 8 |
 | Save v0 with the actor and pilots tables and `body_key` | 9 |
