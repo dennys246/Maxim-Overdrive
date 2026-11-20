@@ -4,8 +4,11 @@ import numpy as np
 import pytest
 
 from maxim_overdrive import Box, RigProfile, Scene, World
+from maxim_overdrive.config import ActionLimits
 from maxim_overdrive.sem_env.bridge import region_parts
 from tests.conftest import FAST_TIERS
+
+LIMITS = ActionLimits.load()
 
 SCENE = Scene(
     (3.0, 3.0, 2.0),
@@ -14,7 +17,7 @@ SCENE = Scene(
 
 
 def _burn(rig, materials, turns=150, power_w=60_000.0):
-    w = World.from_scene(SCENE, rig, materials)
+    w = World.from_scene(SCENE, rig, materials, limits=LIMITS)
     crate_s, crate_m = region_parts(w, "crate")
     wall_s, wall_m = region_parts(w, "wall")
     assert crate_m["structure"].execute("ignite", {"power_w": power_w, "radius_m": 0.3}).success
@@ -53,7 +56,7 @@ WOOD_FLAME_C = 2000.0
 
 def test_a_fierce_fire_never_heats_any_cell_past_the_flame_temperature(rigs, materials):
     for rig in rigs:
-        w = World.from_scene(SCENE, rig, materials)
+        w = World.from_scene(SCENE, rig, materials, limits=LIMITS)
         crate_s, crate_m = region_parts(w, "crate")
         assert crate_m["structure"].execute("ignite", {"power_w": 500_000.0, "radius_m": 0.3}).success
         peak = 0.0
@@ -74,7 +77,7 @@ def test_a_fierce_fire_never_heats_any_cell_past_the_flame_temperature(rigs, mat
 )
 def test_a_fire_that_has_burned_its_fuel_stops_heating(materials):
     for name in FAST_TIERS:
-        w = World.from_scene(SCENE, RigProfile.load(name), materials)
+        w = World.from_scene(SCENE, RigProfile.load(name), materials, limits=LIMITS)
         _, crate_m = region_parts(w, "crate")
         assert crate_m["structure"].execute("ignite", {"power_w": 500_000.0, "radius_m": 0.3}).success
         peak = 0.0

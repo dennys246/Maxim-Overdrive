@@ -17,8 +17,9 @@ from typing import Any, SupportsFloat
 
 import numpy as np
 
-from maxim_overdrive.world.grid import MaterialGrid
-from maxim_overdrive.world.scene import Box, Cylinder, Primitive, Scene, finite_vector
+from maxim_overdrive.checks import finite_vector, known_keys
+from maxim_overdrive.world.grid import MaterialGrid, entity_key
+from maxim_overdrive.world.scene import Box, Cylinder, Primitive, boxes_overlap, footprint_of, primitives_from_data
 
 
 @dataclass(frozen=True)
@@ -40,18 +41,29 @@ def _offset(p: Primitive, o: tuple[float, float, float]) -> Primitive:
     )
 
 
+# The keys an imagined object may carry; each is checked by _read itself, with its own refusal ("needs a name", "at
+# least one primitive"). A new one (a description, provenance, a licence) is added here and to the content its id
+# hashes, as one list (the IP note on phase1/realtime-design, docs/design/ip_and_licensing.md section 6).
+SPEC_KEYS = frozenset({"name", "primitives"})
+
+
 def _read(grid: MaterialGrid, spec: object, origin_m: object) -> tuple[str, list[Primitive]]:
     """The spec's name and its primitives placed at ``origin_m``, or SpecRejected. Nothing here touches the grid."""
     if not isinstance(spec, Mapping):
         raise SpecRejected(f"an imagined object must be a mapping, got {type(spec).__name__}")
+    try:
+        known_keys(spec, "an imagined object", required=(), optional=SPEC_KEYS)
+    except ValueError as exc:  # reported as the refusal
+        raise SpecRejected(str(exc)) from exc
     name = spec.get("name")
-    if not name or not isinstance(name, str):
-        raise SpecRejected("an imagined object needs a name")
-    if name in grid.regions:
-        raise SpecRejected(f"something called {name!r} already exists")
+    if not name or not isinstance(name, str) or not name.strip() or name != name.strip():
+        raise SpecRejected("an imagined object needs a name, with no outer spaces")
+    clash = next((r for r in grid.regions if entity_key(r) == entity_key(name)), None)
+    if clash is not None:  # by Maxim's name rule, checked before anything is painted
+        raise SpecRejected(f"something called {clash!r} already exists")
     try:
         origin = finite_vector(origin_m, 3, "origin_m")
-        prims = Scene.from_dict({"extent_m": grid.extent_m, "primitives": spec.get("primitives", [])}).primitives
+        prims = primitives_from_data(spec.get("primitives", []))
         placed = [_offset(p, (origin[0], origin[1], origin[2])) for p in prims]  # offsetting re-validates
     except (KeyError, TypeError, ValueError) as exc:
         raise SpecRejected(f"malformed spec: {exc}") from exc
@@ -79,13 +91,19 @@ def place(
     union = np.any(np.stack(masks), axis=0)
     if not union.any():
         raise SpecRejected("the object is smaller than one cell at this resolution, or outside the world")
-    idx = np.argwhere(union)
-    size = (idx.max(axis=0) - idx.min(axis=0) + 1) * grid.dx
-    across_m = float(np.max(size))
+    # Size from the authored geometry, like mass, so whether an object is too large doesn't depend on the rig.
+    footprint = footprint_of(placed)
+    (x0, y0, z0), (x1, y1, z1) = footprint.bounds_m
+    across_m = max(x1 - x0, y1 - y0, z1 - z0)
     if across_m > budget.max_extent_m + 1e-9:
         raise SpecRejected(f"too large: {across_m:.2f} m across, the limit is {budget.max_extent_m} m")
     if (union & grid.solid).any():
         raise SpecRejected("that space is occupied")
+    # The same boundary as authored scenes (scene._check_no_solid_overlaps): an imagined object may not sit inside a
+    # named solid's footprint, even in air carved into it, or a strike on that solid could break the new object.
+    for other, region in grid.regions.items():
+        if region.solid and any(boxes_overlap(region.footprint.bounds_m, p.bounds_m) for p in placed):
+            raise SpecRejected(f"that space belongs to {other}")
     # Mass from the authored geometry, so the budget does not depend on the rig.
     mass = sum(p.volume_m3 * grid.materials[p.material].density_kg_m3 for p in placed)
     if mass > budget.max_mass_kg:
@@ -93,5 +111,5 @@ def place(
 
     for p, m in zip(placed, masks, strict=True):
         grid.paint(m, p.material)
-    grid.regions[name] = union.copy()
+    grid.name_region(name, union, footprint, solid=True)  # imagined objects are never air (see _read)
     return float(mass)
