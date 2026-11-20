@@ -154,9 +154,11 @@ evidence builds until it can be argued again.** *Evidence:* Maxim's owner kept N
 calendar (OD-A20, 2026-11-19). A receipt settled after its trace expires is credited through `0.3 × similarity ×
 activation`, counted only above 0.01; a crossed local midnight lowers the similarity by about 0.018, so replay and
 learning follow the host's calendar and timezone (lesson 18 has the full reach). *Consequence:* a known divergence
-(`npcs_and_sem.md` §12.2) and two red gates (`checklists.md`); no faked time or pinned `TZ` in the worker, which
+(`npcs_and_sem.md` §12.2), recorded from Maxim's code and our arithmetic, not a run, and two red gates that will
+carry the evidence once the agent PR lands them (`checklists.md`; lesson 20); no faked time or pinned `TZ` in the worker, which
 CLAUDE.md's push-back rule forbids. The same holds for the second divergence Maxim keeps with #1361 Q5:
-`Hippocampus.sleep` forgets on `time.time()`, so a memory accessed once is gone after 3.36 wall days. Three first
+`Hippocampus.sleep` forgets on `time.time()`, so a memory accessed once is gone after 3.36 wall days; its red gate
+lands with the same PR. Three first
 designs of the OD-A20 gate could not fail (an hour shift moves both timestamps; a lone node takes the full share; a
 pause tests a different fix): a red gate against a partner's system needs the same can-it-fail proof as any test.
 
@@ -171,8 +173,8 @@ whose only node drops books nothing), anchors set at different host times split 
 `TemporalSignature.from_timestamp` reads local time, so the replay machine's timezone moves credit. The fold review saw
 the threshold but checked it only at activation 1 (0.3 × 0.70 = 0.21 clears it), not at the small activations an
 encoder's match similarity gives. *Consequence:* the
-draft v5, npcs §12.2 and the roadmap row restate it, and the red gate is rebuilt on the threshold, which certainly
-fails. For any correction: re-read the whole function, every branch and constant, before writing "only".
+draft v5, npcs §12.2 and the roadmap row restate it, and the red gate is respecified on the threshold, so that it
+will fail today once the agent PR writes it. For any correction: re-read the whole function, every branch and constant, before writing "only".
 
 ### 19. An efference copy across a process boundary needs an invocation id on every effect (2026-11-19)
 
@@ -184,5 +186,37 @@ the agent and its effects arrive later as frame and receipt events from the host
 without the dispatching pid on them every self-caused reafference reads as non-self-caused, and every in-flight
 reply goes stale. Our intents already had an id, `(actor_id, seq)`, and receipts carried it; frame events did not.
 *Consequence:* bodies-part events and pilots rows gain `cause`, the intent record an opaque `invocation`, and the
-codec carries the pid (`tile_and_client.md` §3.1, `npcs_and_sem.md` §6.6; plan steps 5b and 7). In any game engine,
+codec carries the pid (`tile_and_client.md` §3.1, `npcs_and_sem.md` §6.6; plan steps 5b and 7). The agent's own
+sequencer mints it and the host only copies it (lesson 20). In any game engine,
 an effect record names its causing command from the start, since adding it after the wire freezes is a version bump.
+
+### 20. Evidence is claimed when the test exists, and an id the host can refuse must still come back (2026-11-19)
+
+**Two failures of the same kind: claiming what isn't there yet.** First, a design must not say a red gate "carries
+the evidence" before the gate exists; until it lands and runs, the evidence is the partner's code read and our
+arithmetic, and the text says so in the future tense. Second, when an agent mints an id for an action the host may
+then refuse, defer or drop, every minted id must still come back exactly once, or it is an orphan the partner's
+gates count as a broken join. *Evidence:* Maxim's review of the draft v5 (`docs/design/reviews/agent_draft_v3/
+maxim_review_v5.md`). Our cover note said the strict red gates for OD-A20 and wall-clock forgetting "carry the
+evidence", but PR #8 was docs only and `tests/` had no such file. And on the loop path `Executor._run_started`
+mints the invocation pid and can still refuse before `tool.run`; embedded, the agent mints at `step` and our host
+can refuse, defer past a budget or drop the intent afterwards, while GL3.B2's gate requires every pid to resolve to
+exactly one event. The same review caught a third claim-ahead: step 4 listed the pid, but `PhysicalEventId` and
+`EventSequencer` come with Maxim's autonomic G17 stage, unbuilt at 95af47d2. *Consequence:* the documents use
+"will carry, once the agent PR lands them"; a settle invariant (one terminal receipt per minted pid, refusals as a
+typed receipt, never a physical event) with exit test OD-EA16; and the `invocation` field reserved as null until
+G17, refusing any stand-in such as a uuid (`npcs_and_sem.md` §6.4, §6.6; `checklists.md` steps 5b and the agent
+PR). For any engine: a command id is a promise of exactly one outcome record, refusals included, and a field filled
+with a look-alike before its type exists is worse than an empty one, because replay will trust it.
+
+### 21. A snapshot remembers an older id counter than the log; the authority sets the floor on restore (2026-11-19)
+
+**When an agent's id counter is saved in snapshots and its ids are written to a log, a restore from an older snapshot
+re-mints ids the log already holds.** *Evidence:* O43 saves the sequencer's high-water seq in the NPC's agent home;
+if a worker dies after minting past its last save, a restart from that save would reissue pids already in the
+intent log, breaking replay joins and OD-EA16's one-receipt-per-pid invariant. Found while folding Maxim's review of
+v5, not by Maxim. *Consequence:* O44: on restore the high-water is the larger of the saved value and the highest pid
+the host logged for that agent, and a dead worker's in-flight pids each get a typed `agent_failed` refusal receipt;
+a question to Maxim whether its sequencer accepts a host-supplied floor; a crash-recovery test in the agent PR. For
+any engine: whoever saw every issued id (the server, the host) sets the counter's floor after a restart, never the
+snapshot alone.

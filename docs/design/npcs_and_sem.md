@@ -1,9 +1,10 @@
-# NPCs and SEM: time, thought, action and perception (design part 2, v3.3, 2026-11-19)
+# NPCs and SEM: time, thought, action and perception (design part 2, v3.4, 2026-11-19)
 
-**Status:** DRAFT v3.3 (2026-11-19). §6 is reopened under O36 to fold Maxim's plan review of the agent draft
+**Status:** DRAFT v3.4 (2026-11-19). §6 is reopened under O36 to fold Maxim's plan review of the agent draft
 (`reviews/agent_draft_v3/maxim_review.md`: O38 staleness, O39 three host calls, O40 `make_agent_rng`, OD-A20
-declined, OD-EA14 and OD-EA15) and its delta review (`maxim_delta_review.md`: the embedded efference copy, OD-A20
-widened, wall-clock forgetting, `:` barred from keys). A reviewer sets fold statuses (O25).
+declined, OD-EA14 and OD-EA15), its delta review (`maxim_delta_review.md`: the embedded efference copy, OD-A20
+widened, wall-clock forgetting, `:` barred from keys) and its review of v5 (`maxim_review_v5.md`: the pid's owners
+and its unbuilt stage, the settle invariant, O43). A reviewer sets fold statuses (O25).
 
 **History.** v1 (4f7a754) went to the seven-lens foundations review (`reviews/foundations_v1/`); v2 folded it with
 O6 (mode (a) dropped for a host-driven contract; the cognitive reserve replaced by a mental-fatigue drive) and the
@@ -71,6 +72,8 @@ means recalled from memory, to be checked before it enters `data/`.
 | O38 | **Staleness is Maxim's hybrid §A.1b.5 (owner, 2026-11-19, Maxim's plan review).** A reply is stale only when a non-self-caused event on a tracked right arrives after its `basis_seq`, with the efference-copy exclusion (Maxim `docs/plans/hybrid_arbitration.md` §A.1b.5). Our `superseded` verdict and the step-sequence/frame-id basis are dropped. Staleness goes through Maxim's typed pre-emption handler, never `_drop_stale_proposal` (§A.1b.4). | §6.6 |
 | O39 | **`apply` merges into `settle` (owner, 2026-11-19, Maxim's plan review).** Maxim's cand. A6 applies proposed writes at settle under B2's digest, so `AgentPort` is three host calls: `step`, `think`, `settle`. | §6 |
 | O40 | **One randomness derivation (owner, 2026-11-19, Maxim's plan review):** Maxim's `utils/seeding.py::make_agent_rng(base_seed, agent_id)`, keyed by the persisted NPC key and extended with a stream argument, proposed to Maxim as part of a new per-agent release-gate item (after 1.4.0, per Maxim's owner). Until it exists, `agent_id` may carry `"npc_key:stream"`. The `stable_hash_64_signed` formula is dropped. | §3.4, §6.6 |
+| O43 | **Replay ids (owner, 2026-11-19, Maxim's review of v5).** `session_id` is derived from the intent log's header (the log's root id plus the NPC key), never the wall clock or a uuid; the sequencer's high-water seq is saved in the NPC's agent home, so a loaded save continues the sequence. | §6.6 |
+| O44 | **Crash recovery and event ids (owner, 2026-11-19).** On restore the sequencer's high-water is max(the saved one, the highest pid the host logged for the agent), so an older save never re-mints a logged id; a dead worker's in-flight pids each get a typed `agent_failed` refusal receipt, so each settles once (OD-EA16). | §6.4, §6.6 |
 | O7a | **O7's condition is met:** Maxim answered (`reviews/maxim_response_1/`). The agent half is unparked for one revision, folding the response and its review, then one review round. | §4, §6 |
 | OA4 | Speech is stamped per syllable. | §5.3 |
 | OA5 | One mental-fatigue drive that rises with load, with per-kind load weights; it recovers with rest and sleep, feeds sleep pressure, and is separate from stamina. | §2.3, §4.6 |
@@ -631,18 +634,18 @@ What Maxim must offer for Overdrive to run real NPCs, all **[after A]** and draf
 |---|---|---|
 | **Host-called `step`, `think` and `settle`** (O39) | Overdrive's port, in ticks: `step(now_tick, dt_ticks, frame)`, `think(handle, reply \| None)`, `settle(receipts, writes)`; Maxim's function `step(agent, world_dt_us, frame)`; `settle` the only writer, applying the host-gated writes (Maxim's cand. A6) and the credit through the agent bus; the continuation split into a host-owned header and an opaque agent-owned body (§6.6); nothing runs on its own thread | the host owns time and order; generate vs apply (OD-A15, OD-A18). Maxim has no inner tool loop (`agent_loop.py:2172`, `:2264`), so the only thing `think` waits on is a model call, but PFC deliberation makes up to 3 by default (`:3110-3111` on f0b1cea4; `llm.deliberation_max_cycles` overrides it, so the host's cap governs) |
 | **The request/reply cut** (replaces v2's "host-supplied gateway") | the request is a value (rendered text, sampling, model **role**, template version, `tools is None`; the host stamps priority and deadline from the kind, outside the cache key); produced at the `LLMRouter._complete_text` cut (`router.py:958`), the host supplying the bound model's `n_ctx` and tokenizer (`token_counter`) to the `PromptBudgeter` (Maxim's `docs/lessons/sim-n-ctx-config-drift.md`); the reply is `complete(text)`, with reserved `cancelled(prefix)` and `truncated(prefix, reason)` variants that bypass the parse-failure template; speech is a top-level field emitted first | the gateway sits above the backend, so the router's per-router `_inference_lock` (`router.py:192`, `:1094`, `:1225`) never serialises NPCs, and the host holds, stamps, cancels and caches (Maxim's answer; Arch 2.1, 2.5, 2.6) |
-| **The deliberation continuation** | a frozen, versioned, pickle-free value, not the whole agent: thought id and kind, PFC cycle index and `max_cycles`, the partial proposal, the outstanding request, `basis_seq` (§A.1b.5; O38) and the triggering-input id, budget counters, cancel status and prefix, the loop locals that aren't values yet | `step` keeps running while a thought is out, so resume must decide staleness against the current agent (Arch 2.2, 2.3) |
+| **The deliberation continuation** | a frozen, versioned, pickle-free value, not the whole agent, split by owner (§6.6) | `step` keeps running while a thought is out, so resume must decide staleness against the current agent (Arch 2.2, 2.3) |
 | **World tools vs cognition tools** *(proposed; not adopted)* | resolving cognition tools inside `think` would be an inner tool loop, Maxim's C10 question; until an experiment decides it, cognition tools go through follow-ups like world tools (§6.6) | a recall through a follow-up costs a full L (Arch 1.2, Arch S3) |
 | **A closed tool roster** | the membrane's affordances plus reviewed cognition tools, sealed with the advisor's patterns (`ToolPolicy`, the `Effect` ceiling); engineering, on its own clock | the default registry holds file tools (`runtime/bootstrap.py:132-135`) and `BashTool` (`:27`), and the CLI and embodied runtime add internet tools (`:255-276`); player speech is in the prompt |
 | **`AgentHome`** | one per-agent object routing every store, over `AgentFactory`'s existing `persistence_dir` | the core stores are already per agent (`agents/agent_factory.py:1168-1172`); ten families are still global (embeddings, fear and escalation bridges, DN thresholds, focus and bounds learners, energy, cost, provenance, lane decisions), and the ConceptExtractor thread starts at construction (`runtime/bio_stack.py:654`) |
 | **No pickle on the load path** (issue OD-I3) | Maxim's persistence loads without executing code | `MemoryHub._restore_on_open` → `EmbeddingStore.load` → `np.load(allow_pickle=True)` (`integration/memory_hub.py:719-727`, `similarity/semantic.py:662`): dormant unless `enable_semantic`, on a global file; must land before `AgentHome` makes it reachable from saves (TBR-10) |
 | **The clock seam, split in two** | a **machinery clock** for decay, cadences and stamps, and a **perceived-time port**, the only time a prompt may contain, which the host supplies. Guarded by a planted-render test with its sentinel in the **machinery** clock plus an offset-and-scale test (§6.6) and a lint banning `datetime.now`, `strftime` and `localtime` in prompt-reaching modules (Maxim's answer: a no-`__str__` type can't be the guard) | the prompt renders the time (`prompt_builder.py:229`, `:1122-1124`; `context_pool.py:468`, `:493`); swapping in the host clock alone would hand cognition exact world time (BD-12) |
-| **Keyed substreams** (O40) | one derivation: Maxim's `make_agent_rng(base_seed, agent_id)` keyed by the persisted NPC key, with a stream argument (a new Maxim release-gate item after 1.4.0; until then `agent_id` is `"npc_key:stream"`), `base_seed` from the log root (§6.6); `seed_all` never called on the embedded path | `seed_all` reseeds the process (BD-13); a host-side derivation beside Maxim's would be a second one (Maxim's plan review) |
+| **Keyed substreams** (O40) | one derivation, Maxim's `make_agent_rng` (§6.6); `seed_all` never called on the embedded path | `seed_all` reseeds the process (BD-13); a host-side derivation beside Maxim's would be a second one (Maxim's plan review) |
 | **The leak closure** (OD-A17) | prefetch off and the working directory at the empty agent home; the short-question shortcut deleted in Maxim for everyone (#1689, PR #1694); the parse-failure template never reached; no model backend in the worker, so second model doors fail closed; no `force=True` logging; paths under the home; side doors folded into dispatch; a static import ban plus the advisor's three closure tests | prefetch reads files under the working directory on every input (`agent_loop.py:1571`), past every tool rule (Executor N2; TBR-3, TBR-7) |
 | **World-time staleness** | every staleness and deadline on the machinery clock | the wall thresholds of §1 drop thoughts whatever the world says |
 | **Credit at settle** | dispatch tags, settle credits, through NAc's existing eligibility traces, one credit path; robots settle right after dispatch | the cerebellum trains on the sensors read during the call (`agents/tool_bridge.py:864-892`); dopamine's window after an action is 0.3–2 s (Yagishita et al. 2014, *verified* in BD-19); NAc's traces decay ×0.9 **per loop tick** (`decisions/nac.py:3707`), so this depends on step-size-invariant decay (OD-A19, §6.6), not on the clock seam alone |
 | **Valence per D53** | the adapter always self-reports: `neutral` when the measured effect is nil or unverifiable, drive deltas through `measured_drive_transitions` | absent a report, mechanical success books POSITIVE (`runtime/tool_dispatch.py`, D53 block); a strike that changed nothing would teach "striking steel doors works" (BF2-3) |
-| **The robot path drives the same `think`** | a thin driver over the same function; the robot keeps `_complete_text_abandonable` | one deliberation path (Arch 2.4), gated by robot-parity exit tests: OD-EA14 (B1: a bit-identical digest on recorded replies, Exp 49, Exp 60) and OD-EA15 (B2: the robot settles immediately, on recorded replies plus recorded or injected tool durations, the digest covering B2's side-effect list) |
+| **The robot path drives the same `think`** | a thin driver over the same function; the robot keeps `_complete_text_abandonable` | one deliberation path (Arch 2.4), gated by the robot-parity exit tests OD-EA14 and OD-EA15 (roadmap Phase 3) |
 | **Consolidation, its own bounded host call** (Maxim's owner, 2026-11-19) | world time decides when (the NPC's sleep, §2.4); deterministic units (steps, item counts) bound the compute; the wall clock only as a logged, typed abort; an entry point that doesn't end the session; `save()` stays separate | today consolidation runs only at session end (`integration/session_end.py::end_session`; `_consolidate`'s stages are skipped by `_fits` on a wall allowance) and `MaximHandle.stop` blocks on it (`console/handle.py:741`) |
 
 **Front gate: what Maxim already has, which tier A must build on, not beside (MP-B1):** `AgentFactory` and its
@@ -711,13 +714,18 @@ agents)" and "agents step inside the simulation lane's tick" (§11).
 - **Each receipt is credited exactly once,** through `settle`, and zero times when `stale`. A test asserts it. Under
   O6 there is no second path (`execute`'s return) to double-book, once Maxim folds its parallel and agent-fallback
   dispatch into the same split (`tool_dispatch.py:1290-1291`; TBR-6).
+- **Every minted pid settles exactly once (Maxim's review of v5; OD-EA16).** Each invocation pid an agent mints
+  comes back in exactly one terminal receipt, executed or a typed refusal; no receipt arrives without a minted pid;
+  a refusal receipt is the pid's outcome, not a physical event. The host's refusals, deferrals past a budget and
+  drops all end in a typed refusal receipt carrying the pid, so none is orphaned; a dead worker's in-flight pids get
+  `agent_failed` refusals (O44).
 - **Settle feeds NAc's existing eligibility traces,** not a second credit path. Dispatch/settle is an engineering
   refactor behind a bit-identical state-digest parity guard, with robots settling right after dispatch; delayed settle
   happens only when a host chooses it (O15a). A delay sweep that measures credit accuracy must include intervening
   actions, or the measurement is trivial (BD-19).
 - **Slow effects.** Ignite's effect arrives over many physics steps. Credit at a single settle frame learns "ignite
   barely changes temperature". Until tool-level settle can carry a horizon (OD-A16), slow-effect credit is an **OPEN
-  divergence with a red gate.** The sensors used for credit are restricted to those the affordance declares it
+  divergence; a red gate will hold it once the agent PR lands one.** The sensors used for credit are restricted to those the affordance declares it
   affects, so an entity dominated by an ongoing process (a crate in a fire) doesn't train the cerebellum on the
   world's drift (BF2-3).
 - **The credit path never reads instruments.** Per-actor binding gives each NPC perceiver-relative sensors, so B-13
@@ -725,8 +733,8 @@ agents)" and "agents step inside the simulation lane's tick" (§11).
 - **Stale is context, never credit** (lesson 9). Maxim books every `success=False` as NEGATIVE. The refusal-kind key
   (OD-A16) must be **promoted** through the bridge, because `agents/tool_bridge.py:580-582` drops `result.metadata` on
   failure and `runtime/tool_dispatch.py:370` books NEGATIVE before any valence is read; the same holds for any settle key
-  (X-6). Until then, stale refusals are an OPEN divergence behind a strict red gate, and the receipt goes to the next
-  thought's context.
+  (X-6). Until then, stale refusals are an OPEN divergence, to be held by a strict red gate once the agent PR lands it,
+  and the receipt goes to the next thought's context.
 - **A malformed call is a cognitive error, not a tool failure** (lesson 7).
 
 ### 6.5 Per-actor binding and identity (TB2-S8, MP-S12, Arch S3)
@@ -758,7 +766,8 @@ section pins them. Where it and an earlier section differ, this section wins, an
 - **The codec:** length-prefixed frames, each a versioned, closed-schema JSON object through the strict decoder
   (`boundaries.md` §10), with size budgets checked before allocation. Message kinds are closed per direction: host to
   worker `step`, `resume`, `settle`, `consolidate`, `save`, `load`, `shutdown`; worker to host `step_output`, `pending`,
-  `thought_output`, `ack`, `error(code)`. Each intent in `step_output` carries its invocation pid (opaque to the host);
+  `thought_output`, `ack`, `error(code)`. Each intent in `step_output` carries its invocation pid (opaque to the host; null until Maxim's
+  G17 stage builds `PhysicalEventId`, then any non-null value that isn't a pid is refused);
   each receipt in `settle` and each event in `step`'s frame that an intent caused carries it as `caused_by`. An unknown kind, field or version ends the agent (below).
 - **One actor per channel,** bound at spawn: every frame's actor id must equal it.
 - **Everything from the worker is untrusted input.** Stage 1 (`engine.intents.parse_action`, the guest-text gate, the
@@ -773,7 +782,7 @@ section pins them. Where it and an earlier section differ, this section wins, an
   host's per-park wall ceiling (`data/agents/thought_budget.yaml`), exits, or sends a refused frame is killed. The
   host logs `agent_failed(npc, reason = hung | crashed | protocol)` as a record, treats the NPC as parked and inert
   (its body processes go on; it takes no actions), and flags the run tier 3. Restarting it from its last saved home is
-  an explicit host control record.
+  an explicit host control record (its in-flight pids: §6.4, O44).
 - **The worker is a container, not a sandbox (TB3-S6).** It runs as the user and can read what the user can. It
   contains the paths Maxim's code takes by default (working directory, home, environment, keys, outbound network); a
   hostile process needs an OS sandbox (macOS `sandbox-exec`, Linux seccomp and namespaces, Windows AppContainer).
@@ -815,10 +824,11 @@ section pins them. Where it and an earlier section differ, this section wins, an
   right arrives after `basis_seq`, the agent's afferent-scheduler high-water seq (Maxim `thalamic_relay.md` §5.5,
   `preempted_since`): the header holds a copy, never computes it, and LLM-proposal staleness waits on GL3.B7.
   Tracked rights are declared preemption rights (TR6; today only `nociceptive_fast`'s); a non-danger track counts
-  only when a plan rung names it (Maxim's owner). **The embedded efference copy:** the agent's intents run in the
-  host, so attribution (GL3.B2's invocation-pid join, `thalamic_relay.md` §5.2) works only if every receipt and frame
-  event an intent causes carries that intent's pid (the codec above; `tile_and_client.md` §3.1, §4). Without it
-  every self-caused reafference reads as non-self-caused and every in-flight reply goes stale. v3.1's frame-id basis
+  only when a plan rung names it (Maxim's owner). **The embedded efference copy:** attribution (GL3.B2's pid join,
+  `thalamic_relay.md` §5.2) works only if every receipt and frame event an intent causes carries its pid (the codec
+  above; `tile_and_client.md` §3.1). B2's dispatch, the `_run_started` equivalent, draws it from the agent's own
+  `EventSequencer` inside the worker: the sequencer owns the mint, GL3.B2 the contract, and the host only copies it.
+  The executor's `invocation_id` (`uuid4`, `executor.py:512`) is never the pid or a join key. v3.1's frame-id basis
   and `superseded` are dropped. A stale reply goes through Maxim's typed pre-emption handler (§A.1b.4), never
   `_drop_stale_proposal`; the agent returns a re-plan `Pending` (counted) or `ThoughtOutput(abandoned)`. Tracked-right
   events reach the agent through `step`'s frame, danger tracks only; Maxim keeps this out of B2.
@@ -847,15 +857,17 @@ section pins them. Where it and an earlier section differ, this section wins, an
   from the perceived-time port, and only for the **modelled** part of a gap; lateness-caused extension is never
   written into another NPC's memory (DET-S6, BF3-4). Fatigue load counts modelled phase durations, never real or late
   time (DET-S7).
-- **One derivation for Maxim's agent randomness (Exec S3, DET-N4; O40).** Maxim's
-  `utils/seeding.py::make_agent_rng(base_seed, agent_id)` (SHA-256), extended with a stream argument as a new Maxim
-  release-gate item after the 1.4.0 cut (Maxim's owner, 2026-11-19; `1305.owned-rng`'s scope is unchanged); until
-  then `agent_id` is `"npc_key:stream"`. `npc_key` is the persisted NPC key, never Maxim's ordinal agent id, and
-  `base_seed` comes from the log header's root. Each stream's state is saved pickle-free in the agent home. v3.1's
-  host-side handout and the `stable_hash_64_signed` formula are dropped. Overdrive's own streams stay §3.4's tree.
-- **The machinery clock's zero (DET-N5):** world integer µs map onto Maxim's float seconds with a fixed nonzero
-  offset until OD-I1 lands, because world time 0 mapping to 0.0 makes five `x or time.time()` sites swap in the wall
-  clock.
+- **One derivation for Maxim's agent randomness (Exec S3, DET-N4; O40):** `make_agent_rng` with a stream argument
+  (until it exists, `agent_id` is `"npc_key:stream"`), keyed by the persisted NPC key, never Maxim's ordinal, with
+  `base_seed` from the log header's root. Each stream's state is saved pickle-free in the agent home. Overdrive's own
+  streams stay §3.4's tree.
+- **Replay ids and the step thread (O43).** `session_id` comes from the log header (root id plus NPC key); the
+  sequencer's high-water seq is saved in the agent home (save v1, Phase 4), so a loaded save continues it. On
+  restore it is floored at the highest pid the host logged for the agent (O44). Maxim
+  scopes determinism to single-threaded loop paths (`thalamic_relay.md` §5.5): one worker per agent, stepped by one
+  thread, is inside it, so never a pool of agents per worker thread.
+- **The machinery clock's zero (DET-N5):** world µs map onto Maxim's seconds with a fixed nonzero offset until
+  OD-I1 lands, since 0.0 makes five `x or time.time()` sites swap in the wall clock.
 
 **The model has more doors than `think` (Arch S2)**
 - `AdaptivePlanner(llm=...)` (`runtime/bootstrap.py:623`, calling `adaptive_planner.py:487`), the `ToolPainBridge`
@@ -1103,15 +1115,9 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
 
 ### 11.3 In v2 of this part (after Maxim's answers)
 
-| v2 | v3 |
-|---|---|
-| `AgentPort` split in two, with a host service protocol and `request_thought` | `step`, `think` and `settle`, all host-called (§6.2; O39 merged `apply` into `settle`) |
-| a host-supplied gateway as a cancellable `LLMBackend` with a token iterator | the request/reply cut above the backend; cancel is a `cancelled(prefix)` reply (§6.1) |
-| "tool calls" in a thought, and a tool-call cap | PFC cycles, `parallel_actions`, `next_actions` and follow-up chains per triggering input (§4.7) |
-| tool schemas in the cache key | `tools is None` asserted (§4.8) |
-| at most one real Maxim agent per process | one worker process per real agent (§6.3) |
-| `AgentTime` as one injected clock | a machinery clock plus a perceived-time port (§6.1) |
-| filler, then yield | filler, account, yield (§4.4) |
+v3 replaced v2's split `AgentPort`, host service protocol and `request_thought` with three host calls (§6.2, O39),
+its cancellable backend with the request/reply cut (§6.1), tool-call caps with PFC cycles and follow-up chains
+(§4.7), one injected clock with two (§6.1), and in-process agents with a worker per agent (§6.3).
 
 ## 12. Open questions and divergences
 
@@ -1126,8 +1132,7 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
    (§6.6; roadmap Phase 4): a strict red gate refuses guest joins while real-Maxim NPCs are live until all five tests
    pass, owned by `phase1/protocol`. The sixth gate, remote model egress, is O18; the OS sandbox is deferred by name
    (O30).
-2. **Local or remote LLM: decided (O18).** If a remote provider is ever used, it receives players' words; that needs a stated
-   disclosure (TB2-S9).
+2. **Local or remote LLM: decided (O18;** TB2-S9).
 3. **The stale-refusal fix gates Phase 4.** Roadmap Phase 3's exit now requires OD-A16, so the first NPCs never learn
    from stale refusals (Arch S14). Confirm that ordering, since it puts the credit amendment on Phase 4's critical
    path.
@@ -1146,14 +1151,8 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
      the same keyed draw, since filler rates differ between speakers (Bortfeld et al. 2001, *verified* abstract).
    - **Optional slow tail** (`[engineering]`): real populations have a heavier slow tail than a lognormal; a small
      slow group (about 5% of NPCs, twice the sigma) would give it.
-6. **Phase 4's interim live-play policy: decided (O16).** Until OD-H5's floor-holding lands, single-player dilates
-   (about **0.33×** in a conversation at D = 1 s, L = 3 s; about **0.11×** over 3 PFC cycles, §4.5) and co-op lands
-   late replies silently as a new turn (heard as reluctance, BF3-4; metered by hardware). Abandoning late thoughts was
-   rejected: at L = 3 s against a 1 s onset, NPCs would mostly not answer.
-
-7. **Retention of guest speech agent-side (TBR-13): decided (O17).** Agent homes hold logs and memories derived from guests' words
-   (provenance, lane decisions, utterances). How long are they kept, and does a guest leaving a session purge them by
-   default, or only on request? Proposed: purged on request, and never shipped in a bug report (§5.2).
+6. **Phase 4's interim live-play policy: decided (O16);** its numbers are §4.5's.
+7. **Retention of guest speech agent-side (TBR-13): decided (O17, O26).**
 
 ### 12.2 Known OPEN divergences (each with a red gate when there is code)
 
@@ -1176,8 +1175,7 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
 - Stale refusals book NEGATIVE; closes with OD-A16.
 - Slow-effect credit; closes with OD-A16's settle horizon.
 - The NPC is a statue while a thought is in flight; closes with the hybrid line's substrate.
-- Real NPCs wait for the stepped `think`, which lands after Maxim's 1.4.0 cut with the agent-loop decomposition slice
-  (O15a); until then every agent test runs on the test double.
+- Real NPCs wait for the stepped `think` (O15a); until then every agent test runs on the test double.
 - LLM-bypassing replies on the core path (prefetch, and the parse-failure template, which does echo the guest's
   words; Maxim deleted the short-question shortcut, #1689); closes with OD-A17, whose parser bypass covers every reply, not only cancelled ones
   (TB3-S1), and the worker process contains them meanwhile.
@@ -1187,23 +1185,22 @@ Still standing in §4.3: one thought in flight per NPC, the meters, and the fixe
   anchor path credits a node whose trace has expired (below 0.01: 44 passes at ×0.9, 1.5–4.4 s at 10–30 Hz today,
   about 22 s of experience time after #1361 S3a) by `0.3 × similarity × activation`, counted only above 0.01
   (`decisions/nac.py:3622-3640`); the similarity compares host-calendar signatures (circadian, weekly, monthly
-  `(day−1)/31`, annual). Credit is normalised (`reward × strength / Σ strength`), but the calendar moves more than how
-  credit is shared between live-trace and anchor-only nodes; v3.2's erratum said only that, and was too narrow
-  (Maxim's delta review): (a) it can drop a node below 0.01, so a receipt whose only node drops books nothing; (b)
-  anchor-only nodes set at different host times split differently; (c) `TemporalSignature.from_timestamp` uses local
-  time (`time/temporal_signature.py:60`), so a local midnight (the monthly phase steps 1/31, similarity about 0.018
-  lower) or a DST change inside the interval moves credit, and **a replay on a machine in another timezone differs**
-  (OD-WC1). Today the 300 s window is wall time (`decay_eligibility`, `nac.py:3715`), so a host pause past it prunes
-  the anchor; that ages on the experience clock with #1361 S3b. Anchors are session-scoped (`nac.py:875`). No
-  workaround (no faked time or pinned `TZ` in production; CLAUDE.md). Strict red gates in the agent line
-  (`checklists.md`) carry the evidence to re-raise OD-A20; Phase 4's replay exit carries this divergence.
+  `(day−1)/31`, annual). Credit is normalised, but the calendar moves more than sharing (v3.2's erratum was too
+  narrow; Maxim's delta review): (a) it can drop a node below 0.01, so a receipt whose only node drops books nothing;
+  (b) anchor-only nodes set at different host times split differently; (c) `TemporalSignature.from_timestamp` uses
+  local time (`time/temporal_signature.py:60`), so a local midnight (similarity about 0.018 lower) or a DST change
+  moves credit, and **a replay in another timezone differs** (OD-WC1). The 300 s window is wall time today
+  (`nac.py:3715`), so a pause past it prunes the anchor until #1361 S3b. Anchors are session-scoped (`nac.py:875`).
+  No workaround (no faked time or pinned `TZ` in production). Recorded from Maxim's code and our arithmetic, not a
+  run: two strict red gates will carry the evidence to re-raise OD-A20 once the agent PR lands them
+  (`checklists.md`). Phase 4's replay exit carries this divergence.
 - **What an NPC forgets follows the wall clock** (Maxim's delta review; stays with #1361 Q5, which keeps it as a
   stated inconsistency). `Hippocampus.sleep` scores retention on `time.time()` against `accessed_at`
   (`memory/hippocampus_consolidation.py:117`). On the default access-based strategy (score `0.5 × (1 − age/7 d) +
   0.2 × min(1, accesses/5) + 0.3 × min(1, edges/20)`, removed below 0.3), a memory accessed once with no edges is
   removed once its access is more than 3.36 wall days before the pass; with 20 edges it is never removed. So a
-  paused week erases such memories, and a replay paced unlike the live run forgets differently. No workaround; a
-  strict red gate (`checklists.md`).
+  paused week erases such memories, and a replay paced unlike the live run forgets differently. No workaround.
+  Recorded from the code and arithmetic, not a run; a strict red gate will carry it once the agent PR lands it.
 - Model calls outside `think` (`AdaptivePlanner`, the `ToolPainBridge` reflection, `FearAgent`); they fail closed in
   the worker, which holds no backend, and close with OD-A17.
 - Any shared router serialises inference (`_inference_lock`); the host never shares one across NPCs, and closes it

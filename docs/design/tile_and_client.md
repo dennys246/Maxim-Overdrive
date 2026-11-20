@@ -1,6 +1,6 @@
 # The tile: world side (design, step 0d, v3, 2026-11-18)
 
-**Status:** v3, frozen (owner T13, 2026-11-18); the final physics review's FPH-B1 to B3 are step 6 requirements (`docs/plans/checklists.md`). v1 (f6afd66) had a six-lens review, v2 a delta review
+**Status:** v3, frozen (owner T13, 2026-11-18). v1 (f6afd66) had a six-lens review, v2 a delta review
 (`docs/design/reviews/tile_v1/`, with the reviewer's fold status in `fold.md`, O25). This document holds the world
 side: the alley, bodies, intents and their pipeline, the simulation `Frame`, what step 6 must deliver, the exit
 scenario and the Bio-faithful note. `client_rendering.md` holds the client protocol layer's wire encoding and the
@@ -12,11 +12,10 @@ in §5.1.
 **Corrections to the repo's text** (each lands in the plan step named):
 - `docs/architecture.md:20` ("turn-based, classic Fallout") is stale: real time with pause on a fixed tick
   (`origin/phase1/realtime-design:docs/design/realtime_lanes_coop.md`, decisions 1–4); its Transport caveats are
-  restated in `client_rendering.md` §4. Step 7.
+  restated in `client_rendering.md` §4. Step 1.
 - `docs/roadmap.md` Phase 1 lists the clinic (D27) and a "laptop and rig profiles" exit (D20): step 8.
   `data/rigs/*.yaml`'s comments and tier fields (D20): step 3a's `config` split. `docs/standards_backlog.md` B5–B7's
   stale step numbers (EX-N7): step 2.
-- realtime §7's v0 message table (`act`, `act_result`) is superseded by §3.3 here; it is amended at the merge (step 1).
 
 ## 0. Decisions this document rests on
 
@@ -30,6 +29,9 @@ in §5.1.
 | T6 | File OD-C11 (egocentric locomotion) with Maxim | owner, 2026-11-18 | §3.1 |
 | T7 | The walk direction is an integer vector, canonicalised at stage 1 | owner, 2026-11-18 | §2.3 |
 | T13 | Frozen at v3; no more paper rounds on the fire physics. Step 6's PR carries a short design note under the Physics lens, the final review's FPH-B1 to B3 are its requirements, and its convergence tests and pre-registered failure path decide | owner, 2026-11-18 | §5 |
+| T14 | The flame radiates into bodies by a point source in Phase 1; into walls in Phase 2 | owner, 2026-11-19 | §9 |
+| T15 | The crate: 20 mm slats at φ = 0.25 | owner, 2026-11-19 | §9 |
+| T16 | Protocol v0 freezes only the kinds a Phase 1 client sends | owner, 2026-11-19 | §3.3, §9 |
 | RT1–4 | Real time with pause on a fixed tick; a dial; pause a state; host-only time control | owner, 2026-11-15 | realtime decisions 1–4 |
 | D20, D25 | One truth at 0.1 m, rigs are rendering tiers; reconstruct, decide at the point, integrate | owner, 2026-11-16 | world_model §0 |
 | D26–D28 | Tile first, exit as written; clinic after; heat-debt prototype after the tile | owner, 2026-11-17 | world_model §0 |
@@ -193,7 +195,9 @@ Decode → stage 1 (`simcore` core intents) → log → stage 2 against the worl
 `(apply_tick, kind_rank, apply_us, actor_id, seq)`.
 - **Cause (the efference copy, npcs §6.6).** Receipts carry the intent's id, `(actor_id, seq)`; each bodies-part
   event and pilots row also carries it as `cause`. An agent's intent logs Maxim's invocation pid as opaque
-  `invocation` (null for players), which its adapter maps `cause` to. Step 5b owns both; step 7 freezes `cause`.
+  `invocation` (null for players), which its adapter maps `cause` to. The host copies it and never mints one; it is null, never a
+  stand-in, until Maxim's G17 stage (npcs §6.6). Step 5b owns both; step 7
+  freezes `cause`.
 - **`observed_tick`** is the tick of the last cell frame sent to that session (DC-S1, boundaries §4.2), not the last
   `tick` message. Phase 1 has no stale rule, so it has no caller; it is logged for Phase 4 (DC-N8).
 - **Authority** (boundaries §6.1): `move`, `move_to`, `kindle` are "any actor"; a body or an igniter is capability,
@@ -235,8 +239,6 @@ Decode → stage 1 (`simcore` core intents) → log → stage 2 against the worl
 
 ### 3.3 Protocol v0's client messages (DC-B2)
 
-This table replaces realtime §7's (`act`, `act_result` retired); realtime §7 is amended to match at the merge.
-
 | Client → server | Fields | Final reply |
 |---|---|---|
 | `hello` | `protocol: 0`, `token` | `welcome`, or `error` then close |
@@ -247,8 +249,8 @@ This table replaces realtime §7's (`act`, `act_result` retired); realtime §7 i
 | `snapshot` | `seq` | a cell frame with `in_reply_to` |
 
 - **No client message names a region or actor.**
-- **`strike`, `douse` and `imagine` have no wire message in v0,** because no Phase 1 client sends them. They join
-  as versioned additions when a client caller exists. NPCs reach them through the adapter, not the wire.
+- **`strike`, `douse` and `imagine` have no wire message in v0** (T16); they join as versioned additions when a
+  client caller exists. NPCs reach them through the adapter.
 - **One receipt shape for every intent** (boundaries §7.2): `(actor_id, seq)`, outcome (`applied`, `refused`, `stale`,
   `cancelled`; the last two have no Phase 1 producer), refusal code, measured effect, before and after frame ids.
   `intent_result` wraps it with wire-only `apply_tick` and `path_mm`. Agent-facing receipts carry no tick.
@@ -466,12 +468,10 @@ wall, crack read as crack, glow as heat, burn-out as fuel running out, the dial.
 
 ## 9. Open questions for the owner
 
-1. **Bodies receive the flame's radiation by a point-source model in Phase 1** (so D28's body feels the fire), while
-   walls don't until Phase 2? *Recommend yes;* it's cheap, metered, and it is what makes the body location-dependent.
-2. **The crate as 20 mm slats at φ = 0.25** (σ = 25 m²/m³, 32.4 kg)? *Recommend yes,* as the content value step 6
-   tests. A denser crate burns longer and a sparser one may not sustain (σ_min 4.2–7.0 m²/m³).
-3. **Protocol v0 freezes only the kinds a Phase 1 client sends;** `strike`, `douse` and `imagine` get wire messages
-   when a client caller exists? *Recommend yes.*
+1. **The flame radiates into bodies by a point source in Phase 1,** walls in Phase 2: decided, T14.
+2. **The crate as 20 mm slats at φ = 0.25** (σ = 25 m²/m³, 32.4 kg), step 6's content value: decided, T15. A denser
+   crate burns longer and a sparser one may not sustain (σ_min 4.2–7.0 m²/m³).
+3. **Protocol v0 freezes only the kinds a Phase 1 client sends:** decided, T16.
 
 ## 10. What this does not settle
 
@@ -490,4 +490,4 @@ wall, crack read as crack, glow as heat, burn-out as fuel running out, the dial.
 | 6a–6d, the constants' provenance, the ledger lines, the skin deposit for `kindle`, the torch's band, the 0.05 m reference, V_floor, the red gate's flip | 6 |
 | §3.3's messages, `intent_result`, `observed_tick` stamping, `cause` in events, the wire (`client_rendering.md` §4) | 7 |
 | The game package and `content/`, the exit script, the controls by deletion, the stage-2 refusal scripts, the playtest | 8 |
-| Save v0 with the actor and pilots tables and `body_key` | 9 |
+| Save v0 with the actor and pilots tables and `body_key`; agent homes (O43) are save v1 | 9 |
