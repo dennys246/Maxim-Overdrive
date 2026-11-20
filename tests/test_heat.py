@@ -84,5 +84,6 @@ def test_the_substep_floor_follows_the_grid_spacing_as_the_rig_profiles_did():
     """Resolution left the rig (D20) without changing a result: the floor at today's spacings is exactly what the
     retired rig profiles carried (laptop 4, rig 16, max 64), and it grows as 1/dx^2, never below one substep."""
     assert [heat.min_substeps(dx) for dx in (0.2, 0.1, 0.05)] == [4, 16, 64]
+    assert heat.min_substeps(0.16) == 7  # 6.25 rounds up: the floor is a bound, never rounded down
     assert heat.min_substeps(0.4) == 1
     assert heat.min_substeps(10.0) == 1

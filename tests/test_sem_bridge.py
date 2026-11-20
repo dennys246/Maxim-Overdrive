@@ -46,3 +46,5 @@ def test_regions_are_real_maxim_entities(dx_m, materials):
     readings = ent.read_all_sensors()
     assert set(readings) == {"integrity", "temperature_max", "temperature_mean", "breached"}
     assert "strike" in ent.modulators["structure"].affordances
+    # A wire value from a fixed vocabulary, never a module path, so a later move can't change it silently (W10).
+    assert ent.metadata["source"] == "overdrive_world"

@@ -50,6 +50,15 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 
 ## Step 3b, gates
 
+- From boundaries §10 and §11.1's "lands: boundaries" rows that step 3a (structure only, O23) did not build:
+  - the StructureModulator split: its gate half stays in `simcore.adapters.sem`, its write half (`apply`,
+    `_strike`, `_ignite`, douse) moves into the core as the applier, with the reach and centroid checks as stage-2
+    checks; `parse_action`, the typed actions and the refusal type move below the membrane (§2.2 `intents`);
+  - then the skip-layer forbidden contract (adapters, protocol ↛ grid, laws, geometry, scene build). It can't land
+    before the split, because today's bridge writes the world through `damage` and `World.sources`;
+  - §3's writer non-vacuity test: every function assigning into a cell array, `regions` or `sources` is in the core;
+  - B-4's input-primitive allowlist and banned unsafe calls; B-10's `Observation` protocol and frame tests; B-13's
+    import half (the membrane reads frames and the registry only).
 - Scene v1: F13 plus a required `spawns`; scene v0 is refused by version, not migrated (it would migrate to a
   scene `join` refuses); golden v0 and v1 fixtures (WT-S8).
 - One schema and one reader per data format; `MaterialTable`'s lookup arrays and every rejection test generated
@@ -72,10 +81,13 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 
 ## Step 5a, the simulation core (O34)
 
-- The substep floor (from 3a): `World.advance` still takes `max(heat.min_substeps(dx), stability)` substeps, where
-  `min_substeps` is the retired rigs' 4/16/64 as 0.16 m² / dx². On every 6 s turn the floor, not stability, sets the
-  count; stability alone changes every determinism digest (measured in 3a), so dropping the floor is a behaviour
-  change with new goldens, owed with the fixed physics step.
+- The substep floor (from 3a, marked `TEMPORARY(phase1/sim-clock)` in `src/simcore/core/heat.py`): `World.advance`
+  takes `max(heat.min_substeps(dx), stability)` substeps per call, the retired rigs' 4/16/64 as 0.16 m² / dx²,
+  whatever the call's length. On every 6 s turn the floor, not stability, sets the count; stability alone changes
+  every determinism digest (measured in 3a). Replace it with an accuracy floor per step length, with new goldens
+  and `tests/test_determinism.py::TURN_SUBSTEPS` updated, and rework its other callers:
+  `tests/test_heat.py::_error` and `::test_insulated_world_conserves_heat` pass it to 3,600 s calls, where it means
+  nothing, and `::test_the_substep_floor_follows_the_grid_spacing_as_the_rig_profiles_did` pins it.
 - A short composition note first: cell state, body state, ledger, clock, intent log; no god object.
 - The step as a fixed, ordered tuple of laws, each with `stable_dt(state)` and `step(state, dt, ledger)`;
   topology changes read from `topology_version`. No discovery.

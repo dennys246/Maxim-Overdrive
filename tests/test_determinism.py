@@ -78,6 +78,20 @@ def test_the_scenario_exercises_burning(dx_m):
     assert (original_crate & ~w.grid.solid).any()  # and destroyed crate cells
 
 
+# The substeps each 6 s turn takes on the shipped path, as the retired rigs set them (laptop, rig). The digests were
+# shown bit-identical across the move by hand (step 3a's hand-off); a golden digest isn't committed, because only the
+# outcome class is promised across machines and CI runs on another one. This pins the one number that set them.
+TURN_SUBSTEPS = {0.2: 4, 0.1: 16, 0.05: 64}
+
+
+@fast_spacings
+def test_each_turn_takes_the_substeps_the_rigs_took(dx_m):
+    w = World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
+    _, crate = region_parts(w, "crate")
+    assert crate["structure"].execute("ignite", {"power_w": FIRE_W, "radius_m": 0.3}).success
+    assert [w.advance() for _ in range(3)] == [TURN_SUBSTEPS[dx_m]] * 3
+
+
 @fast_spacings
 def test_two_runs_are_bit_identical(dx_m):
     assert digest(run(dx_m)) == digest(run(dx_m))
@@ -111,6 +125,27 @@ BANNED_MODULES = {
     "datetime": "the wall clock",
     "timeit": "the wall clock",
 }
+# The sealed core's banned list (boundaries §3), the one list both checks read: pyproject.toml's sealed-core import
+# contract must equal it (tests/test_tooling_config.py), and the core's own scan below refuses the same imports. It
+# extends BANNED_MODULES, which holds everywhere, with what only the core gives up: the OS, file IO, logging,
+# concurrency, the network, ctypes and Maxim.
+SEALED_CORE_BANNED = frozenset(BANNED_MODULES) | {
+    "zoneinfo",
+    "os", "importlib", "sys", "platform", "locale", "signal", "gc", "weakref", "ctypes",
+    "pathlib", "io", "yaml", "json", "tempfile", "shutil", "glob", "pickle", "marshal", "shelve", "dbm", "sqlite3",
+    "mmap", "logging", "builtins", "codecs", "fileinput", "linecache", "tokenize", "zipfile", "tarfile", "gzip",
+    "bz2", "lzma",
+    "threading", "_thread", "asyncio", "concurrent", "multiprocessing", "subprocess", "queue", "sched",
+    "socket", "select", "selectors", "ssl", "http", "urllib", "websockets",
+    "maxim",
+}  # fmt: skip
+# What imports can't show (§3): builtins that read files, import by name or run text as code, named in any way (a
+# call, an alias such as ``f = open``, ``getattr(builtins, ...)`` or ``__builtins__``); and numpy's and scipy's file
+# IO, since the core imports both. The core uses none of them.
+CORE_BANNED_BUILTINS = {"open", "__import__", "exec", "eval", "input", "compile", "getattr", "__builtins__"}
+NUMPY_FILE_IO = {"load", "save", "savez", "savez_compressed", "fromfile", "memmap", "loadtxt", "savetxt", "genfromtxt"}
+NUMPY_NAMES = {"np", "numpy"}
+CORE = "simcore/core"
 NUMPY_RANDOM_ALLOWED = {"default_rng", "Generator", "SeedSequence", "PCG64"}  # seeded construction only
 SEEDED_CONSTRUCTORS = {"default_rng", "PCG64", "SeedSequence"}
 # Package-qualified directories under src/ that may read the clock or OS entropy because nothing they read reaches the
@@ -193,11 +228,113 @@ def scanned_files() -> list[Path]:
     return sorted(files) + sorted((ROOT / "tests").rglob("*.py"))
 
 
+def _core_imports(node: ast.AST) -> list[str]:
+    """What an import statement brings in, as dotted names; ``from numpy import load`` gives ``numpy.load``."""
+    if isinstance(node, ast.Import):
+        return [a.name for a in node.names]
+    if isinstance(node, ast.ImportFrom) and node.level == 0:
+        return [node.module or "", *(f"{node.module}.{a.name}" for a in node.names)]
+    return []
+
+
+def _core_file_io(node: ast.AST) -> str | None:
+    """A banned builtin named anywhere, numpy's file IO (``np.load``, ``arr.tofile``) or ``scipy.io``."""
+    if isinstance(node, ast.Name) and node.id in CORE_BANNED_BUILTINS:
+        return f"names builtin {node.id}"
+    if isinstance(node, ast.Attribute):
+        dotted = _dotted(node) or ""
+        parts = dotted.split(".")
+        if node.attr == "tofile" or (parts[0] in NUMPY_NAMES and parts[-1] in NUMPY_FILE_IO):
+            return f"uses {dotted or node.attr}: file IO"
+        if parts[:2] == ["scipy", "io"]:
+            return f"uses {dotted}: file IO"
+        if parts[0] == "builtins":  # builtins.open, reached without an import through a module that holds it
+            return f"uses {dotted}"
+    return None
+
+
+def core_findings(path: Path, source: str) -> list[str]:
+    """The sealed core's own scan: no import from SEALED_CORE_BANNED, no banned builtin and no array file IO."""
+    out = []
+    for node in ast.walk(ast.parse(source)):
+        line = getattr(node, "lineno", 0)
+        for m in _core_imports(node):
+            parts = m.split(".")
+            if parts[0] in SEALED_CORE_BANNED or parts[:2] == ["scipy", "io"]:
+                out.append(f"{path}:{line}: the core imports {m}")
+            elif parts[0] == "numpy" and parts[-1] in NUMPY_FILE_IO:
+                out.append(f"{path}:{line}: the core imports {m}: file IO")
+        if (hit := _core_file_io(node)) is not None:
+            out.append(f"{path}:{line}: the core {hit}")
+    return out
+
+
 def test_the_simulation_and_tests_have_no_hidden_sources_of_nondeterminism():
     scanned = scanned_files()
     assert {p.relative_to(SRC).as_posix() for p in scanned if p.is_relative_to(SRC)} >= MUST_SCAN
     hits = [f for p in scanned for f in findings(p.relative_to(ROOT), p.read_text())]
+    core = sorted((SRC / CORE).rglob("*.py"))
+    assert {p.relative_to(SRC).as_posix() for p in core} >= MUST_SCAN
+    hits += [f for p in core for f in core_findings(p.relative_to(ROOT), p.read_text())]
     assert not hits, "\n".join(hits)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import os",
+        "from pathlib import Path",
+        "import logging.handlers",
+        "import tempfile",
+        "import maxim.embodiment",
+        "from _thread import start_new_thread",
+        "f = open('x')",
+        "m = __import__('os')",
+        "exec('x = 1')",
+        "y = eval('1')",
+        "s = input()",
+        "import builtins",
+        "import codecs",
+        "import zipfile, gzip",
+        "f = open",
+        "f = __builtins__['open']",
+        "e = getattr(builtins, 'exec')",
+        "builtins.open('x')",
+        "a = np.load('z.npy')",
+        "np.save('z', a)",
+        "a = numpy.fromfile('w')",
+        "a = np.memmap('m')",
+        "a = np.loadtxt('t')",
+        "np.savetxt('t', a)",
+        "a = np.genfromtxt('t')",
+        "np.savez('z', a=a)",
+        "arr.tofile('w')",
+        "from numpy import load",
+        "from scipy import io",
+        "import scipy.io",
+        "m = scipy.io.loadmat('m')",
+    ],
+)
+def test_the_core_scan_catches(source):
+    assert core_findings(Path("x.py"), source + "\n"), source
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import math",
+        "from . import heat",
+        "from simcore.core.grid import MaterialGrid",
+        "x = grid.open(1)",
+        "# open('x')",
+        "a = np.take(k, idx)",
+        "from scipy.special import ndtr",
+        "from numpy import typing",
+        "x = self.load",
+    ],
+)
+def test_the_core_scan_ignores(source):
+    assert core_findings(Path("x.py"), source + "\n") == [], source
 
 
 @pytest.mark.parametrize(

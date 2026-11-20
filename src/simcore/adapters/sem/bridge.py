@@ -46,6 +46,10 @@ else:
         HAVE_MAXIM = False
 
 
+# Where an Entity came from, as a fixed vocabulary value on the wire, never a module path (boundaries §11.2, W10).
+ENTITY_SOURCE = "overdrive_world"
+
+
 class RegionSensor:
     _UNITS: ClassVar[dict[str, str]] = {
         "integrity": "ratio",
@@ -417,6 +421,5 @@ def to_maxim_entity(world: World, region: str, entity_type: str = "structure") -
         entity_type,
         sensors=sensors,  # type: ignore[arg-type]
         modulators=modulators,  # type: ignore[arg-type]
-        # A wire value, not a module path: kept as it was when the bridge moved, until W10 decides it (§11.2).
-        metadata={"source": "maxim_overdrive.sem_env", "cell_size_m": world.grid.dx},
+        metadata={"source": ENTITY_SOURCE, "cell_size_m": world.grid.dx},
     )

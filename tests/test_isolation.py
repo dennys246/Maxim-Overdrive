@@ -137,6 +137,7 @@ ALLOWED_SPAWNS = {
     ("tests/_gitutil.py", "git"): "given",  # git with every GIT_* dropped and no global config
     ("tests/test_prepush.py", "_gate"): "given",  # the gate, copied into a tmp repository
     ("tests/test_tooling_config.py", "_ruff"): "given",  # ruff, reading the tree
+    ("tests/test_tooling_config.py", "_lint_imports"): "given",  # import-linter, on a tmp copy of src/
     ("tests/test_determinism.py", "test_runs_in_processes_with_different_hash_seeds_agree"): "given",  # Python
     ("tests/test_client_project.py", "_detected"): "given",  # ci/install_godot.sh --platform, PATH only
 }

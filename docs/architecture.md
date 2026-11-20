@@ -132,7 +132,7 @@ How the rule is kept, so far:
   after 60 turns of a 500 kW fire, once the crate has burned away). The reading isn't clipped, because clipping
   would hide the gap; the fuel model is the fix.
 - Cost: the 0.05 m profile is about 60x slower than 0.1 m on a fire scenario (explicit heat, Python + numpy).
-  `full_res_radius_m` is reserved for running far cells coarser.
+  Far cells never run coarser (world_model D21).
 
 ## SEM for the environment
 
@@ -147,7 +147,7 @@ world through it, so it works in two stages. `parse_action` turns the untrusted 
 `Strike`, `Ignite` or `Extinguish` inside the world's `ActionLimits` (`data/world/actions.yaml`), reading nothing from
 the world, so the protocol layer can run it first. `StructureModulator.apply` re-checks the action against the
 limits, then checks what depends on the world now (the region still has cells, a strike's point is on the region, judged
-from authored footprints in metres so the answer is the same at every rig). A region is its cells plus its authored
+from authored footprints in metres so the answer is the same at every spacing). A region is its cells plus its authored
 footprint; named solids can't share space with a later solid, so a footprint never covers another object's cells.
 Parameters are a closed set per affordance, plus the keys Maxim adds itself (`target`). Every number is a finite real
 number: NaN, infinities, bools and numeric strings are refused, never guessed. A refusal names the parameter in plain
@@ -159,7 +159,7 @@ Actions change cells; only `World.advance` moves time.
 
 ## Fine-scale state drives graphics
 
-`world.snapshot` quantizes per-cell state into arrays a client uploads as 3-D textures: `material`, `crack`
+`encoding.snapshot` quantizes per-cell state into arrays a client uploads as 3-D textures: `material`, `crack`
 (1 − integrity), `glow` (from 525 °C, near the Draper point, to 1500 °C) and `temperature_c`. Shaders read them
 directly, so the finest physical state shows up as cracks, scorch and glowing metal without the renderer knowing
 any physics. The cell size sets the finest detail physics can drive; the client can add sub-cell detail (noise,

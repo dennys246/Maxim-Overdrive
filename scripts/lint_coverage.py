@@ -1,4 +1,4 @@
-"""Standards check 4: the coverage floor only ratchets (CLAUDE.md, "Coverage only ratchets up").
+"""Standards check 3: the coverage floor only ratchets (CLAUDE.md, "Coverage only ratchets up").
 
 ``fail_under`` may not drop below the base branch's.
 """

@@ -235,11 +235,23 @@ def test_an_imagined_object_over_its_mass_budget_is_refused(dx_m, materials):
     assert "c" not in g.regions
 
 
+def test_the_game_data_is_found_installed_or_in_a_checkout_or_refused(tmp_path):
+    here = tmp_path / "src" / "maxim_overdrive"
+    here.mkdir(parents=True)
+    with pytest.raises(FileNotFoundError, match=r"no game data: neither .*_data.* nor .*data"):
+        data.data_dir(here)
+    (tmp_path / "data").mkdir()
+    assert data.data_dir(here) == tmp_path / "data"  # a checkout
+    (here / "_data").mkdir()
+    assert data.data_dir(here) == here / "_data"  # installed wins
+    assert data.data_dir() == Path(__file__).resolve().parents[1] / "data"  # this checkout
+
+
 def test_a_rig_profile_loads_by_path_and_the_game_finds_its_own_by_name(tmp_path):
     custom = tmp_path / "tiny.yaml"
-    custom.write_text("version: 1\nname: tiny\ndetail_radius_m: 4.0\n")
-    assert RigProfile.load(custom) == RigProfile("tiny", 4.0)
-    assert data.rig_profile("rig").detail_radius_m == 16.0
+    custom.write_text("version: 1\nname: tiny\n")
+    assert RigProfile.load(custom) == RigProfile("tiny")
+    assert data.rig_profile("rig").name == "rig"
     with pytest.raises(FileNotFoundError):
         data.rig_profile("no_such_rig")
 
@@ -254,18 +266,6 @@ def test_a_scene_refuses_an_impossible_ambient_temperature(ambient, message):
     raw = yaml.safe_load(f"version: 0\nextent_m: [1, 1, 1]\nprimitives: []\nambient_c: {ambient}\n")
     with pytest.raises(ValueError, match=message):
         Scene.from_dict(raw)
-
-
-@pytest.mark.parametrize(
-    ("field", "value"), [("detail_radius_m", "'0.1'"), ("detail_radius_m", ".inf"), ("detail_radius_m", "true")]
-)
-def test_a_rig_file_refuses_a_value_that_is_not_a_finite_number(tmp_path, field, value):
-    good = {"version": "1", "name": "t", "detail_radius_m": "4.0"}
-    good[field] = value
-    path = tmp_path / "t.yaml"
-    path.write_text("".join(f"{k}: {v}\n" for k, v in good.items()))
-    with pytest.raises(ValueError, match=f"{field} must be a finite number"):
-        RigProfile.load(path)
 
 
 @pytest.mark.parametrize(
@@ -540,16 +540,16 @@ def test_paint_refuses_a_confusable_name_before_painting(dx_m, materials):
 
 # -- closed schemas: every loader refuses a key it doesn't know, at every level (B12) ----------------------------------
 
-RIG_FILE = "version: 1\nname: t\ndetail_radius_m: 4.0\n"
+RIG_FILE = "version: 1\nname: t\n"
 
 
 @pytest.mark.parametrize(
     ("text", "message"),
     [
-        (RIG_FILE + "detail_radius: 0.5\n", r"unknown key\(s\) \['detail_radius'\]"),  # a misspelt key
-        (RIG_FILE + "detail_radius_m: 0.5\n", "repeated key"),  # the second value would silently win
+        (RIG_FILE + "cell_size_m: 0.1\n", r"unknown key\(s\) \['cell_size_m'\]"),  # physics left the rig (D20)
+        (RIG_FILE + "name: u\n", "repeated key"),  # the second value would silently win
         ("- name: t\n", "rig profile .* must be a mapping"),
-        ("detail_radius_m: [\n", "not valid YAML"),
+        ("name: [\n", "not valid YAML"),
     ],
 )
 def test_a_rig_file_refuses_unknown_and_repeated_keys(tmp_path, text, message):
@@ -690,8 +690,8 @@ def test_a_scene_refuses_a_missing_key_by_name(raw, message):
 
 def test_a_rig_file_refuses_a_missing_key_by_name(tmp_path):
     path = tmp_path / "t.yaml"
-    path.write_text("version: 1\nname: t\n")
-    with pytest.raises(ValueError, match=r"missing key\(s\) \['detail_radius_m'\]"):
+    path.write_text("version: 1\n")
+    with pytest.raises(ValueError, match=r"missing key\(s\) \['name'\]"):
         RigProfile.load(path)
 
 
@@ -997,8 +997,9 @@ def test_the_committed_v0_files_still_load(load, fixture):
 
 def test_the_committed_v0_rig_file_is_refused_by_version_not_migrated():
     # Rig format v0 carried physics (cell_size_m, min_substeps_per_turn). Under D20 it is a dead format: its golden
-    # stays committed, and the reader refuses it loudly for its version.
-    with pytest.raises(ValueError, match=r"rig profile .* version must be 1, got 0"):
+    # stays committed, and the reader refuses it loudly for its version, saying what moved. The golden's own header
+    # still names test_the_committed_v0_files_still_load: goldens are never edited, so this test is its holder now.
+    with pytest.raises(ValueError, match=r"rig profile .* version must be 1, got 0: .*left the rig.*dx_m"):
         RigProfile.load(Path(__file__).parent / "fixtures" / "formats" / "v0" / "rig.yaml")
 
 

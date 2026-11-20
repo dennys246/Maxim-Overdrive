@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shlex
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -152,13 +155,49 @@ def test_the_layers_contract_orders_game_protocol_adapters_core():
     assert layers["layers"] == ["maxim_overdrive", "simcore.protocol", "simcore.adapters", "simcore.core"]
 
 
-def test_the_sealed_core_bans_at_least_what_the_determinism_scan_bans():
-    from tests.test_determinism import BANNED_MODULES  # noqa: PLC0415
+def test_the_sealed_core_contract_bans_exactly_the_shared_list():
+    # One banned list (boundaries §3): the import contract and the core's AST scan read the same constant.
+    from tests.test_determinism import BANNED_MODULES, SEALED_CORE_BANNED  # noqa: PLC0415
 
     core = _contracts()["sealed-core"]
-    assert core["source_modules"] == ["simcore.core"]
-    assert set(BANNED_MODULES) | {"maxim", "os", "pathlib", "yaml"} <= set(core["forbidden_modules"])
+    assert (core["type"], core["source_modules"]) == ("forbidden", ["simcore.core"])
+    assert len(core["forbidden_modules"]) == len(set(core["forbidden_modules"]))
+    assert set(core["forbidden_modules"]) == SEALED_CORE_BANNED
+    assert set(BANNED_MODULES) < SEALED_CORE_BANNED
     assert _config()["importlinter"]["include_external_packages"] is True  # without it, stdlib bans are vacuous
+
+
+def test_the_shipped_packages_may_not_import_test_tooling():
+    tests_out = _contracts()["tests-out"]
+    assert (tests_out["type"], set(tests_out["source_modules"])) == ("forbidden", _src_packages())
+    assert set(tests_out["forbidden_modules"]) == {"pytest", "_pytest", "hypothesis", "tests"}
+
+
+def test_the_engine_may_not_import_the_game():
+    # The layers contract sees only modules inside a layer; this one covers simcore's root and any new child.
+    contract = _contracts()["engine-not-game"]
+    assert (contract["type"], contract["source_modules"]) == ("forbidden", ["simcore"])
+    assert contract["forbidden_modules"] == ["maxim_overdrive"]
+
+
+# Direct children of simcore that sit outside the layers, each with its reason. None yet: a new child (host, verify)
+# joins a layer or this list in the change that makes it.
+OUTSIDE_LAYERS: dict[str, str] = {}
+
+
+def test_every_child_of_the_engine_is_in_a_layer():
+    layered = set(_contracts()["layers"]["layers"])
+    children = {f"simcore.{p.stem}" for p in (ROOT / "src" / "simcore").iterdir() if p.suffix == ".py" or p.is_dir()}
+    children -= {"simcore.__init__", "simcore.__pycache__"}
+    assert children - layered == set(OUTSIDE_LAYERS)
+
+
+def test_the_game_package_holds_only_its_data_until_the_lab():
+    # boundaries §2.1 creates the game package with the first game content (phase1/lab); it exists earlier to hold
+    # where the data lives (the deviation is recorded in boundaries §10, "As built in 3a"). Until the lab, nothing
+    # else may collect in it.
+    game = ROOT / "src" / "maxim_overdrive"
+    assert {p.name for p in game.iterdir() if p.name != "__pycache__"} == {"__init__.py", "data.py"}
 
 
 def test_only_the_sem_membrane_may_import_maxim():
@@ -172,6 +211,52 @@ def test_the_gate_runs_the_import_contracts_on_this_worktrees_src_without_a_cach
     assert 'PYTHONPATH="$PWD/src" "$PY" -c \'from importlinter.cli import lint_imports_command' in gate
     assert "--no-cache" in gate
     assert "\nlint_imports\n" in gate  # defined and called
+
+
+def _gate_lint_imports_command() -> list[str]:
+    """The arguments after ``"$PY"`` in scripts/prepush.sh's lint_imports function, as the gate runs them."""
+    gate = (ROOT / "scripts" / "prepush.sh").read_text()
+    body = re.search(r"^lint_imports\(\) \{\n(.*?)\n\}", gate, re.M | re.S)
+    assert body is not None, "prepush.sh defines no lint_imports function"
+    words = shlex.split(body.group(1).strip())
+    assert words[:2] == ["PYTHONPATH=$PWD/src", "$PY"], words  # this worktree's src/, the gate's own Python
+    return words[2:]
+
+
+def _lint_imports(tree: Path) -> subprocess.CompletedProcess[str]:
+    """The gate's own import-contract command, read from scripts/prepush.sh, run on a copy of the tree."""
+    env = {**os.environ, "PYTHONPATH": str(tree / "src")}
+    cmd = [sys.executable, *_gate_lint_imports_command()]
+    return subprocess.run(cmd, cwd=tree, env=env, capture_output=True, text=True, check=False)
+
+
+def test_a_planted_violation_fails_the_gates_import_command(tmp_path):
+    shutil.copytree(ROOT / "src", tmp_path / "src", ignore=shutil.ignore_patterns("__pycache__"))
+    shutil.copy(ROOT / "pyproject.toml", tmp_path)
+    assert _lint_imports(tmp_path).returncode == 0
+    (tmp_path / "src" / "simcore" / "host.py").write_text("from maxim_overdrive import data\n")
+    broken = _lint_imports(tmp_path)
+    assert broken.returncode == 1, broken.stdout
+    assert "the engine never imports the game" in broken.stdout
+
+
+def test_the_gate_exports_the_tier_switch_conftest_reads():
+    # W6: a rename on one side would silently drop the 0.05 m grid from the gate.
+    conftest = (ROOT / "tests" / "conftest.py").read_text()
+    names = set(re.findall(r'os\.environ\.get\("(MAXIM_OVERDRIVE_\w+)"\)', conftest))
+    assert names == {"MAXIM_OVERDRIVE_ALL_TIERS"}
+    gate = (ROOT / "scripts" / "prepush.sh").read_text()
+    assert all(f"{name}=1" in gate for name in names)
+
+
+def test_the_version_has_one_source():
+    import simcore  # noqa: PLC0415
+
+    project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
+    assert "version" not in project
+    assert project["dynamic"] == ["version"]
+    assert _config()["hatch"]["version"]["path"] == "src/simcore/__init__.py"
+    assert simcore.__version__
 
 
 def test_the_wheel_ships_the_game_data_beside_the_module_that_reads_it():

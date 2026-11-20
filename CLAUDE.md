@@ -133,8 +133,9 @@ only review holds.
   bug and fails. Guard: `scripts/prepush.sh::diff_cover` (changed lines must run under a test), B1 (same commit,
   red first)
 - **Critical functionality is tested exhaustively, by kind.** Physics: a closed-form test and a cross-tier test.
-  Trust boundaries (protocol, intents, `imagination.spec`, every loader): every rejection path, aiming at 100% branch
-  coverage. Wire and save formats: a round trip plus committed golden fixtures. Determinism: a bit-identical rerun.
+  Trust boundaries (protocol, intents, `simcore.core.imagination`, every loader): every rejection path, aiming at
+  100% branch coverage. Wire and save formats: a round trip plus committed golden fixtures. Determinism: a
+  bit-identical rerun.
   Guard: `tests/test_cross_tier.py`, `tests/test_imagination.py`, `tests/test_determinism.py`, B3, B4, B12
 - **Coverage only ratchets up.** Branch coverage must stay above `fail_under` in `pyproject.toml`; raise the floor
   when coverage rises, never lower it. Coverage measures `src/` and `scripts/`. Lines changed on a branch must be at

@@ -26,7 +26,7 @@ class HeatSource:
 
     def __post_init__(self) -> None:
         # Physical validity, whoever builds the source. Gameplay limits (how big a fire may be) belong to the action
-        # that asks for it (config.ActionLimits, checked in sem_env.bridge).
+        # that asks for it (simcore.core.limits.ActionLimits, checked in simcore.adapters.sem.bridge).
         object.__setattr__(self, "point_m", finite_vector(self.point_m, 3, "a heat source's point_m"))
         radius = finite_real(self.radius_m, "a heat source's radius_m")
         power = finite_real(self.power_w, "a heat source's power_w")

@@ -42,6 +42,8 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   red gate `tests/test_act_validation.py::test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn`,
   and it removes the marked band-aid in `data/world/actions.yaml`, whose ceilings keep fires at the powers the
   current physics has been measured at.
+- The substep floor in `src/simcore/core/heat.py`, a marked band-aid kept for bit-identity when resolution left the
+  rig: plan step 5a's fixed physics step replaces it with an accuracy floor per step length.
 - **Exit:** walk into the alley, set a crate on fire, and watch it crack, glow and burn away. It must look the same,
   apart from detail, at the laptop and rig profiles.
 
@@ -54,7 +56,7 @@ Each new field ships with a closed-form test and a cross-tier test, under the re
 - **Gas and radiation:** smoke, toxins and Fallout-style rads, as diffusion plus sources.
 - **Convection:** an approximation so rooms heat realistically and fires don't have to sit on a material.
 - **Structural support:** cells left unsupported fall as debris.
-- **Scale:** run cells beyond `full_res_radius_m` coarser, then move the hot loops to numba or C if profiling says so.
+- **Scale:** move the hot loops to numba or C if profiling says so (never coarser far cells: world_model D21).
 - **Close the known gap:** the coarsest rig's late-burn lag (`docs/architecture.md`).
 - **Moved from Phase 1 by D26:** zones and vents, combustion per zone and its products, fuel recession and pyrolysis,
   phase change, the CSG footprints, and the lab as Phase 2's benchmark tile.
@@ -286,7 +288,7 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
 
 - In-game imagination, bound to the materials table and a power budget. The world validates every spec before the
   object exists.
-- An IP gate in front of `imagination.spec.place`, shipped with the LLM caller that feeds it, never after it
+- An IP gate in front of `simcore.core.imagination.place`, shipped with the LLM caller that feeds it, never after it
   (design: `docs/design/ip_and_licensing.md` §3, once reviewed).
 - Assets are derived deterministically from specs: meshes from cells, procedural impact and burn sounds from
   material properties. Image-model art is cached decoration only and never decides physics.

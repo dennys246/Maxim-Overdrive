@@ -1,4 +1,4 @@
-"""`world.snapshot`: the per-cell arrays the client draws from. Channel values against their defining formulas."""
+"""`simcore.protocol.encoding.snapshot`: what the client draws from, each channel against its defining formula."""
 
 from __future__ import annotations
 

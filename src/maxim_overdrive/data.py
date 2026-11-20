@@ -14,11 +14,17 @@ from simcore.core.materials import MaterialTable
 from simcore.protocol.tiers import RigProfile
 
 
-def data_dir() -> Path:
-    """Bundled data: inside the wheel when installed, the repo's ``data/`` in a checkout."""
-    here = Path(__file__).resolve().parent
-    installed = here / "_data"
-    return installed if installed.is_dir() else here.parents[1] / "data"
+def data_dir(here: Path | None = None) -> Path:
+    """Bundled data: inside the wheel when installed, the repo's ``data/`` in a checkout. Neither is a FileNotFoundError
+    that names both, never a path that silently doesn't exist (boundaries §11.2, W5). ``here`` is this package's
+    directory; a test passes another."""
+    here = Path(__file__).resolve().parent if here is None else here
+    for candidate in (here / "_data", here.parents[1] / "data"):
+        if candidate.is_dir():
+            return candidate
+    raise FileNotFoundError(
+        f"no game data: neither {here / '_data'} (installed) nor {here.parents[1] / 'data'} (checkout)"
+    )
 
 
 def materials() -> MaterialTable:

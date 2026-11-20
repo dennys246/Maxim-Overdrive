@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "maxim-overdrive"
-version = "0.0.1"
+dynamic = ["version"]  # one source: simcore.__version__ (boundaries §11.2, W13)
 description = "World server for Maxim Overdrive: material cells, physics fields and an SEM bridge for Maxim agents"
 readme = "README.md"
 license = "Apache-2.0"
@@ -37,6 +37,9 @@ dev = [
     "import-linter==2.6",
     "grimp==3.13",
 ]
+
+[tool.hatch.version]
+path = "src/simcore/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/simcore", "src/maxim_overdrive"]
@@ -81,9 +84,10 @@ function_lines = 40   # body lines, docstring excluded; a nested function counts
 module_lines = 500
 public_methods = 12   # per class, defined in its own body
 
-# Import contracts (boundaries O24, §2.2, §3, §8.1, §9.2). The gate runs them as `lint-imports` in scripts/prepush.sh;
-# tests/test_tooling_config.py holds the root packages to the packages under src/ and the banned list to the
-# determinism scan's. A layer imports only the layers below it.
+# Import contracts (boundaries O24, §2.2, §3, §8.1, §9.2). The gate runs them in scripts/prepush.sh::lint_imports;
+# tests/test_tooling_config.py holds the root packages to the packages under src/, every child of simcore to a layer,
+# and the sealed core's list to tests/test_determinism.py::SEALED_CORE_BANNED, which the core's AST scan also reads.
+# A layer imports only the layers below it.
 [tool.importlinter]
 root_packages = ["maxim_overdrive", "simcore"]
 include_external_packages = true
@@ -94,16 +98,31 @@ name = "game > protocol > adapters > core"
 type = "layers"
 layers = ["maxim_overdrive", "simcore.protocol", "simcore.adapters", "simcore.core"]
 
+# The layers contract checks only modules inside a layer, so the engine-never-imports-the-game rule (B-1) is its own
+# contract, covering simcore's root module and any child not yet in a layer.
+[[tool.importlinter.contracts]]
+id = "engine-not-game"
+name = "the engine never imports the game (boundaries §2.1, B-1)"
+type = "forbidden"
+source_modules = ["simcore"]
+forbidden_modules = ["maxim_overdrive"]
+
 [[tool.importlinter.contracts]]
 id = "sealed-core"
 name = "the sealed core imports no clock, entropy, OS, file IO, concurrency or Maxim (boundaries §3)"
 type = "forbidden"
 source_modules = ["simcore.core"]
+# The core uses none of these (it imports math, numbers, collections, dataclasses, types, typing, numpy and scipy).
+# logging is banned although §3 allowed it for output: a record carries a wall-clock stamp and a handler can write a
+# file, and the core logs nothing today.
 forbidden_modules = [
-    "time", "timeit", "datetime", "random", "secrets", "uuid",
-    "os", "importlib", "sys", "platform", "locale", "signal", "gc", "weakref",
-    "pathlib", "io", "yaml", "json",
-    "threading", "asyncio", "concurrent", "multiprocessing", "subprocess", "socket", "websockets",
+    "time", "timeit", "datetime", "zoneinfo", "random", "secrets", "uuid",
+    "os", "importlib", "sys", "platform", "locale", "signal", "gc", "weakref", "ctypes",
+    "pathlib", "io", "yaml", "json", "tempfile", "shutil", "glob", "pickle", "marshal", "shelve", "dbm", "sqlite3",
+    "mmap", "logging", "builtins", "codecs", "fileinput", "linecache", "tokenize", "zipfile", "tarfile", "gzip",
+    "bz2", "lzma",
+    "threading", "_thread", "asyncio", "concurrent", "multiprocessing", "subprocess", "queue", "sched",
+    "socket", "select", "selectors", "ssl", "http", "urllib", "websockets",
     "maxim",
 ]
 
@@ -119,7 +138,7 @@ id = "tests-out"
 name = "the shipped packages never import test tooling (boundaries §9.2)"
 type = "forbidden"
 source_modules = ["simcore", "maxim_overdrive"]
-forbidden_modules = ["pytest", "hypothesis"]
+forbidden_modules = ["pytest", "_pytest", "hypothesis", "tests"]
 
 # mypy: strict everywhere. pymaxim ships py.typed.
 [tool.mypy]
