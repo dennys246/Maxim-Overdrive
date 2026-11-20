@@ -1,0 +1,1 @@
+{"name": "Z_F_01", "lambda_max": 0.9941822358266854, "spread_class": "spread", "B1": true, "B2": true, "C": true, "C_F": true, "t_ignite": 0.5, "t_out": 575.0, "wood_at_out_frac": 0.005817764173314481, "cpu_s": 12.350971, "wall_s": 12.886502981185913}

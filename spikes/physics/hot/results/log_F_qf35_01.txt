@@ -1,0 +1,1 @@
+{"name": "F_qf35_01", "lambda_max": 0.9941822358266854, "spread_class": "spread", "B1": true, "B2": true, "C": false, "C_F": false, "t_ignite": 0.5, "t_out": 556.0, "wood_at_out_frac": 0.21016213543391524, "cpu_s": 20.106736, "wall_s": 21.173644065856934}

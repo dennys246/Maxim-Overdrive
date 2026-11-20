@@ -1,0 +1,1 @@
+{"name": "S_rhoc200_01", "lambda_max": 0.005817764173314431, "spread_class": "none", "B1": false, "B2": false, "C": false, "C_F": false, "t_ignite": NaN, "t_out": 611.5, "wood_at_out_frac": 0.9979565826271714, "cpu_s": 6.971596, "wall_s": 7.016245126724243}

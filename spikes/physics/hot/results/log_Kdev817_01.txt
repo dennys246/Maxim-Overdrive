@@ -1,0 +1,1 @@
+{"name": "Kdev817_01", "lambda_max": 0.005817764173314431, "spread_class": "none", "B1": false, "B2": false, "C": false, "C_F": false, "t_ignite": NaN, "t_out": 498.0, "wood_at_out_frac": 0.9945535813783879, "cpu_s": 8.149721000000001, "wall_s": 8.241241216659546}

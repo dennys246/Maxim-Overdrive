@@ -1,0 +1,1 @@
+{"name": "S_kcec5_01", "lambda_max": 0.005817764173314431, "spread_class": "none", "B1": false, "B2": false, "C": false, "C_F": false, "t_ignite": NaN, "t_out": 416.0, "wood_at_out_frac": 0.9999978337806487, "cpu_s": 5.912755, "wall_s": 5.9451940059661865}

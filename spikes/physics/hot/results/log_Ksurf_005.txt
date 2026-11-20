@@ -1,0 +1,1 @@
+{"name": "Ksurf_005", "lambda_max": 0.012915199949126089, "spread_class": "none", "B1": false, "B2": false, "C": false, "C_F": false, "t_ignite": NaN, "t_out": 778.5, "wood_at_out_frac": 0.992431911609647, "cpu_s": 53.880165999999996, "wall_s": 57.847575187683105}

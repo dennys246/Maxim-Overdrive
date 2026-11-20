@@ -1,0 +1,1 @@
+{"name": "K2_02", "lambda_max": 0.005817764173314431, "spread_class": "none", "B1": false, "B2": false, "C": false, "C_F": false, "t_ignite": NaN, "t_out": 497.0, "wood_at_out_frac": 0.9949231900954115, "cpu_s": 4.69555, "wall_s": 4.771970987319946}
