@@ -122,7 +122,9 @@ porous and flammable labels on other entities, a soak modifier, and spread when 
 - **Physics owns the mechanism; SEM reads it.** A liquid held in a porous solid's pores is a per-cell **loading
   field** (kg/m³ per liquid species, capped by the cell's porosity) on the cell's one material, the same kind of
   state as wood's moisture. It keeps world_model §2 (free liquid lives in zones) and §5 (one material per cell);
-  general solid mixtures per cell are not part of this.
+  general solid mixtures per cell are not part of this. **The cap** (owner, 2026-11-20, as the accelerant spike read
+  it) is the solid's own internal void fraction × the liquid's density (wood: 0.61, from its 1,530 kg/m³ cell wall);
+  liquid in the bed's open gaps is free liquid that drains, which is Phase 2.
 - **The SEM bridge derives labels from fields**: porous from φ, flammable from the material's constants, soaked from
   the loading. A label can't disagree with the world because it is computed from it.
 - **Accelerants differ as real liquids,** not dials: flash point, burning rate and heat of combustion, cited per
