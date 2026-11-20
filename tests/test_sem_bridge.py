@@ -3,12 +3,18 @@
 import pytest
 
 from maxim_overdrive import Box, Scene, World
+from maxim_overdrive.config import ActionLimits
 from maxim_overdrive.sem_env import bridge
+
+LIMITS = ActionLimits.load()
 
 
 def _world(rig, materials):
     return World.from_scene(
-        Scene((2.0, 3.0, 2.4), (Box((0.8, 0, 0), (1.2, 3, 2.4), "concrete", "wall"),)), rig, materials
+        Scene((2.0, 3.0, 2.4), (Box((0.8, 0, 0), (1.2, 3, 2.4), "concrete", "wall"),)),
+        rig,
+        materials,
+        limits=LIMITS,
     )
 
 

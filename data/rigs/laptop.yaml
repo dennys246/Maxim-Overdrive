@@ -1,3 +1,4 @@
+version: 0  # the rig profile format (config.RIG_PROFILE_VERSION)
 # Rig profile: what resolution this machine can afford. Profiles change precision, never the outcome class
 # (docs/architecture.md, "The resolution rule").
 name: laptop

@@ -1,0 +1,20 @@
+# What one SEM action may ask of the world: an NPC's tool call, an LLM's output or a client's intent. These are
+# physics-safety ceilings, checked by sem_env/bridge.py before an action applies; they are not what a body can do,
+# which will come from its body and energy (Phase 4 and 5). Physical validity (finite, non-negative) is checked again
+# where each source or strike is made. Write numbers as plain decimals: YAML 1.1 reads 1.0e7 as a string.
+version: 0
+ignite:
+  # TEMPORARY(phase1): these ceilings keep fires at the powers and sizes the current physics has been measured at
+  # (at most 500 kW, a radius of at least 0.3 m). They don't make fires agree across rigs: fires diverge mid-burn,
+  # and past about 30 turns the fuel gap heats air (docs/architecture.md, Known gaps; a strict red gate). The real
+  # fix is the Phase 1 fuel model: burning as a rate driven by heat content, drawing on fuel and oxygen, so a fire
+  # goes out when either is gone. The ceilings are then set from that model.
+  max_power_w: 500000.0
+  min_radius_m: 0.3
+  max_radius_m: 3.0
+  default_radius_m: 0.3
+strike:
+  max_energy_j: 1000000000.0  # 1 GJ: a large explosion
+  min_sigma_m: 0.2            # at least the coarsest rig's cell; near-threshold craters still differ (Known gaps)
+  max_sigma_m: 2.0
+  default_sigma_m: 0.2

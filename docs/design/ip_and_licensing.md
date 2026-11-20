@@ -126,9 +126,9 @@ than edited into them here.
      one world, "who made it first" is the earliest tick; ticks from different worlds don't compare, so proving
      priority across players needs a timestamp signed at publish (an open question for the design review).
    - Licence reference: one value today, `first-party/all-rights-reserved`. The reader refuses unknown values.
-3. **The spec reader refuses unknown keys.** On this branch `_read` still ignores them, and so does every loader.
-   The fix is on `phase1/act-validation` (the owner's choice, 2026-11-17): closed key sets at every level through
-   `checks.known_keys`, with `imagination.spec.SPEC_KEYS` as the accepted set this item names.
+3. **The spec reader refuses unknown keys,** as every loader does: closed key sets at every level through
+   `checks.known_keys` (PR #2, the owner's choice of 2026-11-17), with `imagination.spec.SPEC_KEYS` as the accepted
+   set this item names.
 4. **Region identity crosses the wire.** The `welcome` region list carries each region's spec id. The intent log
    header digests the *initial* spec store, as it digests the scene, the material files, the action limits and the
    imagination budgets (`boundaries.md` §6.3). Specs imagined mid-session arrive later as logged thought

@@ -22,6 +22,7 @@ import numpy as np
 from scipy import ndimage
 from scipy.special import ndtr
 
+from maxim_overdrive.checks import finite_real, finite_vector
 from maxim_overdrive.config import AIR_ID
 from maxim_overdrive.world.grid import Field, MaterialGrid
 
@@ -40,8 +41,11 @@ def _axis_fraction(grid: MaterialGrid, axis: int, center: float, sigma: float) -
 
 
 def strike(grid: MaterialGrid, point_m: tuple[float, float, float], energy_j: float, sigma_m: float) -> StrikeResult:
+    point_m = finite_vector(point_m, 3, "a strike's point_m")  # type: ignore[assignment]
+    energy_j = finite_real(energy_j, "a strike's energy_j")
+    sigma_m = finite_real(sigma_m, "a strike's sigma_m")
     if energy_j < 0 or sigma_m <= 0:
-        raise ValueError("energy must be non-negative and sigma positive")
+        raise ValueError(f"a strike needs non-negative energy and positive sigma, got {energy_j!r} J, {sigma_m!r} m")
     fx = _axis_fraction(grid, 0, point_m[0], sigma_m)[:, None, None]
     fy = _axis_fraction(grid, 1, point_m[1], sigma_m)[None, :, None]
     fz = _axis_fraction(grid, 2, point_m[2], sigma_m)[None, None, :]
@@ -80,14 +84,14 @@ def thermal_degrade(grid: MaterialGrid, dt: float) -> int:
 
 def region_integrity(grid: MaterialGrid, region: str) -> float:
     """Mean integrity over the region's original solid cells, destroyed cells counting 0."""
-    mask = grid.regions[region] & (grid.original_material != AIR_ID)
+    mask = grid.regions[region].cells & (grid.original_material != AIR_ID)
     n = int(mask.sum())
     return float(grid.integrity[mask].clip(min=0.0).sum() / n) if n else 0.0
 
 
 def region_breached(grid: MaterialGrid, region: str) -> bool:
     """True if destroyed cells form a hole through the region along its thinnest axis (a hole through a wall)."""
-    orig = grid.regions[region] & (grid.original_material != AIR_ID)
+    orig = grid.regions[region].cells & (grid.original_material != AIR_ID)
     if not orig.any():
         return False
     idx = np.argwhere(orig)

@@ -16,8 +16,11 @@ from pathlib import Path
 import pytest
 
 from maxim_overdrive import Box, RigProfile, Scene, World
+from maxim_overdrive.config import ActionLimits
 from maxim_overdrive.sem_env.bridge import region_parts
 from tests.conftest import FAST_TIERS
+
+LIMITS = ActionLimits.load()
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "src" / "maxim_overdrive"
@@ -36,7 +39,7 @@ fast_rigs = pytest.mark.parametrize("rig_name", FAST_TIERS)
 
 def run(rig_name: str) -> World:
     """Fire on the crate and a strike on the wall: heat, thermal degradation, thermal and mechanical destruction."""
-    w = World.from_scene(SCENE, RigProfile.load(rig_name))
+    w = World.from_scene(SCENE, RigProfile.load(rig_name), limits=LIMITS)
     _, crate = region_parts(w, "crate")
     assert crate["structure"].execute("ignite", {"power_w": FIRE_W, "radius_m": 0.3}).success
     _, wall = region_parts(w, "wall")
@@ -52,9 +55,11 @@ def digest(w: World) -> str:
     g = w.grid
     for arr in (g.material, g.original_material, g.integrity, g.temperature):
         h.update(arr.tobytes())
-    for name, mask in g.regions.items():
+    for name, region in g.regions.items():
+        mask = region.cells
         h.update(name.encode())
         h.update(mask.tobytes())
+        h.update(f"{region.footprint}{region.solid}".encode())  # where fires land and what a strike reaches
     for name, src in w.sources.items():
         h.update(f"{name}{src.point_m}{src.radius_m}{src.power_w}".encode())
     h.update(f"{g.time_s!r} {w.turn}".encode())
@@ -67,7 +72,7 @@ def test_the_scenario_exercises_burning(rig_name):
     w = run(rig_name)
     sensors, _ = region_parts(w, "crate")
     assert sensors["integrity"].value() < 0.9  # thermal degradation ran
-    original_crate = w.grid.regions["crate"] & (w.grid.original_material != 0)
+    original_crate = w.grid.regions["crate"].cells & (w.grid.original_material != 0)
     assert (original_crate & ~w.grid.solid).any()  # and destroyed crate cells
 
 

@@ -20,6 +20,34 @@ from maxim_overdrive.config import AIR_ID, MaterialTable, RigProfile
 # supported numpy: older stubs give ndarray no default type parameters.
 Mask = npt.NDArray[np.bool_]
 Field = npt.NDArray[np.float64]
+# A region's authored extent in metres, (min corner, max corner). It is kept beside the region's cells because the
+# cells depend on the rig and the authored bounds don't, so anything that asks "is this point on the region?" gets
+# the same answer at every rig.
+Bounds = tuple[tuple[float, float, float], tuple[float, float, float]]
+Point = tuple[float, float, float]
+
+
+def entity_key(name: str) -> str:
+    """A name as Maxim's EntityMap resolves it: stripped, lower-cased, spaces as underscores."""
+    return name.strip().lower().replace(" ", "_")
+
+
+@dataclass(frozen=True)
+class Footprint:
+    """A region's authored shape in metres: its bounding box and its volume-weighted centroid."""
+
+    bounds_m: Bounds
+    centroid_m: Point
+
+
+@dataclass(frozen=True)
+class Region:
+    """A named part of the world. ``cells`` move with the rig (and lose cells to later paints); ``footprint``, the
+    authored shape, doesn't, so "where is it" and "is this point on it" get the same answer at every rig."""
+
+    cells: Mask
+    footprint: Footprint
+    solid: bool  # made of a solid material when named; air regions (rooms, doorways) never own a strike point
 
 
 @dataclass
@@ -31,7 +59,7 @@ class MaterialGrid:
     original_material: npt.NDArray[np.uint8] = field(repr=False)
     integrity: npt.NDArray[np.float32] = field(repr=False)
     temperature: Field = field(repr=False)
-    regions: dict[str, Mask] = field(default_factory=dict, repr=False)
+    regions: dict[str, Region] = field(default_factory=dict, repr=False)
     time_s: float = 0.0
 
     @classmethod
@@ -90,20 +118,39 @@ class MaterialGrid:
 
     # -- writing ------------------------------------------------------------
 
-    def paint(self, mask: Mask, material_name: str, region: str | None = None) -> None:
-        """Fill the cells in ``mask`` with a material at full integrity; optionally name them as a region."""
+    def paint(
+        self, mask: Mask, material_name: str, region: str | None = None, *, footprint: Footprint | None = None
+    ) -> None:
+        """Fill the cells in ``mask`` with a material at full integrity; optionally name them as a region.
+
+        A named region needs its ``footprint``, its authored shape in metres (see ``Region``).
+        """
+        if region is not None and any(entity_key(r) == entity_key(region) for r in self.regions):
+            raise ValueError(f"region {region!r} already exists")
+        if region is not None and footprint is None:
+            raise ValueError(f"region {region!r} needs its authored footprint in metres")
         mid = self.materials[material_name].id
         self.material[mask] = mid
         self.original_material[mask] = mid
         self.integrity[mask] = 0.0 if mid == AIR_ID else 1.0
-        if region is not None:
-            if region in self.regions:
-                raise ValueError(f"region {region!r} already exists")
-            self.regions[region] = mask.copy()
         # A later paint takes cells from any earlier region.
-        for name, other in self.regions.items():
-            if name != region:
-                np.logical_and(other, ~mask, out=other)
+        for other in self.regions.values():
+            np.logical_and(other.cells, ~mask, out=other.cells)
+        if region is not None:
+            assert footprint is not None
+            self.name_region(region, mask, footprint, solid=mid != AIR_ID)
+
+    def name_region(self, region: str, mask: Mask, footprint: Footprint, *, solid: bool) -> None:
+        """Name the cells in ``mask`` as a region with its footprint, without changing what they are made of.
+
+        Names must differ under Maxim's name normalisation (``entity_key``), because Maxim resolves an NPC's
+        "crate" to whichever entity normalises to it: two regions "Crate" and "crate" would let a call aimed at one
+        burn the other.
+        """
+        clash = next((r for r in self.regions if entity_key(r) == entity_key(region)), None)
+        if clash is not None:
+            raise ValueError(f"region {region!r} already exists" + ("" if clash == region else f" (as {clash!r})"))
+        self.regions[region] = Region(mask.copy(), footprint, solid)
 
     def destroy(self, mask: Mask) -> int:
         """Turn solid cells in ``mask`` to air. Returns how many cells were destroyed."""

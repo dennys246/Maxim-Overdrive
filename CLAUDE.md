@@ -50,8 +50,11 @@ result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` dr
 
 ## Layout
 
-- `src/maxim_overdrive/config.py`: rig profiles and the material table (`data/rigs/`, `data/materials/`)
-- `src/maxim_overdrive/world/`: `grid.py` (cells), `scene.py` (authoring in metres), `heat.py`, `damage.py`,
+- `src/maxim_overdrive/config.py`: rig profiles, the material table and action limits (`data/rigs/`,
+  `data/materials/`, `data/world/`). `checks.py`: every untrusted number becomes a finite float or a whole number
+  there, and every mapping is held to its reader's keys (`known_keys`), or is refused
+- `src/maxim_overdrive/world/`: `grid.py` (cells), `scene.py`
+  (authoring in metres), `heat.py`, `damage.py`,
   `world.py` (turn loop, heat sources, `snapshot`)
 - `src/maxim_overdrive/sem_env/bridge.py`: environment regions as Maxim SEM Entities
 - `src/maxim_overdrive/imagination/spec.py`: imagined objects as validated specs that become cells
@@ -176,8 +179,10 @@ only review holds.
   `tests/test_determinism.py::test_the_simulation_and_tests_have_no_hidden_sources_of_nondeterminism`
 - **Replays are first-class.** The intent log plus the scene and rig reproduce any session. It is the bug report, the
   regression test and the save format's backbone. Guard: B2
-- **Every format is versioned:** wire protocol, saves and scene files. Readers refuse versions they don't know, loudly.
-  Old fixtures stay committed, and a format change that breaks one needs a migration or a version bump. Guard: B3, B4
+- **Every format is versioned:** wire protocol, saves, scene files and every data file. Readers refuse versions they
+  don't know, loudly. Old fixtures stay committed, and a format change that breaks one needs a migration or a version
+  bump. Guard: `tests/test_validation.py::test_every_shipped_data_file_is_at_its_formats_current_version`,
+  `tests/test_validation.py::test_a_scene_refuses_a_version_it_does_not_know`, B3, B4
 - **The client is untrusted input.** Every intent is validated at the protocol layer. Malformed input gets an error
   reply, never a crash or a half-applied change. The server binds to 127.0.0.1, refuses any handshake carrying an
   `Origin` header, and requires the per-launch token. Imagined and authored geometry is validated where primitives

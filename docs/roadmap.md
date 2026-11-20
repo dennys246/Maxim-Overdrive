@@ -33,7 +33,15 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
 - Fires that go out when their fuel is gone, so a burnt-out crate's fire stops instead of heating air to millions of
   degrees (`docs/architecture.md`, Known gaps; the red gate is
   `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`). Needed before the tile's crate
-  scenario is gated.
+  scenario is gated. **Requirement:** a cell's burn rate must estimate the integral of the point-wise rate over the
+  cell, from a reconstructed sub-cell profile, well enough at the coarsest rig to pass the gate (CLAUDE.md,
+  "Reconstruct, decide at the point, integrate upward"). Converging is not enough: today's law converges, slowly,
+  and the coarse rig still sits far off, because the measured cause is a threshold on a cell's mean temperature
+  (the crate's mean temperature agrees across rigs within 1 °C while the degradation driver differs 1.3–1.5×). A
+  per-cell ignition or pyrolysis threshold would inherit it. It must flip the strict
+  red gate `tests/test_act_validation.py::test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn`,
+  and it removes the marked band-aid in `data/world/actions.yaml`, whose ceilings keep fires at the powers the
+  current physics has been measured at.
 - **Exit:** walk into the alley, set a crate on fire, and watch it crack, glow and burn away. It must look the same,
   apart from detail, at the laptop and rig profiles.
 
@@ -144,7 +152,7 @@ Drafts:
 | OD-A13 | *Moved to OD-I3*, an issue now | — | new (TB2-B2) |
 | OD-A14 | The request/reply cut: the request as a value (rendered text, sampling, model role, priority and deadline fields, `tools is None`), produced at `LLMRouter._complete_text`, with the host supplying the model's context size and tokenizer (`token_counter`) to the `PromptBudgeter` (Maxim's `docs/lessons/sim-n-ctx-config-drift.md`); the reply with reserved `cancelled(prefix)` and `truncated` variants that bypass the parse-failure template, and speech as a field emitted first. Not an `LLMBackend` capability | embeddable | new (DR-B2, Arch B3); was "streaming and cancellation on `LLMBackend`" |
 | OD-A15 | The stepped `think` on §A.1b's seam, one design for the submit path (OD-A14, OD-H6 and the cancelled-reply bypass land as parts of it): a continuation split into a host-owned header and an agent-owned body, with `basis_seq` (the agent's afferent-scheduler high-water seq, `thalamic_relay.md::preempted_since`; the host holds a copy, never computes it; LLM-proposal staleness waits on GL3.B7) and staleness per hybrid §A.1b.5 (O38); writes only as returned values, retrieval strengthening included; multi-call PFC cycles, `next_actions`; the robot path drives the same `think` (robot parity: OD-EA14); isolation between agents in one process. Lands after the 1.4.0 cut with the agent-loop decomposition slices | embeddable | A4 |
-| OD-A16 | Credit for effects measured later: receipts, the cerebellum observing at settle, exactly-once credit, `stale` and `call_error` kinds, a per-modulator valence default. Rides on OD-A18 | amendment | C1, C2, P2, P3, P7 |
+| OD-A16 | Credit for effects measured later: receipts, the cerebellum observing at settle, exactly-once credit, `stale`, `call_error` and `wrong_target` kinds, a per-modulator valence default. Rides on OD-A18 | amendment | C1, C2, P2, P3, P7 |
 | OD-A17 | The embedded-path leak closure: prefetch off and the working directory at the agent home; the short-question shortcut is deleted in Maxim for everyone, matcher and fallback (#1689, PR #1694; after #1691 a fallback reply books no NAc credit, but `generate_llm_fallback` still echoes `triggering_input`); no `force=True` logging; paths under the agent home; a static import ban on `utils/audit.py` with `lint_dead_imports`' resolver (blind spot: `importlib` strings), naming `maxim.embodied_runtime`, the internet tools, `build_tool_registry`'s module and `runtime.prefetch`, plus the advisor's three closure tests; no env reads (A4 waits for A1, no `MAXIM_DATA_HOME` exception); no reply reaches the parse-failure template (it echoes the input; its bypass lands with cand. B1, as OD-A15's cancelled-reply bypass); no model backend in the embedded agent, so the model calls outside `think` (`AdaptivePlanner`, the `ToolPainBridge` reflection, `FearAgent`) fail closed | embeddable | new (Maxim's second answer; TBR-3, TBR-7) |
 | OD-A18 | Split `execute_and_learn` into dispatch and settle, folding in the parallel and agent-fallback side doors; generate vs apply for memory writes (cand. A6: applied at settle, published through the agent bus; O39), D53 `outcome_valence` and OD-A16's keys; settle feeds NAc's existing traces; memory writes carry provenance by source actor; each dispatched intent carries its invocation pid, and the host stamps it on every receipt and frame event the intent causes (the embedded efference copy, GL3.B2's join); robots settle right after dispatch (OD-EA15); `environment.step` (`tool_dispatch.py:1574`): our position is Maxim's suggestion, that the embedded roster passes no environment and the follow-up arrives in receipts (B2's call). After #1361 S3a and S3b and cand. A3 A-post, behind a bit-identical state-digest parity guard | embeddable | C1 (generate vs apply) |
 | OD-A19 | *Withdrawn 2026-11-17:* it duplicated Maxim's own `docs/plans/experience_clock_decay.md` (#1361 S3a), which we already track as OD-A1; the temporal-anchor fallback's age and expiry move in #1361 S3b, and its similarity's host-calendar read (`nac.py:3629`) is OD-A20. Was: Step-size-invariant decay: NAc's eligibility traces decay ×0.9 per loop tick today (`decisions/nac.py:3707`, from `_loop_bio_tick_maintenance`, `runtime/agent_loop.py:800-840`, with five sibling decays), so credit depends on the tick rate; decay as `exp(−Δt/τ)` on the machinery clock, with an exit test crediting one delayed receipt equally at two rate divisors (OD-EA12). Argues against the per-tick decay contract; corrects Overdrive's earlier claim that the traces decay on the wall clock (`correction_1.md`) | A-post | new (npcs_v3 BF3-1) |
@@ -250,6 +258,13 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
 - The player's body is an SEM entity with the same body grammar as the NPCs.
 - Cyberware is installed and removed at the ripperdoc. Hacking is a `target_effect` on another body's sensors.
 - **Overdrive:** forcing an action through a part below its integrity limit, paid for in pain.
+- **Action energy and homeostasis** (owner idea, 2026-11-15): what a body can do comes from its energy, not from a
+  fixed cap. A bodily action (a strike, a lift) draws on a metabolic store that feeds Maxim's drives (fatigue,
+  hunger), so an NPC's own homeostasis steers it away from exhausting itself; Overdrive is spending past it, paid in
+  pain. A fire is not powered by the body: the actor supplies a spark, and the power comes from the fuel (the Phase 1
+  fuel model). It replaces "refuse or clamp" for NPC requests beyond their means, and it is tested as homeostasis: do
+  NPCs regulate, or run themselves into the ground? Until then, `data/world/actions.yaml` holds physics-safety
+  ceilings only, and requests past them are refused for every caller.
 - Rumour: fear and reputation spread between NPCs through hivemind merges of learned state, never of episodes.
 - **Exit:** an NPC who never met the player avoids them because another NPC got hurt.
 
