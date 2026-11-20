@@ -206,7 +206,10 @@ Unnumbered (npcs §0): the thought-cost unit as fine as useful; test per Maxim t
 7. O17, with O26's mechanism.
 
 ### Open: tile §9
-1. The accelerant's form (`physics_spike.md`).
+1. T14.
+2. T15.
+3. T16.
+4. The accelerant's form (`physics_spike.md`).
 
 ### Open: client §10
 None (T8–T12).

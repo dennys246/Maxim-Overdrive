@@ -473,6 +473,7 @@ wall, crack read as crack, glow as heat, burn-out as fuel running out, the dial.
 2. **The crate as 20 mm slats at φ = 0.25** (σ = 25 m²/m³, 32.4 kg), step 6's content value: decided, T15. A denser
    crate burns longer and a sparser one may not sustain (σ_min 4.2–7.0 m²/m³).
 3. **Protocol v0 freezes only the kinds a Phase 1 client sends:** decided, T16.
+4. **The accelerant's form (T17):** the crate authored soaked, or a `douse` intent; open (`physics_spike.md`).
 
 ## 10. What this does not settle
 
