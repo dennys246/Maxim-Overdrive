@@ -1,0 +1,1 @@
+{"name": "F_eps95", "t_ignite": 0.5, "t_crack": 41.5, "t_glow": NaN, "t_gone": NaN, "glow_longest_s": 0.0, "ember_peak_c": 380.0000000000001, "ember_mean_c": 36.312124417719374, "ledger_worst_rel": 1.293024196426634e-14, "wall_s": 132.1783001422882}

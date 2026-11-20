@@ -32,6 +32,7 @@ in §5.1.
 | T14 | The flame radiates into bodies by a point source in Phase 1; into walls in Phase 2 | owner, 2026-11-19 | §9 |
 | T15 | The crate: 20 mm slats at φ = 0.25 | owner, 2026-11-19 | §9 |
 | T16 | Protocol v0 freezes only the kinds a Phase 1 client sends | owner, 2026-11-19 | §3.3, §9 |
+| T17 | An accelerant lights the crate, not the pilot alone; step 6 researches char oxidation first (`physics_spike.md`) | owner, 2026-11-20 | §5, §6.3 |
 | RT1–4 | Real time with pause on a fixed tick; a dial; pause a state; host-only time control | owner, 2026-11-15 | realtime decisions 1–4 |
 | D20, D25 | One truth at 0.1 m, rigs are rendering tiers; reconstruct, decide at the point, integrate | owner, 2026-11-16 | world_model §0 |
 | D26–D28 | Tile first, exit as written; clinic after; heat-debt prototype after the tile | owner, 2026-11-17 | world_model §0 |
@@ -472,6 +473,7 @@ wall, crack read as crack, glow as heat, burn-out as fuel running out, the dial.
 2. **The crate as 20 mm slats at φ = 0.25** (σ = 25 m²/m³, 32.4 kg), step 6's content value: decided, T15. A denser
    crate burns longer and a sparser one may not sustain (σ_min 4.2–7.0 m²/m³).
 3. **Protocol v0 freezes only the kinds a Phase 1 client sends:** decided, T16.
+4. **The accelerant's form (T17):** the crate authored soaked, or a `douse` intent; open (`physics_spike.md`).
 
 ## 10. What this does not settle
 

@@ -1,0 +1,1 @@
+{"name": "S_nom_005", "t_ignite": NaN, "t_crack": 564.0, "t_glow": NaN, "t_gone": NaN, "glow_longest_s": 0.0, "ember_peak_c": 380.0000000000001, "ember_mean_c": 60.12451250161135, "ledger_worst_rel": 5.395387840205026e-15, "wall_s": 242.94351625442505}

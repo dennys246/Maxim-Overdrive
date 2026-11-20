@@ -1,0 +1,4 @@
+F_diff_02 0.2 0 ignite_base_m=0.6 kinetics=0
+F_diff_005 0.05 0 ignite_base_m=0.6 kinetics=0
+F_spec6d_02 0.2 0 ignite_base_m=0.6 kinetics=0 product=co2
+F_spec6d_005 0.05 0 ignite_base_m=0.6 kinetics=0 product=co2

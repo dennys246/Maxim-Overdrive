@@ -1,0 +1,1 @@
+{"name": "F_spec6d", "t_ignite": 0.5, "t_crack": 41.5, "t_glow": 398.0, "t_gone": 1202.0, "glow_longest_s": 1105.0, "ember_peak_c": 1143.6934116880366, "ember_mean_c": 939.390695017299, "ledger_worst_rel": 1.6203177236069184e-14, "wall_s": 126.40010786056519}

@@ -1,0 +1,73 @@
+{
+ "t_ignite": NaN,
+ "ignited_60s_after_pilot": false,
+ "t_crack": NaN,
+ "t_crack_rec": NaN,
+ "t_glow": NaN,
+ "t_glow_bright": NaN,
+ "glow_longest_s": 0.0,
+ "glow_bright_longest_s": 0.0,
+ "glow_area_max": 0.0,
+ "t_layer_max_c": 135.82805266567095,
+ "t_gone": NaN,
+ "t_flameout": 600.5,
+ "wood_at_flameout_frac": 0.9986900585010557,
+ "peak_flaming_area": 0.031415926535897934,
+ "ember_peak_c": NaN,
+ "ember_mean_c": NaN,
+ "fuel_end_frac": 0.9990174508036226,
+ "draught_max_kgs": 0.04513823427088764,
+ "digest": "4072d6ad9c8b758e12c54bbf5483643d135216dc5dd61670baba57a7764db414",
+ "ledger_worst_rel": 5.798028723802417e-15,
+ "release_total_MJ": 0.39480426158683685,
+ "ledger_deletion": {
+  "sources": 1.0000000000000042,
+  "combustion_flaming": 0.24751282882620562,
+  "combustion_char": 5.8119436428745164e-05,
+  "plume_convective": 0.0005535191749465358,
+  "flame_radiative": 0.04699387945046183,
+  "open_air_rad": 0.1924996157800324,
+  "open_air_conv": 0.04085688079927245,
+  "open_air_pilotface": 0.14799531869162075,
+  "open_air_draught": 0.362371742073092,
+  "removed_with_mass": 0.04368395861773406,
+  "bodies": 5.798028723802417e-15,
+  "d_cells": 0.5531704690241844,
+  "d_skins": 0.9256877238907809
+ },
+ "ledger_final_MJ": {
+  "sources": 1.2000000000000002,
+  "combustion_flaming": 0.3947115724619409,
+  "combustion_char": 9.268912489597047e-05,
+  "plume_convective": -0.0002748893571891076,
+  "flame_radiative": 0.07482387367002395,
+  "open_air_rad": 0.3069992075998261,
+  "open_air_conv": 0.0651587276138267,
+  "open_air_pilotface": 0.12298410983273754,
+  "open_air_draught": 0.577911998536815,
+  "removed_with_mass": 0.06966448586626729,
+  "bodies": 0.0,
+  "d_cells": 0.3505013577197726,
+  "d_skins": 0.027035390104758705
+ },
+ "name": "S_p1",
+ "dx": 0.1,
+ "pilot_ticks": 6000,
+ "overrides": {
+  "feedback_mode": "p1"
+ },
+ "t_end": 1800.0,
+ "wall_s": 119.45581007003784,
+ "cpu_s": 10.932009,
+ "loadavg_start": [
+  75.60107421875,
+  78.876953125,
+  83.24462890625
+ ],
+ "loadavg_end": [
+  136.62158203125,
+  97.50732421875,
+  89.8271484375
+ ],
+ "steps": 3372
+}
