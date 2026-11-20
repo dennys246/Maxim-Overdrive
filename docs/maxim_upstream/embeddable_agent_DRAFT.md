@@ -1,13 +1,13 @@
-# DRAFT for Maxim: an embeddable agent, which a host drives (v6)
+# DRAFT for Maxim: an embeddable agent, which a host drives (v7)
 
-**Status:** v6 (2026-11-19) folds Maxim's review of v5 (SOUND WITH CONDITIONS; our record is
-`docs/design/reviews/agent_draft_v3/maxim_review_v5.md`) and our owner's answer to its question (O43). No Maxim
+**Status:** v7 (2026-11-19) folds Maxim's review of v6; verdict SOUND (our record is
+`docs/design/reviews/agent_draft_v3/maxim_review_v6.md`), with our owner's answer to its Q1 (O45). No Maxim
 `src/` lands for the contract until you accept it. O-numbers are Overdrive owner decisions. Everything here is
 `[engineering]`. Maxim citations are on `origin/main` **95af47d2** (the pid facts re-checked on c28b2681), with line
 hints that drift. Where this draft and your candidates doc (`docs/plans/overdrive_refactor_candidates.md`) differ, the doc wins.
 
 **Overdrive paths** are in `dennys246/Maxim-Overdrive` (private; the owner shares access), branch
-`phase1/agent-v6`.
+`phase1/agent-v7`.
 
 **For a new reader:** Overdrive is a game world server whose NPCs are Maxim agents, each in a spawned worker
 (pickle-free framed JSON, no keys, the offline latch engaged), with the model gateway in the host. It runs on an
@@ -30,16 +30,13 @@ OD-A16 (#1200). OD-A20 is declined by your owner; OD-A21 is argued, not needed.
 | OD-A14, OD-A15 the cut and stepped `think` | cand. B1 (with B3) | hybrid §A.1b, after 1.4.0 |
 | inner tool loop | cand. C1 | prereg |
 
-## 1. What v6 changes
+## 1. What v7 changes
 
-- **Your Q1 answer (§2):** B2 owns the call site, the agent's `EventSequencer` the mint, GL3.B2 the contract.
-- **The pid's dependency, G17, named (§5):** until it lands the field is reserved and null.
-- **The settle invariant (§2)** and its exit test, OD-EA16 (§6).
-- **Replay ids and crashes (§2):** our owner's O43 answers your new question; O44 adds a restore floor.
-- **Tense (§4):** our red gates will carry the evidence once our agent PR lands them.
-- **Two new questions (§7).**
+- **A log segment per restore (O45, §2),** your Q1 alternative: the segment number is part of `session_id`, so
+  O44's floor is no longer a requirement, and nothing goes on your resume stage's question list.
+- **OD-EA16 (§6) takes your Q2 request:** a refusal's pid never appears in a GL3.B2 row.
 
-v4's O38 to O40 stand.
+v6's folds (the pid's owners, G17, the settle invariant, O43, tense) and v4's O38 to O40 stand.
 
 ## 2. The contract
 
@@ -78,10 +75,11 @@ refusal) and `consolidate(agent, budget)` (below).
   refusal, and no receipt arrives without a minted pid. A refusal receipt is the pid's outcome, not a physical
   event. The host's refusals, deferrals past a budget and drops all end in a typed refusal receipt carrying the pid
   (OD-EA16); when a worker dies, the host writes a typed `agent_failed` refusal receipt for each in-flight pid (O44).
-- **Replay ids (O43).** `session_id` is derived from the intent log's header (the log's root id plus the
-  NPC key), never the wall clock or a uuid. The sequencer's high-water seq is saved in the NPC's agent home, so a
-  loaded save continues the sequence. On restore the high-water is max(the saved one, the highest pid our host logged
-  for that agent), so a restart from an older save never re-mints a logged id (O44; §7 asks). Your §5.5 scopes determinism to single-threaded loop paths: our one worker per
+- **Replay ids (O43, O45).** `session_id` is derived from the intent log's header (the log's root id, the NPC key
+  and the segment number), never the wall clock or a uuid. Each restore opens a new log segment, its number recorded
+  in the header so replay reproduces it; ids from different segments can't collide whatever the seq. The sequencer's
+  high-water seq is saved in the NPC's agent home, so a loaded save continues the sequence. O44's floor stays only as
+  a host-side test that no new pid equals a logged one. Your §5.5 scopes determinism to single-threaded loop paths: our one worker per
   agent, stepped by one thread, is inside it, and we never pool agents on a worker thread.
 - **Unchanged from v5:** the request is a value (rendered text, sampling, a model **role**,
   the template version, `tools is None`) produced at the `LLMRouter._complete_text` cut
@@ -171,20 +169,19 @@ Where you have the test, ours is a configuration of it.
 | OD-EA13 | a stub that calls a model outside `think` fails closed, naming the call | none found |
 | OD-EA14 | B1 robot parity: the robot path through the thin driver gives today's state digest, bit for bit, on recorded replies (Exp 49, Exp 60) | B1's gate |
 | OD-EA15 | B2 robot parity: the robot settles right after dispatch, with today's digest, bit for bit, on recorded replies plus recorded or injected tool durations (Exp 49, Exp 60), the digest covering B2's side-effect list | B2's guard |
-| OD-EA16 | every minted pid resolves in exactly one terminal receipt, for refused, deferred, dropped and `agent_failed` intents too; no receipt carries an unminted pid; refusals book no physical event | ours, beside GL3.B2's gate |
+| OD-EA16 | every minted pid resolves in exactly one terminal receipt, for refused, deferred, dropped and `agent_failed` intents too; no receipt carries an unminted pid; refusals book no physical event, and a refusal's pid never appears in a GL3.B2 row | ours, beside GL3.B2's gate |
 
 OD-EA3 (no pickle) is #1685. OD-EA15's tool duration is in the fixture (OD-A4's root fix), or its exclusion is
 named in the digest's definition.
 
 ## 7. Questions left
 
-Your Q1 answer folds in §2 and §5, and O43 answers your question (§2). Two new ones:
+None. Both of v6's are answered:
 
-1. **Does the `EventSequencer` accept a host-supplied floor on restore?** O44 sets its high-water to the larger of
-   the saved value and the highest pid our host logged for the agent, so an older save never re-mints a logged id.
-2. **GL3.B2's gate wording.** It says every pid resolves to exactly one physical event, but a refusal receipt is the
-   pid's outcome, not a physical event. Should it read "exactly one terminal outcome (a physical event or a typed
-   refusal)"? OD-EA16 stays ours, beside it.
+1. **A host-supplied floor:** thank you; we take your segment alternative (O45, §2), so nothing goes on your resume
+   stage's question list.
+2. **GL3.B2's gate wording:** the gate holds unchanged, as you say; OD-EA16 adds that a refusal's pid never appears in
+   a GL3.B2 row (§6).
 
 Searched, nothing found: OD-EA9; a `DECISIONS.md` entry for the host-driven mode (ours:
 `docs/maxim_upstream/decisions_entry_DRAFT.md`).

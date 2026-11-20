@@ -217,6 +217,9 @@ if a worker dies after minting past its last save, a restart from that save woul
 intent log, breaking replay joins and OD-EA16's one-receipt-per-pid invariant. Found while folding Maxim's review of
 v5, not by Maxim. *Consequence:* O44: on restore the high-water is the larger of the saved value and the highest pid
 the host logged for that agent, and a dead worker's in-flight pids each get a typed `agent_failed` refusal receipt;
-a question to Maxim whether its sequencer accepts a host-supplied floor; a crash-recovery test in the agent PR. For
-any engine: whoever saw every issued id (the server, the host) sets the counter's floor after a restart, never the
-snapshot alone.
+a question to Maxim whether its sequencer accepts a host-supplied floor; a crash-recovery test in the agent PR.
+Maxim's review of v6 offered a simpler fix, which O45 takes: each restore opens a new log segment whose number is
+part of `session_id`, so restored ids can't collide with logged ones whatever the seq, and the floor survives only
+as a host-side collision test. For any engine: whoever saw every issued id (the server, the host) sets the
+counter's floor after a restart, never the snapshot alone; and a fresh id namespace per restore removes the need
+for a floor at all.
