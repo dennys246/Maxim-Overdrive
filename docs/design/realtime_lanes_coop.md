@@ -57,7 +57,7 @@ server) with four PRs (§8). Nothing here is built until the owner accepts it.
   accepts NaN, infinite and negative values; a NaN `ignite` turns every cell's temperature to NaN after one advance.
   It's fixed first, on its own PR (§8), because NPCs already use this path.
 - **The intent log is a versioned format** (A2, D2, W-F2), and **every client message gets exactly one final
-  reply**, including `act` (W-F1).
+  reply**, including every intent (W-F1).
 - **Co-op roles are bound to tokens** (TB-4, A8, W-F13). Separate host and guest tokens, no promotion, and the world
   pauses when the host leaves.
 - **Backpressure everywhere** (TB-8, CP-5): bounded inbound queues, latest-wins outbound slots.
@@ -319,31 +319,25 @@ unknown message types, fields and params are refused, including any client-sent 
 `session`. JSON is parsed with NaN, Infinity and out-of-range numbers refused (TB-1). **Every client message gets
 exactly one final reply** (W-F1).
 
-**Client to server.** `seq` is an integer in `[0, 2^31)` and must increase within a session (W-F5).
-
-| Message | Fields | Final reply |
-|---|---|---|
-| `hello` | `protocol: 0`, `token` | `welcome`, or `error` then close |
-| `act` | `region`, `action`, `params` | `act_result`: `tick_applied`, `success`, `error`, `metadata` |
-| `time` | `request: pause \| resume \| set_scale`, `scale` (only for `set_scale`) | `time_decision`: granted or refused, with a reason |
-| `snapshot` | (none) | a binary snapshot whose header carries `in_reply_to`, served from the last published snapshot, coalesced and rate-limited (TB-9, D11) |
+**Client to server** (amended at the merge, DC-B2): the messages are `tile_and_client.md` §3.3's, which replaces
+this table. `act` and `act_result` are retired: one message per kind (`move`, `move_to`, `kindle`, `time`,
+`snapshot`), `intent_result` as the one reply to an intent, and no client message carries a region or an actor.
+`seq` is an integer in `[0, 2^31)` and must increase within a session (W-F5).
 
 **Validation runs in two stages** (TB-13). The network lane checks the schema: types, finiteness, ranges, caps from
-`data/server/`. The simulation lane checks what depends on the world at the record's tick: the region exists, the
-action is allowed, the per-tick limits. Both refusals are `error` or `act_result` replies with a code from a listed
-vocabulary (W-N3), and the world is unchanged. The `act` validator is the same one PR 1 (§8) adds to the SEM bridge,
-so NPCs, LLM results and clients pass one gate. Per-session rate limits and a cap on heat sources bound what valid
-intents can cost (TB-10).
+`data/server/`. The simulation lane checks what depends on the world at the record's tick: the target exists, the intent
+is allowed, the per-tick limits. Both refusals are `error` or `intent_result` replies with a code from a listed
+vocabulary (W-N3), and the world is unchanged. The intent validator is the same one PR 1 (§8) adds to the SEM bridge, so
+NPCs, LLM results and clients pass one gate. Per-session rate limits and a cap on heat sources bound what valid intents
+can cost (TB-10).
 
-**Server to client.**
+**Server to client** (amended at the merge): the messages are `client_rendering.md` §4.1's, which replace the table this
+section held (a separate `regions` message, `regions_version`, the catalogue hash, `intent_result` and `time_decision`).
+A `snapshot` request is served from the last published frame, coalesced and rate-limited per session (TB-9, D11); 2 Hz
+is the normal `snapshot_hz` during any fire (CP-8). The rules below stay:
 
-| Message | When | Carries |
-|---|---|---|
-| `welcome` | after a valid `hello` | `session`, `actor`, `role`, the world config, the rig, `dx`, `shape` with its axis order, the region list with each region's affordances, the material table, and the current time state (W-F12) |
-| `tick` | each tick, throttled per session | `tick`, `world_time_us`, `time_of_day_us`, requested and effective scale, paused |
-| snapshot (binary) | when cells' version changed, at most `snapshot_hz` per session (2 Hz is the normal rate during any fire, CP-8), and on request | `[u32 header length][JSON header][array bytes]`, little-endian; the header has `kind: "full"`, `protocol`, `tick`, `shape: [nz, ny, nx]`, `axis_order: "zyx"`, `frame: "z-up"`, and for each array its name, dtype from a listed vocabulary (`u8`, `<f2`), offset from the start of the array section, stored and uncompressed size, and compression (`none`) |
-| `error` | a refused message | `code`, `message`, `in_reply_to`; the world is unchanged |
-
+- **`welcome` also carries the session's own `actor` id,** the body the client's camera follows, and the material
+  table (ids to names and colours) (W-F12). §4.1's `welcome` row omits both; they stay here until it is amended.
 - **Readers refuse** an unknown protocol version, `kind`, dtype or compression, loudly (W-F6).
 - **Axis order is Godot's** (W-F4, X-N2): arrays are sent z, y, x with x varying fastest, one `Image` per z-slice for
   `ImageTexture3D`. The server is z-up and Godot y-up, so the client maps axes in one place, the shader. An

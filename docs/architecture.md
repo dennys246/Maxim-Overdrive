@@ -15,9 +15,10 @@ Godot client (render, input, UI)  ──intents──▶  World server (Python, 
 ```
 
 - The world server owns all state and all physics. The client never simulates anything that feeds back into the
-  world. It may add purely visual effects (particles, debris, interpolation between turns).
+  world. It may add purely visual effects (particles, debris, interpolation between frames).
 - Cradles and experiments run the same server headless. The physics an NPC grows up in is the game's physics.
-- The game is turn-based (classic Fallout), so LLM latency lands in a dialogue screen, not in a combat loop.
+- The game runs in real time with pause (`docs/design/realtime_lanes_coop.md`); neither the world nor an NPC
+  waits for a thought.
 
 ## The world is material cells
 

@@ -252,8 +252,8 @@ below it. Siblings on one line are independent of each other.
   only show at the next physics step.
 - **Sensors type against a `Frame`/`Observation` protocol** with no `advance`, `sources` or `grid`, so mypy refuses
   a peek (D-B4). `RegionSensor` stops holding `World`.
-- **Every intent records `observed_tick`,** the frame its decision was based on (D-S5). For a client intent the host
-  stamps it (the last frame sent to that session); a client-supplied value is refused (foundations TB2-S6).
+- **Every intent records `observed_tick`,** the frame its decision used (D-S5). For a client intent the host
+  stamps the last cell frame's tick, not the last `tick` message's (DC-S1); a client-supplied value is refused (TB2-S6).
 - **Which frame an agent reads:** one pinned per agent by the adapter, the frame observed at its last `step`
   (`npcs_and_sem.md` §7.3).
 - **Observation never draws from the World's generator.** Percept noise uses the per-NPC stream (§7.3) (D-S5).

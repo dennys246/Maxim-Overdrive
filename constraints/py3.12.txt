@@ -39,7 +39,9 @@ json-repair==0.64.9
 librt==0.16.0
     # via mypy
 markdown-it-py==4.3.0
-    # via rich
+    # via
+    #   maxim-overdrive (pyproject.toml)
+    #   rich
 markupsafe==3.0.4
     # via jinja2
 mdurl==0.1.2

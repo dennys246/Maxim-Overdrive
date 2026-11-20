@@ -340,7 +340,7 @@ Carried from round 1, not addressed (neither fold table lists Wire NITs):
 
 | Round 1 | Status at 18623ce |
 |---|---|
-| B1 window and frames before `Simulation` | **closed** (§4.1, §11.1: named owners, TEMPORARY(sim-clock), the applier publishes). New gap: construction and tests (S10) |
+| B1 window and frames before `Simulation` | **closed** (§4.1, §11.1: named owners, `TEMPORARY(sim-clock)`, the applier publishes). New gap: construction and tests (S10) |
 | B2 mode (a) can't reach the pipeline | **closed** by O6 (intent sink port, the factory takes no `World`, reach and centroid checks in the applier). Segment time for intents made during a thought is still missing (B1) |
 | B3 no thought entry point | **partly closed**: the gateway exists, and `step` before tier A is the test double with real Maxim red. But `think` has no call site (B1), and the gateway's layer is wrong (S1) |
 | B4 `AgentTime` can't reach the stamps; `HostClock` | **closed** in the draft (explicit pass, defaults kept, tripwire; `now()` in epoch seconds read at call time; OD-WC5 loads a pre-release home) |

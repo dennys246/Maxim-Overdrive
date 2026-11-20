@@ -26,6 +26,10 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
 - The agent foundations, after the clock and before the lanes: `phase1/agents` (`docs/design/boundaries.md` §11.1,
   `docs/design/npcs_and_sem.md` §6.2). Phase 1 has no NPCs; real Maxim stays a strict red gate until it ships the
   embeddable agent contract.
+- Review the content-identity proposal (`docs/design/ip_and_licensing.md` §6: content-addressed spec ids, a
+  provenance and licence record per placement) before the intent-log header (`docs/design/boundaries.md` §6.3),
+  protocol v0 (`docs/design/tile_and_client.md` §3.3) and save v0 freeze. Its design review uses the note's own
+  lenses.
 - Fires that go out when their fuel is gone, so a burnt-out crate's fire stops instead of heating air to millions of
   degrees (`docs/architecture.md`, Known gaps; the red gate is
   `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`). Needed before the tile's crate
@@ -280,6 +284,8 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
 
 - In-game imagination, bound to the materials table and a power budget. The world validates every spec before the
   object exists.
+- An IP gate in front of `imagination.spec.place`, shipped with the LLM caller that feeds it, never after it
+  (design: `docs/design/ip_and_licensing.md` §3, once reviewed).
 - Assets are derived deterministically from specs: meshes from cells, procedural impact and burn sounds from
   material properties. Image-model art is cached decoration only and never decides physics.
 - **Exit:** a player imagines an object mid-scene and it burns and breaks like an authored one, at every rig.
@@ -296,6 +302,11 @@ See `docs/book_to_world.md`. Extraction, timeline and the perspective split, the
 - More tiles and a world map.
 - **Steam:** the Steamworks SDK in a private module, a trademark search and filing for the name, and the WashU OTM
   question settled before any store page.
+- **A creator marketplace, decided, not assumed.** Once players exist, decide whether to run one, from the costs in
+  `docs/design/ip_and_licensing.md` §5 (copyright takedowns and the safe harbour a cut puts at risk, EU seller
+  verification, payouts through a merchant of record, Steam's rules on purchases and trading, curation, unit
+  economics). Nothing for a marketplace is built before that decision; content identity (Phase 1) and the IP gate
+  (Phase 6) are needed with or without one.
 - **Exit:** a store page.
 
 ## Standing rules

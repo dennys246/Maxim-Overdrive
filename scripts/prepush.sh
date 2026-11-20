@@ -39,7 +39,7 @@ refuse_main_branch
 
 PY="${PYTHON:-.venv/bin/python}"
 command -v "$PY" >/dev/null 2>&1 || die "no Python at '$PY'; create .venv (CLAUDE.md, Commands) or set PYTHON"
-if ! "$PY" -c 'import maxim, ruff, mypy, diff_cover, pytest_cov' 2>/dev/null; then
+if ! "$PY" -c 'import maxim, ruff, mypy, diff_cover, pytest_cov, markdown_it' 2>/dev/null; then
   PYV="$("$PY" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo '<major.minor>')"
   # An editable install points the venv at one checkout, so installing into a venv another worktree shares re-points
   # it for every session. Only a venv inside this worktree is this session's to install into.

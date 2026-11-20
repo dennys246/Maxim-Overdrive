@@ -4,6 +4,10 @@
    roadmap phase that exists, is not done, and lists the marker's file in its section of docs/roadmap.md. So a
    band-aid can't outlive the moment promised to remove it, and the roadmap shows every one that is open.
 2. ``pragma: no cover`` must say why the line can't be tested.
+   Markdown holds no band-aids, so it holds no markers or pragmas. A document that explains or reviews the rule
+   quotes their syntax in code (an inline span or a code block), and anything that renders as text is a finding.
+   Documents are parsed by markdown-it as CommonMark plus GitHub's tables, the way they render, rather than by a
+   hand-written approximation; raw HTML counts as text, and a fence left open at the end of a file is a finding.
 3. Guard citations. Every rule bullet under CLAUDE.md's "Engineering standards" ends with ``Guard:`` and names files
    that exist (``path``, or ``path::symbol`` where the symbol appears as a whole word outside comments, and, in a
    ``.py`` file, as a definition) and/or backlog rows (``B7``) in docs/standards_backlog.md. A rule whose only
@@ -30,6 +34,9 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from markdown_it import MarkdownIt
+from markdown_it.token import Token
+
 ROOT = Path(__file__).resolve().parents[1]
 
 # Upper case always counts; any other case counts when it cites a phase, so "a temporary (two-turn) fire" in prose is
@@ -53,11 +60,10 @@ COMPLEXITY_NOQA = re.compile(
 SIZE_SCOPE = ("src/", "scripts/")
 COMMENT_PREFIX = {".py": "#", ".toml": "#", ".sh": "#", ".yml": "#", ".yaml": "#", ".gitignore": "#", ".gd": "#"}
 
-# Files that discuss markers and pragmas without being band-aids or exclusions.
-MARKER_EXEMPT = {"scripts/lint_standards.py", "tests/test_lint_standards.py", "CLAUDE.md", "docs/code_review.md"}
-# Review findings and research reports are records of what a reader wrote, kept verbatim; they quote marker syntax
-# when they discuss band-aids, and quoting one isn't placing one.
-MARKER_EXEMPT_DIRS = ("docs/design/reviews/", "docs/design/research/", "docs/plans/reviews/")
+# The lint and its tests write markers and pragmas as data. Documents need no entry: they quote them in code.
+MARKER_EXEMPT = {"scripts/lint_standards.py", "tests/test_lint_standards.py"}
+# How GitHub renders the docs: CommonMark plus tables (cells are parsed one by one, so a span can't cross rows).
+MARKDOWN = MarkdownIt("commonmark").enable(["table", "strikethrough"])
 
 
 def phase_sections(roadmap: str) -> dict[int, tuple[str, str]]:
@@ -75,6 +81,73 @@ def phase_sections(roadmap: str) -> dict[int, tuple[str, str]]:
             status, text = out[current]
             out[current] = (status, text + line + "\n")
     return out
+
+
+LEAF_BLOCKS = ("inline", "fence", "code_block", "html_block")
+DOC_FINDING = (
+    "a document holds no band-aid markers or pragmas: quote one in a Markdown code span or code block, and defer a "
+    "finding with no code to mark as a backlog row or a known gap"
+)
+
+
+def _inline_text(children: list[Token]) -> str:
+    """The rendered text of an inline token: code spans are left out (a space keeps their neighbours apart), breaks
+    render as newlines so a marker split across lines still matches, and image alt text counts."""
+    text = []
+    for child in children:
+        if child.type == "code_inline":
+            text.append(" ")
+        elif child.type in ("softbreak", "hardbreak"):
+            text.append("\n")
+        elif child.type in ("text", "html_inline"):
+            text.append(child.content)
+        elif child.type == "image":
+            text.append(_inline_text(child.children or []))
+    return "".join(text)
+
+
+def _line_count(text: str) -> int:
+    """Lines in ``text``, split on ``\\n`` alone as CommonMark splits them; a last line needs no newline."""
+    return text.count("\n") + (text != "" and not text.endswith("\n"))
+
+
+def _markdown_problems(rel: str, text: str) -> list[str]:
+    """Markers and pragmas in what a document renders as text, and fences that hide the rest of it.
+
+    markdown-it decides what is code, so this holds no CommonMark rules of its own. A finding in rendered inline text
+    is reported at the first line of its paragraph, heading or table row: the parser places blocks, not words. Raw
+    HTML, and any source line no leaf block covers (a footnote or link definition, which CommonMark drops but GitHub
+    shows), are checked line by line as written. Fenced and indented code are skipped.
+    """
+    src = text.replace("\r\n", "\n").replace("\r", "\n")
+    raw = src.split("\n")
+    # The last non-blank line; CommonMark counts only spaces and tabs as blank, not NBSP or a form feed.
+    last = max((i for i, line in enumerate(raw) if line.strip(" \t")), default=-1)
+    covered: set[int] = set()
+    lines: set[int] = set()
+    open_fences: list[int] = []
+    for tok in MARKDOWN.parse(src):
+        if tok.map is None or tok.type not in LEAF_BLOCKS:
+            continue
+        first, end = tok.map
+        covered.update(range(first, end))
+        if tok.type == "inline":
+            rendered = _inline_text(tok.children or [])
+            if TEMP_MARKER.search(rendered) or PRAGMA.search(rendered):
+                lines.add(first + 1)
+        elif tok.type == "html_block":
+            lines.update(i + 1 for i in range(first, end) if TEMP_MARKER.search(raw[i]) or PRAGMA.search(raw[i]))
+        elif tok.type == "fence" and end > last and _line_count(tok.content) == end - first - 1:
+            # A fence that reaches the end of the document is open when its lines are the opener and its content
+            # alone: a closed fence's lines also hold its closer. Its container's end (a blockquote or list item the
+            # document's end closes) doesn't count as closing it: the rest is still shown as code.
+            open_fences.append(first + 1)
+    lines.update(
+        i + 1 for i, line in enumerate(raw) if i not in covered and (TEMP_MARKER.search(line) or PRAGMA.search(line))
+    )
+    problems = [f"{rel}:{n}: {DOC_FINDING}" for n in sorted(lines)]
+    problems += [f"{rel}:{n}: this code fence is never closed, so nothing after it is checked" for n in open_fences]
+    return problems
 
 
 def _pragma_problem(line: str, where: str) -> str | None:
@@ -109,7 +182,10 @@ def check_markers(files: dict[str, str], roadmap: str) -> list[str]:
     sections = phase_sections(roadmap)
     problems = []
     for rel, text in sorted(files.items()):
-        if rel in MARKER_EXEMPT or rel.startswith(MARKER_EXEMPT_DIRS):
+        if rel in MARKER_EXEMPT:
+            continue
+        if rel.endswith(".md"):
+            problems += _markdown_problems(rel, text)
             continue
         for lineno, line in enumerate(text.splitlines(), 1):
             where = f"{rel}:{lineno}"
@@ -290,9 +366,16 @@ def _path_problem(root: Path, ref: str) -> str | None:
 
 def check_guards(claude_md: str, backlog: str, root: Path) -> tuple[list[str], int, int]:
     """Findings, plus how many rules a check enforces and how many only review holds."""
-    rows = {int(m.group(1)) for ln in backlog.splitlines() if (m := BACKLOG_ROW.match(ln))}
+    ids = [int(m.group(1)) for ln in backlog.splitlines() if (m := BACKLOG_ROW.match(ln))]
+    rows = set(ids)
+    # Branches add rows in parallel; a merge that keeps two rows with one id would let a guard cite the wrong row.
+    problems = [
+        f"docs/standards_backlog.md: backlog row B{b} is defined {ids.count(b)} times"
+        for b in sorted(rows)
+        if ids.count(b) > 1
+    ]
     bullets, missing = standards_bullets(claude_md)
-    problems = [f"CLAUDE.md: no '{heading}' section with rule bullets" for heading in missing]
+    problems += [f"CLAUDE.md: no '{heading}' section with rule bullets" for heading in missing]
     checked = review_only = 0
     for lineno, text in bullets:
         where = f"CLAUDE.md:{lineno}"

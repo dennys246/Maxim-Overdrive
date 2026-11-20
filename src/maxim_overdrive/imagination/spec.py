@@ -43,7 +43,7 @@ def _offset(p: Primitive, o: tuple[float, float, float]) -> Primitive:
 
 # The keys an imagined object may carry; each is checked by _read itself, with its own refusal ("needs a name", "at
 # least one primitive"). A new one (a description, provenance, a licence) is added here and to the content its id
-# hashes, as one list (the IP note on phase1/realtime-design, docs/design/ip_and_licensing.md section 6).
+# hashes, as one list (docs/design/ip_and_licensing.md, section 6).
 SPEC_KEYS = frozenset({"name", "primitives"})
 
 
