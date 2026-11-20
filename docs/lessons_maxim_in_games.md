@@ -63,15 +63,15 @@ changes cells only in `World.advance`. *Consequence:* Phase 3 proposal P3, credi
 ### 7. A malformed argument is a cognitive error, not a tool failure (2026-11-15)
 
 **Maxim books a refused tool call as a surprising NEGATIVE on the tool, whatever the state.** *Evidence:* PR 1's 33
-probes; a JSON typo would teach an NPC to avoid striking the crate altogether. *Consequence:* Phase 3 item 10,
-validation in Maxim's executor before the tool runs (argues against TF2).
+probes; a JSON typo would teach an NPC to avoid striking the crate altogether. *Consequence:* OD-A16's `call_error`
+kind, produced by validation in Maxim's executor before the tool runs (argues against TF2).
 
 ### 8. "Done to" and "done by" are different affordances (2026-11-16)
 
 **Maxim's actor tool reads every scene affordance as something the entity does to a target; a world's structure
 affordances are things done to it.** *Evidence:* `actor(entity="crate", affordance="ignite")` is refused by default
 (target "player"); a call aimed at the wall through the crate's tool would be booked against `crate_strike`.
-*Consequence:* Phase 3 item 11, a declared direction per affordance.
+*Consequence:* OD-C3, a declared direction per affordance, and OD-A16's `wrong_target` kind.
 
 ### 9. A late thought is context, never credit (2026-11-16)
 

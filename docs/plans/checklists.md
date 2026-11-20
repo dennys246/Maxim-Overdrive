@@ -48,16 +48,6 @@ Python 3.10 or later; GPG signing configured, with someone present to answer its
 authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.app` from step 2; a per-worktree
 `.venv` (step 0a).
 
-## Step 2, the Godot skeleton (`client_rendering.md` §6.5, §7, §9)
-
-- `client/addons/engine` and `client/game` layout; `project.godot` with the Compatibility renderer and every
-  typed-GDScript warning at Error, and a test that reads it.
-- `scripts/godot_check.py`: an outer timeout, a scan for `SCRIPT ERROR`, `Parse Error` and `ERROR:` lines, a null
-  `load()` check and a required sentinel line; gate fixtures prove each by deletion (CR-B1).
-- The Linux CI golden job: a Dockerfile with the base image pinned by digest, Mesa by package version, Godot by
-  SHA-256 and `LP_NATIVE_VECTOR_WIDTH` fixed; goldens keyed by Mesa version; one renderer golden (CR-B3, EX-B3).
-- The client §9 probe list, run on 4.7.2 (EX-S14), including `FORMAT_RG8` with `texelFetch` for u16 region ids.
-
 ## Step 3a, boundaries (`reviews/flexibility/architecture.md`)
 
 - Resolution leaves the rig (D20): `MaterialGrid.empty`, `Scene.build` and `World` take a keyword-only `dx_m`;
@@ -144,6 +134,9 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
   `axis_order`; fixtures for an unknown optional channel (ignored) and an unknown required channel (refused).
 - `welcome` and the version `error` carry the engine `build`.
 - A refusal for exhausted u16 region ids.
+- JSON reads floats (`client_rendering.md` §4.1): decoder fixtures with an integer at 2^53 and at 2^53 + 1 (refused);
+  stage 1 refuses `5500.0` and `true` where an integer is expected (Python reads a float, and `bool` is an `int`).
+- B25's engine/game check, with the second engine file.
 
 - The strict red gate that refuses guest joins while real-Maxim NPCs are live, as the roadmap's Phase 4 assigns
   this PR (TB-B2).
@@ -164,7 +157,9 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 - The exit script, run stepped and unpaced; the controls, each proven by deletion (PH-S3); the stage-2 refusal
   scripts.
 - The shader, the cut-away test at ≥ 95%, five scenario goldens per tier, staleness digests, `update_goldens.sh`
-  (EX-S13); golden paths keyed by Mesa and Godot version.
+  (EX-S13).
+- CR-B3's open half: a shaded golden that differs at 128 and 256 bits and agrees across Intel and AMD runners (the
+  job logs the CPU); a per-object ΔE over the ID mask (S2C-S3); `golden.gd`'s missing-`--out` refusal tested.
 - The human playtest.
 
 ## Step 9, save v0

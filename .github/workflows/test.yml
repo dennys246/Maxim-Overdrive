@@ -5,6 +5,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   prepush:
     strategy:
@@ -24,6 +27,9 @@ jobs:
         run: |
           python -m venv .venv
           .venv/bin/pip install -c constraints/py${{ matrix.python-version }}.txt -e '.[dev,maxim]'
+      # The gate's Godot step (scripts/godot_check.py) needs the pinned Godot, which the runners don't have.
+      - name: Install Godot
+        run: godot="$(ci/install_godot.sh "$RUNNER_TEMP/godot")" && echo "GODOT=$godot" >> "$GITHUB_ENV"
       - name: Gate
         env:
           BASE: origin/main
