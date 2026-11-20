@@ -35,6 +35,9 @@ jobs:
           .venv/bin/pip install --upgrade -e '.[dev,maxim]'
       - name: What moved against the lock
         run: .venv/bin/python scripts/check_lock.py --report
+      # The gate's Godot step (scripts/godot_check.py) needs the pinned Godot, which the runners don't have.
+      - name: Install Godot
+        run: godot="$(ci/install_godot.sh "$RUNNER_TEMP/godot")" && echo "GODOT=$godot" >> "$GITHUB_ENV"
       - name: Gate
         env:
           BASE: origin/main

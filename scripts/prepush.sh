@@ -50,7 +50,9 @@ if ! "$PY" -c 'import maxim, ruff, mypy, diff_cover, pytest_cov' 2>/dev/null; th
 fi
 
 if [ -z "${BASE:-}" ]; then
-  if git rev-parse --verify -q main >/dev/null; then BASE=main; else BASE=origin/main; fi
+  # origin/main first: PRs merge on GitHub, so a local `main` can sit at an old commit while every ratchet compares
+  # against it. Only without a remote does the local branch serve.
+  if git rev-parse --verify -q origin/main >/dev/null; then BASE=origin/main; else BASE=main; fi
 fi
 git rev-parse --verify -q "$BASE" >/dev/null || die "base '$BASE' is not a git ref (fetch it, or set BASE)"
 MERGE_BASE="$(git merge-base "$BASE" HEAD)" || die "no merge base between $BASE and HEAD"
@@ -59,10 +61,6 @@ DIRTY="$(git status --porcelain)"
 if [ -n "$DIRTY" ] && [ -z "${ALLOW_DIRTY:-}" ]; then
   printf '%s\n' "$DIRTY" >&2
   die "the tree has uncommitted changes, so a PASS would not describe HEAD (commit them, or ALLOW_DIRTY=1)"
-fi
-
-if [ -d client ]; then
-  die "client/ exists but its Godot checks are not wired into this gate yet (docs/standards_backlog.md B6)"
 fi
 
 # -- the gate -------------------------------------------------------------------------------------------------------
@@ -79,22 +77,27 @@ step "mypy (strict on src and scripts; test bodies checked)"
 step "standards lint (TEMPORARY markers, pragmas, guard citations, size limits, coverage and size ratchets against $BASE)"
 "$PY" scripts/lint_standards.py --base "$BASE"
 
-step "tests, every tier, with branch coverage (floor in pyproject.toml)"
+step "Godot client: pinned version, fresh import, every script loads, client tests (B6, CR-B1)"
+"$PY" scripts/godot_check.py
+
+step "tests, every tier and the Godot fixtures, with branch coverage (floor in pyproject.toml)"
 rm -f .coverage coverage.xml
-MAXIM_OVERDRIVE_ALL_TIERS=1 "$PY" -m pytest -q -p no:cacheprovider \
+MAXIM_OVERDRIVE_GODOT=1 MAXIM_OVERDRIVE_ALL_TIERS=1 "$PY" -m pytest -q -p no:cacheprovider \
   --cov --cov-report=term --cov-report=xml:coverage.xml
 
 step "diff coverage: lines changed since ${MERGE_BASE:0:8} ($BASE) must be >= 95% covered"
 "$PY" -m diff_cover.diff_cover_tool coverage.xml --compare-branch="$BASE" --fail-under=95
 
 HEAD_SHA="$(git rev-parse --short=12 HEAD)"
+# The base as this worktree last fetched it: the gate never fetches, so say which commit it compared against.
+BASE_SAID="$BASE $(git rev-parse --short=12 "$BASE") of $(git log -1 --format=%cs "$BASE")"
 # A step that wrote into the tree (a test leaving files behind) would make the PASS describe a different tree.
 if [ "$(git status --porcelain)" != "$DIRTY" ]; then
   git status --porcelain >&2
   die "the gate changed the working tree while it ran; fix the step that writes there"
 fi
 if [ -n "$DIRTY" ]; then
-  printf '\nprepush: PASS on a dirty tree (HEAD %s plus uncommitted changes); this does not clear a hand-off\n' "$HEAD_SHA"
+  printf '\nprepush: PASS on a dirty tree (HEAD %s plus uncommitted changes; base %s); this does not clear a hand-off\n' "$HEAD_SHA" "$BASE_SAID"
 else
-  printf '\nprepush: PASS %s%s\n' "$HEAD_SHA" "$SKIPPED"
+  printf '\nprepush: PASS %s (base %s)%s\n' "$HEAD_SHA" "$BASE_SAID" "$SKIPPED"
 fi

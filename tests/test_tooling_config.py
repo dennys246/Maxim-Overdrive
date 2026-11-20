@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tomllib
@@ -71,7 +72,8 @@ EXPECTED = {
 
 def _ruff(*args: str, stdin: str | None = None) -> subprocess.CompletedProcess[str]:
     cmd = [sys.executable, "-m", "ruff", *args]
-    return subprocess.run(cmd, cwd=ROOT, input=stdin, capture_output=True, text=True, check=False)
+    env = dict(os.environ)  # ruff reads only the tree; it needs no isolation from this session
+    return subprocess.run(cmd, cwd=ROOT, env=env, input=stdin, capture_output=True, text=True, check=False)
 
 
 def _capped_hits(path: str) -> dict[str, set[str]]:

@@ -95,3 +95,17 @@ def test_the_tests_cannot_reach_a_repository_named_in_the_environment(tmp_path: 
     monkeypatch.delenv("GIT_WORK_TREE")
     assert git(victim, "rev-parse", "--verify", "-q", "HEAD", check=False).returncode != 0  # still no commits
     assert git(victim, "status", "--porcelain").stdout == "?? wip.txt\n"
+
+
+def test_the_gate_compares_against_origin_main_before_a_stale_local_main(repo: Path, tmp_path: Path) -> None:
+    """PRs merge on GitHub, so the local `main` can sit at the initial commit while origin/main moves on."""
+    step = repo / ".worktrees" / "step"
+    (step / "f").write_text("x\n")
+    git(step, "add", "-A")
+    git(step, "commit", "-q", "-m", "y")
+    git(repo, "update-ref", "refs/remotes/origin/main", git(step, "rev-parse", "HEAD").stdout.strip())
+    fake = tmp_path / "fake-python"
+    fake.write_text("#!/bin/sh\nexit 0\n")  # every tool "passes", so the gate reaches the steps that name its base
+    fake.chmod(0o755)
+    out = _gate(step, python=str(fake))
+    assert "against origin/main" in out.stdout

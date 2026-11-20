@@ -2,23 +2,12 @@
 
 **Status:** v3, frozen (owner T13, 2026-11-18); the final physics review's FPH-B1 to B3 are step 6 requirements (`docs/plans/checklists.md`). Split from v1 of `tile_and_client.md` (f6afd66) after
 its six-lens review, accepted as O31; delta-reviewed with it (`docs/design/reviews/tile_v1/`, fold status in
-`fold.md`). This document holds the client protocol layer's wire encoding and the Godot side: camera and cut-away,
-input mapping, the wire as the client reads it, textures, the shader, goldens and CI, the project's shape, client
-budgets. The world side (the alley, bodies, intents, the `Frame`, step 6, the exit scenario) is `tile_and_client.md`,
-cited as "world §n".
+`fold.md`). This document is the wire as the client reads it and the Godot side; the world side is
+`tile_and_client.md`, cited as "world §n".
 
 **Numbers** are *measured*, *derived*, *from memory, to verify*, or `[engineering]`. **[ran]** marks Godot 4.7.2 facts
-the Client and rendering reviewer measured on the owner's M2 (4.7.2.stable.official.ed1daf0bf), recorded in
-`reviews/tile_v1/client_rendering.md`. Everything else about Godot is in the probe list (§9).
-
-**Corrections to v1 from measurement:**
-- `--headless` draws nothing: `get_image()` returns null under the dummy renderer [ran].
-- Godot exits 0 on parse errors and keeps running after a runtime error [ran].
-- The raymarch costs 2–3× v1's estimate (§5.2).
-- The GPU-time meter reads 0.0 on the owner's Mac [ran].
-- Unshaded output above 1.0 drives Compatibility's glow [ran].
-- The research note is `docs/design/research/states_of_matter/architecture.md`; it says partial updates are "likely
-  whole-texture".
+measured on the owner's M2 (4.7.2.stable.official.ed1daf0bf), by the tile review (`reviews/tile_v1/`) or step 2's
+probes (`research/godot_probes.md`).
 
 ## 0. Decisions this document rests on
 
@@ -75,7 +64,8 @@ T3–T7 are world decisions (world §0).
 | Space; `,` and `.` | `time {pause \| resume}`; `time {set_scale}`, over presets 0.25–50 (client UI; the server checks only its range) |
 | Q, E, wheel | none: camera only |
 
-- **Integers on the wire:** values are cast with `int()` before `JSON.stringify` (WT-S11; *to verify*, §9).
+- **Integers on the wire:** values are cast with `int()` before `JSON.stringify`, which writes a float as `5500.0`
+  (WT-S11) [ran].
 - **Rotation with a key held** re-sends `dir` computed at the target yaw. **Focus loss** sends `move {dir: null}` on
   `NOTIFICATION_APPLICATION_FOCUS_OUT` (CR-N3).
 - **Host-only controls:** the time controls are hidden for a non-host role; the server refuses them anyway.
@@ -112,6 +102,8 @@ T3–T7 are world decisions (world §0).
 - **The catalogue hash** uses boundaries §6.3's one canonicaliser, in the core's checks. The region map is outside the
   hash, so `imagine` doesn't churn it.
 - **The decoder refuses** a frame whose `regions_version` is ahead of its map, or whose hash differs from `welcome`'s.
+- **JSON numbers read back as floats** [ran]: integers from `tick` or a frame header are cast with `int()`; one over
+  2^53 is refused.
 - **Events accumulate per session** until delivered, bounded at 256 `[engineering]`. An overflow forces a resync: the
   server sends a full `tick` state and the client requests `snapshot`. State tables carry everything an event
   announces, so a skipped tick at 20× loses nothing (DC-S4).
@@ -223,8 +215,8 @@ Filters are compile-time hints [ran], so the glow sampler is a `#define` variant
 - **From frame fixtures, never a live server.** `client/tests/golden.tscn`:
   - sets the golden camera;
   - turns off particles, animation and cross-fade;
-  - captures after `await RenderingServer.frame_post_draw` (*to verify*);
-  - asserts `get_image() != null` (`get_current_rendering_method()` misreports under the dummy renderer [ran]);
+  - refuses a headless display, where `frame_post_draw` never fires [ran];
+  - captures after the first `await RenderingServer.frame_post_draw` [ran] and asserts `get_image() != null`;
   - saves the PNG.
 - **Frame files are B3 wire fixtures** (WT-N6).
 - **Renderer goldens** are hand-built frames: an asymmetric fixture, a cracked block, a glowing block, and a capsule
@@ -265,14 +257,14 @@ Each tier's frame is box-filtered to 160 × 90, then laptop and max are each com
 
 - **A required Linux CI job,** added in step 2 with one renderer golden. It runs in `ci/godot-golden/Dockerfile`:
   - the base image pinned by digest;
-  - Mesa pinned by package version;
+  - packages pinned by version from a dated Ubuntu snapshot (the archive drops old versions);
   - Godot 4.7.2 checked by SHA-256;
-  - `LIBGL_ALWAYS_SOFTWARE=1`, `GALLIUM_DRIVER=llvmpipe`, and `LP_NATIVE_VECTOR_WIDTH=256` (*to verify*).
-- **The command:** `xvfb-run -s "-screen 0 1280x720x24" godot --rendering-driver opengl3 --rendering-method
+  - `LIBGL_ALWAYS_SOFTWARE=1`, `GALLIUM_DRIVER=llvmpipe`, and `LP_NATIVE_VECTOR_WIDTH=256` (llvmpipe's name reports it [ran]).
+- **`scripts/golden_run.py`** imports, then runs, with the gate's timeout and scans: `xvfb-run -s "-screen 0 1280x720x24" godot --rendering-driver opengl3 --rendering-method
   gl_compatibility --fixed-fps 60 --resolution 1280x720 --path client res://tests/golden.tscn`. Linux has no
-  surfaceless mode (*from memory*).
-- **Golden paths** are `client/tests/goldens/compat-llvmpipe-mesa<version>/<tier>/`. A Mesa bump regenerates them in a
-  commit of its own.
+  surfaceless mode.
+- **Golden paths** are `client/tests/goldens/compat-llvmpipe-mesa<package>-llvm<v>-godot<v>/<tier>/`, keyed from the
+  run's log. A new build regenerates them in a commit of its own.
 - **The Mac is advisory:** `prepush` runs the B6 gate, plus the tier-agreement and greyscale checks when a GPU
   context exists. B7 passes only when the CI job is green.
 - **Updates go through** `scripts/update_goldens.sh <reason>`: it refuses a dirty tree, renders in the CI image, and
@@ -299,7 +291,7 @@ client/game/                     this game (rights reserved)
     ├── IntentInput (Node)
     └── Hud (CanvasLayer) → Control
   tiers/, cutaway.tres           client data
-client/tests/                    runner, gate fixtures, goldens
+client/tests/                    runner, unit tests, goldens
 ```
 
 **Engine whys:**
@@ -314,7 +306,8 @@ client/tests/                    runner, gate fixtures, goldens
 
 - **Every warning is set to Error** unless `client/WARNINGS.md` lists a reason, and a test reads `project.godot`
   (CR-S7). The 4.7.2 defaults leave `unsafe_void_return`, `narrowing_conversion`, `integer_division`,
-  `unused_variable` and `shadowed_variable` at Warn [ran].
+  `unused_variable` and `shadowed_variable` at Warn, and exempt `res://addons` (the engine half), so
+  `directory_rules` is `{}` [ran].
 - **Returned `Error` values are checked and reported,** never bound to `_`. `return_value_discarded` fires on
   `PackedByteArray.resize` and `Image.save_png` [ran].
 - **GDScript over C#:** no .NET toolchain, and parse checks need no build.
@@ -322,15 +315,15 @@ client/tests/                    runner, gate fixtures, goldens
 ### 7.3 The B6 gate (CR-B1)
 
 `scripts/godot_check.py`, run by `prepush`:
-- runs `godot --headless --import --path client` first, so `class_name` resolves (*from memory*);
+- imports a fresh copy first, so `class_name` resolves [ran], and fails if the import creates or rewrites a file;
 - wraps each call in `subprocess.run(timeout=120)`;
 - fails on `SCRIPT ERROR`, `Parse Error` or `ERROR:`;
-- loads every `.gd` and fails on a null `load()` [ran];
-- runs `client/tests/run.gd` and requires `client-tests: PASS <n> tests` as the last line, with `run.gd` ending in
-  `quit(0 if passed else 1)`.
+- loads every `.gd` and fails on one that is null or not instantiable: a broken script loads non-null [ran];
+- runs `client/tests/run.gd`, which awaits each test and fails one that checks nothing, and requires
+  `client-tests: PASS <n> tests` as the last line and exit 0.
 
-Fixtures in `client/tests/gate_fixtures/` (an untyped script, a runtime error, a failing assertion) prove each check by
-deletion. Godot's exit status is never trusted on its own.
+Fixture projects in `tmp_path`, never under `client/` (`tests/test_godot_gate_fixtures.py`), prove each check by
+deletion. Godot's exit status is never trusted alone.
 
 ### 7.4 Renderer (T8)
 
@@ -338,6 +331,7 @@ deletion. Godot's exit status is never trusted on its own.
 - The shader is unshaded, so Forward+ buys little.
 - Compatibility runs on integrated GPUs and on CI's llvmpipe.
 - Its glow works with unshaded HDR output [ran].
+- Windows may draw through ANGLE (`fallback_to_angle`); that is still Compatibility.
 
 ### 7.5 Connecting
 
@@ -353,9 +347,9 @@ Client meters take the minimum of N ≥ 50 `Time.get_ticks_usec()` intervals, an
 
 | Meter | Target | Status |
 |---|---|---|
-| Decode + upload, all seven textures (six channels, `region` at 2 B/cell, bricks) | ≤ 3 ms (about 1.7 ms derived from the measured 160–230 µs per channel [ran]) | B5, gated in CI |
+| Decode + upload, all seven textures (six channels, `region` at 2 B/cell, bricks) | ≤ 3 ms (1.4–2.4 ms from 173–294 µs per channel-equivalent [ran]) | B5, gated in CI |
 | First upload | warmed on `welcome` (the first `update` took 10.9 ms [ran]) | test |
-| Frame time, rig and laptop tiers, golden view | ≤ 16.7 ms with `--disable-vsync` | reported until §9's GPU probe works |
+| Frame time, rig and laptop tiers, golden view | ≤ 16.7 ms with `--disable-vsync` | reported, as the uncapped minimum frame interval: the GPU meter reads 0 [ran] |
 | `tick` delay behind a frame | ≤ 5 ms | reported |
 | Input to photon | ≤ 220 ms worst | playtest |
 
@@ -368,10 +362,12 @@ Client meters take the minimum of N ≥ 50 `Time.get_ticks_usec()` intervals, an
 | `FORMAT_RG8` and `texelFetch` for u16 ids | upload, read back | windowed | two R8 textures |
 | `frame_post_draw` capture | the golden scene under Xvfb | CI image | wait N frames, assert non-null |
 | llvmpipe with a fixed vector width | one golden on two runner CPU types | CI image | one runner class |
-| GPU time | `--gpu-profile` [ran: exists] or uncapped frame time | windowed | rows stay "reported" |
+| GPU time | `--gpu-profile`, the GPU meter (both read 0 [ran]), uncapped frame time | windowed | rows stay "reported" |
 | Keys on focus loss | key held, focus out | windowed | the client's own stop covers it |
 | `class_name` on a fresh checkout | `--import`, then `-s run.gd` | headless | commit the import cache |
 | Partial texture update | one slice changed | windowed | whole-texture (cheap) |
+
+Results: `research/godot_probes.md`; an upgrade reruns `tools/godot_probes/`. The two-CPU row stays open (CR-B3).
 
 ## 10. Open questions for the owner
 
@@ -389,5 +385,5 @@ None open. v2's five were answered as recommended (T8–T12).
 | Requirement | Step |
 |---|---|
 | `client/` skeleton; `project.godot` (renderer, warnings, its test); `godot_check.py` and its fixtures; the CI golden job, its image and one renderer golden; §9's probes | 2 |
-| The decoder against wire fixtures (scales, hash, `regions`, a post-`imagine` frame, header refusals); `tick` encoding; event accumulation and resync; `net_client.gd`; buffers and the server's caps; the `Origin` test | 7 |
+| The decoder against wire fixtures (scales, hash, `regions`, a post-`imagine` frame, header refusals); `tick` encoding; event accumulation and resync; `net_client.gd`; JSON integer reads (§4.1); buffers and the server's caps; the `Origin` test | 7 |
 | The shader and its includes, bricks, depth golden, crack and glow, picking, cut-away and its 95% test, input mapping, HUD, tiers, the scenario goldens, staleness digests, `update_goldens.sh`, budgets | 8 |

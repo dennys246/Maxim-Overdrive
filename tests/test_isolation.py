@@ -124,6 +124,99 @@ def _git_outside_helper(node: ast.Call) -> bool:
     )
 
 
+# -- process spawning (S2W-S3, S2D-S1) ------------------------------------------------------------------------------
+# A spawned tool inherits this session's environment unless told otherwise, and Godot writes editor settings, caches
+# and logs under HOME. So in tests/ and scripts/ a process may be started only at the sites below, each named with the
+# environment it must be given; any other spawn, in any spelling, is a finding.
+#   "godot": the env must be a godot_env(...) call, which moves HOME and the XDG directories into the work directory.
+#   "given": an env= must be written (a deliberate choice, reviewed when the site was added).
+ALLOWED_SPAWNS = {
+    ("scripts/godot_check.py", "run_godot"): "godot",  # the one way Godot runs
+    ("scripts/lint_standards.py", "tracked_text_files"): "given",  # git, on the repository the gate runs in
+    ("scripts/lint_standards.py", "base_pyproject"): "given",  # git, the same
+    ("tests/_gitutil.py", "git"): "given",  # git with every GIT_* dropped and no global config
+    ("tests/test_prepush.py", "_gate"): "given",  # the gate, copied into a tmp repository
+    ("tests/test_tooling_config.py", "_ruff"): "given",  # ruff, reading the tree
+    ("tests/test_determinism.py", "test_runs_in_processes_with_different_hash_seeds_agree"): "given",  # Python
+    ("tests/test_client_project.py", "_detected"): "given",  # ci/install_godot.sh --platform, PATH only
+}
+SPAWN_MODULES = {
+    "subprocess": {"run", "call", "check_call", "check_output", "Popen", "getoutput", "getstatusoutput"},
+    "os": {"system", "popen", "posix_spawn", "posix_spawnp", "fork", "forkpty"},
+    "asyncio": {"create_subprocess_exec", "create_subprocess_shell"},
+    "pty": {"spawn"},
+}
+
+
+def _aliases(tree: ast.Module) -> dict[str, str]:
+    """Local name -> what it is: ``import subprocess as sp`` gives sp -> subprocess, ``from os import system as s``
+    gives s -> os.system."""
+    out: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            out |= {
+                (a.asname or a.name.split(".")[0]): (a.name if a.asname else a.name.split(".")[0]) for a in node.names
+            }
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            out |= {(a.asname or a.name): f"{node.module}.{a.name}" for a in node.names}
+    return out
+
+
+def _spawned(node: ast.Call, aliases: dict[str, str]) -> str | None:
+    """``subprocess.run``, ``os.execv`` … when the call starts a process, through any alias; else None."""
+    func, dotted = node.func, None
+    if isinstance(func, ast.Name):
+        dotted = aliases.get(func.id)
+    elif isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.value.id in aliases:
+        dotted = f"{aliases[func.value.id]}.{func.attr}"
+    if dotted is None or "." not in dotted:
+        return None
+    module, name = dotted.rsplit(".", 1)
+    starts = name in SPAWN_MODULES.get(module, set()) or (module == "os" and name.startswith(("exec", "spawn")))
+    return dotted if starts else None
+
+
+def _enclosing_functions(tree: ast.Module) -> dict[int, str]:
+    """id(node) -> the innermost function defining it (ast.walk visits outer functions first)."""
+    out: dict[int, str] = {}
+    for fn in ast.walk(tree):
+        if isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            out |= {id(n): fn.name for n in ast.walk(fn)}
+    return out
+
+
+def _env_problem(node: ast.Call, kind: str) -> str | None:
+    env = next((kw.value for kw in node.keywords if kw.arg == "env"), None)
+    if env is None:
+        return "without env=; say which environment it gets"
+    is_godot_env = isinstance(env, ast.Call) and _call_name(env) == "godot_env"
+    if kind == "godot" and not is_godot_env:
+        return "Godot must get env=godot_env(home), so HOME and the XDG directories move into the work directory"
+    return None
+
+
+def spawn_findings(rel: str, tree: ast.Module) -> list[str]:
+    if not rel.startswith(("tests/", "scripts/")):
+        return []
+    aliases, owner, out = _aliases(tree), _enclosing_functions(tree), []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or (what := _spawned(node, aliases)) is None:
+            continue
+        where, kind = f"{rel}:{node.lineno}", ALLOWED_SPAWNS.get((rel, owner.get(id(node), "")))
+        if kind is None:
+            out.append(f"{where}: {what} starts a process outside ALLOWED_SPAWNS; Godot goes through run_godot")
+        elif (problem := _env_problem(node, kind)) is not None:
+            out.append(f"{where}: {what} {problem}")
+    return out
+
+
+def _process_findings(rel: str, node: ast.Call, where: str) -> list[str]:
+    out = []
+    if rel.startswith("tests/") and rel != GIT_HELPER and _git_outside_helper(node):
+        out.append(f"{where}: a test runs git without tests/_gitutil.py, so it inherits GIT_DIR; use git()")
+    return out
+
+
 def _node_findings(rel: str, node: ast.AST, mod: _Module) -> list[str]:
     where, in_tests = f"{rel}:{getattr(node, 'lineno', 0)}", rel.startswith("tests/")
     out = []
@@ -143,8 +236,7 @@ def _node_findings(rel: str, node: ast.AST, mod: _Module) -> list[str]:
             out.append(f"{where}: {name}() without a dir lands in the shared temp directory; use tmp_path")
         if in_tests and _fixed_port(node, mod):
             out.append(f"{where}: a test server on a fixed port collides with other sessions; bind port 0")
-        if in_tests and rel != GIT_HELPER and _git_outside_helper(node):
-            out.append(f"{where}: a test runs git without tests/_gitutil.py, so it inherits GIT_DIR; use git()")
+        out += _process_findings(rel, node, where)
     return out
 
 
@@ -154,7 +246,7 @@ def findings(rel: str, source: str) -> list[str]:
     exempt = {i for i, ln in enumerate(lines, 1) if EXEMPT.search(ln)}
     return [
         f for node in ast.walk(tree) if getattr(node, "lineno", 0) not in exempt for f in _node_findings(rel, node, mod)
-    ]
+    ] + spawn_findings(rel, tree)
 
 
 def scanned() -> list[Path]:
@@ -213,8 +305,8 @@ def test_the_scan_catches_a_fixed_port_in_a_test(source: str) -> None:
 @pytest.mark.parametrize(
     "source",
     [
-        'subprocess.run(["git", "init"], cwd=tmp_path)',
-        'subprocess.check_output(["git", "status"])',
+        'subprocess.run(["git", "init"], cwd=tmp_path, env=e)',
+        'subprocess.check_output(["git", "status"], env=e)',
     ],
 )
 def test_the_scan_catches_a_test_running_git_without_the_helper(source: str) -> None:
@@ -238,8 +330,63 @@ def test_the_scan_catches_a_test_running_git_without_the_helper(source: str) -> 
         'text = "~~strike~~"',
         "where = npc.home()",
         'assert refuse("/tmp/evil")  # shared-path-ok: the validator under test must refuse this',
-        'subprocess.run(["ruff", "check"])',
+        'subprocess.run(["ruff", "check"], env=e)',
     ],
 )
 def test_the_scan_ignores(source: str) -> None:
     assert findings("tests/test_a.py", source) == []
+
+
+SPAWN_FORMS = [
+    'import subprocess\nsubprocess.run(["x"], env=e)',
+    'import subprocess\nsubprocess.run([godot, "--path", p], env=dict(os.environ))',
+    'import subprocess as sp\nsp.run(["x"], env=e)',
+    'from subprocess import run\nrun(["x"], env=e)',
+    'from subprocess import Popen as P\nP(["x"], env=e)',
+    "import subprocess\nsubprocess.check_output(cmd, env=e)",
+    "import subprocess\nsubprocess.getoutput('x')",
+    "import subprocess\nsubprocess.getstatusoutput('x')",
+    "import os\nos.system('x')",
+    "import os\nos.popen('x')",
+    "import os\nos.execv('/bin/x', ['x'])",
+    "import os\nos.execvpe('x', ['x'], {})",
+    "from os import execl\nexecl('/bin/x', 'x')",
+    "import os\nos.spawnv(os.P_WAIT, '/bin/x', ['x'])",
+    "import os\nos.posix_spawn('/bin/x', ['x'], {})",
+    "import asyncio\nasyncio.create_subprocess_exec('x')",
+    "import asyncio\nasyncio.create_subprocess_shell('x')",
+    "from asyncio import create_subprocess_exec as cse\ncse('x')",
+    "import pty\npty.spawn('x')",
+]
+
+
+@pytest.mark.parametrize("source", SPAWN_FORMS)
+def test_the_scan_catches_every_way_to_start_a_process_outside_the_allowlist(source: str) -> None:
+    for rel in ("tests/test_a.py", "scripts/a.py"):
+        assert any("outside ALLOWED_SPAWNS" in f for f in findings(rel, source)), (rel, source)
+    assert findings("src/maxim_overdrive/a.py", source) == []  # the shipped package is the server's to decide
+
+
+@pytest.mark.parametrize(
+    "env",
+    ["", ", env=None", ", env=os.environ", ", env=dict(os.environ)", ", env={**os.environ}", ", env=env"],
+)
+def test_godot_must_be_given_a_moved_home(env: str) -> None:
+    source = f"import subprocess\n\n\ndef run_godot(cmd, env, home):\n    subprocess.run(cmd{env})\n"
+    assert findings("scripts/godot_check.py", source), env
+    good = "import subprocess\n\n\ndef run_godot(cmd, home):\n    subprocess.run(cmd, env=godot_env(home))\n"
+    assert findings("scripts/godot_check.py", good) == []
+
+
+def test_an_allowed_site_must_still_say_which_environment_it_gets() -> None:
+    source = 'import subprocess\n\n\ndef git(cwd):\n    subprocess.run(["git", "status"])\n'
+    assert any("without env=" in f for f in findings(GIT_HELPER, source))
+    assert findings(GIT_HELPER, source.replace("])", "], env=isolated_env())")) == []
+
+
+def test_the_allowlist_names_only_sites_that_exist() -> None:
+    """A stale entry would let a future function of the same name spawn unreviewed."""
+    for rel, function in ALLOWED_SPAWNS:
+        tree = ast.parse((ROOT / rel).read_text())
+        names = {n.name for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
+        assert function in names, (rel, function)

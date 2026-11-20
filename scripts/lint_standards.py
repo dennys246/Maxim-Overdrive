@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import os
 import re
 import subprocess
 import sys
@@ -334,9 +335,14 @@ def check_coverage_ratchet(current: str, base: str | None) -> list[str]:
     return []
 
 
+def _git_env() -> dict[str, str]:
+    """The gate's own environment, on purpose: these git calls read the repository the gate is run in."""
+    return dict(os.environ)
+
+
 def tracked_text_files(root: Path) -> dict[str, str]:
     cmd = ["git", "ls-files", "-co", "--exclude-standard"]
-    out = subprocess.run(cmd, cwd=root, capture_output=True, text=True, check=True)
+    out = subprocess.run(cmd, cwd=root, env=_git_env(), capture_output=True, text=True, check=True)
     files = {}
     for rel in out.stdout.splitlines():
         p = root / rel
@@ -354,11 +360,11 @@ def base_pyproject(root: Path, base: str | None) -> tuple[str | None, list[str]]
     if base is None:
         return None, []
     verify = ["git", "rev-parse", "--verify", "-q", f"{base}^{{commit}}"]
-    known = subprocess.run(verify, cwd=root, capture_output=True, check=False)
+    known = subprocess.run(verify, cwd=root, env=_git_env(), capture_output=True, check=False)
     if known.returncode != 0:
         return None, [f"--base {base} is not a commit in this repository, so the coverage and size ratchets can't run"]
     show = ["git", "show", f"{base}:pyproject.toml"]
-    out = subprocess.run(show, cwd=root, capture_output=True, text=True, check=False)
+    out = subprocess.run(show, cwd=root, env=_git_env(), capture_output=True, text=True, check=False)
     return (out.stdout if out.returncode == 0 else None), []
 
 
