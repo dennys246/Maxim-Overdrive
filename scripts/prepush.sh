@@ -50,7 +50,9 @@ if ! "$PY" -c 'import maxim, ruff, mypy, diff_cover, pytest_cov' 2>/dev/null; th
 fi
 
 if [ -z "${BASE:-}" ]; then
-  if git rev-parse --verify -q main >/dev/null; then BASE=main; else BASE=origin/main; fi
+  # origin/main first: PRs merge on GitHub, so a local `main` can sit at an old commit while every ratchet compares
+  # against it. Only without a remote does the local branch serve.
+  if git rev-parse --verify -q origin/main >/dev/null; then BASE=origin/main; else BASE=main; fi
 fi
 git rev-parse --verify -q "$BASE" >/dev/null || die "base '$BASE' is not a git ref (fetch it, or set BASE)"
 MERGE_BASE="$(git merge-base "$BASE" HEAD)" || die "no merge base between $BASE and HEAD"

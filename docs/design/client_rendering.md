@@ -7,6 +7,23 @@ input mapping, the wire as the client reads it, textures, the shader, goldens an
 budgets. The world side (the alley, bodies, intents, the `Frame`, step 6, the exit scenario) is `tile_and_client.md`,
 cited as "world §n".
 
+**Errata from step 2's probes on Godot 4.7.2 (2026-11-19; evidence in `docs/design/research/godot_probes.md`).**
+These override the text below where they differ.
+- §7.2: every warning at Error is not enough. 4.7.2's default `debug/gdscript/warnings/directory_rules` exempts
+  `res://addons`, so `project.godot` sets it to `{}`.
+- §7.3: a script that fails to compile loads non-null (`can_instantiate()` false); `load()` is null only for a
+  missing file. The load check is "null or not instantiable", abstract scripts excepted. Gate fixtures live in
+  `tmp_path`, never under `client/`, since broken fixtures in the gated project would fail the gate.
+- §6.1: under `--headless`, `await frame_post_draw` never returns, so the golden scene refuses a headless display up
+  front instead of reaching its `get_image() != null` assert.
+- §6.5: pinning Mesa by package version is not enough (the archive drops superseded versions); the image installs
+  from a dated Ubuntu snapshot. Golden paths carry the Godot version as well as Mesa's.
+- §8: one R8 channel upload measured 294 µs (min of 50, 120×40×48), not 160–230 µs: about 2.4 ms for all seven
+  against the 3 ms budget.
+- §9: `--gpu-profile` and the viewport GPU meter read 0.0 under Compatibility; the frame-time fallback is the
+  uncapped minimum frame interval. The "llvmpipe on two runner CPU types" probe needs CI and a shaded golden
+  (step 8): CR-B3 stays open until then.
+
 **Numbers** are *measured*, *derived*, *from memory, to verify*, or `[engineering]`. **[ran]** marks Godot 4.7.2 facts
 the Client and rendering reviewer measured on the owner's M2 (4.7.2.stable.official.ed1daf0bf), recorded in
 `reviews/tile_v1/client_rendering.md`. Everything else about Godot is in the probe list (§9).
