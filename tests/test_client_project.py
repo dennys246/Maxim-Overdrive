@@ -167,7 +167,8 @@ def test_the_installer_refuses_a_download_with_another_digest():
     assert "check=(shasum -a 256 -c -)" in script
     assert 'rm -f "$dest/$zip"' in script  # a download that fails its digest is deleted
     assert "--proto '=https'" in script
-    assert 'version="$("$dest/$bin" --headless --version)"' in script
+    assert '"$dest/$bin" --headless --version)"' in script
+    assert 'version="$(HOME="$home" XDG_DATA_HOME=' in script  # Godot runs with HOME inside <dest> (S2D-N3)
 
 
 def _detected(tmp_path: Path, system: str, machine: str) -> subprocess.CompletedProcess[str]:

@@ -252,10 +252,12 @@ only review holds.
   another session's work in progress. Never `pip install` into a venv another worktree uses: an editable install
   points it at one checkout, so it would change what every session imports. Make your worktree its own `.venv`
   instead. Nothing a session runs may collide with another's: tests and tools write only inside their worktree or
-  pytest's `tmp_path`, never to a fixed temp path or the home directory; servers in tests bind port 0; every
-subprocess in `tests/` and `scripts/` is given its environment (Godot only through `godot_check.run_godot`, which moves
-HOME and XDG into the work directory); and tests run
-  git only through `tests/_gitutil.py`, so an inherited `GIT_DIR` can't point them at someone else's repository.
+  pytest's `tmp_path`, never to a fixed temp path or the home directory; servers in tests bind port 0; in `tests/`
+  and `scripts/` a process is started only at the sites `tests/test_isolation.py::ALLOWED_SPAWNS` names, in any
+  spelling (aliases, `os.system`, `os.exec*`, `asyncio` subprocesses), each with an explicit environment, and Godot
+  only through `godot_check.run_godot` with `godot_env(home)`, which moves HOME and XDG into the work directory; and
+  tests run git only through `tests/_gitutil.py`, so an inherited `GIT_DIR` can't point them at someone else's
+  repository.
   The gate refuses `main` and the main checkout; only GitHub Actions, whose clone is fresh, is exempt, and its PASS
   line says so. Guard: `scripts/prepush.sh::refuse_main_branch`,
   `tests/test_isolation.py::test_nothing_writes_outside_its_worktree_or_binds_a_fixed_port`,

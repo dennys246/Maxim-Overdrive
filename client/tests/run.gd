@@ -37,12 +37,19 @@ func _run_suite(path: String, t: TestContext) -> void:
 		t.finish()
 		return
 	var suite: Object = script.new()
+	var found: int = 0
 	for method: Dictionary in script.get_script_method_list():
 		var method_name: String = method["name"]
 		if method_name.begins_with("test_"):
+			found += 1
 			var test_name: String = "%s::%s" % [path.trim_prefix(UNIT_DIR + "/"), method_name]
 			print("client-tests: run ", test_name)
 			t.begin(test_name)
 			# Awaiting a plain method returns at once; awaiting one that awaits waits for all of it.
 			await suite.call(method_name, t)
 			t.finish()
+	if found == 0:
+		# A test_*.gd that runs nothing (a misspelt method, say) would otherwise pass silently (S2D-N1).
+		t.begin(path)
+		t.check(false, "has no test_ methods")
+		t.finish()

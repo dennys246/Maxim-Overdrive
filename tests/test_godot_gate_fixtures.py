@@ -253,3 +253,15 @@ def test_the_golden_scene_refuses_a_headless_run_instead_of_hanging(godot, proje
     assert run.returncode == 1, run.lines
     assert any("golden: --headless draws nothing" in line for line in run.lines), run.lines
     assert not (tmp_path / "x.png").exists()
+
+
+def test_a_suite_with_no_test_methods_fails(godot, project, tmp_path):
+    """S2D-N1: a misspelt test name would otherwise add nothing and fail nothing."""
+    _add(
+        project,
+        "tests/unit/test_typo.gd",
+        'extends RefCounted\n\n\nfunc tset_x(t: TestContext) -> void:\n\tt.check(true, "x")\n',
+    )
+    found = _tests(godot, project, tmp_path)
+    assert len(found) == 1, found
+    assert "'client-tests: FAIL 1 failure(s) in" in found[0]

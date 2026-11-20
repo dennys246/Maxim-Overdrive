@@ -1,9 +1,11 @@
 """scripts/golden_run.py, the golden job's procedure: import, draw under a display, judge (B7; S2A-S1, S2E-S1).
 
 A real run needs Xvfb and llvmpipe, which exist only in the golden image (ci/godot-golden/), so these tests drive the
-procedure with a stand-in Godot: a script that answers ``--import`` and draws by copying a frame, printing what the
-real Godot prints. They prove the procedure's decisions, and that it reuses the gate's scans: an error line, a
-non-zero exit, a missing frame and a timeout all fail the job, whatever the frame looks like.
+procedure with a stand-in Godot: a script that answers ``--import`` by marking the project it imported, and draws by
+copying a frame, printing what the real Godot prints, and a parse error when the project it draws was never imported
+(S2D-S2), as the real Godot does for a ``class_name``. They prove the procedure's decisions, and that it reuses the
+gate's scans: an error line, a non-zero exit, a missing frame and a timeout all fail the job, whatever the frame looks
+like.
 """
 
 from __future__ import annotations
@@ -34,9 +36,15 @@ _spec.loader.exec_module(gr)
 FAKE_GODOT = f"""#!{sys.executable}
 import os, shutil, sys
 mode = os.environ["FAKE_GODOT_MODE"]
+project = sys.argv[sys.argv.index("--path") + 1]
+mark = os.path.join(project, ".godot", "imported.mark")
 if "--import" in sys.argv:
+    os.makedirs(os.path.dirname(mark), exist_ok=True)
+    open(mark, "w").close()
     sys.exit(0)
 print({LOG!r}, end="")
+if not os.path.exists(mark):  # as the real Godot fails on a class_name in a project never imported
+    print('SCRIPT ERROR: Parse Error: Identifier "EnginePin" not declared in the current scope.')
 out = next(a for a in sys.argv if a.startswith("--out=")).removeprefix("--out=")
 if not os.path.isabs(out):
     print("ERROR: Can't save PNG at path: " + out)  # the real Godot reads it against the project

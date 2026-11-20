@@ -41,6 +41,10 @@ if ! echo "$sha  $dest/$zip" | "${check[@]}" >&2; then
 fi
 unzip -q -o "$dest/$zip" -d "$dest"
 rm "$dest/$zip"
-version="$("$dest/$bin" --headless --version)"
+# Godot writes per-user files under HOME (and XDG on Linux) even for --version: keep them out of the real home.
+home="$dest/home"
+mkdir -p "$home"
+version="$(HOME="$home" XDG_DATA_HOME="$home/.local/share" XDG_CONFIG_HOME="$home/.config" \
+  XDG_CACHE_HOME="$home/.cache" "$dest/$bin" --headless --version)"
 [ "$version" = "$GODOT_VERSION" ] || { echo "installed Godot reports '$version', not $GODOT_VERSION" >&2; exit 1; }
 echo "$dest/$bin"

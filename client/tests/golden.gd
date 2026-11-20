@@ -10,12 +10,12 @@ extends Node3D
 const YAW_DEG: float = 45.0
 const ELEVATION_DEG: float = 40.0
 const DISTANCE_M: float = 60.0
-const CRATE: Vector3 = Vector3(0.9, 0.3, 0.5)  # the Crate node's position in golden.tscn
 const OUT_FLAG: String = "--out="
 const WIDTH: int = 1280
 const HEIGHT: int = 720
 
 @onready var _camera: Camera3D = $Camera3D
+@onready var _crate: MeshInstance3D = $Crate
 
 
 func _ready() -> void:
@@ -50,8 +50,8 @@ func _place_camera() -> void:
 	var yaw: float = deg_to_rad(YAW_DEG)
 	var elevation: float = deg_to_rad(ELEVATION_DEG)
 	var back: Vector3 = Vector3(cos(elevation) * sin(yaw), sin(elevation), cos(elevation) * cos(yaw))
-	_camera.position = CRATE + back * DISTANCE_M
-	_camera.look_at(CRATE, Vector3.UP)
+	_camera.position = _crate.position + back * DISTANCE_M
+	_camera.look_at(_crate.position, Vector3.UP)
 
 
 func _out_path() -> String:
