@@ -454,11 +454,16 @@ def window_openers(rel: str, source: str) -> set[str]:
                 walk(node.body, f"{prefix}{node.name}.")
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 calls = (n for n in ast.walk(node) if isinstance(n, ast.Call))
-                if any(_attr(c.func) == "writing" for c in calls):
+                if any(_attr(c.func) in ("writing", "holding") for c in calls):  # holding takes the same ownership
                     found.add(f"{rel}::{prefix}{node.name}")
 
     walk(ast.parse(source).body, "")
     return found
+
+
+def test_the_opener_scan_counts_holding_as_an_opener():
+    # Delta 2, Architecture N-1: holding takes the single ownership, so it is an opener like writing.
+    assert window_openers("x.py", "def f(g):\n    with g.holding():\n        pass\n") == {"x.py::f"}
 
 
 def test_only_the_named_owners_open_the_write_window():
@@ -482,10 +487,16 @@ def test_the_shipped_path_publishes_a_frame_after_each_application_and_each_adva
 
 
 # -- the membrane and the protocol reach the world only through their capabilities (step 3b review, Arch S1, Exec S2)
+#
+# The load-bearing guard is capability passing: the membrane is handed an applier and a frame view and holds no World
+# or grid, so it has nothing to peek through. The two scans below are tripwires for the common spellings, with stated
+# blind spots: they follow import aliases and attribute chains, not values (a local alias, getattr, a default
+# argument, sys.modules). They are not to be extended into a reachability analysis.
 
 # Attributes that reach past the public surface: the world's grid, its sources and clock, a window, a frame's cells.
 PEEKS = {
-    "grid", "sources", "advance", "writing", "cells", "publish", "_grid", "_sources", "_world", "_feed", "__dict__",
+    "grid", "sources", "advance", "writing", "holding", "cells", "publish", "_grid", "_sources", "_world", "_feed",
+    "__dict__",
 }  # fmt: skip
 OUTSIDE_CORE = ("simcore/adapters/", "simcore/protocol/")
 
@@ -520,6 +531,7 @@ def test_the_adapters_and_the_protocol_reach_no_world_state_by_attribute():
         "arr = frames.latest.cells.temperature",
         "feed.publish(frame)",
         "applier._world.grid",
+        "with grid.holding():\n    pass",
         "solid = vars(vars(applier)['_world'])['_grid']",
         "d = applier.__dict__",
     ],
@@ -544,10 +556,12 @@ def _simcore_names(tree: ast.Module) -> dict[str, object]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for a in node.names:
-                if a.name.startswith("simcore."):
+                if a.name == "simcore" or a.name.startswith("simcore."):
                     module = importlib.import_module(a.name)
                     out[a.asname or "simcore"] = module if a.asname else importlib.import_module("simcore")
-        elif isinstance(node, ast.ImportFrom) and (node.module or "").startswith("simcore."):
+        elif isinstance(node, ast.ImportFrom) and (
+            node.module == "simcore" or (node.module or "").startswith("simcore.")
+        ):
             module = importlib.import_module(node.module or "")
             out |= {(a.asname or a.name): getattr(module, a.name, None) for a in node.names}
     return out
@@ -619,6 +633,8 @@ def test_nothing_outside_the_core_imports_a_forbidden_module_through_an_allowed_
         "from simcore.core import applier\nx = applier.damage.strike",
         "from simcore.core import frames as f\nx = f.damage.region_integrity",
         "import simcore.core.world\nx = simcore.core.world.heat.step",
+        "import simcore\nx = simcore.core.frames.damage.region_breached",  # delta 2, Architecture D1
+        "from simcore import core\nx = core.applier.damage.strike",
     ],
 )
 def test_the_reexport_scan_catches(line):

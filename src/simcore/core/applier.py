@@ -4,8 +4,9 @@ Stage 1 (``simcore.core.intents.parse_action``) made a typed action inside the l
 Here it is checked against the world as it is now (the region exists and is solid, it has cells left, a strike's
 point is on it, something is burning) and then applied inside the world's write window. A refusal at either stage is
 an ``Outcome`` that changes nothing. The SEM membrane (``simcore.adapters.sem``) is a gate in front of this. It holds an
-``Applier``, which exposes only ``limits`` and ``apply``, and a frame view; what keeps it to those is the import
-contracts plus ``tests/test_ownership.py``'s scans for reaching world state by attribute and through re-exports.
+``Applier``, which exposes only ``limits`` and ``apply``, and a frame view, and never the World or the grid: that
+capability passing is the guard that holds. The import contracts and ``tests/test_ownership.py``'s peek and re-export
+scans are tripwires for common spellings, with stated blind spots (values, ``getattr``, default arguments).
 
 The reach and centroid checks are judged from authored footprints in metres, never from cells: a region's cells move
 with the grid spacing, so a reach built from them would accept a strike at one spacing and refuse it at another.

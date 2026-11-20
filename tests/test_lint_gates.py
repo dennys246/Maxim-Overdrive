@@ -26,37 +26,7 @@ def _repo_files() -> dict[str, str]:
     }
 
 
-# -- input primitives by module ---------------------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    "line",
-    [
-        "x = json.loads(raw)",
-        "x = json.load(f)",
-        "x = yaml.safe_load(text)",
-        "t = Path(p).read_text()",
-        "b = path.read_bytes()",
-        "f = open('x')",
-        "a = np.load('z.npy')",
-        "a = numpy.load('z.npy')",
-        "v = os.environ['X']",
-        "v = os.getenv('X')",
-        "v = getenv('X')",
-        "a = sys.argv[1]",
-        "line = input()",
-        "m = sock.recv(1024)",
-        "h = path.open()",
-    ],
-)
-def test_an_input_primitive_outside_a_gate_module_is_a_finding(line):
-    assert inputs.input_findings("src/simcore/protocol/encoding.py", line + "\n"), line
-
-
-def test_an_input_gate_may_read_and_nothing_outside_src_is_held_to_it():
-    assert inputs.input_findings("src/simcore/adapters/loaders.py", "t = path.read_text()\n") == []
-    assert inputs.input_findings("scripts/x.py", "t = path.read_text()\n") == []
-    assert inputs.input_findings("src/simcore/core/x.py", "t = grid.temperature.copy()\nn = self.load\n") == []
+# -- input primitives on the real tree (every spelling lives in tests/test_lint_inputs_corpus.py) --------------------
 
 
 def test_a_planted_json_loads_in_a_module_that_is_not_a_gate_goes_red():
@@ -65,49 +35,6 @@ def test_a_planted_json_loads_in_a_module_that_is_not_a_gate_goes_red():
     rel = "src/simcore/protocol/tiers.py"
     files[rel] += "\n\ndef decode(raw):\n    return json.loads(raw)\n"
     assert any("json.loads" in p and rel in p for p in inputs.check_inputs(files))
-
-
-# -- unsafe decoders, everywhere --------------------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    "source",
-    [
-        "import pickle",
-        "import marshal",
-        "from shelve import open",
-        "import cloudpickle as cp",
-        "x = yaml.load(text)",
-        "x = yaml.load(text, Loader=yaml.Loader)",
-        "x = yaml.load(text, Loader=yaml.FullLoader)",
-        "x = yaml.load_all(text, Loader=MyLoader)",
-        "x = yaml.unsafe_load(text)",
-        "x = yaml.full_load(text)",
-        "a = np.load('z.npy', allow_pickle=True)",
-        "y = eval('1')",
-        "exec('x = 1')",
-    ],
-)
-def test_an_unsafe_decoder_is_a_finding_anywhere(source):
-    for rel in ("src/simcore/adapters/loaders.py", "scripts/x.py", "tests/test_x.py"):
-        assert inputs.unsafe_findings(rel, source + "\n"), (rel, source)
-
-
-@pytest.mark.parametrize(
-    "source",
-    [
-        "x = yaml.load(text, Loader=yaml.SafeLoader)",
-        "x = yaml.load(text, yaml.CSafeLoader)",
-        "class L(yaml.SafeLoader):\n    pass\nx = yaml.load(text, Loader=L)",
-        "x = yaml.safe_load(text)",
-        "a = np.load('z.npy')",
-        "a = np.load('z.npy', allow_pickle=False)",
-        "s = 'eval(x) and pickle are banned'",
-        "x = model.eval()",
-    ],
-)
-def test_a_safe_decoder_is_not_a_finding(source):
-    assert inputs.unsafe_findings("tests/test_x.py", source + "\n") == [], source
 
 
 # -- the gate registry ------------------------------------------------------------------------------------------------
@@ -199,57 +126,6 @@ def test_the_protocol_members_are_maxims_own():
         assert declared == members, name
 
 
-# -- evasions the step 3b review found (Trust S1, Architecture N5): each one is a finding ------------------------------
-
-EVASIONS_EVERYWHERE = [
-    "import yaml as y\nx = y.load(s, Loader=y.Loader)",
-    "from yaml import unsafe_load\nx = unsafe_load(s)",
-    "from yaml import load, Loader\nx = load(s, Loader=Loader)",
-    "import yaml\nf = getattr(yaml, 'unsafe_load')",
-    "import importlib\nm = importlib.import_module('pickle')",
-    "m = __import__('pickle')",
-    "import _pickle",
-    "a = np.load(p, allow_pickle=flag)",
-    "a = np.load(p, **{'allow_pickle': True})",
-    "import numpy as n\na = n.load(p, allow_pickle=True)",
-    "a = numpy.lib.format.read_array(f, allow_pickle=True)",
-    "x = builtins.eval(s)",
-    "x = builtins.exec(s)",
-    "e = eval\nx = e(s)",
-]
-
-
-@pytest.mark.parametrize("source", EVASIONS_EVERYWHERE)
-def test_an_evasive_spelling_of_an_unsafe_decoder_is_a_finding_anywhere(source):
-    for rel in ("src/simcore/adapters/loaders.py", "scripts/x.py", "tests/test_x.py"):
-        assert inputs.unsafe_findings(rel, source + "\n"), (rel, source)
-
-
-EVASIONS_IN_SRC = [
-    "import numpy as n\na = n.load(p)",
-    "from numpy import load as ld\na = ld(p)",
-    "from os import environ as env\nv = env['X']",
-    "import sys as s\na = s.argv",
-    "import json as j\nx = j.loads(raw)",
-    "import tomllib\nx = tomllib.loads(raw)",
-    "import importlib\nm = importlib.import_module(name)",
-    "m = __import__(name)",
-    "v = getattr(obj, name)",
-    "import fileinput\nfor line in fileinput.input():\n    pass",
-]
-
-
-@pytest.mark.parametrize("source", EVASIONS_IN_SRC)
-def test_an_evasive_input_primitive_in_the_engine_is_a_finding(source):
-    assert inputs.input_findings("src/simcore/protocol/encoding.py", source + "\n"), source
-
-
-def test_a_literal_getattr_and_an_aliased_safe_loader_are_not_findings():
-    assert inputs.input_findings("src/simcore/core/x.py", "v = getattr(obj, 'name', None)\n") == []
-    safe = "import yaml as y\nx = y.load(s, Loader=y.SafeLoader)\n"
-    assert inputs.unsafe_findings("tests/test_x.py", safe) == []
-
-
 # -- registry gaps (Trust S2, S3, N7) ---------------------------------------------------------------------------------
 
 
@@ -300,39 +176,6 @@ def test_a_test_module_names_its_gate_as_code_not_in_a_comment_or_a_string():
     }
     problems = gates.check_gates(files, rows)
     assert any("tests/test_x.py never names unit" in p for p in problems)
-
-
-# -- chained calls (step 3b delta review, Trust D-B1): a call whose result is used through an attribute is judged too
-
-CHAINED_UNSAFE = [
-    "a = np.load(p, allow_pickle=True).item()",
-    "import importlib\nb = importlib.import_module('pickle').loads(raw)",
-    "b = __import__('pickle').loads(raw)",
-    "a = np.load(p, None, True)",  # allow_pickle by position
-    "f = __builtins__['eval']",
-    "import builtins\nf = vars(builtins)['exec']",
-    "import builtins\nf = builtins.__dict__['exec']",
-    "import yaml\nL = yaml.CUnsafeLoader",
-    "import yaml\nL.add_multi_constructor('tag:yaml.org,2002:python/', yaml.constructor.UnsafeConstructor.x)",
-]
-
-
-@pytest.mark.parametrize("source", CHAINED_UNSAFE)
-def test_a_chained_or_indirect_unsafe_decoder_is_a_finding(source):
-    assert inputs.unsafe_findings("tests/test_x.py", source + "\n"), source
-
-
-CHAINED_INPUT = [
-    "t = open(p).read()",
-    "from pathlib import Path\nt = Path(p).open().read()",
-    "a = np.load(p).copy()",
-    "import json\nv = json.loads(s).get('a')",
-]
-
-
-@pytest.mark.parametrize("source", CHAINED_INPUT)
-def test_a_chained_input_primitive_in_the_engine_is_a_finding(source):
-    assert inputs.input_findings("src/simcore/core/x.py", source + "\n"), source
 
 
 def test_a_tuple_assignment_does_not_hide_a_modulator():

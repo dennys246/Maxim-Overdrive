@@ -13,6 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from maxim_overdrive import data
@@ -398,8 +399,24 @@ def test_a_chain_is_one_finding():
     assert len(findings(Path("x.py"), "x = np.random.rand(3)\n")) == 1
 
 
-# The digest scene has boxes only, so the byte-identical evidence for step 3b says nothing about cylinders, whose
-# mask now squares as r*r, not r**2 (delta review, Architecture D4). A cylinder scene, rerun, must agree with itself.
+# The digest scene has boxes only. A cylinder's mask squares its radius as radius_m**2, as fa27d5f did; r*r is not
+# the same number for every radius, and at this one, on this grid, the two put a different number of cells inside
+# (20 against 24 on the machine that recorded it; delta 2, Executor N-d). No golden digest is committed (see
+# TURN_SUBSTEPS above: only the outcome class is promised across machines), so the test pins the formula: the mask
+# is the squaring Python gives radius**2. Where pow rounds exactly, the two agree and the test can't tell them apart.
+KNIFE_EDGE_RADIUS_M = 0.28284271247461895
+
+
+def test_a_cylinder_mask_squares_its_radius_as_fa27d5f_did():
+    from simcore.core.grid import MaterialGrid  # noqa: PLC0415
+
+    g = MaterialGrid.empty((3.0, 3.0, 2.0), MATERIALS, dx_m=0.2)
+    x, y, z = g.mesh()
+    r = KNIFE_EDGE_RADIUS_M
+    expected = (((x - 1.5) ** 2 + (y - 1.5) ** 2) < r**2) & (z >= 0.0) & (z < 0.8)
+    assert np.array_equal(Cylinder((1.5, 1.5), r, (0.0, 0.8), "wood").mask(g), expected)
+
+
 CYLINDER_SCENE = Scene(
     (3.0, 3.0, 2.0),
     (Cylinder((1.5, 1.5), 0.37, (0.0, 0.8), "wood", "barrel"), Box((0, 0, 0), (0.6, 3.0, 2.0), "concrete", "wall")),
@@ -416,5 +433,5 @@ def _cylinder_run(dx_m: float) -> World:
 
 
 @fast_spacings
-def test_a_cylinder_scene_is_bit_identical_on_a_rerun(dx_m):
+def test_a_cylinder_scene_is_repeatable_in_process(dx_m):
     assert digest(_cylinder_run(dx_m)) == digest(_cylinder_run(dx_m))

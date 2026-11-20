@@ -34,7 +34,7 @@ class _BoundedRepr(reprlib.Repr):
         return repr(x)
 
     def repr_bool(self, x: bool, level: int) -> str:
-        return repr(x)
+        return repr(bool(x))  # numpy 2 names np.bool_ "bool", so a nested one lands here (delta 2, Trust D2-N2)
 
     def repr_NoneType(self, x: None, level: int) -> str:  # reprlib dispatches on the type's name
         return "None"

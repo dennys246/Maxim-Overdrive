@@ -306,6 +306,7 @@ def test_the_applier_refuses_a_region_that_is_not_a_name(region):
 def test_a_numpy_scalar_echoes_its_value_and_a_huge_set_echoes_its_size_without_sorting():
     assert (shown(np.float64(1.5)), shown(np.int64(7)), shown(np.bool_(True))) == ("1.5", "7", "True")
     assert shown([np.float64("nan")]) == "[nan]"
+    assert shown([np.bool_(True)]) == "[True]"  # nested, reprlib dispatches by type name (delta 2, Trust D2-N2)
     assert shown(set(range(10**5))) == "<a set of 100000>"
 
 

@@ -101,7 +101,10 @@ class Cylinder:
         x, y, z = grid.mesh()
         cx, cy = self.center_xy_m
         r2 = (x - cx) ** 2 + (y - cy) ** 2
-        return (r2 < self.radius_m * self.radius_m) & (z >= self.z_m[0]) & (z < self.z_m[1])
+        # radius_m**2, as in fa27d5f: the 1 km bound (``_coordinates``) already rules out the overflow, and r*r would
+        # move knife-edge cells (at r = 0.28284271247461895 m on the 0.2 m grid the barrel was 20 cells, r*r made
+        # it 24). tests/test_determinism.py pins it.
+        return (r2 < self.radius_m**2) & (z >= self.z_m[0]) & (z < self.z_m[1])
 
     @property
     def volume_m3(self) -> float:

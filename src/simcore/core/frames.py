@@ -1,9 +1,10 @@
 """Published frames: what observers read instead of the world (boundaries §4.2, B-10; §4.4, B-13).
 
-A frame is an immutable sample of the cells, published when they change: after each write window closes, which is
-after each intent application and each advance (and at construction). It holds the read-only owners of that moment.
-No window writes an owner in place (``CellStore.writing`` swaps in new ones at exit), so a frame is a copy in effect,
-without copying: a reading taken from it is the same however much later it is taken. A test holds that.
+A frame is an immutable sample of the cells, published after each write window closes, which is after each intent
+application and each advance (and at construction), whether or not the window changed a cell. It holds the
+read-only owners of that moment. No window writes an owner in place (``CellStore.writing`` swaps in new ones at exit),
+so a frame is a copy in effect, without copying: a reading taken from it is the same however much later it is taken.
+A test holds that.
 
 Observers type against ``Observation``, which has no ``advance``, no ``sources`` and no ``grid``, so mypy refuses a
 peek at the world behind it. Readings are reductions over a region's cells, so they read the same at every grid
