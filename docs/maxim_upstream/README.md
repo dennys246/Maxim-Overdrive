@@ -22,7 +22,7 @@ symbols hold). Re-check against a fresh fetch before filing anything.
 | Draft | Venue | Overdrive roadmap ids | Status |
 |---|---|---|---|
 | [issues_now_DRAFT.md](issues_now_DRAFT.md) | two issues | OD-I1, OD-I2 | ready to file after a re-check |
-| [embeddable_agent_DRAFT.md](embeddable_agent_DRAFT.md) | plan | OD-A10 to OD-A15 | the heart of tier A; Phase 4 waits on it |
+| [embeddable_agent_DRAFT.md](embeddable_agent_DRAFT.md) | plan | OD-A10 to OD-A12, OD-A14, OD-A15, OD-A17, OD-A18, OD-I3 | the heart of tier A; Phase 4 waits on it |
 | [world_clock_release_DRAFT.md](world_clock_release_DRAFT.md) | two plans: A-pre (own clock) and A-post (with 1.3.6) | OD-A1 to OD-A8 | tier A |
 | [default_network_stepped_DRAFT.md](default_network_stepped_DRAFT.md) | plan, coordinated with #1263's remainder | OD-A9 | tier A, A-post |
 | [propose_settle_amendment_DRAFT.md](propose_settle_amendment_DRAFT.md) | amendment to `tool_failure_credit.md` (#1200) | OD-A16 | tier A, after #1200 and 1.3.6 |
