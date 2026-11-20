@@ -162,20 +162,20 @@ def test_a_path_method_that_touches_the_filesystem_is_refused_in_a_path_holder(m
     assert _imports.path_holder_violations(module, source), line
 
 
-# -- numpy and scipy by name (delta round 5, D5-S1) ----------------------------------------------------------------
+# -- every external name, by its dotted name (delta rounds 5 and 6, D5-S1, D6-S1) ------------------------------
 
 
-def test_each_layer_reaches_only_the_numpy_and_scipy_names_it_lists():
-    found = [v for module, path in _src_modules() for v in _imports.numeric_violations(module, path.read_text())]
+def test_each_layer_reaches_only_the_external_names_it_lists():
+    found = [v for module, path in _src_modules() for v in _imports.external_name_violations(module, path.read_text())]
     assert found == []
 
 
-def test_each_numeric_list_names_exactly_what_its_layer_uses_today():
+def test_each_name_list_names_exactly_what_its_layer_uses_today():
     used: dict[str, set[str]] = defaultdict(set)
     for module, path in _src_modules():
-        used[_imports._layer(module)] |= _imports.numeric_names(path.read_text())
-    assert {layer: set(names) for layer, names in _imports.NUMERIC_NAMES.items()} == {
-        layer: used[layer] for layer in _imports.NUMERIC_NAMES
+        used[_imports._layer(module)] |= _imports.external_names(path.read_text())
+    assert {layer: set(names) for layer, names in _imports.EXTERNAL_NAMES.items()} == {
+        layer: used[layer] for layer in _imports.EXTERNAL_NAMES
     }
 
 
@@ -194,7 +194,7 @@ def test_each_numeric_list_names_exactly_what_its_layer_uses_today():
 )
 def test_a_numpy_or_scipy_name_no_layer_lists_is_refused(line):
     source = "import numpy as np\n" + line + "\n"
-    assert _imports.numeric_violations("simcore.core.x", source), line
+    assert _imports.external_name_violations("simcore.core.x", source), line
 
 
 # -- what one internal module may take from another (delta round 5, D5-S2) ---------------------------------------
@@ -223,3 +223,24 @@ def test_a_name_taken_through_another_internal_module_is_refused(line):
 def test_a_name_a_module_defines_or_a_submodule_may_be_taken():
     clean = "from simcore.core.grid import MaterialGrid\nfrom simcore.core import grid\nx = grid.MaterialGrid.empty\n"
     assert _imports.internal_reexports("simcore.adapters.sem.x", clean) == []
+
+
+@pytest.mark.parametrize(
+    "line",
+    [  # delta round 6, Trust D6-S1: allowed stdlib modules carry others with them
+        "import reprlib\nt = reprlib.builtins.open(p).read()",
+        "import contextlib\ne = contextlib.os.environ.get('X')",
+        "import dataclasses\nb = dataclasses.sys.modules['pickle'].loads(raw)",
+        "from dataclasses import sys\ne = sys.modules['os'].environ",
+        "import typing\na = typing.sys.argv",
+        "import collections\nm = collections._sys.modules['os']",
+        "import math as m\nf = m.__loader__",
+    ],
+)
+def test_a_module_reached_through_an_allowed_one_is_refused(line):
+    assert _imports.external_name_violations("simcore.core.x", line + "\n"), line
+
+
+def test_the_names_the_core_uses_today_are_allowed():
+    clean = "import math\nfrom dataclasses import dataclass\nfrom typing import Protocol\nr = math.sqrt(2.0)\n"
+    assert _imports.external_name_violations("simcore.core.x", clean) == []

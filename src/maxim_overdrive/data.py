@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from simcore.adapters.loaders import existing_directory, load_action_limits, load_materials
+from simcore.adapters.loaders import existing_directory, load_action_limits, load_materials, real_path
 from simcore.core.checks import shown
 from simcore.core.limits import ActionLimits
 from simcore.core.materials import MaterialTable
@@ -26,7 +26,9 @@ def data_dir(here: Path | None = None) -> Path:
     """Bundled data: inside the wheel when installed, the repo's ``data/`` in a checkout. Neither is a FileNotFoundError
     that names both, never a path that silently doesn't exist (boundaries §11.2, W5). ``here`` is this package's
     directory; a test passes another."""
-    here = Path(__file__).parent if here is None else here  # the gate resolves the directory it finds
+    # Resolved before any arithmetic: a package reached through a symlink finds the data beside the real package
+    # (delta round 6, Executor N-h). The gate resolves, since realpath reads the filesystem.
+    here = real_path(Path(__file__).parent if here is None else here)
     return existing_directory([here / "_data", here.parents[1] / "data"], "no game data (installed, then checkout)")
 
 

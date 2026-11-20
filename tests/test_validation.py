@@ -1081,3 +1081,22 @@ def test_the_directory_gate_names_every_candidate_it_refused(tmp_path):
     with pytest.raises(FileNotFoundError, match=r"thing: none of .*missing, .*a_file is a directory"):
         existing_directory([tmp_path / "missing", str(tmp_path / "a_file")], "thing")
     assert existing_directory([str(tmp_path)], "thing") == tmp_path
+
+
+def test_a_symlinked_package_finds_the_data_beside_the_real_package(tmp_path):
+    # Delta round 6, Executor N-h. The intended behaviour: data is found beside the package's real location, as
+    # before fold 6 moved the resolution into the gate. Both resolutions are pinned: real_path before the
+    # arithmetic, and existing_directory on the directory it returns.
+    from simcore.adapters.loaders import existing_directory, real_path  # noqa: PLC0415
+
+    real = tmp_path / "checkout" / "src" / "maxim_overdrive"
+    real.mkdir(parents=True)
+    (tmp_path / "checkout" / "data").mkdir()
+    link = tmp_path / "site" / "maxim_overdrive"
+    link.parent.mkdir()
+    link.symlink_to(real, target_is_directory=True)
+    assert real_path(link) == real.resolve()
+    assert data.data_dir(link) == (tmp_path / "checkout" / "data").resolve()  # not site/../data, which doesn't exist
+    data_link = tmp_path / "data_link"
+    data_link.symlink_to(tmp_path / "checkout" / "data", target_is_directory=True)
+    assert existing_directory([data_link], "x") == (tmp_path / "checkout" / "data").resolve()

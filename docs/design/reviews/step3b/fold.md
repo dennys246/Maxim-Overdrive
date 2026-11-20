@@ -1,77 +1,7 @@
 # Step 3b part (a) review: fold, delta rounds
 
-Round 1's and delta round 1's fold records are in `fold_round1.md`, delta round 2's in `fold_round2.md`. The reports are `executor_wire.md`, `architecture_determinism.md`,
+Round 1's and delta round 1's fold records are in `fold_round1.md`, delta rounds 2 and 3's in `fold_round2.md`. The reports are `executor_wire.md`, `architecture_determinism.md`,
 `trust_performance.md` and their `delta_` and `delta2_` rounds. Reviewers set every status (O25); the author sets none.
-
-## Delta round 3
-
-Each status table below is copied verbatim from its report.
-
-### Executor and Wire integrity: status set by the Executor and Wire integrity reviewer (O25)
-
-| id | status | evidence (mutation → result) |
-|---|---|---|
-| N-d: the cylinder rerun test can't see a geometry change | **fixed** | `Cylinder.mask` returns to `radius_m**2`, as on fa27d5f. The rerun test is renamed `test_a_cylinder_scene_is_repeatable_in_process`, which no longer claims more than it does. The new `test_a_cylinder_mask_squares_its_radius_as_fa27d5f_did` pins the mask at the knife-edge radius. Each of these turns it red: `r*r`; `<=` instead of `<`; `radius*1.001`. Its comment states the limit: where pow rounds exactly, the two formulas agree and the test can't tell them apart (so on another libm the `r*r` mutation could pass). |
-| N-e: frames.py "published when they change" | **fixed** | The docstring now says frames are published after each window closes, "whether or not the window changed a cell". That matches `World.writing`. |
-
-### Architecture, and Determinism and replay: status set by the Architecture and Determinism reviewer (O25)
-
-| id | status | evidence |
-|---|---|---|
-| D1 (attribute chains through module objects) | **fixed** | I re-planted both root-package spellings: `import simcore` with `simcore.core.frames.damage.region_breached(...)` in `protocol/encoding.py`, and `from simcore import core as _core` with `_core.applier.damage.strike` in `adapters/sem/bridge.py`. import-linter still reports "8 kept" (it can't see attributes), but `test_nothing_outside_the_core_imports_a_forbidden_module_through_an_allowed_one` now goes **red** for both. Both spellings are permanent cases in `test_the_reexport_scan_catches`. The agreed stance is written plainly in three places: `applier.py`'s module docstring, the comment block above `PEEKS` in `tests/test_ownership.py`, and boundaries §10's as-built note. They say capability passing is the guard, and the scans are tripwires that don't follow values, local aliases, `getattr`, default arguments or `sys.modules`. Judged against that stance, D1 is closed. |
-| N-1 (`holding` invisible to the scans) | **fixed** | `window_openers` counts `holding`, and `PEEKS` includes it. A planted `with g.holding():` in the bridge turned `test_..._reach_no_world_state_by_attribute` and `test_only_the_named_owners_open_the_write_window` red. Both are permanent catch tests. |
-
-### Trust boundary and Performance: status set by the Trust and Performance reviewer (O25)
-
-| id | status | evidence |
-|---|---|---|
-| D2-B1, names inside a chain | **fixed** | Every row of my delta-2 table is caught: `os.environ.get` and `.copy()`, `environ.get` after `from os import environ`, `sys.stdin.read()` and `.readline()`, `sys.argv.copy()`, `__builtins__.eval`, `__builtins__.__import__('pickle')`, `builtins.__dict__.get('eval')` and `yaml.Loader.add_constructor`. |
-| S1 (round 1), lint_inputs evasions | **fixed** for every spelling any round reported | All 40 round-1, delta-1 and delta-2 unsafe spellings are caught. The only exceptions are the five the docstring now names as blind spots or that need no ban: `importlib.util` loaders, `copyreg`, `__loader__`, `type(x).__init__` and `pickletools.dis`. The real tree is clean (0 findings). The remaining gaps are new spellings (D3-S1, D3-N1). |
-| D2-N1, `importlib.__import__`, `sys.modules[...]`, `globals()`, `ForkingPickler` | **fixed** | All four are caught. |
-| D2-N2, numpy bool echo | **fixed** | `shown([np.bool_(True), np.float64(2.5)])` gives `[True, 2.5]`. |
-| B1, the cylinder overflow (re-checked after `radius_m**2` returned) | **still fixed** | A 1e200 radius is refused as `SpecRejected` by the 1 km bound before any arithmetic, and a 1,000 m radius is refused as "too large: 2000.00 m". |
-
-### The design change: the contract is the rule, the lint covers what imports can't show
-
-This is the fourth round to find new holes in `lint_inputs`, so the rule is now structural rather than enumerated.
-
-- **The `input-primitives` import contract is the load-bearing rule for modules.** Outside the file gates, nothing
-  in `simcore` or `maxim_overdrive` imports a module that reads files (`os`, `posix`, `nt`, `io`, `pathlib`,
-  `zipfile`, `mmap`, `sqlite3`, …), the environment (`os`, `sys`), the network (`urllib`, `http`, `socket`,
-  `asyncio`, …) or processes (`subprocess`, `multiprocessing`), or that runs code by name (`importlib`, `runpy`,
-  `code`, `ctypes`, `builtins`), or that decodes (JSON, YAML, TOML, INI, pickles).
-  - Exactly four imports are ignored, each justified in the contract's comment: `loaders` imports `pathlib` and
-    `yaml`, `data` imports `pathlib`, and `tiers` imports `pathlib` (it hands a path to `read_yaml`).
-  - One planted import per family is a permanent test (`tests/test_tooling_config.py::PLANTED`). One of them is an
-    extra import in a gate, which proves a gate is granted only what it is listed for.
-- **`lint_inputs` shrinks to closed lists:**
-  - the builtins (`open`, `input` and `__import__` in `src/`; `eval`, `exec` and `compile` everywhere), where a
-    bare name counts only when the module doesn't bind it (D3-S2);
-  - numpy's IO;
-  - the decoders and code runners, banned everywhere because the contract doesn't reach `scripts/` and `tests/`.
-- **The corpus judges every row by the contract and the lint together.** Each input row is planted as a module in a
-  copy of `src/`, and the gate's own import command runs once over all of them. Rows the design deliberately leaves
-  out are listed in `NOT_COVERED`, each with its reason, and asserted to stay unflagged.
-
-Measured on the corpus (154 rows):
-- **With d9b22d8's contract and lint:** 33 rows are wrong.
-  - It gets 26 delta-3 rows wrong: D3-S1 misses, D3-S2 false positives, D3-N1 misses, and the `eval` local.
-  - It flags 7 rows that the new design deliberately stops flagging: methods on an object handed in
-    (`path.read_bytes()`, `sock.recv()`), an unimported `getenv`, and a computed `getattr`.
-
-  Those 7 are coverage the old lint had and this design gives up, each for its stated reason.
-- **With this fold:** 0 rows are wrong.
-
-### New findings, and what changed
-
-| id | what changed, and where | red first | status |
-|---|---|---|---|
-| Trust D3-S1 | the widened `input-primitives` contract above; the corpus rows from D3-S1 (`os.read`, `os.fdopen`, `io.FileIO`, `np.memmap`, `np.fromregex`, `zipfile`, `urlopen`, `sqlite3`, `mmap`, `posix`/`nt.environ`, `pkgutil`, `asyncio`, `tarfile`, `importlib.resources`) | d9b22d8 misses them; reverted (memmap: red); planted, one per family (red) | open |
-| Trust D3-S2 | `lint_inputs.bound_names`: a parameter, assignment, loop or `with` target, `def`, `class` or `except` name is the module's own; the five rows from D3-S2 and `eval = model.evaluate()` are clean rows | d9b22d8 flags them; reverted (4 red) | open |
-| Trust D3-N1 | starred and `**` arguments to `numpy.load`/`read_array`, `read_array`'s positional `allow_pickle`, `runpy`, `code`, `ctypes`, `jsonpickle` and `compile` are caught. The star import and `operator.attrgetter` are in `NOT_COVERED` (ruff's F403; a name as a value) | d9b22d8 misses them; reverted (red) | open |
-| Arch N-2 | `scene.py`'s comment: `r*r` is the single correctly rounded multiply and `radius_m**2` the libm-dependent form, kept only to match fa27d5f. Backlog B28: voxelize by volume overlap, with no knife edge, at step 4 or 5a, with this case as its evidence | — (docs) | open |
-| Exec N-f | the knife-edge test also asserts the outcome: fa27d5f's 20 cells where `pow` differs from `r*r`, and the 24 that fa27d5f's own code gives where `pow` is exact (no skip) | reverted (`r*r`: red) | open |
-
 
 ## Delta round 4
 
@@ -196,3 +126,69 @@ Measured: 7cacb3f's own checkers miss 15 of the 16 delta-5 rows that must be fla
 | Exec N-g | `tiers` is a path holder; a literal `getattr` counts as an attribute in path holders and as a hop through modules; `path.read_text()` on a path handed in, `getattr(Path(p), 'read_text')` and `getattr(L, 'Path')` are refused | 7cacb3f misses them; reverted (red) | open |
 | Trust D5-N1 | `rig_profile`'s registry row now reads `partial: a missing rig file raises FileNotFoundError, not ValueError`, which is what it raises | — (registry) | open |
 | Trust D5-N2 | `resolve` left `PATH_ARITHMETIC`; `data_dir` no longer calls it; the gate resolves | reverted (`resolve` allowed again: 3 red) | open |
+
+
+## Delta round 6
+
+Each table below is copied verbatim from its report.
+
+### Executor and Wire integrity: set by the Executor and Wire integrity reviewer (O25)
+
+| replant | red |
+|---|---|
+| tiers: `path.read_text()` on the handed-in path | `test_a_path_holder_..._what_it_names[tiers]` |
+| data: `getattr(Path(p), 'read_text')()` | the path-holder test for data, plus a corpus row |
+| tiers: `getattr(loaders, 'Path')(p)` | the gate-API check, the path-holder test and the re-export rule (3 tests) |
+
+### Trust boundary and Performance: status set by the Trust and Performance reviewer (O25)
+
+| id | status | evidence |
+|---|---|---|
+| D5-S1, numpy and scipy IO | **fixed** | All nine of my rows are refused, by `NUMERIC_NAMES` or by the lint: `np.lib._npyio_impl.load`, `_format_impl.read_array`, `np.rec.fromfile`, `np.core.records.fromfile`, `np.ctypeslib.load_library`, `scipy.sparse.load_npz`, and `__loader__.get_data`, `__spec__.loader.get_data` and `globals()['__loader__']`. A bare `np` passed as a value is also flagged, as `numpy`, so `getattr(np, 'load')` fails closed. |
+| D5-S2, re-export through internal modules | **fixed** | My four lines (`from simcore.core.grid import np`, with and without `as n`, and `g.np.load`) are all refused by `internal_reexports`. So is `vars(grid)['np'].load(p)`. |
+| D5-N1, `rig_profile` exception type | **fixed** (the registry is honest) | The row now says `partial: a missing rig file raises FileNotFoundError`. `rig_profile("ok")` does raise exactly that. |
+| D5-N2, `resolve` | **fixed** | `resolve` moved into `loaders.existing_directory`, and `PATH_ARITHMETIC` no longer lists it. |
+
+### The design change: one name allowlist for every external module
+
+`NUMERIC_NAMES` becomes `EXTERNAL_NAMES` in `tests/_imports.py`: each layer's full list of the dotted external
+names it reaches, stdlib included, and a test holds each list to exactly today's use. The lists hold 57 names in
+the core, 11 in `loaders`, 10 in the membrane, 7 in the protocol and 3 in `data`.
+
+Names are counted from `from x import y` and from pure attribute chains, through aliases. So an allowed module
+can no longer carry another with it: `reprlib.builtins`, `contextlib.os`, `dataclasses.sys` and `typing.sys` are
+refused because no list names them. Methods on values stay a stated blind spot.
+
+Measured: 2cd24fb's own checkers miss all 6 D6-S1 rows.
+
+### New findings, and what changed
+
+| id | what changed, and where | red first | status |
+|---|---|---|---|
+| Trust D6-S1 | `EXTERNAL_NAMES` with its exactness test; seven plants in `tests/_imports.py`'s tests; the six spellings are corpus rows planted in the core itself, so the core's lists are what refuses them | 2cd24fb misses all 6; reverted (only numpy and scipy held: 12 red; an unused name on a list: red) | open |
+| Trust D6-N1 | `getattr(grid, 'n' + 'p')` is a corpus row. It is not in `NOT_COVERED`: in `simcore` the lint refuses any computed `getattr`, so it was already caught at 2cd24fb. Outside `simcore` a run-time name would pass, which is a stated blind spot | caught at 2cd24fb and now | open |
+| Exec N-h | the intended symlink behaviour: data is found beside the package's real location, as before fold 6. The new gate `loaders.real_path` resolves `here` before any arithmetic, and `existing_directory` resolves what it returns. `test_a_symlinked_package_finds_the_data_beside_the_real_package` pins both | reverted (each of the three resolutions removed: red) | open |
+
+## Delta round 7
+
+Trust + Performance (`delta7_trust_performance.md`). **Status set by the Trust reviewer (O25):**
+
+| id | status |
+|---|---|
+| Trust D6-S1 | fixed |
+| Trust D6-N1 | fixed in `src/simcore/` (outside it, a stated blind spot, accepted) |
+
+New: 0 BLOCKER, 0 SHOULD-FIX, 2 NIT, both through a value (the stated blind spot). **Author's disposition, not a status:** both deferred as backlog row B29, triggered by plan step 3b part (b), which designs one reader per data format; a code change here would need another round for two NITs.
+
+| id | what | status |
+|---|---|---|
+| Trust D7-N1 | dunder attributes on a value reach a module's globals | open (deferred, B29) |
+| Trust D7-N2 | `data_dir()` hands out an unrestricted `Path` | open (deferred, B29) |
+
+Executor + Wire (`delta7_executor_wire.md`). **Status set by the Executor reviewer (O25):**
+
+| id | status |
+|---|---|
+| Exec N-h | fixed |
+
+New: 0 BLOCKER, 0 SHOULD-FIX, 0 NIT. **The round converged:** no lens folds anything further in code.

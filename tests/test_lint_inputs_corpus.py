@@ -31,6 +31,7 @@ HOLDER_SOURCE = {rel: (ROOT / rel).read_text() for rel in HOLDER}
 SRC = "src/simcore/protocol/x.py"  # in the engine, outside the gates; planted rows go beside it
 DATA = "src/maxim_overdrive/data.py"  # a path holder: rows here judge its attributes
 TIERS = "src/simcore/protocol/tiers.py"  # the other path holder
+CORE = "src/simcore/core/x.py"  # the sealed core, whose import list is the engine's widest
 ANY = "tests/test_x.py"  # the unsafe rule holds in every file
 
 # (rule, file, source, flagged, where it was reported)
@@ -159,6 +160,16 @@ CASES: list[tuple[str, str, str, bool, str]] = [
     ("input", DATA, "t = getattr(Path(p), 'read_text')()", True, "delta 5"),
     ("input", DATA, "q = Path(p).resolve()", True, "delta 5: realpath reads the filesystem"),
     ("input", SRC, "from simcore.core.grid import MaterialGrid", False, "delta 5: a name grid defines"),
+    # -- input, delta 6 (D6-S1): modules reached through allowed stdlib modules, in the core -----------------------
+    ("input", CORE, "import reprlib\nt = reprlib.builtins.open(p).read()", True, "delta 6"),
+    ("input", CORE, "import contextlib\ne = contextlib.os.environ.get('X')", True, "delta 6"),
+    ("input", CORE, "import dataclasses\nb = dataclasses.sys.modules['pickle'].loads(raw)", True, "delta 6"),
+    ("input", CORE, "from dataclasses import sys\ne = sys.modules['os'].environ", True, "delta 6"),
+    ("input", CORE, "import typing\na = typing.sys.argv", True, "delta 6"),
+    ("input", CORE, "import collections\nm = collections._sys.modules['os']", True, "delta 6"),
+    ("input", CORE, "import math\nr = math.sqrt(2.0)", False, "delta 6: a name the core uses"),
+    # D6-N1: a name built at run time; in simcore the lint refuses any computed getattr, so it is caught there
+    ("input", SRC, "from simcore.core import grid\nx = getattr(grid, 'n' + 'p')", True, "delta 6: a computed getattr"),
     # -- input: clean, must not be flagged ----------------------------------------------------------------------------
     ("input", "src/simcore/adapters/loaders.py", "t = path.read_text()", False, "build: the gate itself"),
     ("input", "scripts/x.py", "t = path.read_text()", False, "build: outside src"),
@@ -311,15 +322,16 @@ def contract_hits(tmp_path_factory) -> set[str]:
     hits = set()
     for i, (rule, rel, source) in enumerate(rows):
         if _planted(rule, rel) and rel not in HOLDER:
-            (tree / "src" / "simcore" / "protocol" / f"_corpus_{i}.py").write_text(source + "\n")
-            name = f"simcore.protocol._corpus_{i}"
-            checks = (_imports.gate_reexports, _imports.internal_reexports, _imports.numeric_violations)
+            package = Path(rel).parent.relative_to("src")  # beside the row's module: its layer's lists hold it
+            (tree / "src" / package / f"_corpus_{i}.py").write_text(source + "\n")
+            name = ".".join((*package.parts, f"_corpus_{i}"))
+            checks = (_imports.gate_reexports, _imports.internal_reexports, _imports.external_name_violations)
             if any(check(name, source + "\n") for check in checks):
                 hits.add(f"_corpus_{i}")
         elif _planted(rule, rel) and _imports.path_holder_violations(HOLDER[rel], HOLDER_SOURCE[rel] + "\n" + source):
             hits.add(f"_corpus_{i}")
     violations = _imports.allowlist_violations(_imports.external_imports(tree))
-    return hits | set(re.findall(r"simcore\.protocol\.(_corpus_\d+) imports", "\n".join(violations)))
+    return hits | set(re.findall(r"\.(_corpus_\d+) imports", "\n".join(violations)))
 
 
 def _flagged(rule: str, rel: str, source: str, index: int, hits: set[str]) -> bool:
@@ -351,6 +363,6 @@ def test_a_spelling_the_design_leaves_out_is_still_left_out(contract_hits, index
 
 def test_the_corpus_holds_every_round_and_both_verdicts():
     origins = {c[4].split(":")[0] for c in CASES}
-    assert {"build", "round 1", "delta 1", "delta 2", "delta 3", "delta 4", "delta 5"} <= origins
+    assert {"build", "round 1", "delta 1", "delta 2", "delta 3", "delta 4", "delta 5", "delta 6"} <= origins
     assert {c[3] for c in CASES if c[0] == "input"} == {True, False}
     assert {c[3] for c in CASES if c[0] == "unsafe"} == {True, False}

@@ -1,10 +1,11 @@
-"""Untrusted input by source, fail closed (boundaries §5.2, B-4; step 3b delta rounds 4 and 5).
+"""Untrusted input by source, fail closed (boundaries §5.2, B-4; step 3b delta rounds 4 to 6).
 
 Five allowlists, each a set of names with a reason, so a new input route is refused until someone names it:
 
 - **External imports per layer** (``ALLOWED``), read from grimp's graph, the graph import-linter checks.
-- **The numpy and scipy names per layer** (``NUMERIC_NAMES``): grimp records ``numpy.lib.npyio`` as ``numpy``, so
-  this names which parts of those packages each layer reaches. Methods on arrays are values, a stated blind spot.
+- **Every external name per layer** (``EXTERNAL_NAMES``): grimp records ``numpy.lib.npyio`` as ``numpy``, and an
+  allowed module carries others with it (``reprlib.builtins``, ``dataclasses.sys``), so this names exactly which
+  dotted names each layer reaches. Methods on values are a stated blind spot.
 - **What one internal module may take from another:** a name it defines or lists in ``__all__``, never one it only
   imported (``internal_reexports``); and from a gate (``GATES``), only its ``__all__``.
 - **The attributes a path-holding module may use** (``PATH_HOLDERS``): path arithmetic, so the modules that hold a
@@ -73,36 +74,69 @@ ALLOWED: dict[str, dict[str, str]] = {
     },
 }
 
-# The numpy and scipy names each layer may reach (delta round 5, D5-S1): grimp records numpy.lib.npyio as numpy, so
-# the import allowlist can't see which part of a package a module uses; this can. Pure attribute chains only: a
-# method on an array (a value) is a stated blind spot. Anything else of numpy or scipy (np.rec.fromfile,
-# np.lib._npyio_impl.load, np.ctypeslib, scipy.sparse.load_npz) is refused until it is named here.
-NUMERIC_ROOTS = ("numpy", "scipy")
-# The core's arrays, dtypes and elementwise maths for the cells and laws, and two scipy laws.
-_CORE_NUMERIC = frozenset({
-    "numpy.all", "numpy.arange", "numpy.argmin", "numpy.argwhere", "numpy.array", "numpy.asarray",
-    "numpy.bool_", "numpy.diff", "numpy.errstate", "numpy.flatnonzero", "numpy.float32", "numpy.float64",
-    "numpy.floating", "numpy.floor", "numpy.frombuffer", "numpy.full", "numpy.generic", "numpy.inf",
-    "numpy.integer", "numpy.intersect1d", "numpy.logical_and", "numpy.max", "numpy.mean", "numpy.rint",
-    "numpy.take", "numpy.typing.NDArray", "numpy.uint8", "numpy.where", "numpy.zeros",
-    "scipy.ndimage", "scipy.ndimage.label", "scipy.special.ndtr",
+# Every external name each layer may reach, by its full dotted name (delta rounds 5 and 6, D5-S1, D6-S1). grimp
+# records a module only at its top level, and an allowed module carries others with it (reprlib.builtins,
+# contextlib.os, dataclasses.sys, numpy.lib.npyio), so the import list alone can't say what a layer reaches; this can.
+# Counted from `from x import y` and from pure attribute chains, through aliases. A method on a value (an array, a
+# path) is a stated blind spot. Anything not named here is refused; a test holds each set to exactly today's use.
+# the core's types, scalar maths and arrays, and two scipy laws
+_NAMES_CORE = frozenset({
+    "__future__.annotations", "collections.abc.Callable", "collections.abc.Collection", "collections.abc.Iterator",
+    "collections.abc.Mapping", "collections.abc.Sequence", "contextlib.contextmanager", "dataclasses.asdict",
+    "dataclasses.dataclass", "dataclasses.field", "math.ceil", "math.isfinite", "math.log", "math.nan", "math.pi",
+    "math.prod", "math.sqrt", "numbers.Integral", "numbers.Real", "numpy.all", "numpy.arange", "numpy.argmin",
+    "numpy.argwhere", "numpy.array", "numpy.asarray", "numpy.bool_", "numpy.diff", "numpy.errstate",
+    "numpy.flatnonzero", "numpy.float32", "numpy.float64", "numpy.floating", "numpy.floor", "numpy.frombuffer",
+    "numpy.full", "numpy.generic", "numpy.inf", "numpy.integer", "numpy.intersect1d", "numpy.logical_and",
+    "numpy.max", "numpy.mean", "numpy.rint", "numpy.take", "numpy.typing.NDArray", "numpy.uint8", "numpy.where",
+    "numpy.zeros", "reprlib.Repr", "scipy.ndimage", "scipy.ndimage.label", "scipy.special.ndtr",
+    "types.MappingProxyType", "typing.Any", "typing.Literal", "typing.Protocol", "typing.SupportsFloat",
 })  # fmt: skip
-NUMERIC_NAMES: dict[str, frozenset[str]] = {
-    "simcore.core": _CORE_NUMERIC,
-    "simcore.protocol": frozenset({"numpy.clip", "numpy.float16", "numpy.round", "numpy.uint8"}),  # quantization
+
+# the file gate: paths, and strict YAML through a SafeLoader subclass
+_NAMES_LOADERS = frozenset({
+    "__future__.annotations", "collections.Counter", "collections.abc.Mapping", "collections.abc.Sequence",
+    "pathlib.Path", "typing.Any", "yaml.MappingNode", "yaml.SafeLoader", "yaml.YAMLError", "yaml.load",
+    "yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG",
+})  # fmt: skip
+
+# the membrane: Maxim's frozen SEM types, and their mirror
+_NAMES_SEM = frozenset({
+    "__future__.annotations", "collections.abc.Mapping", "dataclasses.dataclass", "dataclasses.field",
+    "maxim.embodiment.sem.AffordanceSchema", "maxim.embodiment.sem.Entity", "maxim.embodiment.sem.ModulatorResult",
+    "maxim.embodiment.sem.SensorReading", "typing.Any", "typing.TYPE_CHECKING",
+})  # fmt: skip
+
+# display quantization and the rig profile's type
+_NAMES_PROTOCOL = frozenset({
+    "__future__.annotations", "collections.abc.Mapping", "dataclasses.dataclass", "numpy.clip", "numpy.float16",
+    "numpy.round", "numpy.uint8",
+})  # fmt: skip
+
+# path arithmetic and the rig-name check
+_NAMES_DATA = frozenset({
+    "__future__.annotations", "pathlib.Path", "re.compile",
+})  # fmt: skip
+EXTERNAL_NAMES: dict[str, frozenset[str]] = {
+    "simcore.core": _NAMES_CORE,
+    "simcore.adapters.loaders": _NAMES_LOADERS,
+    "simcore.adapters.sem": _NAMES_SEM,
+    "simcore.protocol": _NAMES_PROTOCOL,
+    "maxim_overdrive.data": _NAMES_DATA,
 }
 
 
-def numeric_names(source: str) -> set[str]:
-    """The numpy and scipy names a module reaches: imported (``from scipy.special import ndtr``) or used as a pure
-    attribute chain (``np.lib.npyio.load``), resolved through its import aliases."""
+def external_names(source: str) -> set[str]:
+    """The external names a module reaches: imported (``from scipy.special import ndtr``) or used as a pure attribute
+    chain (``reprlib.builtins.open``), resolved through its import aliases. Internal (simcore) names are not counted
+    here; ``internal_reexports`` holds those."""
     tree = ast.parse(source)
     bound = {"np": "numpy", **_bindings(tree)}  # np is numpy even unimported, as the lint reads it
     inner = {id(n.value) for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
     out = {
         f"{node.module}.{a.name}"
         for node in ast.walk(tree)
-        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] in NUMERIC_ROOTS
+        if isinstance(node, ast.ImportFrom) and node.module and node.level == 0 and not _internal(node.module)
         for a in node.names
     }
     for node in ast.walk(tree):
@@ -111,16 +145,16 @@ def numeric_names(source: str) -> set[str]:
         if isinstance(node, ast.Name) and not isinstance(node.ctx, ast.Load):
             continue
         dotted = _dotted(node, bound)
-        if dotted and dotted.split(".")[0] in NUMERIC_ROOTS:
+        if dotted and not _internal(dotted):
             out.add(dotted)
     return out
 
 
-def numeric_violations(module: str, source: str) -> list[str]:
-    allowed = NUMERIC_NAMES.get(_layer(module), frozenset())
+def external_name_violations(module: str, source: str) -> list[str]:
+    allowed = EXTERNAL_NAMES.get(_layer(module), frozenset())
     return [
-        f"{module} reaches {n}, which {_layer(module)}'s numeric list doesn't name"
-        for n in sorted(numeric_names(source) - allowed)
+        f"{module} reaches {n}, which {_layer(module)}'s name list doesn't name"
+        for n in sorted(external_names(source) - allowed)
     ]
 
 

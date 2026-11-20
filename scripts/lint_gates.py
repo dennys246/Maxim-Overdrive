@@ -62,6 +62,7 @@ GATES: dict[str, Gate] = {
     # file gates: strict YAML, a version, closed keys, ValueError only, bounded echo; not agent-facing
     "src/simcore/adapters/loaders.py::read_yaml": Gate(_V, _ACT, "meets"),
     "src/simcore/adapters/loaders.py::existing_directory": Gate(_V, _VAL, "meets"),
+    "src/simcore/adapters/loaders.py::real_path": Gate(_V, _VAL, "no input"),
     # an operator's rig name: a malformed name is a ValueError; a well-formed name with no file is the gate's
     # FileNotFoundError (an OSError), which tells an operator the rig is missing rather than malformed
     "src/maxim_overdrive/data.py::rig_profile": Gate(

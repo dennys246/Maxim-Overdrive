@@ -10,7 +10,7 @@ path. This lint covers what those can't show, in closed lists:
   it itself (a parameter, an assignment, a loop or ``with`` target, an import, a ``def`` or ``class``).
 - **A module's own loader** in ``src/``: ``__loader__`` and ``__spec__`` (``__loader__.get_data(p)`` reads any file
   with no import); and, in ``src/simcore/``, ``getattr`` with a computed name. numpy's and scipy's IO is held by
-  ``tests/_imports.py::NUMERIC_NAMES``, an allowlist of the names each layer uses.
+  ``tests/_imports.py::EXTERNAL_NAMES``, an allowlist of the external names each layer uses.
 - **Decoders and code runners in every file**, since the allowlists can't reach ``scripts/`` or ``tests/``: importing or
   naming ``pickle``, ``_pickle``, ``marshal``, ``shelve``, ``dill``, ``cloudpickle``, ``jsonpickle``,
   ``multiprocessing.reduction``, ``numpy.ctypeslib``, ``runpy``, ``code`` or ``ctypes`` (by import,
@@ -40,8 +40,8 @@ EVERYWHERE = {
     "yaml.Loader", "yaml.UnsafeLoader", "yaml.FullLoader", "yaml.CLoader", "yaml.CUnsafeLoader", "yaml.CFullLoader",
     "yaml.constructor", "builtins.eval", "builtins.exec", "builtins.compile", "numpy.ctypeslib",
 }  # fmt: skip
-# numpy's and scipy's IO is not listed here: tests/_imports.py::NUMERIC_NAMES allows each layer only the numpy and
-# scipy names it uses, so every other part of those packages is refused (delta round 5, D5-S1).
+# numpy's and scipy's IO is not listed here: tests/_imports.py::EXTERNAL_NAMES allows each layer only the external
+# names it uses, so every other part of those packages, and of the stdlib, is refused (delta rounds 5 and 6).
 IN_SRC = {"builtins.open", "builtins.input", "builtins.__import__", "__loader__", "__spec__"}
 # allow_pickle by position, per reader: numpy.load(file, mmap_mode, allow_pickle), read_array(fp, allow_pickle).
 PICKLE_POSITION = {

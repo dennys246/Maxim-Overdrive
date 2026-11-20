@@ -33,6 +33,7 @@ __all__ = [
     "load_action_limits",
     "load_materials",
     "read_yaml",
+    "real_path",
 ]
 
 # A path a caller hands a gate: the only file-reading module is this one, so callers name paths without pathlib.
@@ -72,6 +73,12 @@ def _no_duplicate_keys(loader: _StrictLoader, node: yaml.MappingNode) -> dict[An
 
 
 _StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicate_keys)
+
+
+def real_path(path: FilePath) -> Path:
+    """``path`` with every symlink resolved. It reads the filesystem (realpath), so it is a gate's job: the game's
+    data locator asks it where its package really is, so data beside a symlinked package is found by the real one."""
+    return Path(path).resolve()
 
 
 def existing_directory(candidates: Sequence[FilePath], what: str) -> Path:
