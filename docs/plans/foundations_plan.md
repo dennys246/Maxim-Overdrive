@@ -69,7 +69,7 @@ Linux only); #1396 (O18's guards). OD-I2
 stays a nit.
 
 **Exchanged:** `erratum_1.md` sent 2026-11-18 (OD-A20, OD-A21; OD-A19 withdrawn). Maxim's answer
-(`response_4.md`): 1.4.0 planned March–May 2027; the world-seam front gate accepted. Its plan review of O35's draft: SOUND WITH CONDITIONS (2026-11-19); v4 folds it.
+(`response_4.md`): 1.4.0 planned March–May 2027; the world-seam front gate accepted. Its plan review of O35's draft: SOUND WITH CONDITIONS (2026-11-19); v4 folds it, v5 its delta review.
 
 **Phase 3 ids, by where Maxim put them** (detail: `docs/plans/reviews/maxim_side.md` §1):
 - Tier A: OD-A1 (#1361), OD-A20 (declined), OD-A21 (#1361 Q1), OD-A2, OD-A3, OD-A4, OD-A8 (A3); OD-A5 (split with #1361); OD-A7 (A2, a gate item after 1.4.0); OD-A12 (A1,

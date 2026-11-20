@@ -151,11 +151,38 @@ engine the same rule keeps one intent door into the world.
 
 **When the partner declines a fix the game needs, record the divergence with numbers and a strict red gate, so the
 evidence builds until it can be argued again.** *Evidence:* Maxim's owner kept NAc's anchor similarity on the host
-calendar (OD-A20, 2026-11-19). A receipt settled after its trace expires is credited by `0.3 × similarity ×
-activation`; a crossed midnight moves the similarity by about 0.017, and a 12 h pause inside the 300 s window drops it
-from about 1 to about 0.70, so replay and learning follow the host's clock. Because credit is normalised, the
-calendar only moves how a receipt is shared between live-trace and anchor-only nodes, a narrower crack than first
-written. *Consequence:* a known divergence (`npcs_and_sem.md` §12.2) and a red gate on a shared receipt across
-midnight (`checklists.md`); no faked time in the worker, which CLAUDE.md's push-back rule forbids. Two first designs
-of that gate could not fail (an hour shift moves both timestamps; a lone node takes the full share): a red gate
-against a partner's system needs the same can-it-fail proof as any other test.
+calendar (OD-A20, 2026-11-19). A receipt settled after its trace expires is credited through `0.3 × similarity ×
+activation`, counted only above 0.01; a crossed local midnight lowers the similarity by about 0.018, so replay and
+learning follow the host's calendar and timezone (lesson 18 has the full reach). *Consequence:* a known divergence
+(`npcs_and_sem.md` §12.2) and two red gates (`checklists.md`); no faked time or pinned `TZ` in the worker, which
+CLAUDE.md's push-back rule forbids. The same holds for the second divergence Maxim keeps with #1361 Q5:
+`Hippocampus.sleep` forgets on `time.time()`, so a memory accessed once is gone after 3.36 wall days. Three first
+designs of the OD-A20 gate could not fail (an hour shift moves both timestamps; a lone node takes the full share; a
+pause tests a different fix): a red gate against a partner's system needs the same can-it-fail proof as any test.
+
+### 18. Overcorrecting a correction is its own failure (2026-11-19)
+
+**A correction states exactly what the code does, no narrower and no wider than the original error.** *Evidence:*
+the agent draft framed OD-A20 as a similarity of about 0.70 after a 12 h pause; our fold review found that
+normalisation cancels the similarity for a lone node, and the erratum (npcs §12.2, lesson 17, the roadmap) then said
+the calendar moves *only* how credit is shared between live-trace and anchor-only nodes. Maxim's delta review (`docs/design/reviews/agent_draft_v3/
+maxim_delta_review.md`) found that too narrow: the 0.01 threshold lets the calendar drop a node outright (a receipt
+whose only node drops books nothing), anchors set at different host times split differently, and
+`TemporalSignature.from_timestamp` reads local time, so the replay machine's timezone moves credit. The fold review saw
+the threshold but checked it only at activation 1 (0.3 × 0.70 = 0.21 clears it), not at the small activations an
+encoder's match similarity gives. *Consequence:* the
+draft v5, npcs §12.2 and the roadmap row restate it, and the red gate is rebuilt on the threshold, which certainly
+fails. For any correction: re-read the whole function, every branch and constant, before writing "only".
+
+### 19. An efference copy across a process boundary needs an invocation id on every effect (2026-11-19)
+
+**When an agent's actions run in the host, the agent can tell its own consequences from the world's only if every
+effect the host reports names the action that caused it.** *Evidence:* Maxim's staleness (hybrid §A.1b.5) excludes
+self-caused events by attribution, through GL3.B2's invocation-pid join (`thalamic_relay.md` §5.2): in a robot the
+pid is minted at `Executor._run_started` and travels with the tool's own transduction. Embedded, the intent leaves
+the agent and its effects arrive later as frame and receipt events from the host; Maxim's delta review noted that
+without the dispatching pid on them every self-caused reafference reads as non-self-caused, and every in-flight
+reply goes stale. Our intents already had an id, `(actor_id, seq)`, and receipts carried it; frame events did not.
+*Consequence:* bodies-part events and pilots rows gain `cause`, the intent record an opaque `invocation`, and the
+codec carries the pid (`tile_and_client.md` §3.1, `npcs_and_sem.md` §6.6; plan steps 5b and 7). In any game engine,
+an effect record names its causing command from the start, since adding it after the wire freezes is a version bump.
