@@ -20,17 +20,11 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from maxim_overdrive import data
-from simcore.adapters.loaders import load_action_limits
-from simcore.adapters.sem.bridge import (
-    MAXIM_CALL_KEYS,
-    ActionRefused,
-    Extinguish,
-    Ignite,
-    Strike,
-    parse_action,
-    region_parts,
-)
+from simcore.adapters.loaders import load_action_limits, read_yaml
+from simcore.adapters.sem.bridge import region_parts
 from simcore.core import damage
+from simcore.core.applier import Applier
+from simcore.core.intents import CALL_KEYS, ActionRefused, Extinguish, Ignite, Strike, parse_action
 from simcore.core.limits import ActionLimits
 from simcore.core.scene import Box, Scene
 from simcore.core.world import HeatSource, World, sphere_overlap
@@ -47,6 +41,11 @@ def _world(dx_m=0.2):
 
 def _structure(world):
     return region_parts(world, "crate")[1]["structure"]
+
+
+def _apply(world, action):
+    """Stage 2 alone: the applier, as the membrane calls it after parsing."""
+    return Applier(world).apply("crate", action)
 
 
 def _state(world):
@@ -121,7 +120,7 @@ BAD = [
 )
 def test_bad_parameters_are_refused_by_name_and_leave_the_world_unchanged(affordance, params, field):
     w = _world()
-    w.sources["fire:crate"] = HeatSource((1.5, 1.5, 0.3), 0.3, 1000.0)  # so extinguish has something to put out
+    assert _structure(w).execute("ignite", {"power_w": 1000.0, "radius_m": 0.3}).success  # so extinguish has a fire
     before = _state(w)
     res = _structure(w).execute(affordance, params)
     assert not res.success
@@ -164,7 +163,7 @@ def test_a_target_is_accepted_only_when_it_is_this_region():
     # strike the crate when the call meant the wall.
     from simcore.adapters.sem.bridge import to_maxim_entity  # noqa: PLC0415 - the gate installs pymaxim
 
-    assert frozenset({"target"}) == MAXIM_CALL_KEYS
+    assert frozenset({"target"}) == CALL_KEYS
     scene = Scene(SCENE.extent_m, (*SCENE.primitives, Box((0, 0, 0), (0.6, 3, 2), "concrete", "wall")))
     w = World.from_scene(scene, MATERIALS, dx_m=0.2, limits=LIMITS)
     crate, wall = to_maxim_entity(w, "crate"), to_maxim_entity(w, "wall")
@@ -218,10 +217,9 @@ def test_omitted_parameters_take_their_defaults_from_the_limits():
 
 def test_apply_rechecks_an_action_built_without_parsing():
     w = _world()
-    s = _structure(w)
     before = _state(w)
     for action, name in [(Ignite(1e30, 0.3), "power_w"), (Strike(1e300, 0.2, None), "energy_j")]:
-        res = s.apply(action)
+        res = _apply(w, action)
         assert not res.success
         assert res.error is not None
         assert res.error.startswith(f"{name} must be between")
@@ -230,7 +228,7 @@ def test_apply_rechecks_an_action_built_without_parsing():
 
 def test_apply_names_the_affordance_from_the_action_and_reports_the_parsed_values():
     w = _world()
-    res = _structure(w).apply(parse_action("strike", {"energy_j": 1e3, "point_m": [1.5, 1.5, 0.3]}, LIMITS))
+    res = _apply(w, parse_action("strike", {"energy_j": 1e3, "point_m": [1.5, 1.5, 0.3]}, LIMITS))
     assert res.success
     assert res.affordance == "strike"
     assert res.params == {"energy_j": 1e3, "sigma_m": LIMITS.default_sigma_m, "point_m": [1.5, 1.5, 0.3]}
@@ -239,13 +237,14 @@ def test_apply_names_the_affordance_from_the_action_and_reports_the_parsed_value
 def test_a_region_that_is_gone_refuses_in_words_the_agent_can_use():
     w = _world()
     s = _structure(w)
-    w.grid.regions["crate"].cells[:] = False
+    with w.grid.writing():  # a later paint takes every cell
+        w.grid.paint(w.grid.regions["crate"].cells, "air")
     for affordance, params in [("ignite", {"power_w": 1.0}), ("strike", {"energy_j": 1.0}), ("extinguish", {})]:
         res = s.execute(affordance, params)
         assert not res.success
         assert res.error == "the crate is gone"
-    with pytest.raises(ValueError, match="region 'crate' has no cells"):
-        s.centroid_m()  # a direct caller gets the physics answer, not a guess
+    with pytest.raises(ActionRefused, match="the crate is gone"):
+        Applier(w).centroid_m("crate")  # a direct caller gets the refusal, not a guess
 
 
 def test_extinguishing_nothing_is_refused_in_words():
@@ -613,7 +612,7 @@ def test_a_hand_built_action_with_bad_numbers_cannot_be_made(build, name):
 
 def test_apply_refuses_what_is_not_an_action_loudly():
     with pytest.raises(TypeError, match="not an action: object"):
-        _structure(_world()).apply(object())
+        _apply(_world(), object())
 
 
 @pytest.mark.parametrize(
@@ -621,7 +620,7 @@ def test_apply_refuses_what_is_not_an_action_loudly():
     [(Strike(1.0, 0.2, None), "strike"), (Ignite(1.0, 0.3), "ignite"), (Extinguish(), "extinguish")],
 )
 def test_apply_names_every_affordance_from_its_action(action, affordance):
-    assert _structure(_world()).apply(action).affordance == affordance
+    assert _apply(_world(), action).affordance == affordance
 
 
 def test_a_zero_limit_is_refused():
@@ -769,14 +768,10 @@ def test_a_merged_key_is_overridden_by_the_one_written_after_it(tmp_path):
     merged = "{max_power_w: 1.0, min_radius_m: 0.3, max_radius_m: 3.0, default_radius_m: 0.3}"
     path.write_text(f"version: 0\nignite: &i {merged}\n" + GOOD_LIMITS.split("\n")[2] + "\n")
     assert load_action_limits(path).max_power_w == 1.0
-    raw = yaml.load(f"a: &a {merged}\nb: {{<<: *a, max_power_w: 500000.0}}\n", Loader=_strict_loader())
+    path.write_text(f"a: &a {merged}\nb: {{<<: *a, max_power_w: 500000.0}}\n")
+    raw = read_yaml(path)  # the file gate every loader reads through
+    assert isinstance(raw, dict)
     assert raw["b"]["max_power_w"] == 500000.0  # the written key wins over the merged one
-
-
-def _strict_loader():
-    from simcore.adapters.loaders import _StrictLoader  # noqa: PLC0415
-
-    return _StrictLoader
 
 
 def test_an_air_region_has_no_structure_to_act_on():
@@ -788,7 +783,7 @@ def test_an_air_region_has_no_structure_to_act_on():
     assert mods == {}
     assert "temperature_mean" in sensors  # still sensed
     with pytest.raises(ValueError, match="'room' is air"):
-        StructureModulator(w, "room")
+        StructureModulator(Applier(w), w.frames, "room")
     assert to_maxim_entity(w, "room").modulators == {}
 
 

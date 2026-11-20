@@ -50,15 +50,20 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 
 ## Step 3b, gates
 
-- From boundaries §10 and §11.1's "lands: boundaries" rows that step 3a (structure only, O23) did not build:
-  - the StructureModulator split: its gate half stays in `simcore.adapters.sem`, its write half (`apply`,
+- From boundaries §10 and §11.1's "lands: boundaries" rows that step 3a (structure only, O23) did not build. All
+  done in 3b part (a), with §11.1's 2c items (the window, frames, validating constructors, the registry, budgets and
+  bounded echo):
+  - done: the StructureModulator split: its gate half stays in `simcore.adapters.sem`, its write half (`apply`,
     `_strike`, `_ignite`, douse) moves into the core as the applier, with the reach and centroid checks as stage-2
-    checks; `parse_action`, the typed actions and the refusal type move below the membrane (§2.2 `intents`);
-  - then the skip-layer forbidden contract (adapters, protocol ↛ grid, laws, geometry, scene build). It can't land
-    before the split, because today's bridge writes the world through `damage` and `World.sources`;
-  - §3's writer non-vacuity test: every function assigning into a cell array, `regions` or `sources` is in the core;
-  - B-4's input-primitive allowlist and banned unsafe calls; B-10's `Observation` protocol and frame tests; B-13's
-    import half (the membrane reads frames and the registry only).
+    checks; `parse_action`, the typed actions and the refusal type move below the membrane (§2.2 `intents`)
+    (`simcore/core/applier.py`, `simcore/core/intents.py`);
+  - done: then the skip-layer forbidden contract (adapters, protocol ↛ grid, laws, geometry, scene build)
+    (`pyproject.toml` `skip-layer`, proven by a planted import in `tests/test_tooling_config.py`);
+  - done: §3's writer non-vacuity test: every function assigning into a cell array, `regions` or `sources` is in the
+    core (`tests/test_ownership.py`);
+  - done: B-4's input-primitive allowlist and banned unsafe calls (`input-primitives`, `scripts/lint_inputs.py`);
+    B-10's `Observation` protocol and frame tests (`simcore/core/frames.py`, `tests/test_frames.py`); B-13's import
+    half (`membrane-reads-frames`; the field registry joins its allowed list in step 5a).
 - Scene v1: F13 plus a required `spawns`; scene v0 is refused by version, not migrated (it would migrate to a
   scene `join` refuses); golden v0 and v1 fixtures (WT-S8).
 - One schema and one reader per data format; `MaterialTable`'s lookup arrays and every rejection test generated

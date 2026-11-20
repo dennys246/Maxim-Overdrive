@@ -292,15 +292,8 @@ below it. Siblings on one line are independent of each other.
   constructor calls, and holding an instance is proof it is valid (TB-B2, TB-N3). "Past a gate", not "inside" one
   (TB-N1).
 - **Frozen means deep:** tuples, `frozenset`, `MappingProxyType`, and numpy arrays read-only at the owner (§4.1).
-- **Violations today, and when each is fixed:**
-
-| Type | Problem | Fixed in |
-|---|---|---|
-| `Region.cells` | writable mask inside a frozen dataclass | `phase1/boundaries` (§4.1) |
-| `MaterialTable` | mutable class, public writable arrays, no sign checks | read-only arrays and validation: `phase1/boundaries`; the strict v1 format: material table v1 |
-| `Material` | no validation (`density_kg_m3=0` divides by zero) | `phase1/boundaries` |
-| `RigProfile` | builds `min_substeps_per_turn=1.5`, `full_res_radius_m=-3` | `phase1/boundaries` (and it leaves physics, §2.2) |
-| `Budget` | builds `max_mass_kg=nan`, removing the mass limit | `phase1/boundaries` |
+- **The violations v2 listed** (`Region.cells`, `MaterialTable`, `Material`, `RigProfile`, `Budget`) are fixed in
+  3b; the strict material table v1 format is still its own step.
 
 - **`World` and the grid are the sink,** mutable by design inside the write window, not "objects past a gate".
 - **Maxim's own types are a named exception:** `ModulatorResult` (`params`, `metadata`) and `SensorReading`
@@ -372,9 +365,7 @@ Every registered gate meets all of these, with a rejection test each:
 **Across the worker channel** (`npcs_and_sem.md` §6.6), stage 1 runs in the host on decoded values: an `Entity` target
 arrives as a stable id and is re-checked, so nothing produced in a worker is trusted for having been a Maxim object.
 
-Only `ActionLimits.load` and `parse_action` meet the bar today, and `place` partly. `RigProfile.load`,
-`MaterialTable.load` and `Scene.from_dict` are registered as gates-to-be and hardened in `phase1/boundaries`
-(TB-S2, X S-3). `checks.py`'s docstring claim is corrected with them (TB-N2).
+Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-S2, X S-3, TB-N2).
 
 ## 6. One pipeline for every input (B-9, rewritten)
 
@@ -750,6 +741,11 @@ major version is proposed.
 - **As built in 3a (2026-11-19):** import-linter 2.6 and grimp 3.13 (pymaxim caps `rich<14`), called as
   `lint_imports_command()` with `PYTHONPATH="$PWD/src"` (`-m importlinter.cli` checks nothing). The game package
   exists from 3a, holding only `data.py`, against §2.1; §3's ban covers `logging` too.
+- **As built in 3b(a) (2026-11-20):** a frame holds the read-only owners, which no window writes in place, so it
+  needs no copy; it is stamped by publication sequence and `time_s` until the tick. The window copies in every
+  build (O8's switch has no way into the core). `place` opens it too: `imagine` has no intent kind yet. The
+  skip-layer rule covers `encoding` (it reads a frame). The registry adds a `no input` status. `Budget` values stay
+  engine defaults until game data carries them (O23).
 - A tooling test asserts grimp resolves each root package under this repo's `src/`.
 - `.import_linter_cache/` goes in `.gitignore` (or `--no-cache`), so the gate doesn't dirty the tree.
 - `importlinter` joins the preflight import line in `prepush.sh`.

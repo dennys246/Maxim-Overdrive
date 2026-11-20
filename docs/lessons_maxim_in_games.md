@@ -223,3 +223,17 @@ part of `session_id`, so restored ids can't collide with logged ones whatever th
 as a host-side collision test. For any engine: whoever saw every issued id (the server, the host) sets the
 counter's floor after a restart, never the snapshot alone; and a fresh id namespace per restore removes the need
 for a floor at all.
+
+### 23. Maxim's sensors pull, so a frame must be published when an action applies, not only when time moves (2026-11-20)
+
+**Maxim's `Sensor.read()` is a pull with no tick argument, and its modulator tool reads every sensor on the entity
+right after `execute` returns, as the action's "cascade effects" (`ModulatorAffordanceTool`, pymaxim 1.3.3).
+A world that publishes frames only at physics steps would show the agent the world from before its own act.**
+*Evidence:* step 3b part (a) moved the SEM instruments onto published frames
+(`simcore/core/frames.py`). With publication removed from the window's close (a planted mutation of
+`World.__init__`), `tests/test_sem_bridge.py::test_strike_moves_the_integrity_sensor` went red: the strike
+landed and the integrity reading did not move. *Consequence:* every write window that closes publishes, so an
+application's effect is in the next read (boundaries §4.2's cadence, now held by
+`tests/test_ownership.py::test_the_shipped_path_publishes_a_frame_after_each_application_and_each_advance`). For
+any engine: an agent that perceives by pulling needs its own act reflected in the next pull, or its efference copy
+has nothing to match; publish on change, and make the action's commit a change.

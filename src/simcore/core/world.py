@@ -2,16 +2,25 @@
 
 Godot never simulates; it sends intents and draws snapshots (``simcore.protocol.encoding``). Cradles and experiments
 run this same object headless, so the physics an NPC grows up in is the physics of the game.
+
+The world changes only inside its write window (``World.writing``): the cells through the grid's window, the heat
+sources as a private table nobody else holds. Two callers open it, ``advance`` and the intent applier
+(``simcore.core.applier``); ``tests/test_ownership.py`` holds that list. Each window that closes publishes a frame
+(``simcore.core.frames``), which is what observers read.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from dataclasses import dataclass
+from types import MappingProxyType
 
 import numpy as np
 
 from simcore.core import damage, heat
 from simcore.core.checks import finite_real, finite_vector
+from simcore.core.frames import CellFrame, Frame, FrameFeed
 from simcore.core.grid import Field, MaterialGrid
 from simcore.core.limits import ActionLimits
 from simcore.core.materials import MaterialTable
@@ -26,7 +35,7 @@ class HeatSource:
 
     def __post_init__(self) -> None:
         # Physical validity, whoever builds the source. Gameplay limits (how big a fire may be) belong to the action
-        # that asks for it (simcore.core.limits.ActionLimits, checked in simcore.adapters.sem.bridge).
+        # that asks for it (simcore.core.limits.ActionLimits, checked by simcore.core.intents).
         object.__setattr__(self, "point_m", finite_vector(self.point_m, 3, "a heat source's point_m"))
         radius = finite_real(self.radius_m, "a heat source's radius_m")
         power = finite_real(self.power_w, "a heat source's power_w")
@@ -60,14 +69,26 @@ def sphere_overlap(
     return frac / samples**3
 
 
-@dataclass
 class World:
-    grid: MaterialGrid
-    turn_seconds: float = 6.0
-    sources: dict[str, HeatSource] = field(default_factory=dict)
-    turn: int = 0
-    # What one action may ask of this world. Required, so a world can't run with no limits or two sets of them.
-    limits: ActionLimits = field(kw_only=True)
+    """One grid, its heat sources, its turn count and the limits on what one action may ask of it."""
+
+    def __init__(
+        self,
+        grid: MaterialGrid,
+        turn_seconds: float = 6.0,
+        *,
+        limits: ActionLimits,
+        sources: Mapping[str, HeatSource] | None = None,
+    ) -> None:
+        # limits is required, so a world can't run with no limits or two sets of them. sources is construction's
+        # (boundaries §6.4): after it, only the applier changes them.
+        self._grid, self._limits, self._turn = grid, limits, 0
+        self._turn_seconds = finite_real(turn_seconds, "turn_seconds")
+        if not self._turn_seconds > 0:
+            raise ValueError(f"turn_seconds must be positive, got {turn_seconds!r}")
+        self._sources: Mapping[str, HeatSource] = MappingProxyType(dict(sources or {}))
+        self._frames = FrameFeed(Frame(CellFrame.of(grid, 0)))
+        grid.on_close(self._publish)
 
     @classmethod
     def from_scene(
@@ -82,31 +103,72 @@ class World:
         """The scene voxelized at grid spacing ``dx_m``, the simulation's one truth (world_model D20)."""
         return cls(scene.build(materials, dx_m=dx_m), turn_seconds, limits=limits)
 
+    @property
+    def grid(self) -> MaterialGrid:
+        return self._grid
+
+    @property
+    def limits(self) -> ActionLimits:
+        return self._limits
+
+    @property
+    def turn_seconds(self) -> float:
+        return self._turn_seconds
+
+    @property
+    def turn(self) -> int:
+        return self._turn
+
+    @property
+    def sources(self) -> Mapping[str, HeatSource]:
+        """The heat sources, read-only. The applier changes them, inside the write window."""
+        return self._sources
+
+    @property
+    def frames(self) -> FrameFeed:
+        """Where observers read this world: the latest published frame (boundaries §4.2)."""
+        return self._frames
+
+    def _publish(self) -> None:
+        self._frames.publish(Frame(CellFrame.of(self._grid, self._frames.latest.sequence + 1)))
+
+    @contextmanager
+    def writing(self) -> Iterator[dict[str, HeatSource]]:
+        """The write window (boundaries §4.1): the grid's window, plus a writable copy of the heat sources that
+        becomes the world's at exit. A window that raises changes nothing. It publishes a frame when it closes."""
+        sources = dict(self._sources)
+        with self._grid.writing():
+            yield sources
+            self._sources = MappingProxyType(sources)
+
     def _power_field(self) -> Field | None:
-        if not self.sources:
+        if not self._sources:
             return None
-        power = np.zeros(self.grid.shape, dtype=np.float64)
-        for src in self.sources.values():
-            frac = sphere_overlap(self.grid, src.point_m, src.radius_m)
+        power = np.zeros(self._grid.shape, dtype=np.float64)
+        for src in self._sources.values():
+            frac = sphere_overlap(self._grid, src.point_m, src.radius_m)
             # A fire heats the material it burns on. Air only conducts here (no convection yet), so power dumped
             # into air cells would sit there, and how much of it did would depend on the grid spacing.
-            on_solid = frac * self.grid.solid
+            on_solid = frac * self._grid.solid
             weights = on_solid if on_solid.sum() > 0 else frac
             if weights.sum() == 0:  # a source smaller than a cell heats the cell it sits in
-                weights = np.zeros(self.grid.shape)
-                weights[self.grid.cell_of(src.point_m)] = 1.0
+                weights = np.zeros(self._grid.shape)
+                weights[self._grid.cell_of(src.point_m)] = 1.0
             power += src.power_w * weights / weights.sum()
         return power
 
     def advance(self, seconds: float | None = None) -> int:
         """Run physics for one turn (or ``seconds``). Returns heat substeps taken."""
-        seconds = self.turn_seconds if seconds is None else seconds
-        taken = heat.step(
-            self.grid,
-            seconds,
-            min_substeps=heat.min_substeps(self.grid.dx),
-            power=self._power_field,
-            on_substep=damage.thermal_degrade,
-        )
-        self.turn += 1
+        seconds = self._turn_seconds if seconds is None else seconds
+        # TEMPORARY(phase1/sim-clock): World.advance owns the write window for the laws until Simulation.step exists
+        # (boundaries §4.1, 2c); there the window moves into the step, beside the applier's, and this method goes.
+        with self.writing():
+            taken = heat.step(
+                self._grid,
+                seconds,
+                min_substeps=heat.min_substeps(self._grid.dx),
+                power=self._power_field,
+                on_substep=damage.thermal_degrade,
+            )
+            self._turn += 1
         return taken

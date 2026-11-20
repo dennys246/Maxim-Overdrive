@@ -13,7 +13,7 @@ from typing import Any
 
 import yaml
 
-from simcore.core.checks import finite_real, format_version, known_keys, whole_number
+from simcore.core.checks import finite_real, format_version, known_keys, shown, whole_number
 from simcore.core.limits import ActionLimits
 from simcore.core.materials import Material, MaterialTable
 
@@ -75,13 +75,13 @@ def read_yaml(path: Path) -> object:
 def _colour(value: object, what: str) -> tuple[int, int, int]:
     """Three whole numbers, or a ValueError that names the field (a scalar or a string is refused, not iterated)."""
     if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or len(value) != 3:
-        raise ValueError(f"{what} must be three whole numbers, got {value!r}")
+        raise ValueError(f"{what} must be three whole numbers, got {shown(value)}")
     return (whole_number(value[0], what), whole_number(value[1], what), whole_number(value[2], what))
 
 
 def _material(name: object, entry: object) -> Material:
     if not isinstance(name, str):
-        raise ValueError(f"material names must be strings, got {name!r}")
+        raise ValueError(f"material names must be strings, got {shown(name)}")
     v = known_keys(entry, f"material {name}", required=MATERIAL_REQUIRED, optional=MATERIAL_OPTIONAL)
     return Material(
         name=name,

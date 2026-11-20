@@ -22,6 +22,7 @@ from maxim_overdrive import data
 from simcore.adapters.loaders import MATERIAL_REQUIRED, load_action_limits, load_materials
 from simcore.adapters.sem import bridge
 from simcore.core import damage, heat
+from simcore.core.applier import Applier
 from simcore.core.grid import Footprint, MaterialGrid
 from simcore.core.imagination import Budget, SpecRejected, place
 from simcore.core.materials import MaterialTable
@@ -94,24 +95,25 @@ def test_a_point_outside_the_grid_has_no_cell(dx_m, materials):
 def test_region_names_are_unique(dx_m, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
-    g.paint(
-        np.broadcast_to(x < 0.5, g.shape),
-        "wood",
-        region="crate",
-        footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
-    )
-    with pytest.raises(ValueError, match="already exists"):
+    with g.writing():
         g.paint(
-            np.broadcast_to(x >= 0.5, g.shape),
+            np.broadcast_to(x < 0.5, g.shape),
             "wood",
             region="crate",
-            footprint=Footprint(((0.5, 0, 0), (1, 1, 1)), (0.25, 0.5, 0.5)),
+            footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
         )
+        with pytest.raises(ValueError, match="already exists"):
+            g.paint(
+                np.broadcast_to(x >= 0.5, g.shape),
+                "wood",
+                region="crate",
+                footprint=Footprint(((0.5, 0, 0), (1, 1, 1)), (0.25, 0.5, 0.5)),
+            )
 
 
 def test_a_scene_refuses_unknown_materials(dx_m, materials):
     scene = Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (0.4, 0.4, 0.4), "adamantium", "thing"),))
-    with pytest.raises(ValueError, match="unknown material 'adamantium' in primitive thing"):
+    with pytest.raises(ValueError, match="unknown material 'adamantium' in primitive 'thing'"):
         scene.build(materials, dx_m=dx_m)
 
 
@@ -131,10 +133,12 @@ def test_a_scene_refuses_unknown_primitive_kinds():
 
 def test_no_time_means_no_substeps_and_no_change(dx_m, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
-    g.temperature[0, 0, 0] = 500.0
+    with g.writing():
+        g.temperature[0, 0, 0] = 500.0
     before = g.temperature.copy()
-    assert heat.step(g, 0.0) == 0
-    assert heat.step(g, -5.0) == 0
+    with g.writing():
+        assert heat.step(g, 0.0) == 0
+        assert heat.step(g, -5.0) == 0
     assert np.array_equal(g.temperature, before)
 
 
@@ -148,12 +152,13 @@ def test_a_strike_refuses_negative_energy_and_non_positive_width(dx_m, materials
 def test_a_region_with_no_solid_cells_cannot_be_breached(dx_m, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
-    g.paint(
-        np.broadcast_to(x < 0.5, g.shape),
-        "air",
-        region="doorway",
-        footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
-    )
+    with g.writing():
+        g.paint(
+            np.broadcast_to(x < 0.5, g.shape),
+            "air",
+            region="doorway",
+            footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
+        )
     assert damage.region_breached(g, "doorway") is False
 
 
@@ -170,10 +175,10 @@ def test_a_world_with_no_fire_stays_at_ambient(dx_m, materials):
 
 
 def test_a_source_smaller_than_a_cell_still_delivers_its_full_power(dx_m, materials):
-    w = World.from_scene(
-        Scene((1.0, 1.0, 1.0)), materials, dx_m=dx_m, limits=LIMITS
-    )  # all air: the fire has no solid to sit on
-    w.sources["spark"] = HeatSource((0.5, 0.5, 0.5), radius_m=1e-4, power_w=100.0)
+    # All air, so the fire has no solid to sit on. A source this small is no action's (the limits refuse it), so it
+    # arrives the one other way, at construction.
+    spark = HeatSource((0.5, 0.5, 0.5), radius_m=1e-4, power_w=100.0)
+    w = World(Scene((1.0, 1.0, 1.0)).build(materials, dx_m=dx_m), limits=LIMITS, sources={"spark": spark})
     power = w._power_field()
     assert power is not None
     assert power.sum() == pytest.approx(100.0)
@@ -195,11 +200,11 @@ def _world(dx_m, materials):
 def test_sensors_and_modulators_refuse_unknown_names(dx_m, materials):
     w = _world(dx_m, materials)
     with pytest.raises(ValueError, match="unknown region quantity 'colour'"):
-        bridge.RegionSensor(w, "wall", "colour")
-    with pytest.raises(KeyError, match="no region 'door'"):
-        bridge.RegionSensor(w, "door", "integrity")
-    with pytest.raises(KeyError, match="no region 'door'"):
-        bridge.StructureModulator(w, "door")
+        bridge.RegionInstrument(w.frames, "wall", "colour")
+    with pytest.raises(ValueError, match="no region 'door'"):
+        bridge.RegionInstrument(w.frames, "door", "integrity")
+    with pytest.raises(ValueError, match="no region 'door'"):
+        bridge.StructureModulator(Applier(w), w.frames, "door")
 
 
 def test_every_sensor_reports_its_schema_and_unit(dx_m, materials):
@@ -219,7 +224,8 @@ def test_every_sensor_reports_its_schema_and_unit(dx_m, materials):
 def test_a_region_that_lost_all_its_cells_reads_nan_and_cannot_burn(dx_m, materials):
     w = _world(dx_m, materials)
     sensors, mods = bridge.region_parts(w, "wall")
-    w.grid.regions["wall"].cells[:] = False  # a later paint took every cell
+    with w.grid.writing():  # a later paint takes every cell
+        w.grid.paint(w.grid.regions["wall"].cells, "air")
     assert math.isnan(sensors["temperature_max"].value())
     res = mods["structure"].execute("ignite", {"power_w": 1000.0})
     assert not res.success
@@ -332,12 +338,13 @@ def test_a_named_region_needs_its_authored_bounds(dx_m, materials):
         g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate")
     assert "crate" not in g.regions
     assert (g.material == 0).all()  # refused before anything was painted
-    g.paint(
-        np.broadcast_to(x < 0.5, g.shape),
-        "wood",
-        region="crate",
-        footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
-    )
+    with g.writing():
+        g.paint(
+            np.broadcast_to(x < 0.5, g.shape),
+            "wood",
+            region="crate",
+            footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
+        )
     with pytest.raises(ValueError, match="already exists"):
         g.name_region(
             "crate",
@@ -380,8 +387,9 @@ def test_a_later_paint_takes_cells_from_earlier_regions_and_a_refused_paint_chan
     g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
     left = np.broadcast_to(x < 0.6, g.shape)
-    g.paint(left, "wood", region="left", footprint=Footprint(((0, 0, 0), (0.6, 1, 1)), (0.3, 0.5, 0.5)))
-    g.paint(np.broadcast_to(x >= 0.4, g.shape), "concrete")  # unnamed, and it overlaps "left"
+    with g.writing():
+        g.paint(left, "wood", region="left", footprint=Footprint(((0, 0, 0), (0.6, 1, 1)), (0.3, 0.5, 0.5)))
+        g.paint(np.broadcast_to(x >= 0.4, g.shape), "concrete")  # unnamed, and it overlaps "left"
     assert not (g.regions["left"].cells & np.broadcast_to(x >= 0.4, g.shape)).any()
     before = g.material.copy()
     with pytest.raises(ValueError, match="already exists"):
@@ -437,8 +445,9 @@ def test_thermal_degradation_follows_its_closed_form_at_every_rig(spacings, mate
     excess, dt = 150.0, 0.5
     for dx_m in spacings:
         g = Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (1, 1, 1), "wood", "block"),)).build(materials, dx_m=dx_m)
-        g.temperature[:] = wood.degrade_above_c + excess
-        damage.thermal_degrade(g, dt)
+        with g.writing():
+            g.temperature[:] = wood.degrade_above_c + excess
+            damage.thermal_degrade(g, dt)
         expected = 1.0 - wood.degrade_rate_per_s_per_100c * dt * excess / 100.0
         assert g.integrity == pytest.approx(np.full(g.shape, expected), rel=1e-6), dx_m
 
@@ -486,8 +495,9 @@ def test_thermal_degradation_is_proportional_to_the_excess(spacings, materials):
         g = Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (1, 1, 1), "wood", "block"),)).build(materials, dx_m=dx_m)
         x, _, _ = g.mesh()
         excess = np.where(np.broadcast_to(x < 0.5, g.shape), 150.0, 50.0)
-        g.temperature[:] = wood.degrade_above_c + excess
-        damage.thermal_degrade(g, 0.5)
+        with g.writing():
+            g.temperature[:] = wood.degrade_above_c + excess
+            damage.thermal_degrade(g, 0.5)
         expected = 1.0 - wood.degrade_rate_per_s_per_100c * 0.5 * excess / 100.0
         assert g.integrity == pytest.approx(expected, rel=1e-6), dx_m
 
@@ -531,7 +541,8 @@ def test_paint_refuses_a_confusable_name_before_painting(dx_m, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
     footprint = Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5))
-    g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate", footprint=footprint)
+    with g.writing():
+        g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate", footprint=footprint)
     before = g.material.copy()
     with pytest.raises(ValueError, match="already exists"):
         g.paint(np.ones(g.shape, dtype=bool), "steel", region="Crate", footprint=footprint)
@@ -695,7 +706,9 @@ def test_a_rig_file_refuses_a_missing_key_by_name(tmp_path):
         RigProfile.load(path)
 
 
-@pytest.mark.parametrize(("text", "message"), [("name: [1]\n", "name must be a string"), ("name: 7\n", "name must be")])
+@pytest.mark.parametrize(
+    ("text", "message"), [("name: [1]\n", r"needs a name, got \[1\]"), ("name: 7\n", "needs a name, got 7")]
+)
 def test_a_rig_name_must_be_a_string(tmp_path, text, message):
     path = tmp_path / "t.yaml"
     path.write_text(RIG_FILE.replace("name: t\n", text))

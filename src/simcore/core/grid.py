@@ -1,21 +1,27 @@
 """The world as material cells: a structure of arrays, one value per cell.
 
 Every cell holds a material id, an integrity in [0, 1] and a temperature in °C. Physics fields (heat today; sound,
-light and gas later) and damage read and write these arrays in place. SEM entities for the environment are views
-over sets of cells (``simcore.adapters.sem``); renderers read quantized copies (``simcore.protocol.encoding``).
+light and gas later) and damage write these arrays in place, inside the write window (``CellStore.writing``), and
+nowhere else: at rest every array is read-only, and nothing can make it writable again (boundaries §4.1). Observers
+read published frames (``simcore.core.frames``), never the grid.
 
 Cell ``(i, j, k)`` covers ``[i*dx, (i+1)*dx) x [j*dx, (j+1)*dx) x [k*dx, (k+1)*dx)`` in metres; z is up.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
+from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Protocol
 
 import numpy as np
 import numpy.typing as npt
 
-from simcore.core.checks import finite_real
+from simcore.core.checks import entity_key, finite_real
 from simcore.core.materials import AIR_ID, MaterialTable
+from simcore.core.readonly import frozen
 
 # Array types for the grid's fields. Typing the element type (not bare np.ndarray) is what strict mypy needs on every
 # supported numpy: older stubs give ndarray no default type parameters.
@@ -26,11 +32,6 @@ Field = npt.NDArray[np.float64]
 # gets the same answer at every spacing.
 Bounds = tuple[tuple[float, float, float], tuple[float, float, float]]
 Point = tuple[float, float, float]
-
-
-def entity_key(name: str) -> str:
-    """A name as Maxim's EntityMap resolves it: stripped, lower-cased, spaces as underscores."""
-    return name.strip().lower().replace(" ", "_")
 
 
 @dataclass(frozen=True)
@@ -51,18 +52,181 @@ class Region:
     footprint: Footprint
     solid: bool  # made of a solid material when named; air regions (rooms, doorways) never own a strike point
 
+    def __post_init__(self) -> None:
+        # Frozen means deep (boundaries §5.1): the mask is a read-only copy, so no holder can repaint the region.
+        object.__setattr__(self, "cells", frozen(np.asarray(self.cells, dtype=np.bool_)))
 
-@dataclass
-class MaterialGrid:
-    dx: float
-    shape: tuple[int, int, int]
-    materials: MaterialTable
-    material: npt.NDArray[np.uint8] = field(repr=False)
-    original_material: npt.NDArray[np.uint8] = field(repr=False)
-    integrity: npt.NDArray[np.float32] = field(repr=False)
-    temperature: Field = field(repr=False)
-    regions: dict[str, Region] = field(default_factory=dict, repr=False)
-    time_s: float = 0.0
+
+class CellState(Protocol):
+    """What a reduction over a region reads: a grid at rest, or a published frame (``simcore.core.frames``)."""
+
+    @property
+    def material(self) -> npt.NDArray[np.uint8]: ...
+
+    @property
+    def original_material(self) -> npt.NDArray[np.uint8]: ...
+
+    @property
+    def integrity(self) -> npt.NDArray[np.float32]: ...
+
+    @property
+    def regions(self) -> Mapping[str, Region]: ...
+
+
+class GridGeometry:
+    """Where the cells are: the spacing and the shape, and the coordinates that follow from them."""
+
+    def __init__(self, dx: float, shape: tuple[int, int, int]) -> None:
+        self._dx, self._shape = dx, shape
+
+    @property
+    def dx(self) -> float:
+        return self._dx
+
+    @property
+    def shape(self) -> tuple[int, int, int]:
+        return self._shape
+
+    @property
+    def cell_volume_m3(self) -> float:
+        return self._dx**3
+
+    @property
+    def extent_m(self) -> tuple[float, float, float]:
+        return tuple(n * self._dx for n in self._shape)  # type: ignore[return-value]
+
+    def centers(self, axis: int) -> Field:
+        """Cell-centre coordinates along one axis, in metres."""
+        return (np.arange(self._shape[axis], dtype=np.float64) + 0.5) * self._dx
+
+    def mesh(self) -> tuple[Field, Field, Field]:
+        """Broadcastable cell-centre coordinates (x[:, None, None], y[None, :, None], z[None, None, :])."""
+        x = self.centers(0)[:, None, None]
+        y = self.centers(1)[None, :, None]
+        z = self.centers(2)[None, None, :]
+        return x, y, z
+
+    def cell_of(self, point_m: tuple[float, float, float]) -> tuple[int, int, int]:
+        idx = tuple(int(np.floor(p / self._dx)) for p in point_m)
+        for i, n in zip(idx, self._shape, strict=True):
+            if not 0 <= i < n:
+                raise ValueError(f"point {point_m} is outside the grid {self.extent_m}")
+        return idx  # type: ignore[return-value]
+
+
+class WindowClosed(RuntimeError):
+    """A write was attempted outside the write window: a programming error, never untrusted input."""
+
+
+class CellStore:
+    """The cells' owner: which arrays exist, and the one window in which they may be written (boundaries §4.1).
+
+    At rest every channel, every region mask and the region table are read-only. ``writing()`` hands out fresh
+    writable copies as the channels for the length of the window, and at exit swaps in read-only copies of them as the
+    new owners, so no writable handle, and no view of one unlocked inside the window, outlives it: a write through any
+    of them after exit lands in memory the world no longer reads. A window that raises is rolled back whole.
+    """
+
+    def __init__(
+        self,
+        *,
+        material: npt.NDArray[np.uint8],
+        original_material: npt.NDArray[np.uint8],
+        integrity: npt.NDArray[np.float32],
+        temperature: Field,
+    ) -> None:
+        self._channels: dict[str, npt.NDArray[np.generic]] = {
+            "material": frozen(material),
+            "original_material": frozen(original_material),
+            "integrity": frozen(integrity),
+            "temperature": frozen(temperature),
+        }
+        self._regions: dict[str, Region] = {}
+        self._time_s = 0.0
+        self._open = False
+        self._on_close: list[Callable[[], None]] = []
+
+    @property
+    def material(self) -> npt.NDArray[np.uint8]:
+        return self._channels["material"]  # type: ignore[return-value]
+
+    @property
+    def original_material(self) -> npt.NDArray[np.uint8]:
+        return self._channels["original_material"]  # type: ignore[return-value]
+
+    @property
+    def integrity(self) -> npt.NDArray[np.float32]:
+        return self._channels["integrity"]  # type: ignore[return-value]
+
+    @property
+    def temperature(self) -> Field:
+        return self._channels["temperature"]  # type: ignore[return-value]
+
+    @property
+    def regions(self) -> Mapping[str, Region]:
+        return MappingProxyType(self._regions)
+
+    @property
+    def time_s(self) -> float:
+        return self._time_s
+
+    @time_s.setter
+    def time_s(self, value: float) -> None:
+        self._require_window("the clock")
+        self._time_s = value
+
+    def on_close(self, callback: Callable[[], None]) -> None:
+        """Call ``callback`` after each window that changed something closes (the world publishes a frame there)."""
+        self._on_close.append(callback)
+
+    def _require_window(self, what: str) -> None:
+        if not self._open:
+            raise WindowClosed(f"{what} changes only inside the write window (boundaries §4.1)")
+
+    @contextmanager
+    def writing(self) -> Iterator[None]:
+        """The write window. One owner at a time: a window opened inside another is refused."""
+        if self._open:
+            raise WindowClosed("the write window is already open: it has one owner at a time")
+        owners, regions, time_s = self._channels, dict(self._regions), self._time_s
+        self._channels = {name: arr.copy() for name, arr in owners.items()}
+        self._open = True
+        try:
+            yield
+        except BaseException:
+            self._channels, self._regions, self._time_s = owners, regions, time_s
+            raise
+        else:
+            self._channels = {name: frozen(arr) for name, arr in self._channels.items()}
+        finally:
+            self._open = False
+        for callback in self._on_close:
+            callback()
+
+
+class MaterialGrid(GridGeometry, CellStore):
+    """Cells of one material table over a box in metres: painting, named regions and destruction."""
+
+    def __init__(
+        self,
+        dx: float,
+        shape: tuple[int, int, int],
+        materials: MaterialTable,
+        *,
+        material: npt.NDArray[np.uint8],
+        original_material: npt.NDArray[np.uint8],
+        integrity: npt.NDArray[np.float32],
+        temperature: Field,
+    ) -> None:
+        GridGeometry.__init__(self, dx, shape)
+        CellStore.__init__(
+            self, material=material, original_material=original_material, integrity=integrity, temperature=temperature
+        )
+        self._materials = materials
+
+    @property
+    def materials(self) -> MaterialTable:
+        return self._materials
 
     @classmethod
     def empty(
@@ -85,44 +249,16 @@ class MaterialGrid:
                     "coarsest grid's cell size so every grid spacing covers the same space"
                 )
         return cls(
-            dx=dx,
-            shape=shape,  # type: ignore[arg-type]
-            materials=materials,
+            dx,
+            shape,  # type: ignore[arg-type]
+            materials,
             material=np.zeros(shape, dtype=np.uint8),
             original_material=np.zeros(shape, dtype=np.uint8),
             integrity=np.zeros(shape, dtype=np.float32),
             temperature=np.full(shape, ambient_c, dtype=np.float64),
         )
 
-    # -- geometry -----------------------------------------------------------
-
-    @property
-    def cell_volume_m3(self) -> float:
-        return self.dx**3
-
-    @property
-    def extent_m(self) -> tuple[float, float, float]:
-        return tuple(n * self.dx for n in self.shape)  # type: ignore[return-value]
-
-    def centers(self, axis: int) -> Field:
-        """Cell-centre coordinates along one axis, in metres."""
-        return (np.arange(self.shape[axis], dtype=np.float64) + 0.5) * self.dx
-
-    def mesh(self) -> tuple[Field, Field, Field]:
-        """Broadcastable cell-centre coordinates (x[:, None, None], y[None, :, None], z[None, None, :])."""
-        x = self.centers(0)[:, None, None]
-        y = self.centers(1)[None, :, None]
-        z = self.centers(2)[None, None, :]
-        return x, y, z
-
-    def cell_of(self, point_m: tuple[float, float, float]) -> tuple[int, int, int]:
-        idx = tuple(int(np.floor(p / self.dx)) for p in point_m)
-        for i, n in zip(idx, self.shape, strict=True):
-            if not 0 <= i < n:
-                raise ValueError(f"point {point_m} is outside the grid {self.extent_m}")
-        return idx  # type: ignore[return-value]
-
-    # -- writing ------------------------------------------------------------
+    # -- writing (inside the window) ----------------------------------------
 
     def paint(
         self, mask: Mask, material_name: str, region: str | None = None, *, footprint: Footprint | None = None
@@ -131,17 +267,18 @@ class MaterialGrid:
 
         A named region needs its ``footprint``, its authored shape in metres (see ``Region``).
         """
-        if region is not None and any(entity_key(r) == entity_key(region) for r in self.regions):
+        if region is not None and any(entity_key(r) == entity_key(region) for r in self._regions):
             raise ValueError(f"region {region!r} already exists")
         if region is not None and footprint is None:
             raise ValueError(f"region {region!r} needs its authored footprint in metres")
+        self._require_window("a paint")
         mid = self.materials[material_name].id
         self.material[mask] = mid
         self.original_material[mask] = mid
         self.integrity[mask] = 0.0 if mid == AIR_ID else 1.0
         # A later paint takes cells from any earlier region.
-        for other in self.regions.values():
-            np.logical_and(other.cells, ~mask, out=other.cells)
+        for name, other in self._regions.items():
+            self._regions[name] = Region(other.cells & ~mask, other.footprint, other.solid)
         if region is not None:
             assert footprint is not None
             self.name_region(region, mask, footprint, solid=mid != AIR_ID)
@@ -153,10 +290,11 @@ class MaterialGrid:
         "crate" to whichever entity normalises to it: two regions "Crate" and "crate" would let a call aimed at one
         burn the other.
         """
-        clash = next((r for r in self.regions if entity_key(r) == entity_key(region)), None)
+        clash = next((r for r in self._regions if entity_key(r) == entity_key(region)), None)
         if clash is not None:
             raise ValueError(f"region {region!r} already exists" + ("" if clash == region else f" (as {clash!r})"))
-        self.regions[region] = Region(mask.copy(), footprint, solid)
+        self._require_window("a region")
+        self._regions[region] = Region(mask, footprint, solid)
 
     def destroy(self, mask: Mask) -> int:
         """Turn solid cells in ``mask`` to air. Returns how many cells were destroyed."""

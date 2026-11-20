@@ -4,15 +4,42 @@ Data files (rigs, materials, action limits, scenes), imagined specs and SEM acti
 output, a client's intent) all reach the world as loosely typed values. Each number becomes a float here or is
 refused here, so nothing downstream sees NaN, an infinity, a bool posing as a number, or a string that ``float()``
 would quietly accept. Each mapping is held to the keys its reader knows (``known_keys``), so a misspelt key is
-refused rather than silently ignored. ``tests/test_validation.py`` and ``tests/test_act_validation.py`` hold every
-loader to it.
+refused rather than silently ignored. Every value a refusal echoes goes through ``shown``, which bounds it.
+``tests/test_validation.py`` and ``tests/test_act_validation.py`` hold every loader to it.
 """
 
 from __future__ import annotations
 
 import math
 import numbers
+import reprlib
 from collections.abc import Collection, Mapping, Sequence
+
+
+class _BoundedRepr(reprlib.Repr):
+    """reprlib with a safe int at every depth: an int too long to convert to text (past 4300 digits) is shown by its
+    size, so a ``10**5000`` anywhere in a value can't crash the message that refuses it."""
+
+    def repr_int(self, x: int, level: int) -> str:
+        if x.bit_length() > 128:
+            return f"<an integer of about {int(x.bit_length() * 0.30103)} digits>"
+        return repr(x)
+
+
+_SHOW = _BoundedRepr()
+_SHOW.maxstring = _SHOW.maxother = 40
+
+
+def shown(value: object) -> str:
+    """A bounded repr for an error message (boundaries §5.4, bounded echo), so a huge or hostile value can't flood or
+    crash the reply. It bounds length only; it doesn't scrub."""
+    return _SHOW.repr(value)
+
+
+def entity_key(name: str) -> str:
+    """A name as Maxim's EntityMap resolves it: stripped, lower-cased, spaces as underscores (boundaries §2.2: the
+    name rule sits in layer 0, so the membrane's gate half can apply it without reaching the cells)."""
+    return name.strip().lower().replace(" ", "_")
 
 
 def finite_real(value: object, what: str) -> float:
@@ -24,7 +51,7 @@ def finite_real(value: object, what: str) -> float:
         except OverflowError:  # an int too big for a float, such as 10**400 from YAML or JSON
             f = math.nan
     if not math.isfinite(f):
-        raise ValueError(f"{what} must be a finite number, got {value!r}")
+        raise ValueError(f"{what} must be a finite number, got {shown(value)}")
     return f
 
 
@@ -32,7 +59,7 @@ def whole_number(value: object, what: str) -> int:
     """``value`` as an int, or a ValueError that names it. Only integers count: not bools, floats such as 2.9 (which
     ``int()`` would quietly truncate to 2) or numeric strings."""
     if isinstance(value, bool) or not isinstance(value, numbers.Integral):
-        raise ValueError(f"{what} must be a whole number, got {value!r}")
+        raise ValueError(f"{what} must be a whole number, got {shown(value)}")
     return int(value)
 
 
@@ -54,9 +81,10 @@ def known_keys(
         raise ValueError(f"{what} must be a mapping, got {type(raw).__name__}")
     keys = list(raw)
     names = {k for k in keys if isinstance(k, str)}
-    unknown = sorted(str(k) for k in keys if not isinstance(k, str) or (k not in required and k not in optional))
+    unknown = sorted(shown(k) for k in keys if not isinstance(k, str) or (k not in required and k not in optional))
     if unknown:
-        raise ValueError(f"{what}: unknown key(s) {unknown}; it takes {sorted({*required, *optional})}")
+        listed = ", ".join(unknown[:8]) + (f" and {len(unknown) - 8} more" if len(unknown) > 8 else "")
+        raise ValueError(f"{what}: unknown key(s) [{listed}]; it takes {sorted({*required, *optional})}")
     missing = sorted(k for k in required if k not in names)
     if missing:
         raise ValueError(f"{what}: missing key(s) {missing}")
@@ -73,15 +101,15 @@ def format_version(raw: object, expected: int, what: str) -> Mapping[str, object
         raise ValueError(f"{what} must be a mapping, got {type(raw).__name__}")
     version = raw.get("version")
     if type(version) is not int or version != expected:
-        raise ValueError(f"{what} version must be {expected}, got {version!r}")
+        raise ValueError(f"{what} version must be {expected}, got {shown(version)}")
     return raw
 
 
 def finite_vector(value: object, n: int, what: str) -> tuple[float, ...]:
     """``value`` as ``n`` finite floats, or a ValueError that names the field."""
     if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or len(value) != n:
-        raise ValueError(f"{what} must be {n} numbers, got {value!r}")
+        raise ValueError(f"{what} must be {n} numbers, got {shown(value)}")
     try:
         return tuple(finite_real(v, what) for v in value)
     except ValueError:
-        raise ValueError(f"{what} must be {n} finite numbers, got {value!r}") from None
+        raise ValueError(f"{what} must be {n} finite numbers, got {shown(value)}") from None

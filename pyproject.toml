@@ -126,6 +126,48 @@ forbidden_modules = [
     "maxim",
 ]
 
+# Skip-layer rule (boundaries §2.2, S2): the adapters and the protocol reach the core only through its public surface,
+# the simulation (world, applier, frames), the intents (intents, limits), the material types and the checks. Never the
+# cells, the laws, the geometry and scene build, imagination's internals or the core's array helpers. Direct imports
+# only: reaching the cells through the world is the point of the public surface. tests/test_tooling_config.py holds
+# the list to every core module outside that surface, so a new core module must be classified.
+[[tool.importlinter.contracts]]
+id = "skip-layer"
+name = "adapters and protocol reach no cells, laws, geometry or scene build (boundaries §2.2, S2)"
+type = "forbidden"
+source_modules = ["simcore.adapters", "simcore.protocol"]
+forbidden_modules = [
+    "simcore.core.damage", "simcore.core.grid", "simcore.core.heat", "simcore.core.imagination",
+    "simcore.core.readonly", "simcore.core.scene",
+]  # fmt: skip
+allow_indirect_imports = true
+
+# B-13's import half (boundaries §4.4): the SEM membrane reads the world through published frames (and, from step 5a,
+# the field registry) and changes it through the applier. On top of the skip-layer rule it gives up the material types
+# and the file gates. tests/test_tooling_config.py holds the list to every core module outside its surface.
+[[tool.importlinter.contracts]]
+id = "membrane-reads-frames"
+name = "the SEM membrane reads frames and writes through the applier only (boundaries §4.4, B-13)"
+type = "forbidden"
+source_modules = ["simcore.adapters.sem"]
+forbidden_modules = [
+    "simcore.core.damage", "simcore.core.grid", "simcore.core.heat", "simcore.core.imagination",
+    "simcore.core.materials", "simcore.core.readonly", "simcore.core.scene", "simcore.adapters.loaders",
+]  # fmt: skip
+allow_indirect_imports = true
+
+# Input primitives by source (boundaries §5.2, B-4): only the file gates parse YAML or JSON, and nothing decodes pickle
+# or marshal. Direct imports only, so a module that calls a gate (tiers, the game's data) passes; the one gate import
+# is named. scripts/lint_inputs.py holds the calls an import can't show (open, read_text, np.load, the environment).
+[[tool.importlinter.contracts]]
+id = "input-primitives"
+name = "only the file gates parse YAML or JSON, and nothing unpickles (boundaries §5.2, B-4)"
+type = "forbidden"
+source_modules = ["simcore", "maxim_overdrive"]
+forbidden_modules = ["yaml", "json", "pickle", "marshal", "shelve"]
+ignore_imports = ["simcore.adapters.loaders -> yaml"]
+allow_indirect_imports = true
+
 [[tool.importlinter.contracts]]
 id = "maxim-through-adapters"
 name = "only the SEM membrane imports maxim (boundaries §8.1)"

@@ -127,7 +127,7 @@ How the rule is kept, so far:
   not at a finer one. Its size and mass budgets come from the authored geometry (rig-independent since
   2026-11-15); this check is still rig-dependent. The thin-features rule (two coarse cells) as a minimum authored size
   would remove it.
-- **A region's temperature reading can leave its declared range.** `RegionSensor` declares
+- **A region's temperature reading can leave its declared range.** `RegionInstrument` declares
   `temperature_max` as [-273, 6000] °C, but the fuel gap lets legal fires drive cells far past that (about 4×10⁵ °C
   after 60 turns of a 500 kW fire, once the crate has burned away). The reading isn't clipped, because clipping
   would hide the gap; the fuel model is the fix.
@@ -136,16 +136,16 @@ How the rule is kept, so far:
 
 ## SEM for the environment
 
-`simcore/adapters/sem/bridge.py` makes any named region (a wall, a door, an imagined crate) an SEM Entity: sensors `integrity`,
+`simcore/adapters/sem/bridge.py` makes any named region (a wall, a door, an imagined crate) an SEM Entity: instruments `integrity`,
 `temperature_max`, `temperature_mean` and `breached`, and a `structure` modulator with `strike`, `ignite` and
 `extinguish`. With pymaxim installed, `to_maxim_entity` returns a real `maxim.embodiment.sem.Entity`, so Maxim's tool
 generation, affordance gating and prompt formatting work on the environment unchanged. The environment has no drives,
 pain or learning: it is SEM without embodiment.
 
-**The modulator is a trust boundary.** An NPC's tool call, an LLM's output and a client's intent will all reach the
+**The modulator is a trust boundary.** An NPC's tool call, an LLM's output and a client's intent all reach the
 world through it, so it works in two stages. `parse_action` turns the untrusted `(affordance, params)` into a frozen
 `Strike`, `Ignite` or `Extinguish` inside the world's `ActionLimits` (`data/world/actions.yaml`), reading nothing from
-the world, so the protocol layer can run it first. `StructureModulator.apply` re-checks the action against the
+the world, so the protocol layer can run it first. The applier re-checks the action against the
 limits, then checks what depends on the world now (the region still has cells, a strike's point is on the region, judged
 from authored footprints in metres so the answer is the same at every spacing). A region is its cells plus its authored
 footprint; named solids can't share space with a later solid, so a footprint never covers another object's cells.

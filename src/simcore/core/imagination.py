@@ -17,15 +17,32 @@ from typing import Any, SupportsFloat
 
 import numpy as np
 
-from simcore.core.checks import finite_vector, known_keys
-from simcore.core.grid import MaterialGrid, entity_key
+from simcore.core.checks import entity_key, finite_real, finite_vector, known_keys, shown, whole_number
+from simcore.core.grid import MaterialGrid
 from simcore.core.scene import Box, Cylinder, Primitive, boxes_overlap, footprint_of, primitives_from_data
 
 
 @dataclass(frozen=True)
 class Budget:
+    """What one imagined object may cost. Every limit is checked before anything is allocated (boundaries §5.4)."""
+
     max_mass_kg: float = 500.0
     max_extent_m: float = 3.0
+    max_primitives: int = 32  # each primitive costs a full-grid mask to voxelize, one at a time
+    max_name_chars: int = 64
+
+    def __post_init__(self) -> None:
+        # Validating constructor (boundaries §5.1): Budget(max_mass_kg=nan) once built, and removed the mass limit.
+        for name in ("max_mass_kg", "max_extent_m"):
+            value = finite_real(self.__dict__[name], f"budget {name}")
+            if not value > 0:
+                raise ValueError(f"budget {name} must be positive, got {value!r}")
+            object.__setattr__(self, name, value)
+        for name in ("max_primitives", "max_name_chars"):
+            count = whole_number(self.__dict__[name], f"budget {name}")
+            if count < 1:
+                raise ValueError(f"budget {name} must be at least 1, got {count}")
+            object.__setattr__(self, name, count)
 
 
 class SpecRejected(ValueError):
@@ -47,7 +64,16 @@ def _offset(p: Primitive, o: tuple[float, float, float]) -> Primitive:
 SPEC_KEYS = frozenset({"name", "primitives"})
 
 
-def _read(grid: MaterialGrid, spec: object, origin_m: object) -> tuple[str, list[Primitive]]:
+def _within_budget(spec: Mapping[object, object], budget: Budget) -> None:
+    """The counts and lengths a spec may carry, checked before any primitive is built or any cell is allocated."""
+    name, listed = spec.get("name"), spec.get("primitives", [])
+    if isinstance(name, str) and len(name) > budget.max_name_chars:
+        raise SpecRejected(f"an imagined object's name is at most {budget.max_name_chars} characters")
+    if isinstance(listed, Sequence) and len(listed) > budget.max_primitives:
+        raise SpecRejected(f"too many primitives: {len(listed)}, the limit is {budget.max_primitives}")
+
+
+def _read(grid: MaterialGrid, spec: object, origin_m: object, budget: Budget) -> tuple[str, list[Primitive]]:
     """The spec's name and its primitives placed at ``origin_m``, or SpecRejected. Nothing here touches the grid."""
     if not isinstance(spec, Mapping):
         raise SpecRejected(f"an imagined object must be a mapping, got {type(spec).__name__}")
@@ -55,12 +81,13 @@ def _read(grid: MaterialGrid, spec: object, origin_m: object) -> tuple[str, list
         known_keys(spec, "an imagined object", required=(), optional=SPEC_KEYS)
     except ValueError as exc:  # reported as the refusal
         raise SpecRejected(str(exc)) from exc
+    _within_budget(spec, budget)
     name = spec.get("name")
     if not name or not isinstance(name, str) or not name.strip() or name != name.strip():
         raise SpecRejected("an imagined object needs a name, with no outer spaces")
     clash = next((r for r in grid.regions if entity_key(r) == entity_key(name)), None)
     if clash is not None:  # by Maxim's name rule, checked before anything is painted
-        raise SpecRejected(f"something called {clash!r} already exists")
+        raise SpecRejected(f"something called {shown(clash)} already exists")
     try:
         origin = finite_vector(origin_m, 3, "origin_m")
         prims = primitives_from_data(spec.get("primitives", []))
@@ -71,7 +98,7 @@ def _read(grid: MaterialGrid, spec: object, origin_m: object) -> tuple[str, list
         raise SpecRejected("an imagined object needs at least one primitive")
     for p in prims:
         if p.material not in grid.materials:
-            raise SpecRejected(f"{p.material!r} is not a material this world knows")
+            raise SpecRejected(f"{shown(p.material)} is not a material this world knows")
         if p.material == "air":
             raise SpecRejected("objects cannot be made of air")
     return name, placed
@@ -85,10 +112,13 @@ def place(
     Raises ``SpecRejected`` with a reason if any rule fails; the grid is unchanged in that case. ``spec`` and
     ``origin_m`` usually come from an LLM, so every malformed shape is a rejection, never another exception.
     """
-    name, placed = _read(grid, spec, origin_m)
+    name, placed = _read(grid, spec, origin_m, budget)
 
-    masks = [p.mask(grid) for p in placed]
-    union = np.any(np.stack(masks), axis=0)
+    # One mask at a time, never a stack of them: a stack cost one full-grid mask per primitive before anything was
+    # refused (boundaries §5.4: 1,000 one-centimetre primitives, about 5 GB at the max profile).
+    union = np.zeros(grid.shape, dtype=np.bool_)
+    for p in placed:
+        union |= p.mask(grid)
     if not union.any():
         raise SpecRejected("the object is smaller than one cell at this resolution, or outside the world")
     # Size from the authored geometry, like mass, so whether an object is too large doesn't depend on the grid spacing.
@@ -109,7 +139,9 @@ def place(
     if mass > budget.max_mass_kg:
         raise SpecRejected(f"too heavy: {mass:.0f} kg, the limit is {budget.max_mass_kg:.0f} kg")
 
-    for p, m in zip(placed, masks, strict=True):
-        grid.paint(m, p.material)
-    grid.name_region(name, union, footprint, solid=True)  # imagined objects are never air (see _read)
+    # The window's fourth owner: boundaries §6.4 lists place as the applier's imagine, which has no intent kind yet.
+    with grid.writing():
+        for p in placed:
+            grid.paint(p.mask(grid), p.material)
+        grid.name_region(name, union, footprint, solid=True)  # imagined objects are never air (see _read)
     return float(mass)

@@ -15,17 +15,17 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Literal
 
-from simcore.core.checks import finite_real, finite_vector, format_version, known_keys
+from simcore.core.checks import finite_real, finite_vector, format_version, known_keys, shown
 from simcore.core.grid import Bounds, Footprint, Mask, MaterialGrid, Point
 from simcore.core.materials import MaterialTable
 
 
 def _check_labels(material: object, name: object) -> None:
     if not isinstance(material, str) or not material:
-        raise ValueError(f"primitive {name!r} needs a material name, got {material!r}")
+        raise ValueError(f"primitive {shown(name)} needs a material name, got {shown(material)}")
     if name is not None and (not isinstance(name, str) or not name.strip() or name != name.strip()):
         # Maxim strips the names it resolves, so " crate" would answer to "crate" and "  " to nothing.
-        raise ValueError(f"a primitive's name must be a non-empty string with no outer spaces, got {name!r}")
+        raise ValueError(f"a primitive's name must be a non-empty string with no outer spaces, got {shown(name)}")
 
 
 @dataclass(frozen=True)
@@ -173,10 +173,10 @@ def primitives_from_data(listed: object) -> tuple[Primitive, ...]:
     prims: list[Primitive] = []
     for p in listed:
         if not isinstance(p, Mapping):
-            raise ValueError(f"each primitive must be a mapping, got {p!r}")
+            raise ValueError(f"each primitive must be a mapping, got {shown(p)}")
         kind = p.get("kind", "box")
         if not isinstance(kind, str) or kind not in PRIMITIVE_KEYS:  # a list or a mapping isn't hashed
-            raise ValueError(f"unknown primitive kind {kind!r}")
+            raise ValueError(f"unknown primitive kind {shown(kind)}")
         known_keys(p, f"{kind} primitive", required=PRIMITIVE_KEYS[kind], optional={"kind", "name"})
         if kind == "box":
             prims.append(Box(p["min_m"], p["max_m"], p["material"], p.get("name")))
@@ -195,23 +195,24 @@ class Scene:
         x, y, z = finite_vector(self.extent_m, 3, "a scene's extent_m")
         if not (min(x, y, z) > 0 and max(x, y, z) <= MAX_EXTENT_M):
             raise ValueError(
-                f"a scene's extent_m must be between 0 and {MAX_EXTENT_M:g} m on every axis, got {self.extent_m!r}"
+                f"a scene's extent_m must be between 0 and {MAX_EXTENT_M:g} m on every axis, got {shown(self.extent_m)}"
             )
         ambient = finite_real(self.ambient_c, "a scene's ambient_c")
         if not -273.15 < ambient <= MAX_AMBIENT_C:
             limit = f"above absolute zero and at most {MAX_AMBIENT_C:g} C"
-            raise ValueError(f"a scene's ambient_c must be {limit}, got {self.ambient_c!r}")
+            raise ValueError(f"a scene's ambient_c must be {limit}, got {shown(self.ambient_c)}")
         object.__setattr__(self, "extent_m", (x, y, z))
         object.__setattr__(self, "ambient_c", ambient)
 
     def build(self, materials: MaterialTable, *, dx_m: float) -> MaterialGrid:
         for p in self.primitives:
             if p.material not in materials:
-                raise ValueError(f"unknown material {p.material!r} in primitive {p.name or p.kind}")
+                raise ValueError(f"unknown material {shown(p.material)} in primitive {shown(p.name or p.kind)}")
         _check_no_solid_overlaps(self.primitives)
         grid = MaterialGrid.empty(self.extent_m, materials, dx_m=dx_m, ambient_c=self.ambient_c)
-        for p in self.primitives:
-            grid.paint(p.mask(grid), p.material, region=p.name, footprint=footprint_of([p]) if p.name else None)
+        with grid.writing():  # construction, the window's third owner (boundaries §4.1, §6.4)
+            for p in self.primitives:
+                grid.paint(p.mask(grid), p.material, region=p.name, footprint=footprint_of([p]) if p.name else None)
         return grid
 
     @classmethod

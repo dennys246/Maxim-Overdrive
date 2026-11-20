@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from simcore.adapters.loaders import read_yaml
-from simcore.core.checks import format_version, known_keys
+from simcore.core.checks import format_version, known_keys, shown
 
 RIG_PROFILE_VERSION = 1
 RIG_KEYS = frozenset({"version", "name"})
@@ -30,6 +30,11 @@ class RigProfile:
 
     name: str
 
+    def __post_init__(self) -> None:
+        # Validating constructor (boundaries §5.1): holding a RigProfile is proof its name is usable.
+        if not isinstance(self.name, str) or not self.name.strip():
+            raise ValueError(f"a rig profile needs a name, got {shown(self.name)}")
+
     @classmethod
     def load(cls, path: str | Path) -> RigProfile:
         path = Path(path)
@@ -38,6 +43,7 @@ class RigProfile:
         if isinstance(raw, Mapping) and type(raw.get("version")) is int and raw["version"] == 0:
             raise ValueError(f"{what} version must be {RIG_PROFILE_VERSION}, got 0: {_V0_MOVED}")
         raw = known_keys(format_version(raw, RIG_PROFILE_VERSION, what), what, required=RIG_KEYS)
-        if not isinstance(raw["name"], str):
-            raise ValueError(f"rig profile {path}: name must be a string, got {raw['name']!r}")
-        return cls(name=raw["name"])
+        try:
+            return cls(name=raw["name"])  # type: ignore[arg-type]  # the constructor checks it
+        except ValueError as exc:
+            raise ValueError(f"{what}: {exc}") from None

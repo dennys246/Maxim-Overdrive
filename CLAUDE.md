@@ -54,20 +54,26 @@ result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` dr
   `[tool.importlinter]` in `pyproject.toml`): game > protocol > adapters > core
 - `src/simcore/core/` (the sealed core: no IO, no clock, no `maxim`): `checks.py` (every untrusted number becomes a
   finite float or a whole number there, and every mapping is held to its reader's keys, `known_keys`, or is
-  refused), `materials.py` (the material table's types), `limits.py` (`ActionLimits`), `grid.py` (cells), `scene.py`
-  (authoring in metres), `heat.py`, `damage.py`, `world.py` (turn loop, heat sources), `imagination.py` (imagined
-  objects as validated specs that become cells)
+  refused; `shown`, the bounded echo; `entity_key`, Maxim's name rule), `materials.py` (the material table's types),
+  `readonly.py` (arrays nothing can make writable), `limits.py` (`ActionLimits`), `grid.py` (cells, and the write
+  window: read-only at rest, written only inside `writing()`), `scene.py` (authoring in metres), `heat.py`,
+  `damage.py`, `intents.py` (typed actions and stage-1 parsing), `frames.py` (published frames and the
+  `Observation` protocol observers read), `world.py` (turn loop, heat sources, the world's window, frame
+  publication), `applier.py` (stage 2: the only code that applies an action), `imagination.py` (imagined objects as
+  validated specs that become cells)
 - `src/simcore/adapters/`: `loaders.py` (the file gates: material table, action limits, strict YAML) and
-  `sem/bridge.py` (environment regions as Maxim SEM Entities; the only engine code that imports `maxim`)
+  `sem/bridge.py` (the membrane's gate half: environment regions as Maxim SEM Entities, reading frames and writing
+  through the applier; the only engine code that imports `maxim`)
 - `src/simcore/protocol/`: what the client receives: `tiers.py` (rig profiles as rendering tiers, no physics),
-  `encoding.py` (`snapshot`, display quantization)
+  `encoding.py` (`snapshot` of a published frame, display quantization)
 - `src/maxim_overdrive/`: the game. `data.py` says where its data lives (`data/rigs/`, `data/materials/`,
   `data/world/`) and loads it
 - `client/`: the Godot 4.7.2 client (`docs/design/client_rendering.md` §7): `addons/engine/` (the engine half),
   `game/` (this game), `tests/` (`run.gd` the runner, `unit/`, `load_all.gd`, the golden scene and `goldens/`);
   `tools/godot_probes/`: the §9 probes, a separate Godot project rerun on an upgrade (B26); `ci/`: the Godot pin
   (`godot.env`), `install_godot.sh` and the golden image (`godot-golden/`)
-- `scripts/`: `prepush.sh` (the gate), `lint_standards.py` (with one `lint_*.py` module per check), `check_lock.py`,
+- `scripts/`: `prepush.sh` (the gate), `lint_standards.py` (with one `lint_*.py` module per check, the input sources
+  in `lint_inputs.py` and the gate registry in `lint_gates.py` among them), `check_lock.py`,
   `godot_check.py` (the gate's Godot step), `golden_run.py` (the golden job) and `golden_compare.py` (the golden
   tolerance); `constraints/`: the lockfiles
 - `docs/code_review.md`: the pre-push review charter. `docs/standards_backlog.md`: rules waiting for a check
@@ -98,7 +104,8 @@ result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` dr
   Don't add fields Maxim doesn't have.
 - Imagined objects enter only through `simcore.core.imagination.place`, which validates them. Never write cells
   directly from LLM output.
-- Actions change cells; only `World.advance` moves time.
+- Actions change cells, through `simcore.core.applier` only; only `World.advance` moves time. Both write inside the
+  write window, and observers read published frames, never the world.
 - Record known physics gaps in `docs/architecture.md` ("Known gaps"), with numbers, instead of hiding them.
 
 ## Engineering standards
@@ -134,9 +141,10 @@ only review holds.
   red first)
 - **Critical functionality is tested exhaustively, by kind.** Physics: a closed-form test and a cross-tier test.
   Trust boundaries (protocol, intents, `simcore.core.imagination`, every loader): every rejection path, aiming at
-  100% branch coverage. Wire and save formats: a round trip plus committed golden fixtures. Determinism: a
-  bit-identical rerun.
-  Guard: `tests/test_cross_tier.py`, `tests/test_imagination.py`, `tests/test_determinism.py`, B3, B4, B12
+  100% branch coverage, and a row in the gate registry. Wire and save formats: a round trip plus committed golden
+  fixtures. Determinism: a bit-identical rerun.
+  Guard: `tests/test_cross_tier.py`, `tests/test_imagination.py`, `tests/test_determinism.py`,
+  `scripts/lint_gates.py::check_gates`, B3, B4, B12
 - **Coverage only ratchets up.** Branch coverage must stay above `fail_under` in `pyproject.toml`; raise the floor
   when coverage rises, never lower it. Coverage measures `src/` and `scripts/`. Lines changed on a branch must be at
   least 95% covered. A `pragma: no cover` must say why (`# pragma: no cover - <why>`), and reviewers question it.
@@ -194,7 +202,9 @@ only review holds.
 - **The client is untrusted input.** Every intent is validated at the protocol layer. Malformed input gets an error
   reply, never a crash or a half-applied change. The server binds to 127.0.0.1, refuses any handshake carrying an
   `Origin` header, and requires the per-launch token. Imagined and authored geometry is validated where primitives
-  are made. Guard: `tests/test_imagination.py::test_the_world_refuses_impossible_objects`, B3, B14
+  are made. Only the file gates read input, and nothing unpickles. Guard:
+  `tests/test_imagination.py::test_the_world_refuses_impossible_objects`, `scripts/lint_inputs.py::check_inputs`,
+  B3, B14
 - **Performance has budgets, measured, not guessed:** turn time and snapshot size per profile, with a regression gate.
   Optimize only from a profile. Guard: B5
 - **Client standards (Godot).** The engine version is pinned (4.7.2), and an upgrade is its own branch. GDScript is
@@ -229,8 +239,9 @@ only review holds.
   change. A function either decides or does; orchestration reads as a short list of named steps, and each step lives
   where its concern lives. Once the boundaries design lands, packages import only downward through its layers. No
   check can see a mixed concern, so review holds this and the size tripwires below only catch its symptoms; the
-  layers are checked. Guard: `scripts/prepush.sh::lint_imports`,
+  layers are checked, and so are the writers. Guard: `scripts/prepush.sh::lint_imports`,
   `tests/test_tooling_config.py::test_every_package_under_src_is_a_root_of_the_import_graph`,
+  `tests/test_ownership.py::test_every_function_that_writes_the_world_is_in_the_core`,
   `docs/code_review.md` (the Architecture lens asks it of every diff), B19
 - **Size tripwires.** Hard limits in `src/` and `scripts/`: a 40-line function body (code lines: the docstring,
   comments and blank lines don't count), a 500-line module and 12 public methods per class, properties included

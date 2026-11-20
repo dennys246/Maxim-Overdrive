@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 import pytest
 
@@ -14,19 +16,20 @@ LIMITS = data.action_limits()
 
 
 def _grid(dx_m, materials):
+    """The published frame the encoder reads, never the grid (boundaries §4.2). Tests build their states as frames."""
     return World.from_scene(
         Scene((2.0, 2.0, 2.0), (Box((0.8, 0, 0), (1.2, 2, 2), "concrete", "wall"),)),
         materials,
         dx_m=dx_m,
         limits=LIMITS,
-    ).grid
+    ).frames.latest.cells
 
 
 def test_snapshot_shapes_dtypes_and_metadata(dx_m, materials):
     g = _grid(dx_m, materials)
     s = snapshot(g)
     assert s["shape"] == g.shape
-    assert s["cell_size_m"] == g.dx
+    assert s["cell_size_m"] == g.dx_m
     assert s["time_s"] == g.time_s
     for key, dtype in [("material", np.uint8), ("crack", np.uint8), ("glow", np.uint8), ("temperature_c", np.float16)]:
         arr = s[key]
@@ -44,7 +47,7 @@ def test_an_intact_cold_world_has_no_crack_and_no_glow(dx_m, materials):
 def test_crack_is_one_minus_integrity_on_solids(dx_m, materials):
     g = _grid(dx_m, materials)
     wall = g.regions["wall"].cells
-    g.integrity[wall] = 0.5
+    g = replace(g, integrity=np.where(wall, 0.5, g.integrity).astype(np.float32))
     crack = np.asarray(snapshot(g)["crack"])
     assert (crack[wall] == 128).all()  # round(0.5 * 255) under numpy's round-half-even
     assert (crack[~g.solid] == 0).all()
@@ -69,7 +72,7 @@ def test_glow_starts_at_the_draper_point():
 )
 def test_glow_ramps_from_the_draper_point_on_solids_only(dx_m, materials, temp_c, expected):
     g = _grid(dx_m, materials)
-    g.temperature[:] = temp_c
+    g = replace(g, temperature=np.full(g.shape, temp_c))
     glow = np.asarray(snapshot(g)["glow"])
     assert (glow[g.solid] == expected).all()
     assert (glow[~g.solid] == 0).all()  # hot air does not glow
@@ -77,16 +80,16 @@ def test_glow_ramps_from_the_draper_point_on_solids_only(dx_m, materials, temp_c
 
 def test_temperature_is_clamped_to_the_float16_range_it_promises(dx_m, materials):
     g = _grid(dx_m, materials)
-    g.temperature[:] = 1.0e9
+    g = replace(g, temperature=np.full(g.shape, 1.0e9))
     t = np.asarray(snapshot(g)["temperature_c"])
     assert np.isfinite(t).all()
     assert t.max() == pytest.approx(6000.0, rel=1e-3)
-    g.temperature[:] = -1.0e9
+    g = replace(g, temperature=np.full(g.shape, -1.0e9))
     t = np.asarray(snapshot(g)["temperature_c"])
     assert t.min() == pytest.approx(-273.0, rel=1e-3)
 
 
-def test_snapshot_arrays_do_not_alias_the_grid(dx_m, materials):
+def test_snapshot_arrays_do_not_alias_the_frame(dx_m, materials):
     g = _grid(dx_m, materials)
     s = snapshot(g)
     np.asarray(s["material"])[:] = 99
