@@ -97,3 +97,24 @@ The exit (D26, D30) can't pass as specified. These are the honest options; none 
 **Recommended: 2 now, with 1's char-oxidation research as step 6's first task, and 3 as the fallback.** An
 accelerant-lit crate is honest and good gameplay (fire as a tool the player prepares). It keeps the exit's flames, and
 it leaves glow to depend on the one research question that decides it.
+
+## The owner's decision (T17, 2026-11-20)
+
+**Option 2, as recommended:** an accelerant lights the crate; step 6's first task is the char-oxidation research
+(option 1's char half), and option 3 is the fallback if cited kinetics still give no glow. That fallback is a
+decision for the owner when the research lands, not a default.
+
+What it commits step 6 to, which this spike did *not* show:
+
+- **Scenario F was an idealization.** It lit the whole bed at t = 0; nothing here modelled an accelerant doing that.
+  The accelerant is new physics: a liquid pool fire with a cited burning rate and heat of combustion, deposited by
+  face-area overlap like any source, with its own closed-form and cross-tier tests. Before step 6 is designed, a
+  rerun of Q1 with that pool fire must show it lights the whole bed. If it lights only part, this is the T13 failure
+  path again.
+- **The pilot still matters.** The torch ignites the accelerant, not the wood, so the `kindle` receipt's meaning
+  (tile §3.2: `applied` means placed, not ignited) is unchanged.
+
+**Open: the accelerant's form.** Either the scene authors the crate as soaked (no new intent kind, so protocol v0
+and T16 hold), or the player pours it with a new `douse` intent (fire as a prepared tool, but a new kind in v0, a
+validated quantity and a per-region fuel field). *Recommended: authored in the scene for Phase 1, `douse` in Phase
+2,* because the exit only needs the crate lit, and a new intent kind reopens the protocol freeze.
