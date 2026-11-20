@@ -1,6 +1,6 @@
 # Foundations plan: from here to the first visible tile
 
-For the owner and any session starting cold: where things stand, what comes next, what is open. Paths are on
+Where things stand, what comes next, what is open. Paths are on
 `phase1/design-v2` unless a branch is named. `scripts/check_plan.py` checks that every decision, Phase 3 id and open
 question is present (not true) and the 2,500-word budget. Source: the review in `docs/plans/reviews/`;
 `reviews/fold.md` maps each finding to where it went and keys the ids; `checklists.md` holds the steps' items.
@@ -15,7 +15,7 @@ question is present (not true) and the 2,500-word budget. Source: the review in 
 | #4 | `phase1/design-v2` | `phase1/standards` | this line |
 | — | `phase1/tile-spec` (step 0d) | `phase1/design-v2` | this line |
 
-Each branch has a worktree of its name under `.worktrees/`. Heads: `git log`.
+Each branch has a same-named worktree under `.worktrees/`.
 
 **Security gate.** Private since 2026-11-17. design-v2's history and PR #4 hold OD-I5's details; before going
 public, the owner decides on a force-push plus GitHub support for PR #4's refs. Security findings go to private notes.
@@ -29,7 +29,7 @@ fuel-mass law, the same apart from detail at each rendering tier.
 |---|---|---|---|---|---|---|---|
 | 0a | A `.venv` per worktree | nothing | each session | `python3 -m venv .venv && .venv/bin/pip install -e '.[dev,maxim]'`; record `pip show pymaxim` | the gate runs with no `PYTHON=` | none | shared-venv hazard (B20) |
 | 0b | Owner answers §5's open questions | nothing | owner | read §5 | done 2026-11-17, bar copyright | none | |
-| 0c | Send `erratum_1.md` to the Maxim session | nothing | owner | paste it | sent 2026-11-18 | none | |
+| 0c | Send `erratum_1.md` | nothing | owner | — | sent 2026-11-18 | none | |
 | 0d | Tile spec: `tile_and_client.md` (world) and `client_rendering.md` (Godot), each ≤ 6,000 words (O31) | nothing | this line | draft it | its review folded and accepted | Bio-faithful, Client, Physics | |
 | 1 | The merge line, per `docs/merge_notes.md` on `phase1/realtime-design`: act-validation into realtime-design, then standards, then design-v2; merge, never rebase (O21). Until it lands, `phase1/standards:CLAUDE.md` governs. This line's items: `checklists.md` | 0a | owner merges; each session does its branch's items | read the notes | CI's `prepush` passes on each merge commit; `main` carries the four branches | per merge | |
 | 2 | Godot skeleton in `client/`: 4.7.2 pinned, typed GDScript, warnings as errors, `godot_check.py` in the gate, a Linux CI golden job | 1 (PR #1 on `main`) | this line | `client/project.godot` | deletion fixtures go red; the golden job passes | Client and rendering | B6 |
@@ -46,7 +46,7 @@ fuel-mass law, the same apart from detail at each rendering tier.
 
 **In parallel, off the path:**
 - **The LLM spike (O20):** a throwaway `spikes/llm/` script, no Maxim: latency, tokens, cost, NPCs per local
-  model, into `docs/design/research/llm_spike.md`.
+  model (`docs/design/research/llm_spike.md`).
 - **The agent line, as tests (O19),** against the scripted double behind the real worker channel, after steps 5a and 7: types,
   codec, `data/agents/` gates; the worker channel; `AgentPort`, the double, the membrane. Red-first tests:
   1. a hash probe in the worker's first frame (`-I` ignores `PYTHONHASHSEED`);
@@ -56,10 +56,10 @@ fuel-mass law, the same apart from detail at each rendering tier.
   5. credit shares at two step rates, a strict red gate against pymaxim;
   6. a tool's duration comes from the host in world time, never `tool_dispatch.py:1419`'s wall clock.
 
-  It owns the thinking lane (npcs §6.2) and stays in Phase 1 (O19, against S-S1). Checklist: `checklists.md`.
+  It owns the thinking lane (npcs §6.2) and stays in Phase 1 (O19). Checklist: `checklists.md`.
 - **Real NPCs** wait for Maxim's stepped `think` (O15a, O29).
 
-**Deferred to Phase 2 (D26, D29):** zones and vents, combustion per zone, pyrolysis, phase change, CSG, the lab. Save with agents: Phase 4 (roadmap). The clinic: §5.
+**Deferred to Phase 2 (D26, D29):** zones and vents, combustion per zone, pyrolysis, phase change, CSG, the lab. Save with agents: Phase 4. The clinic: §5.
 
 ## 3. Maxim (`origin/main` f0b1cea4)
 
@@ -69,7 +69,7 @@ Linux only); #1396 (O18's guards). OD-I2
 stays a nit.
 
 **Exchanged:** `erratum_1.md` sent 2026-11-18 (OD-A20, OD-A21; OD-A19 withdrawn). Maxim's answer
-(`response_4.md`): 1.4.0 planned March–May 2027; the world-seam front gate accepted. Its plan review of O35's draft: SOUND WITH CONDITIONS (2026-11-19); v4 folds it, v5 its delta review.
+(`response_4.md`): 1.4.0 planned March–May 2027; the world-seam front gate accepted. Its reviews of O35's draft: v4 to v6 fold them.
 
 **Phase 3 ids, by where Maxim put them** (detail: `docs/plans/reviews/maxim_side.md` §1):
 - Tier A: OD-A1 (#1361), OD-A20 (declined), OD-A21 (#1361 Q1), OD-A2, OD-A3, OD-A4, OD-A8 (A3); OD-A5 (split with #1361); OD-A7 (A2, a gate item after 1.4.0); OD-A12 (A1,
@@ -79,7 +79,7 @@ stays a nit.
 - Not in it yet: OD-C11 (proposed, tile §9), OD-A6, OD-A9, OD-H3, OD-X1, OD-X2; OD-B1, OD-B2, OD-B3, OD-B4, OD-B5, OD-B6, OD-B7 (Exp 64a's
   prerequisites), OD-B8, OD-B9, OD-B10, OD-B11, OD-B12, OD-B13; OD-C1, OD-C2, OD-C3, OD-C4, OD-C5, OD-C6, OD-C7,
   OD-C8, OD-C9, OD-C10.
-- Exit tests: OD-WC1, OD-EA4, OD-EA5, OD-EA6, OD-EA7, OD-EA9, OD-EA10, OD-EA11, OD-EA12, OD-EA14, OD-EA15.
+- Exit tests: OD-WC1, OD-EA4, OD-EA5, OD-EA6, OD-EA7, OD-EA9, OD-EA10, OD-EA11, OD-EA12, OD-EA14, OD-EA15, OD-EA16.
 
 ## 4. Decisions
 
@@ -142,6 +142,8 @@ stays a nit.
 | O38 | Maxim's §A.1b.5 staleness |
 | O39 | `apply` merged into `settle`: three host calls |
 | O40 | `make_agent_rng` plus a stream argument |
+| O43 | `session_id` from the log header; the seq saved in the agent home |
+| O44 | Restore takes the higher seq; dead workers' pids refused |
 | OA1 | A thought's kind from the agent's policy, a closed vocabulary; a logged host table sets cost |
 | OA2 | Dilation shown on a three-handed clock |
 | OA3 | No conversational repertoire of our own; proposed to Maxim as OD-H5 |
@@ -180,9 +182,11 @@ stays a nit.
 | T11 | Walls-down with stumps |
 | T12 | Goldens gated in Linux CI |
 | T13 | Tile spec frozen at v3 |
+| T14 | Point-source flame radiation into bodies |
+| T15 | 20 mm slats at φ 0.25 |
+| T16 | Protocol v0 freezes only sent kinds |
 
-Unnumbered (npcs §0): the thought-cost unit as fine as useful; test per Maxim tier. New standards on
-`phase1/standards`: separation of concerns, size tripwires, concurrent agents, search Maxim first, the push rule.
+Unnumbered (npcs §0): the thought-cost unit as fine as useful; test per Maxim tier.
 
 ## 5. Open questions
 
@@ -208,9 +212,9 @@ Unnumbered (npcs §0): the thought-cost unit as fine as useful; test per Maxim t
 7. O17, with O26's mechanism.
 
 ### Open: tile §9
-1. Flame radiation into bodies: yes.
-2. 20 mm slats at φ 0.25: yes.
-3. v0 freezes only sent kinds: yes.
+1. T14.
+2. T15.
+3. T16.
 
 ### Open: client §10
 None (T8–T12).

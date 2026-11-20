@@ -112,6 +112,11 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 - The efference-copy fields (`tile_and_client.md` §3.1): bodies-part events and pilots rows carry `cause = (actor_id,
   seq)`; the intent record carries an optional, opaque `invocation`. A test: a `move_to`'s `arrived` and a
   `kindle`'s pilot row name their intent.
+- `invocation` is reserved and unfilled until Maxim's G17 stage (autonomic plan, post-fence resume) builds
+  `PhysicalEventId` (Maxim's review of v5, SHOULD-FIX 1). A test: null is accepted, and a stand-in is refused with a
+  typed code: a uuid string, an executor-style `invocation_id` and any other non-null value. The host copies the
+  field and never mints or computes one. When the type exists, the refusal narrows to any non-null value that isn't
+  a pid, with its own test.
 - Action vocabulary v1 with `actions.yaml` v1, refused at v0 by version, not migrated (DC-S5), and an interim sphere-overlap
   `kindle` deposit: a marked band-aid, its file listed under Phase 1 in the roadmap, removed by step 6's skin.
 
@@ -171,6 +176,7 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
   file; a content change loads with a `content_changed` flag instead of refusing; every grid carries its cell size.
   This supersedes world_model §8 F5's refuse-on-mismatch for saves (F5 and F14 contradict on embedded scenes).
 - No zero-valued `energy` or `dose` columns: they arrive in Phase 4 with defaults.
+- No agent state: the `EventSequencer`'s high-water seq in each agent home is save v1, Phase 4 (O43).
 
 ## The agent line's PR (after steps 5 and 7)
 
@@ -235,8 +241,29 @@ unknown continuation version loads it as a logged `thought_failed(reloaded)`, no
 carries each intent's invocation pid in `step_output`, and `caused_by` on every receipt and frame event it caused.
 Test with the double: an NPC's own `kindle` gives a frame event carrying its pid, a planted second actor's event at
 the same locus carries none, and an in-flight thought stays fresh across the first and goes stale on the second.
+- **The pid's owners (Maxim's Q1 answer).** The double mints its pid inside the worker, at dispatch, from its own
+  sequencer, standing in for B2 and Maxim's `EventSequencer`; the host copies it. A test plants a host-side mint
+  (the host fills a missing pid) and goes red. Until G17 the real-Maxim path sends null (step 5b's refusal holds).
+- **The settle invariant (OD-EA16, Maxim's SHOULD-FIX 2).** A test that every minted pid resolves exactly once: the
+  double mints pids for intents the host then applies, refuses at stage 1 or 2, defers past the budget and drops
+  (a superseded move, `coalesced`); each pid comes back in exactly one terminal receipt, the last three as a
+  typed refusal receipt carrying it; no receipt names an unminted pid; refusal receipts book no physical event.
+  Proven by deletion: a planted drop path that sends no receipt turns it red.
+- **Crash recovery (O44).** On restore the sequencer's high-water is max(the saved high-water, the highest pid the
+  host logged for that agent); a dead worker's in-flight pids each get a typed `agent_failed` refusal receipt. A
+  test: save, let the double mint several pids past the save (some settled, some in flight), kill the worker,
+  restore from the older save, keep stepping; assert no pid repeats in the log and every pid settles exactly once,
+  the in-flight ones as `agent_failed`. Proven by deletion: drop the floor and a duplicate pid turns it red; drop
+  the receipts and an unsettled pid does.
+- **Replay ids (O43).** `session_id` is derived from the log header (the root id plus the NPC key): a test that two
+  runs of one log give equal ids, and that no wall-clock or uuid source feeds it (the determinism scan). The
+  sequencer's high-water seq round-trips through the agent home: save mid-run, load, and the next pid's seq
+  continues. Maxim's determinism claim covers single-threaded loop paths only, so a worker
+  steps one agent on one thread, never a pool: a test that a worker refuses to build a second agent.
 
-**OD-A20's divergence: two strict red gates (`npcs_and_sem.md` §12.2).** Each drives a real `NucleusAccumbens` in a
+**OD-A20's divergence: two strict red gates (`npcs_and_sem.md` §12.2).** Neither exists yet: this PR lands them,
+and until it does the divergences are recorded from Maxim's code and our arithmetic, not from a run, and every
+document says the gates *will* carry the evidence (Maxim's review of v5, NIT). Each drives a real `NucleusAccumbens` in a
 spawned worker: `update_eligibility` with an explicit anchor `TemporalSignature.from_timestamp(time.time() − Δ)`
 (an argument, not a faked clock), `decay_eligibility` until that trace is gone (12 passes at activation 0.0336, 44
 at 1), any live-trace node set after, then `distribute_reward(1.0)`. Each reason names OD-A20 (declined 2026-11-19).
@@ -259,7 +286,8 @@ at 1), any live-trace node set after, then `distribute_reward(1.0)`. Each reason
 - Each gate is proven to measure the leak, not its setup: a control run with the similarity planted at 1.0 in the
   worker passes every assertion, so the red comes from the calendar alone.
 
-**Wall-clock forgetting, a strict red gate (`npcs_and_sem.md` §12.2; stays with Maxim's #1361 Q5).** Two identical
+**Wall-clock forgetting, a strict red gate (`npcs_and_sem.md` §12.2; stays with Maxim's #1361 Q5).** Not yet
+written, like the two above. Two identical
 stores in a spawned worker (default access-based strategy, no SCN wrapper), each with one memory accessed once,
 unlinked, not long-term, with low salience and novelty and no user input, so no promotion or keep rule applies; the
 second is loaded from a save with every wall stamp shifted back 4 days, which equals sleeping the same store 4 host days later (the score reads only `now −
@@ -271,4 +299,5 @@ workaround. Control: with the stamps unshifted both keep it.
 - Maxim's stepped-`think` API lands (cand. B1);
 - the LLM spike measures latency;
 - Maxim answers a second candidates round (the first, #1688, is answered by errata);
-- Maxim's review of `embeddable_agent_DRAFT.md` (O36; fired 2026-11-19, folded in npcs v3.2; its delta review in v3.3).
+- Maxim's review of `embeddable_agent_DRAFT.md` (O36; fired 2026-11-19, folded in npcs v3.2; its delta review in v3.3,
+  its review of v5 in v3.4).
