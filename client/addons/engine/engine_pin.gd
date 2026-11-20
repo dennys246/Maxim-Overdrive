@@ -2,6 +2,8 @@ class_name EnginePin
 extends RefCounted
 ## The Godot version this client is built and tested on. CLAUDE.md pins it: an upgrade is its own branch.
 ## RefCounted, not Node: plain logic needs no scene tree, so tests can call it directly, and it frees itself.
+## The gate's version step (scripts/godot_check.py) is the guard; this is the same pin as the client sees it, so a
+## client test run outside the gate (from the editor, say) also refuses another engine. ci/godot.env is the source.
 
 const MAJOR: int = 4
 const MINOR: int = 7

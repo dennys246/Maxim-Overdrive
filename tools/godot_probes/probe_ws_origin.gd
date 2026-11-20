@@ -1,6 +1,7 @@
 extends SceneTree
 ## §9 probe: does WebSocketPeer send an Origin header when handshake_headers is never set? A listener records the
-## handshake. Headless: godot --headless --path client -s res://tests/probes/probe_ws_origin.gd -- <port>
+## handshake (not committed: step 7's Python listener test, client_rendering.md §7.5, replaces this
+## probe). Headless: godot --headless --path tools/godot_probes -s res://probe_ws_origin.gd -- <port>
 
 const FRAMES: int = 120
 

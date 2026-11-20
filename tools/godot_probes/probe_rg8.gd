@@ -3,7 +3,7 @@ extends Node3D
 ## spatial shader with texelFetch as r + 256·g. Every one of the 65,536 ids is drawn as one pixel that is white when
 ## the shader decoded its own index. Needs a real renderer:
 ## godot --rendering-driver opengl3 --rendering-method gl_compatibility --resolution 256x256
-##       --path client res://tests/probes/probe_rg8.tscn
+##       --path tools/godot_probes res://probe_rg8.tscn
 
 const SIDE: int = 256
 const DEPTH: int = 16

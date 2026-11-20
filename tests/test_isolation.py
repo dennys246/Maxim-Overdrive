@@ -124,6 +124,23 @@ def _git_outside_helper(node: ast.Call) -> bool:
     )
 
 
+def _subprocess_without_env(node: ast.Call) -> bool:
+    """A process started with whatever environment this session happens to have (S2W-S3): a tool such as Godot
+    writes under HOME, so every call in tests/ and scripts/ says which environment it gets."""
+    if _call_name(node) not in SUBPROCESS_CALLS or _receiver(node) != "subprocess":
+        return False
+    return not any(kw.arg == "env" for kw in node.keywords)
+
+
+def _process_findings(rel: str, node: ast.Call, where: str) -> list[str]:
+    out = []
+    if rel.startswith(("tests/", "scripts/")) and _subprocess_without_env(node):
+        out.append(f"{where}: a subprocess with an implicit environment; pass env= (Godot runs via run_godot)")
+    if rel.startswith("tests/") and rel != GIT_HELPER and _git_outside_helper(node):
+        out.append(f"{where}: a test runs git without tests/_gitutil.py, so it inherits GIT_DIR; use git()")
+    return out
+
+
 def _node_findings(rel: str, node: ast.AST, mod: _Module) -> list[str]:
     where, in_tests = f"{rel}:{getattr(node, 'lineno', 0)}", rel.startswith("tests/")
     out = []
@@ -143,8 +160,7 @@ def _node_findings(rel: str, node: ast.AST, mod: _Module) -> list[str]:
             out.append(f"{where}: {name}() without a dir lands in the shared temp directory; use tmp_path")
         if in_tests and _fixed_port(node, mod):
             out.append(f"{where}: a test server on a fixed port collides with other sessions; bind port 0")
-        if in_tests and rel != GIT_HELPER and _git_outside_helper(node):
-            out.append(f"{where}: a test runs git without tests/_gitutil.py, so it inherits GIT_DIR; use git()")
+        out += _process_findings(rel, node, where)
     return out
 
 
@@ -213,8 +229,8 @@ def test_the_scan_catches_a_fixed_port_in_a_test(source: str) -> None:
 @pytest.mark.parametrize(
     "source",
     [
-        'subprocess.run(["git", "init"], cwd=tmp_path)',
-        'subprocess.check_output(["git", "status"])',
+        'subprocess.run(["git", "init"], cwd=tmp_path, env=e)',
+        'subprocess.check_output(["git", "status"], env=e)',
     ],
 )
 def test_the_scan_catches_a_test_running_git_without_the_helper(source: str) -> None:
@@ -238,8 +254,26 @@ def test_the_scan_catches_a_test_running_git_without_the_helper(source: str) -> 
         'text = "~~strike~~"',
         "where = npc.home()",
         'assert refuse("/tmp/evil")  # shared-path-ok: the validator under test must refuse this',
-        'subprocess.run(["ruff", "check"])',
+        'subprocess.run(["ruff", "check"], env=e)',
     ],
 )
 def test_the_scan_ignores(source: str) -> None:
     assert findings("tests/test_a.py", source) == []
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        'subprocess.run([godot, "--path", p])',
+        "subprocess.Popen(cmd, cwd=root)",
+        "subprocess.check_output(cmd)",
+    ],
+)
+def test_the_scan_catches_a_subprocess_with_an_implicit_environment(source: str) -> None:
+    for rel in ("tests/test_a.py", "scripts/a.py"):
+        assert any("implicit environment" in f for f in findings(rel, source)), rel
+    assert not any("implicit environment" in f for f in findings("src/a.py", source))
+
+
+def test_the_scan_accepts_a_subprocess_given_its_environment() -> None:
+    assert findings("scripts/a.py", "subprocess.run(cmd, env=godot_env(home), check=False)") == []

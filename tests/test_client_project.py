@@ -16,15 +16,19 @@
 
 from __future__ import annotations
 
+import os
 import re
+import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 CLIENT = ROOT / "client"
 PINS = (ROOT / "ci" / "godot.env").read_text()
 DOCKERFILE = (ROOT / "ci" / "godot-golden" / "Dockerfile").read_text()
+INSTALLER = ROOT / "ci" / "install_godot.sh"
 
 # Every warning level Godot 4.7.2 has (ProjectSettings, debug/gdscript/warnings/*, integer-valued), measured with
 # 4.7.2.stable.official.ed1daf0bf. §7.2 names seven of them; the defaults leave most at Warn or Ignore.
@@ -108,6 +112,7 @@ SETTINGS = project_settings((CLIENT / "project.godot").read_text())
 def test_the_renderer_is_compatibility_on_every_platform():
     assert SETTINGS["rendering/renderer/rendering_method"] == '"gl_compatibility"'
     assert SETTINGS["rendering/renderer/rendering_method.mobile"] == '"gl_compatibility"'
+    assert SETTINGS["rendering/renderer/rendering_method.web"] == '"gl_compatibility"'
     assert SETTINGS["application/config/features"] == 'PackedStringArray("4.7", "GL Compatibility")'
 
 
@@ -127,6 +132,7 @@ def test_the_main_scene_and_the_layout_exist():
     assert SETTINGS["application/run/main_scene"] == '"res://game/main.tscn"'
     for rel in ("game/main.tscn", "addons/engine", "tests/run.gd", "tests/load_all.gd", "tests/golden.tscn"):
         assert (CLIENT / rel).exists(), rel
+    assert not (CLIENT / "tests" / "probes").exists()  # windowed probes live in tools/godot_probes, outside the game
 
 
 def test_every_script_and_shader_is_committed_with_its_uid():
@@ -156,10 +162,44 @@ def test_the_engine_pin_agrees_everywhere():
 
 
 def test_the_installer_refuses_a_download_with_another_digest():
-    script = (ROOT / "ci" / "install_godot.sh").read_text()
-    assert "sha256sum -c" in script
-    assert "shasum -a 256 -c" in script
+    script = INSTALLER.read_text()
+    assert "check=(sha256sum -c -)" in script
+    assert "check=(shasum -a 256 -c -)" in script
+    assert 'rm -f "$dest/$zip"' in script  # a download that fails its digest is deleted
+    assert "--proto '=https'" in script
     assert 'version="$("$dest/$bin" --headless --version)"' in script
+
+
+def _detected(tmp_path: Path, system: str, machine: str) -> subprocess.CompletedProcess[str]:
+    """What ci/install_godot.sh picks on a machine whose uname says ``system``/``machine`` (a stand-in uname)."""
+    fake = tmp_path / "bin"
+    fake.mkdir(exist_ok=True)
+    uname = fake / "uname"
+    uname.write_text(f'#!/bin/sh\ncase "$1" in -s) echo {system} ;; -m) echo {machine} ;; esac\n')
+    uname.chmod(0o755)
+    env = {"PATH": f"{fake}{os.pathsep}/usr/bin{os.pathsep}/bin"}
+    return subprocess.run(["bash", str(INSTALLER), "--platform"], env=env, capture_output=True, text=True, check=False)
+
+
+@pytest.mark.parametrize(
+    ("system", "machine", "platform"),
+    [
+        ("Linux", "x86_64", "linux-x86_64"),
+        ("Darwin", "arm64", "macos-universal"),
+        ("Darwin", "x86_64", "macos-universal"),
+    ],
+)
+def test_the_installer_picks_the_build_for_this_machine(tmp_path, system, machine, platform):
+    """S2A-S2: the platform mapping lives in the installer only, not in each workflow."""
+    done = _detected(tmp_path, system, machine)
+    assert (done.returncode, done.stdout) == (0, f"{platform}\n")
+
+
+@pytest.mark.parametrize(("system", "machine"), [("Linux", "aarch64"), ("MINGW64_NT", "x86_64")])
+def test_the_installer_refuses_a_machine_with_no_pinned_build(tmp_path, system, machine):
+    done = _detected(tmp_path, system, machine)
+    assert done.returncode != 0
+    assert f"no pinned Godot build for {system}/{machine}" in done.stderr
 
 
 def test_the_golden_image_pins_every_input():
@@ -174,8 +214,9 @@ def test_the_golden_image_pins_every_input():
     assert unpinned == []
     assert "LP_NATIVE_VECTOR_WIDTH=256" in DOCKERFILE
     assert "GALLIUM_DRIVER=llvmpipe" in DOCKERFILE
-    assert "/opt/ci/install_godot.sh linux-x86_64" in DOCKERFILE
-    assert "-c /opt/ci/py3.12.txt" in DOCKERFILE
+    assert 'godot="$(/opt/ci/install_godot.sh /opt/godot)" && ln -s "$godot"' in DOCKERFILE  # a failure stops it
+    assert "--only-binary :all: -c /opt/ci/py3.12.txt" in DOCKERFILE
+    assert 'grep -q "snapshot.ubuntu.com/ubuntu/${SNAPSHOT}"' in DOCKERFILE  # the sed really pointed apt there
 
 
 def test_the_golden_job_renders_under_xvfb_and_keeps_its_frames():
@@ -188,11 +229,8 @@ def test_the_golden_job_renders_under_xvfb_and_keeps_its_frames():
         s.get("uses", "").startswith("actions/upload-artifact") and s.get("if") == "always()" for s in job["steps"]
     )
     script = (ROOT / "ci" / "godot-golden" / "run.sh").read_text()
-    assert 'xvfb-run -a -s "-screen 0 1280x720x24"' in script
-    assert (
-        "--rendering-driver opengl3 --rendering-method gl_compatibility --fixed-fps 60 --resolution 1280x720" in script
-    )
-    assert "scripts/golden_compare.py" in script
+    assert 'exec python3 scripts/golden_run.py --godot godot --out "$out"' in script
+    assert "grep" not in script.replace('grep -m1 "model name"', "")  # no second copy of the gate's error scan
 
 
 def test_every_job_that_runs_the_gate_installs_the_pinned_godot_first():
@@ -202,11 +240,20 @@ def test_every_job_that_runs_the_gate_installs_the_pinned_godot_first():
         assert names.index("Install Godot") < names.index("Gate"), workflow
         install = steps[names.index("Install Godot")]["run"]
         assert "ci/install_godot.sh" in install
-        assert 'echo "GODOT=$godot" >> "$GITHUB_ENV"' in install
+        assert install == 'godot="$(ci/install_godot.sh "$RUNNER_TEMP/godot")" && echo "GODOT=$godot" >> "$GITHUB_ENV"'
+        assert "case" not in install  # the installer picks the platform (S2A-S2)
+
+
+def test_every_workflow_reads_the_repository_and_nothing_more():
+    for name in ("golden.yml", "test.yml"):
+        assert yaml.safe_load((ROOT / ".github" / "workflows" / name).read_text())["permissions"] == {
+            "contents": "read"
+        }
 
 
 def test_the_gate_runs_the_godot_checks_before_the_tests_and_no_longer_refuses_client():
     gate = (ROOT / "scripts" / "prepush.sh").read_text()
+    assert "MAXIM_OVERDRIVE_GODOT=1 MAXIM_OVERDRIVE_ALL_TIERS=1" in gate  # the Godot fixtures and every tier
     assert '"$PY" scripts/godot_check.py' in gate
     assert gate.index('"$PY" scripts/godot_check.py') < gate.index('step "tests, every tier')
     assert "client/ exists" not in gate

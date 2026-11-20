@@ -1,23 +1,26 @@
-"""Compare a rendered frame with its committed golden (client_rendering.md §6.2, §6.5; B7).
+"""Judge a rendered frame against its committed golden (client_rendering.md §6.2, §6.5; B7).
 
 The metric is CIE76 ΔE, the Euclidean distance in CIELAB, where a difference of about 1 is the smallest a viewer
 notices. A frame passes when the mean ΔE is at most 1.0, the 99.5th percentile at most 4.0, and no 4-connected blob of
 pixels with ΔE above 10 is larger than 64 px. The blob rule catches a small object that moved or vanished, which the
 mean and the percentile average away.
 
-Goldens are keyed by the renderer that drew them, ``compat-llvmpipe-mesa<mesa>-godot<godot>``, read from the run's own
-log rather than from configuration, so a Mesa or Godot bump can never be compared with goldens another build drew. A
-run on anything but llvmpipe at a 256-bit vector width is refused: that is the pinned CI rasterizer (CR-B3).
+**Blind spot (S2C-S3):** a colour or shading change below ΔE 10 confined to an object under about 0.5% of the frame
+passes all three rules (measured: the crate's albedo shifted by about ΔE 5 passes). Step 8 adds a per-object mean ΔE
+over the ID mask (§6.4's debug pass), so small objects are judged on their own pixels.
 
-Run: ``python scripts/golden_compare.py --log <godot log> --actual <png> --goldens <dir> --name <tier>/<frame>.png``
-(exit 1 on any finding; ``--diff <png>`` writes a ΔE image for a failed run).
+Goldens are keyed by the build that drew them, ``compat-llvmpipe-mesa<mesa package>-llvm<llvm>-godot<godot>``, read
+from the run's own log rather than from configuration: llvmpipe's pixels come from LLVM's JIT as well as from Mesa,
+and an Ubuntu revision can patch either, so a snapshot bump can never be compared with goldens another build drew. A
+run on anything but llvmpipe at a 256-bit vector width is refused: that is the pinned CI rasterizer (CR-B3). The
+width is set in ci/godot-golden/Dockerfile; ``VECTOR_BITS`` here must agree, and a mismatch fails the job.
+
+scripts/golden_run.py renders the frames and calls ``judge``.
 """
 
 from __future__ import annotations
 
-import argparse
 import re
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,7 +37,7 @@ VECTOR_BITS = 256
 
 GODOT_LINE = re.compile(r"^Godot Engine v(\d+\.\d+\.\d+)\.")
 RENDERER_LINE = re.compile(
-    r"Mesa (\d+\.\d+\.\d+)\S* - Compatibility - Using Device: .*llvmpipe \(LLVM [^,]+, (\d+) bits\)"
+    r"Mesa (\d+\.\d+\.\d+\S*) - Compatibility - Using Device: .*llvmpipe \(LLVM ([^,]+), (\d+) bits\)"
 )
 
 # sRGB D65 to linear-light XYZ, and the D65 white point (IEC 61966-2-1; CIE 15).
@@ -94,16 +97,17 @@ def compare(actual: Rgb, golden: Rgb) -> Verdict:
 
 
 def golden_key(log: str) -> str:
-    """``compat-llvmpipe-mesa<v>-godot<v>`` from the run's log; refuses any other rasterizer or vector width."""
+    """``compat-llvmpipe-mesa<v>-llvm<v>-godot<v>`` from the run's log; refuses another rasterizer or vector width."""
     godot = next((m.group(1) for line in log.splitlines() if (m := GODOT_LINE.match(line))), None)
     renderer = next((m for line in log.splitlines() if (m := RENDERER_LINE.search(line))), None)
     if godot is None:
         raise ValueError("the log has no 'Godot Engine v<version>' line")
     if renderer is None:
         raise ValueError("the log names no Compatibility renderer on Mesa llvmpipe; goldens are drawn only there")
-    if int(renderer.group(2)) != VECTOR_BITS:
-        raise ValueError(f"llvmpipe ran at {renderer.group(2)} bits, not {VECTOR_BITS} (LP_NATIVE_VECTOR_WIDTH)")
-    return f"compat-llvmpipe-mesa{renderer.group(1)}-godot{godot}"
+    mesa, llvm, bits = renderer.groups()
+    if int(bits) != VECTOR_BITS:
+        raise ValueError(f"llvmpipe ran at {bits} bits, not {VECTOR_BITS} (LP_NATIVE_VECTOR_WIDTH)")
+    return f"compat-llvmpipe-mesa{mesa}-llvm{llvm}-godot{godot}"
 
 
 def load_rgb(path: Path) -> Rgb:
@@ -118,35 +122,19 @@ def write_diff(path: Path, actual: Rgb, golden: Rgb) -> None:
     Image.fromarray(grey).save(path)
 
 
-def run(args: argparse.Namespace) -> list[str]:
-    key = golden_key(Path(args.log).read_text())
-    golden = Path(args.goldens) / key / args.name
+def judge(log: str, actual: Path, goldens: Path, name: str, diff: Path | None = None) -> list[str]:
+    """Findings for the frame at ``actual``, drawn by the build ``log`` names, against ``goldens/<key>/<name>``."""
+    try:
+        golden = goldens / golden_key(log) / name
+    except ValueError as e:
+        return [str(e)]
     if not golden.is_file():
         return [f"no golden at {golden}: record one from this run's frame in a commit of its own (§6.5)"]
-    actual, expected = load_rgb(Path(args.actual)), load_rgb(golden)
-    found = compare(actual, expected).findings()
-    if found and args.diff:
-        write_diff(Path(args.diff), actual, expected)
-    return [f"{golden}: {f}" for f in found]
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--log", required=True, help="Godot's output from the golden run")
-    parser.add_argument("--actual", required=True, help="the PNG the run wrote")
-    parser.add_argument("--goldens", required=True, help="client/tests/goldens")
-    parser.add_argument("--name", required=True, help="<tier>/<frame>.png under the renderer's key")
-    parser.add_argument("--diff", help="where to write a ΔE image when the frame fails")
-    args = parser.parse_args(argv)
+    got, expected = load_rgb(actual), load_rgb(golden)
     try:
-        found = run(args)
+        found = compare(got, expected).findings()
     except ValueError as e:
-        found = [str(e)]
-    for f in found:
-        print(f"golden_compare: {f}", file=sys.stderr)
-    print(f"golden_compare: {'FAIL' if found else 'PASS'} {args.name}")
-    return 1 if found else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
+        return [f"{golden}: {e}"]
+    if found and diff is not None:
+        write_diff(diff, got, expected)
+    return [f"{golden}: {f}" for f in found]

@@ -14,7 +14,8 @@ func test_every_gdscript_warning_is_an_error(t: TestContext) -> void:
 		if key.begins_with(WARNINGS) and type == TYPE_INT:
 			seen += 1
 			t.check_eq(ProjectSettings.get_setting(key), ERROR_LEVEL, key)
-	t.check(seen >= 49, "Godot 4.7.2 has 49 warning levels; saw %d" % seen)
+	# The list itself is held by tests/test_client_project.py::WARNINGS_4_7_2; here, only that the walk found some.
+	t.check(seen > 0, "no warning levels found")
 	t.check_eq(ProjectSettings.get_setting(WARNINGS + "enable"), true, "warnings are enabled")
 
 
@@ -26,3 +27,4 @@ func test_no_directory_is_exempt_from_warnings(t: TestContext) -> void:
 func test_the_renderer_is_compatibility(t: TestContext) -> void:
 	t.check_eq(ProjectSettings.get_setting("rendering/renderer/rendering_method"), "gl_compatibility", "desktop")
 	t.check_eq(ProjectSettings.get_setting("rendering/renderer/rendering_method.mobile"), "gl_compatibility", "mobile")
+	t.check_eq(ProjectSettings.get_setting("rendering/renderer/rendering_method.web"), "gl_compatibility", "web")

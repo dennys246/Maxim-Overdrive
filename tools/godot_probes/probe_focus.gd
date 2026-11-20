@@ -3,7 +3,7 @@ extends SceneTree
 ## the window to the front, and prints the key state every 30 frames and at each focus notification. Something else
 ## must take focus while it runs; on macOS (osascript from a shell that may send Apple Events):
 ## (perl -e 'select(undef, undef, undef, 2)'; osascript -e 'tell application "Finder" to activate') &
-## godot --rendering-driver opengl3 --path client -s res://tests/probes/probe_focus.gd
+## godot --rendering-driver opengl3 --path tools/godot_probes -s res://probe_focus.gd
 
 const LAST_FRAME: int = 300
 const EVERY: int = 30

@@ -5,23 +5,24 @@ and in the golden image (`ci/godot-golden/Dockerfile`: Ubuntu 24.04, Mesa 25.2.8
 under Docker Desktop's x86-64 emulation (`/proc/cpuinfo`: "VirtualApple @ 2.50GHz", AVX2 and FMA reported).
 Nothing here ran on a GitHub runner; what only CI can show is listed at the end.
 
-Each probe that can be rerun is committed under `client/tests/probes/` with its command in the header comment, so
-the Godot upgrade branch reruns them. The gate loads them (they are typed like all client code) but doesn't run them:
-most need a window.
+The windowed probes are committed in their own Godot project, `tools/godot_probes/`, with their commands in each
+header, outside the shipped client; the Godot upgrade procedure (`docs/standards_backlog.md` B26) reruns them and
+compares with this document. The JSON probe became a client unit test (`client/tests/unit/test_json_ints.gd`), so the
+gate holds it on every push. The Origin probe's listener was a throwaway; step 7's listener test replaces it.
 
 ## Results
 
 | §9 item | What ran | Observed | Verdict |
 |---|---|---|---|
 | No `Origin` | `probe_ws_origin.gd` connecting to a Python socket on port 0 that printed the handshake | `GET /`, `Host`, `Upgrade`, `Connection`, `Sec-WebSocket-Key`, `Sec-WebSocket-Version`; no `Origin` | holds |
-| Integers from `JSON.stringify` | `probe_json_ints.gd`, headless | `int(5500)` → `5500`; `5500.0` → `5500.0`; `parse_string` returns floats | holds, with a reader caveat |
+| Integers from `JSON.stringify` | now `unit/test_json_ints.gd`, headless | `int(5500)` → `5500`; `5500.0` → `5500.0`; `parse_string` returns floats | holds, with a reader caveat |
 | `FORMAT_RG8` + `texelFetch`, u16 ids | `probe_rg8.tscn`: all 65,536 ids, one pixel each | 0 wrong on Metal-backed GL and on llvmpipe; 65,280 wrong with the `g` term deleted | holds |
 | `frame_post_draw` capture | `golden.tscn` under Xvfb in the image | the first frame is byte-identical to the tenth; under `--headless` the await never returns | holds under Xvfb; hangs headless |
 | llvmpipe, fixed vector width | the golden at 256, 128 and unset | the renderer's name reports the width; all three frames byte-identical | width pin works; two CPU types not tested |
 | GPU time | `probe_gpu_time.gd`, `--gpu-profile` | GPU meter 0.0 ms on the Mac; `--gpu-profile` prints `GPU PROFILE (total 0.0ms)` | fails on Compatibility |
 | Keys on focus loss | `probe_focus.gd`, W pressed by event, Finder activated from a shell | W released at `FOCUS_OUT`; a spurious OUT/IN pair at launch | holds |
 | `class_name` on a fresh checkout | a two-file project, `-s` before and after `--import` | before: `Could not find type "Foo"`; after: runs | needs `--import` |
-| Partial texture update | `probe_texture_update.gd`: the API list, then 50 timed updates at 120 × 40 × 48 R8 | no partial 3-D update exists; whole update 294 µs (Mac), 69 µs (llvmpipe) | whole-texture |
+| Partial texture update | `probe_texture_update.gd`: the API list, then 50 timed updates at 120 × 40 × 48 R8 | no partial 3-D update exists; whole update 173–294 µs (Mac), 69 µs (llvmpipe) | whole-texture |
 
 ## The probes in detail
 
@@ -86,8 +87,10 @@ gate imports first (`--headless --import`), after which it runs. The import cach
 ### Partial texture update
 The engine has no partial 3-D texture update: `ImageTexture3D.update` and `RenderingServer.texture_3d_update` both take
 every slice (the API listing shows only `texture_2d_update`, `texture_3d_update` and `texture_proxy_update`). A whole
-update at the tile's shape (120 × 40 × 48 R8, 230 KB) takes a minimum of 294 µs over 50 runs on the M2 (first run
-322 µs), and 69 µs on llvmpipe (first 963 µs). Whole-texture stays the plan.
+update at the tile's shape (120 × 40 × 48 R8, 230 KB) took a minimum over 50 updates of 294 µs in the first run (first
+update 322 µs), then 193–194 µs in the reviewer's four runs and 173–182 µs in three more, so the spread is 173–294 µs
+with the machine's load varying (other sessions run tests concurrently; the load average was 45 at the last three).
+On llvmpipe: 69 µs (first 963 µs). Whole-texture stays the plan.
 
 ## What the gate's own construction measured
 
@@ -136,13 +139,14 @@ These came from building `scripts/godot_check.py` and its fixtures (`tests/test_
    rows stay "reported" on the uncapped minimum frame interval.
 5. **§7.3 fixtures in `client/tests/gate_fixtures/`.** A broken fixture inside the gated project fails the gate by
    design. The fixtures are built in `tmp_path` by `tests/test_godot_gate_fixtures.py` instead.
-6. **§8 upload estimate.** "About 1.7 ms derived from the measured 160–230 µs per channel": this run measured 294 µs
-   per R8 channel (minimum of 50) on the same M2, so seven uploads with `region` at two bytes are about 2.4 ms, still
-   under the 3 ms target but with less room than §8 says.
+6. **§8 upload estimate.** "About 1.7 ms derived from 160–230 µs per channel" was one range; eight runs on the same
+   M2 gave 173–294 µs per R8 channel (minimum of 50 each), so the seven uploads, `region` counting twice, are
+   1.4–2.4 ms against the 3 ms target. An earlier draft of this note claimed 294 µs from one run; S2C-S2 caught it.
 7. **§6.5 "Mesa pinned by package version".** Necessary but not sufficient: without a dated snapshot the pinned
    version disappears from the archive.
-8. **§6.5 golden paths `compat-llvmpipe-mesa<version>`.** Keyed as the flexibility review asked,
-   `compat-llvmpipe-mesa25.2.8-godot4.7.2/`, and derived from the run's own log so the key can't lie.
+8. **§6.5 golden paths `compat-llvmpipe-mesa<version>`.** Keyed by everything that draws the pixels, read from the
+   run's own log so the key can't lie: `compat-llvmpipe-mesa25.2.8-0ubuntu0.24.04.4-llvm20.1.2-godot4.7.2/` (the
+   Godot version as the flexibility review asked, the LLVM version and the Ubuntu revision as S2C-S1 asked).
 
 ## What is not verified until CI runs
 

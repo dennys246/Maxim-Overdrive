@@ -1,16 +1,16 @@
 extends Node3D
 ## The renderer golden (client_rendering.md §6): a fixed orthographic camera over hand-placed boxes, drawn once and
-## saved as a PNG that scripts/golden_compare.py compares with the committed golden. It needs a real GL context
-## (Xvfb in the CI image): under --headless the dummy renderer leaves get_image() null, and this script fails then.
-## Run: godot --rendering-driver opengl3 --rendering-method gl_compatibility --fixed-fps 60 --resolution 1280x720
-##      --path client res://tests/golden.tscn -- --out=<png>
+## saved as a PNG that scripts/golden_run.py judges against the committed golden. It needs a real GL context (Xvfb
+## in the CI image): under --headless it refuses at once, since the capture's await would never return.
 ## Engine whys: Camera3D in orthographic projection keeps sizes constant with depth (§1); each MeshInstance3D draws one
-## mesh; the materials are unshaded so the frame depends on no light; WorldEnvironment fixes the background and keeps
-## glow off. Node3D is the root because everything here has a 3-D transform.
+## mesh; the floor is larger than the view, so the scene fills the frame; the materials are unshaded so the frame
+## depends on no light; WorldEnvironment fixes the background and keeps glow off. Node3D is the root because
+## everything here has a 3-D transform.
 
 const YAW_DEG: float = 45.0
 const ELEVATION_DEG: float = 40.0
 const DISTANCE_M: float = 60.0
+const CRATE: Vector3 = Vector3(0.9, 0.3, 0.5)  # the Crate node's position in golden.tscn
 const OUT_FLAG: String = "--out="
 const WIDTH: int = 1280
 const HEIGHT: int = 720
@@ -45,13 +45,13 @@ func _ready() -> void:
 	get_tree().quit(0)
 
 
-## Yaw 45°, elevation 40°, 60 m back from the origin, looking at it (client_rendering.md §1, the golden camera).
+## Yaw 45°, elevation 40°, 60 m back from the crate, looking at it: client_rendering.md §1's golden camera.
 func _place_camera() -> void:
 	var yaw: float = deg_to_rad(YAW_DEG)
 	var elevation: float = deg_to_rad(ELEVATION_DEG)
 	var back: Vector3 = Vector3(cos(elevation) * sin(yaw), sin(elevation), cos(elevation) * cos(yaw))
-	_camera.position = back * DISTANCE_M
-	_camera.look_at(Vector3.ZERO, Vector3.UP)
+	_camera.position = CRATE + back * DISTANCE_M
+	_camera.look_at(CRATE, Vector3.UP)
 
 
 func _out_path() -> String:

@@ -151,3 +151,9 @@ def test_the_gate_prints_every_finding_and_fails(tmp_path, monkeypatch, capsys):
     assert "godot_check: load: res://a.gd is null or cannot be instantiated" in out.err
     assert out.out == "godot_check: FAIL (/x/godot)\n"
     assert list(tmp_path.iterdir()) == []
+
+
+def test_a_non_zero_exit_is_a_finding_and_a_timeout_is_left_to_the_error_scan():
+    assert gc.exit_findings(_run([], code=0)) == []
+    assert gc.exit_findings(_run([], code=None)) == []
+    assert gc.exit_findings(_run([], code=3, step="draw")) == ["draw: exited 3"]

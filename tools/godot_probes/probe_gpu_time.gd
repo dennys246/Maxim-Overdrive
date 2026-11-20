@@ -2,7 +2,7 @@ extends SceneTree
 ## §9 probe: can the client read GPU time on Compatibility? Draws a box for 120 frames with render-time measuring on,
 ## then prints the viewport's measured GPU and CPU times and the minimum frame interval. Windowed:
 ## godot --rendering-driver opengl3 --rendering-method gl_compatibility --disable-vsync
-##       --path client -s res://tests/probes/probe_gpu_time.gd
+##       --path tools/godot_probes -s res://probe_gpu_time.gd
 
 const FRAMES: int = 120
 

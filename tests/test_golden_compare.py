@@ -25,7 +25,7 @@ LOG = (
     "OpenGL API 4.5 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.4 - Compatibility - Using Device: Mesa - "
     "llvmpipe (LLVM 20.1.2, 256 bits)\n"
 )
-KEY = "compat-llvmpipe-mesa25.2.8-godot4.7.2"
+KEY = "compat-llvmpipe-mesa25.2.8-0ubuntu0.24.04.4-llvm20.1.2-godot4.7.2"
 MAC_LOG = "Godot Engine v4.7.2.stable\nOpenGL API 4.1 Metal - 90.5 - Compatibility - Using Device: Apple - Apple M2\n"
 
 
@@ -116,42 +116,61 @@ def _write(path: Path, rgb: np.ndarray) -> Path:
     return path
 
 
-def _main(tmp_path: Path, actual: np.ndarray, golden: np.ndarray | None, log: str = LOG) -> int:
-    (tmp_path / "golden.log").write_text(log)
-    _write(tmp_path / "out" / "frame.png", actual)
+def _judge(tmp_path: Path, actual: np.ndarray, golden: np.ndarray | None, log: str = LOG) -> list[str]:
+    frame = _write(tmp_path / "out" / "frame.png", actual)
     if golden is not None:
-        _write(tmp_path / "goldens" / KEY / "rig" / "frame.png", golden)
-    args = ["--log", str(tmp_path / "golden.log"), "--actual", str(tmp_path / "out" / "frame.png")]
-    args += ["--goldens", str(tmp_path / "goldens"), "--name", "rig/frame.png", "--diff", str(tmp_path / "diff.png")]
-    code: int = gcmp.main(args)
-    return code
+        _write(tmp_path / "goldens" / KEY / "renderer" / "frame.png", golden)
+    found: list[str] = gcmp.judge(log, frame, tmp_path / "goldens", "renderer/frame.png", tmp_path / "diff.png")
+    return found
 
 
-def test_main_passes_a_matching_frame(tmp_path, capsys):
-    assert _main(tmp_path, _flat((10, 20, 30)), _flat((10, 20, 30))) == 0
-    assert capsys.readouterr().out == "golden_compare: PASS rig/frame.png\n"
+def test_a_matching_frame_passes(tmp_path):
+    assert _judge(tmp_path, _flat((10, 20, 30)), _flat((10, 20, 30))) == []
     assert not (tmp_path / "diff.png").exists()
 
 
-def test_main_fails_a_different_frame_and_writes_the_difference(tmp_path, capsys):
+def test_a_different_frame_fails_and_the_difference_is_written(tmp_path):
     golden = _flat((10, 20, 30), 100, 100)
     actual = golden.copy()
     actual[:20, :20] = (250, 250, 250)
-    assert _main(tmp_path, actual, golden) == 1
-    assert "px blob with ΔE > 10" in capsys.readouterr().err
+    found = _judge(tmp_path, actual, golden)
+    assert any("a 400 px blob with ΔE > 10" in f for f in found), found
     diff = np.asarray(Image.open(tmp_path / "diff.png"))
     assert diff[0, 0] == 255
     assert diff[50, 50] == 0
 
 
-def test_main_refuses_when_there_is_no_golden_for_this_renderer(tmp_path, capsys):
-    assert _main(tmp_path, _flat((1, 2, 3)), None) == 1
-    assert f"no golden at {tmp_path / 'goldens' / KEY / 'rig' / 'frame.png'}" in capsys.readouterr().err
+def test_no_diff_is_written_unless_asked(tmp_path):
+    frame = _write(tmp_path / "f.png", _flat((250, 0, 0)))
+    _write(tmp_path / "goldens" / KEY / "renderer" / "f.png", _flat((0, 0, 250)))
+    assert gcmp.judge(LOG, frame, tmp_path / "goldens", "renderer/f.png")
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["f.png", "goldens"]
 
 
-def test_main_refuses_another_renderer(tmp_path, capsys):
-    assert _main(tmp_path, _flat((1, 2, 3)), _flat((1, 2, 3)), log=LOG.replace("256", "128")) == 1
-    assert "128 bits" in capsys.readouterr().err
+def test_a_frame_of_another_size_is_a_finding(tmp_path):
+    found = _judge(tmp_path, _flat((1, 2, 3), 90, 160), _flat((1, 2, 3), 90, 161))
+    assert len(found) == 1
+    assert "the frame is" in found[0]
+
+
+def test_there_must_be_a_golden_for_this_build(tmp_path):
+    found = _judge(tmp_path, _flat((1, 2, 3)), None)
+    assert found == [
+        f"no golden at {tmp_path / 'goldens' / KEY / 'renderer' / 'frame.png'}: record one from this run's frame "
+        "in a commit of its own (§6.5)"
+    ]
+
+
+def test_another_renderer_is_refused(tmp_path):
+    assert _judge(tmp_path, _flat((1, 2, 3)), _flat((1, 2, 3)), log=LOG.replace("256", "128")) == [
+        "llvmpipe ran at 128 bits, not 256 (LP_NATIVE_VECTOR_WIDTH)"
+    ]
+
+
+def test_a_new_llvm_or_mesa_revision_is_a_new_key():
+    """S2C-S1: llvmpipe's pixels come from LLVM's JIT and the Ubuntu revision as well as from Mesa's version."""
+    assert gcmp.golden_key(LOG.replace("LLVM 20.1.2", "LLVM 20.1.3")) != KEY
+    assert gcmp.golden_key(LOG.replace("24.04.4", "24.04.5")) != KEY
 
 
 def test_the_committed_goldens_are_keyed_and_full_size():
@@ -159,5 +178,5 @@ def test_the_committed_goldens_are_keyed_and_full_size():
     assert goldens, "step 2 ships one renderer golden (client_rendering.md §12)"
     for png in goldens:
         rel = png.relative_to(GOLDENS)
-        assert re.fullmatch(r"compat-llvmpipe-mesa\d+\.\d+\.\d+-godot\d+\.\d+\.\d+", rel.parts[0]), rel
+        assert re.fullmatch(r"compat-llvmpipe-mesa\d+\.\d+\.\d+\S*-llvm\d+\.\d+\.\d+-godot\d+\.\d+\.\d+", rel.parts[0])
         assert gcmp.load_rgb(png).shape == (720, 1280, 3), rel

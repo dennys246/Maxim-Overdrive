@@ -23,7 +23,7 @@ albedo_color = Color(0.25, 0.4, 0.6, 1)
 
 [sub_resource type="PlaneMesh" id="Mesh_floor"]
 material = SubResource("Mat_floor")
-size = Vector2(6, 4)
+size = Vector2(40, 40)
 
 [sub_resource type="BoxMesh" id="Mesh_crate"]
 material = SubResource("Mat_crate")

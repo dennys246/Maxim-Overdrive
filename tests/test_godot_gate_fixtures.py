@@ -3,12 +3,14 @@
 Godot's exit status says nothing about a parse error or a runtime error, so every check in scripts/godot_check.py
 reads what Godot printed. Each check is proved here by a fixture project in tmp_path whose defect that check names: a
 parse error, a warning promoted to an error (in res://addons too), a runtime error the runner survives, a runtime
-error before quit (a hang), a hang with no error, a missing sentinel, a failing assertion, a null load, a script
-committed without its ``.uid``, and another engine version. Deleting a check turns its test red.
+error before quit (a hang), a hang with no error, a missing sentinel, a failing assertion, a test that fails after an
+``await``, a test that checks nothing, a runner that exits non-zero after PASS, a null load, a script committed without
+its ``.uid``, another engine version, and the golden scene run headless. Deleting a check turns its test red.
 
 These tests run Godot, so they are ``slow`` (the import alone takes about eight seconds, so it runs once per session
-and the fixtures that don't test it start from a copy of its result). They run with ``MAXIM_OVERDRIVE_ALL_TIERS=1``,
-which the gate sets, and then a missing Godot fails them instead of skipping. Godot only ever runs through
+and the fixtures that don't test it start from a copy of its result). They run with ``MAXIM_OVERDRIVE_GODOT=1``,
+which the gate sets, and then a missing Godot fails them instead of skipping. The switch is separate from the physics
+tiers' ``MAXIM_OVERDRIVE_ALL_TIERS``, so either can run without the other. Godot only ever runs through
 ``godot_check.run_godot``, with HOME and the XDG directories inside tmp_path.
 """
 
@@ -30,7 +32,7 @@ HANG_TIMEOUT_S = 5.0
 pytestmark = [
     pytest.mark.slow,
     pytest.mark.skipif(
-        not os.environ.get("MAXIM_OVERDRIVE_ALL_TIERS"), reason="slow: runs Godot; set MAXIM_OVERDRIVE_ALL_TIERS=1"
+        not os.environ.get("MAXIM_OVERDRIVE_GODOT"), reason="slow: runs Godot; set MAXIM_OVERDRIVE_GODOT=1"
     ),
 ]
 
@@ -129,6 +131,7 @@ RUNTIME_ERROR_TEST = """extends RefCounted
 
 func test_reads_past_the_end(t: TestContext) -> void:
 \tvar a: Array[int] = [1, 2, 3]
+\tt.check(a.size() == 3, "a check before the error, so only the error is wrong")
 \tvar i: int = a.size()
 \tt.check(a[i] == 0, "unreachable")
 """
@@ -175,7 +178,7 @@ def test_a_failing_assertion_fails_the_run(godot, project, tmp_path):
     _add(project, "tests/unit/test_fails.gd", failing)
     found = _tests(godot, project, tmp_path)
     assert len(found) == 1, found
-    assert "'client-tests: FAIL 1 of" in found[0]
+    assert "'client-tests: FAIL 1 failure(s) in" in found[0]
 
 
 def test_a_script_committed_without_its_uid_is_named_by_the_import(godot, tmp_path):
@@ -198,3 +201,55 @@ def test_godot_keeps_its_per_user_files_in_the_home_it_is_given(godot, project, 
     home = tmp_path / "home"
     assert _tests(godot, project, tmp_path) == []
     assert list(home.rglob("godot.log")), "the run's log should be inside the given home"
+
+
+AWAIT_THEN_FAIL_TEST = """extends RefCounted
+
+
+func test_awaits_a_frame_then_fails(t: TestContext) -> void:
+\tt.check(true, "a check before the await, so the no-check rule can't be what fails it")
+\tvar tree: SceneTree = Engine.get_main_loop() as SceneTree
+\tawait tree.process_frame
+\tt.check(false, "after an await")
+"""
+
+
+def test_a_test_that_fails_after_an_await_fails_the_run(godot, project, tmp_path):
+    """S2C-B1: the runner awaits each test, so a check after an await counts before the summary is printed."""
+    _add(project, "tests/unit/test_await.gd", AWAIT_THEN_FAIL_TEST)
+    found = _tests(godot, project, tmp_path)
+    assert len(found) == 1, found
+    assert "'client-tests: FAIL 1 failure(s) in" in found[0]
+
+
+def test_a_test_that_makes_no_check_fails_the_run(godot, project, tmp_path):
+    """S2C-B1: a test that checks nothing cannot fail, so the runner fails it."""
+    empty = "extends RefCounted\n\n\nfunc test_checks_nothing(_t: TestContext) -> void:\n\tpass\n"
+    _add(project, "tests/unit/test_empty.gd", empty)
+    found = _tests(godot, project, tmp_path)
+    assert len(found) == 1, found
+    assert "'client-tests: FAIL 1 failure(s) in" in found[0]
+
+
+def test_a_suite_in_a_subdirectory_runs(godot, project, tmp_path):
+    failing = 'extends RefCounted\n\n\nfunc test_fails(t: TestContext) -> void:\n\tt.check(false, "nested")\n'
+    _add(project, "tests/unit/nested/test_deep.gd", failing)
+    found = _tests(godot, project, tmp_path)
+    assert len(found) == 1, found
+    assert "'client-tests: FAIL 1 failure(s) in" in found[0]
+
+
+def test_a_runner_that_exits_non_zero_after_pass_fails(godot, project, tmp_path):
+    """The exit code is checked even when the sentinel says PASS (S2E-N1)."""
+    runner = project / "tests" / "run.gd"
+    runner.write_text(runner.read_text().replace("quit(0 if t.passed() else 1)", "quit(3)"))
+    assert _tests(godot, project, tmp_path) == ["tests: printed PASS but exited 3"]
+
+
+def test_the_golden_scene_refuses_a_headless_run_instead_of_hanging(godot, project, tmp_path):
+    """Under --headless the capture's await never returns; the scene must refuse at once (S2E-S2)."""
+    args = ["--headless", "--path", str(project), "res://tests/golden.tscn", "--", f"--out={tmp_path / 'x.png'}"]
+    run = gc.run_godot(godot, "golden", args, home=tmp_path / "home", timeout_s=HANG_TIMEOUT_S)
+    assert run.returncode == 1, run.lines
+    assert any("golden: --headless draws nothing" in line for line in run.lines), run.lines
+    assert not (tmp_path / "x.png").exists()

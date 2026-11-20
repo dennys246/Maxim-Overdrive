@@ -2,8 +2,8 @@ extends SceneTree
 ## §9 probe: can one slice of a 3-D texture be updated alone, and what does a whole update cost? Lists every
 ## texture-update method the engine has, then times ImageTexture3D.update at the tile's shape (120 × 40 × 48, R8),
 ## the minimum of 50 updates. Windowed (the dummy renderer of --headless does no uploads):
-## godot --rendering-driver opengl3 --rendering-method gl_compatibility --path client
-##       -s res://tests/probes/probe_texture_update.gd
+## godot --rendering-driver opengl3 --rendering-method gl_compatibility --path tools/godot_probes
+##       -s res://probe_texture_update.gd
 
 const NX: int = 120
 const NY: int = 40

@@ -77,9 +77,15 @@ def godot_env(home: Path) -> dict[str, str]:
     return {**os.environ, "HOME": str(home), **{k: str(home / v) for k, v in xdg.items()}}
 
 
-def run_godot(godot: str, step: str, args: Sequence[str], *, home: Path, timeout_s: float) -> Run:
+def run_godot(
+    godot: str, step: str, args: Sequence[str], *, home: Path, timeout_s: float, wrapper: Sequence[str] = ()
+) -> Run:
+    """The one way Godot runs here: per-user directories in ``home``, an outer timeout, output kept for scanning.
+
+    ``wrapper`` is a command Godot runs under, such as ``xvfb-run`` for the golden job's display.
+    """
     home.mkdir(parents=True, exist_ok=True)
-    cmd = [godot, *args]
+    cmd = [*wrapper, godot, *args]
     try:
         done = subprocess.run(
             cmd, env=godot_env(home), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout_s, check=False
@@ -96,6 +102,11 @@ def error_findings(run: Run) -> list[str]:
     if run.returncode is None:
         found.append(f"{run.step}: timed out after {run.timeout_s:g} s (Godot keeps running after a script error)")
     return found
+
+
+def exit_findings(run: Run) -> list[str]:
+    """A call that ran to its end but exited non-zero (a timeout is error_findings' to report)."""
+    return [] if run.returncode in (0, None) else [f"{run.step}: exited {run.returncode}"]
 
 
 def sentinel_findings(run: Run) -> list[str]:
