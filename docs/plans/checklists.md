@@ -2,7 +2,8 @@
 
 For whoever runs the step. Each item names the review finding it comes from (`reviews/fold.md` has the key). The plan
 (`foundations_plan.md`) keeps the order and the decisions; this file keeps the items, so the plan stays inside its
-word budget. An item is done when its test exists and passes, or its text has landed.
+word budget. An item is done when its test exists and passes, or its text has landed. This file is exempt from
+O22's budget (O42), and each step's section is deleted when that step's PR merges.
 
 ## Step 1, the merge: this line's items
 
@@ -47,16 +48,6 @@ Python 3.10 or later; GPG signing configured, with someone present to answer its
 authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.app` from step 2; a per-worktree
 `.venv` (step 0a).
 
-## Step 2, the Godot skeleton (`client_rendering.md` §6.5, §7, §9)
-
-- `client/addons/engine` and `client/game` layout; `project.godot` with the Compatibility renderer and every
-  typed-GDScript warning at Error, and a test that reads it.
-- `scripts/godot_check.py`: an outer timeout, a scan for `SCRIPT ERROR`, `Parse Error` and `ERROR:` lines, a null
-  `load()` check and a required sentinel line; gate fixtures prove each by deletion (CR-B1).
-- The Linux CI golden job: a Dockerfile with the base image pinned by digest, Mesa by package version, Godot by
-  SHA-256 and `LP_NATIVE_VECTOR_WIDTH` fixed; goldens keyed by Mesa version; one renderer golden (CR-B3, EX-B3).
-- The client §9 probe list, run on 4.7.2 (EX-S14), including `FORMAT_RG8` with `texelFetch` for u16 region ids.
-
 ## Step 3a, boundaries (`reviews/flexibility/architecture.md`)
 
 - Resolution leaves the rig (D20): `MaterialGrid.empty`, `Scene.build` and `World` take a keyword-only `dx_m`;
@@ -75,6 +66,9 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 - Digests stored versioned, as `sha256/c14n-1:<hex>`.
 - Content stores time in world units (m/s, seconds), never ticks; ticks are derived at load.
 - Loader types for body archetypes and items; the refusal-code enum (WT-S1).
+- Identity keys contain no `:` (Maxim's owner, 2026-11-19: `make_agent_rng` joins `f"{base_seed}:{agent_id}"`, so a
+  `:` would make streams ambiguous). Every loader that reads one (`body_key`, NPC keys, stream names; later save v0)
+  refuses it with a typed code, and each has a rejection test (`npcs_and_sem.md` §3.4).
 - Fuel-bed fields (φ, σ) on primitives, validated where made.
 
 ## Step 4, verify
@@ -105,6 +99,9 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 - Body radiation (skin view factors, the flame as a point source) with its closed forms: a clamped two-capacity box
   and a fixed point source (DPH-S4).
 - `join` records carry `body_key`, the archetype name and the held item's name.
+- The efference-copy fields (`tile_and_client.md` §3.1): bodies-part events and pilots rows carry `cause = (actor_id,
+  seq)`; the intent record carries an optional, opaque `invocation`. A test: a `move_to`'s `arrived` and a
+  `kindle`'s pilot row name their intent.
 - Action vocabulary v1 with `actions.yaml` v1, refused at v0 by version, not migrated (DC-S5), and an interim sphere-overlap
   `kindle` deposit: a marked band-aid, its file listed under Phase 1 in the roadmap, removed by step 6's skin.
 
@@ -132,10 +129,13 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
   `axis_order`; fixtures for an unknown optional channel (ignored) and an unknown required channel (refused).
 - `welcome` and the version `error` carry the engine `build`.
 - A refusal for exhausted u16 region ids.
+- JSON reads floats (`client_rendering.md` §4.1): decoder fixtures with an integer at 2^53 and at 2^53 + 1 (refused);
+  stage 1 refuses `5500.0` and `true` where an integer is expected (Python reads a float, and `bool` is an `int`).
+- B25's engine/game check, with the second engine file.
 
 - The strict red gate that refuses guest joins while real-Maxim NPCs are live, as the roadmap's Phase 4 assigns
   this PR (TB-B2).
-- `intent_result`, `seq` and `observed_tick`; the catalogue with non-default-scale fixtures and its hash check on
+- `intent_result`, `seq`, `observed_tick` and events' `cause`; the catalogue with non-default-scale fixtures and its hash check on
   every frame (WT-B3, WT-S13).
 - `region` as u16 `region_id`, the `regions` message and `regions_version` (DC-B1); `surface_glow` and `burning`;
   `tick` as JSON with integer columns (DC-S9); events accumulated with a resync (DC-S4); `tile_and_client.md`
@@ -152,7 +152,9 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 - The exit script, run stepped and unpaced; the controls, each proven by deletion (PH-S3); the stage-2 refusal
   scripts.
 - The shader, the cut-away test at ≥ 95%, five scenario goldens per tier, staleness digests, `update_goldens.sh`
-  (EX-S13); golden paths keyed by Mesa and Godot version.
+  (EX-S13).
+- CR-B3's open half: a shaded golden that differs at 128 and 256 bits and agrees across Intel and AMD runners (the
+  job logs the CPU); a per-object ΔE over the ID mask (S2C-S3); `golden.gd`'s missing-`--out` refusal tested.
 - The human playtest.
 
 ## Step 9, save v0
@@ -224,18 +226,44 @@ is out of the plan (S-S8), so this test is the whole mechanism.
 (Maxim's B1 shape isn't settled; O26 makes replies part of the log). A save whose in-flight thought has an
 unknown continuation version loads it as a logged `thought_failed(reloaded)`, not a refusal.
 
-**OD-A20's divergence, a strict red gate (`npcs_and_sem.md` §12.2).** One receipt credits two nodes: one
-with a live trace and one anchor-only (its trace expired, inside the 300 s window). Run it under host clocks 09:00
-and 23:59:50 (the second crosses midnight) and expect equal shares. Credit is normalised (`reward × strength /
-Σ strength`, `nac.py::distribute_reward`), so a lone anchor-only node takes the full share at any similarity: the
-live-trace node is what makes the gate able to fail. A second assertion: after a 12 h host pause inside the window
-the anchor still exists (today `decay_eligibility` prunes it after 300 wall-seconds, `nac.py:3715-3738`; after
-#1361 S3b it ages on the experience clock, and the shares assertion carries the gate). Red against real Maxim, its
-reason naming OD-A20 (declined 2026-11-19), so the evidence exists to re-raise it. Each assertion proven able to fail
-before it is trusted.
+**The embedded efference copy (`npcs_and_sem.md` §6.6; Maxim `thalamic_relay.md` §5.2, GL3.B2).** The codec
+carries each intent's invocation pid in `step_output`, and `caused_by` on every receipt and frame event it caused.
+Test with the double: an NPC's own `kindle` gives a frame event carrying its pid, a planted second actor's event at
+the same locus carries none, and an in-flight thought stays fresh across the first and goes stale on the second.
+
+**OD-A20's divergence: two strict red gates (`npcs_and_sem.md` §12.2).** Each drives a real `NucleusAccumbens` in a
+spawned worker: `update_eligibility` with an explicit anchor `TemporalSignature.from_timestamp(time.time() − Δ)`
+(an argument, not a faked clock), `decay_eligibility` until that trace is gone (12 passes at activation 0.0336, 44
+at 1), any live-trace node set after, then `distribute_reward(1.0)`. Each reason names OD-A20 (declined 2026-11-19).
+- **Gate 1, timezone (c).** One anchor-only node, activation 0.0336, Δ = 20 s, run in two workers whose `TZ` (a test
+  input in the allowlist) are fixed offsets the host computes from its current instant: one puts a local midnight
+  5 s before it (inside the worker's 20 s window for any spawn delay under 15 s), the other puts local noon there.
+  Expect equal credit. It cannot pass today: without a date step similarity is about 0.9999 and 0.3 × 0.9999 × 0.0336 = 0.01008 > 0.01, so the node takes the full reward; with one (monthly 1/31,
+  annual 1/365.25) it is about 0.982 and 0.3 × 0.982 × 0.0336 = 0.00990 < 0.01, so it books nothing. A DST change is
+  the same mechanism (a 1 h circadian step) and needs no separate gate. `TZ` here is a test input; production code
+  must never pin `TZ` to hide this.
+- **Gate 2, host pacing (a) and (b), `TZ` fixed with local noon at the instant, so no date step.** Δ = 1 s against
+  Δ = 290 s (inside the 300 s wall prune, `nac.py:3715`), standing for a live run and a differently paced replay
+  (similarity about 0.999994 and 0.998082). Two assertions: a lone anchor-only node at activation 0.03336 gets equal
+  credit (today 0.01001 against 0.00999: credited at 1 s, dropped at 290 s); and with a live-trace node beside it (activation 1
+  each), the shares are equal (today 0.23077 against 0.23043). The shares assertion stays red if Maxim drops the
+  0.01 threshold, which would turn the lone-node one green; and a UTC fix for (c) alone flips gate 1 and leaves
+  gate 2 red, so each gate flips for one fix.
+- v3.2's "anchor survives a 12 h pause" assertion is dropped from these gates: it tests #1361 S3b's experience-clock
+  ageing, a decided fix with its own gates, and would make an OD-A20 gate flip on the wrong fix.
+- Each gate is proven to measure the leak, not its setup: a control run with the similarity planted at 1.0 in the
+  worker passes every assertion, so the red comes from the calendar alone.
+
+**Wall-clock forgetting, a strict red gate (`npcs_and_sem.md` §12.2; stays with Maxim's #1361 Q5).** Two identical
+stores in a spawned worker (default access-based strategy, no SCN wrapper), each with one memory accessed once,
+unlinked, not long-term, with low salience and novelty and no user input, so no promotion or keep rule applies; the
+second is loaded from a save with every wall stamp shifted back 4 days, which equals sleeping the same store 4 host days later (the score reads only `now −
+accessed_at`). One `Hippocampus.sleep` each; expect identical retention. It cannot pass today: the score is 0.5 ×
+(1 − 4/7) + 0.04 = 0.254 < 0.3, so the second removes the memory, against 0.54 kept. Its reason names #1361 Q5. No
+workaround. Control: with the stamps unshifted both keep it.
 
 **Reopening the frozen agent half (S-S2).** Edits are errata only until one of these fires:
 - Maxim's stepped-`think` API lands (cand. B1);
 - the LLM spike measures latency;
 - Maxim answers a second candidates round (the first, #1688, is answered by errata);
-- Maxim's review of `embeddable_agent_DRAFT.md` (O36; fired 2026-11-19, folded in npcs v3.2).
+- Maxim's review of `embeddable_agent_DRAFT.md` (O36; fired 2026-11-19, folded in npcs v3.2; its delta review in v3.3).
