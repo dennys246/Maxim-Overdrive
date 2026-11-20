@@ -300,3 +300,47 @@ def test_a_test_module_names_its_gate_as_code_not_in_a_comment_or_a_string():
     }
     problems = gates.check_gates(files, rows)
     assert any("tests/test_x.py never names unit" in p for p in problems)
+
+
+# -- chained calls (step 3b delta review, Trust D-B1): a call whose result is used through an attribute is judged too
+
+CHAINED_UNSAFE = [
+    "a = np.load(p, allow_pickle=True).item()",
+    "import importlib\nb = importlib.import_module('pickle').loads(raw)",
+    "b = __import__('pickle').loads(raw)",
+    "a = np.load(p, None, True)",  # allow_pickle by position
+    "f = __builtins__['eval']",
+    "import builtins\nf = vars(builtins)['exec']",
+    "import builtins\nf = builtins.__dict__['exec']",
+    "import yaml\nL = yaml.CUnsafeLoader",
+    "import yaml\nL.add_multi_constructor('tag:yaml.org,2002:python/', yaml.constructor.UnsafeConstructor.x)",
+]
+
+
+@pytest.mark.parametrize("source", CHAINED_UNSAFE)
+def test_a_chained_or_indirect_unsafe_decoder_is_a_finding(source):
+    assert inputs.unsafe_findings("tests/test_x.py", source + "\n"), source
+
+
+CHAINED_INPUT = [
+    "t = open(p).read()",
+    "from pathlib import Path\nt = Path(p).open().read()",
+    "a = np.load(p).copy()",
+    "import json\nv = json.loads(s).get('a')",
+]
+
+
+@pytest.mark.parametrize("source", CHAINED_INPUT)
+def test_a_chained_input_primitive_in_the_engine_is_a_finding(source):
+    assert inputs.input_findings("src/simcore/core/x.py", source + "\n"), source
+
+
+def test_a_tuple_assignment_does_not_hide_a_modulator():
+    files = _repo_files()
+    rel = "src/simcore/adapters/doors.py"
+    files[rel] = (
+        "class Door:\n    name, kind = 'door', 'x'\n\n    def affordances(self):\n        return {}\n\n"
+        "    def execute(self, affordance, params):\n        return None\n"
+    )
+    problems = gates.check_gates(files)
+    assert f"gate registry: {rel}::Door.execute is an entry point with no row" in problems

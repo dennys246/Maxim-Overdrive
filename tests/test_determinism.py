@@ -18,7 +18,7 @@ import pytest
 from maxim_overdrive import data
 from simcore.adapters.sem.bridge import region_parts
 from simcore.core.applier import Applier
-from simcore.core.scene import Box, Scene
+from simcore.core.scene import Box, Cylinder, Scene
 from simcore.core.world import World
 from tests.conftest import FAST_SPACINGS
 
@@ -396,3 +396,25 @@ def test_the_scan_ignores(source):
 
 def test_a_chain_is_one_finding():
     assert len(findings(Path("x.py"), "x = np.random.rand(3)\n")) == 1
+
+
+# The digest scene has boxes only, so the byte-identical evidence for step 3b says nothing about cylinders, whose
+# mask now squares as r*r, not r**2 (delta review, Architecture D4). A cylinder scene, rerun, must agree with itself.
+CYLINDER_SCENE = Scene(
+    (3.0, 3.0, 2.0),
+    (Cylinder((1.5, 1.5), 0.37, (0.0, 0.8), "wood", "barrel"), Box((0, 0, 0), (0.6, 3.0, 2.0), "concrete", "wall")),
+)
+
+
+def _cylinder_run(dx_m: float) -> World:
+    w = World.from_scene(CYLINDER_SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
+    _, barrel = region_parts(Applier(w), w.frames, "barrel")
+    assert barrel["structure"].execute("ignite", {"power_w": FIRE_W, "radius_m": 0.3}).success
+    for _ in range(5):
+        w.advance()
+    return w
+
+
+@fast_spacings
+def test_a_cylinder_scene_is_bit_identical_on_a_rerun(dx_m):
+    assert digest(_cylinder_run(dx_m)) == digest(_cylinder_run(dx_m))

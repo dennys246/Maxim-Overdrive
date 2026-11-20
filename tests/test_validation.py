@@ -380,7 +380,7 @@ def test_a_multi_primitive_objects_footprint_covers_every_primitive(dx_m, materi
     low, high = footprint.bounds_m
     assert low == (1.0, 1.0, 0.0)
     assert high == pytest.approx((2.0, 1.6, 1.4))
-    with pytest.raises(SpecRejected, match=r"too large: 1\.4 m across"):  # the tallest axis, not the first
+    with pytest.raises(SpecRejected, match=r"too large: 1\.40 m across"):  # the tallest axis, not the first
         place(g, {**spec, "name": "tall"}, (0.0, 0.0, 0.0), Budget(max_extent_m=1.2, max_mass_kg=1000.0))
 
 

@@ -228,16 +228,50 @@ def test_a_region_table_taken_before_a_failed_window_still_shows_the_table_befor
     assert np.array_equal(held["crate"].cells, cells)
 
 
-def test_a_window_that_changes_only_the_sources_copies_no_cells_and_publishes_no_frame():
+def test_a_window_that_changes_only_the_sources_copies_no_cells_but_still_publishes_a_frame():
     # Step 3b review, Architecture S5: ignite and extinguish copied every channel twice for a change no frame carries.
+    # Delta review, Architecture D2: they still publish, so every application has its after-frame (lesson 23: Maxim's
+    # sensors read back right after execute). A frame holds the immutable owners, so republishing copies nothing.
     w = _world()
     owners = w.grid.temperature
-    frame = w.frames.latest
+    first = w.frames.latest
     _, crate = region_parts(Applier(w), w.frames, "crate")
     assert crate["structure"].execute("ignite", {"power_w": 1000.0}).success
     assert crate["structure"].execute("extinguish", {}).success
     assert w.grid.temperature is owners
-    assert w.frames.latest is frame
+    assert w.frames.latest.sequence == first.sequence + 2
+    assert w.frames.latest.cells.temperature is first.cells.temperature
+
+
+def test_the_grid_window_and_the_sources_window_share_one_owner():
+    # Delta review, Executor S-a and Architecture D5: the two locks were independent, so a sources window opened
+    # inside a grid window kept its fire when the grid window raised and rolled back.
+    w = _world()
+    with pytest.raises(WindowClosed, match="one owner at a time"):
+        _ignite_inside_a_failing_grid_window(w)
+    assert dict(w.sources) == {}
+    assert w.grid.temperature.max() == 20.0  # the grid window rolled back too
+    with w.writing(cells=False), pytest.raises(WindowClosed, match="one owner at a time"), w.grid.writing():
+        pass  # pragma: no cover - the nested window is refused before its body runs
+
+
+def _ignite_inside_a_failing_grid_window(w: World) -> None:
+    from simcore.core.intents import Ignite  # noqa: PLC0415
+
+    with w.grid.writing():
+        w.grid.temperature[:] = 500.0
+        Applier(w).apply("crate", Ignite(1000.0, 0.3))  # a second owner: refused, so the grid window raises
+        raise AssertionError("the nested window was not refused")  # pragma: no cover - reached only if the guard fails
+
+
+def test_a_paint_far_from_every_region_copies_no_region_mask():
+    # Delta review, Executor N-b: the copy-only-what-a-paint-takes speedup (Trust S5) has a guard of its own.
+    g = _world().grid
+    far = np.zeros(g.shape, dtype=np.bool_)
+    far[-1, -1, -1] = True
+    with g.writing():
+        g.paint(far, "steel")
+        assert g._masks == {}
 
 
 # -- the writers (boundaries §3, D-B1) ---------------------------------------------------------------------------------
@@ -444,22 +478,27 @@ def test_the_shipped_path_publishes_a_frame_after_each_application_and_each_adva
     seen.append(w.frames.latest.sequence)
     assert not crate["structure"].execute("strike", {"energy_j": -1.0}).success  # a refusal publishes nothing
     seen.append(w.frames.latest.sequence)
-    assert seen == [0, 0, 1, 2, 2]  # an ignite changes no cell, so no frame (boundaries §4.2: on change)
+    assert seen == [0, 1, 2, 3, 3]  # every application and advance publishes; a refusal publishes nothing
 
 
 # -- the membrane and the protocol reach the world only through their capabilities (step 3b review, Arch S1, Exec S2)
 
 # Attributes that reach past the public surface: the world's grid, its sources and clock, a window, a frame's cells.
-PEEKS = {"grid", "sources", "advance", "writing", "cells", "publish", "_grid", "_sources", "_world", "_feed"}
+PEEKS = {
+    "grid", "sources", "advance", "writing", "cells", "publish", "_grid", "_sources", "_world", "_feed", "__dict__",
+}  # fmt: skip
 OUTSIDE_CORE = ("simcore/adapters/", "simcore/protocol/")
 
 
 def peeks(rel: str, source: str) -> list[str]:
-    return [
-        f"{rel}:{node.lineno}: reaches .{node.attr}"
-        for node in ast.walk(ast.parse(source))
-        if isinstance(node, ast.Attribute) and node.attr in PEEKS
-    ]
+    """Attribute reads of world state, and ``vars(...)``, which reaches the same by name (delta review, N-a)."""
+    out = []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Attribute) and node.attr in PEEKS:
+            out.append(f"{rel}:{node.lineno}: reaches .{node.attr}")
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "vars":
+            out.append(f"{rel}:{node.lineno}: reaches attributes through vars()")
+    return out
 
 
 def test_the_adapters_and_the_protocol_reach_no_world_state_by_attribute():
@@ -481,6 +520,8 @@ def test_the_adapters_and_the_protocol_reach_no_world_state_by_attribute():
         "arr = frames.latest.cells.temperature",
         "feed.publish(frame)",
         "applier._world.grid",
+        "solid = vars(vars(applier)['_world'])['_grid']",
+        "d = applier.__dict__",
     ],
 )
 def test_the_peek_scan_catches(line):
@@ -492,19 +533,60 @@ def _contract(contract_id: str) -> dict[str, Any]:
     return next(c for c in contracts if c["id"] == contract_id)
 
 
-def reexports(rel: str, source: str, forbidden: set[str]) -> list[str]:
-    """``from simcore.core.<m> import <name>`` where the name is, or comes from, a forbidden module (a re-export)."""
-    out = []
-    for node in ast.walk(ast.parse(source)):
-        if not (isinstance(node, ast.ImportFrom) and (node.module or "").startswith("simcore.")):
-            continue
-        module = importlib.import_module(node.module or "")
-        for alias in node.names:
-            obj = getattr(module, alias.name, None)
-            origin = obj.__name__ if isinstance(obj, types.ModuleType) else getattr(obj, "__module__", None)
-            if origin in forbidden and node.module not in forbidden:
-                out.append(f"{rel}:{node.lineno}: {alias.name} from {node.module} is {origin}'s")
+def _origin(obj: object) -> str | None:
+    return obj.__name__ if isinstance(obj, types.ModuleType) else getattr(obj, "__module__", None)
+
+
+def _simcore_names(tree: ast.Module) -> dict[str, object]:
+    """Local names bound to simcore objects by an import: ``import simcore.core.frames as fr`` binds fr to the module,
+    ``from simcore.core import applier`` binds applier, ``import simcore.core.frames`` binds simcore."""
+    out: dict[str, object] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for a in node.names:
+                if a.name.startswith("simcore."):
+                    module = importlib.import_module(a.name)
+                    out[a.asname or "simcore"] = module if a.asname else importlib.import_module("simcore")
+        elif isinstance(node, ast.ImportFrom) and (node.module or "").startswith("simcore."):
+            module = importlib.import_module(node.module or "")
+            out |= {(a.asname or a.name): getattr(module, a.name, None) for a in node.names}
     return out
+
+
+def _chain(node: ast.Attribute) -> tuple[str, list[str]] | None:
+    parts = []
+    cur: ast.AST = node
+    while isinstance(cur, ast.Attribute):
+        parts.append(cur.attr)
+        cur = cur.value
+    return (cur.id, parts[::-1]) if isinstance(cur, ast.Name) else None
+
+
+def reexports(rel: str, source: str, forbidden: set[str]) -> list[str]:
+    """A forbidden module reached through an allowed one: ``from simcore.core.<m> import <name>`` where the name is,
+    or comes from, a forbidden module, and an attribute chain on an imported simcore object that reaches one
+    (``frames.damage.strike``; delta review, Architecture D1)."""
+    tree = ast.parse(source)
+    names, out = _simcore_names(tree), []
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.ImportFrom)
+            and (node.module or "").startswith("simcore.")
+            and node.module not in forbidden
+        ):
+            module = importlib.import_module(node.module or "")
+            for alias in node.names:
+                origin = _origin(getattr(module, alias.name, None))
+                if origin in forbidden:
+                    out.append(f"{rel}:{node.lineno}: {alias.name} from {node.module} is {origin}'s")
+        elif isinstance(node, ast.Attribute) and (chain := _chain(node)) and chain[0] in names:
+            obj: object = names[chain[0]]
+            for part in chain[1]:
+                obj = getattr(obj, part, None)
+                if _origin(obj) in forbidden:
+                    out.append(f"{rel}:{node.lineno}: {chain[0]}.{'.'.join(chain[1])} reaches {_origin(obj)}")
+                    break
+    return sorted(set(out))
 
 
 def _forbidden_for(rel: str) -> set[str]:
@@ -533,6 +615,10 @@ def test_nothing_outside_the_core_imports_a_forbidden_module_through_an_allowed_
         "from simcore.core.frames import MaterialGrid",
         "from simcore.core.applier import damage",
         "from simcore.core.frames import damage, QUANTITIES",
+        "import simcore.core.frames as fr\nx = fr.damage.region_breached",
+        "from simcore.core import applier\nx = applier.damage.strike",
+        "from simcore.core import frames as f\nx = f.damage.region_integrity",
+        "import simcore.core.world\nx = simcore.core.world.heat.step",
     ],
 )
 def test_the_reexport_scan_catches(line):

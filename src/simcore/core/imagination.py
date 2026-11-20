@@ -111,7 +111,7 @@ def _within_world_rules(grid: MaterialGrid, placed: list[Primitive], budget: Bud
     (x0, y0, z0), (x1, y1, z1) = footprint.bounds_m
     across_m = max(x1 - x0, y1 - y0, z1 - z0)
     if across_m > budget.max_extent_m + 1e-9:
-        raise SpecRejected(f"too large: {across_m:.3g} m across, the limit is {budget.max_extent_m:g} m")
+        raise SpecRejected(f"too large: {across_m:.2f} m across, the limit is {budget.max_extent_m:g} m")
     # The same boundary as authored scenes (scene._check_no_solid_overlaps): an imagined object may not sit inside a
     # named solid's footprint, even in air carved into it, or a strike on that solid could break the new object.
     for other, region in grid.regions.items():
@@ -119,7 +119,7 @@ def _within_world_rules(grid: MaterialGrid, placed: list[Primitive], budget: Bud
             raise SpecRejected(f"that space belongs to {shown(other)}")
     mass = sum(p.volume_m3 * grid.materials[p.material].density_kg_m3 for p in placed)
     if mass > budget.max_mass_kg:
-        raise SpecRejected(f"too heavy: {mass:.3g} kg, the limit is {budget.max_mass_kg:g} kg")
+        raise SpecRejected(f"too heavy: {mass:.0f} kg, the limit is {budget.max_mass_kg:g} kg")
     return footprint, mass
 
 

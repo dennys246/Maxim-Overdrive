@@ -183,14 +183,14 @@ def test_an_outcome_reports_the_applied_values_and_is_read_only():
         out.metadata["x"] = 1.0  # type: ignore[index]
 
 
-def test_extinguish_puts_out_the_fire_it_names_and_publishes_no_frame_for_it():
+def test_extinguish_puts_out_the_fire_it_names_and_publishes_its_after_frame():
     w = _world()
     applier = Applier(w)
     assert applier.apply("crate", Ignite(1000.0, 0.3)).success
     lit = w.frames.latest.sequence
     out = applier.apply("crate", Extinguish())
     assert (out.success, out.error, dict(w.sources)) == (True, None, {})
-    assert w.frames.latest.sequence == lit  # a frame carries no sources, so nothing it shows changed
+    assert w.frames.latest.sequence == lit + 1  # every application has an after-frame (delta review, D2)
     again = applier.apply("crate", Extinguish())
     assert (again.success, again.error) == (False, "nothing is burning on the crate")
 
@@ -211,7 +211,7 @@ class _Thing:
 def test_an_object_echoes_as_its_type_never_its_address():
     assert shown(_Thing()) == "<a _Thing>"
     assert shown([1, _Thing(), "a"]) == "[1, <a _Thing>, 'a']"
-    assert shown(np.float64(1.5)) == "<a float64>"
+    assert shown(np.float64(1.5)) == "1.5"  # a numpy scalar's value is run-independent (delta review, N-c)
     assert (shown(True), shown(None), shown(2.5), shown(b"x")) == ("True", "None", "2.5", "<a bytes>")
     from simcore.core.intents import parse_action  # noqa: PLC0415
 
@@ -251,7 +251,7 @@ def _no_masks(monkeypatch):
 @pytest.mark.parametrize(
     ("box", "reason"),
     [
-        ({"min_m": [0, 0, 0], "max_m": [10.0, 0.4, 0.4], "material": "wood"}, "too large: 10 m across"),
+        ({"min_m": [0, 0, 0], "max_m": [10.0, 0.4, 0.4], "material": "wood"}, "too large: 10.00 m across"),
         ({"min_m": [0, 0, 0], "max_m": [1.5, 1.5, 1.5], "material": "steel"}, "too heavy"),
         (
             {"min_m": [0, 0, 0], "max_m": [0.4, 0.4, 0.4], "material": "wood", "at": (0.1, 1.0, 0.0)},
@@ -292,3 +292,27 @@ def test_a_set_echoes_sorted_and_bounded_in_process():
     assert (shown(set()), shown(frozenset())) == ("set()", "frozenset()")
     assert shown({"b", "a", "c"}) == "{'a', 'b', 'c'}"
     assert shown(set(range(100))).endswith(", ...}")
+
+
+# -- delta review: the applier's string check (Executor S-c), echoes (N-c, Trust D-N5), refusal formats (D-N2) --------
+
+
+@pytest.mark.parametrize("region", [["crate"], {"a": 1}, 7, None])
+def test_the_applier_refuses_a_region_that_is_not_a_name(region):
+    out = Applier(_world()).apply(region, Ignite(1.0, 0.3))
+    assert (out.success, out.error) == (False, f"there is no {shown(region)} in this world")
+
+
+def test_a_numpy_scalar_echoes_its_value_and_a_huge_set_echoes_its_size_without_sorting():
+    assert (shown(np.float64(1.5)), shown(np.int64(7)), shown(np.bool_(True))) == ("1.5", "7", "True")
+    assert shown([np.float64("nan")]) == "[nan]"
+    assert shown(set(range(10**5))) == "<a set of 100000>"
+
+
+def test_size_and_mass_refusals_read_as_plain_numbers():
+    ends = [
+        {"min_m": [-999.9, 0, 0], "max_m": [-999.5, 0.4, 0.4], "material": "wood"},
+        {"min_m": [999.5, 0, 0], "max_m": [999.9, 0.4, 0.4], "material": "wood"},
+    ]  # 1,999.8 m apart: ".3g" read it as "2e+03" (delta review, Trust D-N2)
+    with pytest.raises(SpecRejected, match=r"too large: 1999\.80 m across"):
+        place(_grid(), {"name": "x", "primitives": ends}, (0.0, 0.0, 0.0))

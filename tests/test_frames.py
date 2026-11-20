@@ -104,7 +104,7 @@ def test_a_reading_refuses_an_unknown_quantity_or_region():
     frame = _world().frames.latest
     with pytest.raises(ValueError, match="unknown region quantity 'colour'"):
         frame.reading("crate", "colour")
-    with pytest.raises(KeyError, match="no region 'door'"):
+    with pytest.raises(ValueError, match="no region 'door'"):  # delta review, Trust D-N6: one exception type
         frame.reading("door", "integrity")
 
 

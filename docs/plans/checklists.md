@@ -86,6 +86,8 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 
 ## Step 5a, the simulation core (O34)
 
+- Retire `imagination.place`'s write window (its `TEMPORARY(phase1/sim-clock)` marker): owner confirmed 2026-11-20.
+
 - The substep floor (from 3a, marked `TEMPORARY(phase1/sim-clock)` in `src/simcore/core/heat.py`): `World.advance`
   takes `max(heat.min_substeps(dx), stability)` substeps per call, the retired rigs' 4/16/64 as 0.16 m² / dx²,
   whatever the call's length. On every 6 s turn the floor, not stability, sets the count; stability alone changes
@@ -189,6 +191,9 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 - No agent state: the `EventSequencer`'s high-water seq in each agent home is save v1, Phase 4 (O43).
 
 ## The agent line's PR (after steps 5 and 7)
+
+- Decide frame retention per agent before agents land: a frame pins a full grid (~100 MB at 5e6 cells); owner,
+  2026-11-20.
 
 It needs step 7: the host's stage 1 for worker speech calls `engine.text.player_text` (TB-S9).
 

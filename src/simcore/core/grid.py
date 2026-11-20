@@ -160,6 +160,7 @@ class CellStore:
         self._meta: dict[str, tuple[Footprint, bool]] = {}
         self._time_s = 0.0
         self._open = False
+        self._held = False  # the world's sources-only window: the same one owner as the cells' window
         self._on_close: list[Callable[[], None]] = []
 
     @property
@@ -235,11 +236,26 @@ class CellStore:
         masks = self._masks
         return {n: Region(masks[n], *m) if n in masks else self._regions[n] for n, m in self._meta.items()}
 
+    def _refuse_a_second_owner(self) -> None:
+        if self._open or self._held:
+            raise WindowClosed("the write window is already open: it has one owner at a time")
+
+    @contextmanager
+    def holding(self) -> Iterator[None]:
+        """The window's ownership without the cells: held by the world's sources-only window, so neither window
+        opens while the other is open (step 3b delta review, Executor S-a). Copies nothing, publishes nothing."""
+        self._refuse_a_second_owner()
+        self._held = True
+        try:
+            yield
+        finally:
+            self._held = False
+
     @contextmanager
     def writing(self) -> Iterator[None]:
-        """The write window. One owner at a time: a window opened inside another is refused."""
-        if self._open:
-            raise WindowClosed("the write window is already open: it has one owner at a time")
+        """The write window. One owner at a time: a window opened inside another, or inside ``holding``, is
+        refused."""
+        self._refuse_a_second_owner()
         owners, regions, time_s = self._channels, self._regions, self._time_s
         self._channels, self._masks, self._open = {name: arr.copy() for name, arr in owners.items()}, None, True
         try:

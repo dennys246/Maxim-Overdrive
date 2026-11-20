@@ -150,7 +150,9 @@ def _protocol_classes(classes: list[_Class]) -> set[str]:
 def _members(node: ast.ClassDef) -> tuple[list[str], set[str]]:
     """A class's public methods, and every name its body defines (methods and class attributes)."""
     methods = [m.name for m in node.body if isinstance(m, ast.FunctionDef | ast.AsyncFunctionDef)]
-    assigned = {t.id for m in node.body if isinstance(m, ast.Assign) for t in m.targets if isinstance(t, ast.Name)}
+    targets = [t for m in node.body if isinstance(m, ast.Assign) for t in m.targets]
+    targets += [e for t in targets if isinstance(t, ast.Tuple | ast.List) for e in t.elts]  # name, kind = ...
+    assigned = {t.id for t in targets if isinstance(t, ast.Name)}
     assigned |= {m.target.id for m in node.body if isinstance(m, ast.AnnAssign) and isinstance(m.target, ast.Name)}
     return [m for m in methods if not m.startswith("_")], set(methods) | assigned
 

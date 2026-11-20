@@ -15,6 +15,8 @@ import numbers
 import reprlib
 from collections.abc import Collection, Mapping, Sequence
 
+import numpy as np
+
 
 class _BoundedRepr(reprlib.Repr):
     """reprlib that echoes only plain values by value, so an echo is the same text in every run.
@@ -41,11 +43,20 @@ class _BoundedRepr(reprlib.Repr):
         return repr(x)
 
     def repr_instance(self, x: object, level: int) -> str:
+        # A numpy scalar's repr carries no address, so its value is run-independent (delta review, Executor N-c).
+        if isinstance(x, np.bool_):
+            return repr(bool(x))
+        if isinstance(x, np.integer):
+            return self.repr_int(int(x), level)
+        if isinstance(x, np.floating):
+            return repr(float(x))
         return f"<a {type(x).__name__}>"
 
     def _sorted_set(self, x: set[object] | frozenset[object], level: int, left: str, right: str) -> str:
         if not x:
             return f"{type(x).__name__}()"
+        if len(x) > _SET_SORT_LIMIT:  # sorting a million echoes took 0.8 s for a 33-character answer (Trust D-N5)
+            return f"<a {type(x).__name__} of {len(x)}>"
         items = sorted(self.repr1(e, level - 1) for e in x)
         shown_items = items[: self.maxset] + (["..."] if len(items) > self.maxset else [])
         return f"{left}{', '.join(shown_items)}{right}"
@@ -57,6 +68,7 @@ class _BoundedRepr(reprlib.Repr):
         return self._sorted_set(x, level, "frozenset({", "})")
 
 
+_SET_SORT_LIMIT = 1000
 _SHOW = _BoundedRepr()
 _SHOW.maxstring = _SHOW.maxother = 40
 
@@ -65,7 +77,7 @@ def shown(value: object) -> str:
     """A bounded, run-independent repr for an error message (boundaries §5.4, bounded echo), so a huge or hostile
     value can't flood or crash the reply, and a replayed refusal has the same bytes. It bounds length only; it doesn't
     scrub."""
-    if type(value) not in _PLAIN_TYPES:  # a subclass of one (a numpy float, a str subclass) has a repr of its own
+    if type(value) not in _PLAIN_TYPES:  # a subclass of one (a str subclass, a numpy float) is not printed by repr
         return _SHOW.repr_instance(value, 0)
     return _SHOW.repr(value)
 

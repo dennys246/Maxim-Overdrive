@@ -741,7 +741,7 @@ major version is proposed.
   needs no copy, but it pins a whole grid (about 100 MB at 5×10⁶ cells; one pinned per agent is a B5
   row). Stamped by sequence and `time_s` until the tick. A cell window copies all four channels
   twice in every build, even one that changes nothing (O8's switch can't reach the core); a sources-only window
-  copies none and publishes nothing. `place` opens it too (marked for 5a; `imagine` has no intent kind). The
+  copies none but still publishes. `place` opens it too (marked for 5a; `imagine` has no intent kind). The
   membrane gets an applier and a frame view, not the world. Skip-layer covers `encoding`. The registry adds
   `no input` and `partial`. `Budget` values are engine defaults (O23).
 - A tooling test asserts grimp resolves each root package under this repo's `src/`.

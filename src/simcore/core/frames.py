@@ -135,8 +135,8 @@ class Frame:
         return float(np.max(temps) if quantity == "temperature_max" else np.mean(temps))
 
     def _region(self, region: str) -> Region:
-        if not isinstance(region, str) or region not in self.cells.regions:
-            raise KeyError(f"no region {shown(region)} in this world")
+        if not isinstance(region, str) or region not in self.cells.regions:  # one exception type (§5.4)
+            raise ValueError(f"no region {shown(region)} in this world")
         return self.cells.regions[region]
 
 

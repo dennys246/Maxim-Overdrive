@@ -127,9 +127,9 @@ How the rule is kept, so far:
   after 60 turns of a 500 kW fire, once the crate has burned away). The reading isn't clipped, because clipping
   would hide the gap; the fuel model is the fix.
 - **Physics runs slower than real time at tile scale.** `advance(0.5)` takes 0.7 s of CPU at 1.92×10⁶ cells (a
-  40×8×6 m tile at 0.1 m) on a lightly loaded machine and 1.45 s under heavy load, and 3.9 s at 5×10⁶ (loaded), as
-  on main: 1.4–7.7× real time before any NPC (`process_time`, min of 2–5 runs; step 3b). 0.05 m is about 60× slower
-  than 0.1 m. Step 5a owns it (B5); far cells never run coarser (D21).
+  40×8×6 m tile at 0.1 m) lightly loaded, 1.4× real time (about 3.6× at 5×10⁶ by scaling); under heavy load 1.2–1.45 s
+  (2.3–2.9×) and 3.9 s at 5×10⁶ (7.7×). Main is the same (`process_time`, min of 2–5 runs; step 3b). 0.05 m is about
+  60× slower than 0.1 m. Step 5a owns it (B5); far cells never run coarser (D21).
 
 ## SEM for the environment
 
