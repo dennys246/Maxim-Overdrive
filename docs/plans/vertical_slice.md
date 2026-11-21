@@ -225,8 +225,8 @@ week 3, the verdict is about why not.
 
 ## 8. What feeds back
 
-- **The roadmap:** this branch edits neither `docs/roadmap.md` nor `foundations_plan.md`. Once
-  `phase1/solid-spike` has merged, a follow-up moves step 10's row and scopes Phase 2's fire from §7's answer 2.
+- **The roadmap:** step 10's row moved here after `phase1/solid-spike` merged (`foundations_plan.md`, D28, Phase
+  2's crate bullet). The owner scopes Phase 2's fire from §7's answer 2.
 - **Step 5b's body model:** whether players used momentum and knockback decides kinematic against dynamic before
   5b's code (`tile_and_client.md` §2.3 is kinematic today).
 - **`docs/lessons_maxim_in_games.md`:** one entry from §7's answer 3, with its numbers.

@@ -45,7 +45,7 @@ temperature plus phase-change progress as the stored heat state.
 - **D27. The clinic follows the exit (owner, 2026-11-17).** Phase 1 builds the alley; the ripperdoc clinic is authored
   after the exit passes and before Phase 4, whose first NPCs live there. §12's three questions are answered as
   recommended: truth at 0.1 m, the band gate for binary outcomes, CSG footprints in Phase 2.
-- **D28. A grey-box heat-debt prototype follows the tile (owner, 2026-11-17; skeptic S-S7).** Once the tile renders,
+- **D28. A grey-box heat-debt prototype precedes the tile (owner, 2026-11-17, S-S7; VS5).** As the vertical slice,
   a rough playable test of "Overdrive as heat debt" (`world_v2.md` §10) comes before more physics breadth, to find
   out whether pushing past limits in a burning space is fun.
 - **D29. Step 6 carries three laws D26 deferred (owner, 2026-11-18, after the tile spec's review).** D26's claim that
