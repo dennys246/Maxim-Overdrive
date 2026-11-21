@@ -47,11 +47,11 @@ Each entry says which half each piece of work is.
 |---|---|
 | **Goal** | The contract by which the world delivers physical stimuli at receptor locations to NPCs that are Maxim agents, so that what they learn is the world's regularities, never our rules |
 | **Documents** | `../design/sem_stimuli.md`; research in `../design/research/sem_stimuli/`; reviews in `../design/reviews/sem_stimuli/` |
-| **Contract** | all of it: which quantities, in what units and ranges, sampled where on the body, at what cadence, how they reach Maxim through its frozen SEM types, what is recorded for replay, and the tests that prove no privileged state leaks |
+| **Contract** | all of it: which quantities, in what units (ranges are Maxim's transduction), sampled where on the body, at what cadence, how they reach Maxim through its frozen SEM types, what is recorded for replay, and the tests that prove no privileged state leaks |
 | **Laws** | the world-side models behind each stimulus (skin heat, radiation onto body regions, luminance after line of sight), each replaceable behind the contract |
 | **Decided** | the world computes the stimulus at the receptor and Maxim transduces it (`fire_model.md` §5.1); fractions, never booleans; no flammability, flash point or φ as a sensor; tissue physics is the world's (lesson 24) |
-| **Status** | design v1 reviewed by seven lenses (15 BLOCKER, 66 SHOULD-FIX, 49 NIT); the owner ruled D1–D12 as recommended (2026-11-20: D5 (c), every body steps each tick; D11 (a), per-site occlusion; D12, a budget of 10 NPCs near a fire with a work-counter gate); v2 folded (`reviews/sem_stimuli/fold.md`), statuses open for the reviewers; D11–D12 reconfirmed at v2's corrected costs and D13 ruled (2026-11-21) |
-| **Next** | A delta round on v2, whose reviewers set the fold statuses; M16 to Maxim with the embeddable draft |
+| **Status** | v1 reviewed by seven lenses (15 BLOCKER, 66 SHOULD-FIX, 49 NIT), folded into v2; delta round 1 on v2 (reviewer-set: 102 fixed, 12 deferred, 1 rejected, 15 open; new 2 BLOCKER, 30 SHOULD-FIX, 27 NIT), folded into v3 (`reviews/sem_stimuli/delta1/fold.md`), statuses open for the reviewers. The owner ruled D1–D14 (2026-11-20, 21): D5 (c) as the contract, with D14's interim (delivery at the cognition rate until a body has a pain path); D11 (a), per-point visibility; D12 provisional, re-ruled on a measured refresh cost; M16 merged into M4 |
+| **Next** | Delta round 2 on v3, whose reviewers set the fold statuses; M4 to Maxim with the embeddable draft; then D12's refresh measurement before the irradiance law |
 
 ## States of matter: liquids, gases and zones
 

@@ -275,19 +275,20 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
   Phase 3's tier A heading ships (OD-A1's #1361 S3a, S3b and S4; OD-A2 to OD-A11; OD-A12's thread; OD-A14 to OD-A18;
   OD-A20, declined, so the replay exit carries its divergence; the issues OD-I1 and OD-I3), and before Maxim's 1.4.0 cut with the agent-loop decomposition slice that
   carries the stepped `think` (OD-A15). OD-A21, #1361 S5 and S6, and OD-A12's store routing don't block it.
-- **Guest sessions with real NPCs (Phase 5 or later, O28) wait for O14's gates,** held by a strict red gate that refuses guest joins while
-  real-Maxim NPCs are live (owned by `phase1/protocol`), and flipped only when each passes:
+- **Guest sessions with real NPCs (Phase 5 or later, O28) wait for O14's gates,** held by a strict red gate refusing guest joins while
+  real-Maxim NPCs are live (owned by `phase1/protocol`), flipped only when each passes:
   - the worker process and its channel gate (`npcs_and_sem.md` §6.6);
   - a no-effect test (no file reads or writes, sockets or spawns outside the agent home);
   - a dialogue-level bypass test driving guest speech through a real worker (prefetch, the parse-failure template,
     phrase commands, and the shortcut Maxim deleted, #1689, as a regression);
   - the guest-text gate refusing line separators and format characters on decoded text;
   - memory provenance with a purge that survives relay and extraction.
-  - O18's local model by default, remote only with the guest's informed consent (decided).
-  Deferred by name (O30): an OS sandbox for workers in guest sessions, decided before guest sessions open.
-- The cradle writer: a fixed event pool from an arc plus handcrafted inflection points, assembled per NPC in code.
-- Three NPCs on the first tile (the ripperdoc, a fixer and a street kid), each cradled from an authored life.
-- A dialogue screen and turn order. Movement runs in substrate-primary mode (no LLM); speech goes to the LLM.
+  - O18's local model by default, remote only with the guest's informed consent.
+  Deferred by name (O30): a worker OS sandbox, decided before guest sessions open.
+- The cradle writer: an arc's fixed event pool plus handcrafted inflection points, assembled per NPC in code.
+- Three NPCs on the first tile (the ripperdoc, a fixer, a street kid), each cradled from an authored life.
+- A dialogue screen and turn order; movement is substrate-primary (no LLM), speech is the LLM's; no NPC meets fire
+  before its body has a pain path (`docs/design/sem_stimuli.md` D14).
 - Save format v1: the world plus each NPC's agent home, including the agent's `EventSequencer` high-water seq, so a
   loaded save continues the sequence; `session_id` comes from the intent log's header (the log's root id, the NPC
   key and the segment number, a new segment per restore), never the wall clock or a uuid (O43, O45).

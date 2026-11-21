@@ -285,3 +285,18 @@ learning claim rests on an LLM-primary NPC alone (substrate-side measures, a cou
 instead); a question to Maxim on withholding world-channel read tools (`sem_stimuli.md` M19); NaN refused at three
 layers; and versions recorded per bound row. For any engine: audit what the agent's *language* channel sees, not
 only what its sensors carry.
+
+### 26. A reviewer's suggested fix is a claim like any other: check it before folding it (2026-11-21)
+
+**Advice from a design review is unverified until it is measured or traced.** *Evidence:* in the SEM stimulus
+design's delta round 1 (`docs/design/reviews/sem_stimuli/delta1/`), five readers retracted round-1 fixes that v2 had
+folded word for word. A lane-overlap gate run on replay can't fail, because replay runs no agents (concurrency F1, a
+BLOCKER). A short write on a non-blocking socket is normal, so killing the worker on it kills healthy NPCs (F5;
+measured here: 8,192 of 20,000 bytes taken, then `BlockingIOError`). A one-ulp plant on surface conductance doesn't
+move L3's column until tick 120–152, and never at zero flux, while a 10⁻¹² relative change shows at tick 0 (executor
+B1, re-measured here). A digest chain stored every N ticks finds the first bad window, not the first bad tick (DP2-N1).
+Thermal adaptation's "salience-layer route" names no plan at Maxim's `origin/main` (bio N-2). Two other gaps came from
+the fold itself: a delivery and digest that turned every new row into a replay break (architecture A-B2), and a budget
+ruled on stationary bodies only (DP2-B1). *Consequence:* the v3 fold measured or traced each checkable fix before
+writing it, and recorded "unverified" where it couldn't. For any project folding reviews: a reviewer's fix gets the
+same check as a source's number, because a test that can't fail, adopted on a reviewer's word, guards nothing.
