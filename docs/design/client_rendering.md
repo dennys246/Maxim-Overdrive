@@ -40,15 +40,15 @@ T3–T7 are world decisions (world §0).
 ## 2. The cut-away (T11; CR-S3, CR-N2)
 
 - **Which regions:** walls, as named in client data (`client/game/cutaway.tres`, keyed by region name; DC-N4).
-- **When:** a flagged region is cut when its authored box centre lies on the camera's side of the player:
-  dot(c − p, f) < 0, where f is the camera's horizontal forward at the **target** yaw.
+- **When:** a flagged region is cut when its box's point nearest the player lies on the camera's side:
+  dot(q − p, f) < 0, f the camera's horizontal forward at the **target** yaw (step 8: centres cut walls behind).
 - **Stumps:** cut regions keep a 0.3 m stump, the cells whose top is ≤ feet + 0.3 m. With the body's axis 0.25 m from
   a wall face, the sightline at 40° rises 0.30 m by the face (0.25/sin 45° × tan 40°, derived). So the stump hides at
   most the feet's edge.
 - **Hatching:** cut faces are hatched, a shape rather than a colour, so a cut wall never reads as burned away.
 - **Never cut:** the crate and other non-wall regions, so the fire stays visible from anywhere.
-- **No pops:** a side wall's centre line is never crossed, and the flag flips only at tween start. The end wall's
-  centre (x = 11.8 m) is out of the body's reach.
+- **No pops:** a side wall's face is never crossed, and the flag flips only at tween start. The end wall's face
+  (x = 11.6 m) is out of reach.
 - **Visual only:** uniforms, never fed back.
 - **Test (step 8):** the player's ID-mask pixels with world geometry drawn, divided by the same with the cell volume
   hidden, must be **≥ 95%** (v1's and CR-S3's threshold; `fold.md` Check 2b). It is checked at sampled positions along

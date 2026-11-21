@@ -22,10 +22,12 @@ from PIL import Image
 
 from tests.test_godot_check import gc  # registers godot_check, which golden_run imports
 from tests.test_golden_compare import KEY, LOG, gcmp
+from tests.test_golden_measures import gm
 
 ROOT = Path(__file__).resolve().parents[1]
 assert gc is not None
 assert gcmp is not None
+assert gm is not None
 _spec = importlib.util.spec_from_file_location("golden_run", ROOT / "scripts" / "golden_run.py")
 assert _spec is not None
 assert _spec.loader is not None
@@ -45,17 +47,23 @@ if "--import" in sys.argv:
 print({LOG!r}, end="")
 if not os.path.exists(mark):  # as the real Godot fails on a class_name in a project never imported
     print('SCRIPT ERROR: Parse Error: Identifier "EnginePin" not declared in the current scope.')
-out = next(a for a in sys.argv if a.startswith("--out=")).removeprefix("--out=")
-if not os.path.isabs(out):
-    print("ERROR: Can't save PNG at path: " + out)  # the real Godot reads it against the project
+user = sys.argv[sys.argv.index("--") + 1:]
+outs = [a.removeprefix("--shot=").split(":", 3)[3] for a in user if a.startswith("--shot=")]
+for a in user:
+    if a.startswith("--out="):  # the cut-away scene: one pair
+        d = a.removeprefix("--out=")
+        outs += [os.path.join(d, "cut-end-k0-with.png"), os.path.join(d, "cut-end-k0-without.png")]
+if any(not os.path.isabs(o) for o in outs):
+    print("ERROR: Can't save PNG at a relative path")  # the real Godot reads it against the project
     sys.exit(1)
 if mode == "error":
     print("SCRIPT ERROR: something broke")
 if mode == "hang":
     while True:
         pass
-if mode != "no-frame":
-    shutil.copy(os.environ["FAKE_GODOT_FRAME"], out)
+for o in outs:
+    if mode != "no-frame":
+        shutil.copy(os.environ["FAKE_GODOT_FRAME"], o)
 sys.exit(2 if mode == "exit-2" else 0)
 """
 WRAPPER = f"""#!{sys.executable}
@@ -73,17 +81,26 @@ def _executable(path: Path, source: str) -> str:
 
 @pytest.fixture
 def setup(tmp_path, monkeypatch):
-    """A stand-in Godot, a golden for the build its log names, and a frame it will draw."""
+    """A stand-in Godot, a golden per tier for the build its log names, a frame it will draw, and the measured checks
+    recorded instead of run (they are tested on real-shaped frames in tests/test_golden_measures.py)."""
     rgb = np.zeros((72, 128, 3), dtype=np.uint8)
     rgb[10:20, 10:20] = (200, 120, 40)
     goldens = tmp_path / "goldens"
-    (goldens / KEY / "renderer").mkdir(parents=True)
-    Image.fromarray(rgb).save(goldens / KEY / "renderer" / "boxes.png")
+    for tier in gr.TIERS:
+        (goldens / KEY / tier).mkdir(parents=True)
+        Image.fromarray(rgb).save(goldens / KEY / tier / "fire.png")
     Image.fromarray(rgb).save(tmp_path / "frame.png")
     monkeypatch.setattr(gr, "GOLDENS", goldens)
+    measured: list[Path] = []
+
+    def record(out: Path, cut: Path) -> list[str]:
+        measured.append(cut)
+        return []
+
+    monkeypatch.setattr(gr, "measured_findings", record)
     monkeypatch.setenv("FAKE_GODOT_FRAME", str(tmp_path / "frame.png"))
     monkeypatch.setenv("FAKE_GODOT_MODE", "ok")
-    return _executable(tmp_path / "godot", FAKE_GODOT)
+    return _executable(tmp_path / "godot", FAKE_GODOT), measured
 
 
 def _main(tmp_path: Path, godot: str, *extra: str) -> int:
@@ -91,11 +108,17 @@ def _main(tmp_path: Path, godot: str, *extra: str) -> int:
     return code
 
 
-def test_a_matching_frame_passes_and_its_log_is_kept(setup, tmp_path, capsys):
-    assert _main(tmp_path, setup) == 0, capsys.readouterr().err
-    assert capsys.readouterr().out.endswith("golden_run: PASS (1 scene(s))\n")
-    assert "llvmpipe (LLVM 20.1.2, 256 bits)" in (tmp_path / "out" / "renderer-boxes.log").read_text()
-    assert not (tmp_path / "out" / "renderer-boxes.diff.png").exists()
+def test_matching_frames_pass_every_shot_is_drawn_and_the_logs_are_kept(setup, tmp_path, capsys):
+    godot, measured = setup
+    assert _main(tmp_path, godot) == 0, capsys.readouterr().err
+    assert capsys.readouterr().out.endswith("golden_run: PASS (6 shots, 3 goldens, cut-away)\n")
+    out = tmp_path / "out"
+    assert sorted(p.name for p in out.glob("*.png")) == sorted(name for name, *_ in gr.SHOTS)
+    assert "llvmpipe (LLVM 20.1.2, 256 bits)" in (out / "golden.log").read_text()
+    assert (out / "cutaway.log").is_file()
+    assert (out / "cutaway" / "cut-end-k0-with.png").is_file()
+    assert measured == [out / "cutaway"]
+    assert not list(out.glob("*.diff.png"))
 
 
 @pytest.mark.parametrize(
@@ -103,40 +126,57 @@ def test_a_matching_frame_passes_and_its_log_is_kept(setup, tmp_path, capsys):
     [
         ("error", "Godot printed an error: SCRIPT ERROR: something broke"),
         ("exit-2", "exited 2"),
-        ("no-frame", "no frame at"),
+        ("no-frame", "draw: no frame at"),
     ],
 )
-def test_a_draw_that_errs_exits_badly_or_writes_nothing_fails_whatever_the_frame(
+def test_a_draw_that_errs_exits_badly_or_writes_nothing_fails_and_judges_nothing(
     setup, tmp_path, monkeypatch, capsys, case
 ):
+    godot, measured = setup
     mode, finding = case
     monkeypatch.setenv("FAKE_GODOT_MODE", mode)
-    assert _main(tmp_path, setup) == 1
+    assert _main(tmp_path, godot) == 1
     assert finding in capsys.readouterr().err
+    assert measured == []
 
 
 def test_a_hang_is_ended_by_the_timeout(setup, tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("FAKE_GODOT_MODE", "hang")
-    assert _main(tmp_path, setup, "--timeout", "2") == 1
+    assert _main(tmp_path, setup[0], "--timeout", "2") == 1
     assert "timed out after 2 s" in capsys.readouterr().err
 
 
-def test_a_frame_that_differs_fails_and_its_difference_is_written(setup, tmp_path, monkeypatch, capsys):
+def test_a_frame_that_differs_from_its_golden_fails_per_tier_and_its_difference_is_written(
+    setup, tmp_path, monkeypatch, capsys
+):
     other = np.full((72, 128, 3), 255, dtype=np.uint8)
     Image.fromarray(other).save(tmp_path / "other.png")
     monkeypatch.setenv("FAKE_GODOT_FRAME", str(tmp_path / "other.png"))
-    assert _main(tmp_path, setup) == 1
-    assert "mean ΔE" in capsys.readouterr().err
-    assert (tmp_path / "out" / "renderer-boxes.diff.png").is_file()
+    assert _main(tmp_path, setup[0]) == 1
+    err = capsys.readouterr().err
+    for tier in gr.TIERS:
+        assert f"{tier}/fire.png: mean ΔE" in err
+        assert (tmp_path / "out" / f"fire-{tier}.diff.png").is_file()
+
+
+def test_a_measured_finding_fails_the_job_and_an_advisory_note_does_not(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(gm, "cutaway_report", lambda cut: ([], ["cutaway: crate note"]))
+    monkeypatch.setattr(gm, "colour_alone_findings", lambda out: ["glow: dim"])
+    monkeypatch.setattr(gm, "agreement_findings", lambda name, tier, rig: [f"tiers: {name}"])
+    for tier in gr.TIERS:
+        Image.fromarray(np.zeros((90, 160, 3), dtype=np.uint8)).save(tmp_path / f"fire-{tier}.png")
+    assert gr.measured_findings(tmp_path, tmp_path) == ["glow: dim", "tiers: laptop", "tiers: max"]
+    assert "golden_run: advisory: cutaway: crate note" in capsys.readouterr().out
 
 
 def test_a_failed_import_draws_nothing(setup, tmp_path, monkeypatch, capsys):
+    godot = setup[0]
     monkeypatch.setattr(gr, "CLIENT", tmp_path / "client")
     (tmp_path / "client").mkdir()
     monkeypatch.setattr(gc, "import_changes", lambda source, imported: ["import: created x.gd.uid"])
-    assert _main(tmp_path, setup) == 1
+    assert _main(tmp_path, godot) == 1
     assert "import: created x.gd.uid" in capsys.readouterr().err
-    assert not (tmp_path / "out" / "renderer-boxes.log").exists()
+    assert not (tmp_path / "out" / "golden.log").exists()
 
 
 def test_by_default_godot_draws_under_xvfb(setup, tmp_path, monkeypatch, capsys):
@@ -144,7 +184,7 @@ def test_by_default_godot_draws_under_xvfb(setup, tmp_path, monkeypatch, capsys)
     monkeypatch.setenv("FAKE_WRAPPER_MARK", str(mark))
     wrapper = _executable(tmp_path / "xvfb-run", WRAPPER)
     monkeypatch.setattr(gr, "XVFB", (wrapper, "-a", "-s", "-screen 0 1280x720x24"))
-    assert gr.main(["--godot", setup, "--out", str(tmp_path / "out")], work_parent=tmp_path) == 0
+    assert gr.main(["--godot", setup[0], "--out", str(tmp_path / "out")], work_parent=tmp_path) == 0
     assert mark.read_text() == "-a -s -screen 0 1280x720x24"
     assert gr.XVFB != ()
     capsys.readouterr()
@@ -168,5 +208,7 @@ def test_without_godot_the_job_fails(tmp_path, monkeypatch, capsys):
 
 def test_a_relative_out_directory_reaches_godot_as_an_absolute_path(setup, tmp_path, monkeypatch, capsys):
     monkeypatch.chdir(tmp_path)
-    assert gr.main(["--godot", setup, "--out", "out", "--no-xvfb"], work_parent=tmp_path) == 0, capsys.readouterr().err
-    assert (tmp_path / "out" / "renderer-boxes.png").is_file()
+    assert gr.main(["--godot", setup[0], "--out", "out", "--no-xvfb"], work_parent=tmp_path) == 0, (
+        capsys.readouterr().err
+    )
+    assert (tmp_path / "out" / "fire-rig.png").is_file()

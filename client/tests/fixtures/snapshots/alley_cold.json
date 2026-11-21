@@ -1,0 +1,80 @@
+{
+ "actors": [
+  {
+   "id": 1,
+   "pos_mm": [
+    5500,
+    2925,
+    400
+   ]
+  },
+  {
+   "id": 2,
+   "pos_mm": [
+    8000,
+    3600,
+    400
+   ]
+  }
+ ],
+ "cell_m": 0.1,
+ "channels": {
+  "burning": {
+   "dtype": "u8",
+   "offset": 1152000,
+   "size": 230400
+  },
+  "crack": {
+   "dtype": "u8",
+   "offset": 691200,
+   "size": 230400
+  },
+  "material": {
+   "dtype": "u8",
+   "offset": 0,
+   "size": 230400
+  },
+  "region": {
+   "dtype": "u16",
+   "offset": 230400,
+   "size": 460800
+  },
+  "surface_glow": {
+   "dtype": "u8",
+   "offset": 921600,
+   "size": 230400
+  }
+ },
+ "data": "alley_cold.bin.gz",
+ "data_gzip_sha256": "6cc7f904533a550bcc734a3647c6391e4feeb09268258be5dd70ca9cb9c6f2e1",
+ "data_sha256": "cb8088b46d22e0af09c5a3bd66a991910e7a74a2aa8dbd63dcbd3c1a2599c4f9",
+ "data_size": 1382400,
+ "format": "overdrive-client-snapshot-fixture",
+ "glow": {
+  "offset_c": 525,
+  "scale_den": 255,
+  "scale_num": 975
+ },
+ "materials": {
+  "air": 0,
+  "concrete": 1,
+  "drywall": 5,
+  "glass": 3,
+  "steel": 2,
+  "wood": 4
+ },
+ "regions": {
+  "1": "floor",
+  "2": "wall_south",
+  "3": "wall_north",
+  "4": "wall_end",
+  "5": "crate",
+  "6": "crate_far"
+ },
+ "shape": [
+  48,
+  40,
+  120
+ ],
+ "version": 0
+}
