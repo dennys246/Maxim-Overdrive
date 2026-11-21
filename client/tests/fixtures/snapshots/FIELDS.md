@@ -8,17 +8,18 @@ This lists every field it assumes, for step 7 to confirm or change. The renderer
 
 ## Cells (the cell frame)
 
-| Field | Assumed | Source | Note for step 7 |
-|---|---|---|---|
-| `shape` | `[nz, ny, nx]`, arrays in C order, x fastest | `client_rendering.md` §4.1 | The engine's grid is indexed `[x, y, z]`; the encoder must transpose (`client_fixtures.wire_order`). One z-slice is then one Godot `Image`. |
-| cell size | `cell_m`, metres, float | — | `simcore.protocol.encoding.snapshot` calls it `cell_size_m`; §4.1's header names none. |
-| origin | cell (0, 0, 0)'s corner is the world's origin | — | The box, the cut boxes and actor positions all assume it; a frame with an offset (streaming) needs a field. |
-| `material` | u8 material id, 0 = air | §4.2 | Solid means `material != 0`. |
-| `region` | u16 `region_id`, little-endian, 0 = none | §4.2 | `encoding.snapshot` sends no region channel; the engine has region names but no ids yet. The fixtures number regions 1, 2, … in authoring order. |
-| `crack` | u8, 1 − integrity, 0–255 | §4.2 | Any value > 0 carves (§5.4). |
-| `surface_glow` | u8 counts, T = offset + scale · count | §4.2 | `encoding.snapshot` today names it `glow` and scales it 525–1500 °C over 0–255, which matches 975/255, but its quantity is the cell-mean temperature, not §4.2's envelope skin temperature: renaming the key is not enough. Count 0 means at or below 525 °C and emits nothing. |
-| `burning` | u8 burning fraction, 0–255 | §4.2 | Not in `encoding.snapshot` yet. |
-| `temperature_c` | not read | §4.2 | The f16 debug view has no pass yet. |
+The channels themselves (names, dtypes, meanings, the RG8 upload of `region`) are `client_rendering.md` §4.2's, which
+owns them; the fixtures follow it. What §4.2 doesn't say, and step 7 must settle:
+
+| Field | Assumed here | Note for step 7 |
+|---|---|---|
+| `shape` order | `[nz, ny, nx]`, C order, x fastest (§4.1) | The engine's grid is `[x, y, z]`: the encoder must transpose (`client_fixtures.wire_order`). |
+| cell size | `cell_m`, metres | `simcore.protocol.encoding.snapshot` calls it `cell_size_m`; §4.1 names none. |
+| origin | cell (0, 0, 0)'s corner is the world's origin | The box, the cut boxes and actor positions assume it; streaming would need a field. |
+| `region` | ids 1, 2, … in authoring order | `encoding.snapshot` sends no region channel, and the engine has no region ids yet. |
+| `surface_glow` | §4.2's quantity | `encoding.snapshot`'s `glow` has §4.2's scale but the cell-mean temperature, not the envelope skin: renaming the key is not enough. |
+| `burning` | §4.2 | Not in `encoding.snapshot` yet. |
+| `temperature_c` | not read | No pass draws it yet. |
 
 ## Vocabularies (the `welcome` message)
 
