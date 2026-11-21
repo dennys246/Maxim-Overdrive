@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Callable
 from decimal import Decimal
 from fractions import Fraction
 
@@ -288,8 +289,12 @@ def _burn_every_turn(dx_m, turns):
 def test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn(spacings):
     grids = [Run(dx_m, 6.0, 60) for dx_m in sorted(spacings, reverse=True)]
     runs = {run.dx_m: _burn_every_turn(run.dx_m, 60) for run in grids}
+
+    def integrity_at(turn: int) -> Callable[[Run], float]:
+        return lambda run: runs[run.dx_m][turn][0]
+
     for turn in range(60):
-        integrity = agrees(lambda run, t=turn: runs[run.dx_m][t][0], grids)
+        integrity = agrees(integrity_at(turn), grids)
         assert integrity.spread <= 0.1, (turn, runs)
         assert all(h[turn][1] <= WOOD_FLAME_C for h in runs.values()), (turn, runs)
 
