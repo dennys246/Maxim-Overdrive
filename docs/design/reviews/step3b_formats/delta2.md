@@ -21,7 +21,7 @@ consumer of the changed contracts still holds (client-shader's v0 scene is round
 
 | Id | Sev | Location | Scenario | Fold (author's claim) |
 |---|---|---|---|---|
-| SF-1 (Bio) | SF | lesson 29 (numbered 25 before the merge with main), roadmap OD-A16 | cited `classify_failure_type` misreading `out_of_range (energy_j)`; its only caller is the planner Maxim's docstring calls dormant (`plan_manager.py`, 043eab8) | corrected: the live replan path reads `error_kind` (`loop_state.py:248`); the dormant classifier is no evidence |
+| SF-1 (Bio) | SF | lesson 31 (numbered 25, then 29, before merges with main), roadmap OD-A16 | cited `classify_failure_type` misreading `out_of_range (energy_j)`; its only caller is the planner Maxim's docstring calls dormant (`plan_manager.py`, 043eab8) | corrected: the live replan path reads `error_kind` (`loop_state.py:248`); the dormant classifier is no evidence |
 | N1 (Trust) | SF | `loaders.py::DataPath` | `(data_dir() / 'x.yaml')._path.open()` read a data file past the gate: an underscore is not a capability | a handle holds no path; the gate keeps each in a `WeakKeyDictionary` no caller can import; handles compare by identity; test asserts no `_path`; corpus row marks the route as guarded by the type |
 | N2 (Trust) / SF-2 | SF | `schema.py::Text` | U+034F, U+E0100-E01EF, a trailing U+2800 and NFD `café` passed beside `crate`, `café` | the hand list is replaced by an allowlist by Unicode category: letters, digits, space and `_ - . '`, in NFC, minus the four Hangul fillers; each case is in `Text.bad` and a test keeps real names from any script |
 | N3 (Trust) | SF | `lint_inputs.py::_computed_getattr` | `getattr(*(g, '__globals__'))`, `g2 = getattr`, and computed names in the game package passed | any `getattr` but a plain call with a literal name is flagged, in every `src/` module; corpus rows both ways |
@@ -32,7 +32,7 @@ consumer of the changed contracts still holds (client-shader's v0 scene is round
 | N-2 | NIT | `digest.py` | "below 600 digits", 600 accepted | "at most" |
 | N-3 | NIT | `test_sem_compat.py` | `tool_bridge`'s inline aliases unchecked | read from its source, compared as a set |
 | N-4 / N9 | NIT | `Text.reserved` | `Text(reserved=("Self",))` matched nothing | normalised under `entity_key`; test |
-| N-5 | NIT | lesson 29, `agent_text` | "a schema field" contradicts `wrong_target (target)` | "a name we wrote"; over-long lines rewrapped |
+| N-5 | NIT | lesson 31, `agent_text` | "a schema field" contradicts `wrong_target (target)` | "a name we wrote"; over-long lines rewrapped |
 | N-6 | NIT | corpus | three rows imported the removed `real_path` | rewritten as methods on a value |
 | N7 | NIT | `_text_of` | the bounded read was untested | a test spies on the read's size |
 | N8 | NIT | `existing_directory` | an absolute candidate replaced the base | a TypeError (candidates are written in code); test |

@@ -10,15 +10,14 @@ Godot client (render, input, UI)  ──intents──▶  World server (Python, 
                                   ◀─snapshots──    ├── material grid (cells)
                                                    ├── physics fields (heat today)
                                                    ├── damage
-                                                   ├── SEM bridge  ──▶  Maxim agents (AgentPool)
+                                                   ├── SEM bridge  ──▶  Maxim agents (a worker each)
                                                    └── imagination specs → cells
 ```
 
 - The world server owns all state and all physics. The client never simulates anything that feeds back into the
   world. It may add purely visual effects (particles, debris, interpolation between frames).
 - Cradles and experiments run the same server headless. The physics an NPC grows up in is the game's physics.
-- The game runs in real time with pause (`docs/design/realtime_lanes_coop.md`); neither the world nor an NPC
-  waits for a thought.
+- Real time with pause; late thoughts dilate, hold the floor or land late (`npcs_and_sem.md` §4.4).
 
 ## The world is material cells
 
@@ -31,11 +30,8 @@ always **per unit volume** (`fracture_energy_j_m3`, `degrade_*`), so they mean t
 
 ## The verification rule
 
-> **The truth grid (0.1 m) agrees with the reference (0.05 m) within a gated tolerance, and converges from the
-> coarse grid (0.2 m)** (world_model §1.1).
-
-Outcomes agree, within bands: did the wall breach, the crate burn. Two tests per module; heat's through
-`simcore.verify` (`docs/design/verify_harness.md`):
+The rule is stated in `docs/design/world_model.md` §1.1. Two tests per module, through `simcore.verify`
+(`docs/design/verify_harness.md`):
 
 1. **Against a closed form,** space and time refined apart (E2). Heat: a steel bar's Gaussian pulse, second
    order in space (errors 1.29% / 0.34% / 0.085% at 0.2 / 0.1 / 0.05 m) and first in time. Damage: crater volume
@@ -53,17 +49,19 @@ How the rule is kept, so far:
   scratch becomes a breach.
 
 **Known gaps (tracked, not gated yet):**
+- NPC inference (no streaming yet, load versus failure, first hops, spend): `docs/design/inference_placement.md` §6.3.
 - Late in a burn the coarsest rig lags (crate integrity 0.55 at 0.2 m vs 0.37–0.38 at 0.1 and 0.05 m after 150
   turns): a coarse cell degrades as one block. Onset agrees to within 5%. It falls below 0.7 at turn 138 at 0.2 m
   against 104 at 0.1 m. Red gate: `tests/test_cross_tier.py::test_the_crate_is_badly_burned_at_the_same_turn_at_every_rig`.
 - No convection or radiation: air only conducts, so rooms heat too slowly and fires must sit on a material.
-- Destroying a cell removes its heat with it (the cell becomes air at the air's heat capacity).
+- Destroying a cell removes its heat (it becomes air at air's heat capacity). Measured: a 5.4-minute crate-and-pallet
+  burn lost 42.2 of 84.0 MJ to 14 destroyed cells (commit 6e8f037).
 - **Fires don't consume fuel: once nothing solid is left under a fire, it heats air.** `World._power_field` spreads a
   fire's power over the solid cells its sphere overlaps, and falls back to the air cells when there are none. Air has
   about 1/1000 of wood's ρc, so the runaway is enormous. On the 3×3×2 m crate scene at 500 kW, radius 0.3 m: the
   crate is gone by turn 50 at 0.2 m cells, and the peak is 207,350 °C at turn 50 and 2.67 million °C at turn 200;
-  at 0.1 m it is 361,913 °C at turn 50 and 2.67 million °C at turn 200. The snapshot clamps temperature at 6000 °C,
-  so the client never sees the overshoot, but the heat is real and conducts onward. The fix is a fire that goes out
+  at 0.1 m it is 361,913 °C at turn 50 and 2.67 million °C at turn 200. The snapshot clamps at 6000 °C; the heat
+  still conducts. The fix is a fire that goes out
   when it has nothing to burn. It blocks the exit test's "burn away", so it lands before the tile's crate scenario
   is gated. Red gate: `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`
   (`xfail(strict=True)`).
@@ -173,8 +171,7 @@ transport later means replacing one adapter on each side, not the message format
 **Why not a raw TCP socket.** At 5 bytes per cell, a 16×10×4 m tile is about 0.4 MB at 0.2 m cells, 3.2 MB at
 0.1 m and 26 MB at 0.05 m. On localhost either transport moves that in tens of milliseconds, far less than a turn of
 physics. WebSocket frames each message for us (raw TCP means hand-written length-prefix reassembly in GDScript),
-can be inspected with `websocat` or a few lines of Python, is built into Godot 4 (`WebSocketPeer`), and is the only
-one of the two that a web export or `wss://` remote play could use.
+is inspectable with `websocat`, is built into Godot 4 (`WebSocketPeer`), and alone suits a web export or `wss://`.
 
 **What it costs, and what we do about it:**
 - *Any web page can open `ws://localhost`.* Browsers allow cross-origin WebSockets, which a raw socket would not.

@@ -11,13 +11,15 @@ All four **fixed**:
   exactly Cherokee's 86 small letters, and each keys to its capital.
 - **R5-2:** dropping the one-system rule turns 30 tests red. Nd digits come in runs of ten, so `ord - digit` names one
   system.
-- **R5-3 and R5-4:** the B37 text and the comment above `_NAME_SEPARATORS` are correct.
+- **R5-3 and R5-4:** the B38 text and the comment above `_NAME_SEPARATORS` are correct.
 
 ## The merge
 
 The renumbering is correct:
-- This branch's rows B30 and B31 became B37 and B38, byte for byte, because `main` owns B30 to B36.
-- Its lesson 25 became §29, because `main` owns §25 to §28.
+- This branch's rows B30 and B31 became B37 and B38, byte for byte, because `main` owned B30 to B36.
+- Its lesson 25 became §29, because `main` owned §25 to §28.
+- A second merge, after this round, moved them again: `main` had since taken B37 and lessons 29 and 30, so the rows
+  are B38 and B39 and the lesson §31 (`git log` has the merge commit).
 - Every reference to this branch's rows and lesson follows, and none of `main`'s own references changed.
 - Both sides of both conflicts are kept.
 
@@ -29,7 +31,7 @@ lint passes.
 | Id | Location | Scenario | Fold (author's claim) |
 |---|---|---|---|
 | N6-1 | `schema.py::_visible_word` | the comment said "as IDNA's CONTEXTO rules ask", but the code is stricter (it refuses `1٢`, which CONTEXTO allows), so a reader could "align" the code with the comment | the comment says the rule is stricter, on purpose |
-| N6-2 | B37 | look-alike digit systems split by a separator (`١ ۲`) pass; B37 read as one number only | B37 names the separator case |
+| N6-2 | B38 | look-alike digit systems split by a separator (`١ ۲`) pass; B38 read as one number only | B38 names the separator case |
 
 The rounds stop here: this round folds nothing in code (CLAUDE.md, "Review before push"; `docs/code_review.md`).
 
@@ -54,9 +56,9 @@ The rounds stop here: this round folds nothing in code (CLAUDE.md, "Review befor
 - **A10:** stage-1 intent parsing moves onto the schema in step 7.
 - **Wire N6:** today's codes get their reply and logging classes in step 5a.
 - **Determinism N7:** spawn-to-cell mapping stays integer at step 5b.
-- **R3-7, and B37:** cross-script look-alikes, combining-mark runs, mid-word joiners, look-alike digit systems and the
+- **R3-7, and B38:** cross-script look-alikes, combining-mark runs, mid-word joiners, look-alike digit systems and the
   apostrophe pair wait for TR39's skeleton, at the first names from outside this repository.
-- **B38:** further deliberate input-lint spellings wait until untrusted code can reach `src/`.
+- **B39:** further deliberate input-lint spellings wait until untrusted code can reach `src/`.
 - **`Scene.from_dict`:** registered as partial until step 5a's memory budget.
 - **Digests:** they have no shipped caller until step 5a.
 - **Body archetypes and items:** not built (owner, 2026-11-21).

@@ -4,8 +4,10 @@
 # golden is taken from CI's own output, never from a laptop.
 name: golden
 
+# Pull requests, and pushes to main, as test.yml.
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:

@@ -328,7 +328,40 @@ contract, set by a marked ANALOG stand-in until Maxim drives them (M20). For any
 physiology the controller acts on, and leave the set point and the effector choice to the agent; a world that
 regulates on the agent's behalf hides the very signal the agent is supposed to learn from.
 
-### 29. An agent's refusal vocabulary must be closed, and it still has to steer (2026-11-21)
+### 29. A host that schedules many agents must own placement, and that argues with a recorded Maxim rule (2026-11-21)
+
+**Maxim's distributed infrastructure moves inference, not agents, and its router is a scheduler of its own.**
+*Evidence:* at `origin/main` 043eab8f the networked mesh was deleted as dead code (`mesh/__init__.py`), and the peer
+system sends a machine's model calls to a leader. Maxim already splits capability (a function's tier) from placement,
+and records that placement "rides on `LLMRouter`'s existing … failover — NOT a new resolver" (`docs/agents/llm-routing.md`).
+The router fails over inside one call: it records who served (`last_used_*`, `router.py:285-316`), but the caller didn't choose. It reads
+process state (`router.py:77`, `:201`). Underneath, no backend streams to its caller, the cloud backends turn most
+failures into an empty reply, retries run inside the call, and no timeout bounds a whole call. A host that books
+deadlines, slots, consent and spend per placement, and must kill a stuck call, can't let a second scheduler run inside
+its dispatch. *Consequence:* O46–O53 (`docs/design/inference_placement.md`): a request names a function, the lane
+picks the placement, one gateway process per placement makes one backend call per dispatch, and the cache key never
+names the model. The rule we argue against is OD-A24, with this evidence; the backend gaps are OD-I9, OD-I10 and
+OD-A25. A first draft missed Maxim's placement rule because its search never used the word "placement": search for
+the design's own nouns first. For any game hosting Maxim: let the agent ask for a kind of model, let the host decide
+which one answers and record that it did, and take the disagreement to Maxim rather than around it.
+
+### 30. A local model's latency is the machine's, not the model's: measure it under the load the game will share (2026-11-21)
+
+**The LLM spike measured a quiet machine; the game never runs on one.** *Evidence:* the spike (`spikes/llm/results/`)
+timed qwen2.5:3b at about 0.3 s to the first token and 1–2 s for a short reply, at a load average near 7. The
+vertical slice's vendor asked the same model for its lines while the world, the client and other sessions shared
+the machine (load average 125–142): every line timed out at 2.5 s and fell back to a canned one, and direct calls
+took 48 s cold and 8 s warm. On the owner's quiet Mac mini (load average about 2.5), the same voice code took
+1.37 s cold and 0.23 s warm (median; p95 0.27 s), with 0 fallbacks in 20. The vendor still walked to the fire and put it out on time, because a behaviour tree
+decided and the model only spoke (`spikes/slice/slice_server/npc.py`, `voice.py`). `npcs_and_sem.md` §4.5 bounds the
+world at `D / L` while a thought is pending, with L = 3 s. The game alone on the mini gave L = 0.23 s, well inside
+that; other processes loading the machine pushed it to 8 s, where the bound would be 1/8 of real time. L is set by
+what shares the machine, not by the model or the game. *Consequence:* for any game hosting Maxim in its LLM-harness mode, latency is set by everything
+else the machine is doing, so (a) keep a decision path that acts within a tick without the model (a reflex, a
+substrate policy, a behaviour tree), and let the model add to it rather than gate it; and (b) set L from a
+measurement under the game's expected load, then recompute §4.5's dial with it before the NPC line commits to it.
+
+### 31. An agent's refusal vocabulary must be closed, and it still has to steer (2026-11-21)
 
 **What the world tells an agent when it refuses is an input to the agent's next thought, so it is a protocol, not a
 message.** *Evidence:* step 3b part (b) replaced the SEM membrane's free-text errors with the refusal-code enum

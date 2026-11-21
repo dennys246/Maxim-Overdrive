@@ -54,7 +54,7 @@ _NOT_NUMBERS: Bad = (
 # contexts, symbols and compatibility forms are not. The whole name must be its own NFKC form, so a fullwidth "crate"
 # (U+FF43...) or a ligature is not a second "crate". IDNA admits two letters that render blank (EGYPTIAN HIEROGLYPH FULL
 # and HALF BLANK), so a letter named BLANK or FILLER is refused by its Unicode name. Look-alikes from other scripts
-# ("\u0441rate") need TR39's confusable skeleton: B37.
+# ("\u0441rate") need TR39's confusable skeleton: B38.
 _NAME_SEPARATORS = re.compile("[ _.'\u2019-]+")
 _BLANK_WORDS = ("BLANK", "FILLER")
 _JOINERS = {0x200C: "x", 0x200D: "x"}  # allowed past isprintable only so IDNA can rule on their context

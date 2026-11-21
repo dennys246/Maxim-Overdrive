@@ -47,7 +47,7 @@ claimed to supersede were deleted. Making the cylinder's `radius_m` optional lef
 | A12 | NIT | codes | duplicate ids `name_taken`; `air` as a "field"; a throwaway `Refused("")` | `duplicate_key`; no field; `refusals.agent_text` owns the format |
 | A13 | NIT | claims | "instead of a float tolerance" overstates; F13's rule stated twice | the 1 nm allowance is documented; `to_mm` states its rule |
 | A14 | NIT | `test_refusals.py::SHIPPED` | 21 codes with no producer pinned "as shipped" | not folded: tile §3.4 lists them; pinning before a producer is the point |
-| A15 | NIT | lesson 29 (numbered 25 before the merge with main) | its Maxim candidate had no trigger | rewritten as evidence for OD-A16 (Bio S2) |
+| A15 | NIT | lesson 31 (numbered 25, then 29, before merges with main) | its Maxim candidate had no trigger | rewritten as evidence for OD-A16 (Bio S2) |
 
 ## Wire integrity
 
@@ -60,7 +60,7 @@ claimed to supersede were deleted. Making the cylinder's `radius_m` optional lef
 | S5 | SF | tile §3.2 and step table, fire_solid §5.2 | a registered `actions_v0_to_v1` migration (now a TypeError), "bed fields", "`SCENE_VERSION` is 0" | each edited in place; tile §3.2's `max_duration_ticks` (content in ticks) is `max_duration_s` |
 | N1 | NIT | data file comments | name removed constants | point at the `Format` objects |
 | N2 | NIT | `applier.py::Outcome` | `success=False, code=None` allowed | a TypeError; test |
-| N3 | NIT | lesson 29 | before-state misstated | rewritten |
+| N3 | NIT | lesson 31 | before-state misstated | rewritten |
 | N4 | NIT | `Material.name` | two rules | as A9 |
 | N5 | NIT | spawn names | exact comparison | as Executor N4 |
 | N6 | NIT | today's codes | no reply or log class | step 5a checklist line |
@@ -103,9 +103,9 @@ under four hash seeds.
 | Id | Sev | Location | Scenario | Fold |
 |---|---|---|---|---|
 | S1 | SF | `bridge.py::StructureModulator.execute` | Maxim's actor tool defaults `target` to the caller's body; bare `wrong_target` let an agent retry "player" or "self" forever and book tool pain | `wrong_target (target)`; each affordance's description states the rule; test |
-| S2 | SF | lesson 29 | two factual errors; its Maxim candidate duplicates `ToolErrorKind`, `tool_failure_credit.md` and OD-A16 | rewritten as evidence for OD-A16, citations checked at 043eab8 |
+| S2 | SF | lesson 31 | two factual errors; its Maxim candidate duplicates `ToolErrorKind`, `tool_failure_credit.md` and OD-A16 | rewritten as evidence for OD-A16, citations checked at 043eab8 |
 | S3 | SF | spawns, `identity_key` | `Guard`/`guard` resolve to one entity; a spawn may share a region's name; `player`, `self`, `aut` resolve to the calling agent itself, and both fixtures spawned `player` | spawn names unique under `entity_key`, disjoint from region names, never a Maxim alias (`bad_identity_key`); fixtures say `runner`. Tile §1.3's example spawn is renamed `runner` too (owner, 2026-11-21). |
-| N1 | NIT | `intents.py::_within` | `out_of_range (power_w)` drops the authored bound | accepted: the bound is in the description; lesson 29 says so |
+| N1 | NIT | `intents.py::_within` | `out_of_range (power_w)` drops the authored bound | accepted: the bound is in the description; lesson 31 says so |
 | N2 | NIT | `identity_key` docstring | the colon rule's reason is the composite `npc_key:stream` agent id (O40), not the int-seeded join | cited |
 | N3 | NIT | test names | "in words" | renamed |
 | N4 | NIT | Maxim `plan_document.py::classify_failure_type` | substring-matches "energy" in field names | evidence for OD-A16; no change here |

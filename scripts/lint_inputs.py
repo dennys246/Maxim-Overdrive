@@ -245,7 +245,7 @@ def _computed_getattr(rel: str, source: str) -> list[str]:
     taken as a value, ``__builtins__.getattr`` too), and any call of ``vars``, ``globals`` or ``locals``, whose
     result is a namespace (``vars(module)['_private']``), in every ``src/`` module (delta reviews 2 and 3: N3, R3-3,
     R3-4). Further deliberate spellings are out of this branch's scope (owner, 2026-11-21): docs/standards_backlog.md
-    B38, triggered when untrusted code (mods) can reach src/."""
+    B39, triggered when untrusted code (mods) can reach src/."""
     tree = ast.parse(source)
     names = _Names(tree)
     called = {id(n.func) for n in ast.walk(tree) if isinstance(n, ast.Call)}
