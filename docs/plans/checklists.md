@@ -104,6 +104,9 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
   numba until a profile asks).
 - Intent kinds ranked 0/10/20/30, leaving room; a `retired:` list of verbs, and refusal codes append-only, tested.
 - Replay goldens keyed by an environment digest; the log header's field list as merged in step 1.
+- The u16 region-id array (world_model §10 row 4), which `fire_solid.md` §0 leans on.
+- **6.0a rides this line** (`fire_solid.md` §0, §5): the split material data, its loaders and versions, and the
+  fuel tables' registry entries, before the log writer records the first golden.
 
 ## Step 5b, bodies and movement (`tile_and_client.md` §2, §3, §4.1)
 
@@ -128,6 +131,10 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
   `kindle` deposit: a marked band-aid, its file listed under Phase 1 in the roadmap, removed by step 6's skin.
 
 ## Step 6, fire (D30, T13; `tile_and_client.md` §5)
+
+**Superseded (owner, 2026-11-20).** Step 6 is the ladder of `fire_model.md` v2, built from `fire_solid.md` (6.0b,
+6.1) and the later rung designs. The list below is kept as the record of what the tile spec asked; each item is
+answered, replaced or carried by those documents (their §10 and §7 tables).
 
 - A short design note first, reviewed under the Physics lens, answering the final review (`reviews/tile_v1/
   final_physics.md`): FPH-B1 radiative transfer between slats inside the bed, plus the draught's air-supply loss;

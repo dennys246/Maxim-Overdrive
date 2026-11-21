@@ -94,8 +94,8 @@ primitives:
   - {kind: box, name: wall_south, material: concrete, min_m: [1.2, 0.0, 0.4],   max_m: [12.0, 0.4, 4.4]}
   - {kind: box, name: wall_north, material: concrete, min_m: [1.2, 3.6, 0.4],   max_m: [12.0, 4.0, 4.4]}
   - {kind: box, name: wall_end,   material: concrete, min_m: [11.6, 0.4, 0.4], max_m: [12.0, 3.6, 4.4]}
-  - {kind: box, name: crate,      material: wood, bed: {phi: 0.25, sigma_m2_m3: 25.0}, min_m: [6.0, 2.6, 0.4], max_m: [6.6, 3.2, 1.0]}
-  - {kind: box, name: crate_far,  material: wood, bed: {phi: 0.25, sigma_m2_m3: 25.0}, min_m: [9.0, 0.8, 0.4], max_m: [9.6, 1.4, 1.0]}
+  - {kind: box, name: crate,      material: wood, min_m: [6.0, 2.6, 0.4], max_m: [6.6, 3.2, 1.0]}
+  - {kind: box, name: crate_far,  material: wood, min_m: [9.0, 0.8, 0.4], max_m: [9.6, 1.4, 1.0]}
 ```
 
 ### 1.4 Size (derived; counts recomputed by PH)
