@@ -88,12 +88,13 @@ versioned SEM vocabulary, and the format rule that a name's meaning never change
 
 ## Time
 
-### 11. Agents need world time, injected (2026-11-15)
+### 11. Agents' machinery needs world time, injected; cognition gets no clock (2026-11-15, reworded 2026-11-20)
 
 **Maxim's substrate reads the wall clock widely, so paused NPCs get hungry and replays diverge.** *Evidence:*
 `time.time()` in 178 pymaxim files; the SCN on the host calendar with local time zones; hippocampus de-duplication on
 wall time. *Consequence:* Phase 3 items for an injected world clock, a deterministic agent contract and
-experience-clock decay.
+experience-clock decay. *Reworded (SEM stimulus design D4, OD-A2):* the injected clock is machinery (drift, stamps,
+windows); cognition receives no time field, as time research §8.4 requires.
 
 ### 12. Nobody waits for a thought, in world time (2026-11-16)
 
@@ -249,7 +250,10 @@ landed and the integrity reading did not move. *Consequence:* every write window
 application's effect is in the next read (boundaries §4.2's cadence, now held by
 `tests/test_ownership.py::test_the_shipped_path_publishes_a_frame_after_each_application_and_each_advance`). For
 any engine: an agent that perceives by pulling needs its own act reflected in the next pull, or its efference copy
-has nothing to match; publish on change, and make the action's commit a change.
+has nothing to match; publish on change, and make the action's commit a change. *Amended 2026-11-20
+(`sem_stimuli.md` §6.2):* NPC stimuli are pushed each tick, so the post-`execute` cascade read sees the pre-act
+frame. Push and pull now hold at different layers; the cascade read is logging, never credit, and the act's effect
+reaches the actor in the next tick's frame.
 
 ### 24. A sensor must be something a receptor could sense; read-outs that are true can still be oracles (2026-11-20)
 
@@ -259,11 +263,25 @@ can't disagree with the world but still give every NPC knowledge no receptor del
 so an agent reading them learns our table, not fire. The other labels (soaked, burning) were yes/no, which thresholds
 a whole entity's mean, the D25 hazard lesson 22 itself cites; `states_of_matter/sem.md` N2 ("fractions, never
 labels") had already said so. *Consequence (pending the owner's ruling on fire_model §11 item 7):* the world computes the
-physical stimulus at the receptor (flux and skin temperature per body region, concentrations at the nose, luminous
-flame in view), Maxim's receptors transduce it, and state reaches an NPC only as continuous fractions through a
+physical stimulus at the receptor (tissue temperature at receptor depth, with incident flux internal; concentrations at the
+nose; luminous flame in view), Maxim's receptors transduce it, and state reaches an NPC only as continuous fractions through a
 percept. Two leak tests decide where a quantity lives: could an instrument at that spot measure it without a
 nervous system (the world's), and is it transduction, meaning a threshold, gain, adaptation or latency (the
 receptor's). Tissue is world physics even when its constants come from physiology papers: skin conduction and burn
 damage belong to the world, or the body gets a second heat path (design review, `reviews/fire_model/bio_faithful.md`
 S4). For any engine embedding agents: "computed from the world" is necessary for a sensor, not sufficient; it must
 also be sensible.
+
+### 25. An agent's tool bridge shows the LLM each sensor's unit and value, so a faithful stimulus is still a label to the LLM (2026-11-20)
+
+**Delivering physics instead of labels doesn't keep a language model from reading the physics as a label.**
+*Evidence:* Maxim generates a read tool per sensor ("Returns value in {sensor.unit}", returning `value` and `unit`)
+and a sense tool naming every sensor (`embodiment/tool_bridge.py:295-321`, `:1002-1020` at `origin/main`
+`043eab8f`), found by the SEM stimulus design review (`reviews/sem_stimuli/bio_faithful.md` S2). A skin sensor reads
+"celsius … 47.3", and 47 °C means "burning" to the LLM. The same review round found two smaller traps: Maxim clamps
+NaN to the top of a sensor's range (`max(lo, min(hi, nan))` is `hi`), and a single digest over the whole stimulus
+registry would freeze every law it was meant to keep replaceable (`architecture.md` A-B2). *Consequence:* no
+learning claim rests on an LLM-primary NPC alone (substrate-side measures, a counter-prior or dose–response
+instead); a question to Maxim on withholding world-channel read tools (`sem_stimuli.md` M19); NaN refused at three
+layers; and versions recorded per bound row. For any engine: audit what the agent's *language* channel sees, not
+only what its sensors carry.

@@ -1,479 +1,545 @@
-# The SEM stimulus interface (design v1, 2026-11-20)
+# The SEM stimulus interface (design v2, 2026-11-20)
 
-**Status:** DRAFT for a deep design review before any code, with Bio-faithful integration among its lenses. It rests
-on seven research lenses, copied verbatim into `research/sem_stimuli/` and cited as L1–L7 (`1_receptors.md` …
-`7_modularity.md`).
+**Status:** v2, folding the seven-lens review of v1 (`reviews/sem_stimuli/`; `fold.md` maps each finding, and the
+reviewers set its status). The owner ruled D1–D12 on 2026-11-20 (§10). Research: `research/sem_stimuli/`, L1–L7.
 
-**Revisions read.** Overdrive `phase1/sem-stimulus` at `5ff1b7c`; Maxim by `git show` at local `origin/main`
-**`043eab8f`** (2026-11-20, PR #1718), not fetched here. "Read here" marks claims this author read; others name
-their lens.
+**Read at:** Overdrive `97599b3`; Maxim by `git show` at local `origin/main` **`043eab8f`**, not fetched.
 
-**Tags.** External numbers: **V** primary source, **S** secondhand, **M** memory, **D** derivation or measurement.
+**Tags.** Numbers: **V** primary source, **S** secondhand, **M** memory, **D** derivation or measurement.
 Divergences: ANALOG, EARN, OPEN, as in `fire_model.md` §5.1.
 
 ## 0. The answer in one page
 
-- **The line.** The world computes the physical stimulus *at the receptor's site*, tissue physics included (skin
-  conduction, burn damage, head shadow). Maxim transduces it: thresholds, gain, adaptation, latency, pooling.
-- **Frozen, the contract (§2–§6):** each row's name, unit, validity range, site set, receptor class, cadence and
-  divergence tag; the site grammar; the `BodyFrame` and its wire form; the push path and failure rules; the replay
-  digest; the version rules; the trust tests.
-- **Replaceable, the laws (§2.4):** every model computing a value. A swap bumps the row's `derivation_version`, and
-  never renames a row or changes its unit, sites or cadence.
-- **Where it runs:** the sealed core, after every law: `simcore/core/stimuli/`, one module per stimulus, registered in
-  one tuple. The skip-layer contract keeps adapters from reading cells, so nothing else can compute it.
-- **How it arrives:** one `BodyFrame` per NPC per step, a table of `(stimulus, site, value)` at the step tick, sent
-  over the worker channel and pushed into Maxim root sensors with `world_set_axis(owner=…)`. No frozen SEM type
-  changes.
-- **Replay and trust:** stimuli are derived, never logged, with a per-tick digest; the NPC builder gets one NPC's
-  frame source and nothing else, and fourteen tests, each shown red on a planted leak, hold it.
-- **Limits:** five Maxim gaps bound Phase 4's first NPC (§9). The largest owner decision: the `BodyFrame` as
-  `AgentPort.step`'s `frame`, which edits the frozen agent half (O19; §10 D1).
+- **The line.** The world computes the physical stimulus *at the receptor's site*, tissue physics included. Maxim
+  transduces it: thresholds, gain, adaptation, latency, pooling.
+- **Frozen, the contract:** row names, units, site sets, cadence; the site grammar; the `BodyFrame` and the wire's
+  `BoundFrame`; the tick placement; failure and lifecycle rules; the digest; version rules; the trust gates.
+- **Replaceable, the laws:** every model computing a value, versioned per row. A law swap touches only agents that
+  bind that row, as a logged body change (§5).
+- **Where it runs:** the sealed core, one body model: `core/body/` (store, irradiance, tissue) and `core/stimuli/`
+  (read-only models), behind fail-closed import contracts (§7.3).
+- **How it arrives (D5 (c)):** every body, every tick. After bodies move and before agents step, the core builds each
+  NPC's `BodyFrame`, reduces it by the NPC's bindings into a `BoundFrame`, digests both and sends the bound values.
+  The worker pushes them with `world_set_axis` and steps the body; only cognition is slow.
+- **Trust:** the NPC builder gets one body's bound values and an actor-bound outbox; receipts are in scope; twelve
+  gates and a probe hold it.
+- **v1 is one row,** `tissue_temperature`. Burns reach Maxim through its damage path, not a sensor (§3.3).
+- **Limits:** Phase 4's first NPC feels heat as temperature, without burn pain until GL2b or fear until M10 moves.
+  The LLM sees each sensor's name, unit and value, so no learning claim rests on an LLM-primary NPC (§6.4).
 
 ## 1. The split, and the leak tests
 
 **Receptors respond to tissue state at their own site.** C-fibre heat nociceptors fire at a fixed temperature at
-receptor depth (40.4 ± 2.2 °C; depth 20–570 µm, mean ~0.2 mm) while the surface temperature at threshold rises with
-heating rate (**V**, Tillman et al. 1995, L1 §2.1). Sent surface or air temperature, a receptor would have to fake a
-rate-dependent threshold. So the world sends temperature at a declared depth.
+receptor depth (40.4 ± 2.2 °C; depth 20–570 µm) while surface temperature at threshold rises with heating rate
+(**V**, Tillman et al. 1995, L1 §2.1). So the world sends temperature at depths the body declares.
 
 | Side | Owns | Examples |
 |---|---|---|
-| World (core) | the stimulus at the site, and the tissue physics producing it | temperature at receptor depth; Henriques damage; pressure at each eardrum after head and pinna; gas in the inhaled volume; core temperature from a heat balance |
-| Maxim | transduction | warm/cool coding and adaptation; nociceptor thresholds and sensitisation; spatial summation; pupil; cone projection; cochlear filtering; olfactory sorption; set points, drives, pain |
+| World (core) | the stimulus at the site, and the tissue physics producing it | temperature at receptor depth; Henriques damage; eardrum pressure; inhaled gas; core temperature |
+| Maxim | transduction | warm/cool coding and adaptation; nociceptor thresholds; pooling; pupil; set points, drives, pain |
 
-**The leak tests** (lesson 24, as corrected by `reviews/fire_model/bio_faithful.md` S4):
-- **T1, instrument.** Could an instrument at that spot measure it without a nervous system? Then it is the world's.
-- **T2, transduction.** Is it a threshold, gain, adaptation or latency? Then it is the receptor's.
+**The two leak tests** (lesson 24): the **instrument test** (could an instrument there measure it without a nervous
+system? the world's) and the **transduction test** (a threshold, gain, adaptation, pooling or latency? the
+receptor's).
 
-**Boundary cases, ruled (L1 §10):**
-- **Receptor depth** is anatomy the world computes at: the body declares depths per site. This corrects
-  `fire_model.md` §5.1's hard-coded "~0.1 mm".
-- **The pupil** is a neural effector: the world sends radiance, Maxim applies the pupil.
-- **Breathing** is physiology: the agent reports its breathing state; the world integrates concentration over the
-  inhaled volume.
-- **Incident flux is not delivered.** No receptor senses W/m²; thermal and heat-pain receptors read tissue
-  temperature (L1 §11). Flux is the tissue law's input and a lab quantity (§10 D6).
+**Ruled cases (L1 §10):** receptor depth is anatomy the body declares; the pupil is Maxim's; breathing, gaze and
+posture are logged intents (§4.5); **incident flux is internal** (D6), since no receptor senses W/m². **So is
+coverage:** v1's `exposed_area_fraction` is withdrawn, because no receptor reads it; clothing and partial contact
+are tissue-law inputs (§2.4).
 
 ## 2. The stimulus schema
 
 ### 2.1 A row
 
-A row is an identity for the life of the format (world_model F1).
+| Field | Identity | Meaning |
+|---|---|---|
+| `name`, `unit` | yes | a physical quantity, never a verdict; a closed unit vocabulary shared with the field registry |
+| `site_set`, `cadence` | yes | where (§3) and when (§2.3) |
+| `valid` | yes | physical validity with a rounding policy, and an empty-patch rule |
+| `receptors`, `pooling` | no | receptor classes it can feed (one temperature feeds warm, cool and C fibres) and the pooling per class (§3.2) |
+| `tag` | no | ANALOG, EARN or OPEN as versioned metadata; closing one bumps `derivation_version`, never the name |
+| `reads`, `derivation_version` | no | the fields its model opens; the law's version |
 
-| Field | Meaning |
-|---|---|
-| `name` | a physical quantity, never a verdict (`tissue_temperature`, never `hot`) |
-| `unit` | from a closed vocabulary shared with the field registry |
-| `valid` | **physical validity** (finite; T ≥ −273.15 °C); outside it the core raises |
-| `receptor` | the receptor class fed, from a closed vocabulary (`thermo_skin`, `noci_heat`, …) |
-| `site_set`, `cadence` | where (§3) and when (§2.3) it is evaluated |
-| `tag` | none, ANALOG, EARN or OPEN, with the divergence named; closing it is a new row |
-| `reads`, `derivation_version` | the fields its model may open; the law's version (F15) |
-
-All but the last row are frozen. **The world declares no saturation range.** Saturation is transduction (T2): the
-body YAML declares the sensor's `range`, and `world_set_axis` clamps to it (`audio_localization.py:748-761`, read
-here). The world sends the physical value and meters how often the clamp bites.
+**The world declares no saturation range:** that is transduction. The Maxim body YAML declares `range`, and
+`world_set_axis` clamps (`audio_localization.py:748-761`). The worker counts clamp bites and returns them in
+`StepOutput`.
 
 ### 2.2 The rows
 
-**v1** rows are frozen now, for the first NPC body (Phase 4). The others fix what the Phase 2 light, sound and gas
-designs must deliver (the long-term tracker asks this design to); each freezes when its field's design is accepted.
+**v1** is frozen now for Phase 4's first body. Each other row freezes when its field's design is accepted.
 
-| Row | Quantity, unit | Site set | Cadence | Tag | Status |
-|---|---|---|---|---|---|
-| `tissue_temperature` | temperature at each declared depth, `celsius` | `skin` points × depths | tick | — | **v1** |
-| `exposed_area_fraction` | share of a point's area uncovered (clothing, contact), ratio | `skin` points | tick | — | **v1** |
-| `burned_area_fraction` | share of a region's area with Ω ≥ 1, ratio: tissue **state**, delivered as part integrity | `skin` regions | tick | EARN (OD-C10) | **v1** |
-| `core_temperature` | from a body heat balance, `celsius` | `body` | tick | — | v1 if the body makes it world-owned (one owner, `fire_model.md` §5.1) |
-| `contact_pressure`, `contact_shear`; `vibration_band_power` (> 40 Hz, ANALOG) | Pa over the contact patch | `skin` points; vibration at hands and face | tick | — | with items (Phase 4) |
-| `joint_angle`, `_velocity`, `_torque` | rad, rad/s, N·m | `joints` | tick | ANALOG (no load on kinematic bodies) | bodies (5b) |
-| `head_angular_velocity`, `specific_force` | rad/s; m/s², never "tilt"; impacts as peak and duration | `head` | tick | ANALOG above 5 Hz | bodies (5b) |
-| `spectral_radiance`; `flicker_depth`, `_frequency` (ANALOG) | a few fixed bands per visible source, with angular position and solid angle, after line of sight | `eyes` | physics | — | light field; `luminance` (cd/m², ANALOG: V(λ) is a receptor property) is the stopgap |
-| `sound_event` | arrival time (integer µs), octave-band level at each ear, onset rise time | `ears` | event | ANALOG | sound field |
-| `inhaled_concentration`, `airway_irritant`; `arterial_gas` | mol/m³ or ppm per species per inhalation; PCO₂, PO₂ (kPa), pH | nostrils, mouth, eyes; `body` | breath; tick | — | gas zones; air hunger, never "low O₂" |
-
-The receptor side of each row is L1 §11's table.
-
-### 2.3 Cadence, and senses faster than the world
-
-The world has two rates (`realtime_lanes_coop.md` §2.2): a 0.1 s tick, at which poses move, and a 0.5 s physics step,
-at which fields change.
-
-| Cadence | Evaluated | Nyquist limit | Used for |
+| Row | Quantity, unit; site set | Cadence | Status |
 |---|---|---|---|
-| `tick` | at the NPC's pose at its step tick, against held fields | 5 Hz | tissue, vestibular, joints, contact |
-| `physics` | from fields recomputed each physics step | 1 Hz | radiance, flicker descriptors |
-| `event` | per event, stamped in integer µs within the tick | none | sound, impacts |
-| `breath` | per inhalation the body reports | the breath | smell, airway |
+| `tissue_temperature` | at each declared depth, `celsius`; `skin` points × depths | tick | **v1** |
+| `core_temperature` | the core node (§3.1), `celsius`; `body` | tick | v1 when bound |
+| `contact_pressure`, `_shear`; `vibration_band_power` (ANALOG) | Pa; `skin` | tick | with items |
+| `joint_angle`, `_velocity`, `_torque`; `head_angular_velocity`, `specific_force` | SI; `joints`, `head` | tick | bodies (5b), ANALOG |
+| `spectral_radiance`, `flicker_frequency` (ANALOG) | fixed bands, one melanopic, with angular position and solid angle, after line of sight, from **surface** temperatures only; `eyes` | tick, against held emitters | light field; `luminance` is the stopgap, **EARN** |
+| `sound_event` | offset within the tick (integer µs), octave-band level per ear, onset rise time (source data, ANALOG); `ears` | event | sound field |
+| `inhaled_concentration`, `airway_irritant`, `arterial_gas` | per species per breath; PCO₂, PO₂, pH | breath; tick | gas zones |
+
+`flicker_depth` waits for a cited law. Interaural timing needs a spherical-head model: straight paths under-report
+lateral ITD by about 25% (0.51 against 0.66 ms, **M**). Burns are not a row (§3.3).
+
+### 2.3 Cadence
+
+The world ticks at 0.1 s, when poses move, and steps physics at 0.5 s, when fields change (`realtime_lanes_coop.md`
+§2.2). `tick` rows are evaluated at the tick's pose against fields held from the last physics step; `event` rows per
+event, offset within the tick, floored to integer µs once; `breath` rows per logged breath record (§4.5).
 
 **The game-engineering idea: sampling a fixed timestep.** Between physics steps the world *is* its last state, a
-zero-order hold. Renderers interpolate between states; a sensor must not, since that invents states the simulation
-never had. So the field is held and evaluated at the observer's *current* pose (L5 §2.2).
-
-**Senses faster than the world** get physical summary statistics, never samples or perceptual words, each ANALOG
-with a cross-tier test: vestibular thresholds are flat at 1–5 Hz (**V**, Valko et al. 2012), flicker fusion reaches
-~50–90 Hz (**S**), flame puffing is 4.7 Hz at D = 0.1 m (**D** from ~1.5·D^−½, **S**). Interaural differences are
-under 0.7 ms (**M**), so arrival times are integer µs; a tick would erase direction (L3 §1.5).
+zero-order hold. Renderers interpolate; a sensor must not, since that invents states the simulation never had.
+Senses faster than the world get physical summary statistics, each ANALOG: yaw thresholds are flat at 1–5 Hz (**V**,
+Valko et al. 2012), and flame puffing (4.7 Hz at D = 0.1 m, **D**) outruns the 2 Hz physics rate.
 
 ### 2.4 Frozen and replaceable, v1
 
-| Row | Frozen | Replaceable law, today's choice |
+| Piece | Frozen | Replaceable law, today's choice |
 |---|---|---|
-| `tissue_temperature` | name, `celsius`, declared depths, `skin` points, `tick` | a 3-layer Pennes column per point (0.1 / 2 / 10 mm; 45 nodes), Torvi & Dale properties (**S**); later sweating, lateral conduction |
-| `exposed_area_fraction` | name, ratio, sites | clothing as a column layer |
-| `burned_area_fraction` | name, ratio, regions; Ω ≥ 1 at the basal layer as the definition | Henriques constants (P = 1.43×10⁷² s⁻¹, ΔE/R = 55,000 K, **S**), integrated inside the step |
-| flux onto skin | internal, not delivered | analytic cylinder view factors; occlusion per (emitter, region group) on a fixed schedule; contact by a coupled column checked against effusivity |
+| `tissue_temperature` | name, unit, declared depths (a node at each), `skin` points, `tick` | a 3-layer Pennes column per point (0.1 / 2 / 10 mm), Torvi & Dale properties (**S**) |
+| incident flux | internal | `core/body/irradiance.py`: view factors by quadrature until an analytic form for arbitrary normals is measured against it; per-point visibility (D11) |
+| contact | internal | one implicit system over the object's surface nodes and the skin at the tissue substep, its heat booked out of the object's inventory |
+| partial contact, clothing | internal | a partly touching point gets contact and free sub-columns weighted by area; clothing is a column layer |
+| damage | Ω ≥ 1 at the basal layer defines a burned point | Henriques, constants to trace to a primary source (§11.2) |
 
-**The tissue integrates every tick, for every body, whether or not its agent steps.** One 0.5 s step is 12.1% late on
-pain at 20 kW/m² and 11% late on a 70 °C steel burn; 0.1 s is within 3% everywhere (L3 §1.1, **D**). One step per
-physics step on the end pose would also average exposure across positions. The tissue step is a **truth constant,
-never a rig field** (`substeps_per_physics_step`, `realtime_lanes_coop.md` §2.3), or a rig would change a burn (D20).
+**Accuracy is stated in kelvin, not time to pain,** since the pain threshold is Maxim's. A fixed 0.1 s step isn't
+enough: contact pain on 70 °C steel comes 20% late, and radiant error reaches 1.25 K basal at 80 kW/m², +87% on the
+damage rate (**D**). So the tissue law takes **error-controlled substeps per point**, decided from world state
+against a tolerance in K, counted as work. The tolerance is a **truth constant in the
+header, never a rig field** (D20). Convergence is shown to 80 kW/m² and for contact before the law ships.
+
+**Every body integrates every tick, whether or not its agent thinks:** a 0.5 s step is 12.1% late on pain at
+20 kW/m² (L3 §1.1).
 
 **Damage is per point.** A region half at 15 kW/m² and half at 5 first burns at 6.2 s; one column at the mean, at
-11.8 s (**D**, L3 §1.1). A region's damage is its burned-area fraction (%TBSA, **M**).
+11.8 s (**D**). The same rule forces per-point visibility: one shared visible fraction for a body half behind a
+counter makes pain and burn 3× late, pain after the true burn (**D**). Hence D11 (a).
 
 ## 3. The body
 
-**The body grammar is engine code; body instances are game data** (`boundaries.md` §2.1, BF-15). A body declares site
-sets in body-local metres, with no cells and no pose: `skin` (regions, each with quadrature points: position, normal,
-area, depths), `eyes`, `ears` (±0.0875 m, **M**), `nostrils`, `mouth`, `head`, `joints`, `body`. L3 sizes `skin` at 18
-regions and 58 points on a 1.85 m² adult (**D** on **M** anthropometry); a convergence test fixes the count (§11.2).
-Each row names its site set, because thermal is coarse and summing while touch is fine only at hands and face (L1).
+### 3.1 One body model
 
-**Maxim's bodies are coarser and root-only (read here).**
-- `base_humanoid` has four parts and `health: derived`, weighted head 0.3, torso 0.35, arms 0.15, legs 0.2
-  (`_data/components/bodies/base_humanoid.yaml:57-62`).
-- `world_set_axis` writes root sensors only (`audio_localization.py:727-762`); a dotted name returns `False`.
-- `modality:` on a modulator sub-sensor raises (`embodiment/spec.py:556`), so a sub-sensor write couldn't join the
-  world channel anyway.
+**This design extends `tile_and_client.md` §2.1's body; it adds no second one.** The tile's lumped 245 kJ/K store is
+the body's **core node** and sole producer of `core_temperature`. Skin columns are its surface layer, added before
+Phase 4, with bases at the core node's temperature. One ledger line, `bodies`, books every exchange: radiant flux
+absorbed by skin points, debited from the flame's unreceived share as tile §2.1 does; contact heat, debited from the
+object; perfusion and metabolism as named reservoirs. Bodies don't shade walls or each other in v1 (ANALOG, Q4).
+**`npc_key` is `body_key`.**
 
-**So the contract delivers per site, and a binding reduces.** The `BodyFrame` carries values at receptor resolution.
-Each NPC's **binding** (§4.1) maps a row and a set of sites onto one Maxim root sensor with a declared reduction, the
-area-weighted mean or the maximum. Both pass T1 (an instrument array reports them); which one a receptor would use is
-transduction, so the binding names it as an ANALOG. The binding is replaceable, the per-site contract is not: when
-OD-C10 lands, bindings move to sub-sensors and the `BodyFrame` doesn't change.
+**The grammar is engine code; body instances are game data** (`boundaries.md` §2.1, BF-15, whose "receptor models"
+this reads as the site grammar and tissue law, since transduction is Maxim's). A body declares site sets in
+body-local metres: `skin` (regions of quadrature points: position, normal, area, depths), `eyes`, `ears`,
+`nostrils`, `mouth`, `head`, `joints`, `body`. L3 sizes `skin` at 17 regions and 58 points on a 1.85 m² adult (**D**
+on **M**); Q1 fixes the count.
 
-**Phase 4's first body** is a flat Overdrive body YAML (game data in Maxim's format): root sensors such as
-`skin_hand_left_temp`, with `modality: world`, `drift_rate: 0` and the row's unit. This is `fire_model.md` §5.1's
-root-sensor skin stopgap, **EARN** on OD-C10. Burn damage can't reach a derived `health` (`spec.py` C5, per L2 §2),
-so per-part burns wait on OD-C10 too (§10 D8).
+### 3.2 Bindings and pooling
+
+**Maxim's bodies are root-only (read here):** `world_set_axis` writes root sensors (`audio_localization.py:727-762`),
+and `modality:` on a sub-sensor raises (`spec.py:556`). **So the contract delivers per site, and a binding reduces,
+in the core.** Each binding maps one row and some of its sites onto one Maxim root sensor. The core reduces after
+building the `BodyFrame`, in fixed order (`bincount` or ordered `fsum`), so reduced values are digested and only they
+cross the wire.
+
+**Pooling is fixed by receptor class, never chosen per binding:** `thermo_skin` pools by area mean, `noci_heat` by
+maximum, and a mean bound to a pain path is refused. Otherwise a fingertip at 60 °C beside a palm at 33 °C reads
+46 °C, and a burn can go unfelt. Pooling belongs in Maxim's receptor registry, so this is **EARN** on GL3.B1 and
+OD-C10; then bindings move to sub-sensors and the `BodyFrame` doesn't change.
+
+**Build checks:** the row exists; the sites lie in its site set and the body; `single` has one site; a mean never
+spans depths; units are equal strings. No unit transform exists, so a `celsius` row can't bind Maxim's
+`celsius_norm` drives (`infant_humanoid.yaml:43-49`); a transform would be transduction.
+
+### 3.3 Phase 4's first body
+
+A flat Overdrive body YAML in Maxim's format: root skin sensors such as `skin_hand_left_temp`, `modality: world`,
+`drift_rate: 0`, unit `celsius`, **no `drive:` block** (a drive would make burns DRIVE-class discomfort, never
+nociceptive, never in the fear set). It is `fire_model.md` §5.1's stopgap, retagged **EARN** on OD-C10.
+
+- **Rest at the midpoint:** every body YAML passes Maxim's `scripts/lint_body_rest_neutral.py` rule (read here),
+  replacing v1's M2.
+- **That rule's cost:** the world channel's A4 gain weighs a reading by `(|v−0.5|·2)³` (`encoder.py:596`, read
+  here). Centred at 33 °C over [−4, 70] °C, 45 °C weighs 0.034 and 60 °C 0.39 (**D**), so the first noxious band
+  barely registers. The range is a transduction choice, measured as Exp 60's fix was (#726): **OPEN**.
+- **Damage goes through Maxim's integrity model:** `SpecModulator.apply_damage(amount, "fire")` lowers sub-sensor
+  integrity, and `health: derived` follows (`spec.py:1025`, `base_humanoid.yaml:108-120`, read here). Burned area per
+  region becomes that delta, a body-state write by the adapter, not a sensor push. Whether a world-caused burn may
+  call it, under which TR22/TR23 provenance, is M17; until then burns stay world state. Burned area is never bound to
+  a sensor, which would be a damage gauge no nervous system has. ANALOG.
 
 ## 4. Delivery
 
-### 4.1 The path
+### 4.1 The tick (D10, amended by insertion)
 
-| Step | Where | What |
-|---|---|---|
-| 1 | core, simulation lane, after every law at tick T | `stimuli.run` evaluates the registry for each NPC due at T, at its pose at T, and builds its `BodyFrame` |
-| 2 | host | encodes it into that NPC's `step` message: the worker codec's closed-schema JSON through the strict decoder (`npcs_and_sem.md` §6.6) |
-| 3 | worker | the adapter decodes it, re-checks finiteness, and for each binding calls `world_set_axis(emb, sensor, value, owner="overdrive_world")` |
-| 4 | worker | Maxim's embedded `step(agent, world_dt_us, frame)` runs; drives and pain read `vital_metrics` |
+1. apply records; 2. move bodies; **3. tissue substeps** over the tick just ended, at this tick's pose, against held
+fields; **4. build, reduce and digest every body's frames**; 5. agents step on tick T's `BoundFrame`; 6. physics, on
+physics ticks; 7. outputs.
+
+At a physics tick an agent sees the previous physics step's fields, as the hold implies. Physics at T doesn't
+depend on agent outputs at T (intents apply at `observed_tick + L`, `npcs_and_sem.md` §9), so the simulation
+lane may run step 6 while workers run step 5, joining before step 7. A gate replays one log with that overlap on and
+off and requires identical digests. v1's "after every law" placement would reverse D10 and serialise the lanes.
+
+### 4.2 The frames
 
 ```python
 @dataclass(frozen=True)                # simcore/core/stimuli/frame.py
-class BodyFrame:
-    schema_version: int                # STIMULUS_SCHEMA_VERSION
-    npc_key: str                       # persisted NPC identity
-    tick: int                          # host-owned header, stripped before Maxim
-    basis_sequence: int                # the Frame it was derived from; host-owned
-    stimulus_id: NDArray[int32]        # column-major, sorted by (stimulus_id, site_id)
+class BodyFrame:                       # per site; never leaves the host
+    schema_version: int
+    npc_key: str
+    tick: int
+    fields_sequence: int               # the published Frame its held fields came from
+    stimulus_id: NDArray[int32]        # sorted by (stimulus_id, site_id); read-only
     site_id: NDArray[int32]
     value: NDArray[float64]
-    events: tuple[StimulusEvent, ...]  # since this NPC's last step, by (apply_us, id)
+    events: tuple[StimulusEvent, ...]  # this tick only, capped
 
-@dataclass(frozen=True)                # simcore/adapters/agents, checked at agent build
-class Binding:
-    stimulus: str
-    sites: tuple[str, ...]
-    reduction: Literal["area_mean", "max", "single"]
-    sensor: str                        # a Maxim root sensor
+@dataclass(frozen=True)
+class BoundFrame:                      # what crosses the channel
+    schema_version: int
+    registry_digest: bytes             # of the bound rows; checked against `welcome`
+    npc_key: str
+    tick: int
+    value: NDArray[float64]            # one per binding, in binding order
+    events: tuple[StimulusEvent, ...]
 ```
 
-Ids come from name maps in the agent's build handshake, as `welcome`'s recipe map does; no strings per frame (F2–F4).
+- **Beside `Frame`, never inside it:** a `BodyFrameFeed` keyed by `npc_key`, published each tick by the simulation
+  lane. `FrameView` never reaches it; the host hands each channel one key. `boundaries.md` §4.2's cadence stands.
+- **Deep frozen:** `__post_init__` refuses writable or non-owning arrays, as `CellFrame` does; a constructor-site scan
+  holds "only `core.stimuli` builds one".
+- **Ids** come from sorted names, recorded in the header; the handshake only checks them. The worker checks
+  `npc_key` against its channel's actor and that `tick` rises, then drops both. `fields_sequence` replaces
+  `basis_sequence`, which collided with `basis_seq`.
+- **`StimulusEvent`** is `(offset_us, kind, site_id, local_id, value, caused_by)`, sorted by `(offset_us, kind rank,
+  local_id)`. `local_id` counts within this NPC, revealing no world activity. `caused_by` is the NPC's own intent pid
+  when it caused the event, else null, so B's identity never reaches A. One frame covers one tick, so offsets order
+  correctly. v1 has no producer; a gate holds `events` empty until sound lands.
 
-**Push, not a pulled sensor.** L7 proposed a generic `ReceptorSensor` that Maxim pulls. But drives, pain and the
-substrate read `Entity.vital_metrics`; an attached backend changes only what `SpecSensor.read()` returns
-(`spec.py:820-823`, read here), so a pulled sensor gives the body two truths. Maxim's Minecraft backend pushes
-(`embodiment/backends/minecraft.py`, read here).
+### 4.3 Bounds and failure
 
-### 4.2 Build-time checks
+- **Events are capped per tick** within a byte budget derived from the body; overflow coalesces by `(kind, site)` into
+  a count and the peak. The host checks the budget before sending, so an oversize frame is a logged host decision,
+  never a worker refusal. An inert, absent or failed NPC accumulates nothing. Gates: a burst scene keeps the agent
+  alive; a failed NPC's buffer stays empty for 10,000 ticks.
+- **A non-finite or invalid value in the core is a world bug:** the server stops loudly with tick and NPC logged.
+  Each row declares its empty-patch rule. The strict decoder refuses NaN, ±Infinity and `1e400`; the worker
+  re-checks and refuses `bool` (`float(True)` is 1.0). Each is planted.
+- **`False` from `world_set_axis` is an error.** All values are validated before any write, so there is no partial
+  push; the host ends the agent as `agent_failed(protocol)` in tick T's merge.
+- **Sends never block:** non-blocking, multiplexed with receives, inside the per-park ceiling. `BrokenPipeError`,
+  `ConnectionResetError` and a short write become `agent_failed(crashed)`. Gates: a worker that parks and never
+  reads lets the world advance after the ceiling; a killed worker leaves the server running.
+- **Pain needs an evaluation** the embedded step must make (M4).
 
-Maxim's units are free text (`hp`, `points` in `minecraft_player.yaml`), and pain runs in sensor units:
-`min(1, (|v − set_point| − comfort_band) · pain_scale)` (`embodiment/sem.py:278-281`, read here). A unit mismatch is
-a wrong pain, not a crash. So the adapter refuses to build an agent unless every binding's sensor:
-- is a root sensor whose YAML `unit` equals the row's unit string exactly;
-- says `drift_rate: 0` on any drive; the default is 0.001 per second (`spec.py:290`, read here);
-- is in `live_world_set_sensors`, which only a modulator backend's `world_owned_sensors` fills
-  (`runtime/bootstrap.py:552-561`, read here), so Overdrive ships one. `owner=` is "a SELF-DECLARATION for logs and
-  review, not an ACL" (`audio_localization.py:720-721`): the guard is that nothing else in the worker writes;
-- has a `range` containing the row's operating band, so the clamp is rare, not the transfer function.
+### 4.4 The worker
 
-### 4.3 Failure handling
+- **The push:** `world_set_axis(emb, sensor, value, owner="overdrive_world")` per binding, then the body step. Under
+  TR23 the owner maps to the `experienced` kind.
+- **`live_world_set_sensors` does more than guard writes:** it withholds drive credit on affordances whose
+  `self_effect` touches those keys (`tool_bridge.py:548-560`). Only a modulator backend fills it
+  (`bootstrap.py:552-561`), and that backend takes over its modulator's `execute` (`spec.py:1136-1139`). So
+  Overdrive's backend hangs on one named modulator, and its `execute` *is* the outbox path: append an intent, return.
+  The first body declares no `self_effect` on skin sensors; a build test proves credit flows through settle (M18).
+- **One writer:** after Maxim builds, the worker checks that `threading.enumerate()` holds only its step thread and
+  bound sensors have only Overdrive's owners (Maxim has a DoA poll thread and narrator writes). Planted red.
 
-- **`False` is an error, never a skip.** It fails the step, and the host ends the agent as `agent_failed(protocol)`
-  (`npcs_and_sem.md` §6.6). A swallowed `False` is the fire review's "incinerated with full health".
-- **NaN can't cross.** Maxim clamps NaN to the range's top (`max(lo, min(hi, nan))` is `hi`, checked here) and writes
-  it raw without a range (`audio_localization.py:760-762`). So the core raises on any non-finite or invalid value, the
-  strict decoder refuses `NaN` and `Infinity` (`boundaries.md` §9.1), and the worker re-checks, each proven by a
-  planted NaN. There is no world-side clamp.
-- **Pain needs an evaluation.** `world_set_axis` evaluates nothing; pain lands on the next pass that calls
-  `evaluate_failures` (L2 §3), and a host-called step has none yet (§9 M4).
+### 4.5 Agent outputs that feed stimuli, and the lifecycle
 
-### 4.4 Cadence against the step and the lanes
+**Posture, gaze and breathing are intent kinds,** logged through `StepOutput` and applied next tick. An inert, failed
+or absent agent breathes on the body's default schedule, so a crashed NPC is still poisoned. Replay with `maxim`
+blocked reproduces the dose.
 
-- **Agents step** at an integer divisor of the tick with a per-actor phase, and get the frame computed at that tick,
-  never "the latest" (`npcs_and_sem.md` §2.1, §7.3), so the dial can't change what an NPC feels. Events since the last
-  step ride along; continuous rows are sampled at the step tick (§11.2 Q2).
-- **Across lanes:** the simulation lane builds frames inside the step; each worker pushes its own inside `step`; the
-  barrier holds tick T+1 until every agent is parked (`boundaries.md` §7.1). A park is a 50–200 µs round trip (**D**,
-  `npcs_and_sem.md` §6.6), so only agents due this tick get a frame.
+| Event | World side, frames | Log record |
+|---|---|---|
+| join | tissue at the core node's temperature; built and digested from the join tick | `join`, with body instance and bindings |
+| not ready, or build refused | inert; built and digested, not sent | `agent_ready` at first park; `agent_failed(build)` naming the check |
+| `agent_failed` | tissue goes on; built and digested, not sent | `agent_failed(reason)` |
+| restart | build checks rerun, maps re-sent; sent from that tick | `agent_ready` |
+| leave | tissue, events, visibility freed; leaves the set | `leave` |
+
+Digest membership comes from logged records, never delivery success. Each row gets a crash-injection test.
 
 ## 5. Replay, digest, versioning
 
-**Replay reproduces the world, never the agents** (`boundaries.md` §6.2):
-- **Not logged.** A `BodyFrame` is a pure function of logged inputs and world state.
-- **Digested every tick:** `stimulus_digest = SHA-256(canonical(BodyFrame) for each stepping NPC, in npc_key order)`,
-  over the bytes sent. It catches stimulus-path changes the world digest can't see.
-- **In the header:** the registry with each row's `derivation_version`, the site tables and the tissue constants,
-  through the one canonicaliser.
-- **In the rerun manifest:** each NPC's bindings and body YAML digest. A binding mismatch refuses a tier-2 rerun; a
-  registry mismatch refuses a tier-1 replay.
-- **In the save:** tissue state (node temperatures and Ω per point, f64; clothing; dose), held occlusion with each
-  NPC's schedule phase, pending sound events (L3 §6). Frames are recomputed on load, and their digest must match.
-- **The test:** replay with `maxim` blocked, compare digests tick by tick, then plant a one-ulp change in a tissue
-  constant and watch it go red on the first exposed tick. "What did the NPC sense at tick T?" is then tier 1.
+**Replay reproduces the world, never the agents** (`boundaries.md` §6.2). Frames are a pure function of logged inputs
+and world state, so they aren't logged.
 
-**Version rules (F1, F15):**
-1. **New meaning, new name.** A point value becoming an area mean is a new row; the old one stays while a fixture
-   uses it.
-2. **Better estimate, same meaning:** bump `derivation_version`; regenerate goldens in a commit that says so.
-3. **Adding a row is non-breaking:** an NPC binds only what its body declares.
-4. **Removing or renaming a row** bumps `STIMULUS_SCHEMA_VERSION`; readers refuse unknown versions loudly.
-5. **A schema or derivation change is a body change for a learner** (L4 §6). An agent home records the registry
-   digest it trained on; loading it under another is refused unless a migration says why that is safe.
+- **The digest:** per tick, SHA-256 over every body's canonical `BodyFrame` and `BoundFrame` values, through
+  `checks`' canonicaliser, length-prefixed, in `npc_key` order, chained across ticks. Codec bytes stay out of it, and
+  deltas are ruled out for these frames. The log stores the chain at log v0's digest interval; bisection finds the
+  first bad tick. A codec round trip plus committed goldens guard the wire form.
+- **The header** (tier-1 content): registry rows by sorted name with unit, site set and `derivation_version`; id
+  maps; truth constants (tissue tolerance, visibility refresh and clustering bounds, cutoff floors). Body instances
+  and binding tables ride their `join` records.
+- **The save:** tissue, visibility and pending events; frames are recomputed on load and must match the digest.
+- **The test:** in the harness, bypass the header check and plant below it, in the law's code: one ulp on the surface
+  conductance, which moves `tissue_temperature` on the first exposed tick. A second plant reverses binding order with
+  the world unchanged. Both go red on the stimulus digest at the first affected tick.
+- **Tier 2 isn't bit-identical on real Maxim** until M6 and M8 land: wall time follows host load under the barrier.
 
-**Reserve now,** in `phase1/sim-clock`'s log: `stimulus_digest` in the per-tick digest and the registry in the
-header. Adding them later is a log-format bump.
+**Version rules (F1, F15):** (1) a new meaning gets a new name; (2) a better estimate bumps that row's
+`derivation_version`, with goldens regenerated in a commit that says so; (3) adding a row is non-breaking, since no
+NPC binds it yet; (4) removing or renaming a row bumps `STIMULUS_SCHEMA_VERSION`, and readers refuse unknown versions;
+(5) **an agent home records only its bound rows,** `(name, unit, site set, derivation_version)`. A change to one is a
+named, logged body change, refused unless the load names it (D13). Replay refuses only on a changed row some NPC in
+the log bound.
+
+**Reserve now** in `phase1/sim-clock`'s log: the digest chain, the header slots, and the `join`, `leave`,
+`agent_ready` and `agent_failed` records.
 
 ## 6. Trust
 
-### 6.1 Capabilities
+### 6.1 Capabilities, and what this supersedes
 
-- **The NPC builder gets only** `(npc_key, its body-frame source, its actor-bound intent outbox)`: never a
-  `FrameSource`, an `Applier` or the world. It is the membrane's capability passing, narrowed to one body. No API takes
-  two `npc_key`s, and only `simcore.core.stimuli` writes a `BodyFrame`.
-- **The lab builder is separate.** `RegionInstrument` (`adapters/sem/bridge.py:48`) is an oracle by its own docstring;
-  it moves under `tests/` (§10 D10). The registry is a different table from `frames.QUANTITIES`, with different types,
-  so a region quantity can't be bound to a body.
-- **The materials hole is smaller than L5 said.** `skip-layer` allows adapters to import `materials`, but
-  `membrane-reads-frames` already forbids it to `simcore.adapters.sem` (`pyproject.toml`). The hole is real only for
-  the coming `simcore.adapters.agents`.
+The NPC builder gets only `(npc_key, its BoundFrame source, its actor-bound outbox)`. This supersedes, by name:
+- `boundaries.md` §7.1, `npcs_and_sem.md` §6.5: the membrane factory took a frame source;
+- `boundaries.md` §4.3, `npcs_and_sem.md` §7.2–§7.3: a frame pinned per agent (a worker can't pin a host frame);
+- `tile_and_client.md` §4: the pinned actor table leaves the NPC path; other actors reach an NPC only as stimuli.
 
-### 6.2 The tests
+**D10 splits `region_parts`:** it builds the instruments and the `StructureModulator`s the shipped `to_maxim_entity`
+uses. The modulators stay in the membrane; the instrument builder becomes a lab builder. The worker-side environment
+entity (names, affordance text carrying `ActionLimits`, refusals) is designed in `phase1/agents` under T8 and T13.
+
+### 6.2 Receipts and refusals
+
+**The receipt path is a stimulus path.** Today it carries a strike's `absorbed_j` and `destroyed_volume_m3`
+(material-dependent), "nothing is burning on the {region}" (a fire oracle), existence oracles by name, and footprint
+bounds by bisection over `point_m`. This supersedes `npcs_and_sem.md` §6.6's "measured effect" projection:
+- **A receipt is a closed vocabulary:** applied, or a refusal kind (`malformed`, `out_of_reach`, `not_perceived`,
+  `limit`). Unknown, destroyed and unperceived targets all get `not_perceived`. No measured value, name or fact.
+- **The effect arrives as stimuli** in the next tick's frame.
+- **Gates:** T4, T5 and T11 run with intents issued over receipt bytes, T12 plants a sentinel in `absorbed_j`, and a
+  per-act test checks the act's effect reaches the actor's next frame (L6 R8).
+
+Lesson 23's post-`execute` cascade read now sees the pre-act frame; it is logging, never credit, which settle books.
+
+### 6.3 The gates
 
 Each is first shown red on a planted leak.
 
-| # | Test | Catches |
+| # | Gate | Catches |
 |---|---|---|
-| T1, T2 | ownership, as a review rule plus a grep gate: no drive or pain write from the world | a second heat path |
-| T3 | **source swap** (L6): a lamp of equal radiance and flicker, a hot plate of equal flux, give equal stimuli | rows only fire excites |
-| T4 | **occlusion** (L6): a hazard behind a wall or in a closed crate changes nothing until something physical crosses | omniscient reductions |
-| T5 | **counterfactual material** (L6): materials alike in every reduced field, differing in a combustion constant; byte-identical streams before any thermal event | material constants as inputs |
-| T6 | **probe** (L6; an experiment, not the gate): decoding material constants, occluded state or labels from pre-event frames above chance is a leak; future heat from present warmth is the signal | unnamed leaks |
-| T7 | **text denylist** (L6) over every NPC-visible string: names, descriptions, affordances, refusals, errors, harness lines | telegraphed answers (Maxim Exp 38, 44) |
-| T8 | **sensor-set invariance** (L6): sensors, units and ranges independent of the scene | hazard-detector sensors |
-| T9 | **Δt and wall-time invariance** (L6): one history at different step sizes and LLM latencies, one stream | dial and latency leaks |
-| T10 | **name stability** (F1): `QUANTITIES`, the registry and each NPC's sensor set pinned | silent meaning drift |
-| T11 | **invariance** (L4 §7, L5 §5): vary entity ids and allocation order, material fields no receptor reads, render tier, another NPC's internals, a remote region; A's frame stays bit-identical. Negative control: a fire moved into A's view changes it | what T3–T5 miss |
-| T12 | **sentinel taint scan** (L5): distinctive values in a ΔH_c, a region's interior maximum and NPC B's tissue; scan every byte to A's worker. Plant: bind B's site to A | verbatim copies, not arithmetic smuggling |
-| T13 | **golden tool surface** on real pymaxim: no `ignite`, `extinguish`, `strike(energy_j)`, `*_temperature_max` | oracle acts (`fire_model.md` §5.4) |
-| T14 | **registry disjointness**: no row name in `QUANTITIES`; every row has a receptor | a lab quantity on a body |
+| # | Gate |
+|---|---|
+| T1 | ownership: no drive or pain write from the world (grep gate plus a review rule) |
+| T3 | source swap: a lamp of equal radiance and a plate of equal flux give equal stimuli |
+| T4 | occlusion: a hazard behind a wall changes nothing until something physical crosses |
+| T5 | a material differing only in a combustion constant gives identical streams before any thermal event |
+| T6 | probe (an experiment): decoding constants or occluded state from pre-event frames above chance |
+| T7 | text denylist over every NPC-visible string, receipts included |
+| T8 | sensors, units and ranges independent of the scene |
+| T9 | frames byte-identical every tick at cognition divisors 1–50 (plant: a model reading `dt_ticks`); a worker half compares writes and pain events at 1×, 20× and two seeded wall-delay schedules, strict red until M6 and M8 |
+| T10 | `QUANTITIES`, the registry and each sensor set pinned |
+| T11 | vary entity ids, allocation order, unread material fields, render tier, B's agent state, B joining out of sight, a remote region: A's frames and tissue stay bit-identical. B's body affects A only physically, in sight. Plant: a batched `@` |
+| T12 | sentinel scan of every byte to A's worker; plants: A built from B's store, a channel misroute |
+| T13 | golden tool surface on real pymaxim |
+| T14 | no row in `QUANTITIES`; every row has receptors |
 
-T11 is the strongest. The prior art's leak test is ablation (Habitat's PointNav winner fell to SPL 0.21 without
-GPS+Compass, **S**); L4 found no automated non-leak test anywhere (**M**). Its fuzz reach is counted.
+T11 is the strongest, with its fuzz reach counted. A remote fire raising host load still changes A's Maxim dynamics
+through the wall clock, a known leak until D3 lands. Another gate measures the cue's lead time before harm (L6 R1),
+radiant and contact.
 
-**Why leaks cost more than unearned knowledge.** A perfect privileged predictor takes the prediction error, so the
-physical cue beside it is never learned (Kamin blocking, **S**, L6 §2.1). A faithful learner will block.
+### 6.4 What the LLM sees, and what may be claimed
+
+**D7, answered (read here):** Maxim generates a `SensorReadTool` per sensor ("Returns value in {sensor.unit}",
+returning `value` and `unit`) and an `EntitySenseTool` naming every sensor (`tool_bridge.py:295-321`, `:1002-1020`,
+`:1068-1082`). So the LLM reads "skin_hand_left_temp … celsius … 47.3", and 47 °C means "burning" to a language
+model. No leak test removes that prior. So:
+- **No learning claim from an LLM-primary NPC alone** (L6 R15, as `fire_model.md` §7): a claim needs a substrate-side
+  measure, a physical counter-prior or between-NPC dose–response, pre-registered in a Maxim harness.
+- **Ask whether an embedded roster can withhold world-channel read tools** (M19).
+
+**Blocking.** A privileged predictor takes the prediction error, so the physical cue beside it is never learned
+(Kamin, **S**): leaks cost more than unearned knowledge, for a faithful learner (today NAc's ΣV is OPEN).
 
 ## 7. Placement and modularity
 
 ### 7.1 Modules
 
-No existing module moves; the code's four layers (O24) hold.
-
 | Piece | Owns | Module |
 |---|---|---|
-| Schema | rows, the closed unit and receptor vocabularies | `core/stimuli/schema.py` |
-| Body grammar | site sets in body-local metres | `core/body/geometry.py` |
-| Body store | pose and tissue state, with its own write window, as `FuelStore` has | `core/body/store.py` (5b) |
-| Tissue law | skin column, Henriques, contact; in O34's law list | `core/body/tissue.py` |
-| Site frame | each NPC's sites in world metres at one publication | `core/body/sites.py` |
-| Models | one module per row family; return `(npc, site)` arrays, write nothing | `core/stimuli/models/<name>.py` |
-| Registry, runner | the tuple; a `FieldReader` scoped to each model's `reads` | `core/stimuli/registry.py`, `run.py` |
-| `BodyFrame` | one `stimuli` part of `Frame`, never a method per modality | `core/stimuli/frame.py` |
-| Binding, push | build checks, `world_set_axis` | `adapters/agents/` (worker side) |
+| Schema | rows; unit, receptor, pooling vocabularies; the `StimulusModel` protocol | `core/stimuli/schema.py` |
+| Body grammar, site frame | site sets in body metres; sites in world metres at a tick | `core/body/geometry.py`, `sites.py` |
+| Body store | pose, core node, tissue and visibility state, own write window | `core/body/store.py` (5b) |
+| Irradiance law | flux per point: view factors, visibility and its refresh, contact coupling | `core/body/irradiance.py` |
+| Tissue law | columns, sub-columns, substeps, Henriques | `core/body/tissue.py` |
+| Models | one per row family; read tissue and held fields; write nothing | `core/stimuli/models/<name>.py` |
+| Registry, runner | the tuple; the runner keeps only order and capability handout | `registry.py`, `run.py` |
+| Frames | both frames, reduction, canonical values | `core/stimuli/frame.py` |
+| Binding check, push | build checks, `world_set_axis` | `adapters/agents/` (worker) |
 
-**Stimuli sit above the laws** (L7, against L5's `engine.laws.receptor`): they read every law's fields, and no law
-knows who senses it. The tissue law *writes* tissue state, so it is a law; the stimulus model only reads it.
+**Stimuli sit above the laws** (L7): they read every law's fields, and no law knows who senses it. Flux, visibility
+and contact run every tick for every body in the irradiance law, so tissue input never depends on an agent's cadence.
+Cutoffs are per-row law parameters; there's no due-set, since every body is evaluated each tick.
+
+**Step 5a's composition note gets three seams:** a per-tick law slot beside the physics list; the two-rate contact
+exchange, written to both sides and ledgered antisymmetrically (`world_v2.md` §2.6); and two containers, per-body
+point state and a multi-writer emitter table (`radiant_emitters`).
 
 ### 7.2 Registration
 
 ```python
 # core/stimuli/registry.py: the one place a stimulus is named
-from simcore.core.stimuli.models import burned_area, exposed_area, tissue_temperature
-STIMULI: tuple[StimulusModel, ...] = (tissue_temperature.MODEL, exposed_area.MODEL, burned_area.MODEL)
+from simcore.core.stimuli.models import tissue_temperature
+STIMULI: tuple[StimulusModel, ...] = (tissue_temperature.MODEL,)
 ```
 
-- **A declaration registry, not a plugin framework.** `importlib` is banned from the core, so there is no discovery;
-  the tuple's order is the run order, deterministic and digestible.
-- **`prepare` then `kernel`** (O34's per-law split): `prepare` reconstructs fields over each site's patch in metres,
-  never "a cell"; `kernel` is arithmetic, with a closed-form test and a B5 row.
-- **N + M coupling, not N × M.** Fire and plasma append rows to a shared `radiant_emitters` field the flux model
-  reads. A new phenomenon is a law and its rows; a new sense is a module, one line in `STIMULI`, a site set and data.
+- **A declaration registry, not a plugin framework:** `importlib` is banned from the core. Models are independent,
+  so digests and ids sort by name, not tuple order.
+- **`prepare` then `kernel`** (`docs/plans/checklists.md:103`): `prepare` reconstructs fields over each site's patch
+  in metres; `kernel` is arithmetic with a closed-form test and a B5 row.
+- **Batch invariance is contract.** Each body's values are computed at a shape fixed by its own body: Accelerate's
+  dgemv moved 19 of one NPC's 48 values by 1 ulp once 9 others were stacked with it (**D**). A lint bans BLAS
+  matrix-vector calls and `einsum` over a batch axis in `core/stimuli` and `core/body`; the per-NPC loop costs 0.13 ms
+  against 0.04 ms at 100 NPCs.
+- **N + M coupling, not N × M:** fire and plasma append to `radiant_emitters`; a new sense is a module, one line in
+  `STIMULI`, a site set and data.
 
-**The anti-pattern today:** a region quantity lives in `frames.QUANTITIES`, the `Frame.reading` chain and
-`RegionInstrument.reading_schema`'s name test (`bridge.py:72-75`), so a fifth quantity silently gets the temperature
-range.
+### 7.3 Import contracts, fail-closed
 
-### 7.3 Import contracts
+Denylists fail open (a law born under a new name escapes them), as `pyproject.toml`'s note before
+`maxim-through-adapters` already says. The forms were checked on the pinned import-linter 2.6 (Architecture review).
 
 | Contract | Rule |
 |---|---|
-| `stimuli-independent` | `independence` over `simcore.core.stimuli.models.*`; shared helpers go to geometry or a reductions module |
-| `stimuli-read-only` | models import no `world`, `applier`, `intents`, `imagination`, `scene`, `heat`, `damage`, `body.store`, `body.tissue`, fuel or solid laws |
-| `laws-blind-to-senses` | no law, store or geometry module imports `simcore.core.stimuli` |
-| `membrane-reads-stimulus-frames` | adapters import `stimuli.schema` and `stimuli.frame` only |
-| `agents-no-materials` | `simcore.adapters.agents` imports no `simcore.core.materials` (§6.1) |
-| `maxim-through-adapters`, amended | the agents adapter's worker module joins `allowed_importers`, as `boundaries.md` §8.1 lists it |
+| `stimuli-protected` | `protected` on `simcore.core.stimuli`: only the simulation composition, and adapters' `schema`/`frame` imports |
+| `body-protected` | `protected` on `simcore.core.body`: the composition and `core.stimuli` |
+| models allowlist | a grimp test: models import only `stimuli.schema`, the field-reader type, `body.geometry`, `body.sites`, `checks` |
+| `stimuli-independent` | `independence` over `simcore.core.stimuli.models.*` |
+| `agents-reads-body-frames` | `simcore.adapters.agents` imports no `world`, `applier`, `frames`, `grid`, `materials`, `core.body` or `adapters.sem.bridge` |
+| `maxim-through-adapters` | the agents worker module joins `allowed_importers`, and its test changes with it |
 
-`tests/test_tooling_config.py`'s `CORE_PUBLIC_SURFACE` and `MEMBRANE_SURFACE` gain `stimuli.schema` and
-`stimuli.frame`. Each entry is proven by a planted import when its module is born; L7 left unverified that a wildcard
-`independence` works on a one-child package.
+v1 said `skip-layer` keeps adapters from cells; it doesn't (it allows `world`), hence the agents contract. `_core_modules` in `tests/test_tooling_config.py` becomes recursive in the
+PR that creates the first subpackage, and every new module, `__init__` included, is classified. Adapters get site
+names as handshake data. Each contract gets a `PLANTED` row.
 
-### 7.4 Checks that fail the gate on drift (L7 §4)
+### 7.4 Checks that fail the gate on drift
 
-- **Registry completeness:** every module under `models/` is in `STIMULI` once; every `reads` names a registered
-  field; the contracts' module lists equal the packages that exist.
-- **Honest reads:** a recording `FieldReader` asserts each model opened exactly its `reads`.
-- **No central switch:** an AST lint fails on a registered name used as a literal in a comparison, case or key
-  outside its own module, data file and schema.
-- **Generated tests per row:** a closed form, a cross-tier test at 0.2/0.1/0.05 m and a validity check.
-- **Order and purity:** writers before readers, stimuli last; stimuli write nothing (the writer scan); a golden
-  vocabulary regenerated from `STIMULI`; an `__all__` allowlist on `core/stimuli/__init__.py`.
+- **Completeness:** every module under `models/` is in `STIMULI` once; every `reads` names a registered field.
+- **Honest reads:** a recording `FieldReader` asserts each model opened exactly its `reads`; the allowlist makes
+  direct `grid` access an import failure.
+- **No central switch:** an AST lint fails on a registered name used as a literal comparison or key outside its
+  module, schema, data, the generated vocabulary, `adapters/agents` and `tests/`.
+- **Cross-tier tests per coupling, not per row.** A body near a burner runs identically on every grid, so a per-row
+  test can't fail. The grid enters through occlusion by cells, face emission, face contact and zone gas. Each
+  coupling gets offsets of 0, dx/3 and 2dx/3, band gates and a wall edge across the view, shown red by a planted
+  cell-centre occlusion or cell-mean face temperature. A half-shaded body's burned area matches per-point rays.
+- **Purity:** stimuli write nothing (the writer scan); a golden vocabulary regenerated from `STIMULI`; an `__all__`
+  allowlist on `core/stimuli/__init__.py`.
 
-L7's inherited-surface and fan-in budgets are general tripwires, proposed as backlog rows.
+## 8. Cost and budget
 
-## 8. Cost and interest management under determinism
+**The budget (D12): 10 NPCs near a fire, gated by deterministic work counters** (column substeps, ray samples,
+frames, bytes, parks per tick), which replay exactly; a wall-time p99 meter is advisory. Target: stimuli plus delivery under 10% of the physics step's wall time at 10 NPCs.
 
-**Per physics step, 48 points per NPC** (L3 §5, **D**, on an M2 at load 5.6–7.8, so pessimistic by an unknown factor):
+**Per world second** (2 physics steps, 10 ticks; 58 points; L3's kernels at load 5.6–7.8, 2.2–2.7× pessimistic per
+the Executor's rerun):
 
-| Kernel | 10 NPCs | 100 NPCs |
+| | 10 NPCs | 100 NPCs |
 |---|---|---|
-| skin, 45 nodes, 5 substeps | ~5 ms | ~46 ms |
-| flame to points, analytic, 10 flames | ~0.2 ms | ~1.9 ms (**S**, `fire_model.md` §8.3) |
-| occlusion, every point to one flame | ~82 ms | ~820 ms |
-| occlusion, 9 rays per (flame, NPC), 10 flames, staggered N = 4 | ~4 ms | ~38 ms |
+| skin, and quadrature flux every tick | ~50 ms | ~0.5 s |
+| per-point visibility, one flame, per physics step | ~65–165 ms | ~0.65–1.6 s |
+| delivery every tick: encode, digest, park round trip | ~15–30 ms | ~150–300 ms |
 
-The skin is affordable; occlusion is the budget. Stimuli get their own B5 line, with work counters as the gate.
+**At 10 NPCs that is ~130–245 ms against a target of ~140 ms** (physics runs about 1.4 s per world second).
+Per-point visibility dominates and must be cut without changing outcomes. The
+sanctioned cut: points share a ray set only while their angular spread seen from the emitter stays below a declared
+bound, and split otherwise. Visibility refreshes each physics step and whenever a body's sites move more than a
+declared distance, or topology or emitters change, from world state, never by NPC index. Both bounds are header
+truth constants, and the cost is measured before the law ships. 100 NPCs at a fire forecasts 1.7–2.1 wall seconds
+per world second; the world dilates.
 
-**The game-engineering idea: interest management.** In netcode it decides which entities each client is told about;
-it may be lossy because it only changes what a client draws. Simulation level of detail changes what *happens*, and
-games accept it because their NPCs are props. Here they aren't, so **replication interest** (what the client gets)
-may cull freely, while **simulation interest** may change cost, never values: "multi-rate is allowed; thinning is
-not" (`npcs_and_sem.md` §2.1). When the host can't keep up, the world dilates.
+**The game-engineering idea: interest management.** Netcode decides which entities each client hears about; it may
+be lossy, since it changes only what a client draws. Simulation level of detail changes what *happens*, which games
+accept because NPCs are props. Ours aren't: **replication interest** may cull, **simulation interest** may change
+cost, never values (`npcs_and_sem.md` §2.1).
 
-**Allowed, because bit-identical by construction** (L5 §6):
-1. An NPC's stimuli are evaluated only at its step ticks; tissue and dose integrate every tick for every body, so a
-   non-stepping NPC still burns.
-2. Reuse when inputs are unchanged, keyed on (field sequences read, pose, tissue version), with a cached-equals-fresh
-   test per kind of change.
-3. Physical cutoffs, the same for everyone: a source below a declared SI floor at the receptor is dropped for every
-   NPC, its energy ledgered; halving the floor must change values within tolerance.
-4. Staggered occlusion (NPC i on steps ≡ i mod N), held results saved, N = 1 near emitters by a rule in metres;
-   staleness measured and gated before any N > 1 (L3 didn't measure it).
-5. Parallel evaluation, assembled and digested in `npc_key` order with fixed-order reductions.
+**Allowed, deterministic and independent of the observer** (they change values, so they're law parameters with
+tolerance tests): (1) physical cutoffs, the same for everyone, energy ledgered, a halved floor changing values within
+tolerance; (2) the refresh rule above, staleness measured against every-tick refresh first; (3) a fork-join inside
+`Simulation.step` reading only published read-only arrays, joined before any window opens, a task's exception being a
+simulation-lane exception; serial until T11's batch plant exists.
 
-**Forbidden:** any rule keyed on distance to the player or camera, the wall clock, host load or the dial. Games budget
-perception by wall time (UE sight's 5 ms `MaxTimeSlicePerTick`, a 4.24 quote, **S**) and by player distance; both
-make what an NPC feels depend on who watches. **Dormancy** (an NPC in another tile) needs its own design.
+**Forbidden:** any rule keyed on player or camera distance, wall clock, host load or the dial. Games budget perception
+by wall time (UE sight's 5 ms `MaxTimeSlicePerTick`, **S**) and player distance, so what an NPC feels depends on who
+watches. Dormancy needs its own design. Delivery, the worker push and event-buffer depth each get a B5 row.
 
 ## 9. What Maxim must change
 
-Each becomes a Phase 3 item in `docs/roadmap.md` when the owner rules, through Maxim's process. **Question:** an
-existing plan owns it. **Pushback:** names a recorded decision. **New:** searched, not found.
+Each becomes a Phase 3 item through Maxim's process. **Question:** a plan owns it.
+**Pushback:** names a recorded decision. **New:** searched, not found.
 
-| # | Need | Evidence at `origin/main` | Kind |
-|---|---|---|---|
-| M1 | World writes to sub-sensors, and `modality:` on them | root-only (`embodiment/audio_localization.py:727-762`); sub-sensor `modality:` raises (`embodiment/spec.py:556`) | **Question**, extending OD-C10, to TR23's "one kind-taking setter" (`docs/plans/thalamic_relay.md:2123`; GL3.B3) |
-| M2 | A neutral point separate from the range | `rest:` is unparsed (L2 §2); the A4 neutral is "the literal normalized 0.5 (range midpoint)", and a set-point-aware variant "must not be improvised (plan decision D1)" (`similarity/encoder.py:572-584`). Skin rests near 33 °C, so its range must centre there, which also sets the clamp | **Pushback** against that decision D1 (`docs/limits/l11_sensor_dilution.md`, not read here), with the skin case |
-| M3 | A closed unit vocabulary | free-text units (`minecraft_player.yaml`); pain in sensor units (`embodiment/sem.py:278-281`) | **Question** to OD-C9 |
-| M4 | The embedded `step` evaluates the body after a push | nothing evaluates pain on a host-called step (L2 §3, §8) | **Question** to OD-A10 |
-| M5 | Drift on world time | `now = time.time()`, `drift_dt = now - self._last_poll` (`embodiment/body.py:293-295`) | **Question** to `docs/plans/experience_clock_decay.md` S4 (PROPOSED); `drift_rate: 0` dodges it |
-| M6 | The PainBus refractory on world time | 0.5 s per `(entity, failure_mode)` on `time.monotonic()` (`proprioception/pain_bus.py:196`), kept wall-clock "on purpose" as "motor/IO rate limits; hardware safety" (`experience_clock_decay.md` §(g)) | **Pushback** against §(g)'s row: at a 20× dial two burns 0.5 s apart in world time arrive 25 ms apart and merge, at 0.5× never; under the barrier wall time follows host load, so tier-2 reruns differ. Keep it for robots; let a stepped world supply the clock |
-| M7 | The NAc causal window on world time | `temporal_window_seconds: float = 300.0` (`decisions/nac.py:439`) | **Question**: the planned `temporal_window_us` (per L2) |
-| M8 | Reading stamps on the body clock | `timestamp=_time.time()` (`embodiment/spec.py:837`) | **Question**: OD-C2, filed |
-| M9 | Burn as pain | GL2b "not started" (`docs/plans/autonomic_layer.md` status); `NociceptorSpec` thresholds are in sensor units (L2 §5), so `celsius` feeds its calibration; per-instance draws unknown (L6 §5) | **Question** to GL2b |
-| M10 | Fear from burns and humanoid injury | allowlist `{"drive:health", "drive:oxygen"}` (`decisions/nac.py:425`); "a burn is **not** added to the fear set" (`autonomic_layer.md:233-234`); humanoids have no `drive:health` (L2) | **Pushback** against that invariant, with the first NPC fire scenario's failing run |
-| M11 | Channels for vision, touch, smell | `DECLARABLE_MODALITY_TAGS` is `{AUDIO_TAG, WORLD_TAG}` (`embodiment/sensory_streams.py`) | **Question** to GL3's modality registry |
-| M12 | Per-ear signals, not a world-set azimuth | `base_humanoid.yaml`'s `azimuth` | **OPEN**; question when sound lands |
-| M13 | Credit tolerating a delay (a toxin's malaise) | none found by L2; `memory_2d2_retroactive_tagging.md` unchecked | **New**, Phase 2, after that check |
-
-Every Maxim path in this table was read here except those marked "per L2" or "not read here".
-
-**The wall-clock gap is the largest unmet assumption** (L2 §8). Drift, drive-pain latching, the refractory, the NAc
-window and reading stamps run on Maxim's wall clock, and only drift and the window have plans. A world stepped faster
-than real time makes drift undershoot, merges burns and widens credit; slower breaks them the other way.
-
-## 10. Decisions for the owner
-
-| # | Decision | Recommendation, and why |
+| # | Need; evidence at `origin/main` | Kind |
 |---|---|---|
-| D1 | **The `BodyFrame` is what `AgentPort.step`'s `frame` means,** which edits the agent half frozen at v3.1 (O19) | Rule it as a definition, not a redesign: O13 already rules out the world frame (a `CellFrame` is 64–80 MB per tile at 0.1 m), and Maxim's review of the embeddable draft (O36) needs it. Fold it into `docs/maxim_upstream/embeddable_agent_DRAFT.md` |
-| D2 | **The registry's form:** YAML (`world_v2.md` §2.5) or code (`boundaries.md` §9.1, "the in-code field registry is primary") | Code primary, with a generated committed artifact compared byte for byte: rows are bound to model modules, and data can't import code. Rule the field registry the same way at once |
-| D3 | **Maxim's wall-clock time against world time,** and the route | File M6 as a pushback now; hold M5 and M7 as questions to #1361; a strict red gate in `phase1/agents` that merges two world-separated burns at 20× carries the evidence |
-| D4 | **Lesson 11 ("agents need world time, injected") against time research §8.4 ("the NPC should never receive the world clock as such")** | No conflict under O4: the injected clock is *machinery* (drift, stamps, windows); cognition gets no time field. This contract carries none; `world_dt_us` reaches the machinery through `step`. Confirm, and reword lesson 11 to "machinery time" |
-| D5 | **Waking a slowly stepping agent on a strong stimulus** without a designer event (L4 §5) | (a) no waking: onsets wait in `events`; (b) a world-side onset (dF/dt above an SI floor) forces a logged step, which risks becoming lesson 4's designer event; (c) every body steps each tick in its worker and only cognition is slow, at a round trip per tick. Recommend (a) for Phase 4 with a test measuring the lead time lost, and (c) as the target, decided with Maxim |
-| D6 | Incident flux is internal, not delivered (§1) | Rule it; reword `fire_model.md` §5.1's table |
-| D7 | What the LLM sees of numeric stimuli ("skin 47 °C" means something to an LLM; L6 §2.2) | Ask Maxim whether world-channel values reach the prompt; T7 covers names, not numbers |
-| D8 | Phase 4's first body: the flat stopgap (EARN on OD-C10), or wait | The stopgap, every reduction in its ANALOG list |
-| D9 | Phenomena under `simcore.core.laws.<name>` (so a `phenomena-independent` contract works, L7) or flat, as `fire_solid.md` §7 places fire | A ruling for O34's law list |
-| D10 | The lab surface (`region_parts`, `RegionInstrument`) moves under `tests/` (delta1 NS3) | Before step 5 ships vocabulary v1, so Phase 4 can't pick up the oracle builder |
+| M1 (MP-5) | sub-sensor writes with `modality:` (`audio_localization.py:727-762`; `spec.py:556`) | **Question**, extending OD-C10, to TR23's setter (`thalamic_relay.md:2123`, GL3.B3) |
+| M2 | *withdrawn:* `setpoint_aware_neutral.md` is DO-NOT-BUILD; a static set point "is numerically identical to the range declaration" (`archive/world_channel_weighting.md:222`), which `lint_body_rest_neutral.py` enforces | replaced by §3.3 |
+| M4 | the embedded `step` evaluates the body after a push (L2 §3) | **New**, nearest home OD-A10 |
+| M5–M8 | drift, PainBus refractory, NAc window, reading stamps on world time (`body.py:293-295`, `pain_bus.py:196`, `nac.py:439`, `spec.py:837`) | **Citations** of OD-A1, OD-A2 and `world_clock_release_DRAFT.md` §3.5, §4, which already argues §(g)'s PainBus row |
+| M9 (MP-2a, 2b) | burn as pain, two fibre classes, per-NPC receptor draws (not found in `thalamic_relay.md`, `autonomic_layer.md`) | **Question** to GL2b, GL3 |
+| M10 (MP-1) | fear from burns: `nac.py:425`'s allowlist; "a burn is **not** added" (`autonomic_layer.md:233-234`) | **Pushback**, with the first NPC fire scenario's failing run once it exists |
+| M11 | vision, touch, smell channels (`sensory_streams.py:68`) | **Question** to GL3 |
+| M12 | per-ear signals, not a world-set azimuth | **EARN**; when sound lands |
+| M13 | credit tolerating a delay; `memory_2d2_retroactive_tagging.md` is retention, not credit | **New**, Phase 2 |
+| M14 | `deferred/sem_environmental_proximity_sensing.md` reads a declared `heat_output`; its revive trigger is this design's first NPC | **Pushback** against its mechanism (T3, T5) |
+| M15 | thermal adaptation has no owner (`deferred/adaptive_nociception.md` covers nociceptors) | **Question** to the salience-layer route; OPEN |
+| M16 | a body step without cognition, each tick (D5 (c)) | **Question** to OD-A10, `embeddable_agent_DRAFT.md` |
+| M17 | a world-caused burn through `apply_damage` (`spec.py:1025`) | **Question** to GL2b, TR22 |
+| M18 | the modulator-backend path in the embedded build (`bootstrap.py:538-561`) | **Question** to OD-A10 |
+| M19 | withholding world-channel read tools (`tool_bridge.py:1068-1082`) | **Question** to OD-A11 |
 
-## 11. Open questions and risks
+v1's M3 is dropped (§3.2's check holds it). **The wall-clock gap is the largest unmet assumption** (L2 §8).
 
-### 11.1 Conflicts between the reports
+## 10. Decisions
 
-| Conflict | Resolution |
+**Ruled by the owner, 2026-11-20, as recommended:**
+- **D1:** the port's `frame` is the `BoundFrame` source; the adapter consumes it, and Maxim's `step(…, frame)`
+  carries nothing of it, so there is one route. Folded into `embeddable_agent_DRAFT.md` under O36.
+- **D2:** the registry is code primary, with a generated artifact compared byte for byte; the field registry too.
+- **D3:** the wall-clock pushback is filed as `world_clock_release_DRAFT.md`'s §4 row, with the 20× merge added; the
+  gate *will* carry the evidence once it lands, faking `time.monotonic`.
+- **D4:** no conflict under O4 and OD-A2: the injected clock is machinery; cognition gets no time field. Lesson 11
+  reworded.
+- **D5:** (c), every body steps each tick; only cognition is slow.
+- **D6:** incident flux is internal; `fire_model.md` §5.1 and lesson 24 reworded.
+- **D7:** answered (§6.4). **D8:** the flat stopgap body. **D9:** for O34's law list; this design needs only
+  `core/body/`. **D10:** split `region_parts` before step 5's vocabulary v1 (§6.1).
+- **D11:** (a), per-point visibility, clustered within a bound and refreshed on motion (§8).
+- **D12:** 10 NPCs near a fire with a work-counter gate; 100 is a later target.
+
+**Open, D13:** on a bound row's law change, refuse an agent home unless the load names it (recommended), or load
+with a logged warning.
+
+## 11. Steps, open questions and risks
+
+### 11.1 Where the work lands
+
+| Step | Work |
 |---|---|
-| Who declares a row's range: L7's `StimulusSpec.value_range` or Maxim's body YAML (L5) | Maxim's: saturation is transduction (§2.1) |
-| A pulled `ReceptorSensor` (L7) or push (L2, L5) | Push: drives and pain read `vital_metrics` (§4.1) |
-| Stimuli beside the laws (L5) or above them (L7) | Above (§7.1) |
-| "Body frame" means values (L5) or site geometry (L7) | Values, per the owner's brief; geometry is the site frame |
-| L3 publishes a body region's mean and maximum; L6 R6: no region-wide mean or max reaches an NPC | R6 is about world regions read from anywhere; body points are the receptor's own sites, and a binding's reduction is a named ANALOG (§3) |
-| One region list (L3) or per-modality granularity (L1) | Per-modality site sets; L3's list is `skin` |
-| Noise: the world's (L4), none (L5), physical variability only (L6) | Consistent once split: v1 adds none; receptor noise is Maxim's; physical variability only when earned, from keyed streams (`npcs_and_sem.md` §3.4) |
+| 5a (sim-clock) | §5's reservations; §7.1's seams; `stimuli/schema.py`, `frame.py`; recursive `_core_modules` |
+| 5b (bodies) | `body/geometry.py`, `store.py`, `sites.py`; the core node; the body-instance format (strict loader, version, gate row, fixtures) |
+| `phase1/agents` | `adapters/agents` and its contracts; the binding format and loader; the `BoundFrame` codec and goldens; the environment entity; D10 |
+| before Phase 4 | the tissue and irradiance laws, `tissue_temperature`, §6.3's gates, the first body |
 
-**Errors found in the lenses:** L5 places `RegionInstrument` at `bridge.py:715` (it is `:48`); L5's materials hole
-is narrower than stated (§6.1); L2 puts TR23's setter at GL3.B1, while TR23's own row says GL3.B3.
+`foundations_plan.md` still owns order.
 
 ### 11.2 Open questions
 
-- **Q1.** The `skin` point count: add points until a region's burned fraction and maximum stop changing, limb
-  edge-on to a flame (L3 named the test and didn't run it).
-- **Q2.** Is a sample at the step tick enough for slow agents on thermal rows? A time reduction the receptor doesn't
-  perform is omniscient (L6 §1.5), so the default is the sample.
-- **Q3.** Face skins on every exposed face (6.2) before a hot wall can warm an NPC; a Known gap until then.
-- **Q4.** One body shading another. **Q5.** Who owns ventilation rate for dose (COHb, FED).
-- **Q6.** The `_backend` sensor path stays unused: `read()` returns the backend's value (`spec.py:822-823`) while
-  drives read `vital_metrics`, a second truth.
+- **Q1.** The `skin` point count, a limb edge-on to a flame; L3's buttocks share disagrees with `geom.py`.
+- **Q3.** Face skins before a hot wall warms an NPC or glows in view; radiance from cell means is a strict red gate.
+- **Q4.** Bodies shading each other, and self-shadowing: a Known gap with a number when irradiance lands.
+- **Q5.** Ventilation rate's owner. **Q6.** L1 §9.1's skin feedforward.
+- **Before `data/`:** trace Henriques' constants to a primary source (none found; Weaver–Stoll's give about 0.9 per
+  K below 50 °C, against 0.5); grade Ω = 1 against two published second-degree times; record Jasiński's miss as a
+  Known gap; cite the contact conductance (it moves steel pain 4.5×); anchor on ISO 13732-1 Table A.1 (**S**, via
+  CENELEC Guide 29) in its held-surface configuration.
 
 ### 11.3 Risks, said plainly
 
-- **Phase 4's first NPC feels fire only as temperature on a flat body,** with no burn pain until GL2b and no fear until
-  M10's invariant moves. Honest, and weaker than the fire design hoped.
-- **The taint scan can't see an oracle smuggled through arithmetic;** review holds that line.
-- **Occlusion cost is unmeasured on a real tile.**
-- **M numbers to verify before `data/`:** thermoreceptor depths (Hensel 1951), ISO 13732-1, anthropometry and
-  Lund–Browder shares, ear spacing, tidal volume.
-- **Maxim was read at an unfetched local ref;** re-read each cited path at a fetched `origin/main` before filing.
+- **The first NPC feels fire only as temperature on a flat body,** weakly salient under the A4 gain, with no burn
+  pain until GL2b and no fear until M10 moves.
+- **Per-point visibility may not fit the 10-NPC budget** until clustering is measured.
+- **D5 (c) needs M16.** If an embedded body can't step without cognition, every tick is a full step, or sub-tick
+  contacts go unfelt, T9 turns strict red and a Known gap is recorded.
+- **The taint scan can't see an oracle smuggled through arithmetic;** review holds that.
+- **M numbers to verify before `data/`:** receptor depths, anthropometry, ear spacing, tidal volume. Re-read each
+  Maxim path at a fetched `origin/main` before filing.
