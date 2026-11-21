@@ -11,7 +11,7 @@ Their statuses for earlier findings stand as written. A reviewer sets the status
 | N-S2 start timeouts under load mark a placement down | IG §4: a start timeout never counts; only an exit before `ready` does |
 | N-N1, C-S3: `single`, wait or end | IP §2.4: one rule for every policy (wait if a candidate is only cooling, else `unavailable`) |
 | N-N2 phantom interruptions | IP §6.2: OPEN |
-| N-N3, C-S4: speaker identity across sessions | **open: needs the owner's ruling** |
+| N-N3, C-S4: speaker identity across sessions | O55 (owner, 2026-11-21): a persistent guest identity; IG §6 |
 | D-S1 (open): clearing rests on agent provenance | IG §6: OPEN |
 | D-6 (open): transport timeout relation | IG §4: (1 + unswitchable retries) × `transport_timeout_s` ≤ `call_ceiling_s`, checked at load |
 | D-8 (open): numbers not in this tree | IP §6.3: states the numbers, citing each source |

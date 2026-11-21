@@ -171,8 +171,10 @@ lane does with that.
 
 ## 6. Consent and taint (O18, O49, O51, O54) **[now: the rule; Phase 4: the disclosure UI]**
 
-**Recording consent.** Consent is recorded per speaker and per class, saved with the save, and versioned. A speaker is
-an actor and its session (`npcs_and_sem.md` §6.6), so a guest who rejoins accepts again.
+**Recording consent.** Consent is recorded per speaker and per class, saved with the save, and versioned. A speaker
+is the guest's persistent identity (O55): a keypair the guest's client generates on its first join and keeps, whose
+public half the host records and which the guest proves at the handshake (`tile_and_client.md`'s `hello`, built at
+`phase1/protocol`; co-op is Phase 5, O28). Consent, purge and release follow the person across sessions.
 
 **With guests present:**
 - only `loopback` is eligible unless every present guest has accepted the class (and, for `third_party`, the named
@@ -191,7 +193,8 @@ lower bound (O26) over:
 
 **Clearing taint.** Taint for speaker S on an NPC clears only when `purge(S)` completes on that NPC.
 
-**Who may purge (O54).** Either person may delete: S while connected (O17), or the save's owner. Only S may release
+**Who may purge (O54).** Either person may delete: S whenever S is connected and proven (O17, O55), or the save's
+owner. Only S may release
 S's words to a remote class, by accepting its disclosure. So the owner can unlock a cloud model only by erasing what S
 said, and the NPCs then lose those memories.
 

@@ -135,7 +135,7 @@ a nit; OD-I6, OD-I7, OD-I8 new.
 | O43 | `session_id` from the log header; the seq in the agent home |
 | O44 | Dead workers' pids refused |
 | O45 | A log segment per restore |
-| O46–O54 | Inference: O46, O47, O48, O49, O50, O51, O52, O53, O54 |
+| O46–O55 | Inference: O46, O47, O48, O49, O50, O51, O52, O53, O54, O55 |
 | OA1 | A thought's kind from the agent's policy, a closed vocabulary; a logged host table sets cost |
 | OA2 | Dilation shown on a three-handed clock |
 | OA3 | No conversational repertoire of our own; proposed to Maxim as OD-H5 |

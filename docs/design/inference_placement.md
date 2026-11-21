@@ -39,6 +39,7 @@ means a round's reader or the author read the line there. The locked release is 
 | O52 | **O46 goes to Maxim as a pushback** (OD-A24). | §9 |
 | O53 | **One gateway process per placement.** | IG §2 |
 | O54 | **Either the speaker or the save's owner may purge a speaker's words; only the speaker may release them to a remote class.** | IG §6 |
+| O55 | **A speaker is the guest's persistent identity, not a session:** a key the guest's client keeps, proven at the handshake, so consent, purge and release follow the person across sessions. | IG §6 |
 | — | Kept by the owner: an `owner_lan` endpoint must have a private, link-local or CGNAT address, and `http://` to one needs `cleartext: true` (IG §7). Load failures wait on the same placement (§2.7). Cache pairing covers only the shared prefix (§4.2). | |
 
 ## 1. What Maxim offers, and what this pushes against
