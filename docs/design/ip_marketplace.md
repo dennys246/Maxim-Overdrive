@@ -107,20 +107,24 @@ loaded like every other record: closed key sets, unknown values refused.
 ## 6. The Maxim side
 
 NPC memory lives in Maxim, not in this repo, and Maxim can export, merge and share memory through its hivemind and
-Oasis bundles. Maxim's signed bundle format v2 carries a signed SPDX `license` field; published Oasis bundles use
-CDLA-Permissive-2.0, and a `--release` composition whose inputs carry a non-permissive licence only warns. There is
-no licence-compatibility logic by design (`docs/plans/oasis_entry_index_v2.md` in Maxim, item (d)).
+Oasis bundles. Maxim's signed bundle format v2 carries a signed SPDX `license` field, and published Oasis bundles use
+CDLA-Permissive-2.0. Maxim tracks a licence per *ingested release*, in its ingest journal, not per memory row. A
+`--release` composition re-authors every row and strips per-row provenance, and it only warns when a journalled
+input's licence is non-permissive or missing. There is no licence-compatibility logic by design
+(`docs/plans/oasis_entry_index_v2.md` in Maxim, item (d); `hivemind/cli.py::_warn_on_input_licenses`).
 
-So a licensed character's memories could be merged into another agent, or into a permissive bundle anyone may reuse,
-with only a warning. For a licensed character that is a breach the design allows. What Maxim needs, before any
-licensed character exists:
+So a licensed character's memories could be merged into another agent, or into a permissive bundle anyone may reuse.
+Memories that ingest a licensed bundle get only a warning. Memories formed locally from a licensed cradle (book to
+world, §4 item 4) carry no licence record at all and export under whatever licence the exporter picks, without even
+a warning. For a licensed character that is a breach the design allows. What Maxim needs, before any licensed
+character exists:
 
 - a licence class meaning "licensed: never leaves the world it was granted for", carried on memory rows derived from
   a licensed cradle, through consolidation;
 - export and merge refuse that class rather than warn;
 - a test that a licensed character's memory cannot reach a published bundle by any path.
 
-This is Maxim work, to be filed there as an issue; it is recorded here because this game is its first consumer.
+This is Maxim work, filed there as dennys246/Maxim#1726; it is recorded here because this game is its first consumer.
 
 ## 7. Creator contract terms (for the lawyer)
 
