@@ -35,7 +35,8 @@ _NUMERIC = {
     "contextlib": "the write window's context manager",
     "dataclasses": "frozen value types",
     "enum": "StrEnum, the refusal codes' closed vocabulary",
-    "unicodedata": "a name's characters by Unicode category, and NFC (schema.Text); pure, no IO",
+    "unicodedata": "a name's NFKC form and its letters' Unicode names (schema.Text); pure, no IO",
+    "idna": "IDNA2008's code-point tables and contextual rules for a name's characters (schema.Text); pure, no IO",
     "hashlib": "sha256 for versioned content digests (simcore.core.digest); not the builtin hash()",
     "re": "the shape of a stored digest",
     "math": "scalar maths",
@@ -100,13 +101,13 @@ _NAMES_CORE = frozenset({
     "numpy.max", "numpy.mean", "numpy.take", "numpy.typing.NDArray", "numpy.uint8", "numpy.where",
     "numpy.zeros", "re.compile", "reprlib.Repr", "scipy.ndimage", "scipy.ndimage.label", "scipy.special.ndtr",
     "types.MappingProxyType", "typing.Any", "typing.Literal", "typing.Protocol", "typing.SupportsFloat",
-    "unicodedata.category", "unicodedata.is_normalized",
+    "idna.IDNAError", "idna.check_label", "unicodedata.name", "unicodedata.normalize",
 })  # fmt: skip
 
 # the file gate: paths, and strict YAML through a SafeLoader subclass
 _NAMES_LOADERS = frozenset({
-    "__future__.annotations", "collections.Counter", "collections.abc.Sequence", "os.O_NONBLOCK", "os.O_RDONLY",
-    "os.close", "os.fdopen", "os.fstat", "os.open", "pathlib.Path", "re.compile", "stat.S_ISREG",
+    "__future__.annotations", "collections.Counter", "collections.abc.Sequence", "os.O_NOCTTY", "os.O_NONBLOCK",
+    "os.O_RDONLY", "os.close", "os.fdopen", "os.fstat", "os.open", "pathlib.Path", "re.compile", "stat.S_ISREG",
     "weakref.WeakKeyDictionary", "typing.Any", "yaml.MappingNode", "yaml.SafeLoader", "yaml.YAMLError", "yaml.load",
     "yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG",
 })  # fmt: skip

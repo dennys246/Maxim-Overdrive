@@ -26,6 +26,11 @@ the Maxim repo), where the record shows that the catches came from a *different*
 6. **Record.** The fold commit's message lists each finding and what was done. The hand-off note (and the PR
    description) carries the round summary: the lenses run, the counts by severity, and anything deferred.
 
+**The input lint's threat model** (owner, 2026-11-21): `scripts/lint_inputs.py` guards mistakes, not adversaries. A
+reader who finds a further deliberate spelling in `src/` that reaches a namespace or the filesystem through a value
+records it in `docs/standards_backlog.md` B31 as a corpus row to add when untrusted code can reach `src/`, not as a
+SHOULD-FIX against the branch.
+
 A docs-only change that makes no new claim about the code needs no round. A docs change that says something works
 gets a round, because a claim is a contract.
 

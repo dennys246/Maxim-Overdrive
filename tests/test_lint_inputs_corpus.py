@@ -294,6 +294,17 @@ CASES: list[tuple[str, str, str, bool, str]] = [
     ("input", GAME, "def f(p):\n    return getattr(p, 'read_' + 'text')()", True, "3b(b) delta 2: the game package"),
     ("input", GAME, "def f(g):\n    return getattr(g, '__glo' + 'bals__')", True, "3b(b) delta 2: the game package"),
     ("input", GAME, "def f(n):\n    return getattr(n, 'lineno', 0)", False, "3b(b) delta 2: a plain getattr"),
+    # -- input, step 3b(b) delta round 3 (R3-3, R3-4): namespaces through vars, getattr through __builtins__ -----
+    (
+        "input",
+        GAME,
+        "import simcore.adapters.loaders as L\ndef f(h):\n    return vars(L)['_REAL'][h]",
+        True,
+        "3b(b) delta 3: vars of a gate",
+    ),
+    ("input", CORE, "def f(o, k):\n    return vars(o)[k]", True, "3b(b) delta 3: vars, a computed key"),
+    ("input", GAME, "g = __builtins__.getattr\ndef f(o, n):\n    return g(o, n)", True, "3b(b) delta 3"),
+    ("input", CORE, "def f():\n    return globals()['os']", True, "3b(b) delta 3: globals"),
     ("input", CORE, "def f(body):\n    return body.walk(1)", False, "3b(b) round 1: a body walks (Architecture A6)"),
     ("input", CORE, "def f(door):\n    return door.open()", False, "3b(b) round 1: a door opens (Architecture A6)"),
     ("input", CORE, "def f(t):\n    return t.resolve('crate')", False, "3b(b) round 1: a target resolves"),
@@ -492,6 +503,6 @@ def test_a_spelling_the_design_leaves_out_is_still_left_out(contract_hits, index
 def test_the_corpus_holds_every_round_and_both_verdicts():
     origins = {c[4].split(":")[0] for c in CASES}
     rounds = {"build", "round 1", "delta 1", "delta 2", "delta 3", "delta 4", "delta 5", "delta 6", "delta 7"}
-    assert rounds | {"3b(b) round 1", "3b(b) delta 1", "3b(b) delta 2"} <= origins
+    assert rounds | {"3b(b) round 1", "3b(b) delta 1", "3b(b) delta 2", "3b(b) delta 3"} <= origins
     assert {c[3] for c in CASES if c[0] == "input"} == {True, False}
     assert {c[3] for c in CASES if c[0] == "unsafe"} == {True, False}

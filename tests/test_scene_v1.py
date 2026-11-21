@@ -300,7 +300,22 @@ def test_a_names_reserved_words_are_held_under_maxims_name_rule():
     assert _code(Text(reserved=("Self",)).convert, "self", "n") is RefusalCode.BAD_NAME
 
 
-@pytest.mark.parametrize("name", ["Zoë", "café", "crate_far", "wall-2", "O'Neil", "guard captain", "x1"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        *("Zoë", "café", "crate_far", "wall-2", "O'Neil", "O\u2019Brien", "guard captain", "x1"),
+        "\u0928\u092e\u0938\u094d\u0924\u0947",  # Hindi, with a virama and a vowel sign (round 3, R3-1)
+        "\u0ba4\u0bae\u0bbf\u0bb4\u0bcd",  # Tamil
+        "\u09ac\u09be\u0982\u09b2\u09be",  # Bengali
+        "\u1781\u17d2\u1798\u17c2\u179a",  # Khmer
+        "\u0645\u064f\u062d\u064e\u0645\u064e\u0651\u062f",  # vocalised Arabic
+        "\u0dc1\u0dca\u200d\u0dbb\u0dd3",  # Sinhala, a joiner after a virama, which IDNA's CONTEXTJ allows
+        "\u0e2a\u0e21\u0e0a\u0e32\u0e22",  # Thai
+        "\uac00",  # Hangul
+        "\u0391\u03b8\u03ae\u03bd\u03b1",  # Greek
+        "\u041c\u043e\u0441\u043a\u0432\u0430",  # Cyrillic
+    ],
+)
 def test_a_name_from_any_script_s_letters_and_digits_is_kept(name):
     from simcore.core.schema import Text  # noqa: PLC0415
 

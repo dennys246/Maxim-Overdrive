@@ -1074,3 +1074,25 @@ def test_a_data_directory_candidate_is_relative_to_the_package():
 
     with pytest.raises(TypeError, match="relative to the package"):
         existing_directory(DATA, ["/etc"], "x")
+
+
+# -- step 3b(b) delta round 3 folds ------------------------------------------------------------------------------
+
+
+def test_only_the_gate_makes_a_data_path_and_a_copy_is_the_same_place():
+    """Round 3, R3-6: DataPath() and copy.copy(h) made handles with no path, which failed later with a bare KeyError."""
+    import copy  # noqa: PLC0415
+
+    with pytest.raises(TypeError, match="made by the file gate"):
+        DataPath(object())
+    where = data.data_dir() / "materials"
+    assert copy.copy(where) is where
+    assert copy.deepcopy(where) is where
+    assert str(copy.deepcopy(where) / "core.yaml") == str(DATA / "materials" / "core.yaml")
+
+
+def test_a_path_with_a_nul_is_a_coded_refusal(tmp_path):
+    """Round 3, R3-10: an embedded NUL raised a bare ValueError from os.open."""
+    with pytest.raises(Refused, match="not a file name") as caught:
+        read_yaml(str(tmp_path / "a\x00b.yaml"))
+    assert caught.value.code is RefusalCode.BAD_NAME

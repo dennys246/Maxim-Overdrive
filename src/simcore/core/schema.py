@@ -16,10 +16,13 @@ declared, since the tick (step 5a) is derived from seconds at load, never author
 from __future__ import annotations
 
 import math
+import re
 import unicodedata
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
+
+import idna
 
 from simcore.core.checks import (
     IDENTITY_KEY_CHARS,
@@ -43,25 +46,31 @@ _NOT_NUMBERS: Bad = (
 )
 
 
-# A name's characters, allowlisted by Unicode category rather than refused from a hand list (two review rounds found
-# invisible characters a list missed: U+034F, U+E0100-E01EF, U+2800; delta review 2, N2, SF-2): letters (L*) and
-# digits (Nd), plus space and _ - . ' between them, in NFC form, so "cafe" with a combining accent is not a second
-# "café". Combining marks, variation selectors, joiners, symbols such as the braille blank and every control or
-# format character fail by rule. The four Hangul fillers are letters that render blank (Lo, Default_Ignorable), so
-# they are named. The rule follows the running Python's Unicode database. Look-alikes from other scripts
-# ("\u0441rate") remain docs/standards_backlog.md B30.
-_NAME_PUNCTUATION = frozenset(" _-.'")
-_FILLERS = frozenset("\u115f\u1160\u3164\uffa0")
+# A name's characters follow IDNA2008 (RFC 5890-5893; the idna package's code-point tables and contextual rules), the
+# standard for which characters are safe in an identifier people read, rather than a rule written here: three review
+# rounds found holes in hand-written ones (delta rounds 1-3). Each word between the separators below must be a valid
+# IDNA2008 label once lower-cased, so combining marks are allowed after a base letter (Hindi, Tamil, vocalised
+# Arabic), and Default_Ignorables, joiners outside their contexts, symbols and compatibility forms are not. The whole
+# name must be its own NFKC form, so a fullwidth "crate" (U+FF43...) or a ligature is not a second "crate". IDNA
+# admits two letters that render blank (EGYPTIAN HIEROGLYPH FULL and HALF BLANK), so a letter named BLANK or FILLER
+# is refused by its Unicode name. Look-alikes from other scripts ("\u0441rate") need TR39's confusable skeleton: B30.
+_NAME_SEPARATORS = re.compile("[ _.'\u2019-]+")
+_BLANK_WORDS = ("BLANK", "FILLER")
+_JOINERS = {0x200C: "x", 0x200D: "x"}  # allowed past isprintable only so IDNA can rule on their context
 
 
 def _visible_name(value: str) -> bool:
-    letters = [ch for ch in value if ch not in _NAME_PUNCTUATION]
-    return (
-        bool(letters)
-        and unicodedata.is_normalized("NFC", value)
-        and all(unicodedata.category(ch)[0] == "L" or unicodedata.category(ch) == "Nd" for ch in letters)
-        and not _FILLERS.intersection(value)
-    )
+    words = [w for w in _NAME_SEPARATORS.split(value) if w]
+    if not words or unicodedata.normalize("NFKC", value) != value:
+        return False
+    if any(w in unicodedata.name(ch, "") for ch in value for w in _BLANK_WORDS):
+        return False
+    try:
+        for word in words:
+            idna.check_label(word.lower())
+    except (idna.IDNAError, ValueError):  # the label's refusal, reported by the caller as bad_name
+        return False
+    return True
 
 
 TEXT_CHARS = 128  # a name's budget (boundaries §5.4): imagined names are held tighter by Budget.max_name_chars
@@ -189,7 +198,7 @@ class Text:
         ok = (
             type(value) is str  # a str subclass could print as something else (delta review, D5)
             and 0 < len(value) <= self.max_chars
-            and value.isprintable()
+            and value.translate(_JOINERS).isprintable()  # ZWJ, ZWNJ: IDNA's CONTEXTJ judges them (Sinhala)
             and value == value.strip()
             and _visible_name(value)  # a name an agent can see and tell apart
         )
@@ -207,6 +216,7 @@ class Text:
         names = (
             *(7, "", " x", "x ", long, "a\nb", "a\u202eb", "cr\u200bate", "a\x00b", "\ud800", "\u3164", "\u2800"),
             *("crate\ufe0f", "a\u17b4b", "-", "cr\u034fate", "crate\U000e0100", "crate\u2800", "cafe\u0301"),
+            *("crate\U00013441", "\uff43rate", "\ufb01x", "cr\u200date", "\u1100\u1161"),  # blank, compat, joiner, NFKC
             *(type("_NameLike", (str,), {})("crate"), *self.reserved),  # a str subclass, whose __str__ may differ
         )
         return tuple((n, RefusalCode.BAD_NAME) for n in names)

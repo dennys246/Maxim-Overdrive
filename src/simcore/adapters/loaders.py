@@ -42,12 +42,25 @@ class DataPath:
 
     The game's data locator hands out one of these, never a ``pathlib.Path``: it joins bare names with ``/`` and
     prints itself, and nothing else, so game code can't read a data file past the strict YAML gate. It holds no path
-    at all: the gate keeps each handle's real path in ``_REAL``, which nothing outside this module can import (a gate
-    exports only its ``__all__``), so there is no ``_path`` to reach past it (delta review 2, N1). It has no
-    ``__fspath__``, so ``open`` and ``Path`` refuse it. Handles compare and hash by identity; compare their text.
+    at all: the gate keeps each handle's real path in ``_REAL``, which code outside this module can't import (a gate
+    exports only its ``__all__``) or read through a namespace (``vars(module)`` is refused by the input lint), so
+    there is no ``_path`` to reach past it (delta reviews 2 and 3, N1, R3-3). It has no ``__fspath__``, so ``open``
+    and ``Path`` refuse it. Only the gate makes one (a private token), and a copy is the same handle, so none exists
+    without its path (R3-6). Handles compare and hash by identity: compare their text, and never iterate a set of
+    them, whose order follows memory addresses.
     """
 
     __slots__ = ("__weakref__",)
+
+    def __init__(self, token: object) -> None:
+        if token is not _MADE_BY_THE_GATE:
+            raise TypeError("a DataPath is made by the file gate (existing_directory), never directly")
+
+    def __copy__(self) -> DataPath:
+        return self
+
+    def __deepcopy__(self, memo: object) -> DataPath:
+        return self
 
     def __truediv__(self, name: object) -> DataPath:
         if not isinstance(name, str) or not _BARE_NAME.fullmatch(name) or name in (".", ".."):
@@ -62,10 +75,11 @@ class DataPath:
 
 
 _REAL: weakref.WeakKeyDictionary[DataPath, Path] = weakref.WeakKeyDictionary()
+_MADE_BY_THE_GATE = object()
 
 
 def _data_path(path: Path) -> DataPath:
-    handle = DataPath()
+    handle = DataPath(_MADE_BY_THE_GATE)
     _REAL[handle] = path
     return handle
 
@@ -128,7 +142,9 @@ def _text_of(path: FilePath) -> str:
     the open can't hang the read (delta review 2, N4). At most ``MAX_FILE_BYTES + 1`` bytes are read, so a file that
     grows is still bounded. A missing file is the documented FileNotFoundError (delta round 5, D5-N1)."""
     try:
-        fd = os.open(_path(path), os.O_RDONLY | os.O_NONBLOCK)
+        fd = os.open(_path(path), os.O_RDONLY | os.O_NONBLOCK | os.O_NOCTTY)  # a tty opened to stat it stays inert
+    except ValueError:  # an embedded NUL: no file has that name
+        raise Refused(f"{shown(str(path))}: not a file name", code=RefusalCode.BAD_NAME) from None
     except FileNotFoundError:
         raise FileNotFoundError(f"{path}: no such file") from None
     except OSError as exc:  # unreadable, a symlink loop: reported, with the file, as the refusal

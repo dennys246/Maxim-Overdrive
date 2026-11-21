@@ -14,6 +14,9 @@ dependencies = [
     "numpy>=1.26,<3.0",
     "scipy>=1.11,<2.0",
     "pyyaml>=6.0,<7.0",
+    # IDNA2008's code-point tables and contextual rules decide which characters a name may hold (simcore.core.schema
+    # .Text); already locked as pymaxim's transitive dependency, declared because the engine imports it directly
+    "idna>=3.7,<4.0",
 ]
 
 [project.optional-dependencies]

@@ -9,7 +9,8 @@ path. This lint covers what those can't show, in closed lists:
   ``vars(builtins)['exec']``, ``globals()['__builtins__']``), and a bare name counts only when the module doesn't bind
   it itself (a parameter, an assignment, a loop or ``with`` target, an import, a ``def`` or ``class``).
 - **A module's own loader** in ``src/``: ``__loader__`` and ``__spec__`` (``__loader__.get_data(p)`` reads any file
-  with no import); and, in ``src/simcore/``, ``getattr`` with a computed name. numpy's and scipy's IO is held by
+  with no import); and, in all of ``src/``, ``getattr`` other than a plain call with a literal name, and any call of
+  ``vars``, ``globals`` or ``locals``. numpy's and scipy's IO is held by
   ``tests/_imports.py::EXTERNAL_NAMES``, an allowlist of the external names each layer uses.
 - **Decoders and code runners in every file**, since the allowlists can't reach ``scripts/`` or ``tests/``: importing or
   naming ``pickle``, ``_pickle``, ``marshal``, ``shelve``, ``dill``, ``cloudpickle``, ``jsonpickle``,
@@ -240,20 +241,24 @@ def unsafe_findings(rel: str, source: str) -> list[str]:
 
 
 def _computed_getattr(rel: str, source: str) -> list[str]:
-    """``getattr`` used any way but a plain call with a literal name: a computed name, star arguments, or the builtin
-    taken as a value (``g2 = getattr``), in every ``src/`` module (delta review 2, N3: an alias or ``*(g, name)``
-    walked past the literal-name rule, and the game package was out of scope)."""
+    """``getattr`` used any way but a plain call with a literal name (a computed name, star arguments, the builtin
+    taken as a value, ``__builtins__.getattr`` too), and any call of ``vars``, ``globals`` or ``locals``, whose
+    result is a namespace (``vars(module)['_private']``), in every ``src/`` module (delta reviews 2 and 3: N3, R3-3,
+    R3-4). Further deliberate spellings are out of this branch's scope (owner, 2026-11-21): docs/standards_backlog.md
+    B31, triggered when untrusted code (mods) can reach src/."""
     tree = ast.parse(source)
     names = _Names(tree)
     called = {id(n.func) for n in ast.walk(tree) if isinstance(n, ast.Call)}
     out = []
     for node in ast.walk(tree):
-        if isinstance(node, ast.Name) and names.of(node) == "builtins.getattr" and id(node) not in called:
-            out.append(f"{rel}:{node.lineno}: takes getattr as a value (boundaries §5.2)")
+        value = isinstance(node, ast.Name | ast.Attribute | ast.Subscript) and id(node) not in called
+        if value and names.of(node) == "builtins.getattr":  # g = getattr, g = __builtins__.getattr (round 3, R3-4)
+            out.append(f"{rel}:{getattr(node, 'lineno', 0)}: takes getattr as a value (boundaries §5.2)")
+        if isinstance(node, ast.Call) and names.of(node.func) in NAMESPACES:  # vars(M)['_REAL'] (round 3, R3-3)
+            out.append(f"{rel}:{node.lineno}: reads a namespace through {names.of(node.func)} (boundaries §5.2)")
         if not (isinstance(node, ast.Call) and names.of(node.func) == "builtins.getattr"):
             continue
-        starred = any(isinstance(a, ast.Starred) for a in node.args) or any(k.arg is None for k in node.keywords)
-        if starred or len(node.args) < 2 or not isinstance(_literal(node.args[1]), str):
+        if len(node.args) < 2 or not isinstance(_literal(node.args[1]), str):  # star args fail here too
             out.append(f"{rel}:{node.lineno}: calls getattr with a computed name (boundaries §5.2)")
     return out
 
