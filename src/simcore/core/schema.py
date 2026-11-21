@@ -49,11 +49,12 @@ _NOT_NUMBERS: Bad = (
 # A name's characters follow IDNA2008 (RFC 5890-5893; the idna package's code-point tables and contextual rules), the
 # standard for which characters are safe in an identifier people read, rather than a rule written here: three review
 # rounds found holes in hand-written ones (delta rounds 1-3). Each word between the separators below must be a valid
-# IDNA2008 label once lower-cased, so combining marks are allowed after a base letter (Hindi, Tamil, vocalised
-# Arabic), and Default_Ignorables, joiners outside their contexts, symbols and compatibility forms are not. The whole
-# name must be its own NFKC form, so a fullwidth "crate" (U+FF43...) or a ligature is not a second "crate". IDNA
-# admits two letters that render blank (EGYPTIAN HIEROGLYPH FULL and HALF BLANK), so a letter named BLANK or FILLER
-# is refused by its Unicode name. Look-alikes from other scripts ("\u0441rate") need TR39's confusable skeleton: B30.
+# IDNA2008 label as written, lower-cased or upper-cased (or digits of one system; see _visible_word), so combining marks
+# are allowed after a base letter (Hindi, Tamil, vocalised Arabic), and Default_Ignorables, joiners outside their
+# contexts, symbols and compatibility forms are not. The whole name must be its own NFKC form, so a fullwidth "crate"
+# (U+FF43...) or a ligature is not a second "crate". IDNA admits two letters that render blank (EGYPTIAN HIEROGLYPH FULL
+# and HALF BLANK), so a letter named BLANK or FILLER is refused by its Unicode name. Look-alikes from other scripts
+# ("\u0441rate") need TR39's confusable skeleton: B30.
 _NAME_SEPARATORS = re.compile("[ _.'\u2019-]+")
 _BLANK_WORDS = ("BLANK", "FILLER")
 _JOINERS = {0x200C: "x", 0x200D: "x"}  # allowed past isprintable only so IDNA can rule on their context
@@ -70,15 +71,18 @@ def _visible_name(value: str) -> bool:
 
 def _visible_word(word: str) -> bool:
     """One word of a name: digits only (any script's, judged as digits: IDNA's per-label bidi rule refuses a lone
-    Arabic-Indic number, so "room \u0662" would be refused while "room 2" is kept; delta round 4, R4-1), or a valid
-    IDNA2008 label as written or lower-cased (Cherokee is written in its capitals, which IDNA allows, and lower-cases
-    to letters it doesn't). A joiner may not end a word: after a virama with nothing following it renders nothing,
-    so "\u0b95\u0bcd\u200d" would be a twin of "\u0b95\u0bcd" (R4-3)."""
+    Arabic-Indic number, so "room \u0662" would be refused while "room 2" is kept; delta round 4, R4-1), all from one
+    digit system, or a valid IDNA2008 label as written, lower-cased or upper-cased (IDNA allows Cherokee's capitals and
+    not its small letters, so Cherokee in any case is judged by its capitals; casefold would admit twins IDNA refuses,
+    such as U+1C80 beside "\u0432"; R5-1). A joiner may not end a word: after a virama with nothing following it renders
+    nothing, so "\u0b95\u0bcd\u200d" would be a twin of "\u0b95\u0bcd" (R4-3)."""
     if all(unicodedata.category(ch) == "Nd" for ch in word):
-        return True
+        # one digit system per word, as IDNA's CONTEXTO rules ask: Arabic-Indic and Extended Arabic-Indic 1, 2 and 3
+        # look alike, so "\u0661\u06f2" would twin "\u0661\u0662" (delta round 5, R5-2)
+        return len({ord(ch) - unicodedata.digit(ch) for ch in word}) == 1
     if word[-1] in "\u200c\u200d":
         return False
-    for candidate in (word, word.lower()):
+    for candidate in (word, word.lower(), word.upper()):  # Cherokee in lower or title case is valid upper-cased (R5-1)
         try:
             idna.check_label(candidate)
         except idna.IDNAError:  # this spelling is not a valid label; the other may be
@@ -235,6 +239,7 @@ class Text:
             *("crate\ufe0f", "a\u17b4b", "-", "cr\u034fate", "crate\U000e0100", "crate\u2800", "cafe\u0301"),
             *("crate\U00013441", "\uff43rate", "\ufb01x", "cr\u200date", "\u1100\u1161"),  # blank, compat, joiner, NFKC
             *("\u212arate", "\u0b95\u0bcd\u200d", "\u0915\u094d\u200c crate"),  # a Kelvin-sign twin, trailing joiners
+            *("room \u0661\u06f2", "1\u0662"),  # two digit systems in one word (R5-2)
             *(type("_NameLike", (str,), {})("crate"), *self.reserved),  # a str subclass, whose __str__ may differ
         )
         return tuple((n, RefusalCode.BAD_NAME) for n in names)
