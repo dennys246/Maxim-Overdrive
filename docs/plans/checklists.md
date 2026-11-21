@@ -91,7 +91,7 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
     names get theirs with their loaders (`phase1/agents`), save v0's `body_key` at step 9 (`npcs_and_sem.md` §3.4).
   - done: B29 (`loaders.DataPath`; `scripts/lint_inputs.py`'s routes through a value; the four corpus rows).
   - not built: loader types for body archetypes (the body contract is being redesigned, `sem_stimuli.md` v4 on
-    `phase1/sem-stimulus`; owner, 2026-11-21) and for items, which travel with them (open: the owner to confirm).
+    `phase1/sem-stimulus`; owner, 2026-11-21) and for items, which travel with them (owner, 2026-11-21: skipped for now).
   - superseded: fuel-bed fields (φ, σ) on primitives. `fire_solid.md` (accepted 2026-11-20) makes a fuel an object,
     never a cell field, and dropped `bed:` from tile §1.3.
 

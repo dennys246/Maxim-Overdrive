@@ -88,7 +88,7 @@ version: 1
 extent_m: [12.0, 4.0, 4.8]
 ambient_c: 15.0
 spawns:
-  - {name: player, archetype: human, holding: torch, at_m: [0.6, 2.0, 0.4]}
+  - {name: runner, archetype: human, holding: torch, at_m: [0.6, 2.0, 0.4]}
 primitives:
   - {kind: box, name: floor,      material: concrete, min_m: [0.0, 0.0, 0.0],   max_m: [12.0, 4.0, 0.4]}
   - {kind: box, name: wall_south, material: concrete, min_m: [1.2, 0.0, 0.4],   max_m: [12.0, 0.4, 4.4]}

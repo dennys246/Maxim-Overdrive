@@ -104,7 +104,7 @@ under four hash seeds.
 |---|---|---|---|---|
 | S1 | SF | `bridge.py::StructureModulator.execute` | Maxim's actor tool defaults `target` to the caller's body; bare `wrong_target` let an agent retry "player" or "self" forever and book tool pain | `wrong_target (target)`; each affordance's description states the rule; test |
 | S2 | SF | lesson 25 | two factual errors; its Maxim candidate duplicates `ToolErrorKind`, `tool_failure_credit.md` and OD-A16 | rewritten as evidence for OD-A16, citations checked at 043eab8 |
-| S3 | SF | spawns, `identity_key` | `Guard`/`guard` resolve to one entity; a spawn may share a region's name; `player`, `self`, `aut` resolve to the calling agent itself, and both fixtures spawned `player` | spawn names unique under `entity_key`, disjoint from region names, never a Maxim alias (`bad_identity_key`); fixtures say `runner`. **Tile §1.3's own example spawns `player`; that example now fails, and it is the owner's call whether the human's body needs a Maxim-side name.** |
+| S3 | SF | spawns, `identity_key` | `Guard`/`guard` resolve to one entity; a spawn may share a region's name; `player`, `self`, `aut` resolve to the calling agent itself, and both fixtures spawned `player` | spawn names unique under `entity_key`, disjoint from region names, never a Maxim alias (`bad_identity_key`); fixtures say `runner`. Tile §1.3's example spawn is renamed `runner` too (owner, 2026-11-21). |
 | N1 | NIT | `intents.py::_within` | `out_of_range (power_w)` drops the authored bound | accepted: the bound is in the description; lesson 25 says so |
 | N2 | NIT | `identity_key` docstring | the colon rule's reason is the composite `npc_key:stream` agent id (O40), not the int-seeded join | cited |
 | N3 | NIT | test names | "in words" | renamed |
