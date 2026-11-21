@@ -69,7 +69,7 @@ imports nothing from `intents`. The code PR's reviewers should weigh it.
 | A3-S2 | Design §7.3: the verified orders; checklist 5b | open (for the reviewer, on the code PR) |
 | A3-S5 | Design §5, §7.4: producers are the transitive closure over every law's declared reads and writes; plants: 5a (a toy law two hops upstream), tissue row (a bound home refused) | open (for the reviewer, on the code PR) |
 | N-S1 | Design §6.2, §7.1: `Receipt`'s one home is `stimuli.wire`; `intents` keeps its refusal codes and layer 6 maps them; `boundaries.md` §2.2's "receipts" and `settle`'s type are superseded by name; stimuli imports nothing from `intents` | open (for the reviewer, on the code PR) |
-| N-S2 | Design §4.5, §7.3: the worker sends wire data and imports nothing from `intents`; `AGENTS_SURFACE` = `stimuli.wire`, `checks`, `readonly` (the author's choice) | open (for the reviewer, on the code PR) |
+| N-S2 | Design §4.5, §7.3: the worker sends wire data and imports nothing from `intents`; `AGENTS_SURFACE` = `stimuli.wire`, `checks`, `readonly` (the author's choice; **accepted by the owner, 2026-11-21**) | open (for the reviewer, on the code PR) |
 | N-S3 | Design §7.3: `as_packages = false`, asserted by the equality tests (verified); checklist 5a | open (for the reviewer, on the code PR) |
 | N-N1 | Design §7.3: each surface module lands with its step; checklist, agent half | open (for the reviewer, on the code PR) |
 | N-N2 | Design §7.1: `wire.py` imports `readonly`, which is on the surface; the closure plant becomes `body.spec` | open (for the reviewer, on the code PR) |
