@@ -23,10 +23,10 @@ Each entry says which half each piece of work is.
 | **Contract** | fuel objects, segments and coupling (`fire_solid.md` §1–§3); the material data split (§5.1); occupancy (§2); what NPCs sense of fire (the SEM stimulus interface, below) |
 | **Laws** | the 1D solid (6.1); flames (6.2); two bodies (6.3); crib and exit (6.4) |
 | **Decided** | the ladder (rulings of 2026-11-20); tile §6.3's cross-grid tolerances kept; fits only within cited ranges, graded on held-out data; FDS 6.11.1 as the verification oracle; "light a built fire" as the exit |
-| **Status** | **Solid spike:** the solid matches FDS after fix D1; validation missed (outcome 12, every fit at a bound). **Rerun 1** (numerics only, owner A1) is running against `preregistration_rerun1.md`. One rerun remains under the time-box. Production code waits for step 5a (6.0a) and step 5b (6.0b) |
+| **Status** | **Solid spike:** the solid matches FDS; rerun 1 (numerics only) converges, and validation still misses with every fit at a bound (R5, R6). **The owner took the fallback (2026-11-20):** Phase 1's exit is the lone-surface solid, lit, charring and flaming out, verified but not validated; the crate and 6.2–6.4 move to Phase 2; rerun 2 is banked (`solid_spike/results_rerun1.md` §7). Production code waits for step 5a (6.0a) and step 5b (6.0b) |
 | **Open** | why the solid ignites PMMA late at 25 kW/m² (parameter transfer from N₂ gasification, or the ignition criterion); the flame design (6.2), written from the spike's results; the separate NPC fire note (the Maxim asks MP-1, MP-2) |
 | **Horizon** | **Long term** (owner, 2026-11-20). The exit's fallback, the highest rung that passes honestly, stays available whenever the owner calls it |
-| **Next** | Rerun 1's results, then the owner's call: the second rerun, the fallback, or 6.1 on what passed |
+| **Next** | 6.1's production solid, with its validation misses as Known gaps; rerun 2 once the pre-ignition question has a cited answer |
 
 ## Plasma
 
@@ -46,12 +46,12 @@ Each entry says which half each piece of work is.
 | | |
 |---|---|
 | **Goal** | The contract by which the world delivers physical stimuli at receptor locations to NPCs that are Maxim agents, so that what they learn is the world's regularities, never our rules |
-| **Documents** | research lenses in progress (2026-11-20); design to follow, reviewed deeply before code |
+| **Documents** | `../design/sem_stimuli.md`; research in `../design/research/sem_stimuli/`; reviews in `../design/reviews/sem_stimuli/` |
 | **Contract** | all of it: which quantities, in what units and ranges, sampled where on the body, at what cadence, how they reach Maxim through its frozen SEM types, what is recorded for replay, and the tests that prove no privileged state leaks |
 | **Laws** | the world-side models behind each stimulus (skin heat, radiation onto body regions, luminance after line of sight), each replaceable behind the contract |
 | **Decided** | the world computes the stimulus at the receptor and Maxim transduces it (`fire_model.md` §5.1); fractions, never booleans; no flammability, flash point or φ as a sensor; tissue physics is the world's (lesson 24) |
-| **Status** | six research lenses running (receptor biology, the Maxim side at `origin/main`, world-side computation, prior art, the contract as a format, learnability) |
-| **Next** | The design note, then its review, then the owner's ruling |
+| **Status** | design v1 reviewed by seven lenses (15 BLOCKER, 66 SHOULD-FIX, 49 NIT); the owner ruled D1–D12 as recommended (2026-11-20: D5 (c), every body steps each tick; D11 (a), per-site occlusion; D12, a budget of 10 NPCs near a fire with a work-counter gate); v2 folding |
+| **Next** | v2, then a delta round whose reviewers set the fold statuses |
 
 ## States of matter: liquids, gases and zones
 
