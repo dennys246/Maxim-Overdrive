@@ -47,7 +47,7 @@ T3–T7 are world decisions (world §0).
 - **Hatching:** cut faces are hatched, a shape rather than a colour, so a cut wall never reads as burned away.
 - **Never cut:** the crate and other non-wall regions, so the fire stays visible from anywhere.
 - **No pops:** the flag changes at tween start, or where the body enters a wall's shadow; a 0.25 m hold (built,
-  wired in play with `main.tscn`, B30) stops flicker.
+  wired in play with `main.tscn`, B38) stops flicker.
 - **Visual only:** uniforms, never fed back.
 - **Test (step 8):** the player's ID-mask pixels as cut, divided by the same with every flagged wall removed, must be
   **≥ 95%** (CR-S3; `fold.md` Check 2b), along walls, pavement and crate, all yaws. Proved by deletion: no cut fails.

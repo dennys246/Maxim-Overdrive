@@ -125,20 +125,19 @@ measurement. `stable_dt` is 46.9 s at 0.1 m: one substep per 0.5 s physics step.
 | radiation | ε = 0.95; projected area 0.5 m² toward a source | *from memory, to verify* |
 | exchange volume | the cylinder grown by 0.2 m radially and on top | ≥ 0.4 m across: two coarse cells |
 
-- **Convection is a reduction over a volume in metres:** T_env is the volume-overlap weighted mean of the exchange
-  volume's cells (never a centre test); the same weights debit them (ledger line `bodies`). That volume's air holds
-  1.53 kJ/K against the body's 245 kJ/K, so it reaches the body's temperature in about 80 s (DPH, derived): convection
-  alone makes the body fire-blind.
+- **Convection** is superseded by `sem_stimuli.md` §3.1 (2026-11-21): per skin point, against a fixed reservoir in
+  Phase 1. The exchange volume's air (1.53 kJ/K) reaches the body's temperature in about 80 s (DPH, derived), so a
+  volume-mean sink makes the body fire-blind.
 - **So the body also receives radiation** (§9 Q1): from each hot exposed skin face by a view factor computed in
   metres, debiting that face's 6a loss; and from the flame by the point-source model q'' = χ_r·Q̇/(4πd²) (*from memory,
   to verify*), debiting the unreceived flame line (§5.4). It radiates to ambient at εσ(T_b⁴ − T_amb⁴): about 240 W at
-  37 °C in 15 °C surroundings (derived). No metabolism in Phase 1 (a named gap; D28's note and Maxim's drives own it).
+  37 °C in 15 °C surroundings (derived). Metabolism and regulation: `sem_stimuli.md` §3.1.
 - **What it feels near the fire (derived from §5's numbers):** in the flaming phase (Q̇ ≈ 780 kW, χ_r 0.3), 18.5 kW/m²
   at 1 m and 2.1 kW/m² at 3 m; absorbed over 0.5 m², 9.3 kW (+2.3 K/min) and 1.0 kW (+0.25 K/min). In the ember phase,
   4–12 kW/m² at 1 m from a face (envelope 640–920 °C), under 1 kW/m² at 3 m. D28's body is therefore
   location-dependent.
-- **Tests:** two closed forms (a body in a box clamped at T_env relaxes with τ = 245 kJ/K ÷ (10 × 1.9) W/K = 12,900 s;
-  a body facing a fixed point source heats at α·q''·A/(m·c)), and a cross-grid test at 0.2 / 0.1 / 0.05 m.
+- **Tests:** superseded by `sem_stimuli.md` §3.1 and its checklist (2026-11-21); a cross-grid test at 0.2 / 0.1 /
+  0.05 m.
 - **Receptor volumes** (head, hands) are declared in the schema with no Phase 1 caller (DC-N8); a head is under two
   coarse cells, a Known gap needing the reconstruct-then-integrate path (BF-S6).
 - **Body occupancy is derived from the bodies part of the `Frame` at reduction time,** never stored in the cell part

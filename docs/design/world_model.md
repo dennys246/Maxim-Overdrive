@@ -45,7 +45,7 @@ temperature plus phase-change progress as the stored heat state.
 - **D27. The clinic follows the exit (owner, 2026-11-17).** Phase 1 builds the alley; the ripperdoc clinic is authored
   after the exit passes and before Phase 4, whose first NPCs live there. §12's three questions are answered as
   recommended: truth at 0.1 m, the band gate for binary outcomes, CSG footprints in Phase 2.
-- **D28. A grey-box heat-debt prototype follows the tile (owner, 2026-11-17; skeptic S-S7).** Once the tile renders,
+- **D28. A grey-box heat-debt prototype precedes the tile (owner, 2026-11-17, S-S7; VS5).** As the vertical slice,
   a rough playable test of "Overdrive as heat debt" (`world_v2.md` §10) comes before more physics breadth, to find
   out whether pushing past limits in a burning space is fun.
 - **D29. Step 6 carries three laws D26 deferred (owner, 2026-11-18, after the tile spec's review).** D26's claim that
@@ -274,7 +274,7 @@ On the 16×10×4 m synthetic tile (DLP, measured):
 | 8b | `phase1/fuel-combustion` | Combustion per zone, products, extinction, flame feedback debited. Fines from destroyed mass. The CSG footprints (§5). |
 | 9 | | Phase-change progress, with bound water as the first transition. |
 | 9b | `phase1/agents` | The agent foundations: one host-called `AgentPort` (`step`, resumable `think`, `settle`; O39), `StepOutput`, `Pending`, `Reply` and `ThoughtOutput`, the continuation's host-owned header, receipts and settle, `data/agents/`, per-NPC streams, the tool-roster and home checks, the worker channel and its codec (a registered gate), the scripted test double in a spawned worker behind that channel; real Maxim a strict red gate until its tier A (`boundaries.md` §11.1, `npcs_and_sem.md` §6.2, §6.6). |
-| 10 | `phase1/lanes` | The agent barrier over worker channels, `agent_failed` on a hung or dead worker, meters (the channel round trip per park), crash injection (`npcs_and_sem.md` §4.4, §6.3, §6.6). The thinking lane is `phase1/agents`' (npcs §6.2). |
+| 10 | `phase1/lanes` | The agent barrier over worker channels, `agent_failed` on a hung or dead worker, meters (the channel round trip per park), crash injection (`npcs_and_sem.md` §4.4, §6.3, §6.6). Thinking lane and gateways: `phase1/agents` (`inference_placement.md`). |
 | 11 | | **Save v0, after the lanes,** so in-flight thoughts are part of the saved `Simulation` state with a load rule (A-SF-12, DA-6). |
 | 12 | `phase1/lab` | The lab as a physics benchmark tile, and the Godot client (part 3). |
 

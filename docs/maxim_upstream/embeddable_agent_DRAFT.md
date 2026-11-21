@@ -10,7 +10,7 @@ hints that drift. Where this draft and your candidates doc (`docs/plans/overdriv
 `phase1/agent-v7`.
 
 **For a new reader:** Overdrive is a game world server whose NPCs are Maxim agents, each in a spawned worker
-(pickle-free framed JSON, no keys, the offline latch engaged), with the model gateway in the host. It runs on an
+(pickle-free framed JSON, no keys, the offline latch engaged), with model calls in host-owned inference gateways (Overdrive `inference_gateway.md`). It runs on an
 integer tick and replays bit for bit from an intent log; a *frame* is the snapshot a step reads. Context:
 `docs/design/npcs_and_sem.md` §6.
 
@@ -81,10 +81,11 @@ refusal) and `consolidate(agent, budget)` (below).
   high-water seq is saved in the NPC's agent home, so a loaded save continues the sequence. O44's floor stays only as
   a host-side test that no new pid equals a logged one. Your §5.5 scopes determinism to single-threaded loop paths: our one worker per
   agent, stepped by one thread, is inside it, and we never pool agents on a worker thread.
-- **Unchanged from v5:** the request is a value (rendered text, sampling, a model **role**,
-  the template version, `tools is None`) produced at the `LLMRouter._complete_text` cut
-  (`models/language/router.py:958`), the host stamping priority and deadline (B3) outside any cache key and supplying
-  the bound model's `n_ctx` and tokenizer (`token_counter`) to the `PromptBudgeter`
+- **Changed since v5 (Overdrive `inference_placement.md`, O46):** the request is a value (rendered text, sampling,
+  the caller's declared **function** name, never the tier `FunctionRouter.resolve` picks from hardware, the template
+  version, `tools is None`) produced at the `LLMRouter._complete_text` cut (`models/language/router.py:958`) without
+  building an `LLMRouter` in the embedded agent, the host stamping priority and deadline (B3) outside any cache key and
+  supplying the function's envelope (`total_budget`, `response_reserve`, a pure `token_counter`, `thinking`) to the `PromptBudgeter`
   (`agents/prompt_budgeter.py:65`), required at construction; the reply is `complete(text)`, with reserved
   `cancelled(prefix)` and `truncated(prefix, reason)` carrying the host-delivered speech, a top-level field emitted
   first; the robot keeps `_complete_text_abandonable` (`router.py:998`), and B1 fixes the shape after 1.4.0; replay
@@ -176,15 +177,18 @@ named in the digest's definition.
 
 ## 7. Questions left
 
-None. Both of v6's are answered:
+**M4 (2026-11-21, absorbing M16), a question to `autonomic_layer.md` §3.1.4's out-of-band producer (G9), with
+#1176 for the in-pass half (GL3.B0's census as evidence; OD-A10):** may a host call `evaluate_failures()`
+(`body.py:258`) between cognition steps, on the injected clock (drift reads `time.time()`, `:293-297`)? Callers:
+`substrate_proposal.py:837` (W-4 order), `loop_gates.py:262-309`, `tool_bridge.py:776`. Between steps, does G9's
+record (`drain_outcomes()`, `CauseRef.cause_pid`) join such a publish to its situation rather than the stale cluster
+stash? Our T16c waits on it (`sem_stimuli.md` §4.6).
 
-1. **A host-supplied floor:** thank you; we take your segment alternative (O45, §2), so nothing goes on your resume
-   stage's question list.
-2. **GL3.B2's gate wording:** the gate holds unchanged, as you say; OD-EA16 adds that a refusal's pid never appears in
-   a GL3.B2 row (§6).
+v6's two are answered: **a host-supplied floor** (your segment alternative, O45, §2) and **GL3.B2's gate**
+(unchanged; a refusal's pid never appears in its rows, OD-EA16, §6).
 
 Searched, nothing found: OD-EA9; a `DECISIONS.md` entry for the host-driven mode (ours:
-`docs/maxim_upstream/decisions_entry_DRAFT.md`).
+`decisions_entry_DRAFT.md`).
 
 ## 8. What it argues against
 

@@ -52,12 +52,13 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
 - The SEM membrane applies synchronously with no log, a marked band-aid in `src/simcore/adapters/sem/bridge.py`
   (`docs/design/boundaries.md` §6.4): `phase1/agents` makes `execute` only parse, check the bound actor and append
   the intent to the stepping agent's outbox.
-- **Exit:** walk into the alley, set a crate on fire, and watch it crack, glow and burn away. It must look the same,
-  apart from detail, at the laptop and rig profiles.
+- **Exit (the fire fallback, owner, 2026-11-20):** walk into the alley, light a slab with the torch, and watch it
+  char, burn and flame out. It must look the same, apart from detail, at the laptop and rig profiles. The crate moves
+  to Phase 2 (`docs/design/research/solid_spike/results_rerun1.md` §7).
 
 ## Phase 2: Physics breadth (later; in parallel with Phase 3)
 
-Each new field ships with a closed-form test and a cross-tier test, under the resolution rule.
+Each new field ships with a closed-form test and a cross-grid test, under the verification rule.
 
 - **Sound:** a propagation field feeding Maxim's audio localization (`world_set_axis`).
 - **Light and visibility:** what an agent can see, and the light the shaders draw.
@@ -66,6 +67,8 @@ Each new field ships with a closed-form test and a cross-tier test, under the re
 - **Structural support:** cells left unsupported fall as debris.
 - **Scale:** move the hot loops to numba or C if profiling says so (never coarser far cells: world_model D21).
 - **Close the known gap:** the coarsest rig's late-burn lag (`docs/architecture.md`).
+- **Moved from Phase 1 by the fire fallback (2026-11-20; after VS5):** crate and rungs 6.2–6.4 (flame object,
+  two bodies, crib).
 - **Moved from Phase 1 by D26:** zones and vents, combustion per zone and its products, fuel recession and pyrolysis,
   phase change, the CSG footprints, and the lab as Phase 2's benchmark tile.
 - **Plasma, slowly, aiming at plasma as a state of matter** (owner, 2026-11-19). The reason is what Maxim's NPCs can
@@ -128,6 +131,10 @@ Both decisions are recorded in Overdrive. The Maxim-side record is proposed in
 | OD-I4 | `ARCHITECTURE.md:182` is stale: the DM runtime doesn't build NPCs through `AgentFactory` (`create_npc_agent` has no caller) | new (Maxim's answer); filed by Maxim as #1686 |
 | OD-I5 | A security issue in cloud redaction, held by Maxim as a private advisory; details in private notes, not here | new (TBR-11) |
 | OD-I6 | pymaxim pins `rich>=13.0.0,<14.0` (`pyproject.toml` on Maxim `origin/main` 10888fec), and every embedder inherits it: Overdrive's import contracts can't use import-linter 2.7+ (which needs `rich>=14.2`) and stay on 2.6 / grimp 3.13 (step 3a, 2026-11-19). Ask: lift or widen the cap, or say why it's needed. Searched Maxim's `docs/plans/` for `rich`: nothing found | new (step 3a) |
+| OD-I7 | `ModulatorSpec.apply_damage` (`embodiment/spec.py:1034-1036` at `043eab8f`) returns 1.0 and applies nothing on a modulator with no sub-sensors, with no log or error: a flat body's burn changes nothing (`sem_stimuli.md` delta 1, Bio-faithful SF-2) | new; sent to Maxim's session for 1.3.4 triage, 2026-11-21 |
+| OD-I8 | `Embodiment.evaluate_failures` takes drive drift from `time.time()` (`embodiment/body.py`, about `:293` at `043eab8f`); `world_clock_release_DRAFT.md` names `last_fired` in the same function, not this read. A question to route to #1361's plans, not a fix | new; sent with OD-I7, 2026-11-21 |
+| OD-I9 | **Pushback** against `plans/archive/llm_path_fast_failover.md:43` and `:769` (cloud retries by design) and `docs/architecture/llm_routing.md`'s empty-content legacy path, which breaks Maxim's own rule at `:771` ("Backend failures raise typed exceptions, not return empty content"): the cloud backends turn almost every failure into `LLMResponse(content="")` (`anthropic_backend.py:377`, `:384-409`; `openai_backend.py:358-360`, `:505` at `043eab8f`), retry inside the call (`max_retries`, `capacity_max_retries`, 4 hard-coded gateway retries at `openai_backend.py:391`, and the SDK clients' own, `:450`), and drop cache-write tokens from `LLMResponse` (`anthropic_backend.py:416-422`). Ask: typed `BackendError`s, configurable retry budgets with defaults unchanged, complete usage counts, so a host gets one call, one outcome and can tell load from failure (`inference_placement.md` §1.3, §2.7, §9). Not in O29's subset | new (2026-11-21) |
+| OD-I10 | **Question** to Maxim's 2026-09-28 decision that "the proxy wins for operator paths" (`DECISIONS.md:1150-1192`, `utils/http.py:830`): Overdrive's gateways set `NO_PROXY=*`, which stops httpx's environment lookup from mounting any proxy and urllib's from consulting macOS System Settings (verified with httpx 0.28.1; `inference_gateway.md` §2). Ask: keep that honoured on the backends' path, since it rests on httpx's private `get_environment_proxies` (`DECISIONS.md:1188`), and expose `HTTPEndpoint.strict_address_check` (`utils/http.py:228`, `:875-881`) to backend callers. Not in O29's subset | new (2026-11-21) |
 
 ### Tier A: an agent a host drives (Phase 4 waits on a named subset)
 
@@ -183,7 +190,7 @@ Drafts:
 | OD-A11 | A closed tool roster for embedded agents, sealed with the advisor's patterns, refused at construction, with no workspace manifest. Engineering, on its own clock; making capability rosters the robot default stays experiment-gated | embeddable | new (TB2-B1) |
 | OD-A12 | `AgentHome`: one per-agent object over `AgentFactory`'s `persistence_dir`, routing the ten still-global store families; the ConceptExtractor thread made host-driven, which belongs to cand. A4's closure through `build_memory_hub(start_background_workers=False)` (`runtime/bio_stack.py:489`, `:654`), not A1 | embeddable | new (TB2-B2) |
 | OD-A13 | *Moved to OD-I3*, an issue now | — | new (TB2-B2) |
-| OD-A14 | The request/reply cut: the request as a value (rendered text, sampling, model role, priority and deadline fields, `tools is None`), produced at `LLMRouter._complete_text`, with the host supplying the model's context size and tokenizer (`token_counter`) to the `PromptBudgeter` (Maxim's `docs/lessons/sim-n-ctx-config-drift.md`); the reply with reserved `cancelled(prefix)` and `truncated` variants that bypass the parse-failure template, and speech as a field emitted first. Not an `LLMBackend` capability | embeddable | new (DR-B2, Arch B3); was "streaming and cancellation on `LLMBackend`" |
+| OD-A14 | The request/reply cut: the request as a value (rendered text, sampling, the caller's declared function name, never a hardware-resolved tier: a new field, since no call site declares one today (`submit_function` and `get_backend_for_function` have no callers, `_complete_text` takes no function), so B1 tags each call site it lists; priority and deadline fields, `tools is None`), produced at `LLMRouter._complete_text` without building an `LLMRouter` in the embedded agent, with the host supplying the function's envelope (`total_budget`, `response_reserve`, a pure `token_counter`, `thinking`) to the `PromptBudgeter` (`inference_placement.md` §2.1), and asking B1 to render stable text in `system` and volatile text in `user` so prompt caches hit (Maxim's `docs/lessons/sim-n-ctx-config-drift.md`); the reply with reserved `cancelled(prefix)` and `truncated` variants that bypass the parse-failure template, and speech as a field emitted first. Not an `LLMBackend` capability | embeddable | new (DR-B2, Arch B3); was "streaming and cancellation on `LLMBackend`" |
 | OD-A15 | The stepped `think` on §A.1b's seam, one design for the submit path (OD-A14, OD-H6 and the cancelled-reply bypass land as parts of it): a continuation split into a host-owned header and an agent-owned body, with `basis_seq` (the agent's afferent-scheduler high-water seq, `thalamic_relay.md::preempted_since`; the host holds a copy, never computes it; LLM-proposal staleness waits on GL3.B7) and staleness per hybrid §A.1b.5 (O38); writes only as returned values, retrieval strengthening included; multi-call PFC cycles, `next_actions`; the robot path drives the same `think` (robot parity: OD-EA14); isolation between agents in one process. Lands after the 1.4.0 cut with the agent-loop decomposition slices | embeddable | A4 |
 | OD-A16 | Credit for effects measured later: receipts, the cerebellum observing at settle, exactly-once credit, `stale`, `call_error` and `wrong_target` kinds, a per-modulator valence default. Rides on OD-A18 | amendment | C1, C2, P2, P3, P7 |
 | OD-A17 | The embedded-path leak closure: prefetch off and the working directory at the agent home; the short-question shortcut is deleted in Maxim for everyone, matcher and fallback (#1689, PR #1694; after #1691 a fallback reply books no NAc credit, but `generate_llm_fallback` still echoes `triggering_input`); no `force=True` logging; paths under the agent home; a static import ban on `utils/audit.py` with `lint_dead_imports`' resolver (blind spot: `importlib` strings), naming `maxim.embodied_runtime`, the internet tools, `build_tool_registry`'s module and `runtime.prefetch`, plus the advisor's three closure tests; no env reads (A4 waits for A1, no `MAXIM_DATA_HOME` exception); no reply reaches the parse-failure template (it echoes the input; its bypass lands with cand. B1, as OD-A15's cancelled-reply bypass); no model backend in the embedded agent, so the model calls outside `think` (`AdaptivePlanner`, the `ToolPainBridge` reflection, `FearAgent`) fail closed | embeddable | new (Maxim's second answer; TBR-3, TBR-7) |
@@ -191,6 +198,10 @@ Drafts:
 | OD-A19 | *Withdrawn 2026-11-17:* it duplicated Maxim's own `docs/plans/experience_clock_decay.md` (#1361 S3a), which we already track as OD-A1; the temporal-anchor fallback's age and expiry move in #1361 S3b, and its similarity's host-calendar read (`nac.py:3629`) is OD-A20. Was: Step-size-invariant decay: NAc's eligibility traces decay ×0.9 per loop tick today (`decisions/nac.py:3707`, from `_loop_bio_tick_maintenance`, `runtime/agent_loop.py:800-840`, with five sibling decays), so credit depends on the tick rate; decay as `exp(−Δt/τ)` on the machinery clock, with an exit test crediting one delayed receipt equally at two rate divisors (OD-EA12). Argues against the per-tick decay contract; corrects Overdrive's earlier claim that the traces decay on the wall clock (`correction_1.md`) | A-post | new (npcs_v3 BF3-1) |
 | OD-A20 | *Declined by Maxim's owner 2026-11-19 (noted, not adopted):* event similarity stays on the host calendar, and events and anchors age on the experience clock; kept as a known divergence, recorded from Maxim's code and our arithmetic, not from a run; two strict red gates will carry the evidence once the agent PR lands them (`npcs_and_sem.md` §12.2, `checklists.md`). Maxim's delta review widened it, correcting our v4 text, which said the calendar moves only how credit is shared: (a) it can drop an anchor below the 0.01 threshold (`0.3 × similarity × activation`), so a receipt whose only node drops books nothing; (b) anchors set at different host times split differently; (c) `TemporalSignature.from_timestamp` uses local time, so the replay machine's timezone and DST move credit, a cross-machine effect. No pinned `TZ` in production. Our v3 lean put the read on the machinery side; that was wrong, since SCN features reach the model through `temporal_patterns` and `[TEMPORAL]`. Was: Anchor similarity off the host calendar for embedders: after #1361 S3b, `TemporalSignature.now()` (`nac.py:3629`) still scores anchor similarity on host time of day ("host calendar by design", #1361 §(c), §(g)), so a replay at another hour credits differently and an NPC's learning depends on the player's clock. Read it from the perceived-time port. Maxim said it will raise this as a question on #1361 (`response_3.md`); #1361's plan still reads "host calendar by design" in §(g). Our evidence is in `erratum_1.md` | A-post | #1361 question |
 | OD-A21 | τ_elig from the striatal window, an argument against #1361's decided Q1 (2026-10-17: "taus in world-seconds, anchored on Exp 30's fixture regime; tune the turn quantum, never per-runtime taus"; 4.75 s at any rate after S3a): NAc's dopamine eligibility window is about 0.3–2 s (Yagishita et al. 2014); longer delays belong to the anchor path, which is why OD-A20 matters. An owner decision with its own experiment in Maxim, not a doc edit; S3a records the rationale first | A-post | #1361 Q1 |
+| OD-A22 | How a publish between cognition passes is keyed (`sem_stimuli.md` M4, which absorbs M16): a host's `evaluate_failures()` between passes, on the injected clock, joined to the situation it occurred in, not the last cluster stash. A question to `autonomic_layer.md` §3.1.4's out-of-band producer (G9; `CauseRef.cause_pid`, `drain_outcomes()`) and #1176 for the in-pass half; GL3.B0's census is evidence. **Future bar:** T16c (`xfail(strict=True)`), triggered when G9's producer lands; its world-side test, T16b, passes now | embeddable | M4 (2026-11-21) |
+| OD-A23 | A question to cand. B1's cancel clause ("ride on `utils/cancellation` plus `LLMRouter._complete_text_abandonable`"): does the abandonable path free the transport, or only the caller? Not a backend capability (OD-A14). Overdrive bounds a call by killing its placement's gateway meanwhile (`inference_placement.md` §2.5). Not in O29's subset | embeddable | new (2026-11-21) |
+| OD-A24 | **Pushback** against `docs/agents/llm-routing.md`'s invariant that placement "rides on `LLMRouter`'s existing `provider_priority`/`_try_provider` failover — NOT a new resolver" (from `plans/archive/lane_capability_placement_split.md`): an embedder that owns deadlines, slots, consent and spend resolves placement outside `LLMRouter` and calls one backend per dispatch, so the multi-call hazard can't arise. Evidence: `inference_placement.md` §1.2, §2.5 (O46, O52). Not in O29's subset | embeddable | new (2026-11-21) |
+| OD-A25 | **Question** to cand. B1, whose reply type plans "the token iterator … later" (`overdrive_refactor_candidates.md:268-270`): when, and at which layer? Every backend collects a stream and returns one `LLMResponse` today (`anthropic_backend.py:473-480`, `openai_backend.py:547-559`, `maxim_peer_backend.py:987` at `043eab8f`). A chunk sink on `complete_with_usage` would lift O50 (no first-token streaming for NPC speech; `inference_placement.md` §6.3) | embeddable | new (2026-11-21) |
 
 ### Tier B: the 1.4 line (NPCs that remember, and a coarse sense of time, earned by experiment)
 
@@ -238,6 +249,7 @@ Drafts: `sem_breaking_change_plan_DRAFT.md` (now an additive refinement plan; th
 | OD-C8 | Percepts and instruments, shrunk: instruments are in-world objects perceived through an existing `modality:` | C6 |
 | OD-C9 | A written version rule for the SEM vocabulary, on the existing `ENTITY_FORMAT_VERSION` | C7 (half) |
 | OD-C10 | `world_set_axis` for sub-sensors (unverified) | C8 (half), P4 |
+| OD-C12 | Thermoregulation's controller in Maxim: effector outputs (skin blood flow, sweat rate, metabolic rate, as `sem_stimuli.md` §3.1 reserves them) and `autonomic_layer.md` §3.3's two-sided need (R-2: heat yields no corrective need). Searched `docs/plans`, `DECISIONS.md` and `src` at `043eab8f` for thermoreg, shiver, sweat, vasoconstrict, vasomotor, perfusion and core_temp: only the `core_temperature` drive. A question to `autonomic_layer.md` §3.3. **Future bar:** T17 (`xfail(strict=True)`), triggered when Maxim drives the effectors; its world-side test, the plant's closed forms, passes once the plant lands | M20 (2026-11-21) |
 | OD-H1 | The game as a test bed for the hybrid's questions (OD-HX1 to OD-HX5; HX2 is calibration only) | C11 |
 | OD-H2 | Pushback: in an embedded world, the hold's waiting cost uses modelled world-time latency, not observed latency | new (DR-B5, BF2-8) |
 | OD-H3 | Re-key the deferred reflex runtime's trigger, argued against owner decision G4 at GL3's start | C10 (cited M76 in error) |
@@ -275,19 +287,20 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
   Phase 3's tier A heading ships (OD-A1's #1361 S3a, S3b and S4; OD-A2 to OD-A11; OD-A12's thread; OD-A14 to OD-A18;
   OD-A20, declined, so the replay exit carries its divergence; the issues OD-I1 and OD-I3), and before Maxim's 1.4.0 cut with the agent-loop decomposition slice that
   carries the stepped `think` (OD-A15). OD-A21, #1361 S5 and S6, and OD-A12's store routing don't block it.
-- **Guest sessions with real NPCs (Phase 5 or later, O28) wait for O14's gates,** held by a strict red gate that refuses guest joins while
-  real-Maxim NPCs are live (owned by `phase1/protocol`), and flipped only when each passes:
+- **Guest sessions with real NPCs (Phase 5 or later, O28) wait for O14's gates,** held by a strict red gate refusing guest joins while
+  real-Maxim NPCs are live (owned by `phase1/protocol`), flipped only when each passes:
   - the worker process and its channel gate (`npcs_and_sem.md` §6.6);
   - a no-effect test (no file reads or writes, sockets or spawns outside the agent home);
   - a dialogue-level bypass test driving guest speech through a real worker (prefetch, the parse-failure template,
     phrase commands, and the shortcut Maxim deleted, #1689, as a regression);
   - the guest-text gate refusing line separators and format characters on decoded text;
   - memory provenance with a purge that survives relay and extraction.
-  - O18's local model by default, remote only with the guest's informed consent (decided).
-  Deferred by name (O30): an OS sandbox for workers in guest sessions, decided before guest sessions open.
-- The cradle writer: a fixed event pool from an arc plus handcrafted inflection points, assembled per NPC in code.
-- Three NPCs on the first tile (the ripperdoc, a fixer and a street kid), each cradled from an authored life.
-- A dialogue screen and turn order. Movement runs in substrate-primary mode (no LLM); speech goes to the LLM.
+  - O18's local model by default, remote only with the guest's informed consent.
+  Deferred by name (O30): a worker OS sandbox, decided before guest sessions open.
+- The cradle writer: an arc's fixed event pool plus handcrafted inflection points, assembled per NPC in code.
+- Three NPCs on the first tile (the ripperdoc, a fixer, a street kid), each cradled from an authored life.
+- A dialogue screen and turn order; movement is substrate-primary (no LLM), speech is the LLM's; no NPC meets fire
+  before its body has a pain path (`docs/design/sem_stimuli.md` §4.6's test).
 - Save format v1: the world plus each NPC's agent home, including the agent's `EventSequencer` high-water seq, so a
   loaded save continues the sequence; `session_id` comes from the intent log's header (the log's root id, the NPC
   key and the segment number, a new segment per restore), never the wall clock or a uuid (O43, O45).
@@ -338,13 +351,30 @@ See `docs/book_to_world.md`. Extraction, timeline and the perspective split, the
   (Phase 6) are needed with or without one.
 - **Exit:** a store page.
 
+## Before the repository goes public
+
+The repository is private until Maxim publishes its fix for OD-I5 (owner, 2026-11-21). Going public is one branch,
+`phaseN/go-public`, which does all of this, then the owner flips visibility:
+
+1. **Disclosure:** Maxim's advisory for OD-I5 is public and its fix released. Until then, stay private; the history is
+   not rewritten (the mentions span 202 commits and GitHub keeps PR refs).
+2. **CI restored:** `.github/workflows/test.yml` runs Linux and macOS on every pull request again (public repositories
+   get free minutes). That reverses option B, so the test that pins it
+   (`tests/test_check_lock.py::test_macos_runs_on_githubs_runners_only_for_pushes_to_main_and_the_weekly_drift`) is
+   rewritten in the same commit.
+3. **No self-hosted runner** is registered (Settings > Actions > Runners lists none), and the repository settings
+   require approval for workflow runs from first-time contributors.
+4. **Personal paths:** absolute paths under the owner's home in seven files (three spike scripts and four documents,
+   found 2026-11-21) become relative or are removed.
+5. **Assets and licences:** `ASSETS_LICENSE.md` and the asset manifest (B8) are current.
+
 ## Standing rules
 
 The engineering standards (no band-aids, testing, the pre-push review, determinism, formats, budgets, client
 rules) live in `CLAUDE.md`, each with the check that enforces it; unenforced ones are rows in
 `docs/standards_backlog.md`. The rules below are the design rules.
 
-- **The resolution rule:** a rig changes precision, never the outcome class.
+- **The verification rule:** stated in `docs/design/world_model.md` §1.1.
 - Physics parameters are per unit volume. Scenes are authored in metres, never in cells.
 - Energy lands by exact cell average or by volume overlap, never by whether the cell centre is inside.
 - The world server is authoritative. The client never simulates anything that feeds back into the world.
