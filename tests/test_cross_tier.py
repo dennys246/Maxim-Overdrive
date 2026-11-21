@@ -82,7 +82,9 @@ def test_a_fire_that_has_burned_its_fuel_stops_heating(materials):
     for dx_m in FAST_SPACINGS:
         w = World.from_scene(SCENE, materials, dx_m=dx_m, limits=LIMITS)
         _, crate_m = region_parts(Applier(w), w.frames, "crate")
-        assert crate_m["structure"].execute("ignite", {"power_w": 500_000.0, "radius_m": 0.3}).success
+        # A precondition raises RuntimeError, not the gate's raises= type, so a refused ignite can't count as the miss.
+        if not crate_m["structure"].execute("ignite", {"power_w": 500_000.0, "radius_m": 0.3}).success:
+            raise RuntimeError("ignite refused: the gate can't reach its bar")
         peak = 0.0
         for _ in range(60):
             w.advance()
