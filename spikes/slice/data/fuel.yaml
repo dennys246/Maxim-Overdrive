@@ -4,7 +4,7 @@ materials:
   wood:
     releasable_energy_j_kg: 12400000.0  # the tile spec's effective heat of combustion (tile_and_client.md §1)
     ignition_c: 300.0                   # skin temperature at which wood lights (gamey: piloted ignition is ~300-365 C)
-    burn_rate_kg_s_m2: 0.016            # gamey: a 0.6 m crate burns about 3.5 minutes
+    burn_rate_kg_s_m2: 0.016            # gamey; with growth, the crate burns out 273 s after lighting (measured 2026-11-21)
 objects:
   # The burnable share of each box (slats and packing, not a solid block): gamey, per object.
   crate: 0.025
