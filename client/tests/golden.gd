@@ -13,15 +13,11 @@ const WIDTH: int = 1280
 const HEIGHT: int = 720
 const SIZE_M: float = 10.0
 const PLAYER: int = 1
-const PASSES: Dictionary[String, CellVolume.Pass] = {
-	"shaded": CellVolume.Pass.SHADED,
-	"crack_mask": CellVolume.Pass.CRACK_MASK,
-	"glow_mask": CellVolume.Pass.GLOW_MASK,
-}
 const PALETTE: MaterialPalette = preload("res://game/palette.tres")
 const WALLS: CutawayRegions = preload("res://game/cutaway.tres")
 
 var _stage: RenderStage = RenderStage.new()
+var _fixtures: Dictionary[String, SnapshotFixture] = {}
 
 
 func _ready() -> void:
@@ -44,36 +40,40 @@ func _ready() -> void:
 
 
 ## Draws one shot; returns why it failed, or "".
-func _draw(shot: String) -> String:
-	var parts: PackedStringArray = shot.split(":", true, 3)
-	if parts.size() != 4 or not PASSES.has(parts[2]):
-		return "a shot is <fixture>:<tier>:<pass>:<png>, with pass one of %s" % ", ".join(PASSES.keys())
-	var fixture: SnapshotFixture = SnapshotFixture.named(parts[0])
-	if not fixture.problems.is_empty():
-		return "fixture: " + "; ".join(fixture.problems)
-	var tier: RenderTier = load("res://game/tiers/%s.tres" % parts[1]) as RenderTier
-	if tier == null or not tier.problems().is_empty():
-		return "no usable tier %s" % parts[1]
-	if not fixture.actors.has(PLAYER):
-		return "the fixture has no player (actor %d)" % PLAYER
-	_stage.show_fixture(fixture, PALETTE)
+func _draw(text: String) -> String:
+	var shot: GoldenShot = GoldenShot.parse(text)
+	if not shot.problem.is_empty():
+		return shot.problem
+	var fixture: SnapshotFixture = _fixture(shot.fixture)
+	var tier: RenderTier = load("res://game/tiers/%s.tres" % shot.tier) as RenderTier
+	var why: String = GoldenShot.usable(fixture, tier, PLAYER)
+	if not why.is_empty():
+		return why
+	_stage.show_snapshot(fixture.snapshot, PALETTE)
 	_stage.use_tier(tier)
 	var yaw: float = IsoCamera.step_yaw(0)
-	var crate: AABB = _stage.volume_bounds_m("crate")
-	_stage.aim(crate.get_center(), yaw, SIZE_M)
+	_stage.aim(_stage.volume_bounds_m("crate").get_center(), yaw, SIZE_M)
 	_stage.cut_for(fixture.actors[PLAYER], yaw, WALLS)
 	var feet: Array[Vector3] = []
 	feet.assign(fixture.actors.values())
 	_stage.place_bodies(feet)
-	_stage.use_pass(PASSES[parts[2]], tier.bloom)
+	_stage.use_pass(shot.pass_kind, tier.bloom)
 	var image: Image = await _stage.capture()
 	if image == null or image.get_width() != WIDTH or image.get_height() != HEIGHT:
 		return "no %dx%d frame" % [WIDTH, HEIGHT]
-	var err: Error = image.save_png(parts[3])
+	var err: Error = image.save_png(shot.png)
 	if err != OK:
 		return "save_png failed: %s" % error_string(err)
-	print("golden: wrote %s adapter=%s" % [parts[3], RenderingServer.get_video_adapter_name()])
+	print("golden: wrote %s adapter=%s" % [shot.png, RenderingServer.get_video_adapter_name()])
 	return ""
+
+
+## Each fixture is read once per run, so its snapshot object, and the region bounds the stage keeps for it, are
+## shared by every shot that draws it.
+func _fixture(fixture_name: String) -> SnapshotFixture:
+	if not _fixtures.has(fixture_name):
+		_fixtures[fixture_name] = SnapshotFixture.named(fixture_name)
+	return _fixtures[fixture_name]
 
 
 func _shots() -> Array[String]:

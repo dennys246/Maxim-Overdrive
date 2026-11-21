@@ -11,12 +11,11 @@
 uniform sampler3D material_tex : filter_nearest, repeat_disable;
 uniform sampler3D region_tex : filter_nearest, repeat_disable;
 uniform sampler3D bricks_tex : filter_nearest, repeat_disable;
-uniform ivec3 cells = ivec3(1);
-uniform float cell_m = 0.1;
+// Sentinel defaults: a volume whose uniforms were never set draws nothing (cell_m 0 sends every ray out of bounds),
+// rather than drawing plausibly with a stale value. CellVolume sets both from the snapshot.
+uniform ivec3 cells = ivec3(0);
+uniform float cell_m = 0.0;
 
-// The walk ends after this many iterations: a ray crosses at most nx + ny + nz = 208 cells of the alley, and each
-// brick jump replaces at least one cell step.
-const int MAX_STEPS = 320;
 const int BRICK = 4;
 const float FAR = 1e30;
 
@@ -92,13 +91,14 @@ float boundary_t(Ray r, ivec3 cell, int axis) {
 	return (edge - pick(r.o, axis)) * pick(r.inv, axis);
 }
 
-// The walk state in the cell the ray reaches just after parameter t, having crossed a boundary on ``axis``. The
-// crossed axis's cell is decided from the step direction, not by rounding the point, because a point exactly on a
-// boundary (every brick jump lands on one, often on two at once) rounds either way in float and would skip a cell.
+// The walk state at the ray's entry into the volume (t = 0), through a face on ``axis``. The entry axis's cell is
+// decided from the step direction, not by rounding the point, which lies exactly on that face. This is the only
+// place the walk is set from a position: every later cell comes from exact steps (advance), so float rounding,
+// which differs between a GPU and llvmpipe, can never place the walk on the wrong side of a boundary.
 Walk walk_at(Ray r, float t, int axis) {
 	Walk w;
 	vec3 p = r.o + r.d * t;
-	w.cell = ivec3(floor(p));
+	w.cell = clamp(ivec3(floor(p)), ivec3(0), cells - ivec3(1));
 	int s = pick_i(r.stp, axis);
 	int crossed = int(round(pick(p, axis))) - (s < 0 ? 1 : 0);
 	w.cell = axis == 0 ? ivec3(crossed, w.cell.y, w.cell.z) : (axis == 1 ? ivec3(w.cell.x, crossed, w.cell.z) : ivec3(w.cell.x, w.cell.y, crossed));
@@ -133,19 +133,30 @@ float cell_exit_t(Walk w) {
 	return min(w.tmax.x, min(w.tmax.y, w.tmax.z));
 }
 
-// Jump to the first cell past the 4 x 4 x 4 brick the walk is in: empty-space skipping (§5.2). An empty brick costs
-// one occupancy read instead of up to ten cell steps with two texture reads each.
-void skip_brick(Ray r, inout Walk w) {
-	vec3 lo = vec3((w.cell / BRICK) * BRICK);
-	vec3 bound = lo + vec3(greaterThan(r.d, vec3(0.0))) * float(BRICK);
-	vec3 t = (bound - r.o) * r.inv;
-	t = vec3(r.stp.x == 0 ? FAR : t.x, r.stp.y == 0 ? FAR : t.y, r.stp.z == 0 ? FAR : t.z);
-	int axis = (t.x < t.y && t.x < t.z) ? 0 : (t.y < t.z ? 1 : 2);
-	w = walk_at(r, pick(t, axis), axis);
+// A ray crosses at most nx + ny + nz cells in all, and each outer iteration moves it at least one cell (a brick
+// skip moves it out of a brick), so this bounds every walk through the volume, whatever its shape.
+int max_steps() {
+	return cells.x + cells.y + cells.z + BRICK;
 }
 
-// The axis of the volume's face that the point ``o`` (cell space, on the box) lies on: the entry face's axis.
-int entry_axis(vec3 o) {
-	vec3 to_face = min(abs(o), abs(o - vec3(cells)));
-	return (to_face.x < to_face.y && to_face.x < to_face.z) ? 0 : (to_face.y < to_face.z ? 1 : 2);
+// Leave the empty 4 x 4 x 4 brick the walk is in: empty-space skipping (§5.2). The walk takes its ordinary exact
+// steps, but reads no texture until it is in another brick: an empty brick costs one occupancy read instead of two
+// reads per cell. Earlier versions jumped to the brick's exit and re-derived the cell from the float position there;
+// on llvmpipe that cycled one ray between two bricks, and the cure for that shaded floor tops as side faces (wrong
+// entry axis) along brick edges. Exact steps can do neither. A ray crosses at most 3 * BRICK cells of one brick.
+void skip_brick(Ray r, inout Walk w) {
+	ivec3 brick = w.cell / BRICK;
+	for (int k = 0; k < 3 * BRICK; k++) {
+		advance(r, w);
+		if (!inside(w.cell) || any(notEqual(w.cell / BRICK, brick))) {
+			return;
+		}
+	}
+}
+
+// The axis of the box face the ray entered through, from that face's normal (world axes). The normal is exact per
+// face, where guessing from the point's distance to each face picks the wrong axis within float error of an edge.
+int entry_axis(vec3 face_normal) {
+	vec3 n = abs(face_normal);
+	return (n.x > n.y && n.x > n.z) ? 0 : (n.y > n.z ? 1 : 2);
 }

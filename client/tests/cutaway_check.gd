@@ -1,7 +1,7 @@
 extends Node
 ## The cut-away test's frames (client_rendering.md §2, step 8): at sampled positions along both side walls, by the end
 ## wall and around the crate, at all four yaws, the player's body is drawn in its ID colour twice, once with the cell
-## volume drawn in the occluder pass and once with it hidden. scripts/golden_measures.py::cutaway_findings divides
+## volume drawn in the occluder pass and once with it hidden. scripts/golden_measures.py::cutaway_report divides
 ## the body's pixels in the first by those in the second and requires >= 95% at every sample. Each pair is saved as
 ## cut-<sample>-k<yaw step>-with.png and -without.png in the directory after ``--out=``.
 ## The camera follows the player as in play (centred on the body, the default 12 m zoom, §1), on the cold alley.
@@ -17,7 +17,9 @@ const PALETTE: MaterialPalette = preload("res://game/palette.tres")
 const TIER: RenderTier = preload("res://game/tiers/rig.tres")
 ## The body's axis 0.25 m from a wall's face (touching it), along both side walls, at the end wall, and at the
 ## crate: where the exit script kindles it from (5.5, 2.925), and against its south and east faces. Feet on the
-## floor's top. Positions avoid the crates, whose 0.6 m boxes leave no room for a 0.5 m body against a wall.
+## floor's top. Positions avoid the crates, whose 0.6 m boxes leave no room for a 0.5 m body against a wall. The
+## pavement samples (x < 1.2 m, the spawn among them) are off the walls' ends, where a nearest-point rule popped.
+## scripts/golden_measures.py::CUTAWAY_SAMPLES must name the same samples; a test holds the two lists together.
 const SAMPLES: Dictionary[String, Vector3] = {
 	"south-2": Vector3(2.0, 0.65, 0.4), "south-4": Vector3(4.0, 0.65, 0.4),
 	"south-7.5": Vector3(7.5, 0.65, 0.4), "south-10.5": Vector3(10.5, 0.65, 0.4),
@@ -26,6 +28,8 @@ const SAMPLES: Dictionary[String, Vector3] = {
 	"end": Vector3(11.35, 2.0, 0.4),
 	"crate-kindle": Vector3(5.5, 2.925, 0.4), "crate-south": Vector3(6.3, 2.35, 0.4),
 	"crate-east": Vector3(6.85, 2.9, 0.4),
+	"pavement-spawn": Vector3(0.6, 2.0, 0.4), "pavement-south": Vector3(0.9, 0.65, 0.4),
+	"pavement-north": Vector3(0.9, 3.35, 0.4),
 }
 
 var _stage: RenderStage = RenderStage.new()
@@ -45,7 +49,7 @@ func _ready() -> void:
 		return
 	_stage.size = Vector2i(WIDTH, HEIGHT)
 	add_child(_stage)
-	_stage.show_fixture(fixture, PALETTE)
+	_stage.show_snapshot(fixture.snapshot, PALETTE)
 	_stage.use_tier(TIER)
 	_stage.use_pass(CellVolume.Pass.OCCLUDER, false)
 	for sample: String in SAMPLES:

@@ -15,7 +15,8 @@ extends Resource
 @export var glow_linear: bool = true
 ## Bloom: the WorldEnvironment's glow post-process, which bleeds HDR emission above 1.0 into its surroundings.
 @export var bloom: bool = true
-## Neighbour ambient-occlusion taps per face: 0 (off), 4 (edges) or 8 (edges and corners).
+## Neighbour ambient occlusion per face: 0 (off), 4 (the face's four edge neighbours) or 8 (edges and corners). Only
+## the neighbours on the shaded point's side can darken it, so the shader reads 2 or 3 of them (lighting.gdshaderinc).
 @export var ao_taps: int = 4
 ## Flame particle budget (§5.3). Particles aren't built yet; the field is here so the tier files are complete.
 @export var flame_particles: int = 0

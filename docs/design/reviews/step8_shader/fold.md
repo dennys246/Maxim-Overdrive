@@ -1,0 +1,106 @@
+# Step 8 shader fold: author's record
+
+**This is the author's record, not a fold-status table.** Under O25 a reviewer sets each finding's status from the
+tree. It lists what the author changed per finding and the proof that the change is guarded. Round one ran at
+ce06d7b: `executor.md`, `architecture.md`, `wire_integrity.md`, `client_rendering.md`, `performance.md`. No
+BLOCKERs were raised. Finding ids are the reports' own (E = Executor, A = Architecture, W = Wire integrity, C =
+Client and rendering, P = Performance).
+
+## Shader
+
+| Finding | Change | Proof |
+|---|---|---|
+| C S1 (black pixel at (543, 224) in the rig and max goldens) | **Superseded in delta 1 (below): this fix added 47 dots per frame.** Measured, not guessed: an instrumented build on llvmpipe showed that ray ran out of steps, cycling between two bricks while sitting on two brick boundaries (y = 36, z = 12). `skip_brick` now takes an ordinary cell step whenever a jump would not move t forward or would land in the same brick, and `walk_at` picks the uncrossed axes' cells just past the boundary along the ray. A first fix (same-brick check only) did not cure it; the probe showed why. | Probe after the fix: 0 exhausted rays in the rig frame, longest walk about 39 iterations; the pixel is wall-coloured in the re-recorded goldens. |
+| E S1 (`groove_t0` never reset) | Reset whenever the walk leaves the material (an empty brick or an undrawn cell). | Goldens re-recorded; the dark fringe term is gone by construction. |
+| C (grooves see through solid cells) | Grooves end at `GROOVE_MAX_DEPTH_M` (0.05 m); a ray that reaches it hits the fissure floor, shaded as a face darkened by depth. | — |
+| C (1.5 px floor not met on slanted faces) | The pixel floor is divided by the face's cosine with the ray (floored at 0.25). | — |
+| C (laptop crack becomes speckle) | Voronoi spacing is one cell, or a power-of-two multiple of it so a polygon spans at least 12 px; it changes only at whole octaves of zoom. Never colour alone now runs at every tier. | Carving deleted (darkening kept): crack fails at laptop, rig and max (|ΔL*| 4.7–4.9, edge ratio < 1). |
+| C (`MAX_STEPS` sized for the alley), P NIT | The loop bound is `nx + ny + nz + 4` from the `cells` uniform. | — |
+| C (hatching aliases on laptop) | The period is at least 8 px. Hatching is still unmeasured: B30. | — |
+| C NIT (entry axis from distances) | Taken from the box face's normal through a varying. | — |
+| C NIT (`texture()` in divergent flow) | `textureLod(…, 0.0)`. | — |
+| P NIT (8-tap AO reads 5 zero-weight taps) | Only the near-side neighbours are read: 2 edge taps, plus 1 corner at 8. The image is the same by construction. | — |
+| W S2, C (uniform names can't be checked; defaults equal the fixture's) | A test holds every name `CellVolume` sets to `Shader.get_shader_uniform_list()` for both variants, and the palette and cut-list sizes to the GDScript constants. `cells`, `cell_m` and the glow calibration default to sentinels that draw nothing. | `cell_m` renamed in `cell_volume.gd`: the test goes red for both variants. |
+
+## Client code
+
+| Finding | Change | Proof |
+|---|---|---|
+| A 4, W S1, E N7 (nearest-point cut pops on the pavement) | The rule clamps only across a region's short side, so a side wall's decision depends only on the player's distance across it. §2 amended in place (word count kept). Three pavement samples join the rendered check; the unit test sweeps x from 0.3 m. | The nearest-point rule restored: the unit test goes red at exactly the pavement positions. |
+| A 7, W S5, C (unknown materials draw black) | `use_palette` takes the vocabulary, reports a solid material without a colour or an id over 15, and draws it magenta. | Tested: an uncoloured id reads magenta. |
+| A NIT 8, W S4 (vocabulary off the seam) | `material_ids` is on `CellSnapshot`, and `problems()` refuses a snapshot without it. | Tested. |
+| A 3 (pixel footprint depends on call order) | `RenderStage` recomputes `pixel_m` from both `aim` and `use_tier`. The composition still lives in test support: B30. | — |
+| E S4 (golden scene refusals untested) | Shot parsing and drawability checks moved to `tests/support/golden_shot.gd`, each refusal tested headless; a fixture without a crate region is refused. The cut-away scene's own refusals stay untested (it takes one argument). | `test_golden_shot.gd`. |
+| E N5 | Duplicate actor ids refused. | Tested. |
+| E N6, A NIT 10 | `BRICK_SHIFT` is the one constant. The shader's `8` and `16` are held by the uniform test. | — |
+| P (new GPU textures every snapshot) | `ImageTexture3D.update` in place when format and shape match. | — |
+| P (bricks 14–46 ms, region bounds 98–166 ms) | Not fixed in GDScript: a 2× tweak is still 4× over budget. Deferred to B5 with the numbers; the fix is the server shipping the brick mask and region bounds in protocol v0, before step 7 wires `show_snapshot` to the stream. | — |
+
+## Checks and tooling
+
+| Finding | Change | Proof |
+|---|---|---|
+| A 1, E S2, W S3 (advisory too wide; pair count unchecked) | Advisory is exactly four (sample, yaw) pairs; a missing, extra or half pair is a finding; the Python sample list is held to the scene's by a test; `out/cutaway` is cleared each run. | Tests: a crate sample below 95% at a non-advisory yaw fails; missing and stray pairs fail. |
+| W S6 (Mac exit status meaningless; §6.5 claimed prepush runs the checks) | `--no-xvfb` skips the golden comparison with a printed line; §6.5 corrected in place. | Tested. |
+| P NIT (runtime unrecorded) | Each Godot call prints its wall time. Measured under emulation: 50.7 s and 64.7 s of 120 s. | — |
+| W N1, N2 | The gate fixture passes a `--shot`; the uid test globs `.gdshaderinc`. | — |
+| A 5, E S3, W S8, C (depth proof promised, not given) | It was run after ce06d7b's commit message was written: the golden image with `DEPTH = ndc.z` fails all three goldens (591–902 px blobs above ΔE 10), and passes restored. Recorded in the fold commit. | As stated. |
+
+## Rejected, with reason
+
+- **W S7 (no prepush step compiles a shader).** Measured: a syntax error appended to `lighting.gdshaderinc` fails
+  `scripts/godot_check.py` with `SHADER ERROR … Shader compilation failed`, because the client tests load
+  `CellVolume`, which preloads both variants.
+
+## Docs
+
+§2 (rule, test), §5.3 (emission formula; the 920 °C claim, which was false), §5.5 (8-tap) and §6.5 edited in place:
+`client_rendering.md` is 3,796 words, under its 3,800. FIELDS.md gains the grid origin, the missing `region`
+channel and `glow`'s different quantity. B5, B7 and a new B30 (the composition in test support, the black-night
+constraint, unbuilt flame particles, unmeasured hatching, no ANGLE compile, the untested perspective path). CLAUDE.md's
+Layout names the new files.
+
+## Owner decisions this round leaves open
+
+1. §2's cut rule, now the short-side rule.
+2. The crate hiding 13% of a body pressed against it at two yaws: §2's ≥ 95% at the crate against "never cut the
+   crate". Today those four pairs are reported, not gated.
+3. AO at 8 taps where §5.5 said 6.
+4. The crack's polygon floor (12 px), which makes the pattern coarser than one cell at the golden zoom.
+5. The emission level: embers near 920 °C read orange-red, below bloom.
+6. The night must stay black on Godot 4.7.2 Compatibility.
+7. Crack severity by shape (delta 1): at the 1.5 px floor, c = 0.25–0.96 draw the same grooves on rig walls and an
+   isolated cracked cell may draw none, so severity, and an isolated crack, show by darkening alone (B7).
+
+## Delta 1 (at the staged fold over ce06d7b)
+
+Reports: `delta1_executor_wire.md`, `delta1_architecture.md`, `delta1_client_performance.md`. One BLOCKER, raised by
+two readers independently.
+
+| Finding | Change | Proof |
+|---|---|---|
+| EW B1, CP N1 (the walk fix shaded floor tops as side faces along brick edges: 47 dots per rig and max frame, recorded in the goldens) | The third patch to re-entering the cell grid from a float position after a brick jump. It is removed, not patched: in an empty brick the walk now takes its exact cell steps with no texture reads until it leaves the brick. Nothing after the entry face is derived from a position. | Speckle in the llvmpipe frames: 52 per cold rig and max frame before, 0 in every frame at every tier after. The two Godot calls got faster: 50.7/64.7 s to 32.3/32.0 s (emulated). |
+| (the guard both readers asked for) | `golden_measures.speckle_findings`: on the cold rig and max frames, no pixel may stand apart from eight agreeing neighbours. | It counts 52 in the defective run's cold frames and 0 now. Unit-tested on a dot, stripes and an edge. The golden ΔE judge alone passed the dotted goldens. |
+| CP N2 (the nudge read a neighbouring cell) | Gone with the nudge. | — |
+| EW S1, CP N7 (in-place texture update untested) | A test: a second same-shape snapshot reuses the texture objects; a new shape allocates new ones. It cannot see contents, because the dummy renderer keeps none; the golden job's alternating fire and cold shots through one volume covers contents. | — |
+| EW S2 (goldens unstaged) | Re-recorded from the clean run and committed in their own commit. | — |
+| CP N3 (the octave sits on a boundary at the default zoom) | The octave is chosen in GDScript (`CellVolume.crack_octave`) with 0.1-octave hysteresis and passed as `crack_spacing_m`; a non-positive pixel size is refused. | Hysteresis deleted: the boundary test goes red (CPU picks octave 1 there, where float32 picked 2). |
+| A N1 (pavement strip) | Not "no pops anywhere": off a wall's end, level with its thickness, the cut flips, because that is walking round the end. Stated in `cutaway.gd` and §2, and pinned by a test. | — |
+| A N3 | §10 points to the owner decisions here; §8 says the upload has no meter and is broken (B5). | — |
+| A N2, CP N4 (severity and isolated cells) | Recorded, not fixed: owner decision 7, B7, and §5.4's pattern line, which now states the spacing rule. | — |
+| A N6, N7 | §2 counts four (sample, yaw) pairs; §5.3 defines T₀. | — |
+| EW N1 | The summary says "goldens not judged" under `--no-xvfb`; the matching-frames test judges goldens. | — |
+| EW N3, A NIT 10 | The shader's palette clamp, cut loop bound and brick size are now held to the GDScript constants by the uniform test. | — |
+| A (B30 a grab-bag) | Split: each item has its own trigger; unmeasured hatching moved to B7. | — |
+
+`client_rendering.md` stays at 3,798 words (3,800 before the branch).
+
+**Not folded, with reasons:**
+- A NIT 11 (alley numbers in `cutaway.gd`'s docstring): they are the evidence for the rule, kept deliberately.
+- A NIT 12, W N4 (a third copy of the alley's boxes): it remains until `content/scenes/alley.yaml` exists, then the
+  generator reads it.
+- EW N2 (the palette's two `push_error` paths untested): a test that triggers one prints `ERROR:`, which fails the gate's scan.
+- A N4 (the seam checks presence, not ids or duplicates), A N5 / EW N4 (bounds cache by identity: in B30 (1)),
+  EW N5 (`rmtree` then `mkdir`), CP N5 (the fissure floor's axis), CP N6 (depth-bound gaps at silhouettes), CP N8
+  (hatch phase moves with zoom), P NITs (carve hoisting, redundant reads): NITs, left open, named here.
+- Step 7's checklist line for shipping the brick mask: B5 carries the trigger. The checklist is the owner's plan.

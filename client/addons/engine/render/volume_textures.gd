@@ -13,13 +13,16 @@ extends RefCounted
 ## reads level 0 only.
 
 ## Edge of an occupancy brick, in cells (§5.2): 4 x 4 x 4 cells, so the alley's 120 x 40 x 48 is 30 x 10 x 12 bricks.
-const BRICK: int = 4
+const BRICK_SHIFT: int = 2
+const BRICK: int = 1 << BRICK_SHIFT
 
 
-## A ``format`` texture of the snapshot's shape from ``bytes`` ([nz, ny, nx], x fastest), one Image per z-slice.
-static func texture(snap: CellSnapshot, bytes: PackedByteArray, format: Image.Format) -> ImageTexture3D:
+## A ``format`` texture of the snapshot's shape from ``bytes`` ([nz, ny, nx], x fastest), one Image per z-slice. When
+## ``reuse`` already has that format and shape, its contents are replaced in place (ImageTexture3D.update, a
+## glTexSubImage3D on OpenGL) instead of a new GPU texture being allocated on every snapshot.
+static func texture(snap: CellSnapshot, bytes: PackedByteArray, format: Image.Format, reuse: ImageTexture3D = null) -> ImageTexture3D:
 	var per_cell: int = 2 if format == Image.FORMAT_RG8 else 1
-	return _texture_of(bytes, snap.nx, snap.ny, snap.nz, per_cell, format)
+	return _texture_of(bytes, snap.nx, snap.ny, snap.nz, per_cell, format, reuse)
 
 
 ## The occupancy bricks: 255 where any cell of the 4 x 4 x 4 brick is solid (material != 0), else 0. The shader
@@ -35,25 +38,25 @@ static func bricks(snap: CellSnapshot) -> PackedByteArray:
 	var material: PackedByteArray = snap.channels["material"]
 	var i: int = 0
 	for z: int in snap.nz:
-		var bz_row: int = (z >> 2) * by
+		var bz_row: int = (z >> BRICK_SHIFT) * by
 		for y: int in snap.ny:
-			var row: int = (bz_row + (y >> 2)) * bx
+			var row: int = (bz_row + (y >> BRICK_SHIFT)) * bx
 			for x: int in snap.nx:
 				if material[i] != 0:
-					out[row + (x >> 2)] = 255
+					out[row + (x >> BRICK_SHIFT)] = 255
 				i += 1
 	return out
 
 
-static func bricks_texture(snap: CellSnapshot) -> ImageTexture3D:
+static func bricks_texture(snap: CellSnapshot, reuse: ImageTexture3D = null) -> ImageTexture3D:
 	var bx: int = brick_count(snap.nx)
 	var by: int = brick_count(snap.ny)
 	var bz: int = brick_count(snap.nz)
-	return _texture_of(bricks(snap), bx, by, bz, 1, Image.FORMAT_R8)
+	return _texture_of(bricks(snap), bx, by, bz, 1, Image.FORMAT_R8, reuse)
 
 
 static func brick_count(cells: int) -> int:
-	return (cells + BRICK - 1) >> 2
+	return (cells + BRICK - 1) >> BRICK_SHIFT
 
 
 ## One z-slice of ``bytes`` as an Image: what texture() uploads for slice ``z``. Separate so a test can read back
@@ -63,10 +66,15 @@ static func slice(bytes: PackedByteArray, w: int, h: int, z: int, per_cell: int,
 	return Image.create_from_data(w, h, false, format, bytes.slice(z * size, (z + 1) * size))
 
 
-static func _texture_of(bytes: PackedByteArray, w: int, h: int, d: int, per_cell: int, format: Image.Format) -> ImageTexture3D:
+static func _texture_of(
+	bytes: PackedByteArray, w: int, h: int, d: int, per_cell: int, format: Image.Format, reuse: ImageTexture3D
+) -> ImageTexture3D:
 	var images: Array[Image] = []
 	for z: int in d:
 		images.append(slice(bytes, w, h, z, per_cell, format))
+	if reuse != null and reuse.get_format() == format and reuse.get_width() == w and reuse.get_height() == h and reuse.get_depth() == d:
+		reuse.update(images)
+		return reuse
 	var tex: ImageTexture3D = ImageTexture3D.new()
 	var err: Error = tex.create(format, w, h, d, false, images)
 	if err != OK:

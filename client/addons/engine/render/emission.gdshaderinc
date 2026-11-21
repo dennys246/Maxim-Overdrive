@@ -13,8 +13,9 @@ uniform sampler3D glow_tex : filter_nearest, repeat_disable;
 #endif
 uniform sampler3D burning_tex : filter_nearest, repeat_disable;
 // surface_glow's calibration from the catalogue: T = offset + scale * count, in °C.
-uniform float glow_offset_c = 525.0;
-uniform float glow_scale_c = 3.8235294;
+// Sentinels: a scale of 0 glows nothing until CellVolume sets the snapshot's calibration.
+uniform float glow_offset_c = 0.0;
+uniform float glow_scale_c = 0.0;
 // 0 in goldens (animation off, §6.1); 1 in play.
 uniform float flicker_amount = 0.0;
 
@@ -31,7 +32,8 @@ const float FLAME_GAIN = 1.6;
 // neighbouring cells and never with the air cell in front of it.
 float glow_count(ivec3 cell, vec3 p_cell, vec3 n_cell) {
 #ifdef GLOW_LINEAR
-	return texture(glow_tex, (p_cell - 0.5 * n_cell) / vec3(cells)).r * 255.0;
+	// textureLod at level 0: an implicit-derivative texture() inside data-dependent branches is undefined in GLSL.
+	return textureLod(glow_tex, (p_cell - 0.5 * n_cell) / vec3(cells), 0.0).r * 255.0;
 #else
 	return texelFetch(glow_tex, cell, 0).r * 255.0;
 #endif

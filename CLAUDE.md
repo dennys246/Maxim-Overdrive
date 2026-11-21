@@ -46,7 +46,8 @@ install the pinned build with `ci/install_godot.sh` (CI does). The gate needs it
 it, and its fixture tests (`tests/test_godot_gate_fixtures.py`, `slow`) run Godot under `MAXIM_OVERDRIVE_GODOT=1`; the
 gate sets both switches. The golden job runs in Docker: `docker build --platform linux/amd64 -f
 ci/godot-golden/Dockerfile -t overdrive-golden .`, then `ci/godot-golden/run.sh` in it (its header has the command); its
-result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` draws the same frame on a Mac, advisory.
+result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` draws the same frames on a Mac and runs
+the measured checks, advisory.
 
 ## Layout
 
@@ -68,14 +69,17 @@ result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` dr
   `encoding.py` (`snapshot` of a published frame, display quantization)
 - `src/maxim_overdrive/`: the game. `data.py` says where its data lives (`data/rigs/`, `data/materials/`,
   `data/world/`) and loads it
-- `client/`: the Godot 4.7.2 client (`docs/design/client_rendering.md` §7): `addons/engine/` (the engine half),
-  `game/` (this game), `tests/` (`run.gd` the runner, `unit/`, `load_all.gd`, the golden scene and `goldens/`);
+- `client/`: the Godot 4.7.2 client (`docs/design/client_rendering.md` §7): `addons/engine/` (the engine half;
+  `render/` holds the cell raymarch shader and its inputs), `game/` (this game: tiers, palette, cut-away walls),
+  `tests/` (`run.gd` the runner, `unit/`, `load_all.gd`, `support/`, the snapshot `fixtures/`, the golden and
+  cut-away scenes and `goldens/`);
   `tools/godot_probes/`: the §9 probes, a separate Godot project rerun on an upgrade (B26); `ci/`: the Godot pin
   (`godot.env`), `install_godot.sh` and the golden image (`godot-golden/`)
 - `scripts/`: `prepush.sh` (the gate), `lint_standards.py` (with one `lint_*.py` module per check, the input sources
   in `lint_inputs.py` and the gate registry in `lint_gates.py` among them), `check_lock.py`,
-  `godot_check.py` (the gate's Godot step), `golden_run.py` (the golden job) and `golden_compare.py` (the golden
-  tolerance); `constraints/`: the lockfiles
+  `godot_check.py` (the gate's Godot step), `golden_run.py` (the golden job), `golden_compare.py` (the golden
+  tolerance), `golden_measures.py` (the cut-away, never-colour-alone and tier checks) and `client_fixtures.py` (the
+  snapshot fixtures); `constraints/`: the lockfiles
 - `docs/code_review.md`: the pre-push review charter. `docs/standards_backlog.md`: rules waiting for a check
 - `docs/maxim_upstream/`: drafts that belong in the Maxim repo (the Exp 64 pre-registration)
 - `docs/lessons_maxim_in_games.md`: what building this game teaches about applying Maxim to games, kept current

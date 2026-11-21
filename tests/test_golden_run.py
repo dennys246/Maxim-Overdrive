@@ -108,10 +108,14 @@ def _main(tmp_path: Path, godot: str, *extra: str) -> int:
     return code
 
 
-def test_matching_frames_pass_every_shot_is_drawn_and_the_logs_are_kept(setup, tmp_path, capsys):
+def test_matching_frames_pass_every_shot_is_drawn_and_the_logs_are_kept(setup, tmp_path, monkeypatch, capsys):
     godot, measured = setup
-    assert _main(tmp_path, godot) == 0, capsys.readouterr().err
-    assert capsys.readouterr().out.endswith("golden_run: PASS (6 shots, 3 goldens, cut-away)\n")
+    monkeypatch.setattr(gr, "XVFB", ())  # judged as on the CI image, with no X server to wrap Godot in
+    code = gr.main(["--godot", godot, "--out", str(tmp_path / "out")], work_parent=tmp_path)
+    assert code == 0, capsys.readouterr().err
+    printed = capsys.readouterr().out
+    assert printed.endswith("golden_run: PASS (12 shots, 3 goldens, cut-away)\n")
+    assert "res://tests/cutaway_check.tscn took" in printed
     out = tmp_path / "out"
     assert sorted(p.name for p in out.glob("*.png")) == sorted(name for name, *_ in gr.SHOTS)
     assert "llvmpipe (LLVM 20.1.2, 256 bits)" in (out / "golden.log").read_text()
@@ -152,7 +156,8 @@ def test_a_frame_that_differs_from_its_golden_fails_per_tier_and_its_difference_
     other = np.full((72, 128, 3), 255, dtype=np.uint8)
     Image.fromarray(other).save(tmp_path / "other.png")
     monkeypatch.setenv("FAKE_GODOT_FRAME", str(tmp_path / "other.png"))
-    assert _main(tmp_path, setup[0]) == 1
+    monkeypatch.setattr(gr, "XVFB", ())  # judged as on the CI image, with no X server to wrap Godot in
+    assert gr.main(["--godot", setup[0], "--out", str(tmp_path / "out")], work_parent=tmp_path) == 1
     err = capsys.readouterr().err
     for tier in gr.TIERS:
         assert f"{tier}/fire.png: mean ΔE" in err
@@ -161,11 +166,12 @@ def test_a_frame_that_differs_from_its_golden_fails_per_tier_and_its_difference_
 
 def test_a_measured_finding_fails_the_job_and_an_advisory_note_does_not(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(gm, "cutaway_report", lambda cut: ([], ["cutaway: crate note"]))
-    monkeypatch.setattr(gm, "colour_alone_findings", lambda out: ["glow: dim"])
+    monkeypatch.setattr(gm, "colour_alone_findings", lambda out, tier: [f"{tier}: glow: dim"] if tier == "max" else [])
     monkeypatch.setattr(gm, "agreement_findings", lambda name, tier, rig: [f"tiers: {name}"])
+    monkeypatch.setattr(gm, "speckle_findings", lambda out: ["rig: speckle"])
     for tier in gr.TIERS:
         Image.fromarray(np.zeros((90, 160, 3), dtype=np.uint8)).save(tmp_path / f"fire-{tier}.png")
-    assert gr.measured_findings(tmp_path, tmp_path) == ["glow: dim", "tiers: laptop", "tiers: max"]
+    assert gr.measured_findings(tmp_path, tmp_path) == ["max: glow: dim", "rig: speckle", "tiers: laptop", "tiers: max"]
     assert "golden_run: advisory: cutaway: crate note" in capsys.readouterr().out
 
 
@@ -177,6 +183,24 @@ def test_a_failed_import_draws_nothing(setup, tmp_path, monkeypatch, capsys):
     assert _main(tmp_path, godot) == 1
     assert "import: created x.gd.uid" in capsys.readouterr().err
     assert not (tmp_path / "out" / "golden.log").exists()
+
+
+def test_off_the_ci_image_the_goldens_are_not_judged_and_stale_cut_frames_are_cleared(
+    setup, tmp_path, monkeypatch, capsys
+):
+    godot, measured = setup
+    other = np.full((72, 128, 3), 255, dtype=np.uint8)  # would fail every golden
+    Image.fromarray(other).save(tmp_path / "other.png")
+    monkeypatch.setenv("FAKE_GODOT_FRAME", str(tmp_path / "other.png"))
+    stale = tmp_path / "out" / "cutaway" / "cut-old-k0-with.png"
+    stale.parent.mkdir(parents=True)
+    stale.write_bytes(b"x")
+    assert _main(tmp_path, godot) == 0  # --no-xvfb
+    printed = capsys.readouterr().out
+    assert "goldens not judged" in printed
+    assert printed.endswith("golden_run: PASS (12 shots, goldens not judged, cut-away)\n")
+    assert measured == [tmp_path / "out" / "cutaway"]
+    assert not stale.exists()
 
 
 def test_by_default_godot_draws_under_xvfb(setup, tmp_path, monkeypatch, capsys):

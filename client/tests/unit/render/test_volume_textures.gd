@@ -11,6 +11,7 @@ static func asymmetric() -> CellSnapshot:
 	snap.nz = 6
 	snap.cell_m = 0.1
 	snap.glow_scale_c_per_count = 1.0
+	snap.material_ids = {"air": 0, "concrete": 1}
 	for channel: String in CellSnapshot.CHANNEL_BYTES:
 		var bytes: PackedByteArray = PackedByteArray()
 		var _ok: int = bytes.resize(snap.cells() * CellSnapshot.CHANNEL_BYTES[channel])
@@ -66,6 +67,8 @@ func test_a_short_channel_is_not_drawable(t: TestContext) -> void:
 	snap.nx = 0
 	snap.cell_m = 0.0
 	snap.glow_scale_c_per_count = 0.0
+	snap.material_ids = {}
 	var said: String = " | ".join(snap.problems())
-	for expected: String in ["shape 0 x 3 x 6 is empty", "cell_m 0.0 is not positive", "scale 0.0 is not positive", "no crack channel"]:
+	for expected: String in ["shape 0 x 3 x 6 is empty", "cell_m 0.0 is not positive", "scale 0.0 is not positive", "no crack channel",
+			"no material vocabulary"]:
 		t.check(said.contains(expected), "names '%s': %s" % [expected, said])

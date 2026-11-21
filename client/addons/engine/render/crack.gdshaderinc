@@ -14,14 +14,29 @@ uniform int crack_substeps = 4;
 
 const float CRACK_MAX_HALF_WIDTH_M = 0.02;
 const float CRACK_MIN_HALF_WIDTH_PX = 0.75;
+// The Voronoi feature spacing in metres: one cell, or a power-of-two multiple of it so a polygon spans at least
+// CellVolume.CRACK_MIN_POLYGON_PX pixels. Chosen in GDScript with hysteresis (CellVolume.crack_octave), not here:
+// at the default zoom the ratio sits exactly on an octave boundary, where a GPU's log2 rounds either way.
+// 0 until set, which draws no crack pattern.
+uniform float crack_spacing_m = 0.0;
+// The deepest a ray goes through grooves before it meets the fissure floor: without a bound, a ray along a Voronoi
+// sheet passed right through a cracked wall and showed a hole the server never reported.
+const float GROOVE_MAX_DEPTH_M = 0.05;
+// The face's slant floor: below this cosine the foreshortening correction stops growing.
+const float MIN_FACE_COSINE = 0.25;
 
 float crack_at(ivec3 c) {
 	return texelFetch(crack_tex, c, 0).r;
 }
 
-float groove_half_width_m(float c) {
-	return max(CRACK_MAX_HALF_WIDTH_M * c, CRACK_MIN_HALF_WIDTH_PX * pixel_m);
+// The groove's half-width in metres on a face whose normal makes ``cosine`` with the ray. The pixel floor is divided
+// by the cosine because a slanted face is foreshortened on screen: on a top face at 40 degrees a metre floor alone
+// drew grooves 0.96 px wide.
+float groove_half_width_m(float c, float cosine) {
+	return max(CRACK_MAX_HALF_WIDTH_M * c, CRACK_MIN_HALF_WIDTH_PX * pixel_m / max(cosine, MIN_FACE_COSINE));
 }
+
+
 
 // A well-mixed integer hash of a lattice index, three values in [0, 1]. Integer arithmetic, so every GPU (and the
 // CPU) gets the same pattern; a sin-based float hash differs between drivers.
@@ -40,7 +55,7 @@ vec3 lattice_hash(ivec3 p) {
 // The distance in metres from world point ``p_m`` to the nearest Voronoi boundary, and the unit vector (world axes)
 // pointing from that boundary into the polygon ``p_m`` is in.
 float crack_edge(vec3 p_m, out vec3 away) {
-	float spacing = cell_m;
+	float spacing = crack_spacing_m;
 	vec3 q = p_m / spacing;
 	ivec3 base = ivec3(floor(q));
 	float d1 = FAR;
@@ -85,7 +100,7 @@ struct Carve {
 Carve carve(Ray r, Walk w, float c) {
 	Carve out_c;
 	out_c.solid = false;
-	float half_w = groove_half_width_m(c);
+	float half_w = groove_half_width_m(c, abs(pick(r.d, w.axis)));
 	float exit_t = cell_exit_t(w);
 	for (int k = 0; k < 16; k++) {
 		if (k >= crack_substeps) {

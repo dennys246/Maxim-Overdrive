@@ -5,14 +5,18 @@ difference over a mask, comes out the same on any correct renderer. So they run 
 fail on the owner's Mac as they would in CI.
 
 - **The cut-away** (§2): the player's ID-colour pixels with the cell volume drawn, divided by the same with it
-  hidden, at every sample position and yaw, must be at least 95%. Two samples are reported, not gated: a body pressed
-  against the crate's south or east face is hidden by the crate itself (86.7% measured), which §2 never cuts; the
-  conflict is the owner's to settle, and every run prints the numbers.
-- **Never colour alone** (§6.4, CLAUDE.md): measured in CIE L*, lightness, which is what a viewer with no colour
-  vision still sees. Over the cells a crack mask marks, the cracked frame must differ from the cold one by a mean
-  of at least 8 L* and have at least twice its Sobel edge density (crack changes *shape*). Over the glow mask, the
-  glowing frame must be at least 15 L* brighter (glow changes *brightness*). The masks come from the shader's own
+  hidden, must be at least 95% at every sample position and yaw, and every expected (sample, yaw) pair must be there.
+  Four pairs are reported, not gated: a body pressed against the crate's south or east face is hidden by the crate
+  itself at two yaws each (86.7% measured), and §2 never cuts the crate. The conflict is the owner's to settle, and
+  every run prints the numbers.
+- **Never colour alone** (§6.4, CLAUDE.md), at every tier: measured in CIE L*, lightness, which is what a viewer with
+  no colour vision still sees. Over the cells a crack mask marks, the cracked frame must differ from the cold one by a
+  mean of at least 8 L* and have at least twice its Sobel edge density (crack changes *shape*). Over the glow mask,
+  the glowing frame must be at least 15 L* brighter (glow changes *brightness*). The masks come from the shader's own
   debug passes, so they mark exactly the pixels whose first drawn cell is cracked or glowing.
+- **No speckle:** on the cold frames at the full-resolution tiers, no pixel may differ sharply from eight neighbours
+  that agree with each other. A cold frame has no cracks, so such a pixel is a traversal defect (a missed or
+  mis-shaded cell); the walk's brick handling put 47 of them in each rig frame once, and nothing else saw them.
 - **Same apart from detail** (§6.3): each tier's frame, box-filtered to 160 x 90, against the rig tier's: mean ΔE at
   most 3 and the 99th percentile at most 10. (§6.3's ID-mask areas are not measured yet.)
 
@@ -39,9 +43,19 @@ AGREE_P99_MAX = 10.0
 # A Sobel gradient magnitude above this many L* per pixel is an edge: a few just-noticeable differences (ΔE about 1).
 # 20 was tried first and refused every edge on the dark crate, whose whole cold range is about 16 L*.
 EDGE_L = 5.0
+# Speckle: a pixel whose RGB sum is this far from its neighbours' median, where the neighbours span at most FLAT_SPAN.
+SPECKLE_DIFF = 30
+FLAT_SPAN = 6
+SPECKLE_TIERS = ("rig", "max")  # laptop draws at half scale, so a defect is a 2 x 2 block, not one pixel
 CUT_FRAME = re.compile(r"^cut-(?P<sample>.+)-k(?P<k>[0-3])-with\.png$")
-# Samples where the never-cut crate stands between camera and body at two yaws (§2 "never cut"): reported only.
-CUTAWAY_ADVISORY = frozenset({"crate-south", "crate-east"})
+# client/tests/cutaway_check.gd::SAMPLES, which tests/test_golden_measures.py holds to this list.
+CUTAWAY_SAMPLES = (
+    "south-2", "south-4", "south-7.5", "south-10.5", "north-2", "north-4", "north-7.5", "north-10.5", "end",
+    "crate-kindle", "crate-south", "crate-east", "pavement-spawn", "pavement-south", "pavement-north",
+)  # fmt: skip
+# The (sample, yaw step) pairs where the never-cut crate stands between camera and body (§2): reported only.
+CUTAWAY_ADVISORY = frozenset({("crate-south", 1), ("crate-south", 2), ("crate-east", 2), ("crate-east", 3)})
+TIERS = ("laptop", "rig", "max")
 
 Mask = NDArray[np.bool_]
 Floats = NDArray[np.float64]
@@ -64,25 +78,32 @@ def mask_of(rgb: Rgb) -> Mask:
 
 
 def cutaway_report(frames: Path) -> tuple[list[str], list[str]]:
-    """(findings, notes) for the cut-<sample>-k<k>-with.png / -without.png pairs in ``frames``: a gated sample below
-    CUTAWAY_MIN is a finding, an advisory one a note."""
-    pairs = sorted(p for p in frames.iterdir() if CUT_FRAME.match(p.name))
-    if not pairs:
-        return [f"cutaway: no cut-*-with.png frames in {frames}"], []
+    """(findings, notes) for the cut-<sample>-k<k>-with.png / -without.png pairs in ``frames``: a missing or extra pair
+    is a finding, as is a gated pair below CUTAWAY_MIN; an advisory pair below it is a note."""
     found: list[str] = []
     notes: list[str] = []
-    for with_path in pairs:
-        match = CUT_FRAME.match(with_path.name)
-        assert match is not None
-        without = body_pixels(load_rgb(with_path.with_name(with_path.name.replace("-with.png", "-without.png"))))
-        if without == 0:
-            found.append(f"cutaway: {with_path.name}: the body draws no pixels even with the volume hidden")
-            continue
-        ratio = body_pixels(load_rgb(with_path)) / without
-        line = f"cutaway: {with_path.name}: {ratio:.1%} of the body visible, below {CUTAWAY_MIN:.0%}"
-        if ratio < CUTAWAY_MIN:
-            (notes if match["sample"] in CUTAWAY_ADVISORY else found).append(line)
+    seen = {(m["sample"], int(m["k"])): p for p in frames.iterdir() if (m := CUT_FRAME.match(p.name))}
+    expected = {(sample, k) for sample in CUTAWAY_SAMPLES for k in range(4)}
+    found += [f"cutaway: no frames for {s} at step {k}" for s, k in sorted(expected - seen.keys())]
+    found += [f"cutaway: frames for {s} at step {k}, which is not a sample" for s, k in sorted(seen.keys() - expected)]
+    for pair in sorted(expected & seen.keys()):
+        line = _pair_finding(seen[pair])
+        if line is not None:
+            (notes if pair in CUTAWAY_ADVISORY else found).append(line)
     return found, notes
+
+
+def _pair_finding(with_path: Path) -> str | None:
+    without_path = with_path.with_name(with_path.name.replace("-with.png", "-without.png"))
+    if not without_path.is_file():
+        return f"cutaway: {with_path.name} has no -without.png beside it"
+    without = body_pixels(load_rgb(without_path))
+    if without == 0:
+        return f"cutaway: {with_path.name}: the body draws no pixels even with the volume hidden"
+    ratio = body_pixels(load_rgb(with_path)) / without
+    if ratio < CUTAWAY_MIN:
+        return f"cutaway: {with_path.name}: {ratio:.1%} of the body visible, below {CUTAWAY_MIN:.0%}"
+    return None
 
 
 def edge_density(lstar: Floats, mask: Mask) -> float:
@@ -134,8 +155,36 @@ def agreement_findings(name: str, tier: Rgb, rig: Rgb) -> list[str]:
     return out
 
 
-def colour_alone_findings(frames: Path) -> list[str]:
-    """§6.4 over the frames golden_run.py names: cold and fire at the rig tier, and the fire fixture's two masks."""
-    cold, fire = load_rgb(frames / "cold-rig.png"), load_rgb(frames / "fire-rig.png")
-    found = crack_findings(cold, fire, mask_of(load_rgb(frames / "fire-rig-crack_mask.png")))
-    return found + glow_findings(cold, fire, mask_of(load_rgb(frames / "fire-rig-glow_mask.png")))
+def speckle(rgb: Rgb) -> list[tuple[int, int]]:
+    """(row, column) of every interior pixel that differs by more than SPECKLE_DIFF (RGB sum) from the median of
+    eight neighbours spanning at most FLAT_SPAN."""
+    total = rgb.astype(np.int32).sum(axis=-1)
+    h, w = total.shape
+    ring = np.stack(
+        [
+            total[1 + dy : h - 1 + dy, 1 + dx : w - 1 + dx]
+            for dy in (-1, 0, 1)
+            for dx in (-1, 0, 1)
+            if (dy, dx) != (0, 0)
+        ]
+    )
+    flat = (ring.max(axis=0) - ring.min(axis=0)) <= FLAT_SPAN
+    odd = np.abs(total[1:-1, 1:-1] - np.median(ring, axis=0)) > SPECKLE_DIFF
+    return [(int(r) + 1, int(c) + 1) for r, c in zip(*np.nonzero(flat & odd), strict=True)]
+
+
+def speckle_findings(frames: Path) -> list[str]:
+    found = []
+    for tier in SPECKLE_TIERS:
+        dots = speckle(load_rgb(frames / f"cold-{tier}.png"))
+        if dots:
+            found.append(f"{tier}: speckle: {len(dots)} isolated pixel(s) on flat faces, first at {dots[:3]}")
+    return found
+
+
+def colour_alone_findings(frames: Path, tier: str) -> list[str]:
+    """§6.4 at ``tier`` over the frames golden_run.py names: cold and fire, and the fire fixture's two masks."""
+    cold, fire = load_rgb(frames / f"cold-{tier}.png"), load_rgb(frames / f"fire-{tier}.png")
+    found = crack_findings(cold, fire, mask_of(load_rgb(frames / f"fire-{tier}-crack_mask.png")))
+    found += glow_findings(cold, fire, mask_of(load_rgb(frames / f"fire-{tier}-glow_mask.png")))
+    return [f"{tier}: {f}" for f in found]

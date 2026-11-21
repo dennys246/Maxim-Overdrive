@@ -14,8 +14,8 @@ scans. Godot's exit status is never trusted alone.
    The measured checks hold on any renderer, so the owner's Mac runs them too; only the goldens are CI's alone.
 
 The frames, logs and ΔE images land in ``--out``, which CI keeps as an artifact, so a new golden comes from CI's own
-output. ``--no-xvfb`` draws in the current display instead (the owner's Mac, advisory: its log names no llvmpipe, so
-the golden judge refuses it, but every frame is written and the measured checks run).
+output. ``--no-xvfb`` draws in the current display instead (the owner's Mac, advisory): the goldens are not judged,
+since only the CI image's build may be, and the exit status is the measured checks'.
 
 Run: ``python scripts/golden_run.py --out <dir> [--godot <binary>] [--no-xvfb]`` (exit 1 on any finding).
 """
@@ -24,8 +24,10 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import godot_check as gc
@@ -43,14 +45,18 @@ DRAW = (
 )  # fmt: skip
 GOLDEN_SCENE = "res://tests/golden.tscn"
 CUTAWAY_SCENE = "res://tests/cutaway_check.tscn"
-TIERS = ("laptop", "rig", "max")
-# (frame name, fixture, tier, pass): every tier's shaded fire frame is a golden; the cold frame and the masks feed
-# the never-colour-alone check.
-SHOTS = (
-    *((f"fire-{tier}.png", "alley_fire", tier, "shaded") for tier in TIERS),
-    ("cold-rig.png", "alley_cold", "rig", "shaded"),
-    ("fire-rig-crack_mask.png", "alley_fire", "rig", "crack_mask"),
-    ("fire-rig-glow_mask.png", "alley_fire", "rig", "glow_mask"),
+TIERS = gm.TIERS
+# (frame name, fixture, tier, pass): every tier's shaded fire frame is a golden; every tier's cold frame and masks
+# feed its never-colour-alone check.
+SHOTS = tuple(
+    shot
+    for tier in TIERS
+    for shot in (
+        (f"fire-{tier}.png", "alley_fire", tier, "shaded"),
+        (f"cold-{tier}.png", "alley_cold", tier, "shaded"),
+        (f"fire-{tier}-crack_mask.png", "alley_fire", tier, "crack_mask"),
+        (f"fire-{tier}-glow_mask.png", "alley_fire", tier, "glow_mask"),
+    )
 )
 
 
@@ -58,9 +64,12 @@ def draw(
     godot: str, project: Path, scene: str, user_args: list[str], *, home: Path, timeout_s: float,
     wrapper: tuple[str, ...],
 ) -> tuple[list[str], str]:  # fmt: skip
-    """Draw one scene with ``user_args`` after ``--``; returns (findings, log)."""
+    """Draw one scene with ``user_args`` after ``--``; returns (findings, log). Prints the call's wall time, so a scene
+    creeping towards the timeout shows before it crosses it."""
     args = [*DRAW, "--path", str(project), scene, "--", *user_args]
+    start = time.monotonic()
     run = gc.run_godot(godot, f"draw {scene}", args, home=home, timeout_s=timeout_s, wrapper=wrapper)
+    print(f"golden_run: {scene} took {time.monotonic() - start:.1f} s of {timeout_s:g} s")
     return gc.error_findings(run) + gc.exit_findings(run), "\n".join(run.lines)
 
 
@@ -78,7 +87,9 @@ def measured_findings(out: Path, cut: Path) -> list[str]:
     found, notes = gm.cutaway_report(cut)
     for note in notes:
         print(f"golden_run: advisory: {note}")
-    found += gm.colour_alone_findings(out)
+    for tier in TIERS:
+        found += gm.colour_alone_findings(out, tier)
+    found += gm.speckle_findings(out)
     rig = golden_compare.load_rgb(out / "fire-rig.png")
     for tier in TIERS:
         if tier != "rig":
@@ -94,7 +105,8 @@ def draw_all(
     found, log = draw(godot, project, GOLDEN_SCENE, shots, home=home, timeout_s=timeout_s, wrapper=wrapper)
     (out / "golden.log").write_text(log + "\n")
     cut = out / "cutaway"
-    cut.mkdir(exist_ok=True)
+    shutil.rmtree(cut, ignore_errors=True)  # a reused --out must not judge an earlier run's frames
+    cut.mkdir()
     cut_found, cut_log = draw(
         godot, project, CUTAWAY_SCENE, [f"--out={cut}"], home=home, timeout_s=timeout_s, wrapper=wrapper
     )
@@ -105,7 +117,11 @@ def draw_all(
     return found, log
 
 
-def golden_job(godot: str, *, work: Path, out: Path, timeout_s: float, wrapper: tuple[str, ...]) -> list[str]:
+def golden_job(
+    godot: str, *, work: Path, out: Path, timeout_s: float, wrapper: tuple[str, ...], goldens: bool = True
+) -> list[str]:
+    """Import, draw, judge. ``goldens`` False skips the golden comparison (a run off the CI image, whose build the
+    judge would refuse anyway), so the exit status reflects the measured checks alone."""
     home, project = work / "home", gc.copy_project(CLIENT, work / "client")
     found = gc.import_step(godot, CLIENT, project, home=home, timeout_s=timeout_s)
     if found:
@@ -113,6 +129,9 @@ def golden_job(godot: str, *, work: Path, out: Path, timeout_s: float, wrapper: 
     found, log = draw_all(godot, project, out, home=home, timeout_s=timeout_s, wrapper=wrapper)
     if found:
         return found
+    if not goldens:
+        print("golden_run: goldens not judged: --no-xvfb draws off the CI image, where only the measured checks count")
+        return measured_findings(out, out / "cutaway")
     return golden_findings(log, out) + measured_findings(out, out / "cutaway")
 
 
@@ -131,10 +150,13 @@ def main(argv: list[str] | None = None, *, work_parent: Path | None = None) -> i
     args.out.mkdir(parents=True, exist_ok=True)
     wrapper = () if args.no_xvfb else XVFB
     with tempfile.TemporaryDirectory(prefix="golden-", dir=work_parent or args.out) as work:
-        found = golden_job(godot, work=Path(work), out=args.out, timeout_s=args.timeout, wrapper=wrapper)
+        found = golden_job(
+            godot, work=Path(work), out=args.out, timeout_s=args.timeout, wrapper=wrapper, goldens=not args.no_xvfb
+        )
     for f in found:
         print(f"golden_run: {f}", file=sys.stderr)
-    print(f"golden_run: {'FAIL' if found else 'PASS'} ({len(SHOTS)} shots, {len(TIERS)} goldens, cut-away)")
+    judged = "goldens not judged" if args.no_xvfb else f"{len(TIERS)} goldens"
+    print(f"golden_run: {'FAIL' if found else 'PASS'} ({len(SHOTS)} shots, {judged}, cut-away)")
     return 1 if found else 0
 
 

@@ -15,6 +15,7 @@ const vec3 KEY_COLOUR = vec3(1.25, 1.18, 1.05);
 const vec3 AMBIENT_COLOUR = vec3(0.13, 0.15, 0.22);
 const float CHAR_DARKEN = 0.4;
 const float HATCH_PERIOD_M = 0.12;
+const float HATCH_MIN_PERIOD_PX = 8.0;
 const float HATCH_DUTY = 0.4;
 const float HATCH_SHADE = 0.45;
 const float FISSURE_DARKEN_PER_M = 14.0;
@@ -42,24 +43,23 @@ float occludes(ivec3 c) {
 
 // Ambient occlusion from the cells next to the face: a face in a corner is darker, which is what makes voxel
 // geometry read as solid. ``out_cell`` is the air cell the face looks into; u and v are the face's own axes and
-// fu, fv where the point is on the face, in [0, 1]. Each solid neighbour darkens the part of the face near it.
+// fu, fv where the point is on the face, in [0, 1]. Only the neighbours on the point's own side of each axis can
+// darken it, so only those are read: 2 edge taps, plus 1 corner tap at ao_taps 8 (a far-side tap always weighed 0).
 float face_ao(ivec3 out_cell, int axis, vec3 p_cell) {
 	if (ao_taps == 0) {
 		return 1.0;
 	}
 	int ua = axis == 0 ? 1 : 0;
 	int va = axis == 2 ? 1 : 2;
-	ivec3 u = axis_unit(ua);
-	ivec3 v = axis_unit(va);
-	float fu = fract(pick(p_cell, ua));
-	float fv = fract(pick(p_cell, va));
-	vec4 near = vec4(max(0.0, 2.0 * fu - 1.0), max(0.0, 1.0 - 2.0 * fu), max(0.0, 2.0 * fv - 1.0), max(0.0, 1.0 - 2.0 * fv));
-	near = near * near;
-	float occ = occludes(out_cell + u) * near.x + occludes(out_cell - u) * near.y;
-	occ += occludes(out_cell + v) * near.z + occludes(out_cell - v) * near.w;
+	float fu = fract(pick(p_cell, ua)) * 2.0 - 1.0;
+	float fv = fract(pick(p_cell, va)) * 2.0 - 1.0;
+	ivec3 u = axis_unit(ua) * (fu < 0.0 ? -1 : 1);
+	ivec3 v = axis_unit(va) * (fv < 0.0 ? -1 : 1);
+	float wu = fu * fu;
+	float wv = fv * fv;
+	float occ = occludes(out_cell + u) * wu + occludes(out_cell + v) * wv;
 	if (ao_taps == 8) {
-		occ += 0.5 * occludes(out_cell + u + v) * near.x * near.z + 0.5 * occludes(out_cell + u - v) * near.x * near.w;
-		occ += 0.5 * occludes(out_cell - u + v) * near.y * near.z + 0.5 * occludes(out_cell - u - v) * near.y * near.w;
+		occ += 0.5 * occludes(out_cell + u + v) * wu * wv;
 	}
 	return clamp(1.0 - 0.45 * occ, 0.45, 1.0);
 }
@@ -69,6 +69,8 @@ float face_ao(ivec3 out_cell, int axis, vec3 p_cell) {
 float hatch(int axis, vec3 p_cell) {
 	int ua = axis == 0 ? 1 : 0;
 	int va = axis == 2 ? 1 : 2;
-	float s = (pick(p_cell, ua) + pick(p_cell, va)) * cell_m / HATCH_PERIOD_M;
+	// At least HATCH_MIN_PERIOD_PX pixels a stripe pair, or at half resolution the stripes alias into a checkerboard.
+	float period = max(HATCH_PERIOD_M, HATCH_MIN_PERIOD_PX * pixel_m);
+	float s = (pick(p_cell, ua) + pick(p_cell, va)) * cell_m / period;
 	return fract(s) < HATCH_DUTY ? HATCH_SHADE : 1.0;
 }

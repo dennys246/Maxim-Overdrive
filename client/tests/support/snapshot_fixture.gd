@@ -22,8 +22,6 @@ const MAX_WHOLE: float = 9007199254740992.0
 
 ## Null when the fixture has problems.
 var snapshot: CellSnapshot = null
-## Material name -> id, the snapshot's material vocabulary.
-var material_ids: Dictionary[String, int] = {}
 ## Actor id -> feet position in world metres (the tick message's actor table, as far as the renderer needs it).
 var actors: Dictionary[int, Vector3] = {}
 var problems: Array[String] = []
@@ -159,7 +157,7 @@ func _read_vocabularies(header: Dictionary, snap: CellSnapshot) -> void:
 		if material_name.is_empty() or not is_whole(material_map[key]):
 			problems.append("materials: %s -> %s is not a name and an id" % [key, material_map[key]])
 			return
-		material_ids[material_name] = whole_of(material_map[key])
+		snap.material_ids[material_name] = whole_of(material_map[key])
 
 
 func _read_glow(header: Dictionary, snap: CellSnapshot) -> void:
@@ -189,6 +187,9 @@ func _read_actors(header: Dictionary) -> void:
 		var pos: Array[int] = wholes_of(a.get("pos_mm"), 3)
 		if not is_whole(a.get("id")) or pos.is_empty():
 			problems.append("actor %s needs a whole id and pos_mm [x, y, z]" % [actor])
+			return
+		if actors.has(whole_of(a.get("id"))):
+			problems.append("actor %s appears twice" % [a.get("id")])
 			return
 		actors[whole_of(a.get("id"))] = Vector3(pos[0], pos[1], pos[2]) / 1000.0
 

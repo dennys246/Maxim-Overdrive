@@ -12,7 +12,7 @@ func test_the_committed_fixtures_load(t: TestContext) -> void:
 		t.check_eq([f.snapshot.nx, f.snapshot.ny, f.snapshot.nz], [120, 40, 48], "%s shape (nx, ny, nz)" % fixture_name)
 		t.check_eq(f.snapshot.cell_m, 0.1, "cell_m")
 		t.check_eq(f.snapshot.region_id("crate"), 5, "the crate's id")
-		t.check_eq(f.material_ids["wood"], 4, "wood's id")
+		t.check_eq(f.snapshot.material_ids["wood"], 4, "wood's id, on the seam")
 		t.check(is_equal_approx(f.snapshot.glow_scale_c_per_count, 975.0 / 255.0), "glow scale 975/255")
 		t.check_eq(f.actors[1], Vector3(5.5, 2.925, 0.4), "the player's feet in metres")
 
@@ -56,7 +56,8 @@ func test_every_malformed_header_is_refused(t: TestContext) -> void:
 		"format": ["wire-frame"], "version": [1, 0.5, "0"], "shape": [[48, 40], [48, 40, -1.5], "x"],
 		"cell_m": ["0.1", 0.0], "regions": [[], {"0": "floor"}, {"x": "floor"}, {"1": 3}],
 		"materials": ["wood", {"wood": "4"}], "glow": [{}, {"offset_c": 525, "scale_num": 975, "scale_den": 0}],
-		"actors": [{}, [{"id": 1}], [{"id": 1, "pos_mm": [1, 2]}]], "data_size": [0, -1, 1e12, 230400],
+		"actors": [{}, [{"id": 1}], [{"id": 1, "pos_mm": [1, 2]}], [{"id": 1, "pos_mm": [1, 2, 3]}, {"id": 1, "pos_mm": [4, 5, 6]}]],
+		"data_size": [0, -1, 1e12, 230400],
 		"data_sha256": ["00"], "data_gzip_sha256": ["00", 3], "channels": [[], {}],
 	}
 	for key: String in cases:

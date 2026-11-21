@@ -25,6 +25,7 @@ var _bodies: Node3D = Node3D.new()
 var _body_material: StandardMaterial3D = StandardMaterial3D.new()
 var _snapshot: CellSnapshot = null
 var _bounds: Dictionary[int, AABB] = {}
+var _size_m: float = 10.0
 
 
 func _init() -> void:
@@ -32,6 +33,8 @@ func _init() -> void:
 	render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_environment.background_mode = Environment.BG_COLOR
 	_environment.background_color = NIGHT
+	# Linear: no tone curve, so the shader's lit colours reach the frame as computed and only emission over 1.0 clips;
+	# a filmic curve would compress the cold frame and the glow alike and blur what §6.4 measures.
 	_environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	# Bloom from HDR output above 1.0 (§5.3): only emission gets there, so only glow and flames bloom.
 	_environment.glow_hdr_threshold = 1.0
@@ -43,11 +46,14 @@ func _init() -> void:
 	camera.current = true
 
 
-func show_fixture(fixture: SnapshotFixture, palette: MaterialPalette) -> void:
-	_snapshot = fixture.snapshot
-	_bounds = _snapshot.region_cell_bounds()
-	volume.show_snapshot(_snapshot)
-	volume.use_palette(palette.by_id(fixture.material_ids))
+## Draw ``snap``. The region bounds (a GDScript pass over every cell) are computed again only for a new snapshot
+## object; a decoder that keeps one snapshot per region map would pay them once per map.
+func show_snapshot(snap: CellSnapshot, palette: MaterialPalette) -> void:
+	if snap != _snapshot:
+		_bounds = snap.region_cell_bounds()
+	_snapshot = snap
+	volume.show_snapshot(snap)
+	volume.use_palette(snap.material_ids, palette.by_id(snap.material_ids))
 	volume.use_flicker(0.0)
 
 
@@ -55,12 +61,20 @@ func use_tier(tier: RenderTier) -> void:
 	volume.use_tier(tier)
 	scaling_3d_scale = tier.scaling_3d_scale
 	_environment.glow_enabled = tier.bloom
+	_update_pixel_metres()
 
 
 ## Aim the iso camera at ``target_world_m`` from step yaw ``yaw`` with an orthographic ``size_m``.
 func aim(target_world_m: Vector3, yaw: float, size_m: float) -> void:
 	IsoCamera.place(camera, target_world_m, yaw, size_m)
-	volume.use_pixel_metres(IsoCamera.pixel_metres(size_m, size.y, scaling_3d_scale))
+	_size_m = size_m
+	_update_pixel_metres()
+
+
+## The crack's pixel floor depends on the zoom and the render scale, so both aim and use_tier recompute it, in
+## whichever order they are called.
+func _update_pixel_metres() -> void:
+	volume.use_pixel_metres(IsoCamera.pixel_metres(_size_m, size.y, scaling_3d_scale))
 
 
 ## Cut the flagged walls for a player whose feet are at ``feet_world_m``, the camera turning to ``yaw``.

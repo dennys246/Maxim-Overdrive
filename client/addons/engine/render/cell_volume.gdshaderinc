@@ -19,15 +19,18 @@
 #include "res://addons/engine/render/debug.gdshaderinc"
 
 // The box's centre in the volume's Godot frame (whose origin is the world's origin): a mesh vertex v is the volume
-// point v + centre_godot.
+// point v + centre_godot. The node carries a translation only (CellVolume never rotates or scales it); the ray
+// origin and the depth both assume so.
 uniform vec3 centre_godot = vec3(0.0);
 
 varying vec3 v_local;
 varying vec3 v_camera_local;
 varying vec3 v_forward_local;
+varying vec3 v_face_normal;
 
 void vertex() {
 	v_local = VERTEX;
+	v_face_normal = NORMAL;
 	mat4 to_local = inverse(MODEL_MATRIX);
 	v_camera_local = (to_local * vec4(CAMERA_POSITION_WORLD, 1.0)).xyz;
 	v_forward_local = normalize(mat3(to_local) * -INV_VIEW_MATRIX[2].xyz);
@@ -45,43 +48,57 @@ struct Hit {
 	bool cracked;
 };
 
-bool find_hit(Ray r, out Hit h) {
-	Walk w = walk_at(r, 0.0, entry_axis(r.o));
+// The groove a ray is in: where it entered the material, or -1 outside one.
+float groove_start(float groove_t0, Walk w) {
+	return groove_t0 >= 0.0 ? groove_t0 : w.t;
+}
+
+void begin_hit(Walk w, float c, out Hit h) {
+	h.cell = w.cell;
+	h.axis = w.axis;
+	h.t = w.t;
+	h.in_groove = false;
+	h.away = vec3(0.0);
+	h.edge_m = FAR;
+	h.cracked = c > 0.0;
+	h.depth_m = 0.0;
+}
+
+bool find_hit(Ray r, int first_axis, out Hit h) {
+	Walk w = walk_at(r, 0.0, first_axis);
 	float groove_t0 = -1.0;
-	for (int i = 0; i < MAX_STEPS; i++) {
+	for (int i = 0; i < max_steps(); i++) {
 		if (!inside(w.cell)) {
 			return false;
 		}
 		if (brick_empty(w.cell)) {
+			groove_t0 = -1.0;
 			skip_brick(r, w);
 			continue;
 		}
-		if (drawn_at(w.cell)) {
-			float c = crack_at(w.cell);
-			h.cell = w.cell;
-			h.axis = w.axis;
-			h.t = w.t;
-			h.in_groove = false;
-			h.away = vec3(0.0);
-			h.edge_m = FAR;
-			h.cracked = c > 0.0;
-			if (h.cracked && debug_carves()) {
-				Carve cv = carve(r, w, c);
-				if (!cv.solid) {
-					groove_t0 = groove_t0 < 0.0 ? w.t : groove_t0;
-					advance(r, w);
-					continue;
-				}
-				h.t = cv.t;
-				h.in_groove = cv.k > 0;
-				h.away = cv.away;
-				h.edge_m = cv.edge_m;
-			}
-			float surface_t = groove_t0 >= 0.0 ? groove_t0 : w.t;
-			h.depth_m = (h.t - surface_t) * cell_m;
-			return true;
+		if (!drawn_at(w.cell)) {
+			groove_t0 = -1.0;  // out of the material: a later hit is a new surface, not a fissure floor
+			advance(r, w);
+			continue;
 		}
-		advance(r, w);
+		float c = crack_at(w.cell);
+		begin_hit(w, c, h);
+		if (h.cracked && debug_carves()) {
+			Carve cv = carve(r, w, c);
+			float floor_t = groove_start(groove_t0, w) + GROOVE_MAX_DEPTH_M / cell_m;
+			if (!cv.solid && cell_exit_t(w) < floor_t) {
+				groove_t0 = groove_start(groove_t0, w);
+				advance(r, w);
+				continue;
+			}
+			// Solid inside this cell, or the groove's floor reached (shaded as a face, darkened by its depth).
+			h.t = cv.solid ? cv.t : floor_t;
+			h.in_groove = cv.solid && cv.k > 0;
+			h.away = cv.away;
+			h.edge_m = cv.solid ? cv.edge_m : FAR;
+		}
+		h.depth_m = (h.t - groove_start(groove_t0, w)) * cell_m;
+		return true;
 	}
 	return false;
 }
@@ -96,7 +113,7 @@ vec3 hit_normal(Ray r, Hit h) {
 	if (!h.cracked) {
 		return face;
 	}
-	float half_w = groove_half_width_m(crack_at(h.cell));
+	float half_w = groove_half_width_m(crack_at(h.cell), abs(pick(r.d, h.axis)));
 	float lip = clamp(1.0 - (h.edge_m - half_w) / half_w, 0.0, 1.0);
 	return normalize(face - 0.8 * lip * h.away);
 }
@@ -122,7 +139,7 @@ void fragment() {
 	vec3 origin = godot_to_world(v_local + centre_godot) / cell_m;
 	Ray r = make_ray(clamp(origin, vec3(0.0), vec3(cells)), normalize(godot_to_world(dir_local)));
 	Hit h;
-	if (!find_hit(r, h)) {
+	if (!find_hit(r, entry_axis(godot_to_world(v_face_normal)), h)) {
 		discard;
 	}
 	vec3 p = r.o + r.d * h.t;

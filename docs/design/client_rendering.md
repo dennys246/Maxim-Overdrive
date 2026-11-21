@@ -40,19 +40,19 @@ T3–T7 are world decisions (world §0).
 ## 2. The cut-away (T11; CR-S3, CR-N2)
 
 - **Which regions:** walls, as named in client data (`client/game/cutaway.tres`, keyed by region name; DC-N4).
-- **When:** a flagged region is cut when its box's point nearest the player lies on the camera's side:
-  dot(q − p, f) < 0, f the camera's horizontal forward at the **target** yaw (step 8: centres cut walls behind).
+- **When:** a flagged region is cut when its point nearest the player across its short side lies on the camera's
+  side: dot(q − p, f) < 0, f the horizontal forward at the **target** yaw (step 8: centres cut walls behind).
 - **Stumps:** cut regions keep a 0.3 m stump, the cells whose top is ≤ feet + 0.3 m. With the body's axis 0.25 m from
   a wall face, the sightline at 40° rises 0.30 m by the face (0.25/sin 45° × tan 40°, derived). So the stump hides at
   most the feet's edge.
 - **Hatching:** cut faces are hatched, a shape rather than a colour, so a cut wall never reads as burned away.
 - **Never cut:** the crate and other non-wall regions, so the fire stays visible from anywhere.
-- **No pops:** a side wall's face is never crossed, and the flag flips only at tween start. The end wall's face
-  (x = 11.6 m) is out of reach.
+- **No pops:** the flag flips only at tween start, except stepping round a wall's end, level with its thickness
+  (0.15 m of pavement). The end wall's face is out of reach.
 - **Visual only:** uniforms, never fed back.
 - **Test (step 8):** the player's ID-mask pixels with world geometry drawn, divided by the same with the cell volume
-  hidden, must be **≥ 95%** (v1's and CR-S3's threshold; `fold.md` Check 2b). It is checked at sampled positions along
-  both walls and at the crate, at all four yaws. Proved by deletion: with the cut off, the yaws facing a wall fail.
+  hidden, must be **≥ 95%** (v1's and CR-S3's threshold; `fold.md` Check 2b), at positions along both walls, the
+  pavement and the crate, all four yaws. The crate hides 13% at four pairs: reported, the owner's call.
 
 ## 3. Input to intents (T2; world §3.3 has the messages)
 
@@ -172,16 +172,16 @@ T3–T7 are world decisions (world §0).
   has a capsule half inside a wall (CR-S1).
 - **Lighting** (`render_mode unshaded`): a fixed key light, three-tone face shading, neighbour AO, a fixed night
   ambient. No dynamic shadows.
-- **Glow:** T = offset + scale·g, both from the catalogue. Emission = 4.0 × (T_K/1773)⁴ in HDR `[engineering]`, a
+- **Glow:** T = offset + scale·g, both from the catalogue. Emission = 4.0 × ((T_K/1773)⁴ − (T₀/1773)⁴), T₀ the offset, a
   **stylisation**: T⁴ is total radiance, not visible radiance (PH-N2, CR-N4). Hue goes dull red → orange →
-  yellow-white. Ember envelopes near 920 °C (world §5.3) read bright yellow-orange. Output above 1.0 drives glow
+  yellow-white. Ember envelopes near 920 °C (world §5.3) read orange-red, below bloom. Output above 1.0 drives glow
   [ran].
 - **Flames from `burning`:** emissive flicker plus `GPUParticles3D` at burning cells. Visual only, and off in goldens.
 
 ### 5.4 Crack changes shape (EX-S10, CR-S4)
 
-- **The pattern:** each cell carries 3-D Voronoi edges from an integer hash of its index. With c = `crack` in [0, 1],
-  points within w = max(0.02 m × c, the metres that 0.75 px spans at the current zoom) of an edge are empty when
+- **The pattern:** 3-D Voronoi edges, ≥ 12 px polygons (cell × 2ⁿ), from an integer hash. With c = `crack` in [0, 1],
+  points within w = max(0.02 m × c, the metres 0.75 px spans, ÷ the face's slant) of an edge are empty when
   c > 0, so a groove is never narrower than 1.5 px `[engineering]`. The march goes `crack_substeps` into the cell.
   Fissure walls darken with depth, and the normal tilts towards the edge.
 - **Worked numbers (derived):** at 72 px/m, c = 0.25 gives 0.72 px from the metre term, so the floor applies. At
@@ -197,7 +197,7 @@ A typed `Resource` in `client/game/tiers/`:
 |---|---|---|---|---|---|---|
 | laptop | 0.5 | 2 | nearest | off | off | 64 |
 | rig | 1.0 | 4 | linear | on | 4-tap | 256 |
-| max | 1.0 | 8 | linear | on | 6-tap | 1,024 |
+| max | 1.0 | 8 | linear | on | 8-tap | 1,024 |
 
 Filters are compile-time hints [ran], so the glow sampler is a `#define` variant (CR-N1, EX-N3).
 
@@ -265,8 +265,8 @@ Each tier's frame is box-filtered to 160 × 90, then laptop and max are each com
   surfaceless mode.
 - **Golden paths** are `client/tests/goldens/compat-llvmpipe-mesa<package>-llvm<v>-godot<v>/<tier>/`, keyed from the
   run's log. A new build regenerates them in a commit of its own.
-- **The Mac is advisory:** `prepush` runs the B6 gate, plus the tier-agreement and greyscale checks when a GPU
-  context exists. B7 passes only when the CI job is green.
+- **The Mac is advisory:** `golden_run.py --no-xvfb` runs the tier-agreement and greyscale checks by hand; `prepush`
+  doesn't. B7 passes only when the CI job is green.
 - **Updates go through** `scripts/update_goldens.sh <reason>`: it refuses a dirty tree, renders in the CI image, and
   writes a diff image for each golden.
 
@@ -347,7 +347,7 @@ Client meters take the minimum of N ≥ 50 `Time.get_ticks_usec()` intervals, an
 
 | Meter | Target | Status |
 |---|---|---|
-| Decode + upload, all seven textures (six channels, `region` at 2 B/cell, bricks) | ≤ 3 ms (1.4–2.4 ms from 173–294 µs per channel-equivalent [ran]) | B5, gated in CI |
+| Decode + upload, all seven textures (six channels, `region` at 2 B/cell, bricks) | ≤ 3 ms (1.4–2.4 ms from 173–294 µs per channel-equivalent [ran]) | no meter; broken as built (B5) |
 | First upload | warmed on `welcome` (the first `update` took 10.9 ms [ran]) | test |
 | Frame time, rig and laptop tiers, golden view | ≤ 16.7 ms with `--disable-vsync` | reported, as the uncapped minimum frame interval: the GPU meter reads 0 [ran] |
 | `tick` delay behind a frame | ≤ 5 ms | reported |
@@ -371,7 +371,7 @@ Results: `research/godot_probes.md`; an upgrade reruns `tools/godot_probes/`. Th
 
 ## 10. Open questions for the owner
 
-None open. v2's five were answered as recommended (T8–T12).
+Six, from step 8's build: `reviews/step8_shader/fold.md`, "Owner decisions".
 
 ## 11. What this does not settle
 

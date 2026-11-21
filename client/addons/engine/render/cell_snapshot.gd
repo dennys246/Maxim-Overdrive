@@ -23,6 +23,8 @@ var cell_m: float = 0.0
 var channels: Dictionary[String, PackedByteArray] = {}
 ## region id -> name; 0 is "no region" and has no entry.
 var region_names: Dictionary[int, String] = {}
+## material name -> id, the vocabulary the palette colours cells by (air is 0).
+var material_ids: Dictionary[String, int] = {}
 ## surface_glow's calibration, T = offset_c + scale_c_per_count * g, from the catalogue's integer rational.
 var glow_offset_c: float = 0.0
 var glow_scale_c_per_count: float = 0.0
@@ -40,6 +42,8 @@ func problems() -> Array[String]:
 		out.append("shape %d x %d x %d is empty" % [nx, ny, nz])
 	if not cell_m > 0.0:
 		out.append("cell_m %s is not positive" % cell_m)
+	if material_ids.is_empty():
+		out.append("no material vocabulary")
 	if not glow_scale_c_per_count > 0.0:
 		out.append("surface_glow's scale %s is not positive" % glow_scale_c_per_count)
 	for channel: String in CHANNEL_BYTES:
