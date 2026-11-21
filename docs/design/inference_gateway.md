@@ -10,6 +10,7 @@ short delta check confirms the folds, and mechanism findings are in `phase1/agen
 - its process and environment;
 - the host–gateway channel and its rules;
 - the gateway's lifecycle;
+- `endpoints.yaml` and the credential store;
 - per-transport classification of a backend result into an outcome;
 - consent by egress class, and per-speaker taint;
 - what each egress class can promise;
@@ -79,7 +80,7 @@ through a bounded outbox. A full outbox counts as a hung peer (§4).
 
 | Kind | Fields |
 |---|---|
-| `open` | the placement's transport settings: `transport`, `egress`, `cleartext`, the endpoint and credential references, the transport timeout; no function data |
+| `open` | the placement's `id` (whose endpoint and credential references the gateway looks up in `endpoints.yaml`), `transport`, `egress`, `cleartext`, and `transport_timeout_s` from the `health` block; no function data |
 | `dispatch` | `attempt_id`, the request |
 | `cancel` | `attempt_id` |
 | `ping` | `n` |
@@ -126,9 +127,11 @@ through a bounded outbox. A full outbox counts as a hung peer (§4).
 **Starting.** A start fails if neither `ready` nor `error` arrives within `start_ceiling_s`, or if `error` arrives.
 - `error(credential_unresolved)` or `error(endpoint_refused)` marks the placement **down for the session** at once,
   because retrying can't fix either.
-- Other failed starts back off exponentially up to a cap.
-- `max_failed_starts` within the window marks it down for the session.
-- **Only failed starts count. Kills never count.**
+- A process that exits before `ready` is a failed start, and `max_failed_starts` within the window marks the
+  placement down for the session.
+- A start that times out restarts with backoff but never counts, because a loaded machine starts slowly and load
+  must never move a pinned function (O48).
+- **Kills never count.**
 - The client is told through `inference_status` (§8).
 
 **Stopping.** `shutdown` is a bounded wait, then a kill. A gateway exits with `os._exit` on EOF from the host, so an
@@ -136,7 +139,8 @@ orphan never keeps spending.
 
 **Tunables.** Every value in this section lives in `placements.yaml`'s `health` block (IP §2.2), with its range
 checked at load. The rules: `ping_ceiling_s` above the ping interval, `start_ceiling_s` below the liveness ceiling,
-and the backoff cap below the liveness ceiling.
+the backoff cap below the liveness ceiling, and (1 + the retries the transport can't switch off) ×
+`transport_timeout_s` at or below `call_ceiling_s`.
 
 ## 5. Classifying a backend result **[now: the table; Phase 4: each transport's fake-server tests]**
 
@@ -150,6 +154,7 @@ The gateway classifies; the lane decides (IP §2.6). The gateway normalises the 
 | content, with stop reason `absent` or `end_turn` / `stop` | `ok` |
 | empty content with a non-`absent` stop reason that is not a refusal | `ok` (the model chose silence) |
 | length stop: `max_tokens` (anthropic), `length` (openai_compatible, maxim_peer) | `truncated(length)` |
+| content with any other stop reason (`stop_sequence`, `tool_use`, `pause_turn`, `tool_calls`, …) | `ok` |
 | refusal stop: `refusal` (anthropic), `content_filter` (openai_compatible) | `failed(refused)`. The values are *to verify* at Phase 4 against each transport. |
 | empty content and an `absent` stop reason | `failed(empty)`, **a stand-in until OD-I9**, marked in code with `TEMPORARY(phase3)` and listed under Phase 3 |
 | `BackendOverloaded` / `BackendTimeout` | `failed(overloaded)` / `failed(call_timeout)` |
@@ -176,10 +181,11 @@ an actor and its session (`npcs_and_sem.md` §6.6), so a guest who rejoins accep
 
 **Taint** (O51). For each NPC, taint is the set of speakers whose words it may hold. It is the host's provenance
 lower bound (O26) over:
-- **every guest-supplied string the NPC perceived, by any channel:** speech, display names, imagined-object labels
-  and written text in the world. This is the closed list of strings that pass `engine.text.player_text`
-  (`npcs_and_sem.md` §6.6).
-- **everything it heard from NPCs that held them,** transitively.
+- **every guest-supplied string the NPC perceived, by any channel:** whatever passes `engine.text.player_text`
+  (`npcs_and_sem.md` §6.6 owns that list).
+- **everything it perceived from NPCs that held them, by any channel,** transitively. A string an NPC authors into
+  the world (an imagined-object label, written text) carries its author's taint when the intent applies, and
+  perceiving it transfers that taint.
 
 **What taint does.** An NPC whose taint holds a speaker who hasn't accepted a class is ineligible for that class.
 
@@ -195,8 +201,12 @@ said, and the NPCs then lose those memories.
 - `owner_lan` is eligible once configured;
 - `third_party` needs an explicit opt-in and a spending cap.
 
-**OPEN divergence:** taint spreads through conversation and persists until purged. One guest who declined can leave
-most of a talkative city local-only.
+**OPEN divergences:**
+- Taint spreads through conversation and persists until purged. One guest who declined can leave most of a talkative
+  city local-only.
+- Clearing rests on the agent's purge reach, a lower bound (O26), so a paraphrase or summary that escaped the
+  provenance sets survives a purge.
+- A guest's world text keeps re-tainting NPCs until the object is removed, which O26's purge doesn't reach.
 
 ## 7. What each class can promise **[now: the checks and the disclosure text]**
 

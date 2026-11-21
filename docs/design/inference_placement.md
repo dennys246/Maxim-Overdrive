@@ -7,7 +7,7 @@ folds, and mechanism findings are deferred, each with its trigger, to `phase1/ag
 
 **What it owns** (one owner per contract, B36):
 - functions and their envelopes;
-- the three data files;
+- `functions.yaml` and `placements.yaml` (`endpoints.yaml` is IG's);
 - eligibility, selection, slots and health;
 - the outcome vocabulary and where each outcome goes: the `thought_failed` reasons and the `truncated` reasons;
 - provenance;
@@ -132,7 +132,7 @@ Each file is versioned, refuse-on-unknown, and a registered gate (IG §9).
 |---|---|---|---|
 | `data/agents/functions.yaml` (shipped) | host | functions, tiers, envelopes | refuses on mismatch (`data/agents/`) |
 | `placements.yaml` (shipped default in `data/placements/`; the player's replaces it whole) | host | placements; each function's ordered list and policy (`single`, `pinned` or `spill`); `servers`; the `health` block (IG §4, §2.7) | recorded per segment, never read |
-| `endpoints.yaml` (the same pairing) | gateway only | endpoint and credential references | never read |
+| `endpoints.yaml` | gateway only | owned by IG §8 | never read |
 
 **A placement's fields:**
 
@@ -166,14 +166,14 @@ A placement under a **load delay** (§2.7) stays eligible. Fit, tiers and ranges
 
 - **One deadline queue per placement**, and one per `server` group across its placements' queues. A freed slot goes
   to the earliest-due request that may use it:
-  - **`single`:** only the first placement in the list, ever. If it isn't eligible, the request ends at once as
-    `unavailable`. Experiment functions use `single` (§4.3).
+  - **`single`:** only the first placement in the list, ever. Experiment functions use `single` (§4.3).
   - **`pinned`** (O48): the first eligible placement in the list.
   - **`spill`:** any eligible placement in the list, and the first in list order when several have a free slot at
     once.
 - **The placement is chosen when the slot is granted.**
-- **No eligible placement at all** (consent, budget, down) ends the request at once as `unavailable`. One whose only
-  candidate is cooling down waits, bounded by the liveness ceiling.
+- **When no candidate is eligible,** under every policy: if any candidate is ineligible only by a cooldown, the
+  request waits for it, bounded by the liveness ceiling; otherwise (consent, budget, down) it ends at once as
+  `unavailable`.
 - **What `pinned` costs.** In a round-1 reader's queueing model on §4.5's numbers, the effective dial is about 1.03×
   pinned to one 2-slot placement, against 1.34× when spilling over two (`reviews/inference_placement/performance.md`
   S-4). `pinned` buys a warm prompt cache per NPC and capability that doesn't follow load. §8 meters the wait it adds.
@@ -206,8 +206,8 @@ The gateway classifies each backend result (IG §5), and the lane decides what i
 | `failed(context_overflow)` | request | no | `cancelled(prefix)` | `thought_failed(context_overflow)` | failure |
 | `failed(refused)` | request | no | same | `thought_failed(refused)` | failure |
 | `failed(overloaded)`, `failed(call_timeout)` | placement: **load** | yes, same placement under `pinned` (§2.7) | after the ceiling: same | `thought_failed(timeout)` | failure |
-| `failed(empty)` | placement: **load** on `openai_compatible` and `anthropic`, **fault** on `maxim_peer` (IG §5) | yes | after retries: same | `thought_failed(model_error)` | failure |
-| `failed(unreachable)` | placement: fault; host when collateral of a kill or a crash | yes | same | `thought_failed(model_error)` | failure |
+| `failed(empty)` | placement: **load** on `openai_compatible` and `anthropic`, **fault** on `maxim_peer` (§2.7) | yes | after retries: same | `thought_failed(model_error)` | failure |
+| `failed(unreachable)` | placement: fault, including a gateway crash during the attempt; host only when collateral of a kill | yes | same | `thought_failed(model_error)` | failure |
 | `failed(auth)`, `failed(model_missing)`, `failed(inference_broken)`, `failed(oversized)`, `failed(unclassified)` | placement: fault | yes | same | `thought_failed(model_error)` | failure |
 
 - **What the agent sees.** It sees only the `Reply` variants, as `npcs_and_sem.md` §6.6 defines them:
@@ -216,8 +216,11 @@ The gateway classifies each backend result (IG §5), and the lane decides what i
   - no `thought_failed` reason, outcome, attribution or placement ever crosses `AgentPort` (§6.4's schema test).
 - **Delivery under O50.** A reply is held until its landing tick. At that tick the host validates its speech field
   and delivers what validates (`npcs_and_sem.md` §5.2–§5.3). Then `think` resumes with:
-  - `complete(text)` for `ok`;
-  - `truncated(prefix, reason=length)` for a length cut, where `prefix` is what was delivered.
+  - `complete(text)` for `ok` whose speech validated whole;
+  - `truncated(prefix, reason=validation)` when the speech fails validation partway (`npcs_and_sem.md` §6.6);
+  - `truncated(prefix, reason=length)` for a length cut.
+
+  `prefix` is always what was delivered.
 
   Text beyond the delivered speech never reaches cognition (TB3-S5).
 - **One closed list of `thought_failed` reasons**, owned here: `budget`, `timeout`, `parse`, `reloaded`, `unavailable`,
@@ -229,7 +232,8 @@ The gateway classifies each backend result (IG §5), and the lane decides what i
   - `transport`, reserved for when streaming lands. Under OD-A25, a failure after delivered speech ends as
     `truncated(prefix, reason=transport)` and is never retried.
 - **Retries** run under every latency policy, bounded by the liveness ceiling, as new attempts. This replaces
-  `npcs_and_sem.md` §1's "a timeout retries". Request-attributed outcomes never retry.
+  `npcs_and_sem.md` §1's "a timeout retries". Request-attributed outcomes never retry. Outcome names are
+  lane-internal; receipt kinds (`tile_and_client.md` §3.3) are a separate vocabulary.
 
 ### 2.7 Health **[now]; the law is swappable**
 
@@ -244,7 +248,7 @@ dispatches.
 - **A fault outcome** starts a **cooldown**, and a cooling placement is ineligible. After the cooldown, one probe
   request goes first. The probe is re-issued until one ends in `ok` or in a fault. Outcomes attributed to the
   request or the host change nothing.
-- **Down for the session** comes only from failed starts (IG §4). Kills never count.
+- **Down for the session** comes only from failed starts (IG §4). Kills and start timeouts never count.
 - **Until OD-I9, the cloud and OpenAI-compatible transports can't tell load from failure** (F2). A server that is
   hard down therefore looks like load: pinned requests time out instead of failing over. That is a Known gap (§6.3).
 
@@ -294,7 +298,8 @@ because without it the next request depends on thread timing.
   request already cancelled. Test: a poisoned entry for the first request is ignored live.
 - **A rerun reads and never dispatches.** It reads an occurrence at its landing tick, where live play would resume
   `think`. A request whose thought ended (a logged cancel or `thought_failed`) before its landing tick is never
-  looked up. Any other miss is a loud error.
+  looked up. The rule is keyed to the log: a request whose thought has a terminal record (`thought_cancelled`
+  or `thought_failed`) is never looked up, whatever the ticks. Any other miss is a loud error.
 - **Replay never opens the cache.** Tested with the cache deleted, or poisoned.
 
 **Pairing.** Two runs that differ in one variable stay paired through the cache only over their shared prefix. An arm
@@ -304,9 +309,10 @@ ends at its first miss, and a paired analysis estimates d_z, with the seed as th
 - A reply that has arrived but not landed is held, with its text and provenance, in the host header's `held_reply`
   field (`npcs_and_sem.md` §6.6), and is saved with it. A load resumes from it and never dispatches it again. The
   bug-report exporter strips held texts, as it excludes the cache.
-- A load opens a child segment. Its cache is the parent's **as of the save point**: only the entries whose requests
-  were created at or before the saved high-water request id. So a child's writes never collide with the parent's
-  later entries.
+- A load opens a child segment. Its cache is the parent's cache **as it stood at the save's header snapshot**: an entry
+  written after the snapshot is excluded, even if its request was created before. So a reply in flight at the
+  save is re-dispatched by the child and never collides. The per-hash occurrence counters are saved with the save,
+  so the child continues the parent's count as of the snapshot.
 
 ### 4.3 The rerun manifest's inference items **[with the cache]**
 
@@ -337,15 +343,21 @@ Owned here, and listed in `npcs_and_sem.md` §12.2:
   (`npcs_and_sem.md` §4.2, §4.6).
 - **Observed latency.** `learned_hold_window.md`'s observed latency varies per reply (`npcs_and_sem.md` §5.1).
 - **Taint spreads and persists** (IG §6).
+- **Phantom interruptions.** A failed thought resumes the agent as `cancelled(prefix)` (§2.6), so how often an NPC is
+  interrupted depends on its placement's health. No value crosses `AgentPort`, but the rate does.
 
 ### 6.3 Known gaps
 
 Owned here, and listed in `docs/architecture.md`'s Known gaps:
 - **O50's cost.** The first word arrives with the whole reply. How long that takes depends on the machine's load
-  more than on the model. The vertical slice's lesson ("A local model's latency is the machine's, not the model's",
-  `lessons_maxim_in_games.md` on `phase1/vertical-slice` at 7eed0bc) has the numbers, from quiet machines to loaded
-  ones. On every loaded figure there, a reply passes O11a's account (600–700 ms) and its yield (about 1 s), and
-  §4.5's lever 3 is unavailable until OD-A25.
+  more than on the model:
+  - the spike measured a median of 1.29 s on a quiet M2 (`research/llm_spike.md`);
+  - the vertical slice measured 0.23 s warm on a quiet Mac mini, and 8 s warm (48 s cold) at load 125–142
+    (`lessons_maxim_in_games.md`, "A local model's latency is the machine's", `phase1/vertical-slice` at 7eed0bc,
+    until PR #25 merges).
+
+  On the loaded figures, a reply passes O11a's account (600–700 ms) and its yield (about 1 s). §4.5's lever 3 is
+  unavailable until OD-A25.
 - **Load versus failure (F2).** On the cloud and OpenAI-compatible transports, a hard-down server looks like load
   until OD-I9 (§2.7).
 - **First hops only** (IG §7). Loopback and `owner_lan` promise only their first hop, HTTPS to `owner_lan` has no

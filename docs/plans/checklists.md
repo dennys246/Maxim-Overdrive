@@ -330,7 +330,8 @@ contradicts (TB-S5). Before the codec's fixtures freeze, each of these is a test
   (wire S-4, executor E-N6, Phase 4); the HTTPS `owner_lan` address check (executor D-S6b, Phase 4); the proxy re-read
   at each client build (trust D-S3); the no-effect allowed set (trust D-S5); call-time import capture (E-S9); slot
   reservation per function (C12, on the slot-wait meter); a dial-test failure schedule that stays recoverable and
-  waits per reply (determinism N1).
+  waits per reply (determinism N1); a probe of each server's real parallelism against its declared `max_in_flight`
+  (performance S-3, Phase 4).
 
 **Coverage of the worker (ST-S2).** Coverage follows the child: `patch = ["subprocess"]`, or
 `COVERAGE_PROCESS_START` with `parallel` and `combine`. Admit coverage's variables through test 2's allowlist, by

@@ -85,7 +85,7 @@ refusal) and `consolidate(agent, budget)` (below).
   the caller's declared **function** name, never the tier `FunctionRouter.resolve` picks from hardware, the template
   version, `tools is None`) produced at the `LLMRouter._complete_text` cut (`models/language/router.py:958`) without
   building an `LLMRouter` in the embedded agent, the host stamping priority and deadline (B3) outside any cache key and
-  supplying the function's envelope (`total_budget`, `response_reserve`, a pure `token_counter`) to the `PromptBudgeter`
+  supplying the function's envelope (`total_budget`, `response_reserve`, a pure `token_counter`, `thinking`) to the `PromptBudgeter`
   (`agents/prompt_budgeter.py:65`), required at construction; the reply is `complete(text)`, with reserved
   `cancelled(prefix)` and `truncated(prefix, reason)` carrying the host-delivered speech, a top-level field emitted
   first; the robot keeps `_complete_text_abandonable` (`router.py:998`), and B1 fixes the shape after 1.4.0; replay
