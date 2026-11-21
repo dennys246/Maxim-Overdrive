@@ -77,8 +77,9 @@ def _visible_word(word: str) -> bool:
     such as U+1C80 beside "\u0432"; R5-1). A joiner may not end a word: after a virama with nothing following it renders
     nothing, so "\u0b95\u0bcd\u200d" would be a twin of "\u0b95\u0bcd" (R4-3)."""
     if all(unicodedata.category(ch) == "Nd" for ch in word):
-        # one digit system per word, as IDNA's CONTEXTO rules ask: Arabic-Indic and Extended Arabic-Indic 1, 2 and 3
-        # look alike, so "\u0661\u06f2" would twin "\u0661\u0662" (delta round 5, R5-2)
+        # one digit system per word, stricter than IDNA's CONTEXTO rule (which bans only Arabic-Indic beside Extended
+        # Arabic-Indic, whose 1, 2 and 3 look alike, so "\u0661\u06f2" would twin "\u0661\u0662"; delta round 5, R5-2,
+        # and round 6, N6-1): keep it stricter, the safe direction
         return len({ord(ch) - unicodedata.digit(ch) for ch in word}) == 1
     if word[-1] in "\u200c\u200d":
         return False
