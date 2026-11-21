@@ -13,7 +13,7 @@ Trust boundary, Wire integrity and Determinism and replay as lenses.
    formats freeze and a migration of every save after. It is a proposal for the real-time design's next delta
    round, not settled scope (section 6).
 3. **The marketplace is a business decision, not an infrastructure task.** No marketplace code is written until
-   players exist and the owner decides to run one. Section 5 lists what it would cost.
+   players exist and the owner decides to run one. `docs/design/ip_marketplace.md` lists what it would cost.
 4. **No DRM.** Creators are protected by where their content lives, by licences and by takedowns, not by encrypting
    content on the player's machine (section 4).
 
@@ -77,33 +77,7 @@ provider, not by us, which keeps us out of PCI scope.
 
 ## 5. What a marketplace would cost
 
-Recorded so the decision is made with numbers. Nothing here is built before that decision.
-
-- **Copyright takedowns (DMCA §512):**
-  - a designated agent registered with the Copyright Office, renewed every three years;
-  - expeditious takedown, and a counter-notice process;
-  - a published repeat-infringer policy that is actually enforced.
-
-  Taking a cut puts the safe harbour at risk: it is lost by a provider that receives a financial benefit directly
-  attributable to infringement it has the right and ability to control.
-- **EU DSA:** notice-and-action and statements of reasons. As a marketplace, Art. 30 seller verification: collect
-  and verify identity and payment details, keep them six months after the relationship ends, and show the seller's
-  name and address on listings. The small-enterprise exemption's scope is unverified.
-- **Payouts:** identity checks, tax forms (1099s, DAC7), sanctions screening, chargeback reserves (Roblox holds 30
-  days, Valve 90). Use a payouts provider or merchant of record (Stripe, Tebex, Xsolla, Paddle).
-- **Steam:** in-game purchases go through Steam's microtransactions API. Crypto and NFTs have been banned since 2021.
-  Cash-out or player trading of creator items is a delisting risk.
-- **Curation and moderation:** the 2015 paid Skyrim mods were pulled in about a week (25% creator share, paywalled
-  free mods, stolen content, no curation). Bethesda's vetted Verified Creators survived.
-- **Unit economics:** Rec Room shut down in June 2026 with creator revenue up 70% a year. It kept about 30¢ per
-  dollar after the store and the creator.
-
-The precedents that fit best:
-- **Roblox License Manager**, for a franchise licensing IP to creators: the rights holder sets the revenue share and
-  scope, terms lock once used, and the platform detects use.
-- **Second Life's** next-owner modify, copy and transfer flags, checked on the server.
-- **Fab's** split of Personal and Professional tiers by the buyer's revenue, with old purchases grandfathered.
-- **W3C ODRL 2.2** for machine-readable licence records.
+Moved to `docs/design/ip_marketplace.md` §3, unchanged.
 
 ## 6. What changes now
 
@@ -151,3 +125,7 @@ than edited into them here.
 - **Unverified facts from the research pass:** the Core platform's status, Minecraft's and Bethesda's official
   splits, the DSA small-enterprise exemption, the current 1099-K threshold, and the WIPO Global Brand Database's
   API. No merits ruling yet in *Disney v. Midjourney* or *NYT v. OpenAI*.
+
+## 8. An IP marketplace
+
+Selling IP to be embodied (characters as Maxim agents), not only objects: `docs/design/ip_marketplace.md`.
