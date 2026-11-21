@@ -181,7 +181,9 @@ def test_an_agent_facing_gate_claims_the_closed_code_vocabulary_only_because_it_
     world = World.from_scene(scene, data.materials(), dx_m=0.2, limits=data.action_limits())
     applier = Applier(world)
     _, modulators = region_parts(applier, world.frames, "crate")
-    assert RefusalCode(modulators["structure"].execute("ignite", {"power_w": "hot"}).error.split(" ")[0])
+    error = modulators["structure"].execute("ignite", {"power_w": "hot"}).error
+    assert error is not None
+    assert RefusalCode(error.split(" ")[0]) is RefusalCode.NOT_FINITE
     with pytest.raises(ActionRefused) as refused:
         parse_action("ignite", {"power_w": 1e30}, world.limits)
     assert refused.value.agent_text == "out_of_range (power_w)"

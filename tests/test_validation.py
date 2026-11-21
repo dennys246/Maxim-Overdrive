@@ -268,7 +268,7 @@ def test_the_game_data_is_a_place_only_the_file_gates_open():
     for opener in ("read_text", "read_bytes", "open", "parent", "resolve", "__fspath__"):
         assert not hasattr(where, opener), opener
     with pytest.raises(TypeError):
-        Path(where)  # type: ignore[call-overload]  # no __fspath__: the point
+        Path(where)  # type: ignore[arg-type]  # no __fspath__: the point
     assert load_materials(where).by_name.keys() == load_materials(DATA / "materials" / "core.yaml").by_name.keys()
     again = data.data_dir() / "materials" / "core.yaml"
     assert where == again

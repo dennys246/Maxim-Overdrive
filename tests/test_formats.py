@@ -48,7 +48,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _yaml(rel: str) -> dict[str, Any]:
-    return yaml.safe_load((ROOT / rel).read_text())
+    doc: dict[str, Any] = yaml.safe_load((ROOT / rel).read_text())
+    return doc
 
 
 def _scene(doc: Mapping[str, object]) -> Scene:
@@ -113,9 +114,7 @@ def _drop(path: tuple[object, ...]) -> Callable[[dict[str, Any]], None]:
     return edit
 
 
-def _inner(
-    convert: object, value: object, path: tuple[object, ...]
-) -> Iterator[tuple[Schema, Any, tuple[object, ...]]]:
+def _inner(convert: object, value: Any, path: tuple[object, ...]) -> Iterator[tuple[Schema, Any, tuple[object, ...]]]:
     """The schemas nested in one field, with the sample's value at each and its path."""
     if isinstance(convert, Nested):
         yield convert.schema, value, path
