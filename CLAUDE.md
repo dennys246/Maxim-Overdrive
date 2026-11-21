@@ -84,9 +84,8 @@ result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` dr
 
 ## Rules that matter here
 
-- **The verification rule** (world_model §1.1): the truth grid's (0.1 m) outcomes agree with the reference grid's
-  (0.05 m) within a gated tolerance, and converge from the coarse grid (0.2 m); a spacing may change precision, never
-  the outcome class. Every machine simulates one truth; rig profiles are rendering tiers only, with no physics
+- **The verification rule** is stated in `docs/design/world_model.md` §1.1, its one owner; follow it there. Every
+  machine simulates one truth; rig profiles are rendering tiers only, with no physics
   (world_model D20). Any new physics ships with a closed-form test, through `simcore.verify` with space and time
   refined apart (`tests/test_heat.py` is the pattern), and a cross-grid test (`tests/test_cross_tier.py`), whose
   scenarios refine both together until step 5a's fixed physics step. If a cross-grid test fails, fix the physics;
