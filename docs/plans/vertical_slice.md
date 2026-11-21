@@ -54,7 +54,7 @@ sends snapshots at 10 Hz. The client renders at its own frame rate and interpola
 - **Framing:** length-prefixed JSON frames over TCP.
 - **Snapshots:** the existing `simcore.protocol.encoding.snapshot`, `zlib`-compressed. Raw, the 60 × 20 × 24 alley is
   about 29k cells, under 100 KB a frame.
-- **Client to server:** `move`, `look`, `overdrive_hold`, `kindle_at`, `strike_at`, `say`.
+- **Client to server:** `move` (with Overdrive), `look`, `kindle`, `strike`, `say`.
 - **Server to client:** `snapshot`, `body`, `npc_line`, `event`.
 - **Versioning:** none on purpose. The slice's format is `slice-0` and dies with it. Step 7 designs the real one.
 
@@ -97,7 +97,7 @@ slice's burning crate is a gamey stand-in for play, not Phase 1's exit, which is
   - `move` carries a desired direction and effort, never a step, so either body model reads the same intent.
   - Drive force and friction are integrated by semi-implicit Euler: velocity first, then position. Top speed is
     1.5 m/s, or 3 m/s in Overdrive.
-  - Each 0.1 s tick runs four substeps, so no substep moves farther than a 0.2 m cell and nothing tunnels.
+  - Eight substeps per tick: at 6 m/s none crosses half a 0.2 m cell, so nothing tunnels.
   - Collision uses the tile spec's slide rule, and the blocked axis's velocity drops to zero.
   - An Overdrive strike or a blast near a body applies an impulse (knockback). Drive work, ½mv², is logged against
     Phase 5's action energy.
@@ -156,7 +156,7 @@ a number the NPC line has to beat.
 - **Reuse:** once `phase1/client-shader` lands, crack and glow copy its `render/*.gdshaderinc`.
 - **Black background:** 4.7.2 Compatibility maps a non-black clear colour differently with glow on, glow off and at
   render scale 0.5 (measured on `phase1/client-shader`).
-- **Flames:** a `GPUParticles3D` per burning object, purely visual.
+- **Flames:** a `CPUParticles3D` per burning object, purely visual.
 - **The rest:** a third-person camera, a HUD with core temperature, coolant and an Overdrive meter, and NPC lines as
   a speech label.
 
@@ -174,7 +174,7 @@ The intent log plus the scene reruns a session, which is the slice's replay test
 
 | Week | Builds | Done when |
 |---|---|---|
-| 1 (11-23) | the fixed-tick server, the wire, the Godot project drawing the alley live, the body walking | you walk around a crate glowing from `kindle_at`; tick CPU and snapshot bytes logged |
+| 1 (11-23) | the fixed-tick server, the wire, the Godot project drawing the alley live, the body walking | you walk around a crate lit by `kindle` (glow needs rung 6b); tick CPU and snapshot bytes logged |
 | 2 (11-30) | §3.3 fire (ignite, burn, burnout, radiative spread), §3.4 heat debt and the HUD | a lit crate spreads to the pallet and both burn out; Overdrive near the fire trips you, the puddle saves you |
 | 3 (12-07) | §3.5 the NPC and its voice, `strike` in Overdrive, the glass and drywall | the vendor warns, flees or puts the fire out unscripted by the player; `say` changes its lines and never its acts |
 | 4 (12-14) | tuning, three playtests, the verdict note | §7's note is written and the owner reads it |
