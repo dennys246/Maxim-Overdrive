@@ -151,17 +151,20 @@ def test_ci_runs_on_pull_requests_and_pushes_to_main_only() -> None:
         assert _workflow(name)[True] == {"push": {"branches": ["main"]}, "pull_request": None}, name
 
 
-def test_macos_runs_on_the_owners_self_hosted_runner_and_linux_on_githubs() -> None:
-    # Private-repo macOS minutes bill at 10x Linux's. Remove the self-hosted runner before the repo goes public.
-    for name, job in (("test.yml", "prepush"), ("drift.yml", "drift")):
-        spec = _workflow(name)["jobs"][job]
-        matrix = spec["strategy"]["matrix"]
-        assert spec["runs-on"] == "${{ matrix.runner }}", name
-        assert matrix["os"] == ["linux", "macos"], name
-        assert {entry["os"]: entry["runner"] for entry in matrix["include"]} == {
-            "linux": "ubuntu-latest",
-            "macos": "overdrive-mini",
-        }, name
+def test_macos_runs_on_githubs_runners_only_for_pushes_to_main_and_the_weekly_drift() -> None:
+    # Private-repo macOS minutes bill at 10x Linux's (owner, 2026-11-21, option B). A PR's macOS check is the mini's
+    # prepush PASS; no job runs on a self-hosted runner, so untrusted PR code never reaches the owner's machine.
+    gate = _workflow("test.yml")["jobs"]["prepush"]
+    assert gate["runs-on"] == "${{ matrix.os }}"
+    both, linux = '["ubuntu-latest", "macos-latest"]', '["ubuntu-latest"]'
+    assert (
+        gate["strategy"]["matrix"]["os"] == f"${{{{ fromJSON(github.event_name == 'push' && '{both}' || '{linux}') }}}}"
+    )
+    drift = _workflow("drift.yml")["jobs"]["drift"]
+    assert drift["strategy"]["matrix"]["os"] == ["ubuntu-latest", "macos-latest"]
+    for name in ("test.yml", "drift.yml", "golden.yml"):
+        for job in _workflow(name)["jobs"].values():
+            assert "self-hosted" not in str(job["runs-on"]), name
 
 
 def test_installed_names_lists_this_environment() -> None:

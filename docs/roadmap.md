@@ -346,6 +346,23 @@ See `docs/book_to_world.md`. Extraction, timeline and the perspective split, the
   (Phase 6) are needed with or without one.
 - **Exit:** a store page.
 
+## Before the repository goes public
+
+The repository is private until Maxim publishes its fix for OD-I5 (owner, 2026-11-21). Going public is one branch,
+`phaseN/go-public`, which does all of this, then the owner flips visibility:
+
+1. **Disclosure:** Maxim's advisory for OD-I5 is public and its fix released. Until then, stay private; the history is
+   not rewritten (the mentions span 202 commits and GitHub keeps PR refs).
+2. **CI restored:** `.github/workflows/test.yml` runs Linux and macOS on every pull request again (public repositories
+   get free minutes). That reverses option B, so the test that pins it
+   (`tests/test_check_lock.py::test_macos_runs_on_githubs_runners_only_for_pushes_to_main_and_the_weekly_drift`) is
+   rewritten in the same commit.
+3. **No self-hosted runner** is registered (Settings > Actions > Runners lists none), and the repository settings
+   require approval for workflow runs from first-time contributors.
+4. **Personal paths:** absolute paths under the owner's home in seven files (three spike scripts and four documents,
+   found 2026-11-21) become relative or are removed.
+5. **Assets and licences:** `ASSETS_LICENSE.md` and the asset manifest (B8) are current.
+
 ## Standing rules
 
 The engineering standards (no band-aids, testing, the pre-push review, determinism, formats, budgets, client

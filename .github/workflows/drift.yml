@@ -10,21 +10,13 @@ on:
   workflow_dispatch:
 
 jobs:
-# macOS runs on the owner's Mac mini as a self-hosted runner (label overdrive-mini): private-repo macOS minutes bill
-# at 10x Linux's, and the mini already runs the gate. A self-hosted runner runs any PR's code on that machine, so
-# remove it, and this mapping, before the repository is made public.
   drift:
     strategy:
       fail-fast: false
       matrix:
-        os: [linux, macos]
+        os: [ubuntu-latest, macos-latest]
         python-version: ["3.12", "3.14"]
-        include:
-          - os: linux
-            runner: ubuntu-latest
-          - os: macos
-            runner: overdrive-mini
-    runs-on: ${{ matrix.runner }}
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: read
       issues: write
