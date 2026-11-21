@@ -23,9 +23,9 @@ lands with the first real NPCs. **[later]** is named so the contract leaves room
 | # | Decision | Where |
 |---|---|---|
 | **O46** | **The host's thinking lane owns placement (owner, 2026-11-21).** The lane decides which model serves each request: by role, consent, health, capacity and budget. Maxim's `LLMRouter` is not on the NPC path. Its failover, cooldowns, drain state and cost downgrades would be a second scheduler under the lane's, and each would override the other without either seeing it (§1). Maxim's **backends** are the transports. | §1, §2 |
-| P1 | *Proposed for the owner:* the calls run in a host-owned **inference gateway** process, not in the world server (§3). | §3, §11 |
-| P2 | *Proposed for the owner:* each role is **pinned** to its first eligible placement by default. Spilling to a later placement under load is an opt-in per role (§2.4). | §2.4, §11 |
-| P3 | *Proposed for the owner:* a model on another of the player's machines counts as **remote** under O18, so a guest's words reach it only after a disclosure (§5.1). | §5, §11 |
+| O47 | **The calls run in a host-owned inference gateway process, not in the world server (owner, 2026-11-21; was P1).** O13's "the LLM gateway stays in the host" reads as host-side: the host decides, and a host-owned gateway calls. | §3 |
+| O48 | **Each role is pinned to its first eligible placement by default; spilling under load is an opt-in per role (owner, 2026-11-21; was P2).** | §2.4 |
+| O49 | **A model on another of the player's machines counts as remote under O18, so a guest's words reach it only after a disclosure (owner, 2026-11-21; was P3).** | §5.1 |
 
 ## 1. What Maxim offers, and why its router is not the scheduler
 
@@ -145,7 +145,7 @@ A placement is eligible for a request when all four hold:
 
 - **The order is unchanged:** dispatch goes by deadline (`npcs_and_sem.md` §4.4).
 - **Choosing a placement for the request at the head of the queue:**
-  - **`pinned`** (the default, P2): the first eligible placement in the role's list. If its slots are full, the
+  - **`pinned`** (the default, O48): the first eligible placement in the role's list. If its slots are full, the
     request waits for one.
   - **`spill`** (opt-in per role): the first eligible placement with a free slot. If none has one, the request waits.
 - **Placement is chosen when a slot is granted, not when the request is queued.** The law is simple on purpose, and
@@ -191,7 +191,7 @@ A placement is eligible for a request when all four hold:
   is tier 3. With guests present, a request never falls through to a remote placement (O18; the gate test in
   `checklists.md`).
 
-## 3. The inference gateway (P1) **[now: the process with a scripted transport; Phase 4: Maxim's backends]**
+## 3. The inference gateway (O47) **[now: the process with a scripted transport; Phase 4: Maxim's backends]**
 
 **What it is.** A second kind of host-owned child process, beside the agent workers. The lane in the host **decides**
 (the queue, deadlines, selection, slots, health, the cache). The gateway **does**: it holds the transports and makes
@@ -231,7 +231,7 @@ the calls. It is the only process with credentials and outbound access to model 
 **Its cost.** One process, plus one local hop per call: microseconds to a millisecond, against the 0.32–1.40 s median
 time to first token the spike measured. The hop is measured as a B5 row before Phase 4 commits to it.
 
-**The alternatives, for the owner (§11):**
+**The alternatives the owner declined (O47):**
 - **(a) Import Maxim's backends in the host, from an allowlist.** One process fewer, but it reverses §6.6's rule and
   puts keys in the world server.
 - **(c) Write our own HTTP clients.** That duplicates transports Maxim maintains (prompt caching, request-id headers,
@@ -281,7 +281,7 @@ Known gap stands as before: the outcome class is not promised across model profi
 - **With guests present (O18):**
   - only `loopback` is eligible, unless each guest has accepted a disclosure naming the class (and, for
     `third_party`, the provider);
-  - `owner_lan` counts as remote, because a guest's words leave this machine (P3);
+  - `owner_lan` counts as remote, because a guest's words leave this machine (O49);
   - a guest who hasn't accepted makes the class ineligible for the whole session, since one prompt may hold several
     speakers' words.
 - **Single-player:**
@@ -412,8 +412,7 @@ I searched Maxim `origin/main` 043eab8f for the terms "empty content", `content=
   - §4.8: the canonical request's model fields;
   - §6.1: the budgeter's envelope;
   - §6.2: the router sentence now points here.
-  - O13's "the LLM gateway stays in the host" stands as written until P1 is decided. If P1 is accepted, it reads as
-    "host-side": the host decides, and a host-owned gateway calls.
+  - O13's "the LLM gateway stays in the host" reads as "host-side" under O47; its text is unchanged.
 - `boundaries.md`:
   - §5.3's response-cache row (the entry holds the provenance);
   - §6.3's rerun manifest;
@@ -425,7 +424,4 @@ I searched Maxim `origin/main` 043eab8f for the terms "empty content", `content=
 
 ## 11. Open questions for the owner
 
-1. **P1, the gateway process:** a separate process as in §3 (recommended), (a) Maxim's backends imported in the host
-   from an allowlist, or (c) our own clients.
-2. **P2, spill:** `pinned` by default with `spill` opt-in per role (recommended), or `spill` by default.
-3. **P3, `owner_lan` under O18:** remote, so it needs a guest's disclosure (recommended), or local.
+None. P1–P3 were accepted as recommended on 2026-11-21 and are O47–O49 (§0).
