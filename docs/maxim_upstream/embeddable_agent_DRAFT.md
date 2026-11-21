@@ -176,15 +176,18 @@ named in the digest's definition.
 
 ## 7. Questions left
 
-None. Both of v6's are answered:
+**M4 (2026-11-21, absorbing M16), a question to `autonomic_layer.md` §3.1.4's out-of-band producer (G9), with
+#1176 for the in-pass half (GL3.B0's census as evidence; OD-A10):** may a host call `evaluate_failures()`
+(`body.py:258`) between cognition steps, on the injected clock (drift reads `time.time()`, `:293-297`)? Callers:
+`substrate_proposal.py:837` (W-4 order), `loop_gates.py:262-309`, `tool_bridge.py:776`. Between steps, does G9's
+record (`drain_outcomes()`, `CauseRef.cause_pid`) join such a publish to its situation rather than the stale cluster
+stash? Our T16c waits on it (`sem_stimuli.md` §4.6).
 
-1. **A host-supplied floor:** thank you; we take your segment alternative (O45, §2), so nothing goes on your resume
-   stage's question list.
-2. **GL3.B2's gate wording:** the gate holds unchanged, as you say; OD-EA16 adds that a refusal's pid never appears in
-   a GL3.B2 row (§6).
+v6's two are answered: **a host-supplied floor** (your segment alternative, O45, §2) and **GL3.B2's gate**
+(unchanged; a refusal's pid never appears in its rows, OD-EA16, §6).
 
 Searched, nothing found: OD-EA9; a `DECISIONS.md` entry for the host-driven mode (ours:
-`docs/maxim_upstream/decisions_entry_DRAFT.md`).
+`decisions_entry_DRAFT.md`).
 
 ## 8. What it argues against
 

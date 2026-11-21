@@ -131,6 +131,8 @@ Both decisions are recorded in Overdrive. The Maxim-side record is proposed in
 | OD-I4 | `ARCHITECTURE.md:182` is stale: the DM runtime doesn't build NPCs through `AgentFactory` (`create_npc_agent` has no caller) | new (Maxim's answer); filed by Maxim as #1686 |
 | OD-I5 | A security issue in cloud redaction, held by Maxim as a private advisory; details in private notes, not here | new (TBR-11) |
 | OD-I6 | pymaxim pins `rich>=13.0.0,<14.0` (`pyproject.toml` on Maxim `origin/main` 10888fec), and every embedder inherits it: Overdrive's import contracts can't use import-linter 2.7+ (which needs `rich>=14.2`) and stay on 2.6 / grimp 3.13 (step 3a, 2026-11-19). Ask: lift or widen the cap, or say why it's needed. Searched Maxim's `docs/plans/` for `rich`: nothing found | new (step 3a) |
+| OD-I7 | `ModulatorSpec.apply_damage` (`embodiment/spec.py:1034-1036` at `043eab8f`) returns 1.0 and applies nothing on a modulator with no sub-sensors, with no log or error: a flat body's burn changes nothing (`sem_stimuli.md` delta 1, Bio-faithful SF-2) | new; sent to Maxim's session for 1.3.4 triage, 2026-11-21 |
+| OD-I8 | `Embodiment.evaluate_failures` takes drive drift from `time.time()` (`embodiment/body.py`, about `:293` at `043eab8f`); `world_clock_release_DRAFT.md` names `last_fired` in the same function, not this read. A question to route to #1361's plans, not a fix | new; sent with OD-I7, 2026-11-21 |
 
 ### Tier A: an agent a host drives (Phase 4 waits on a named subset)
 
@@ -194,6 +196,7 @@ Drafts:
 | OD-A19 | *Withdrawn 2026-11-17:* it duplicated Maxim's own `docs/plans/experience_clock_decay.md` (#1361 S3a), which we already track as OD-A1; the temporal-anchor fallback's age and expiry move in #1361 S3b, and its similarity's host-calendar read (`nac.py:3629`) is OD-A20. Was: Step-size-invariant decay: NAc's eligibility traces decay ×0.9 per loop tick today (`decisions/nac.py:3707`, from `_loop_bio_tick_maintenance`, `runtime/agent_loop.py:800-840`, with five sibling decays), so credit depends on the tick rate; decay as `exp(−Δt/τ)` on the machinery clock, with an exit test crediting one delayed receipt equally at two rate divisors (OD-EA12). Argues against the per-tick decay contract; corrects Overdrive's earlier claim that the traces decay on the wall clock (`correction_1.md`) | A-post | new (npcs_v3 BF3-1) |
 | OD-A20 | *Declined by Maxim's owner 2026-11-19 (noted, not adopted):* event similarity stays on the host calendar, and events and anchors age on the experience clock; kept as a known divergence, recorded from Maxim's code and our arithmetic, not from a run; two strict red gates will carry the evidence once the agent PR lands them (`npcs_and_sem.md` §12.2, `checklists.md`). Maxim's delta review widened it, correcting our v4 text, which said the calendar moves only how credit is shared: (a) it can drop an anchor below the 0.01 threshold (`0.3 × similarity × activation`), so a receipt whose only node drops books nothing; (b) anchors set at different host times split differently; (c) `TemporalSignature.from_timestamp` uses local time, so the replay machine's timezone and DST move credit, a cross-machine effect. No pinned `TZ` in production. Our v3 lean put the read on the machinery side; that was wrong, since SCN features reach the model through `temporal_patterns` and `[TEMPORAL]`. Was: Anchor similarity off the host calendar for embedders: after #1361 S3b, `TemporalSignature.now()` (`nac.py:3629`) still scores anchor similarity on host time of day ("host calendar by design", #1361 §(c), §(g)), so a replay at another hour credits differently and an NPC's learning depends on the player's clock. Read it from the perceived-time port. Maxim said it will raise this as a question on #1361 (`response_3.md`); #1361's plan still reads "host calendar by design" in §(g). Our evidence is in `erratum_1.md` | A-post | #1361 question |
 | OD-A21 | τ_elig from the striatal window, an argument against #1361's decided Q1 (2026-10-17: "taus in world-seconds, anchored on Exp 30's fixture regime; tune the turn quantum, never per-runtime taus"; 4.75 s at any rate after S3a): NAc's dopamine eligibility window is about 0.3–2 s (Yagishita et al. 2014); longer delays belong to the anchor path, which is why OD-A20 matters. An owner decision with its own experiment in Maxim, not a doc edit; S3a records the rationale first | A-post | #1361 Q1 |
+| OD-A22 | How a publish between cognition passes is keyed (`sem_stimuli.md` M4, which absorbs M16): a host's `evaluate_failures()` between passes, on the injected clock, joined to the situation it occurred in, not the last cluster stash. A question to `autonomic_layer.md` §3.1.4's out-of-band producer (G9; `CauseRef.cause_pid`, `drain_outcomes()`) and #1176 for the in-pass half; GL3.B0's census is evidence. **Future bar:** T16c (`xfail(strict=True)`), triggered when G9's producer lands; its world-side test, T16b, passes now | embeddable | M4 (2026-11-21) |
 
 ### Tier B: the 1.4 line (NPCs that remember, and a coarse sense of time, earned by experiment)
 
@@ -241,6 +244,7 @@ Drafts: `sem_breaking_change_plan_DRAFT.md` (now an additive refinement plan; th
 | OD-C8 | Percepts and instruments, shrunk: instruments are in-world objects perceived through an existing `modality:` | C6 |
 | OD-C9 | A written version rule for the SEM vocabulary, on the existing `ENTITY_FORMAT_VERSION` | C7 (half) |
 | OD-C10 | `world_set_axis` for sub-sensors (unverified) | C8 (half), P4 |
+| OD-C12 | Thermoregulation's controller in Maxim: effector outputs (skin blood flow, sweat rate, metabolic rate, as `sem_stimuli.md` §3.1 reserves them) and `autonomic_layer.md` §3.3's two-sided need (R-2: heat yields no corrective need). Searched `docs/plans`, `DECISIONS.md` and `src` at `043eab8f` for thermoreg, shiver, sweat, vasoconstrict, vasomotor, perfusion and core_temp: only the `core_temperature` drive. A question to `autonomic_layer.md` §3.3. **Future bar:** T17 (`xfail(strict=True)`), triggered when Maxim drives the effectors; its world-side test, the plant's closed forms, passes once the plant lands | M20 (2026-11-21) |
 | OD-H1 | The game as a test bed for the hybrid's questions (OD-HX1 to OD-HX5; HX2 is calibration only) | C11 |
 | OD-H2 | Pushback: in an embedded world, the hold's waiting cost uses modelled world-time latency, not observed latency | new (DR-B5, BF2-8) |
 | OD-H3 | Re-key the deferred reflex runtime's trigger, argued against owner decision G4 at GL3's start | C10 (cited M76 in error) |
@@ -278,19 +282,20 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
   Phase 3's tier A heading ships (OD-A1's #1361 S3a, S3b and S4; OD-A2 to OD-A11; OD-A12's thread; OD-A14 to OD-A18;
   OD-A20, declined, so the replay exit carries its divergence; the issues OD-I1 and OD-I3), and before Maxim's 1.4.0 cut with the agent-loop decomposition slice that
   carries the stepped `think` (OD-A15). OD-A21, #1361 S5 and S6, and OD-A12's store routing don't block it.
-- **Guest sessions with real NPCs (Phase 5 or later, O28) wait for O14's gates,** held by a strict red gate that refuses guest joins while
-  real-Maxim NPCs are live (owned by `phase1/protocol`), and flipped only when each passes:
+- **Guest sessions with real NPCs (Phase 5 or later, O28) wait for O14's gates,** held by a strict red gate refusing guest joins while
+  real-Maxim NPCs are live (owned by `phase1/protocol`), flipped only when each passes:
   - the worker process and its channel gate (`npcs_and_sem.md` §6.6);
   - a no-effect test (no file reads or writes, sockets or spawns outside the agent home);
   - a dialogue-level bypass test driving guest speech through a real worker (prefetch, the parse-failure template,
     phrase commands, and the shortcut Maxim deleted, #1689, as a regression);
   - the guest-text gate refusing line separators and format characters on decoded text;
   - memory provenance with a purge that survives relay and extraction.
-  - O18's local model by default, remote only with the guest's informed consent (decided).
-  Deferred by name (O30): an OS sandbox for workers in guest sessions, decided before guest sessions open.
-- The cradle writer: a fixed event pool from an arc plus handcrafted inflection points, assembled per NPC in code.
-- Three NPCs on the first tile (the ripperdoc, a fixer and a street kid), each cradled from an authored life.
-- A dialogue screen and turn order. Movement runs in substrate-primary mode (no LLM); speech goes to the LLM.
+  - O18's local model by default, remote only with the guest's informed consent.
+  Deferred by name (O30): a worker OS sandbox, decided before guest sessions open.
+- The cradle writer: an arc's fixed event pool plus handcrafted inflection points, assembled per NPC in code.
+- Three NPCs on the first tile (the ripperdoc, a fixer, a street kid), each cradled from an authored life.
+- A dialogue screen and turn order; movement is substrate-primary (no LLM), speech is the LLM's; no NPC meets fire
+  before its body has a pain path (`docs/design/sem_stimuli.md` §4.6's test).
 - Save format v1: the world plus each NPC's agent home, including the agent's `EventSequencer` high-water seq, so a
   loaded save continues the sequence; `session_id` comes from the intent log's header (the log's root id, the NPC
   key and the segment number, a new segment per restore), never the wall clock or a uuid (O43, O45).
