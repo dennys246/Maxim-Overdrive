@@ -91,6 +91,13 @@ until it is folded or overruled by the owner with a recorded reason. Each lens's
 `docs/design/reviews/<design>/<lens>.md`, because they explain why the design is what it is. The author then folds
 them into the design and presents one plan to the owner before building.
 
+- **A reader finds; it doesn't design** (owner, 2026-11-21). A fix it proposes is marked *verified*, with the script
+  it ran, or *unverified*. The author verifies every fix before folding it, and the fold table says how.
+- **A delta round on a design reviews the fold's diff,** not the whole document.
+- **The design holds the contract** (CLAUDE.md). A finding about a mechanism only running can check becomes a test in
+  its build step's checklist. When a second paper round finds new blockers in text the folds added, the rounds stop
+  and the author proposes moving the rest into the build steps.
+
 ## When the reviewers are agents
 
 The author spawns the readers as parallel subagents with these instructions and the diff range. A reader that

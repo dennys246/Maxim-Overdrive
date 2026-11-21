@@ -159,6 +159,20 @@ only review holds.
 - **Known-broken behaviour gets a strict red gate,** `pytest.mark.xfail(strict=True)` with a reason, never `skip`.
   When the fix lands the gate flips and must be removed. Warnings are errors.
   Guard: `tests/test_tooling_config.py::test_red_gates_are_strict_and_warnings_are_errors`
+- **Every bar is one of three kinds** (owner, 2026-11-21). **Verification:** the code solves the equations we
+  wrote, against a closed form, an oracle (FDS) or another grid; required now, never deferred. **Validation:** the
+  equations describe reality, against cited data; a miss ships as a Known gap with its numbers, and the band never
+  loosens. **Perception and learning:** an NPC senses and learns the regularity; it may be a future bar. Every bar
+  is derived from a source's uncertainty (an oracle's spread, an experiment's scatter), never a round number; it is
+  written before the measurement, with what breaking its mechanism looks like, so it is shown able to fail.
+  Guard: B30, B10
+- **A future bar is tracked, never dropped** (owner, 2026-11-21). A perception or learning bar that Maxim can't meet
+  yet becomes a strict red gate whose reason names the upstream issue, a Phase 3 row in `docs/roadmap.md` with the
+  trigger that flips it, and evidence that isolates the cause: the world-side half (the stimulus at the receptor)
+  passes, and the miss is in Maxim's transduction. Without that evidence it is our bug. When the fix lands the gate
+  flips and the test reruns at the original bar. Verification, determinism and a test's ability to fail are never
+  future bars. Guard: `tests/test_tooling_config.py::test_red_gates_are_strict_and_warnings_are_errors` (strict),
+  B31 (the issue, the row, the evidence)
 - **Property tests for invariants over input spaces** (Hypothesis): physics conservation, protocol round trips,
   validators that never crash on any input. Guard: B9
 - **Tests are deterministic and fast.** No sleeps, wall clock, real network beyond localhost, or LLM calls in tests.
@@ -177,6 +191,14 @@ only review holds.
 - **A design that changes the architecture is reviewed before code,** on its design document, and Bio-faithful
   integration is always one of its lenses. Each lens's findings are kept in `docs/design/reviews/`.
   Guard: `docs/code_review.md` ("Design reviews"), B1
+- **A design document holds the contract** (owner, 2026-11-21): quantities, units, sites, cadence, versions, leak
+  rules, formats and the interfaces between modules. A mechanism that can only be checked by running it (a test
+  plant's size, a refresh cap, a mesh's lifetime, a cost) goes to its build step's checklist as a test to write, not
+  into prose. Laws stay simple and swappable behind the contract (`docs/plans/long_term_features.md`). Guard: B32
+- **Review finds; it doesn't design** (owner, 2026-11-21). A finding is a defect and its failure scenario. A fix a
+  reviewer proposes is marked unverified unless they ran it, and the author verifies it before folding. A delta round
+  reviews the diff. When a second paper round finds new blockers in text the folds added, the round stops and the
+  author proposes moving the rest into the build steps. Guard: B33, `docs/code_review.md`
 - **A reviewer, not the author, sets each finding's fold status** (owner, 2026-11-17, O25): `fixed`, `deferred`
   (named, with a reason and a trigger), `rejected` (with a reason) or `open`, read from the tree, not from the
   author's claim. A status the author sets (after the owner decides, say) is marked as the author's. Fold tables
