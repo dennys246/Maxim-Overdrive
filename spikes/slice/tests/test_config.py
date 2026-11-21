@@ -1,4 +1,5 @@
 import copy
+import shutil
 
 import pytest
 import yaml
@@ -87,3 +88,13 @@ def test_a_file_must_be_a_mapping() -> None:
         config.parse_body([])
     with pytest.raises(ValueError, match="mapping"):
         config.parse_fuel("fuel", ambient_c=20.0)
+
+
+def test_a_duplicated_tunable_is_refused_not_silently_overridden(tmp_path) -> None:
+    # Architecture N5: yaml.safe_load keeps the last of two equal keys, so a tuning edit could be silently lost.
+    for name in ("body.yaml", "fuel.yaml", "npc.yaml"):
+        shutil.copy(config.DATA / name, tmp_path / name)
+    body = (tmp_path / "body.yaml").read_text()
+    (tmp_path / "body.yaml").write_text(body.replace("  mass_kg: 80.0\n", "  mass_kg: 80.0\n  mass_kg: 60.0\n", 1))
+    with pytest.raises(ValueError, match=r"mass_kg|duplicate|repeated"):
+        config.load(tmp_path)

@@ -136,6 +136,8 @@ func _build_scene() -> void:
 func _process(delta: float) -> void:
 	for message: Dictionary in _net.poll():
 		_on_message(message)
+	if _status == "connected" and not _net.is_connected_to_server():
+		_status = "DISCONNECTED: the server closed the connection"  # the HUD must not keep saying connected
 	_since_state += delta
 	if _have_state:
 		_body.position = _prev_pos.lerp(_pos, clampf(_since_state / TICK_S, 0.0, 1.0)) + Vector3(0.0, 0.9, 0.0)
@@ -220,13 +222,14 @@ func _show_vitals(heat: Dictionary) -> void:
 	var core: float = SliceNet.num(heat["core_c"])
 	var warn: float = SliceNet.num(heat["warn_c"])
 	var trip: float = SliceNet.num(heat["trip_c"])
+	var start: float = SliceNet.num(heat["start_c"])  # from the body file, not a copy of it here
 	var coolant: float = SliceNet.num(heat["coolant"])
 	var tripped: bool = heat["tripped"]
 	var overdrive: bool = heat["overdrive"]
 	var in_puddle: bool = heat["in_puddle"]
 	var state: String = "TRIPPED: cooling down" if tripped else ("WARN: overheating" if core >= warn else "ok")
 	_vitals.text = "core  %5.1f C  [%s]  %s\ncoolant      [%s] %3.0f%%%s\nOverdrive %s   radiant %.1f kW/m2" % [
-		core, _bar((core - 37.0) / (trip - 37.0), 24), state,
+		core, _bar((core - start) / (trip - start), 24), state,
 		_bar(coolant, 24), coolant * 100.0, "   (in the puddle: refilling)" if in_puddle else "",
 		"ON" if overdrive else "off", SliceNet.num(heat["flux_w_m2"]) / 1000.0,
 	]

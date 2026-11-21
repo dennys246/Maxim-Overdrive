@@ -8,8 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
-
+from simcore.adapters.loaders import read_yaml
 from slice_server import WIRE_VERSION
 from slice_server.body import BodyParams
 from slice_server.fire import FireParams
@@ -165,7 +164,8 @@ def parse_npc(raw: object) -> NpcConfig:
 
 
 def load(data: Path = DATA, *, ambient_c: float = 20.0) -> SliceConfig:
-    body, kindle, heat, strike = parse_body(yaml.safe_load((data / "body.yaml").read_text()))
-    fuel = parse_fuel(yaml.safe_load((data / "fuel.yaml").read_text()), ambient_c=ambient_c)
-    npc = parse_npc(yaml.safe_load((data / "npc.yaml").read_text()))
+    # The repo's strict YAML reader: a repeated key is refused, not silently overridden by the last one.
+    body, kindle, heat, strike = parse_body(read_yaml(data / "body.yaml"))
+    fuel = parse_fuel(read_yaml(data / "fuel.yaml"), ambient_c=ambient_c)
+    npc = parse_npc(read_yaml(data / "npc.yaml"))
     return SliceConfig(body, kindle, heat, strike, fuel, npc)

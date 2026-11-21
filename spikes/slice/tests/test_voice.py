@@ -1,10 +1,14 @@
 import ast
+import http.server
+import socketserver
+import threading
 import time
+from concurrent.futures import Future
 from pathlib import Path
 
 import pytest
 from slice_server import config
-from slice_server.voice import Voice, VoiceFailed, cap, ollama
+from slice_server.voice import Voice, VoiceFailed, VoiceParams, cap, ollama
 
 NPC = config.load().npc
 SLICE = Path(__file__).resolve().parents[1] / "slice_server"
@@ -84,3 +88,90 @@ def test_no_simulation_code_imports_the_voice() -> None:
         sources = {n.module for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
         assert "voice" not in names, module
         assert "slice_server.voice" not in sources, module
+    # And the simulation doesn't reach up to the wire or the client message (Architecture S3).
+    sim_tree = ast.parse((SLICE / "sim.py").read_text())
+    sim_sources = {n.module for n in ast.walk(sim_tree) if isinstance(n, ast.ImportFrom)}
+    assert not sim_sources & {"slice_server.wire", "slice_server.view", "simcore.protocol.encoding"}
+
+
+# --- review round (2026-11-21): reproductions written red-first --------------------------------------------------
+
+
+class _Broken(http.server.BaseHTTPRequestHandler):
+    """A local stand-in for Ollama failing mid-reply, in the three ways the Executor reader found."""
+
+    mode = "close"
+
+    def do_POST(self) -> None:
+        self.rfile.read(int(self.headers["Content-Length"]))
+        if self.mode == "close":  # RemoteDisconnected: the server hangs up without a status line
+            self.close_connection = True
+            return
+        body = b'{"response": "hel' if self.mode == "truncated" else b"\xff\xfe not utf-8"
+        self.send_response(200)
+        self.send_header("Content-Length", str(len(body) + 20 if self.mode == "truncated" else len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, *args: object) -> None:  # quiet test output
+        pass
+
+
+@pytest.mark.parametrize("mode", ["close", "truncated", "not_utf8"])
+def test_a_model_that_fails_mid_reply_falls_back_and_never_raises(mode: str) -> None:
+    # Executor B1 / Architecture S2: these escaped VoiceFailed and killed the server loop through Voice.ready.
+    handler = type("H", (_Broken,), {"mode": mode})
+    with socketserver.TCPServer(("127.0.0.1", 0), handler) as httpd:
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        params = VoiceParams(NPC.voice.model, f"http://127.0.0.1:{httpd.server_address[1]}", 2.0, 25, "x")
+        voice = Voice(params, NPC.canned, ollama(params))
+        voice.request("warn", "a fire")
+        (line,) = _wait(voice)
+        voice.close()
+        httpd.shutdown()
+    assert line.source == "canned"
+    assert line.why_canned
+
+
+class _FlipFuture(Future):
+    """A future that finishes between two looks: done() says no, then yes."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.set_result("line")
+        self._looks = 0
+
+    def done(self) -> bool:
+        self._looks += 1
+        return self._looks > 1
+
+
+def test_ready_never_drops_a_line_that_finishes_while_it_looks() -> None:
+    # Executor S5: two passes over done() could miss a future that finished between them, for good.
+    voice = Voice(NPC.voice, NPC.canned, None)
+    voice._pending = [_FlipFuture()]
+    first = voice.ready()
+    second = voice.ready()
+    assert first + second == ["line"]
+
+
+def test_a_lines_latency_includes_its_time_in_the_queue() -> None:
+    # Executor S4: latency was timed from when the worker picked a request up, not from when it was asked.
+    release = threading.Event()
+
+    def slow(prompt: str, timeout: float) -> str:
+        release.wait(5)
+        return "ok"
+
+    voice = Voice(NPC.voice, NPC.canned, slow)
+    voice.request("warn", "first")
+    voice.request("warn", "second")  # waits behind the first on the single worker
+    start = time.monotonic()
+    while time.monotonic() - start < 0.2:  # let the second request age in the queue
+        pass
+    release.set()
+    lines = _wait(voice, 2)
+    voice.close()
+    second = lines[1]
+    assert second.queued_s >= 0.2
+    assert second.latency_s >= second.queued_s

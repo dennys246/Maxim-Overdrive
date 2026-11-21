@@ -12,9 +12,9 @@ is kept with the line: a fallback is reported, never silent.
 
 from __future__ import annotations
 
+import http.client
 import json
 import time
-import urllib.error
 import urllib.request
 from collections import deque
 from collections.abc import Callable, Mapping
@@ -38,8 +38,9 @@ class Line:
     text: str
     state: str
     source: str  # "llm" or "canned"
-    latency_s: float
+    latency_s: float  # from the request to the line, queue included: what the player waited
     why_canned: str | None = None
+    queued_s: float = 0.0  # of which waiting behind earlier requests on the one worker
 
 
 class VoiceFailed(RuntimeError):
@@ -57,7 +58,10 @@ def ollama(params: VoiceParams) -> Ask:
         try:
             with urllib.request.urlopen(request, timeout=timeout_s) as response:
                 reply = json.loads(response.read())
-        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        # urllib wraps only errors while sending; reading the reply can fail with any OSError (connection reset,
+        # remote disconnected, timeout), an HTTPException (truncated body), or a ValueError (bytes that aren't
+        # UTF-8, text that isn't JSON). Each is a failed line, reported, never a crash of the server.
+        except (OSError, http.client.HTTPException, ValueError) as exc:
             raise VoiceFailed(f"{type(exc).__name__}: {exc}") from exc
         text = reply.get("response") if isinstance(reply, dict) else None
         if not isinstance(text, str):
@@ -90,13 +94,17 @@ class Voice:
         request and its line arrives later from ``ready``."""
         if self._pool is None or self._ask is None:
             return self._fallback(state, 0.0, "no model configured")
-        self._pending.append(self._pool.submit(self._speak, self._ask, state, self._prompt(state, facts)))
+        asked = time.monotonic()
+        self._pending.append(self._pool.submit(self._speak, self._ask, state, self._prompt(state, facts), asked))
         return None
 
     def ready(self) -> list[Line]:
-        """The lines whose requests have finished, in the order they were asked."""
-        done = [f for f in self._pending if f.done()]
-        self._pending = [f for f in self._pending if not f.done()]
+        """The lines whose requests have finished, in the order they were asked. One look per request: a request
+        that finishes while this runs is kept for the next call, never lost between two looks."""
+        done, waiting = [], []
+        for f in self._pending:
+            (done if f.done() else waiting).append(f)
+        self._pending = waiting
         return [f.result() for f in done]
 
     def close(self) -> None:
@@ -110,18 +118,32 @@ class Voice:
             f"Say one short line out loud (at most {self._params.max_words} words), no stage directions."
         )
 
-    def _speak(self, ask: Ask, state: str, prompt: str) -> Line:
-        start = time.monotonic()
+    def _speak(self, ask: Ask, state: str, prompt: str, asked: float) -> Line:
+        queued = time.monotonic() - asked
         try:
             text = cap(ask(prompt, self._params.timeout_s), self._params.max_words)
         except VoiceFailed as exc:
-            return self._fallback(state, time.monotonic() - start, str(exc))
+            return self._fallback(state, time.monotonic() - asked, str(exc), queued)
         if not text:
-            return self._fallback(state, time.monotonic() - start, "the model said nothing")
-        return Line(text, state, "llm", time.monotonic() - start)
+            return self._fallback(state, time.monotonic() - asked, "the model said nothing", queued)
+        return Line(text, state, "llm", time.monotonic() - asked, queued_s=queued)
 
-    def _fallback(self, state: str, latency_s: float, why: str) -> Line:
+    def _fallback(self, state: str, latency_s: float, why: str, queued_s: float = 0.0) -> Line:
         lines = self._canned[state]
         text = lines[self._turn[state] % len(lines)]
         self._turn[state] += 1
-        return Line(text, state, "canned", latency_s, why)
+        return Line(text, state, "canned", latency_s, why, queued_s)
+
+
+def facts(event: Mapping[str, object]) -> str:
+    """What the voice is told about a change of the vendor's state: plain words built from the event's fields."""
+    target, core = event.get("target"), event.get("player_core_c")
+    words = {
+        "flee": "the fire's heat is on you and you are running for the alley's mouth",
+        "douse": f"a fire has started on the {target} near your stall and you go to put it out",
+        "doused": f"you just put out the fire on the {target}",
+        "warn": f"the {target} is burning and you can't put it out",
+        "comment": f"the customer's cyberware is overheating, at {core:.0f} C" if isinstance(core, float) else "",
+        "idle": "it is quiet and you are back at your stall",
+    }
+    return words[str(event["state"])]

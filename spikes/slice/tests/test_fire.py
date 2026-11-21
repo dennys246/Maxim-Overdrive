@@ -136,3 +136,27 @@ def test_a_fire_grows_as_t_squared_to_its_fuel_limited_power() -> None:
     for _ in range(600):  # past the growth time: fuel-limited
         fire.step(0.1)
     assert fuel.power_w() == pytest.approx(full * (fuel.fuel_kg / fuel.fuel0_kg) ** (2 / 3), rel=1e-12)
+
+
+def test_a_doused_fire_goes_out_with_a_cool_skin_and_does_not_relight_on_its_own() -> None:
+    # Executor N3: the skin reset had no test.
+    fuel = _fuel()
+    fire = Fire(PARAMS, {"crate": fuel})
+    fire.kindle("crate")
+    for _ in range(50):
+        fire.step(0.1)
+    fuel.skin_c = 500.0  # as if heated while it burned
+    fire.douse("crate")
+    decisions, events = fire.step(0.1)
+    assert decisions[0].out
+    assert events == [{"type": "event", "what": "doused", "region": "crate"}]
+    assert fuel.skin_c == PARAMS.ambient_c
+    for _ in range(100):
+        fire.step(0.1)
+    assert not fuel.burning, "nothing else burns, so a cool skin stays unlit"
+
+
+def test_a_douse_of_something_not_burning_does_nothing() -> None:
+    fire = Fire(PARAMS, {"crate": _fuel()})
+    fire.douse("crate")
+    assert fire.step(0.1) == ([], [])

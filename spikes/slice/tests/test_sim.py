@@ -6,6 +6,7 @@ from slice_server import config
 from slice_server.body import Body, Command
 from slice_server.intents import Kindle, Move
 from slice_server.sim import Sim, replay
+from slice_server.view import client_state
 
 _LOADED = config.load()
 C = dataclasses.replace(  # no extinguisher charge: these tests watch the player and the fire, not the vendor
@@ -29,7 +30,7 @@ def test_kindling_in_front_of_the_crate_lights_it_through_the_applier() -> None:
         sim.step([])
     # The fire grows as t^2 over 90 s, so after 5 s it has released little: the crate warms, but barely.
     assert _crate_hottest(sim) > before
-    state = sim.state()
+    state = client_state(sim)
     (burning,) = state["burning"]
     assert burning["region"] == "crate"
     assert burning["at"] == pytest.approx([6.3, 2.9, 0.7])
@@ -64,7 +65,7 @@ def test_the_body_walks_into_the_alley_from_the_spawn() -> None:
     for _ in range(20):
         sim.step([Move(Command(1.0, 0.0, 1.0))])
     assert sim.body.x > 2.5
-    state = sim.state()
+    state = client_state(sim)
     assert state["tick"] == 20
     assert set(state["cells"]) == {"material", "crack", "glow", "heat"}
     assert state["burning"] == []

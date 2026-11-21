@@ -13,8 +13,10 @@ simulation applies each decision through ``simcore.core.applier``, so the world 
   fire is never small, so nothing can be put out early. Fuel burns at the power released, so energy still balances.
 - **Ignition.** A skin node per object, the outer ``skin_depth_m`` of its exposed faces, heated by the radiation it
   absorbs and cooled by convection and its own re-radiation. The object lights when its skin passes the material's
-  ignition temperature. The skin is the slice's, not the world's: its energy is not put into cells, the same
-  "exported, unreceived" accounting the tile spec gives flame radiation (``tile_and_client.md`` §1.2).
+  ignition temperature. The skin is the slice's, not the world's: its energy is not put into cells.
+- **The books.** A fire releases P. The world's cells get the convective share, ``(1 - radiant_fraction) P``; the
+  radiated share leaves the flame, some of it reaching skins and bodies, the rest exported unreceived, the tile
+  spec's accounting for flame radiation (``tile_and_client.md`` §1.2).
 - **Spread.** A burning object radiates as a point source at its centroid, ``q = chi_r P / (4 pi r^2)``, the
   point-source model of fire engineering; a target receives it on its nearest point.
 """
@@ -94,8 +96,13 @@ class Decision:
 
 @dataclass
 class Fire:
+    """The fires. Every change of state (lit, put out, burnt out) happens in ``step``, the same call that returns
+    the decision the world needs for it, so the fire's "burning" and the world's heat sources change together.
+    ``kindle`` and ``douse`` only ask; ``step`` commits."""
+
     params: FireParams
     fuels: dict[str, Fuel] = field(default_factory=dict)
+    _requests: list[tuple[str, str]] = field(default_factory=list)
 
     def flux_at(self, point: Point, *, exclude: str | None = None) -> float:
         """Radiant flux (W/m^2) at ``point`` from every burning object but ``exclude``."""
@@ -106,28 +113,40 @@ class Fire:
         return total
 
     def kindle(self, region: str) -> str | None:
-        """Light ``region`` with a pilot flame. Returns why not, or None when it is lit."""
+        """Ask to light ``region`` with a pilot flame; it lights in the next ``step``. Returns why not, or None."""
         fuel = self.fuels.get(region)
         if fuel is None:
             return f"the {region} doesn't burn"
         if fuel.burnt_out:
             return f"the {region} has burnt out"
-        if not fuel.burning:
-            fuel.burning, fuel.burning_s = True, 0.0
+        self._requests.append(("kindle", region))
         return None
 
-    def douse(self, region: str) -> bool:
-        """Put a burning object out (the vendor's extinguisher). Its skin cools to ambient, so it doesn't relight at
-        once; a neighbour still burning can heat it back up. Returns whether there was a fire to put out."""
-        fuel = self.fuels.get(region)
-        if fuel is None or not fuel.burning:
-            return False
-        fuel.burning, fuel.skin_c = False, self.params.ambient_c
-        return True
+    def douse(self, region: str) -> None:
+        """Ask to put ``region`` out (the vendor's extinguisher); it happens in the next ``step``, if it is still
+        burning then. Its skin cools to ambient, so it doesn't relight at once; a neighbour still burning can heat
+        it back up."""
+        self._requests.append(("douse", region))
+
+    def _commit(self) -> tuple[list[Decision], list[dict[str, object]]]:
+        """Apply the asks, in order: a douse puts out a fire that is burning now; a kindle lights one that isn't."""
+        decisions: list[Decision] = []
+        events: list[dict[str, object]] = []
+        requests, self._requests = self._requests, []
+        for kind, region in requests:
+            fuel = self.fuels[region]
+            if kind == "douse" and fuel.burning:
+                fuel.burning, fuel.skin_c = False, self.params.ambient_c
+                decisions.append(Decision(region, 0.0, out=True))
+                events.append({"type": "event", "what": "doused", "region": region})
+            elif kind == "kindle" and not fuel.burning and not fuel.burnt_out:
+                fuel.burning, fuel.burning_s = True, 0.0
+        return decisions, events
 
     def step(self, dt: float) -> tuple[list[Decision], list[dict[str, object]]]:
-        """One tick: heat the skins, light what passes ignition, burn fuel. Returns decisions and events."""
-        events: list[dict[str, object]] = []
+        """One tick: commit the asks, heat the skins, light what passes ignition, burn fuel. Returns decisions and
+        events."""
+        decisions, events = self._commit()
         fluxes = {name: self._flux_on(fuel) for name, fuel in self.fuels.items() if not fuel.burning}
         for name, flux in fluxes.items():
             fuel = self.fuels[name]
@@ -137,7 +156,6 @@ class Fire:
             if fuel.skin_c >= fuel.material.ignition_c:
                 fuel.burning, fuel.burning_s = True, 0.0
                 events.append({"type": "event", "what": "ignited", "region": name, "flux_w_m2": flux})
-        decisions = []
         for name, fuel in sorted(self.fuels.items()):
             if not fuel.burning:
                 continue

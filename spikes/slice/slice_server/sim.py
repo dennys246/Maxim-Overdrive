@@ -22,19 +22,13 @@ from simcore.core.intents import Extinguish, Ignite
 from simcore.core.intents import Strike as StrikeAction
 from simcore.core.scene import Box
 from simcore.core.world import World
-from simcore.protocol.encoding import snapshot
 from slice_server import alley, heat_debt, npc
 from slice_server.body import Body, Cells, Command, blocked, check_no_tunnelling, impulse, step
-from slice_server.config import SliceConfig
+from slice_server.config import NPC_STATES, SliceConfig
 from slice_server.fire import Decision, Fire, FuelMaterial, Point, fuels_from, nearest_point
 from slice_server.intents import Intent, Kindle, Move, Say, Strike
 from slice_server.reach import nearest_in_front
-from slice_server.wire import pack_cells
 
-# The slice's heat channel, display only: 20 C is 0 and 500 C is 255. Glow starts near 525 C and the energy of a
-# fire goes into the bulk (there is no surface skin in the world until fire's rung 6b), so this channel is what
-# shows a fire warming its fuel before anything glows.
-HEAT_LOW_C, HEAT_HIGH_C = 20.0, 500.0
 CHEST_M = 1.0  # where on the body radiation and air temperature are read, above the feet
 
 
@@ -49,7 +43,7 @@ class Sim:
         self.command = Command()
         self.heat = heat_debt.start(config.heat)
         self.fire = Fire(config.fuel.fire, _fuels(config, scene.primitives, table))
-        self._check_fire_fits_the_limits()
+        self._check_fits_the_limits()
         v = config.npc.vendor
         self.vendor = Body(v.stall_x, v.stall_y, feet_z=alley.FLOOR_TOP_M, yaw=math.pi)
         self.vendor_state, self.charges = "idle", v.charges
@@ -58,13 +52,18 @@ class Sim:
         ):
             raise ValueError(f"the vendor's stall ({v.stall_x}, {v.stall_y}) is inside a solid")
 
-    def _check_fire_fits_the_limits(self) -> None:
+    def _check_fits_the_limits(self) -> None:
         limits, radius = self.world.limits, self.config.fuel.fire.source_radius_m
         if not limits.min_radius_m <= radius <= limits.max_radius_m:
             raise ValueError(f"fire.source_radius_m {radius} is outside the action limits")
         for fuel in self.fire.fuels.values():
             if fuel.peak_power_w() > limits.max_power_w:
                 raise ValueError(f"the {fuel.name} would burn at {fuel.peak_power_w():.0f} W, over the action limits")
+        st = self.config.strike
+        if not limits.min_sigma_m <= st.sigma_m <= limits.max_sigma_m:
+            raise ValueError(f"strike.sigma_m {st.sigma_m} is outside the action limits")
+        if max(st.energy_j, st.overdrive_energy_j) > limits.max_energy_j:
+            raise ValueError(f"a strike's energy is over the action limits' {limits.max_energy_j:.0f} J")
 
     @property
     def frame(self) -> CellFrame:
@@ -82,9 +81,10 @@ class Sim:
         decisions, fire_events = self.fire.step(self.tick_s)
         for decision in decisions:
             self._apply(decision)
+        events += fire_events + self._after_fire(fire_events)
         self.world.advance(self.tick_s)
         self.tick += 1
-        return events + fire_events
+        return events
 
     def _take(self, intent: Intent) -> dict[str, object] | None:
         if isinstance(intent, Move):
@@ -122,7 +122,11 @@ class Sim:
         if decision.out:
             action: Ignite | Extinguish = Extinguish()
         else:
-            action = Ignite(decision.power_w, self.config.fuel.fire.source_radius_m)
+            # The cells get the convective share only: the radiated share (radiant_fraction) leaves the flame,
+            # some of it reaching skins and bodies (fire.flux_at), the rest exported unreceived, as the tile spec
+            # books flame radiation. Without the debit, radiation would add energy on top of the world's.
+            fire = self.config.fuel.fire
+            action = Ignite(decision.power_w * (1.0 - fire.radiant_fraction), fire.source_radius_m)
         outcome = self._applier.apply(decision.region, action)
         if not outcome.success:  # the powers were checked against the limits at start: this is a bug, say so
             raise RuntimeError(f"the applier refused the fire's {decision}: {outcome.error}")
@@ -173,16 +177,25 @@ class Sim:
         step(v, decision.command, cells, self.config.body, self.tick_s)
         if decision.command.effort == 0.0:
             npc.face(v, *self._facing_point(decision, b))
-        events: list[dict[str, object]] = []
-        state = decision.state
-        if decision.douse is not None and self.fire.douse(decision.douse):
-            self.charges -= 1
-            self._apply(Decision(decision.douse, 0.0, out=True))
-            state = "doused"
-            events.append({"type": "event", "what": "doused", "region": decision.douse, "by": "vendor"})
-        if state != self.vendor_state:
-            self.vendor_state = state
-            events.append({"type": "event", "what": "npc", "state": state, "facts": self._facts(decision)})
+        if decision.douse is not None:
+            self.fire.douse(decision.douse)  # an ask: the fire commits it in its step, beside the world's change
+        return self._vendor_becomes(decision.state, decision.target)
+
+    def _vendor_becomes(self, state: str, target: str | None) -> list[dict[str, object]]:
+        """A change of the vendor's state, as a structured event: the server's voice turns it into words."""
+        if state == self.vendor_state:
+            return []
+        self.vendor_state = state
+        return [{"type": "event", "what": "npc", "state": state, "target": target, "player_core_c": self.heat.core_c}]
+
+    def _after_fire(self, fire_events: list[dict[str, object]]) -> list[dict[str, object]]:
+        """A douse the fire committed spends the vendor's charge (only the vendor douses)."""
+        events = []
+        for event in fire_events:
+            if event["what"] == "doused":
+                self.charges -= 1
+                event["by"] = "vendor"
+                events += self._vendor_becomes("doused", str(event["region"]))
         return events
 
     def _facing_point(self, decision: npc.NpcDecision, player: Body) -> tuple[float, float]:
@@ -191,62 +204,16 @@ class Sim:
             return c[0], c[1]
         return player.x, player.y
 
-    def _facts(self, decision: npc.NpcDecision) -> str:
-        """What the vendor's voice is told: plain words, built from the simulation, never read back."""
-        parts = {
-            "flee": "the fire's heat is on you and you are running for the alley's mouth",
-            "douse": f"a fire has started on the {decision.target} near your stall and you go to put it out",
-            "doused": f"you just put out the fire on the {decision.target}",
-            "warn": f"the {decision.target} is burning and you can't put it out",
-            "comment": f"the customer's cyberware is overheating, at {self.heat.core_c:.0f} C",
-            "idle": "it is quiet and you are back at your stall",
-        }
-        return parts[self.vendor_state]
+    def overdrive_on(self) -> bool:
+        """Whether Overdrive is actually on this tick: held, moving, and not tripped."""
+        return self._effective(self.command).overdrive and self.command.effort > 0
 
-    def state(self) -> dict[str, object]:
-        """The tick's message to the client: the body, its heat, the fires and the cells, quantized for display."""
-        snap = snapshot(self.frame)
-        heat = np.clip((np.asarray(self.frame.temperature) - HEAT_LOW_C) / (HEAT_HIGH_C - HEAT_LOW_C), 0.0, 1.0)
-        snap["heat"] = np.round(heat * 255).astype(np.uint8)
-        b, h, p = self.body, self.heat, self.config.heat
-        return {
-            "type": "state",
-            "tick": self.tick,
-            "time_s": self.frame.time_s,
-            "body": {"pos": [b.x, b.y, b.feet_z], "vel": [b.vx, b.vy], "yaw": b.yaw, "work_j": b.work_j},
-            "heat": {
-                "core_c": h.core_c,
-                "coolant": h.coolant_kg / p.coolant_kg,
-                "warn_c": p.warn_c,
-                "trip_c": p.trip_c,
-                "tripped": h.tripped,
-                "overdrive": self._effective(self.command).overdrive and self.command.effort > 0,
-                "flux_w_m2": self.fire.flux_at(self._chest()),
-                "in_puddle": alley.in_puddle(b.x, b.y),
-            },
-            "burning": [{"region": f.name, "at": list(f.centroid)} for f in self.fire.fuels.values() if f.burning],
-            "fires": [
-                {
-                    "region": f.name,
-                    "fuel": f.fuel_kg / f.fuel0_kg,
-                    "skin_c": f.skin_c,
-                    "burning": f.burning,
-                    "burnt_out": f.burnt_out,
-                }
-                for f in self.fire.fuels.values()
-            ],
-            "puddle": list(alley.PUDDLE_XY),
-            "vendor": {
-                "pos": [self.vendor.x, self.vendor.y, self.vendor.feet_z],
-                "yaw": self.vendor.yaw,
-                "state": self.vendor_state,
-                "charges": self.charges,
-            },
-            "cells": {name: pack_cells(snap[name]) for name in ("material", "crack", "glow", "heat")},
-        }
+    def chest(self) -> Point:
+        return self._chest()
 
     def digest(self) -> str:
-        """Every bit of state that replay must reproduce: cells, body, command, heat and fires."""
+        """Every bit of state that replay must reproduce, and that later ticks depend on: cells, body, command, heat,
+        the vendor, the fires (their growth clocks included) and the world's heat sources."""
         f, h = self.frame, hashlib.sha256()
         for array in (f.material, f.integrity, f.temperature):
             h.update(array.tobytes())
@@ -257,8 +224,10 @@ class Sim:
             *astuple(self.vendor),
             self.charges,
         ]
+        numbers.append(NPC_STATES.index(self.vendor_state))
         for fuel in self.fire.fuels.values():
-            numbers += [fuel.fuel_kg, fuel.skin_c, fuel.released_j, fuel.burning, fuel.burnt_out]
+            numbers += [fuel.fuel_kg, fuel.skin_c, fuel.released_j, fuel.burning, fuel.burnt_out, fuel.burning_s]
+        numbers += [src.power_w for _, src in sorted(self.world.sources.items())]
         h.update(struct.pack(f"<{len(numbers)}d", *(float(n) for n in numbers)))
         h.update(struct.pack("<qd", self.tick, f.time_s))
         return h.hexdigest()

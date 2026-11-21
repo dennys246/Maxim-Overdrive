@@ -17,23 +17,16 @@ the verdict note ≤ 1,000. No other documents.
 
 ## 2. The lane's rules
 
-**What is relaxed:**
-- One review round at the end (Executor and Architecture) instead of delta rounds.
-- No diff-coverage, no golden screenshots, no cross-tier tests.
-- The slice may threshold cell means and use gamey constants. Each place where it does says so in a comment.
+**Relaxed:** one review round, not delta rounds; no diff-coverage, golden screenshots or cross-tier tests; gamey
+constants, each commented where it is used.
 
-**What still holds, because breaking it would teach the wrong lesson:**
-- **The server is authoritative.** The Godot project draws and sends intents, nothing else.
-- **Every world change goes through `simcore.core.applier`.** The slice never writes cells or sources directly.
-- **The LLM proposes words, never world state.**
-- **The wire binds 127.0.0.1,** requires the per-launch token, and refuses an `Origin` header.
-- **Simulation time comes only from `World.advance`.** The wall clock paces the loop and times LLM waits, and never
-  enters the sim.
-- **No dependencies outside the lock.** The wire is stdlib `socket`, `zlib` and `json`; Godot's `StreamPeerTCP`.
-- **ruff, typed GDScript and the isolation rules apply.** Session logs go inside the worktree.
-- **No file under `src/` changes on this branch.** A core need the slice finds becomes a row in §8, for the real steps.
-- **The slice follows `main`'s API.** It merges `main` weekly and adapts when 3b(b) lands (scene v1 with `spawns`,
-  coded `Refused`). Its data stays in `spikes/slice/data/`, outside `data/`, read by the slice itself.
+**Kept:** CLAUDE.md's rules for the server, the applier, time and the wire hold here unchanged ("Rules that matter
+here"; "Game engineering"). The slice adds:
+- No file under `src/` changes; a core need it finds becomes a row in §8.
+- It follows `main`'s API, merging `main` weekly. Its data stays in `spikes/slice/data/`, read with the repo's strict
+  YAML reader.
+- The LLM proposes words, never world state: the voice lives on the server, outside the simulation.
+- On its raw socket, HTTP is refused at the first bytes: the slice's form of the `Origin` refusal.
 
 **At the end**, every piece is either deleted or rebuilt through its real step. Nothing graduates by copy.
 
@@ -54,41 +47,27 @@ sends snapshots at 10 Hz. The client renders at its own frame rate and interpola
 - **Framing:** length-prefixed JSON frames over TCP.
 - **Snapshots:** the existing `simcore.protocol.encoding.snapshot`, `zlib`-compressed. Raw, the 60 × 20 × 24 alley is
   about 29k cells, under 100 KB a frame.
-- **Client to server:** `move` (with Overdrive), `look`, `kindle`, `strike`, `say`.
-- **Server to client:** `snapshot`, `body`, `npc_line`, `event`.
+- **Client to server:** `hello`, `move` (with Overdrive), `kindle`, `strike`, `say`.
+- **Server to client:** `welcome`, `state`, `event`, `npc_line`, `error`.
 - **Versioning:** none on purpose. The slice's format is `slice-0` and dies with it. Step 7 designs the real one.
 
 ### 3.3 Fire as a fuel budget (VS4)
 
-The owner remembered "releasable energy per material alongside a flammable tag". It exists only on paper:
-- T18 specified flammable labels, and `fire_model.md` §5.3 records that none reached `src/`.
-- Its successor is the 6.0a data files: `chemistry.yaml` with ΔH_c,eff, and the crate as a porous bed with 32.4 kg
-  of wood and 5.4 m² of surface (`tile_and_client.md` §1). Not built.
-- Today `data/materials/core.yaml` has no fuel field, and `Applier.ignite` adds a heat source of fixed power that
-  never runs out (the burnout gap).
+Not fire's model, and nothing cites it as one: fire's truth is `fire_solid.md` and the ladder, and Phase 1's exit is
+the torch-lit slab. `spikes/slice/data/fuel.yaml` holds, per material, `releasable_energy_j_kg` (wood 12.4 MJ/kg, the
+tile spec's ΔH_c,eff), `ignition_c` and `burn_rate_kg_s_m2`, and per object a burnable share of its box.
+`slice_server/fire.py` holds the laws:
+1. **Fuel and power:** fuel is volume × density × share; power is burn rate × area × releasable energy, the area
+   shrinking as (m/m₀)^(2/3); out at 5% of fuel.
+2. **Growth:** power grows as (t / 90 s)² to that limit, a t-squared design fire. Without it no fire is ever small.
+3. **Ignition by a skin:** a 2 mm surface node per object, heated by radiation and cooled by convection and
+   re-radiation, lights at `ignition_c`. No cell mean is thresholded.
+4. **Spread and the books:** a burning object radiates χ_r = 0.3 of its power as a point source,
+   q = χ_r·P / (4πr²). The cells get the other 70% through the applier; the radiated share reaches skins and bodies
+   or is exported. Conduction through air can't spread fire (0.34 m in 90 minutes, `tile_and_client.md` §1).
+5. **Changes of state** (lit, doused, burnt out) happen only in the fire's step, beside the decision the world gets.
 
-**The slice's version** is a slice-local `spikes/slice/data/fuel.yaml`. It does not touch `core.yaml` or pre-empt
-6.0a's format. Per material it holds:
-- `flammable` (bool),
-- `releasable_energy_j_kg` (wood: 12.4 MJ/kg, the tile spec's ΔH_c,eff),
-- `ignition_c` (gamey: wood 300 °C),
-- `burn_rate_kg_s_m2` (gamey, tuned so the crate burns for about 3 minutes).
-
-Each named object keeps a fuel mass, its volume × density × fuel fraction. Per tick:
-1. **Ignite:** a flammable object whose hottest exposed cell passes `ignition_c` is ignited through the applier.
-   *Gamey: this thresholds a cell mean.*
-2. **Burn:** the source's power is `burn_rate × exposed area × releasable energy`, and fuel drops by
-   `burn_rate × area × dt`. When fuel reaches zero the source is extinguished through the applier.
-3. **Spread by radiation.** Conduction through air cannot spread fire: the tile spec puts the diffusion length at
-   0.34 m in 90 minutes. So a burning object radiates as a point source, `q = χ_r·P / (4πr²)` with χ_r ≈ 0.3. This
-   is the standard point-source model from fire engineering. Each other flammable object receives it on its nearest
-   face, as heat deposited through the applier.
-
-The scene adds one fuel object near the crate (a pallet stack 1.0 m away) so that spread can happen at all.
-`crate_far` stays out of reach.
-
-This is not fire's model, and nothing cites it as one. Fire's truth stays `fire_solid.md` and the ladder. The
-slice's burning crate is a gamey stand-in for play, not Phase 1's exit, which is the torch-lit slab.
+A pallet stack sits 0.4 m from the crate so spread can happen; `crate_far` stays out of reach.
 
 ### 3.4 The body and Overdrive as heat debt
 
@@ -107,13 +86,15 @@ slice's burning crate is a gamey stand-in for play, not Phase 1's exit, which is
     - Convection: `hA·(T − T_air)`, where `T_air` is the mean air temperature over a 1 m sphere around the body,
       read from the frame (a consumer reads at its own scale, never one cell).
     - Evaporation: while coolant remains, it boils off at `L = 2.26 MJ/kg`, capped per second. Coolant refills
-      slowly. In the puddle zone (rain under an awning gap), evaporation is unlimited and coolant refills fast.
+      slowly, and fast in the puddle (rain under an awning gap).
+  - **Tuned to a ladder:** Overdrive trips after about 168 s in still air, 31 s at 1 m from a full fire, never in
+    the puddle (`tests/test_heat_debt.py`).
   - **Overheat:** above `T_warn` the HUD warns, and the NPC notices (smoke off your cyberware). Above `T_trip`,
     Overdrive cuts out and the body slows for 10 s.
 - **What Overdrive buys:**
   - speed;
-  - `strike` at Overdrive power, which can break the glass panel and the drywall partition the slice adds.
-    Concrete stays out of reach.
+  - a harder `strike`: it cracks what it hits (120 kJ, 6 kJ of heat, recoil), but can't breach a wall. A walkable
+    gap in 0.4 m drywall took 31 strikes of 250 kJ, so the glass and drywall were cut (owner, 2026-11-21).
 - **Test (in `spikes/slice/tests/`):** with no Overdrive and no evaporation, `T` relaxes toward `T_air` as
   `exp(−hA·t/C)`. One closed-form check, so the tuning knobs mean what they say.
 - **Tunables:** all of these live in `spikes/slice/data/body.yaml`.
@@ -123,18 +104,17 @@ slice's burning crate is a gamey stand-in for play, not Phase 1's exit, which is
 One NPC, a street vendor at a stall near the alley mouth.
 
 **How it decides:** a behaviour tree, evaluated each tick, in priority order:
-1. **flee** when the air near it passes 60 °C;
-2. **put the fire out** when a fire is small and within 2 m of its fire extinguisher, through the applier;
-3. **warn** when a fire burns farther away;
-4. **comment** when the player is overheating near it;
+1. **flee** while the radiant flux on it passes 2.5 kW/m² (2 kW/m² is painful within 45 s; air warms too slowly);
+2. **douse** a fire under 100 kW within 3 m of the stall, from 1.2 m, while it has a charge;
+3. **warn** while a fire burns within 8 m;
+4. **comment** when the player is overheating within 3 m;
 5. **idle** otherwise.
 
 **How it speaks:**
-- Each decision that changes the tree's state may request a line.
-- The prompt carries the new state and a few perceived facts. The reply is capped at 25 words, sent to Ollama on
-  127.0.0.1 off the tick thread, with a 2.5 s timeout.
-- On a timeout or a refusal it falls back to a canned line.
-- Measured on this machine (`spikes/llm/results/`): about 0.3 s to the first token and 1–2 s for a short reply.
+- Each change of the tree's state requests a line; the server words the prompt from the event's fields.
+- The reply is capped at 25 words, asked of Ollama on 127.0.0.1 off the tick thread, with a 2.5 s timeout.
+- Any failure falls back to a canned line and logs why.
+- Measured (lesson 29): 0.23 s warm with the game alone on the Mac mini; 8 s with other work loading the machine.
 
 **Talking to it:** the player's `say` text goes into the next prompt as words. It can change what the NPC says, never
 what it does.
@@ -162,13 +142,11 @@ a number the NPC line has to beat.
 
 ### 3.7 Telemetry
 
-Each session writes `spikes/slice/sessions/<n>.jsonl` (gitignored):
-- intents, by tick;
-- body temperature, coolant and Overdrive seconds, once a second;
-- ignitions, spreads, burnouts and NPC states;
-- LLM latencies.
+Each session writes `spikes/slice/sessions/<n>.jsonl` (gitignored): intents by tick, tick stats every 50 ticks,
+each vendor line with its source, latency and queue time, and a clean end's digest (or where it crashed).
 
-The intent log plus the scene reruns a session, which is the slice's replay test (§5).
+The intent log plus the scene reruns a session bit for bit, which is the slice's replay test (§5). Heat, Overdrive
+seconds, fires and the vendor's states are read out by replaying it, not stored twice.
 
 ## 4. Schedule
 

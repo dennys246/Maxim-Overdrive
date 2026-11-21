@@ -92,3 +92,55 @@ def test_a_stall_inside_a_solid_is_refused() -> None:
     bad = dataclasses.replace(C, npc=dataclasses.replace(C.npc, vendor=dataclasses.replace(C.npc.vendor, stall_x=6.3)))
     with pytest.raises(ValueError, match="inside a solid"):
         Sim(bad)
+
+
+# --- review round (2026-11-21): reproductions written red-first --------------------------------------------------
+
+
+def test_a_kindle_beside_the_vendor_never_crashes_the_tick() -> None:
+    # Architecture S1 / Executor S1: the fire said "burning" before the world had its source, the vendor doused in
+    # between, and the applier refused an Extinguish of nothing.
+    sim = Sim(C)
+    sim.body = Body(5.4, 2.9, 0.4, yaw=0.0)
+    sim.vendor = Body(5.4, 2.2, 0.4)  # within douse reach of the crate
+    for _ in range(5):
+        sim.step([Kindle()] if _ == 0 else [])
+    assert sim.charges == C.npc.vendor.charges - 1
+    assert "fire:crate" not in sim.world.sources
+
+
+def test_relighting_beside_a_vendor_with_a_second_charge_never_crashes() -> None:
+    two = dataclasses.replace(C, npc=dataclasses.replace(C.npc, vendor=dataclasses.replace(C.npc.vendor, charges=2)))
+    sim = Sim(two)
+    sim.body = Body(5.4, 2.9, 0.4, yaw=0.0)
+    sim.step([Kindle()])
+    events = []
+    for _ in range(60):  # until the first douse lands
+        events += sim.step([])
+        if sim.charges == 1:
+            break
+    assert sim.charges == 1
+    for _ in range(30):  # kindle again with the vendor still beside the crate
+        events += sim.step([Kindle()])
+    assert sim.charges == 0, "the second charge put out the relit fire"
+
+
+def test_strike_parameters_outside_the_action_limits_are_refused_at_start() -> None:
+    thin = dataclasses.replace(C, strike=dataclasses.replace(C.strike, sigma_m=0.1))
+    with pytest.raises(ValueError, match="sigma_m"):
+        Sim(thin)
+    huge = dataclasses.replace(C, strike=dataclasses.replace(C.strike, overdrive_energy_j=2e9))
+    with pytest.raises(ValueError, match="energy"):
+        Sim(huge)
+
+
+def test_a_tripped_body_strikes_without_overdrive() -> None:
+    sim = Sim(C)
+    sim.body = Body(5.5, 2.9, 0.4, yaw=0.0)
+    sim.command = Command(0.0, 0.0, 0.0, overdrive=True)
+    sim.heat.tripped_s = 5.0
+    core = sim.heat.core_c
+    (event,) = [e for e in sim.step([Strike()]) if e["what"] == "strike"]
+    assert not event["overdrive"]
+    assert event["energy_j"] == C.strike.energy_j
+    assert sim.heat.core_c <= core

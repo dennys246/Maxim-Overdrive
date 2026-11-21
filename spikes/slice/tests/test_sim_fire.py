@@ -9,6 +9,7 @@ from slice_server import config
 from slice_server.body import Body, Command
 from slice_server.intents import Kindle, Move
 from slice_server.sim import Sim
+from slice_server.view import client_state
 
 from maxim_overdrive import data
 
@@ -33,8 +34,9 @@ def _at_the_crate(cfg: config.SliceConfig = C) -> Sim:
     return sim
 
 
-def test_the_cells_gain_exactly_the_energy_the_fire_releases() -> None:
-    # Wire integrity: the fire's bookkeeping says what it released; this checks the world actually received it.
+def test_the_cells_gain_exactly_the_convective_share_of_what_the_fire_releases() -> None:
+    # Wire integrity: the fire's bookkeeping says what it released; this checks the world received its convective
+    # share, (1 - radiant_fraction), and no more: the radiated share leaves the flame (Architecture S5).
     sim = _at_the_crate()
     before = _energy_j(sim)
     sim.step([Kindle()])
@@ -42,7 +44,8 @@ def test_the_cells_gain_exactly_the_energy_the_fire_releases() -> None:
         sim.step([])
     released = sim.fire.fuels["crate"].released_j
     assert released > 3e5
-    assert _energy_j(sim) - before == pytest.approx(released, rel=1e-6)
+    convective = (1.0 - C.fuel.fire.radiant_fraction) * released
+    assert _energy_j(sim) - before == pytest.approx(convective, rel=1e-6)
 
 
 def test_a_burnt_out_object_leaves_no_fire_in_the_world() -> None:
@@ -89,7 +92,7 @@ def test_a_tripped_body_runs_slow_without_overdrive() -> None:
 def test_the_state_carries_heat_fires_and_the_puddle() -> None:
     sim = _at_the_crate()
     sim.step([Kindle()])
-    state = sim.state()
+    state = client_state(sim)
     assert state["heat"]["core_c"] == pytest.approx(C.heat.start_c, abs=0.5)
     assert state["heat"]["flux_w_m2"] > 0, "the burning crate radiates on the body"
     fires = {f["region"]: f for f in state["fires"]}

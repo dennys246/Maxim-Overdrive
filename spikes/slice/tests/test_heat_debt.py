@@ -74,3 +74,14 @@ def test_a_trip_holds_for_trip_s_after_the_core_cools_below_trip() -> None:
     assert h.tripped
     _run(h, 1.0)
     assert not h.tripped
+
+
+def test_a_burst_of_heat_past_the_trip_point_trips_at_once() -> None:
+    # Executor N2: add_heat's trip branch had no test.
+    h = BodyHeat(P.trip_c - 1.0, P.coolant_kg)
+    heat_debt.add_heat(h, P, 2.0 * P.capacity_j_k)  # +2 K
+    assert h.tripped
+    assert h.tripped_s == P.trip_s
+    cool = BodyHeat(40.0, P.coolant_kg)
+    heat_debt.add_heat(cool, P, P.capacity_j_k)
+    assert not cool.tripped

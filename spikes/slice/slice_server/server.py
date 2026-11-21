@@ -25,7 +25,8 @@ from maxim_overdrive import data
 from slice_server import WIRE_VERSION
 from slice_server.intents import Intent, Say, parse
 from slice_server.sim import Sim
-from slice_server.voice import Line, Voice
+from slice_server.view import client_state
+from slice_server.voice import Line, Voice, facts
 from slice_server.wire import FrameReader, WireRefused, encode
 
 MAX_OUTBOX = 8 << 20  # a client this far behind isn't reading; drop it rather than buffer without bound
@@ -38,6 +39,7 @@ class Client:
     reader: FrameReader = field(default_factory=FrameReader)
     outbox: bytearray = field(default_factory=bytearray)
     authed: bool = False
+    accepted_at: float = field(default_factory=time.monotonic)  # for the hello deadline (wall clock: server side)
 
 
 @dataclass
@@ -71,8 +73,10 @@ class Meter:
 
 
 class Server:
-    def __init__(self, sim: Sim, *, token: str, log: IO[str], port: int = 0, voice: Voice | None = None) -> None:
-        self.sim, self._token, self._log = sim, token, log
+    def __init__(
+        self, sim: Sim, *, token: str, log: IO[str], port: int = 0, voice: Voice | None = None, hello_s: float = 5.0
+    ) -> None:
+        self.sim, self._token, self._log, self._hello_s = sim, token, log, hello_s
         self._listener = socket.create_server(("127.0.0.1", port))
         self._listener.setblocking(False)
         self.port: int = self._listener.getsockname()[1]
@@ -94,6 +98,7 @@ class Server:
             for key, events in self._sel.select(max(0.0, deadline - time.monotonic())):
                 self._ready(key.fileobj, events)  # type: ignore[arg-type]
             self._deliver_lines()
+            self._enforce_hello_deadline()
             if time.monotonic() >= deadline:
                 self._tick()
                 deadline += self.sim.tick_s
@@ -101,12 +106,24 @@ class Server:
                     self.meter.overruns += 1
                     deadline = time.monotonic()
 
+    def _enforce_hello_deadline(self) -> None:
+        """A connection that hasn't said hello in ``hello_s`` is closed, so a silent local process can't hold the
+        only client slot."""
+        c = self._client
+        if c is not None and not c.authed and time.monotonic() - c.accepted_at > self._hello_s:
+            self._refuse(WireRefused("hello_timeout", f"no hello within {self._hello_s:g} s"))
+
     def stop(self) -> None:
         """Ask the loop to end after its current tick. Safe from a signal handler or another thread."""
         self._stop.set()
 
-    def close(self) -> None:
-        self._log_line({"end": {"tick": self.sim.tick, "digest": self.sim.digest()}})
+    def close(self, *, clean: bool = True) -> None:
+        """Close down. A clean close logs the final digest; after a crash the state is a half-applied tick, so the
+        log says where it crashed instead, and keeps that tick's intents for replay to reach the crash."""
+        if clean:
+            self._log_line({"end": {"tick": self.sim.tick, "digest": self.sim.digest()}})
+        else:
+            self._log_line({"crashed": {"tick": self.sim.tick}})
         if self._client is not None:
             self._drop("server closing")
         self._sel.close()
@@ -122,7 +139,7 @@ class Server:
         events = self.sim.step([intent for intent, _ in pending])
         tick_cpu = time.thread_time() - start
         start = time.thread_time()
-        message = encode(self.sim.state())
+        message = encode(client_state(self.sim))
         self.meter.add(tick_cpu, time.thread_time() - start, len(message))
         if self._client is not None and self._client.authed:  # the world goes only to a peer that gave the token
             for event in events:
@@ -138,7 +155,7 @@ class Server:
             return
         for event in events:
             if event["what"] == "npc":
-                line = self._voice.request(str(event["state"]), str(event["facts"]))
+                line = self._voice.request(str(event["state"]), facts(event))
                 if line is not None:
                     self._send_line(line)
 
@@ -155,6 +172,7 @@ class Server:
             "state": line.state,
             "source": line.source,
             "latency_s": line.latency_s,
+            "queued_s": line.queued_s,
             "why_canned": line.why_canned,
         }
         self._log_line({"line": message, "tick": self.sim.tick})
@@ -200,6 +218,8 @@ class Server:
         try:
             for message in self._client.reader.feed(data_in):
                 self._handle(message)
+                if self._client is None:  # handling it dropped the client (a failed reply): the rest is moot
+                    return
         except WireRefused as exc:
             self._refuse(exc)
 

@@ -56,7 +56,7 @@ How the rule is kept, so far:
   turns): a coarse cell degrades as one block. Onset agrees to within 5%.
 - No convection or radiation: air only conducts, so rooms heat too slowly and fires must sit on a material.
 - Destroying a cell removes its heat (it becomes air at air's heat capacity). Measured: a 5.4-minute crate-and-pallet
-  burn lost 42.2 of 84.0 MJ to 14 destroyed cells (`spikes/slice/`, 2026-11-21).
+  burn lost 42.2 of 84.0 MJ to 14 destroyed cells (commit 6e8f037).
 - **Fires don't consume fuel: once nothing solid is left under a fire, it heats air.** `World._power_field` spreads a
   fire's power over the solid cells its sphere overlaps, and falls back to the air cells when there are none. Air has
   about 1/1000 of wood's ρc, so the runaway is enormous. On the 3×3×2 m crate scene at 500 kW, radius 0.3 m: the
