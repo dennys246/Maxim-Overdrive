@@ -75,7 +75,7 @@ def test_heat_is_second_order_in_space(materials):
     cancelled space and time error, not space: the clean study's order at 0.2/0.1 m is 1.92.
 
     The step is shared by every grid and must be time-converged: a quarter of it moves each order by under a quarter
-    of that order's bar (that fraction was set after seeing Physics' review measure 0.011). Measured 2026-11-21 on this
+    of that order's bar (set after seeing Physics' review measure 0.011; owner accepted, 2026-11-21). Measured on this
     0.2 m-thick bar: orders 1.918 and 1.997 at 0.45 s, 1.915 and 1.986 at 0.1125 s; errors 1.286%, 0.340%, 0.085%.
     At 1.8 s (1/16 of stability) the fine order is 2.045, inside its bar but not time-converged. At the finest grid's
     stability step (28.85 s) the orders are 2.20 and 4.90, so stability alone is not enough.
@@ -106,8 +106,9 @@ def test_heat_is_first_order_in_time(materials):
     2026-11-21: orders 1.116 and 1.060.
 
     The reference must also have settled: the two orders agree within the coarser one's own bar, (alpha / sigma0**2)
-    * dt at the coarsest run (0.173 against a gap of 0.056). A tolerance at the finer runs' step can't be met at any
-    refinement, since consecutive orders differ by about 0.65 of that step's bar (Executor and Physics reviews).
+    * dt at the coarsest run (0.173 against a gap of 0.056; set after measuring, owner accepted 2026-11-21). A
+    tolerance at the finer runs' step can't be met at any refinement, since consecutive orders differ by about 0.65 of
+    that step's bar (Executor and Physics reviews).
     """
     dx_m = 0.2
     base = math.ceil(T_S / heat.stable_dt(_bar(dx_m, materials)[0]))
