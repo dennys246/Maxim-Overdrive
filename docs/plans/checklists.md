@@ -86,6 +86,14 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 
 ## Step 5a, the simulation core (O34)
 
+- Step 4's harness, the three items it left here (`docs/design/verify_harness.md` §7):
+  - the scenario agreement studies (`tests/test_cross_tier.py`, the cross-grid tests in `tests/test_act_validation.py`)
+    move from `World` to `Simulation` at its fixed physics step, so they refine space alone; until then they refine
+    space and time together;
+  - the reversed-order half of the splitting test, `same_class_under_refinement` over the law list in both orders
+    (`research/physics_spike/splitting.md` §6.4);
+  - the exact work counters (`world_v2.md` row 2) from `Simulation`, with B5's budgets as their reader.
+
 - Retire `imagination.place`'s write window (its `TEMPORARY(phase1/sim-clock)` marker): owner confirmed 2026-11-20.
 
 - The substep floor (from 3a, marked `TEMPORARY(phase1/sim-clock)` in `src/simcore/core/heat.py`): `World.advance`
