@@ -285,3 +285,16 @@ V passes at both steps, nothing flips, and N1–N3, N5, N6 and N8 pass.
    - the resolution numbers above;
    - pine's plateau −30% at converged numerics;
    - PMMA's 25 kW/m² t_ig, 222 s against about 100.
+
+## 7. The owner's ruling (2026-11-20): the fallback exit
+
+The owner took `fire_model.md` §7's fallback, and fire stays a long-term feature (`docs/plans/long_term_features.md`).
+
+- **Phase 1's fire exit is the highest rung that passes honestly:** the lone-surface solid, verified against FDS and
+  node-converged, ignited by the torch, burning, charring and flaming out. It is verified, not validated: its
+  validation misses (§4, §6.2) ship as Known gaps in `docs/architecture.md` with 6.1's code, with the numbers above.
+- **The crate moves to Phase 2,** with 6.2–6.4 (the flame object, two bodies, the crib).
+- **Rerun 2 stays banked,** unspent, until §0.2's pre-ignition question has a cited answer (a cone-in-air parameter
+  set, or an ignition criterion from the literature). It then gets its own pre-registration.
+- **Open for 6.1's design:** whether the slab exit flips the burnout red gate
+  (`tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`), which the plan put at 6.4.
