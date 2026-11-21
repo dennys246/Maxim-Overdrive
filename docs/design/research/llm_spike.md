@@ -39,8 +39,8 @@ TTFT is the time to the first token.
 - **About two NPCs per local 3B model hold that, on this machine.** At 2 in flight the median is 0.54 s, still
   inside the account window. At 4 it is 1.40 s, past the yield. Ollama's default server queues requests, so the
   growth with in-flight count is the cost of sharing one model.
-- **The full reply takes 1.3–2.2 s, longer than the first token.** Speech is stamped per syllable (OA4) and streamed,
-  so the NPC speaks while the rest decodes.
+- **The full reply takes 1.3–2.2 s, longer than the first token.** Speech is stamped per syllable (OA4) and, once streaming
+  lands (OD-A25; not before, O50), the NPC speaks while the rest decodes.
 
 ## What it does not show
 

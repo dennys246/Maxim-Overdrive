@@ -93,7 +93,7 @@ doesn't estimate. Only perception is coarse.
 **Where wall time remains (host only):**
 - the pacing loop that turns the dial into ticks per wall second;
 - measuring dilation (§4.5);
-- the thinking lane's wall timeouts on the model calls it executes. **Under the dilate policy a timeout retries, and past a host ceiling the thought
+- the thinking lane's wall timeouts on the model calls it executes. **A failed call retries (`inference_placement.md` §2.6), and past a host ceiling the thought
   ends as a logged `thought_failed`** (§4.4). A timeout never silently "frees a worker" and never fails a thought on
   its own (BF2-8, TB2-B3);
 - network timeouts, meters, log flushing.
@@ -332,10 +332,10 @@ substrate. This needs the host to own every LLM call, which the request/reply cu
 as a value and the host executes it (§6.1). **[after A]** with real Maxim, **[now]** with the test double.
 
 **Two channels the cost model doesn't remove, stated (BF2-8):**
-- **Model capability.** The player's VRAM decides the model, its quantisation and context length, so a bigger GPU
-  gives cleverer NPCs at every dial. It can't be modelled away. It is the agent analogue of a rig profile: the model
-  profile goes in the log header and the rerun manifest, and the Known gaps record that **the outcome class is not
-  promised across model profiles.**
+- **Model capability.** The placement table decides each function's model (`inference_placement.md`), so a bigger GPU
+  or a cloud model gives cleverer NPCs at every dial. It can't be modelled away. It is the agent analogue of a rig
+  profile: each reply records its placement, and the Known gaps record that **the outcome class is not promised
+  across model profiles.**
 - **The kind may depend on the NPC's state and context, never on host load or the dial.** Test: the same scene at
   1× and 20× with the test double at varied wall latencies gives the same kinds.
 
@@ -410,11 +410,11 @@ without their fixes. It is built with them (Arch B2):
 - **No-deadlock invariant, by construction:** no worker is ever held by an agent. An agent with an outstanding
   request is a value holding a `Pending`; a worker is held only by a model call in flight, and the host's wait set
   counts only those. Test: one worker, two NPCs, a thought due after a queued one.
-- **Liveness:** under every policy, a call past the host's wall ceiling ends as `thought_failed(reason=timeout)`, a
+- **Liveness:** under every policy, a thought past its liveness ceiling, counted from enqueue (`inference_placement.md` §2.5), ends as `thought_failed(reason=timeout)`, a
   logged record, so the world always moves again; the run is flagged tier 3 (TB2-B3, DR-S11).
 - **Machine-decided failures** (an LLM error, refusal, out-of-memory) are recorded in the cache as first-class
-  responses and flag the run tier 3 (DR-S11).
-- **Early replies are held by the host,** and `think` resumes only at the segment's modelled landing tick (§6.6). The
+  responses and flag the run tier 3, judged on a thought's final outcome (DR-S11).
+- **Early replies are held by the host,** text included and saved with its header (`inference_placement.md` §4.2), and `think` resumes only at the segment's modelled landing tick (§6.6). The
   continuation's host-owned header lives in the host and its agent-owned body agent-side, saved with the agent home
   (save v1), never in the world log, which holds only the intents they produce and the host records (world_v2 DLP S-1).
 - **A floor:** the loader requires `D(kind) ≥ D_min(kind) > 0`. Zero is allowed only in a named reference arm of a
@@ -461,10 +461,10 @@ for other players in co-op. The levers, in order of size:
 1. **Start the thought during the other speaker's turn,** on streamed speech, as people do. The player's utterance is
    the NPC's lead time. **Typed text arrives all at once and gives no lead;** streamed voice input does.
 2. **Small, fast prompts for the first word** of a reply, and a faster model for speech turns than for plans.
-3. **Streaming the first token** for P2 speech, so the gap closes on time-to-first-token, not on the whole reply.
+3. **Streaming the first token** (unavailable until OD-A25; O50) for P2 speech, so the gap closes on time-to-first-token, not on the whole reply.
 4. P0 carries the gap with gaze and backchannels. That changes the feel, not the arithmetic.
 
-**Meters (B5 rows, DR-S9):** wall latency to first token and to the complete reply, per model and role; PFC cycles per
+**Meters (B5 rows, DR-S9):** wall latency to first token and to the complete reply, per placement and function; PFC cycles per
 thought; follow-ups per triggering input; effective dial by cause; under floor-holding, the lateness meter (§4.4).
 
 ### 4.6 Coupling to the body: mental fatigue and sleep pressure, not hunger **[after A; effects earned by OD-X2]**
@@ -501,29 +501,8 @@ thought; follow-ups per triggering input; effective dial by cause; under floor-h
 
 ### 4.8 Reproducing runs with real thoughts **[after A, and after the agent barrier]**
 
-v1 tagged this [now]. It can't hold before tier A: every prompt carries the host time, so no key ever repeats; and
-before the barrier (§6.3), the agent state that builds the next request depends on thread timing (DR-B3, X-2, Wire
-S9). With both:
-
-- **A response cache, per LLM call** (each segment), not per thought.
-- **The canonical request** is a frozen, versioned type with golden fixtures: the model id and a weights or
-  quantisation digest; sampling parameters (temperature, top-p, top-k, seed, max tokens, stops); the system prompt; the
-  message list; the model role; the prompt-template and pymaxim versions; and an assertion that `tools is None`
-  (Maxim's planning call renders tools into the prompt text and sends no native `tools=`, so a later move to native
-  tools changes the key loudly). Serialised as canonical
-  JSON: sorted keys, no floats or a fixed float format, NFC strings, explicit separators.
-- **Occurrences:** keyed by `(content hash, occurrence index)`, so two identical requests at temperature above 0 in
-  one run reproduce both answers.
-- **An entry holds only the raw model output and the full canonical request.** On read the gate recomputes the hash
-  and refuses a mismatch; actor, kind, timing and targets are recomputed from the request and the cost model, never
-  read from the entry (TB2-S4).
-- **Misses on a rerun are loud errors**, never a live call, so a rerun can't silently become tier 3.
-- **The cache is a registered gate** with the strictest contract (versioned, strict decoder, size budgets), is **per
-  save**, never global, and is **excluded from bug reports by default**, since it holds players' conversations.
-- **Replay never opens the cache.** Tested: a replay with the cache deleted, or poisoned, gives the same digests.
-- **What pairing buys, and where it stops.** Two runs that differ in one variable stay paired only until the first
-  prompt differs; after that every request misses. So paired reruns help substrate-only arms and the prefix before
-  divergence, not LLM arms as a whole; a paired analysis estimates d_z, with the seed as the unit (BD-16, Arch 4.5).
+The response cache (canonical request, occurrences, entries, the three modes, pairing, saves and branches) and the
+rerun manifest's inference items are owned by `inference_placement.md` §4.2–§4.3.
 
 ## 5. Conversation in hybrid mode
 
@@ -578,7 +557,7 @@ S9). With both:
   separator `str.splitlines` splits on refused** (U+2028, U+2029, U+0085, `\v`, `\f`, U+001C–U+001E), since a guest
   line could otherwise forge a section header in Maxim's prompt (TBR-11; O14), and a per-session rate
   limit; golden rejection frames.
-- **Streamed NPC speech is validated per chunk,** before it reaches any player, independent of the rest of the reply
+- **NPC speech is validated per chunk** (over the held reply until OD-A25), before it reaches any player, independent of the rest of the reply
   (Arch 2.6).
 - **Memory provenance (TBR-8; O14):** every memory an NPC forms from speech records the speaker, so a prompt-injected
   memory can be traced to a guest and purged without touching what other players said.
@@ -631,7 +610,7 @@ What Maxim must offer for Overdrive to run real NPCs, all **[after A]** and draf
 | Piece | What it is | Why |
 |---|---|---|
 | **Host-called `step`, `think` and `settle`** (O39) | Overdrive's port, in ticks: `step(now_tick, dt_ticks, frame)`, `think(handle, reply \| None)`, `settle(receipts, writes)`; Maxim's function `step(agent, world_dt_us, frame)`; `settle` the only writer, applying the host-gated writes (Maxim's cand. A6) and the credit through the agent bus; the continuation split into a host-owned header and an opaque agent-owned body (§6.6); nothing runs on its own thread | the host owns time and order; generate vs apply (OD-A15, OD-A18). Maxim has no inner tool loop (`agent_loop.py:2172`, `:2264`), so the only thing `think` waits on is a model call, but PFC deliberation makes up to 3 by default (`:3110-3111` on f0b1cea4; `llm.deliberation_max_cycles` overrides it, so the host's cap governs) |
-| **The request/reply cut** (replaces v2's "host-supplied gateway") | the request is a value (rendered text, sampling, model **role**, template version, `tools is None`; the host stamps priority and deadline from the kind, outside the cache key); produced at the `LLMRouter._complete_text` cut (`router.py:958`), the host supplying the bound model's `n_ctx` and tokenizer (`token_counter`) to the `PromptBudgeter` (Maxim's `docs/lessons/sim-n-ctx-config-drift.md`); the reply is `complete(text)`, with reserved `cancelled(prefix)` and `truncated(prefix, reason)` variants that bypass the parse-failure template; speech is a top-level field emitted first | the gateway sits above the backend, so the router's per-router `_inference_lock` (`router.py:192`, `:1094`, `:1225`) never serialises NPCs, and the host holds, stamps, cancels and caches (Maxim's answer; Arch 2.1, 2.5, 2.6) |
+| **The request/reply cut** (replaces v2's "host-supplied gateway") | the request is a value (rendered text, sampling, the **function**, template version, `tools is None`; the host stamps priority and deadline from the kind, outside the cache key); produced at the `LLMRouter._complete_text` cut (`router.py:958`), the function's envelope (`inference_placement.md` §2.1) feeding the `PromptBudgeter` (Maxim's `docs/lessons/sim-n-ctx-config-drift.md`); the reply is `complete(text)`, with reserved `cancelled(prefix)` and `truncated(prefix, reason)` variants that bypass the parse-failure template; speech is a top-level field emitted first | the lane sits above the backends, and no router is built (`inference_placement.md`), and the host holds, stamps, cancels and caches (Maxim's answer; Arch 2.1, 2.5, 2.6) |
 | **The deliberation continuation** | a frozen, versioned, pickle-free value, not the whole agent, split by owner (§6.6) | `step` keeps running while a thought is out, so resume must decide staleness against the current agent (Arch 2.2, 2.3) |
 | **World tools vs cognition tools** *(proposed; not adopted)* | resolving cognition tools inside `think` would be an inner tool loop, Maxim's C10 question; until an experiment decides it, cognition tools go through follow-ups like world tools (§6.6) | a recall through a follow-up costs a full L (Arch 1.2, Arch S3) |
 | **A closed tool roster** | the membrane's affordances plus reviewed cognition tools, sealed with the advisor's patterns (`ToolPolicy`, the `Effect` ceiling); engineering, on its own clock | the default registry holds file tools (`runtime/bootstrap.py:132-135`) and `BashTool` (`:27`), and the CLI and embodied runtime add internet tools (`:255-276`); player speech is in the prompt |
@@ -664,7 +643,7 @@ own that survey; this part only depends on its outcome.
   agent home, with a save/load round trip.
 - **The host thinking lane** that executes request values by deadline, with the response cache, cancel as a reply,
   the wall ceiling ending a thought as `thought_failed`, and the follow-up-chain budget.
-- **The host-side stream:** chunked speech validation and syllable stamping from a scripted stream.
+- **Speech validation and syllable stamping** over the held reply at its landing tick (streamed after OD-A25).
 - **`data/agents/` timing, speech, fatigue and thought-budget files,** each loaded through a gate.
 - **The scripted test double:** an agent that implements `AgentPort` from a script and runs through the real
   thinking lane, barrier and log. It is a real state machine, so the hard cases are exercised: multi-cycle PFC
@@ -672,7 +651,7 @@ own that survey; this part only depends on its outcome.
   It may script fillers as fixed outputs for interface tests only, and the tests say so (OA3). Every [now] test in this part runs
   against it. It is a test double, never shipped as an NPC, and the tests say so.
 - **Real Maxim** behind `engine.adapters.agents` is a **strict red gate** (`xfail(strict=True)`) until tier A ships,
-  with the reason naming the missing piece. Nothing is built around Maxim's router, which the push-back rule forbids.
+  with the reason naming the missing piece. The lane never uses Maxim's router; its backends are the transports (O46, `inference_placement.md`).
 - **The membrane's synchronous path.** Today `StructureModulator.execute` applies the act within the call. After the
   boundaries split it calls the applier synchronously with no log, under a TEMPORARY marker scheduled for
   `phase1/agents` (not
@@ -689,7 +668,7 @@ agents)" and "agents step inside the simulation lane's tick" (§11).
 - **One worker process per real agent (O13).** Each real Maxim agent runs in its own process, started with
   `spawn` (the offline latch refuses `fork` and `forkserver`), with a scrubbed environment, no API keys, its working
   directory and home at its agent home under the save, prefetch off, and the latch engaged after the host pipe is
-  open. The model gateway stays in the host. The process boundary contains the leak paths Maxim hasn't closed yet:
+  open. Model calls stay host-side, in inference gateways (O47). The process boundary contains the leak paths Maxim hasn't closed yet:
   they reach an empty directory and a refused socket, not the host (TBR-5). **The channel, the environment
   allowlist, the codec, failure handling and the test double's place behind the channel are §6.6;** v3's "test double
   in-process" and "scrubbed environment" are superseded there.
@@ -763,7 +742,7 @@ section pins them. Where it and an earlier section differ, this section wins, an
   v3.1's interim `MAXIM_DATA_HOME` is dropped, since Maxim's A4 waits for A1 (`AgentHome`) (Maxim's plan review). The offline latch engages after the channel opens.
 - **The codec:** length-prefixed frames, each a versioned, closed-schema JSON object through the strict decoder
   (`boundaries.md` §10), with size budgets checked before allocation. Message kinds are closed per direction: host to
-  worker `step`, `resume`, `settle`, `consolidate`, `save`, `load`, `shutdown`; worker to host `step_output`, `pending`,
+  worker `step`, `resume`, `settle`, `consolidate`, `save`, `load` (every spawn begins with it, carrying the function envelopes), `shutdown`; worker to host `step_output`, `pending`,
   `thought_output`, `ack`, `error(code)`. Each intent in `step_output` carries its invocation pid (opaque to the host; null until Maxim's
   G17 stage builds `PhysicalEventId`, then any non-null value that isn't a pid is refused);
   each receipt in `settle` and each event in `step`'s frame that an intent caused carries it as `caused_by`. An unknown kind, field or version ends the agent (below).
@@ -788,7 +767,7 @@ section pins them. Where it and an earlier section differ, this section wins, an
   without one (Windows today) guest sessions with real NPCs are refused.
 - **The host never latches itself (TBR-4, TB3-S7).** The host refuses to start with `MAXIM_OFFLINE` set in its own
   environment (a start-up check, **[now]**), since `import maxim` would latch the world server. Once the adapter is
-  split, the host imports Maxim's types only through `simcore/adapters/sem/_compat.py`, and `maxim` itself only in workers.
+  split, the host imports Maxim's types only through `simcore/adapters/sem/_compat.py`, and `maxim` itself only in workers and inference gateways.
 - **Its cost (Exec S4):** every park is a round trip. 20 NPCs × 200 ticks per wall second × 50–200 µs per round trip
   is 0.2–0.8 wall seconds per second spent on the barrier alone, enough to make 20× unreachable. B5 gets a budget for
   it, and the levers are: only agents due this tick (by rate divisor, §2.1) get a round trip; frames go as deltas;
@@ -807,7 +786,7 @@ section pins them. Where it and an earlier section differ, this section wins, an
 - **The continuation is split by owner.** The **host-owned header** is a frozen value the host keeps and never sends
   out to be returned: thought id and kind, the triggering input id, the budget counters, the PFC cycle index and
   `max_cycles`, `basis_seq` (O38), each segment's modelled landing tick, cancel status and the
-  delivered prefix. The **agent-owned body** (the partial proposal, the transcript, enrichment results, the loop
+  delivered prefix, and any `held_reply` (text and provenance, `inference_placement.md` §4.2). The **agent-owned body** (the partial proposal, the transcript, enrichment results, the loop
   locals that aren't values yet) stays in the worker, saved in the agent home, and reaches the host only as opaque
   bytes for saving. The host enforces budgets from its header, so a guest-injected follow-up chain can't reset them;
   a worker reply that contradicts the header is a protocol error.
@@ -833,7 +812,7 @@ section pins them. Where it and an earlier section differ, this section wins, an
   early is held by the host. One that arrives late, under dilate, lands at the tick the world waited at; under
   floor-holding, the tick it lands at is logged as `reply_landed(thought, tick)`, a host record a rerun consumes.
   Test: a plant that resumes on arrival makes a rerun with instant cached replies diverge, and goes red.
-- **`cancelled(prefix)` and `truncated(prefix)` carry the delivered speech:** the host-validated syllables already
+- **`cancelled(prefix)` and `truncated(prefix)` carry the delivered speech** (reasons: `inference_placement.md` §2.6)**:** the host-validated syllables already
   emitted to the world by the cancel tick (§5.3), in world time. Tokens streamed beyond them are discarded and never
   reach cognition (TB3-S5). A chunk the guest-text gate refuses mid-stream ends the reply as
   `truncated(prefix, reason=validation)` (Arch N6).
@@ -1151,6 +1130,7 @@ its cancellable backend with the request/reply cut (§6.1), tool-call caps with 
 
 ### 12.2 Known OPEN divergences (each with a red gate when there is code)
 
+- **Inference placement's divergences** are owned by `inference_placement.md` §6.2.
 - **Co-op lateness is heard (O27):** until OD-H5 and latency close it, a co-op listener hears a late NPC's whole
   silence, modelled part and host lateness together, so the host's speed reaches other NPCs' memories. Accepted as
   a known gap; the alternative was an oracle.
@@ -1198,8 +1178,6 @@ its cancellable backend with the request/reply cut (§6.1), tool-call caps with 
   Recorded from the code and arithmetic, not a run; a strict red gate will carry it once the agent PR lands it.
 - Model calls outside `think` (`AdaptivePlanner`, the `ToolPainBridge` reflection, `FearAgent`); they fail closed in
   the worker, which holds no backend, and close with OD-A17.
-- Any shared router serialises inference (`_inference_lock`); the host never shares one across NPCs, and closes it
-  structurally with the request/reply cut.
 - Maxim has no turn-taking substrate (gaze, backchannels, fillers, floor-holding); closes with OD-H5 if Maxim takes it
   (OA3, revised).
 - The SCN phase is an oracle (host calendar today, exact world phase after tier A); closes with OD-B8 if OD-X1 earns it.

@@ -274,7 +274,7 @@ On the 16×10×4 m synthetic tile (DLP, measured):
 | 8b | `phase1/fuel-combustion` | Combustion per zone, products, extinction, flame feedback debited. Fines from destroyed mass. The CSG footprints (§5). |
 | 9 | | Phase-change progress, with bound water as the first transition. |
 | 9b | `phase1/agents` | The agent foundations: one host-called `AgentPort` (`step`, resumable `think`, `settle`; O39), `StepOutput`, `Pending`, `Reply` and `ThoughtOutput`, the continuation's host-owned header, receipts and settle, `data/agents/`, per-NPC streams, the tool-roster and home checks, the worker channel and its codec (a registered gate), the scripted test double in a spawned worker behind that channel; real Maxim a strict red gate until its tier A (`boundaries.md` §11.1, `npcs_and_sem.md` §6.2, §6.6). |
-| 10 | `phase1/lanes` | The agent barrier over worker channels, `agent_failed` on a hung or dead worker, meters (the channel round trip per park), crash injection (`npcs_and_sem.md` §4.4, §6.3, §6.6). The thinking lane is `phase1/agents`' (npcs §6.2). |
+| 10 | `phase1/lanes` | The agent barrier over worker channels, `agent_failed` on a hung or dead worker, meters (the channel round trip per park), crash injection (`npcs_and_sem.md` §4.4, §6.3, §6.6). Thinking lane and gateways: `phase1/agents` (`inference_placement.md`). |
 | 11 | | **Save v0, after the lanes,** so in-flight thoughts are part of the saved `Simulation` state with a load rule (A-SF-12, DA-6). |
 | 12 | `phase1/lab` | The lab as a physics benchmark tile, and the Godot client (part 3). |
 

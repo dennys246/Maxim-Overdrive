@@ -10,15 +10,14 @@ Godot client (render, input, UI)  ──intents──▶  World server (Python, 
                                   ◀─snapshots──    ├── material grid (cells)
                                                    ├── physics fields (heat today)
                                                    ├── damage
-                                                   ├── SEM bridge  ──▶  Maxim agents (AgentPool)
+                                                   ├── SEM bridge  ──▶  Maxim agents (a worker each)
                                                    └── imagination specs → cells
 ```
 
 - The world server owns all state and all physics. The client never simulates anything that feeds back into the
   world. It may add purely visual effects (particles, debris, interpolation between frames).
 - Cradles and experiments run the same server headless. The physics an NPC grows up in is the game's physics.
-- The game runs in real time with pause (`docs/design/realtime_lanes_coop.md`); neither the world nor an NPC
-  waits for a thought.
+- Real time with pause; late thoughts dilate, hold the floor or land late (`npcs_and_sem.md` §4.4).
 
 ## The world is material cells
 
@@ -50,6 +49,7 @@ How the rule is kept, so far:
   scratch becomes a breach.
 
 **Known gaps (tracked, not gated yet):**
+- NPC inference (no streaming yet, load versus failure, first hops, spend): `docs/design/inference_placement.md` §6.3.
 - Late in a burn the coarsest rig lags (crate integrity 0.55 at 0.2 m vs 0.37–0.38 at 0.1 and 0.05 m after 150
   turns): a coarse cell degrades as one block. Onset agrees to within 5%. It falls below 0.7 at turn 138 at 0.2 m
   against 104 at 0.1 m. Red gate: `tests/test_cross_tier.py::test_the_crate_is_badly_burned_at_the_same_turn_at_every_rig`.
@@ -170,8 +170,7 @@ transport later means replacing one adapter on each side, not the message format
 **Why not a raw TCP socket.** At 5 bytes per cell, a 16×10×4 m tile is about 0.4 MB at 0.2 m cells, 3.2 MB at
 0.1 m and 26 MB at 0.05 m. On localhost either transport moves that in tens of milliseconds, far less than a turn of
 physics. WebSocket frames each message for us (raw TCP means hand-written length-prefix reassembly in GDScript),
-can be inspected with `websocat` or a few lines of Python, is built into Godot 4 (`WebSocketPeer`), and is the only
-one of the two that a web export or `wss://` remote play could use.
+is inspectable with `websocat`, is built into Godot 4 (`WebSocketPeer`), and alone suits a web export or `wss://`.
 
 **What it costs, and what we do about it:**
 - *Any web page can open `ws://localhost`.* Browsers allow cross-origin WebSockets, which a raw socket would not.
