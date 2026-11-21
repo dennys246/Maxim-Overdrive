@@ -21,16 +21,17 @@ from simcore.core.schema import Field, Format, MapOf, Nested, Real, Rgb, Schema,
 
 # The material's one schema (boundaries §5.1, TB-B2): the file's reader, Material's constructor and the table's lookup
 # arrays all read it. Heat capacity divides, so a zero density or specific heat would make the first heat step divide
-# by zero; a negative conductivity would run heat uphill. The upper bounds are validity bounds, not tunables, each
-# well past any real material (osmium 22,590 kg/m³, hydrogen 14,300 J/kg K, graphene about 5,000 W/m K), so no
-# product a law forms overflows: 1e200 times 1e200 made rho_cp infinite and the first step NaN (step 3b(b) review,
-# T1-S7).
+# by zero; a negative conductivity would run heat uphill. The bounds are validity bounds, not tunables, each past any
+# real material on both sides (hydrogen gas 0.084 to osmium 22,590 kg/m³; lead 129 to hydrogen 14,300 J/kg K;
+# graphene about 5,000 W/m K), so no product a law forms overflows or underflows: 1e200 times 1e200 made rho_cp
+# infinite and the first step NaN (step 3b(b) review, T1-S7), and 1e-3 times 1e-3 with k = 1e4 made the stable step
+# 6e-13 s, 10^13 substeps a turn (delta review, D1). The diffusivity bound is the one the substep count reads.
 # ``lookup`` is the value an unused id gets in its array.
 MATERIAL = Schema(
     (
         Field("id", Whole(0, 255)),  # uint8 cells; a negative id would index the property arrays from the end
-        Field("density_kg_m3", Real(lo=0.0, lo_open=True, hi=1e5)),
-        Field("specific_heat_j_kgk", Real(lo=0.0, lo_open=True, hi=1e5)),
+        Field("density_kg_m3", Real(lo=0.05, hi=1e5)),
+        Field("specific_heat_j_kgk", Real(lo=100.0, hi=1e5)),
         Field("conductivity_w_mk", Real(lo=0.0, hi=1e4), lookup=0.0),
         Field("fracture_energy_j_m3", Real(lo=0.0, hi=1e12), lookup=0.0),
         Field("degrade_above_c", Real(lo=-273.15, hi=1e4), required=False, nullable=True, lookup=np.inf),
@@ -38,6 +39,9 @@ MATERIAL = Schema(
         Field("color_rgb", Rgb()),
     )
 )
+# Pyrolytic graphite, the most diffusive real solid, is about 1.2e-3 m²/s; air 2.2e-5. At 1e-2 the 0.05 m grid's
+# stable step stays above 0.04 s.
+MAX_DIFFUSIVITY_M2_S = 1e-2
 MATERIAL_NAME = Text()  # the file's key and Material.name: one rule whoever builds the material
 MAX_MATERIALS = 256  # one per uint8 id
 MATERIAL_TABLE = Format(
@@ -62,6 +66,12 @@ class Material:
         values = asdict(self)
         for name, value in MATERIAL.check(values, f"material {self.name}").items():
             object.__setattr__(self, name, value)
+        if self.diffusivity_m2_s > MAX_DIFFUSIVITY_M2_S:
+            message = (
+                f"material {self.name}'s diffusivity k/(rho c) must be at most {MAX_DIFFUSIVITY_M2_S:g} m²/s, got "
+                f"{self.diffusivity_m2_s:g}: the heat law's stable step shrinks with it"
+            )
+            raise Refused(message, code=RefusalCode.OUT_OF_RANGE, field="conductivity_w_mk")
 
     @property
     def diffusivity_m2_s(self) -> float:

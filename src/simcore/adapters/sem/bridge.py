@@ -160,7 +160,7 @@ class StructureModulator:
         """Parse, judge the target, then apply. A refused result carries no params, so it never echoes a non-finite
         value back."""
         # The affordance is echoed only when it is one of ours: a made-up one is "unknown", never its own text.
-        label = affordance if affordance in AFFORDANCE_OF.values() else "unknown"
+        label = affordance if isinstance(affordance, str) and affordance in AFFORDANCE_OF.values() else "unknown"
         try:
             action = parse_action(affordance, params, self._applier.limits)
         except ActionRefused as exc:  # the agent is told the code, never the words (boundaries §5.4)
@@ -171,9 +171,10 @@ class StructureModulator:
         if self._is_namesake(target):
             return self._result(label, {}, False, RefusalCode.NAMESAKE.value)
         if target is not None and not self._is_this_region(target):
-            # The schema's own key names the fix, which the affordance's description states (_TARGET_RULE): Maxim's
-            # actor tool defaults target to the calling agent's body, a structure has no declared direction for it
-            # (OD-C3, OD-A16), so this is its most likely refusal (step 3b(b) review, Bio-faithful S1).
+            # The key names the fix, which the affordance's description states (_TARGET_RULE). On Maxim's
+            # orchestrator path, OrchestratorActorTool defaults target to the agent under test's body (an Entity);
+            # a structure declares no direction for it (OD-C3, OD-A16). On an NPC's per-entity tool, target is
+            # undefaulted, so this arises only when the model adds one (step 3b(b) review, Bio S1; delta D4).
             return self._result(label, {}, False, agent_text(RefusalCode.WRONG_TARGET, "target"))
         # TEMPORARY(phase1/agents): execute applies synchronously and logs nothing (boundaries §6.4). In phase1/agents
         # it only parses, checks the bound actor and appends the intent to the stepping agent's outbox, returning a

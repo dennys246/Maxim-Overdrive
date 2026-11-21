@@ -68,16 +68,18 @@ NAMESPACE_ATTRIBUTES = {
 }  # fmt: skip
 # A str.format field that reads one of them itself ('{0.__globals__[os]}'.format(f)), or any dunder by attribute or
 # by subscript: a format field is code that runs on its arguments. Bytes constants too (b'{0.__globals__}'.decode()).
-FORMAT_DUNDER = re.compile(r"\{[^{}]*[.\[]\s*__")
+# Any dunder, and every name in NAMESPACE_ATTRIBUTES ('{0.gi_frame.f_globals[os]}'; delta review, D9).
+_NAMESPACE_WORDS = "|".join(sorted(n for n in NAMESPACE_ATTRIBUTES if not n.startswith("__")))
+FORMAT_DUNDER = re.compile(rf"\{{[^{{}}]*[.\[]\s*(__|(?:{_NAMESPACE_WORDS})\b)")
 # Methods that read or write the filesystem or a stream from a value (a Path or a socket handed in), outside the input
-# gates: only names with no other meaning in this game. read, replace, copy, move, open, walk, resolve, exists, stat,
-# touch and absolute are also str, dict, Format.read, a door, a body's walk or target resolution (step 3b(b) review,
-# Architecture A6), so they are a stated blind spot; the guard for those is the capability: data_dir hands out a
-# DataPath, which has none of them (Trust T1-S3, T1-S5).
+# gates: only names with no other meaning in this game. read, replace, copy, move, open, walk, resolve, exists, stat
+# and absolute are also str, dict, Format.read, a door, a body's walk or target resolution (step 3b(b) review,
+# Architecture A6), so they are a stated blind spot; the guard for those is the capability: the file gates hand out no
+# pathlib.Path at all, only a DataPath, which has none of them (Trust T1-S3, T1-S5; delta review, D1).
 FS_METHODS = {
     "read_text", "read_bytes", "write_text", "write_bytes", "iterdir", "glob", "rglob", "is_file", "is_dir",
-    "is_symlink", "is_mount", "lstat", "readlink", "mkdir", "rmdir", "unlink", "rename", "symlink_to", "hardlink_to",
-    "chmod", "lchmod", "owner", "samefile", "expanduser", "scandir", "readline", "readlines", "readinto",
+    "is_symlink", "is_mount", "lstat", "readlink", "mkdir", "rmdir", "unlink", "touch", "rename", "symlink_to",
+    "hardlink_to", "chmod", "lchmod", "owner", "samefile", "expanduser", "scandir", "readline", "readlines", "readinto",
     "readexactly", "readuntil", "recv", "recv_into", "recvfrom", "recvfrom_into", "recvmsg", "recv_bytes", "makefile",
 }  # fmt: skip
 
@@ -262,8 +264,13 @@ def _attribute_named(node: ast.AST) -> str | None:
     by_dunder = isinstance(func, ast.Attribute) and func.attr == "__getattribute__"
     if not (by_getattr or by_dunder):
         return None
-    named = [a.value for a in node.args if isinstance(a, ast.Constant) and isinstance(a.value, str)]
-    return named[-1] if named else None
+    # The name's own argument: getattr(v, NAME, default) and object.__getattribute__(v, NAME) take it second, a bound
+    # v.__getattribute__(NAME) first; a string default is not the name (delta review, D-S3).
+    owner = func.value if isinstance(func, ast.Attribute) else None
+    bound = by_dunder and not (isinstance(owner, ast.Name) and owner.id == "object")
+    at = 0 if bound else 1
+    arg = node.args[at] if len(node.args) > at else None
+    return arg.value if isinstance(arg, ast.Constant) and isinstance(arg.value, str) else None
 
 
 def _format_text(node: ast.AST) -> str | None:

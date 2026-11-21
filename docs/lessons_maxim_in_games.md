@@ -278,9 +278,10 @@ bounded by `checks.shown`, never scrubbed) and repeated a made-up parameter's na
 episode's recall tokens and its dedup key (`memory/types.py`), so every refused value was a distinct episode; a code
 makes repeated refusals of one kind one recognisable episode. The cost was real too, and two pieces had to come back:
 a field name from the reader's own schema (`out_of_range (power_w)`, a name we wrote), and the fix for the commonest
-refusal. Maxim's actor tool defaults `target` to the caller's body, so a structure call's likeliest answer is
-`wrong_target`; bare, that code let an agent retry "player" or "self" forever, so it is `wrong_target (target)` with
-the rule stated in each affordance's description (round 1 review, Bio-faithful S1). The namesake case kept its own
+refusal on Maxim's orchestrator path, where `OrchestratorActorTool` defaults `target` to the agent under test's body:
+there `wrong_target` is the likeliest answer, and bare, it let a caller retry "player" or "self" forever, so it is
+`wrong_target (target)` with the rule stated in each affordance's description (round 1 review, Bio-faithful S1). On an
+NPC's own per-entity tool `target` has no default, so the refusal arises only when the model adds one. The namesake case kept its own
 code, as it had its own words before: "name the crate" would loop it. Authored bounds left the error text; they stay
 in the description an agent reads. *Consequence:* codes are append-only from their first shipment (the intent log
 and the wire carry them), a refusal names at most a schema field, and a code is split when two causes need different
@@ -290,4 +291,6 @@ so `tool_bridge.py`'s `ToolOutput(success=False, error=result.error)` books ever
 which pain reads as tool failure. That is evidence for OD-A16 (its `call_error` and `wrong_target` kinds, and
 `docs/maxim_upstream/propose_settle_amendment_DRAFT.md`), not a new item: the ask is a kind on `ModulatorResult` that
 `RefusalCode` maps onto. Maxim's own refusals still answer in prose that echoes its caller (`simulation/tools.py`), so
-an agent's prompt mixes both conventions until then.
+an agent's prompt mixes both conventions until then. And Maxim's one text classifier,
+`planning/plan_document.py::classify_failure_type`, files any error containing "energy" as a budget failure, so
+`out_of_range (energy_j)` reads as one: a kind field is what replaces that substring parsing (Bio N4).

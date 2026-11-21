@@ -31,7 +31,6 @@ __all__ = [
     "load_action_limits",
     "load_materials",
     "read_yaml",
-    "real_path",
 ]
 
 
@@ -95,32 +94,39 @@ def _no_duplicate_keys(loader: _StrictLoader, node: yaml.MappingNode) -> dict[An
 _StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _no_duplicate_keys)
 
 
-def real_path(path: str | Path) -> Path:
-    """``path`` with every symlink resolved. It reads the filesystem (realpath), so it is a gate's job: the game's
-    data locator asks it where its package really is, so data beside a symlinked package is found by the real one."""
-    return Path(path).resolve()
+def existing_directory(base: str | Path, candidates: Sequence[str], what: str) -> DataPath:
+    """The first of ``candidates`` (relative to ``base``, ``..`` allowed) that is a directory, as a ``DataPath``, or a
+    FileNotFoundError that names them all.
 
-
-def existing_directory(candidates: Sequence[str | Path], what: str) -> DataPath:
-    """The first of ``candidates`` that is a directory, as a ``DataPath``, or a FileNotFoundError that names them all.
-
-    The game's data locator asks this gate, so the game itself only does path arithmetic (delta round 4, S-d)."""
-    for candidate in candidates:
-        if Path(candidate).is_dir():
-            return DataPath(Path(candidate).resolve())  # realpath reads the filesystem, so it happens in the gate
-    raise FileNotFoundError(f"{what}: none of {', '.join(str(c) for c in candidates)} is a directory")
+    ``base`` is resolved before any arithmetic, so data beside a package reached through a symlink is found beside
+    the real package (delta round 6, Executor N-h). Only a ``DataPath`` leaves: the game's data locator never holds a
+    ``pathlib.Path`` it could open past the strict YAML gate (B29; step 3b(b) delta review, D1)."""
+    real = Path(base).resolve()  # realpath reads the filesystem, so it happens here, in the gate
+    tried = [(real / c).resolve() for c in candidates]
+    for candidate in tried:
+        if candidate.is_dir():
+            return DataPath(candidate)
+    raise FileNotFoundError(f"{what}: none of {', '.join(str(c) for c in tried)} is a directory")
 
 
 MAX_FILE_BYTES = 16 * 2**20  # a data file's budget, checked before it is read (boundaries §5.4); core.yaml is 2 kB
 
 
 def _text_of(path: FilePath) -> str:
-    """The file's text as UTF-8 (never the machine's locale), or a Refused if it is too large or not UTF-8."""
+    """The file's text as UTF-8 (never the machine's locale), or a Refused: a data file is a regular file (a FIFO or
+    /dev/zero reports 0 bytes and never ends) of at most ``MAX_FILE_BYTES``, counted on the bytes read, so a file that
+    grows after it is checked is still bounded (step 3b(b) delta review, D3)."""
     where = _path(path)
-    if where.stat().st_size > MAX_FILE_BYTES:
+    if not where.exists():  # an operator's missing file, which the registry documents (delta round 5, D5-N1)
+        raise FileNotFoundError(f"{path}: no such file")
+    if not where.is_file():  # follows symlinks: a link to a FIFO or a device is not a regular file either
+        raise Refused(f"{path}: not a regular file", code=RefusalCode.BAD_SHAPE)
+    with where.open("rb") as handle:
+        data = handle.read(MAX_FILE_BYTES + 1)
+    if len(data) > MAX_FILE_BYTES:
         raise Refused(f"{path}: larger than {MAX_FILE_BYTES} bytes, no data file is", code=RefusalCode.OVER_BUDGET)
     try:
-        return where.read_bytes().decode("utf-8")
+        return data.decode("utf-8")
     except UnicodeDecodeError:
         raise Refused(f"{path}: not UTF-8 text", code=RefusalCode.BAD_SHAPE) from None
 
@@ -131,6 +137,8 @@ def read_yaml(path: FilePath) -> object:
     Every data loader reads through here, so none of them can keep the last of two values for one key. A scalar
     SafeLoader can't build (``2026-02-30``, ``!!int x``, ``!!bool maybe``, a 5,000-digit int) is a refusal too:
     those raise ValueError, KeyError or AttributeError inside PyYAML's constructors (step 3b(b) review, T1-S1, S2).
+    The handler wraps the whole load, so a bug in ``_StrictLoader``'s own constructors would read as the file's
+    ``bad_shape`` too: narrowing it needs a hook per scalar constructor, which no refusal so far has needed (D-N5).
     """
     text = _text_of(path)
     try:

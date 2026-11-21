@@ -276,6 +276,18 @@ CASES: list[tuple[str, str, str, bool, str]] = [
     ("input", SRC, "def f(p):\n    return p.owner()", True, "3b(b) round 1"),
     ("input", SRC, "def f(p):\n    return p.is_mount()", True, "3b(b) round 1"),
     ("input", SRC, "def f(p):\n    return p.scandir()", True, "3b(b) round 1"),
+    # -- input, step 3b(b) delta round 1 (D-S3, D2, D9): a string default, and format fields past the dunders -----
+    ("input", CORE, "def f(g):\n    return getattr(g, '__globals__', '')['os']", True, "3b(b) delta 1: a default"),
+    ("input", CORE, "def f(p):\n    return getattr(p, 'read_text', 'x')()", True, "3b(b) delta 1: a default"),
+    ("input", CORE, "def f(node):\n    return getattr(node, 'lineno', 'read_text')", False, "3b(b) delta 1: a default"),
+    (
+        "input",
+        CORE,
+        "def f(g):\n    return '{0.gi_frame.f_globals[os]}'.format(g)",
+        True,
+        "3b(b) delta 1: a frame field",
+    ),
+    ("input", SRC, "def f(p):\n    return p.touch()", True, "3b(b) delta 1: touch writes, and nothing here touches"),
     ("input", CORE, "def f(body):\n    return body.walk(1)", False, "3b(b) round 1: a body walks (Architecture A6)"),
     ("input", CORE, "def f(door):\n    return door.open()", False, "3b(b) round 1: a door opens (Architecture A6)"),
     ("input", CORE, "def f(t):\n    return t.resolve('crate')", False, "3b(b) round 1: a target resolves"),
@@ -468,6 +480,6 @@ def test_a_spelling_the_design_leaves_out_is_still_left_out(contract_hits, index
 def test_the_corpus_holds_every_round_and_both_verdicts():
     origins = {c[4].split(":")[0] for c in CASES}
     rounds = {"build", "round 1", "delta 1", "delta 2", "delta 3", "delta 4", "delta 5", "delta 6", "delta 7"}
-    assert rounds | {"3b(b) round 1"} <= origins
+    assert rounds | {"3b(b) round 1", "3b(b) delta 1"} <= origins
     assert {c[3] for c in CASES if c[0] == "input"} == {True, False}
     assert {c[3] for c in CASES if c[0] == "unsafe"} == {True, False}

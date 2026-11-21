@@ -6,10 +6,12 @@ canonical serialisation (world_model §8). The log header (step 5a) records each
 
 **c14n-1**, the canonical serialisation of a loaded value: JSON text with no whitespace, mapping keys (strings only)
 sorted by code point, sequences as arrays, ``None``, ``True`` and ``False`` as ``null``, ``true`` and ``false``, an
-int in decimal (below 4,000 digits), a float by ``repr`` (the shortest text that reads back as the same float; -0.0 as
+int in decimal (below 600 digits), a float by ``repr`` (the shortest text that reads back as the same float; -0.0 as
 0.0; non-finite floats are refused, as JSON has none), and strings UTF-8 with only ``"``, ``\\`` and the C0 controls
 escaped (a lone surrogate is refused). Types are exact: a numpy scalar, a bool posing as an int, or a str subclass is
-refused, so a value's text never depends on which library computed it. Anything else is a
+refused, so a value's text never depends on which library computed it. It is canonical per type, not per value:
+``1``, ``1.0`` and ``True`` are three texts, which is right only because every reader types its fields (``Real`` a
+float, ``Whole`` an int); step 5a's log header, the first caller, digests readers' typed output only. Anything else is a
 programming error, not input: a digest is taken of a value a reader has already built.
 """
 
@@ -33,7 +35,9 @@ def _text(value: str) -> str:
     return '"' + "".join(_ESCAPES.get(ch, ch) for ch in value) + '"'
 
 
-_MAX_INT_DIGITS = 4000  # below CPython's int-to-text limit (4300 by default, set per process by the environment)
+# Below CPython's lowest int-to-text limit (640, the least PYTHONINTMAXSTRDIGITS accepts; 4,300 by default), so every
+# process gives one an int's text or refuses it the same way (delta review, D5). Every Whole field is far smaller.
+_MAX_INT_DIGITS = 600
 
 
 def _scalar(value: object) -> str | None:

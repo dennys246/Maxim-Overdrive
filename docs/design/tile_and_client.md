@@ -222,7 +222,7 @@ Decode → stage 1 (`simcore` core intents) → log → stage 2 against the worl
   `min_radius_m` = 0.2) and drops `ignite`. It is repo-only, so v0 is refused by version with a test, never migrated (step
   3b). Limits are the ceiling intersected with the item's capability (boundaries §6.1 rule 3).
 - **Power belongs to the item.** `content/items/torch.yaml`: `power_w`, footprint `radius_m` (≥ 0.2 m),
-  `max_duration_ticks`, `restrike_ticks` (world time). Phase 1's torch is a propane pilot of order 2 kW, 15.9 kW/m²
+  `max_duration_s`, `restrike_s` (world time, seconds). Phase 1's torch is a propane pilot of order 2 kW, 15.9 kW/m²
   over its 0.2 m disc (*from memory*); its values come from step 6's band measurement (§6.3).
 - **Checks:** stage 1 checks types and the ceiling; the item's maximum is a logged stage-2 code, `over_item_max`
   (DC-S6). Stage 2 derives the region: the named solid whose authored box surface lies within 50 mm of `point_mm`
@@ -489,7 +489,7 @@ wall, crack read as crack, glow as heat, burn-out as fuel running out, the dial.
 |---|---|
 | Amend realtime §7 to §3.3's table; architecture.md line 20 | 1 |
 | Scene v1 (+ `spawns`), loader types for archetypes and items, the refusal-code enum | 3b |
-| `Simulation` with actor and pilots tables, body motion, walk grid, A\*, body heat (convection; radiation closed forms), `move`/`move_to`, `cause` and `invocation` (§3.1), vocabulary v1 with the interim `kindle` deposit, `actions.yaml` v1 and its migration, the `Frame` rule, the alley fixture and its B5 meters | 5 |
+| `Simulation` with actor and pilots tables, body motion, walk grid, A\*, body heat (convection; radiation closed forms), `move`/`move_to`, `cause` and `invocation` (§3.1), vocabulary v1 with the interim `kindle` deposit, `actions.yaml` v1 and its refusal of v0, the `Frame` rule, the alley fixture and its B5 meters | 5 |
 | 6a–6d, the constants' provenance, the ledger lines, the skin deposit for `kindle`, the torch's band, the 0.05 m reference, V_floor, the red gate's flip | 6 |
 | §3.3's messages, `intent_result`, `observed_tick` stamping, `cause` in events, the wire (`client_rendering.md` §4) | 7 |
 | The game package and `content/`, the exit script, the controls by deletion, the stage-2 refusal scripts, the playtest | 8 |

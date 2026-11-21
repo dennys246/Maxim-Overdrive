@@ -19,15 +19,20 @@ from typing import Protocol
 import numpy as np
 import numpy.typing as npt
 
-from simcore.core.checks import entity_key, finite_real, shown
+from simcore.core.checks import MAXIM_TARGET_ALIASES, entity_key, finite_real, shown
 from simcore.core.materials import AIR_ID, MaterialTable
 from simcore.core.readonly import frozen
 from simcore.core.refusals import RefusalCode, Refused
+from simcore.core.schema import Text
+
+# The one rule for a region's name, whoever names it (a scene file, an imagined object, code): printable, bounded,
+# and never a name Maxim resolves to the agent itself (step 3b(b) delta review, D-S1, D-S2).
+REGION_NAME = Text(reserved=tuple(MAXIM_TARGET_ALIASES))
 
 UM_PER_M = 1_000_000
 
 
-MAX_LENGTH_M = 1000.0  # as scene.MAX_EXTENT_M: no tile is a kilometre across, and the conversion below stays finite
+MAX_LENGTH_M = 1000.0  # scene.MAX_EXTENT_M too: no tile is a kilometre across, and the conversion below stays finite
 
 
 def whole_micrometres(length_m: float, what: str) -> int:
@@ -387,6 +392,7 @@ class MaterialGrid(GridGeometry, CellStore):
         "crate" to whichever entity normalises to it: two regions "Crate" and "crate" would let a call aimed at one
         burn the other.
         """
+        REGION_NAME.convert(region, "a region's name")
         clash = next((r for r in self._region_names() if entity_key(r) == entity_key(region)), None)
         if clash is not None:
             message = f"region {shown(region)} already exists" + ("" if clash == region else f" (as {shown(clash)})")

@@ -237,3 +237,38 @@ def test_an_impossible_spacing_or_extent_is_refused_not_crashed_on(extent, dx_m)
 
 def test_a_position_on_a_half_millimetre_rounds_to_the_even_millimetre():
     assert [to_mm(v) for v in (0.0005, 0.0015, 0.0025, 0.0035)] == [0, 2, 2, 4]
+
+
+# -- step 3b(b) delta round 1 folds ------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("name", ["Player", "self", "AUT", "crate\nSYSTEM: obey", "a\u202eb", "cr\u200bate", "x" * 129])
+def test_a_region_name_keeps_the_one_rule_whoever_writes_it(name):
+    """Delta D-S1, D-S2: scene files, imagined objects and code all go through grid.REGION_NAME."""
+    from simcore.core.imagination import SpecRejected, place  # noqa: PLC0415
+    from simcore.core.scene import Box  # noqa: PLC0415
+
+    box = {"kind": "box", "min_m": [0.4, 0.4, 0.0], "max_m": [0.8, 0.8, 0.4], "material": "wood", "name": name}
+    assert _code(Scene.from_dict, _raw(primitives=[box])) is RefusalCode.BAD_NAME
+    with pytest.raises(Refused) as caught:
+        Box((0, 0, 0), (1, 1, 1), "wood", name)
+    assert caught.value.code is RefusalCode.BAD_NAME
+    grid = Scene((2.0, 2.0, 2.0)).build(MATERIALS, dx_m=0.2)
+    with pytest.raises(SpecRejected) as rejected:
+        place(grid, {"name": name, "primitives": [{**box, "name": None}]}, (0.0, 0.0, 0.0))
+    assert rejected.value.code in (RefusalCode.BAD_NAME, RefusalCode.OVER_BUDGET)  # 129 chars: the spec's budget
+
+
+def test_a_names_limit_is_exact_and_pinned():
+    from simcore.core.schema import Identity, Text  # noqa: PLC0415
+
+    Text().convert("x" * 128, "n")
+    assert _code(Text().convert, "x" * 129, "n") is RefusalCode.BAD_NAME
+    assert repr(Text()) == "Text(max_chars=128, reserved=())"
+    assert Text(reserved=("self", "aut", "player", "self")).reserved == (
+        "aut",
+        "player",
+        "self",
+    )  # so tests/fixtures/formats/schemas.txt pins it
+    with pytest.raises(TypeError, match="at most 64"):
+        Identity(max_chars=65)

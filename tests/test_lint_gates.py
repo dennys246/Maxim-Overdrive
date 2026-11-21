@@ -231,16 +231,18 @@ def test_no_registered_gate_raises_an_uncoded_value_error():
                 n
                 for scope in scopes
                 for n in ast.iter_child_nodes(scope)
-                if isinstance(n, ast.FunctionDef | ast.ClassDef) and n.name == part
+                if isinstance(n, ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) and n.name == part
             ]
+        # raise ValueError(...), a bare raise ValueError, and the other errors input should never surface as
+        # (delta review, D6); TypeError stays for programming errors, RuntimeError for "pymaxim is not installed".
+        uncoded_types = {"ValueError", "KeyError", "IndexError", "AttributeError"}
         return [
             n.lineno
             for scope in scopes
             for n in ast.walk(scope)
             if isinstance(n, ast.Raise)
-            and isinstance(n.exc, ast.Call)
-            and isinstance(n.exc.func, ast.Name)
-            and n.exc.func.id == "ValueError"
+            and isinstance(e := n.exc.func if isinstance(n.exc, ast.Call) else n.exc, ast.Name)
+            and e.id in uncoded_types
         ]
 
     files = _repo_files()
@@ -248,3 +250,4 @@ def test_no_registered_gate_raises_an_uncoded_value_error():
     assert found == {}
     planted = "class HeatSource:\n    def __post_init__(self):\n        raise ValueError('x')\n"
     assert uncoded(planted, "HeatSource") == [3]
+    assert uncoded("async def read(r):\n    raise KeyError\n", "read") == [2]

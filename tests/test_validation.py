@@ -929,15 +929,16 @@ def test_the_directory_gate_names_every_candidate_it_refused(tmp_path):
 
     (tmp_path / "a_file").write_text("x")
     with pytest.raises(FileNotFoundError, match=r"thing: none of .*missing, .*a_file is a directory"):
-        existing_directory([tmp_path / "missing", str(tmp_path / "a_file")], "thing")
-    assert str(existing_directory([str(tmp_path)], "thing")) == str(tmp_path.resolve())
+        existing_directory(tmp_path, ["missing", "a_file"], "thing")
+    found = existing_directory(tmp_path / "a" / "..", ["."], "thing")  # resolved: '..' is arithmetic the gate does
+    assert isinstance(found, DataPath)  # never a pathlib.Path (step 3b(b) delta review, D1)
+    assert str(found) == str(tmp_path.resolve())
 
 
 def test_a_symlinked_package_finds_the_data_beside_the_real_package(tmp_path):
-    # Delta round 6, Executor N-h. The intended behaviour: data is found beside the package's real location, as
-    # before fold 6 moved the resolution into the gate. Both resolutions are pinned: real_path before the
-    # arithmetic, and existing_directory on the directory it returns.
-    from simcore.adapters.loaders import existing_directory, real_path  # noqa: PLC0415
+    # Delta round 6, Executor N-h. The intended behaviour: data is found beside the package's real location, so the
+    # gate resolves the package before it joins a candidate; a symlinked data directory resolves too.
+    from simcore.adapters.loaders import existing_directory  # noqa: PLC0415
 
     real = tmp_path / "checkout" / "src" / "maxim_overdrive"
     real.mkdir(parents=True)
@@ -945,11 +946,24 @@ def test_a_symlinked_package_finds_the_data_beside_the_real_package(tmp_path):
     link = tmp_path / "site" / "maxim_overdrive"
     link.parent.mkdir()
     link.symlink_to(real, target_is_directory=True)
-    assert real_path(link) == real.resolve()
     assert str(data.data_dir(link)) == str((tmp_path / "checkout" / "data").resolve())  # not site/../data
     data_link = tmp_path / "data_link"
     data_link.symlink_to(tmp_path / "checkout" / "data", target_is_directory=True)
-    assert str(existing_directory([data_link], "x")) == str((tmp_path / "checkout" / "data").resolve())
+    assert str(existing_directory(tmp_path, ["data_link"], "x")) == str((tmp_path / "checkout" / "data").resolve())
+
+
+def test_a_data_file_is_a_regular_file_never_a_device_or_a_pipe(tmp_path):
+    """Delta D3: /dev/zero (and a FIFO) report 0 bytes, so a stat-only budget passed and read_bytes never ended."""
+    import os  # noqa: PLC0415
+
+    to_zero = tmp_path / "zero.yaml"
+    to_zero.symlink_to("/dev/zero")
+    pipe = tmp_path / "pipe.yaml"
+    os.mkfifo(pipe)
+    for path in (to_zero, pipe, tmp_path):
+        with pytest.raises(Refused, match="not a regular file") as caught:
+            read_yaml(path)
+        assert caught.value.code is RefusalCode.BAD_SHAPE
 
 
 # -- the file gate refuses what PyYAML's constructors can't build (step 3b(b) review, Trust T1-S1, Executor S2) ------

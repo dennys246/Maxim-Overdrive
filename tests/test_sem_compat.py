@@ -87,3 +87,14 @@ def test_the_bridge_runs_on_the_stand_ins_without_pymaxim(bridge_without_maxim: 
     assert all(type(a) is _compat.AffordanceSchema for a in mods["structure"].affordances.values())
     with pytest.raises(RuntimeError, match="pymaxim is not installed"):
         b.to_maxim_entity(Applier(w), w.frames, "wall")
+
+
+def test_the_target_aliases_mirror_maxims_own() -> None:
+    """Maxim resolves these names to the agent itself before any lookup, so no body or region may take one
+    (checks.MAXIM_TARGET_ALIASES). The orchestrator's set is importable; tool_bridge._resolve_target_body spells the
+    same three inline. A new alias in a Maxim release turns this red on the drift job (O32), never silently stale."""
+    from maxim.simulation.tools import OrchestratorActorTool  # noqa: PLC0415 - the gate installs pymaxim
+
+    from simcore.core.checks import MAXIM_TARGET_ALIASES  # noqa: PLC0415
+
+    assert frozenset(OrchestratorActorTool._TARGET_ALIASES) == MAXIM_TARGET_ALIASES

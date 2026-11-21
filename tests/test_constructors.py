@@ -36,8 +36,8 @@ WOOD = MATERIALS["wood"]
 @pytest.mark.parametrize(
     ("change", "message"),
     [
-        ({"density_kg_m3": 0.0}, "density_kg_m3 must be above 0"),  # it divides: rho*cp
-        ({"specific_heat_j_kgk": -1.0}, "specific_heat_j_kgk must be above 0"),
+        ({"density_kg_m3": 0.0}, "density_kg_m3 must be at least 0.05"),  # it divides: rho*cp
+        ({"specific_heat_j_kgk": -1.0}, "specific_heat_j_kgk must be at least 100"),
         ({"conductivity_w_mk": -0.1}, "conductivity_w_mk must be at least 0"),
         ({"fracture_energy_j_m3": -1.0}, "fracture_energy_j_m3 must be at least 0"),
         ({"degrade_rate_per_s_per_100c": -1.0}, "degrade_rate_per_s_per_100c must be at least 0"),
@@ -284,7 +284,7 @@ def test_a_point_too_long_to_count_is_refused_as_an_action():
 def test_a_material_built_directly_refuses_a_zero_density():
     from simcore.core.materials import Material  # noqa: PLC0415
 
-    with pytest.raises(ValueError, match="density_kg_m3 must be above 0"):
+    with pytest.raises(ValueError, match=r"density_kg_m3 must be at least 0\.05"):
         Material("x", 9, 0.0, 1.0, 1.0, 1.0, None, 0.0, (0, 0, 0))
 
 
@@ -341,3 +341,15 @@ def test_the_gates_that_were_left_uncoded_now_answer_with_a_code():
     with pytest.raises(Refused) as caught:
         data.rig_profile("../x")
     assert caught.value.code is RefusalCode.BAD_NAME
+
+
+def test_a_material_whose_heat_diffusivity_no_real_solid_reaches_is_refused():
+    """Delta D1: low density and heat capacity with a high conductivity made the stable step 6e-13 s."""
+    from simcore.core.materials import MAX_DIFFUSIVITY_M2_S, Material  # noqa: PLC0415
+    from simcore.core.refusals import RefusalCode, Refused  # noqa: PLC0415
+
+    with pytest.raises(Refused, match="diffusivity") as caught:
+        Material("aerogel", 9, 0.05, 100.0, 1e4, 1.0, None, 0.0, (0, 0, 0))
+    assert (caught.value.code, caught.value.field) == (RefusalCode.OUT_OF_RANGE, "conductivity_w_mk")
+    ok = Material("graphite", 9, 2200.0, 700.0, 1500.0, 1.0, None, 0.0, (0, 0, 0))  # about 1e-3 m^2/s
+    assert ok.diffusivity_m2_s < MAX_DIFFUSIVITY_M2_S

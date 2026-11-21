@@ -20,7 +20,16 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
 
-from simcore.core.checks import finite_real, finite_vector, identity_key, known_keys, shown, whole_number
+from simcore.core.checks import (
+    IDENTITY_KEY_CHARS,
+    entity_key,
+    finite_real,
+    finite_vector,
+    identity_key,
+    known_keys,
+    shown,
+    whole_number,
+)
 from simcore.core.refusals import RefusalCode, Refused
 
 Bad = tuple[tuple[object, RefusalCode], ...]  # a value the converter must refuse, and the code it refuses it with
@@ -33,6 +42,14 @@ _NOT_NUMBERS: Bad = (
 )
 
 
+# Default_Ignorable code points that str.isprintable passes: fillers that render blank (Hangul U+115F, U+1160, U+3164,
+# U+FFA0), variation selectors (U+180B-F, U+FE00-F) and the Khmer inherent vowels (U+17B4-5). With them a region could
+# be named blank, or "crate" plus a selector beside "crate" (delta review, D4). Look-alikes from other scripts
+# ("\u0441rate") stay a known gap, recorded in docs/standards_backlog.md B30.
+_INVISIBLE = frozenset(
+    "\u115f\u1160\u3164\uffa0\u17b4\u17b5\u180b\u180c\u180d\u180e\u180f"
+    + "".join(chr(c) for c in range(0xFE00, 0xFE10))
+)
 TEXT_CHARS = 128  # a name's budget (boundaries §5.4): imagined names are held tighter by Budget.max_name_chars
 
 
@@ -139,28 +156,57 @@ class Rgb:
 
 @dataclass(frozen=True)
 class Text:
-    """A display or lookup name: a printable string of 1 to ``TEXT_CHARS`` characters with no outer spaces.
+    """A display or lookup name: a printable string of 1 to ``max_chars`` characters with no outer spaces, and none
+    of the ``reserved`` names under Maxim's name rule (``checks.entity_key``).
 
     Maxim strips the names it resolves, so " crate" would answer to "crate". A region's name reaches every agent as
     an entity name, so a control, bidi or format character (a newline, U+202E, U+200B) is refused, not passed on
-    (boundaries §5.3, §5.4; step 3b(b) review, Trust T1-S2)."""
+    (boundaries §5.3, §5.4; step 3b(b) review, Trust T1-S2). The limit and the reserved names are fields, so the
+    schema snapshot pins them (delta review, D-S4)."""
+
+    max_chars: int = TEXT_CHARS
+    reserved: tuple[str, ...] = ()  # sorted, so its repr (and the schema snapshot) never depends on the hash seed
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "reserved", tuple(sorted(set(self.reserved))))
 
     def convert(self, value: object, what: str) -> str:
-        ok = isinstance(value, str) and 0 < len(value) <= TEXT_CHARS and value.isprintable() and value == value.strip()
+        ok = (
+            type(value) is str  # a str subclass could print as something else (delta review, D5)
+            and 0 < len(value) <= self.max_chars
+            and value.isprintable()
+            and value == value.strip()
+            and not _INVISIBLE.intersection(value)
+            and any(ch.isalnum() for ch in value)  # a name an agent can see: never only fillers or blanks
+        )
         if not ok:
-            rule = f"a printable string of 1 to {TEXT_CHARS} characters with no outer spaces"
+            rule = f"a printable string of 1 to {self.max_chars} characters with no outer spaces"
             raise Refused(f"{what} must be {rule}, got {shown(value)}", code=RefusalCode.BAD_NAME)
+        if entity_key(str(value)) in self.reserved:
+            message = f"{what} {shown(value)} is a name Maxim resolves to the agent itself"
+            raise Refused(message, code=RefusalCode.BAD_NAME)
         return str(value)
 
     @property
     def bad(self) -> Bad:
-        names = (7, "", " x", "x ", "x" * (TEXT_CHARS + 1), "a\nb", "a\u202eb", "cr\u200bate", "a\x00b", "\ud800")
+        long = "x" * (self.max_chars + 1)
+        names = (
+            *(7, "", " x", "x ", long, "a\nb", "a\u202eb", "cr\u200bate", "a\x00b", "\ud800", "\u3164", "\u2800"),
+            *("crate\ufe0f", "a\u17b4b", "-", *self.reserved),
+        )
         return tuple((n, RefusalCode.BAD_NAME) for n in names)
 
 
 @dataclass(frozen=True)
 class Identity:
-    """An identity key (``checks.identity_key``): a body's, an archetype's, an item's, later an NPC's or a stream's."""
+    """An identity key (``checks.identity_key``): a body's, an archetype's, an item's, later an NPC's or a stream's.
+    ``max_chars`` is the rule's own limit, as a field so the schema snapshot pins it."""
+
+    max_chars: int = IDENTITY_KEY_CHARS
+
+    def __post_init__(self) -> None:
+        if self.max_chars != IDENTITY_KEY_CHARS:  # one rule for every identity key, never a per-field one
+            raise TypeError(f"an identity key is at most {IDENTITY_KEY_CHARS} characters")
 
     def convert(self, value: object, what: str) -> str:
         return identity_key(value, what)

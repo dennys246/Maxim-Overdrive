@@ -18,7 +18,7 @@ from typing import Any, SupportsFloat
 import numpy as np
 
 from simcore.core.checks import entity_key, finite_vector, known_keys, shown
-from simcore.core.grid import Footprint, MaterialGrid
+from simcore.core.grid import REGION_NAME, Footprint, MaterialGrid
 from simcore.core.refusals import RefusalCode, Refused
 from simcore.core.scene import Box, Cylinder, Primitive, boxes_overlap, footprint_of, primitives_from_data
 from simcore.core.schema import Field, Real, Schema, Whole
@@ -90,9 +90,10 @@ def _read(grid: MaterialGrid, spec: object, origin_m: object, budget: Budget) ->
     except Refused as exc:  # reported as the refusal, with its code
         raise SpecRejected(str(exc), code=exc.code, field=exc.field) from exc
     _within_budget(spec, budget)
-    name = spec.get("name")
-    if not name or not isinstance(name, str) or not name.strip() or name != name.strip():
-        raise SpecRejected("an imagined object needs a name, with no outer spaces", code=RefusalCode.BAD_NAME)
+    try:  # a region's one name rule (grid.REGION_NAME): an LLM's name is the most hostile one there is
+        name = REGION_NAME.convert(spec.get("name"), "an imagined object's name")
+    except Refused as exc:
+        raise SpecRejected(str(exc), code=exc.code) from exc
     clash = next((r for r in grid.regions if entity_key(r) == entity_key(name)), None)
     if clash is not None:  # by Maxim's name rule, checked before anything is painted
         raise SpecRejected(f"something called {shown(clash)} already exists", code=RefusalCode.NAME_TAKEN)

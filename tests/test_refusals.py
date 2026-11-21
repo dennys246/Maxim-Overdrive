@@ -129,8 +129,8 @@ def test_the_canonical_form_refuses_what_it_has_no_form_for(value):
 
 def test_an_int_too_long_for_text_has_no_canonical_form():
     with pytest.raises(TypeError, match="c14n-1"):
-        canonical(10**5000)  # past what int-to-text allows in every process
-    assert canonical(10**3999) == "1" + "0" * 3999
+        canonical(10**600)  # past what int-to-text allows at CPython's lowest per-process limit (640)
+    assert canonical(10**599 - 1) == "9" * 599
 
 
 def test_a_stored_digest_is_held_to_the_scheme_this_reader_knows():

@@ -161,6 +161,13 @@ def finite_vector(value: object, n: int, what: str) -> tuple[float, ...]:
         raise Refused(f"{what} must be {n} finite numbers, got {shown(value)}", code=RefusalCode.NOT_FINITE) from None
 
 
+# Target names Maxim's tools resolve to the agent itself before any lookup, case-insensitively (pymaxim 1.3.3 and Maxim
+# origin/main 043eab8: embodiment/tool_bridge.py::ModulatorAffordanceTool._resolve_target_body, to the caller's body;
+# simulation/tools.py::OrchestratorActorTool._TARGET_ALIASES, to the agent under test's). EntityMap is one namespace
+# for bodies and regions, so neither may take one: it could never be named. tests/test_sem_compat.py holds the set to
+# Maxim's own (step 3b(b) delta review, D2, D3).
+MAXIM_TARGET_ALIASES = frozenset({"self", "aut", "player"})
+
 IDENTITY_KEY_CHARS = 64
 
 

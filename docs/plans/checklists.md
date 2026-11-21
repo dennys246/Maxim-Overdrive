@@ -68,7 +68,7 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
   - done, no shipped caller until step 5b (spawns) and step 8 (the shipped scene, with a scene file loader in
     `loaders.py`): scene v1, F13 plus a required `spawns`; scene v0 is refused by version, not migrated (scenes are
     repo-only); golden v0 and v1 fixtures (WT-S8); zones, vents and gaps refused by path; every extent a whole
-    number of 0.2 m cells, judged in whole micrometres, so a scene builds at every grid or none (world_model WT-5,
+    number of 0.2 m cells, judged in whole micrometres, so a scene builds at every verification grid or none (world_model WT-5,
     WT-11); spawn names unique under Maxim's name rule, never a region's name nor one of Maxim's target aliases
     (`self`, `aut`, `player`) (`simcore/core/scene.py`, `grid.py`; `tests/fixtures/formats/v0/scene.yaml`,
     `v1/scene.yaml`, `tests/fixtures/scenes/alley_box.yaml`; `tests/test_scene_v1.py`).

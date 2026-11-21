@@ -63,8 +63,8 @@ class RefusalCode(StrEnum):
 
 
 class Refused(ValueError):
-    """A refusal with its code. ``field``, when given, is a name from the reader's own schema (never input), so
-    ``agent_text`` stays inside the closed vocabulary: a code, or a code and a schema field."""
+    """A refusal with its code. ``field``, when given, is a name we wrote (a schema field, or a call key such as
+    ``target``), never input, so ``agent_text`` stays inside the closed vocabulary: a code, or a code and that name."""
 
     def __init__(self, message: str, *, code: RefusalCode, field: str | None = None) -> None:
         super().__init__(message)

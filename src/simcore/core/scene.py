@@ -17,8 +17,17 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from simcore.core.checks import entity_key, shown
-from simcore.core.grid import Bounds, Footprint, Mask, MaterialGrid, Point, whole_micrometres
+from simcore.core.checks import MAXIM_TARGET_ALIASES, entity_key, shown
+from simcore.core.grid import (
+    MAX_LENGTH_M,
+    REGION_NAME,
+    Bounds,
+    Footprint,
+    Mask,
+    MaterialGrid,
+    Point,
+    whole_micrometres,
+)
 from simcore.core.materials import MaterialTable
 from simcore.core.refusals import RefusalCode, Refused
 from simcore.core.schema import Field, Format, Identity, ListOf, Nested, Real, Schema, Tagged, Text, Vector, Whole
@@ -28,12 +37,12 @@ from simcore.core.schema import Field, Format, Identity, ListOf, Nested, Real, S
 # real cell-count budget comes with the memory budget planned for design v2. Coordinates are bounded before any
 # arithmetic: squaring a 1e200 m radius overflowed a float inside the voxelizer (step 3b review, B1).
 MAX_AMBIENT_C = 3000.0
-MAX_EXTENT_M = 1000.0
+MAX_EXTENT_M = MAX_LENGTH_M  # grid.MAX_LENGTH_M: one bound for every length a scene or a grid takes
 MAX_PRIMITIVES = 4096  # a list's length is counted before any primitive is built (boundaries §5.4)
 MAX_SPAWNS = 64
 _COORD3, _COORD2 = Vector(3, MAX_EXTENT_M), Vector(2, MAX_EXTENT_M)
 # A primitive's name is a region name, which Maxim strips when it resolves one, so " crate" would answer to "crate".
-_LABELS = (Field("material", Text()), Field("name", Text(), required=False, nullable=True))
+_LABELS = (Field("material", Text()), Field("name", REGION_NAME, required=False, nullable=True))
 BOX = Schema((Field("min_m", _COORD3), Field("max_m", _COORD3), *_LABELS))
 CYLINDER = Schema(
     (
@@ -206,10 +215,6 @@ def to_mm(value_m: float) -> int:
 
 ALIGNMENT_M = 0.2  # the coarsest verification grid's cell (CLAUDE.md, the resolution rule): every extent's quantum
 ALIGNMENT_UM = round(ALIGNMENT_M * 1_000_000)
-# Target names Maxim's tools resolve to the calling agent's own body before any lookup (pymaxim 1.3.3 and Maxim
-# origin/main 043eab8: embodiment/tool_bridge.py::ModulatorAffordanceTool._resolve_target_body,
-# simulation/tools.py::OrchestratorActorTool._TARGET_ALIASES). A body called "player" could never be named by an NPC.
-MAXIM_TARGET_ALIASES = frozenset({"self", "aut", "player"})
 
 
 # A spawn names a body by an identity key: save v0 maps each body to its persistent body_key (tile §2.1), so a ":"
