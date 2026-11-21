@@ -64,6 +64,9 @@ The contract types, with this codebase's examples:
 | **Mirror** | `simcore/adapters/sem/_compat.py` vs Maxim's SEM types; any Python/GDScript pair that decodes the same bytes |
 | **Claims** | CLAUDE.md, `docs/`, docstrings and commit messages saying a thing works: is it true on the shipped path? |
 
+**One owner per contract** (CLAUDE.md, B36). For each row, name the section that owns the contract. A contract the
+diff states, or restates, in a second place is a finding: the copy that an edit misses is the stale one.
+
 An **empty table** is valid only when the diff changes function bodies alone: no signature, field, key, default,
 dtype, vocabulary word or file format changes. State it as the list of changed functions, each with the search that
 found no other reader.
