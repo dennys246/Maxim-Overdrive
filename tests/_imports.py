@@ -75,6 +75,13 @@ ALLOWED: dict[str, dict[str, str]] = {
         "dataclasses": "the rig profile's frozen type",
         "numpy": "display quantization of a frame's arrays",
     },
+    "simcore.verify": {
+        "__future__": "postponed annotations",
+        "collections": "Callable, Hashable and Sequence from collections.abc",
+        "dataclasses": "the harness's frozen result types",
+        "itertools": "pairwise, to check control values ascend",
+        "math": "logarithms and finiteness for observed orders",
+    },
     "maxim_overdrive": {},
     "maxim_overdrive.data": {
         "__future__": "postponed annotations",
@@ -126,6 +133,12 @@ _NAMES_PROTOCOL = frozenset({
     "numpy.round", "numpy.uint8",
 })  # fmt: skip
 
+# the harness: frozen results, observed orders by logarithm
+_NAMES_VERIFY = frozenset({
+    "__future__.annotations", "collections.abc.Callable", "collections.abc.Hashable", "collections.abc.Sequence",
+    "dataclasses.dataclass", "itertools.pairwise", "math.inf", "math.isfinite", "math.log", "math.nan",
+})  # fmt: skip
+
 # path arithmetic and the rig-name check
 _NAMES_DATA = frozenset({
     "__future__.annotations", "pathlib.Path", "re.compile",
@@ -135,6 +148,7 @@ EXTERNAL_NAMES: dict[str, frozenset[str]] = {
     "simcore.adapters.loaders": _NAMES_LOADERS,
     "simcore.adapters.sem": _NAMES_SEM,
     "simcore.protocol": _NAMES_PROTOCOL,
+    "simcore.verify": _NAMES_VERIFY,
     "maxim_overdrive.data": _NAMES_DATA,
 }
 

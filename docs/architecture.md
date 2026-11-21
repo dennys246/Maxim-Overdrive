@@ -29,17 +29,18 @@ is given (`dx_m`). Nothing is authored in cells.
 Materials (`data/materials/core.yaml`) carry textbook thermal properties plus two gameplay calibrations that are
 always **per unit volume** (`fracture_energy_j_m3`, `degrade_*`), so they mean the same thing at every resolution.
 
-## The resolution rule
+## The verification rule
 
-> **A rig profile may change precision, never the outcome class.**
+> **The truth grid (0.1 m) agrees with the reference (0.05 m) within a gated tolerance, and converges from the
+> coarse grid (0.2 m)** (world_model §1.1).
 
-The same scene at two profiles must agree on every gameplay outcome: did the wall breach, did the crate burn, did the
-room get hot enough. Each physics module ships two kinds of test:
+Outcomes agree, within bands: did the wall breach, the crate burn. Two tests per module; heat's through
+`simcore.verify` (`docs/design/verify_harness.md`):
 
-1. **Against a closed form.** Heat: a Gaussian pulse in a steel bar against the 1-D heat equation (error 1% / 0.1% /
-   0.01% at 0.2 / 0.1 / 0.05 m cells, second-order convergence). Damage: crater volume against
-   `analytic_crater_radius_m` (within 5%).
-2. **Across tiers.** The same scenario at every profile, gated on the outcome (`tests/test_cross_tier.py`).
+1. **Against a closed form,** space and time refined apart (E2). Heat: a steel bar's Gaussian pulse, second
+   order in space (errors 1.29% / 0.34% / 0.085% at 0.2 / 0.1 / 0.05 m) and first in time. Damage: crater volume
+   against `analytic_crater_radius_m` (within 5%).
+2. **Across grids,** gated on agreement and convergence (`tests/test_cross_tier.py`).
 
 How the rule is kept, so far:
 - Energy lands by **exact cell average** (a strike's Gaussian integrated over each cell) or by **volume overlap**
@@ -53,7 +54,8 @@ How the rule is kept, so far:
 
 **Known gaps (tracked, not gated yet):**
 - Late in a burn the coarsest rig lags (crate integrity 0.55 at 0.2 m vs 0.37–0.38 at 0.1 and 0.05 m after 150
-  turns): a coarse cell degrades as one block. Onset agrees to within 5%.
+  turns): a coarse cell degrades as one block. Onset agrees to within 5%. It falls below 0.7 at turn 138 at 0.2 m
+  against 104 at 0.1 m. Red gate: `tests/test_cross_tier.py::test_the_crate_is_badly_burned_at_the_same_turn_at_every_rig`.
 - No convection or radiation: air only conducts, so rooms heat too slowly and fires must sit on a material.
 - Destroying a cell removes its heat with it (the cell becomes air at the air's heat capacity).
 - **Fires don't consume fuel: once nothing solid is left under a fire, it heats air.** `World._power_field` spreads a
@@ -74,7 +76,7 @@ How the rule is kept, so far:
   have a radius of at least 0.3 m and a `strike` a width of at least 0.2 m, the coarsest rig's cell
   (`data/world/actions.yaml`, held by `tests/test_act_validation.py`). A `HeatSource` built directly in code can
   still be smaller.
-- **Fires diverge across rigs mid-burn, so fire outcomes don't yet keep the resolution rule.** Measured at the
+- **Fires diverge across rigs mid-burn, so fire outcomes don't yet keep the verification rule.** Measured at the
   largest fire actions allow (500 kW, 0.3 m radius) on the 3×3×2 m crate scene, recording crate integrity every
   turn: the spread across laptop / rig / max exceeds 0.1 on every turn from 18 to 27 and peaks at 0.19 at turn 22
   (0.70 / 0.57 / 0.51). It narrows near turn 30 only because the curves cross, and from about turn 30 the fuel gap

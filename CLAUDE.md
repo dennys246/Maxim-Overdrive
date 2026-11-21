@@ -51,7 +51,7 @@ result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` dr
 ## Layout
 
 - `src/simcore/`: the engine, in layers that import only downward (`docs/design/boundaries.md` O24; the contracts are
-  `[tool.importlinter]` in `pyproject.toml`): game > protocol > adapters > core
+  `[tool.importlinter]` in `pyproject.toml`): game > verify > protocol > adapters > core
 - `src/simcore/core/` (the sealed core: no IO, no clock, no `maxim`): `checks.py` (every untrusted number becomes a
   finite float or a whole number there, and every mapping is held to its reader's keys, `known_keys`, or is
   refused; `shown`, the bounded echo; `entity_key`, Maxim's name rule; `identity_key`, no `:`), `refusals.py` (the
@@ -69,6 +69,8 @@ result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` dr
   through the applier; the only engine code that imports `maxim`)
 - `src/simcore/protocol/`: what the client receives: `tiers.py` (rig profiles as rendering tiers, no physics),
   `encoding.py` (`snapshot` of a published frame, display quantization)
+- `src/simcore/verify/`: the verification harness (`docs/design/verify_harness.md`): convergence studies, agreement
+  across grids, bands and splitting. It measures callables and imports nothing from the engine; only tests use it
 - `src/maxim_overdrive/`: the game. `data.py` says where its data lives (`data/rigs/`, `data/materials/`,
   `data/world/`) and loads it
 - `client/`: the Godot 4.7.2 client (`docs/design/client_rendering.md` §7): `addons/engine/` (the engine half),
@@ -85,10 +87,13 @@ result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` dr
 
 ## Rules that matter here
 
-- **The resolution rule:** a grid spacing may change precision, never the outcome class. Every machine simulates one
-  truth; rig profiles are rendering tiers only, with no physics (world_model D20). Any new physics ships with a
-  closed-form test and a cross-tier test (`tests/test_heat.py` and `tests/test_cross_tier.py` are the patterns). If
-  a cross-tier test fails, fix the physics; never loosen the test to pass.
+- **The verification rule** (world_model §1.1): the truth grid's (0.1 m) outcomes agree with the reference grid's
+  (0.05 m) within a gated tolerance, and converge from the coarse grid (0.2 m); a spacing may change precision, never
+  the outcome class. Every machine simulates one truth; rig profiles are rendering tiers only, with no physics
+  (world_model D20). Any new physics ships with a closed-form test, through `simcore.verify` with space and time
+  refined apart (`tests/test_heat.py` is the pattern), and a cross-grid test (`tests/test_cross_tier.py`), whose
+  scenarios refine both together until step 5a's fixed physics step. If a cross-grid test fails, fix the physics;
+  never loosen the test to pass.
 - Author scenes in metres. Keep physics parameters per unit volume. Deposit energy by exact cell average or volume
   overlap, never by whether the cell centre is inside.
 - **Reconstruct, decide at the point, integrate upward.** Never apply a threshold or a non-linear law to a cell's
@@ -144,7 +149,7 @@ only review holds.
 - **Every behaviour change ships with its tests in the same commit.** A bug fix starts with a test that reproduces the
   bug and fails. Guard: `scripts/prepush.sh::diff_cover` (changed lines must run under a test), B1 (same commit,
   red first)
-- **Critical functionality is tested exhaustively, by kind.** Physics: a closed-form test and a cross-tier test.
+- **Critical functionality is tested exhaustively, by kind.** Physics: a closed-form test and a cross-grid test.
   Trust boundaries (protocol, intents, `simcore.core.imagination`, every loader): every rejection path, aiming at
   100% branch coverage, and a row in the gate registry. Wire and save formats: a round trip plus committed golden
   fixtures. Determinism: a bit-identical rerun.
@@ -159,9 +164,30 @@ only review holds.
 - **Prove a guard by deleting what it guards.** Before claiming a test protects something, break the mechanism and
   watch the test go red, and say so in the commit message. A test that cannot fail is a BLOCKER.
   Guard: `docs/code_review.md` (Executor lens), B10
-- **Known-broken behaviour gets a strict red gate,** `pytest.mark.xfail(strict=True)` with a reason, never `skip`.
-  When the fix lands the gate flips and must be removed. Warnings are errors.
-  Guard: `tests/test_tooling_config.py::test_red_gates_are_strict_and_warnings_are_errors`
+- **Known-broken behaviour gets a strict red gate,** `pytest.mark.xfail(strict=True)` with a reason and the
+  narrowest `raises=`, never `skip`, and never `strict=False`. Without `raises=`, any exception counts as the
+  expected failure (a missing module, a renamed function), so the gate can stay green without ever reaching the bar
+  it names; a precondition the gate needs raises something other than its `raises=` type. When the fix lands the
+  gate flips and must be removed. Warnings are errors.
+  Guard: `tests/test_tooling_config.py::test_red_gates_are_strict_and_warnings_are_errors`, B34
+- **Every outcome bar on physics or NPC behaviour is one of three kinds** (owner, 2026-11-21). Process bars (coverage,
+  sizes, word budgets) and determinism (bit-identical) are not. **Verification:** the code solves the equations we
+  wrote, against a closed form, an oracle (FDS) or another grid. It is required now and is never a future bar: a miss
+  never waits on Maxim, and is a strict red gate plus a Known gap with its numbers, fixed in a named step of this
+  repo, which may be a later phase (owner, 2026-11-21, A1 and D1). **Validation:** the equations describe reality,
+  against cited data; a miss ships as a Known gap with its numbers. **Perception and learning:** an NPC senses and
+  learns the regularity; it may be a future bar. No band ever loosens. A bar written from now on is derived from its
+  source's error (a closed form's from the scheme's error at the spacing, an oracle's spread, an experiment's
+  scatter), never a round number, and is written before the measurement; older round-number bars are listed in B30,
+  and re-deriving one never widens it without the owner's ruling. Guard: B30, B10
+- **A future bar is tracked, never dropped** (owner, 2026-11-21). A perception or learning bar that Maxim can't meet
+  yet becomes a strict red gate whose reason names the Phase 3 item (and its issue once filed), a Phase 3 row in
+  `docs/roadmap.md` with the trigger that flips it, and evidence that isolates the cause: a separate, passing test
+  that what our membrane hands Maxim (the values the bridge emits, on the clock it uses) carries the stimulus, and a
+  note in the Phase 3 row citing the Maxim plan or brief that path is driven by. Without both it is our bug. When the
+  fix lands the gate flips and the test reruns at the original bar. Verification, determinism and a test's ability to
+  fail are never future bars. Guard: `tests/test_tooling_config.py::test_red_gates_are_strict_and_warnings_are_errors`
+  (strict), B31, B34
 - **Property tests for invariants over input spaces** (Hypothesis): physics conservation, protocol round trips,
   validators that never crash on any input. Guard: B9
 - **Tests are deterministic and fast.** No sleeps, wall clock, real network beyond localhost, or LLM calls in tests.
@@ -180,6 +206,23 @@ only review holds.
 - **A design that changes the architecture is reviewed before code,** on its design document, and Bio-faithful
   integration is always one of its lenses. Each lens's findings are kept in `docs/design/reviews/`.
   Guard: `docs/code_review.md` ("Design reviews"), B1
+- **A design document holds the contract** (owner, 2026-11-21): quantities, units, sites, cadence, versions, leak
+  rules, formats and the interfaces between modules. The test: if another module depends on a value, it is contract
+  and stays in the design, where a number may read "measured at step N". A mechanism nothing else depends on and
+  only running can check (a test plant's size, a mesh's lifetime) goes to its build step's checklist as a test to
+  write, citing the design section it serves. Laws stay simple and swappable behind the contract. Guard: B32
+- **One owner per contract** (owner, 2026-11-21). Each contract (a format, interface, closed vocabulary or rule that
+  another module depends on) is stated in exactly one section of one design document, its owner. Every other
+  document links to that section and never restates it, so an edit can't leave a stale copy behind. Decision tables
+  and fold tables are kept in `docs/design/reviews/` and indexes, not inside design documents, so design budgets go to
+  contract. When a change touches a contract stated in two places, move it to one owner in the same branch.
+  Guard: B36
+- **Review finds; it doesn't design** (owner, 2026-11-21). A finding is a defect and its failure scenario. A fix a
+  reviewer proposes is marked verified, with what they ran, or unverified, and the author verifies it before folding.
+  A delta round reviews the diff. When a second paper round on a design finds new blockers in text the folds added,
+  the rounds stop: with the owner's acceptance, mechanism findings move to the build steps, each deferred by a
+  reviewer with its step as the trigger, while contract blockers still fold or the owner overrules them. The charter
+  holds the procedure (`docs/code_review.md`). Guard: B33
 - **A reviewer, not the author, sets each finding's fold status** (owner, 2026-11-17, O25): `fixed`, `deferred`
   (named, with a reason and a trigger), `rejected` (with a reason) or `open`, read from the tree, not from the
   author's claim. A status the author sets (after the owner decides, say) is marked as the author's. Fold tables

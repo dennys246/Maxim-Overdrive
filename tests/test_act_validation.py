@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Callable
 from decimal import Decimal
 from fractions import Fraction
 from pathlib import Path
@@ -30,6 +31,7 @@ from simcore.core.limits import ActionLimits
 from simcore.core.refusals import RefusalCode
 from simcore.core.scene import Box, Scene
 from simcore.core.world import HeatSource, World, sphere_overlap
+from simcore.verify import agrees, same_class
 from tests.conftest import COARSEST_M, FAST_SPACINGS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -270,7 +272,9 @@ WOOD_FLAME_C = 2000.0  # wood's adiabatic flame temperature: no fire on wood may
 def _burn_every_turn(dx_m, turns):
     w = World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
     s, m = region_parts(Applier(w), w.frames, "crate")
-    assert m["structure"].execute("ignite", {"power_w": LIMITS.max_power_w, "radius_m": LIMITS.min_radius_m}).success
+    # Preconditions raise RuntimeError, not the red gates' raises= type, so a refused action can't count as the miss.
+    if not m["structure"].execute("ignite", {"power_w": LIMITS.max_power_w, "radius_m": LIMITS.min_radius_m}).success:
+        raise RuntimeError("ignite refused: the gate can't reach its bar")
     history = []
     for _ in range(turns):
         w.advance()
@@ -287,10 +291,15 @@ def _burn_every_turn(dx_m, turns):
     "(a burn rate driven by heat content) is the fix; this gate then flips.",
 )
 def test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn(spacings):
-    runs = {dx_m: _burn_every_turn(dx_m, 60) for dx_m in spacings}
+    grids = sorted(spacings, reverse=True)
+    runs = {dx_m: _burn_every_turn(dx_m, 60) for dx_m in grids}
+
+    def integrity_at(turn: int) -> Callable[[float], float]:
+        return lambda dx_m: runs[dx_m][turn][0]
+
     for turn in range(60):
-        integrity = [h[turn][0] for h in runs.values()]
-        assert max(integrity) - min(integrity) <= 0.1, (turn, runs)
+        integrity = agrees(integrity_at(turn), grids)
+        assert integrity.spread <= 0.1, (turn, runs)
         assert all(h[turn][1] <= WOOD_FLAME_C for h in runs.values()), (turn, runs)
 
 
@@ -303,7 +312,8 @@ def _block_strike(dx_m, energy_j, thickness_m=1.8, x0=0.6):
     sensors, mods = region_parts(Applier(w), w.frames, "block")
     point = [x0 + thickness_m / 2, 1.5, 0.9]
     res = mods["structure"].execute("strike", {"energy_j": energy_j, "sigma_m": 0.2, "point_m": point})
-    assert res.success
+    if not res.success:
+        raise RuntimeError("strike refused: the gate can't reach its bar")
     return res.metadata["destroyed_volume_m3"], sensors["breached"].value()
 
 
@@ -330,7 +340,7 @@ def test_a_crater_of_radius_at_least_a_third_of_a_metre_matches_the_closed_form_
 def test_a_strike_breaches_a_thin_wall_the_same_at_every_rig(spacings):
     # The wall's faces sit off the 0.2 m grid (x from 1.3 to 1.7 m), as most authored walls will.
     breached = {dx_m: _block_strike(dx_m, 1.5 * CONCRETE_THRESHOLD_J, 0.4, x0=1.3)[1] for dx_m in spacings}
-    assert len(set(breached.values())) == 1, breached
+    assert same_class(lambda dx_m: breached[dx_m], sorted(spacings, reverse=True)), breached
 
 
 def test_a_strike_at_any_face_of_a_region_off_the_coarse_grid_is_judged_the_same_at_every_rig(spacings):

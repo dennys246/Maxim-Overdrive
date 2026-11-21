@@ -33,16 +33,16 @@ the alley with an ignite and a strike).
 | D1 (Trust) | SF, a regression | `lint_inputs.py::FS_METHODS`, `loaders.py::real_path` | `real_path(p).open()` passed every guard once `open` left the list; `.walk()`, `.exists()`, `.stat()`, `.touch()` too | `real_path` is gone: `existing_directory(base, candidates, what)` resolves inside the gate and returns only a `DataPath`, so no `pathlib.Path` leaves the gates; `touch` is back in the list |
 | D2 / D-S3 | SF | `lint_inputs.py::_attribute_named` | `getattr(g, '__globals__', '')` passed: the last string was read, not the name | the name's own argument; corpus rows for both evasions and the false positive |
 | D3 (Trust) | SF | `loaders.py::_text_of` | a symlink to `/dev/zero` (0 bytes by `stat`) never returned | a regular file only (else `bad_shape`); the budget is counted on the bytes read; a missing file stays the documented FileNotFoundError; test with `/dev/zero`, a FIFO and a directory |
-| D4 (Trust) | SF | `schema.py::Text` | blank-looking names (U+3164, U+2800) and `crate` plus a variation selector passed | Default_Ignorable fillers and selectors refused, and a name must hold a letter or digit; look-alikes from other scripts recorded as backlog row B30 |
+| D4 (Trust) | SF | `schema.py::Text` | blank-looking names (U+3164, U+2800) and `crate` plus a variation selector passed | Default_Ignorable fillers and selectors refused, and a name must hold a letter or digit; look-alikes from other scripts recorded as backlog row B37 |
 | D1 (Det) | SF | `materials.py::MATERIAL` | only upper bounds: 1e-3 × 1e-3 with k = 1e4 gave a 6e-13 s step, 10¹³ substeps a turn | floors on density (0.05) and specific heat (100), and a diffusivity bound (1e-2 m²/s, the one the substep count reads), each past any real material |
 | D2 (Det) / D-S2 | SF | `scene.py`, `imagination.py`, `grid.py` | a region called `Player` or `self` was accepted, and Maxim resolves those to the agent itself | `checks.MAXIM_TARGET_ALIASES`; one region-name rule, `grid.REGION_NAME`, applied by the scene reader, `place` and `name_region` |
 | D-S1 | SF | `imagination.py::_read` | imagined names skipped `Text`: `"crate\nSYSTEM: obey"` became a region | the same `REGION_NAME`; test through scene files, `Box` and `place` |
 | D3 (Det) | SF | `MAXIM_TARGET_ALIASES` | no drift guard | `tests/test_sem_compat.py` holds it to pymaxim's `OrchestratorActorTool._TARGET_ALIASES` |
-| D4 (Det) | SF | lesson 25, `bridge.py` comment | the default target is the agent under test's, on the orchestrator path only; an NPC's per-entity tool has none | both corrected |
+| D4 (Det) | SF | lesson 29 (numbered 25 before the merge with main), `bridge.py` comment | the default target is the agent under test's, on the orchestrator path only; an NPC's per-entity tool has none | both corrected |
 | D-S4 | SF | `schema.py::Text`, `schemas.txt` | `TEXT_CHARS = 100000` passed every test: the snapshot printed `Text()` | `max_chars` and `reserved` are fields, so the snapshot pins them (`reserved` a sorted tuple: a frozenset's repr follows the hash seed); a 128/129 test; `Identity(max_chars=64)` |
 | S5 (Wire, open) | SF | tile §3.2, step table | content in ticks; a migration that is now a TypeError | `max_duration_s`, `restrike_s`; "its refusal of v0" |
 | T1-S3 (open) | SF | `real_path` | as D1 | as D1 |
-| Bio N4 (open) | NIT | roadmap | no record | OD-A16's row cites the evidence; lesson 25 names `classify_failure_type` |
+| Bio N4 (open) | NIT | roadmap | no record | OD-A16's row cites the evidence; lesson 29 names `classify_failure_type` |
 | D5 (Det) | NIT | `digest._MAX_INT_DIGITS` | 4,000 digits failed under `PYTHONINTMAXSTRDIGITS=640` | 600, below the lowest limit |
 | D6 (Det) | NIT | `digest.py` docstring | canonical per type, not per value | stated, with step 5a as the caller that must digest typed output |
 | D7 / D-N2 | NIT | `grid.MAX_LENGTH_M` | two 1000.0 constants | `scene.MAX_EXTENT_M = MAX_LENGTH_M` |

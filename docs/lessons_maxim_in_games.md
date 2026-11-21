@@ -88,12 +88,13 @@ versioned SEM vocabulary, and the format rule that a name's meaning never change
 
 ## Time
 
-### 11. Agents need world time, injected (2026-11-15)
+### 11. Agents' machinery needs world time, injected; cognition gets no clock (2026-11-15, reworded 2026-11-20)
 
 **Maxim's substrate reads the wall clock widely, so paused NPCs get hungry and replays diverge.** *Evidence:*
 `time.time()` in 178 pymaxim files; the SCN on the host calendar with local time zones; hippocampus de-duplication on
 wall time. *Consequence:* Phase 3 items for an injected world clock, a deterministic agent contract and
-experience-clock decay.
+experience-clock decay. *Reworded (SEM stimulus design D4, OD-A2):* the injected clock is machinery (drift, stamps,
+windows); cognition receives no time field, as time research §8.4 requires.
 
 ### 12. Nobody waits for a thought, in world time (2026-11-16)
 
@@ -249,7 +250,10 @@ landed and the integrity reading did not move. *Consequence:* every write window
 application's effect is in the next read (boundaries §4.2's cadence, now held by
 `tests/test_ownership.py::test_the_shipped_path_publishes_a_frame_after_each_application_and_each_advance`). For
 any engine: an agent that perceives by pulling needs its own act reflected in the next pull, or its efference copy
-has nothing to match; publish on change, and make the action's commit a change.
+has nothing to match; publish on change, and make the action's commit a change. *Amended 2026-11-20
+(`sem_stimuli.md` §6.2):* NPC stimuli are pushed each tick, so the post-`execute` cascade read sees the pre-act
+frame. Push and pull now hold at different layers; the cascade read is logging, never credit, and the act's effect
+reaches the actor in the next tick's frame.
 
 ### 24. A sensor must be something a receptor could sense; read-outs that are true can still be oracles (2026-11-20)
 
@@ -259,8 +263,8 @@ can't disagree with the world but still give every NPC knowledge no receptor del
 so an agent reading them learns our table, not fire. The other labels (soaked, burning) were yes/no, which thresholds
 a whole entity's mean, the D25 hazard lesson 22 itself cites; `states_of_matter/sem.md` N2 ("fractions, never
 labels") had already said so. *Consequence (pending the owner's ruling on fire_model §11 item 7):* the world computes the
-physical stimulus at the receptor (flux and skin temperature per body region, concentrations at the nose, luminous
-flame in view), Maxim's receptors transduce it, and state reaches an NPC only as continuous fractions through a
+physical stimulus at the receptor (tissue temperature at receptor depth, with incident flux internal; concentrations at the
+nose; luminous flame in view), Maxim's receptors transduce it, and state reaches an NPC only as continuous fractions through a
 percept. Two leak tests decide where a quantity lives: could an instrument at that spot measure it without a
 nervous system (the world's), and is it transduction, meaning a threshold, gain, adaptation or latency (the
 receptor's). Tissue is world physics even when its constants come from physiology papers: skin conduction and burn
@@ -268,7 +272,63 @@ damage belong to the world, or the body gets a second heat path (design review, 
 S4). For any engine embedding agents: "computed from the world" is necessary for a sensor, not sufficient; it must
 also be sensible.
 
-### 25. An agent's refusal vocabulary must be closed, and it still has to steer (2026-11-21)
+### 25. An agent's tool bridge shows the LLM each sensor's unit and value, so a faithful stimulus is still a label to the LLM (2026-11-20)
+
+**Delivering physics instead of labels doesn't keep a language model from reading the physics as a label.**
+*Evidence:* Maxim generates a read tool per sensor ("Returns value in {sensor.unit}", returning `value` and `unit`)
+and a sense tool naming every sensor (`embodiment/tool_bridge.py:295-321`, `:1002-1020` at `origin/main`
+`043eab8f`), found by the SEM stimulus design review (`reviews/sem_stimuli/bio_faithful.md` S2). A skin sensor reads
+"celsius … 47.3", and 47 °C means "burning" to the LLM. The same review round found two smaller traps: Maxim clamps
+NaN to the top of a sensor's range (`max(lo, min(hi, nan))` is `hi`), and a single digest over the whole stimulus
+registry would freeze every law it was meant to keep replaceable (`architecture.md` A-B2). *Consequence:* no
+learning claim rests on an LLM-primary NPC alone (substrate-side measures, a counter-prior or dose–response
+instead); a question to Maxim on withholding world-channel read tools (`sem_stimuli.md` M19); NaN refused at three
+layers; and versions recorded per bound row. For any engine: audit what the agent's *language* channel sees, not
+only what its sensors carry.
+
+### 26. A reviewer's suggested fix is a claim like any other: check it before folding it (2026-11-21)
+
+**Advice from a design review is unverified until it is measured or traced.** *Evidence:* in the SEM stimulus
+design's delta round 1 (`docs/design/reviews/sem_stimuli/delta1/`), five readers retracted round-1 fixes that v2 had
+folded word for word. A lane-overlap gate run on replay can't fail, because replay runs no agents (concurrency F1, a
+BLOCKER). A short write on a non-blocking socket is normal, so killing the worker on it kills healthy NPCs (F5;
+measured here: 8,192 of 20,000 bytes taken, then `BlockingIOError`). A one-ulp plant on surface conductance doesn't
+move L3's column until tick 120–152, and never at zero flux, while a 10⁻¹² relative change shows at tick 0 (executor
+B1, re-measured here). A digest chain stored every N ticks finds the first bad window, not the first bad tick (DP2-N1).
+Thermal adaptation's "salience-layer route" names no plan at Maxim's `origin/main` (bio N-2). Two other gaps came from
+the fold itself: a delivery and digest that turned every new row into a replay break (architecture A-B2), and a budget
+ruled on stationary bodies only (DP2-B1). *Consequence:* the v3 fold measured or traced each checkable fix before
+writing it, and recorded "unverified" where it couldn't. For any project folding reviews: a reviewer's fix gets the
+same check as a source's number, because a test that can't fail, adopted on a reviewer's word, guards nothing.
+
+### 27. A host that steps a Maxim body must not step it inside the agent's own tick (2026-11-21)
+
+**Maxim's substrate tick steps the body in a fixed order, and pain is keyed to the situation noted just before.**
+*Evidence:* at `origin/main` 043eab8f the substrate-primary proposal runs `note_active_clusters` and then
+`evaluate_failures`, so a pain publish is "keyed to the clusters noted above" (`substrate_proposal.py:808-839`; the
+W-4 order, `grounding.md:451`), and `loop_gates.py` warns that a second call doubles the tick. The v3 design pushed
+stimuli and then stepped the body from the host before the agent's tick (bio D2-S2): drive pain latches on band entry,
+so the host's call would publish the onset against the previous step's clusters and the agent's own call would find
+the latch set and publish nothing, keying a burn's fear to where the NPC stood up to a cognition step earlier.
+*Consequence:* v4 pushes on a cognition tick and leaves the body step to the agent's tick; the host steps the body
+only between cognition steps, and how such a publish is keyed is asked of Maxim (M4, a question to `autonomic_layer.md` §3.1.4's out-of-band producer, G9, and #1176).
+For any game hosting Maxim: deliver stimuli from outside, but let the agent's own loop own the order in which its
+body is stepped and its pain is credited.
+
+### 28. A world that holds a regulated variable fixed does the agent's homeostasis for it (2026-11-21)
+
+**The world should be the body's plant; the agent should be its controller.** *Evidence:* v4's core law (a) held the
+core node at 37 °C, which closed the energy books by booking whatever power that took. The final round showed what
+that costs (Physics S1, Bio-faithful F-S3): a body 3 m from the tile's fire absorbs about 1.0 kW, so a free core would
+rise about 5 K in 20 world minutes, while the held core reads 37.0 °C and sinks the heat unbooked. A bound
+`core_temperature` would then be a constant, and Maxim's own two-sided thermoregulation need (`autonomic_layer.md`
+R-2, §3.3) could never be exercised or learned. *Consequence:* the owner re-ruled PH2-S2 to (c): a free core, an
+energy-conserving plant (metabolism, skin blood flow, sweat, shivering), and effector commands reserved in the
+contract, set by a marked ANALOG stand-in until Maxim drives them (M20). For any game hosting Maxim: model the
+physiology the controller acts on, and leave the set point and the effector choice to the agent; a world that
+regulates on the agent's behalf hides the very signal the agent is supposed to learn from.
+
+### 29. An agent's refusal vocabulary must be closed, and it still has to steer (2026-11-21)
 
 **What the world tells an agent when it refuses is an input to the agent's next thought, so it is a protocol, not a
 message.** *Evidence:* step 3b part (b) replaced the SEM membrane's free-text errors with the refusal-code enum
