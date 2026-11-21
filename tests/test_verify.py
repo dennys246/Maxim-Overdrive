@@ -7,16 +7,14 @@ import math
 
 import pytest
 
-from simcore.verify import Band, Run, Work, agrees, band_gate, converges, same_class, same_class_under_refinement
-
-W = Work(substeps=1, cell_substeps=1)
+from simcore.verify import Band, Run, agrees, band_gate, converges, same_class, same_class_under_refinement
 
 
 def _power_law(p, c=1.0, exact=10.0, by="dx_m"):
     """value = exact + c * h**p, with h the run's spacing or step: an observable of known order p."""
 
     def observable(run):
-        return exact + c * getattr(run, by) ** p, Work(run.steps, run.steps * 7)
+        return exact + c * getattr(run, by) ** p
 
     return observable
 
@@ -36,22 +34,20 @@ def test_a_second_order_observable_shows_order_two_against_its_closed_form():
     study = converges(_power_law(2), _space(0.2, 0.1, 0.05), exact=10.0)
     assert study.orders == pytest.approx((2.0, 2.0))
     assert study.errors == pytest.approx((0.04, 0.01, 0.0025))
-    assert study.reference_converged is True
-    assert study.work == (Work(10, 70),) * 3
+    assert study.reference_converged is None  # a closed form has no reference to judge
 
 
 def test_a_time_study_refines_the_step_at_a_fixed_spacing():
     study = converges(_power_law(1, by="dt_s"), _time(10, 20, 40), exact=10.0)
     assert study.orders == pytest.approx((1.0, 1.0))
-    assert [w.substeps for w in study.work] == [10, 20, 40]
 
 
 def test_an_exact_fine_answer_has_infinite_order_and_two_exact_answers_have_none():
-    exact_at_fine = converges(lambda r: (10.0 if r.dx_m < 0.15 else 10.5, W), _space(0.2, 0.1), exact=10.0)
+    exact_at_fine = converges(lambda r: 10.0 if r.dx_m < 0.15 else 10.5, _space(0.2, 0.1), exact=10.0)
     assert exact_at_fine.orders == (math.inf,)
-    both_exact = converges(lambda r: (10.0, W), _space(0.2, 0.1), exact=10.0)
+    both_exact = converges(lambda r: 10.0, _space(0.2, 0.1), exact=10.0)
     assert math.isnan(both_exact.orders[0])
-    coarse_exact = converges(lambda r: (10.0 if r.dx_m > 0.15 else 10.5, W), _space(0.2, 0.1), exact=10.0)
+    coarse_exact = converges(lambda r: 10.0 if r.dx_m > 0.15 else 10.5, _space(0.2, 0.1), exact=10.0)
     assert coarse_exact.orders == (-math.inf,)
 
 
@@ -67,7 +63,7 @@ def test_richardson_recovers_the_order_without_a_closed_form():
 
 def test_a_reference_whose_order_is_still_moving_is_reported_unconverged():
     # value = 10 + h**2 + h: the order drifts from 1 toward 2 as h shrinks, so the last two orders disagree.
-    study = converges(lambda r: (10 + r.dx_m**2 + r.dx_m, W), _space(1.6, 0.8, 0.4, 0.2), order_tol=0.05)
+    study = converges(lambda r: 10 + r.dx_m**2 + r.dx_m, _space(1.6, 0.8, 0.4, 0.2), order_tol=0.05)
     assert study.reference_converged is False
 
 
@@ -81,6 +77,11 @@ def test_three_runs_give_one_order_and_never_claim_a_converged_reference():
 def test_a_reference_study_refuses_a_missing_or_meaningless_order_tolerance(order_tol):
     with pytest.raises(ValueError, match="order_tol"):
         converges(_power_law(2), _space(0.4, 0.2, 0.1), order_tol=order_tol)
+
+
+def test_a_closed_form_study_refuses_an_order_tolerance_it_would_ignore():
+    with pytest.raises(ValueError, match="closed form has none"):
+        converges(_power_law(2), _space(0.2, 0.1), exact=10.0, order_tol=0.1)
 
 
 def test_a_reference_study_refuses_two_runs():
@@ -152,6 +153,13 @@ def test_band_gate_refuses_control_values_that_dont_ascend(xs):
         band_gate(_threshold_at({0.2: 1.0}), xs, _space(0.2))
 
 
+def test_an_outcome_that_flips_twice_is_refused_not_bisected():
+    # True, false, true near the edge, as a coarse grid can alias a threshold: bisection would report one edge.
+    held = {0.0: False, 1.0: False, 2.0: True, 3.0: False, 4.0: True, 5.0: True, 6.0: True}
+    with pytest.raises(ValueError, match="flips more than once"):
+        band_gate(lambda run, x: held[x], sorted(held), _space(0.2))
+
+
 def test_band_gate_refuses_no_runs():
     with pytest.raises(ValueError, match="at least one run"):
         band_gate(_threshold_at({}), [0.0, 1.0], [])
@@ -214,44 +222,66 @@ def test_the_harness_is_deterministic():
 
 # --- agrees and same_class (the verification rule) ---
 
+SPACINGS = (0.2, 0.1, 0.05)
 
-def _grids(*dxs):
-    return [Run(dx, 6.0, 30) for dx in dxs]
+
+def _at(table):
+    return lambda dx_m: table[dx_m]
 
 
 def test_agreement_reports_the_spread_and_each_grids_error_against_the_finest():
-    found = agrees(lambda run: {0.2: 110.0, 0.1: 104.0, 0.05: 100.0}[run.dx_m], _grids(0.2, 0.1, 0.05))
+    found = agrees(_at({0.2: 110.0, 0.1: 104.0, 0.05: 100.0}), SPACINGS)
     assert found.values == (110.0, 104.0, 100.0)
     assert found.errors == (10.0, 4.0, 0.0)
     assert found.spread == 10.0
     assert found.converging is True
 
 
+def test_the_spread_is_the_full_range_whatever_the_order_of_the_values():
+    # Not first minus last: a coarse grid below the reference, the truth above it.
+    assert agrees(_at({0.2: 100.0, 0.1: 110.0, 0.05: 104.0}), SPACINGS).spread == 10.0
+    assert agrees(_at({0.2: 90.0, 0.1: 100.0}), (0.2, 0.1)).spread == 10.0
+
+
 def test_a_truth_grid_further_from_the_reference_than_the_coarse_grid_isnt_converging():
-    found = agrees(lambda run: {0.2: 102.0, 0.1: 106.0, 0.05: 100.0}[run.dx_m], _grids(0.2, 0.1, 0.05))
-    assert found.converging is False
+    assert agrees(_at({0.2: 102.0, 0.1: 106.0, 0.05: 100.0}), SPACINGS).converging is False
+
+
+def test_errors_within_the_outcomes_quantum_cant_be_told_apart():
+    # Onset turns are whole: coarse on the reference, truth one turn off, is converging at a quantum of one turn.
+    onsets = _at({0.2: 90.0, 0.1: 91.0, 0.05: 90.0})
+    assert agrees(onsets, SPACINGS).converging is False
+    assert agrees(onsets, SPACINGS, quantum=1.0).converging is True
+    assert agrees(_at({0.2: 90.0, 0.1: 92.0, 0.05: 90.0}), SPACINGS, quantum=1.0).converging is False
 
 
 def test_two_grids_have_no_truth_between_them_to_judge():
-    assert agrees(lambda run: run.dx_m, _grids(0.2, 0.1)).converging is None
+    assert agrees(lambda dx_m: dx_m, (0.2, 0.1)).converging is None
 
 
 def test_one_class_at_every_grid_is_the_same_class_and_a_flip_is_caught():
-    assert same_class(lambda run: True, _grids(0.2, 0.1, 0.05)) is True
-    assert same_class(lambda run: run.dx_m < 0.15, _grids(0.2, 0.1, 0.05)) is False
+    assert same_class(lambda dx_m: True, SPACINGS) is True
+    assert same_class(lambda dx_m: dx_m < 0.15, SPACINGS) is False
 
 
 @pytest.mark.parametrize(
-    ("runs", "match"),
+    ("spacings", "match"),
     [
-        ([Run(0.2, 6.0, 30)], "at least two grids"),
-        ([Run(0.2, 6.0, 30), Run(0.1, 3.0, 60)], "only the spacing"),
-        ([Run(0.2, 6.0, 30), Run(0.1, 6.0, 31)], "only the spacing"),
-        ([Run(0.1, 6.0, 30), Run(0.2, 6.0, 30)], "coarse to fine"),
+        ((0.2,), "at least two grids"),
+        ((0.1, 0.2), "coarse to fine"),
+        ((0.2, 0.2), "coarse to fine"),
+        ((0.2, 0.0), "finite and positive"),
+        ((0.2, math.nan), "finite and positive"),
     ],
 )
-def test_an_agreement_study_refuses_runs_that_arent_one_space_study(runs, match):
+def test_an_agreement_study_refuses_spacings_that_arent_coarse_to_fine(spacings, match):
     with pytest.raises(ValueError, match=match):
-        agrees(lambda run: 1.0, runs)
+        agrees(lambda dx_m: 1.0, spacings)
     with pytest.raises(ValueError, match=match):
-        same_class(lambda run: 1, runs)
+        same_class(lambda dx_m: 1, spacings)
+
+
+@pytest.mark.parametrize("quantum", [-1.0, math.inf, math.nan])
+def test_agreement_refuses_a_meaningless_quantum(quantum):
+    with pytest.raises(ValueError, match="quantum"):
+        agrees(lambda dx_m: 1.0, (0.2, 0.1), quantum=quantum)

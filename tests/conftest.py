@@ -8,7 +8,8 @@ from maxim_overdrive import data
 # and 0.05 m grids are verification grids around it. 0.05 m takes about a minute per fire scenario, so it runs with
 # MAXIM_OVERDRIVE_ALL_TIERS=1 (the gate sets it).
 FAST_SPACINGS = [0.2, 0.1]
-ALL_SPACINGS = FAST_SPACINGS + ([0.05] if os.environ.get("MAXIM_OVERDRIVE_ALL_TIERS") else [])
+ALL_TIERS = bool(os.environ.get("MAXIM_OVERDRIVE_ALL_TIERS"))
+ALL_SPACINGS = FAST_SPACINGS + ([0.05] if ALL_TIERS else [])
 COARSEST_M = max(FAST_SPACINGS)
 
 

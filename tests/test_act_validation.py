@@ -29,7 +29,7 @@ from simcore.core.intents import CALL_KEYS, ActionRefused, Extinguish, Ignite, S
 from simcore.core.limits import ActionLimits
 from simcore.core.scene import Box, Scene
 from simcore.core.world import HeatSource, World, sphere_overlap
-from simcore.verify import Run, agrees, same_class
+from simcore.verify import agrees, same_class
 from tests.conftest import COARSEST_M, FAST_SPACINGS
 
 LIMITS = data.action_limits()
@@ -287,11 +287,11 @@ def _burn_every_turn(dx_m, turns):
     "(a burn rate driven by heat content) is the fix; this gate then flips.",
 )
 def test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn(spacings):
-    grids = [Run(dx_m, 6.0, 60) for dx_m in sorted(spacings, reverse=True)]
-    runs = {run.dx_m: _burn_every_turn(run.dx_m, 60) for run in grids}
+    grids = sorted(spacings, reverse=True)
+    runs = {dx_m: _burn_every_turn(dx_m, 60) for dx_m in grids}
 
-    def integrity_at(turn: int) -> Callable[[Run], float]:
-        return lambda run: runs[run.dx_m][turn][0]
+    def integrity_at(turn: int) -> Callable[[float], float]:
+        return lambda dx_m: runs[dx_m][turn][0]
 
     for turn in range(60):
         integrity = agrees(integrity_at(turn), grids)
@@ -336,8 +336,7 @@ def test_a_crater_of_radius_at_least_a_third_of_a_metre_matches_the_closed_form_
 def test_a_strike_breaches_a_thin_wall_the_same_at_every_rig(spacings):
     # The wall's faces sit off the 0.2 m grid (x from 1.3 to 1.7 m), as most authored walls will.
     breached = {dx_m: _block_strike(dx_m, 1.5 * CONCRETE_THRESHOLD_J, 0.4, x0=1.3)[1] for dx_m in spacings}
-    grids = [Run(dx_m, 6.0, 1) for dx_m in sorted(spacings, reverse=True)]
-    assert same_class(lambda run: breached[run.dx_m], grids), breached
+    assert same_class(lambda dx_m: breached[dx_m], sorted(spacings, reverse=True)), breached
 
 
 def test_a_strike_at_any_face_of_a_region_off_the_coarse_grid_is_judged_the_same_at_every_rig(spacings):

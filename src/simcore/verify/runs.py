@@ -1,4 +1,4 @@
-"""One discretisation, and the exact work it took."""
+"""One discretisation of a convergence study: a spacing, a physics step and a step count."""
 
 from __future__ import annotations
 
@@ -30,11 +30,3 @@ class Run:
     def refined_in_time(self, factor: int) -> Run:
         """The same run with ``factor`` times as many steps, each ``factor`` times shorter."""
         return Run(self.dx_m, self.dt_s / factor, self.steps * factor)
-
-
-@dataclass(frozen=True)
-class Work:
-    """Exact, deterministic work counters for one run: never wall time (world_v2's performance counters)."""
-
-    substeps: int
-    cell_substeps: int

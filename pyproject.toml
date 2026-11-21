@@ -170,6 +170,15 @@ type = "forbidden"
 source_modules = ["simcore.verify"]
 forbidden_modules = ["simcore.core", "simcore.adapters", "simcore.protocol", "maxim"]
 
+# The harness is test tooling for the engine: the game never ships it (verify_harness §2). The layers contract already
+# keeps every engine layer below it from importing it; only the game sits above.
+[[tool.importlinter.contracts]]
+id = "verify-ships-nowhere"
+name = "the game never imports the verification harness (verify_harness §2)"
+type = "forbidden"
+source_modules = ["maxim_overdrive"]
+forbidden_modules = ["simcore.verify"]
+
 [[tool.importlinter.contracts]]
 id = "maxim-through-adapters"
 name = "only the SEM membrane imports maxim (boundaries §8.1)"

@@ -10,22 +10,22 @@ import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from simcore.verify.runs import Run, Work
+from simcore.verify.runs import Run
 
-Observable = Callable[[Run], tuple[float, Work]]
+Observable = Callable[[Run], float]
 _SAME = 1e-9  # relative: two floats this close are the same step, spacing, time or ratio
 
 
 @dataclass(frozen=True)
 class Convergence:
-    """What ``converges`` measured, coarse to fine."""
+    """What ``converges`` measured, coarse to fine. ``reference_converged`` is None against a closed form, where
+    there is no reference to judge."""
 
     runs: tuple[Run, ...]
     values: tuple[float, ...]
     errors: tuple[float, ...]
     orders: tuple[float, ...]
-    reference_converged: bool
-    work: tuple[Work, ...]
+    reference_converged: bool | None
 
 
 def converges(
@@ -33,29 +33,26 @@ def converges(
 ) -> Convergence:
     """Measure ``observable`` over ``runs``, coarse to fine, and the observed order between them.
 
-    With ``exact`` (a closed form), errors are against it and each order is ln(e_coarse / e_fine) / ln(r). Without
-    it, the orders come from successive differences (Richardson: ln(|v1 - v2| / |v2 - v3|) / ln(r), which needs a
-    constant ratio), errors are against the finest run, and ``reference_converged`` says whether the last two orders
-    agree within ``order_tol``, which such a study must give.
+    With ``exact`` (a closed form), errors are against it and each order is ln(e_coarse / e_fine) / ln(r); passing
+    ``order_tol`` too is refused, since nothing would read it. Without it, the orders come from successive
+    differences (Richardson: ln(|v1 - v2| / |v2 - v3|) / ln(r), which needs a constant ratio), errors are against
+    the finest run, and ``reference_converged`` says whether the last two orders agree within ``order_tol``, which
+    such a study must give. A verdict needs two orders, so four runs; with three it is False.
     """
     runs = tuple(runs)
     ratios = _ratios(runs)
-    measured = [observable(run) for run in runs]
-    values = tuple(float(value) for value, _ in measured)
-    work = tuple(w for _, w in measured)
+    values = tuple(float(observable(run)) for run in runs)
     if exact is not None:
+        if order_tol is not None:
+            raise ValueError("order_tol judges a reference; a study against a closed form has none")
         errors = tuple(abs(v - exact) for v in values)
         orders = tuple(_order(errors[i], errors[i + 1], ratios[i]) for i in range(len(ratios)))
-        return Convergence(runs, values, errors, orders, True, work)
-    return _against_reference(runs, values, work, ratios, order_tol)
+        return Convergence(runs, values, errors, orders, None)
+    return _against_reference(runs, values, ratios, order_tol)
 
 
 def _against_reference(
-    runs: tuple[Run, ...],
-    values: tuple[float, ...],
-    work: tuple[Work, ...],
-    ratios: list[float],
-    order_tol: float | None,
+    runs: tuple[Run, ...], values: tuple[float, ...], ratios: list[float], order_tol: float | None
 ) -> Convergence:
     if order_tol is None or not (math.isfinite(order_tol) and order_tol > 0):
         raise ValueError(f"a study without a closed form needs a positive order_tol, got {order_tol!r}")
@@ -67,7 +64,7 @@ def _against_reference(
     orders = tuple(_order(diffs[i], diffs[i + 1], ratios[0]) for i in range(len(diffs) - 1))
     errors = tuple(abs(v - values[-1]) for v in values)
     settled = len(orders) >= 2 and abs(orders[-1] - orders[-2]) <= order_tol
-    return Convergence(runs, values, errors, orders, settled, work)
+    return Convergence(runs, values, errors, orders, settled)
 
 
 def _ratios(runs: tuple[Run, ...]) -> list[float]:

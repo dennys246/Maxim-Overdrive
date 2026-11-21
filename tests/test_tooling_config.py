@@ -162,6 +162,10 @@ def test_the_verification_harness_imports_nothing_from_the_engine():
     contract = _contracts()["verify-measures-only"]
     assert (contract["type"], contract["source_modules"]) == ("forbidden", ["simcore.verify"])
     assert set(contract["forbidden_modules"]) == {"simcore.core", "simcore.adapters", "simcore.protocol", "maxim"}
+    shipped = _contracts()["verify-ships-nowhere"]
+    assert (shipped["type"], shipped["source_modules"], shipped["forbidden_modules"]) == (
+        "forbidden", ["maxim_overdrive"], ["simcore.verify"]
+    )  # fmt: skip
 
 
 def test_the_sealed_core_contract_bans_exactly_the_shared_list():
@@ -244,6 +248,8 @@ PLANTED = [
     ("simcore/host.py", "from maxim_overdrive import data", "the engine never imports the game"),
     ("simcore/protocol/encoding.py", "from simcore.core import grid", "adapters and protocol reach no cells"),
     ("simcore/adapters/sem/bridge.py", "from simcore.core import materials", "the SEM membrane reads frames"),
+    ("simcore/verify/runs.py", "from simcore.core import grid", "the verification harness imports nothing"),
+    ("maxim_overdrive/data.py", "from simcore import verify", "the game never imports the verification harness"),
 ]
 
 
