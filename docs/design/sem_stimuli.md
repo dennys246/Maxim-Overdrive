@@ -1,7 +1,7 @@
 # The SEM stimulus interface (design v2, 2026-11-20)
 
 **Status:** v2, folding the seven-lens review of v1 (`reviews/sem_stimuli/`; `fold.md` maps each finding, and the
-reviewers set its status). The owner ruled D1–D12 on 2026-11-20 (§10). Research: `research/sem_stimuli/`, L1–L7.
+reviewers set its status). The owner ruled D1–D13 by 2026-11-21 (§10). Research: `research/sem_stimuli/`, L1–L7.
 
 **Read at:** Overdrive `97599b3`; Maxim by `git show` at local `origin/main` **`043eab8f`**, not fetched.
 
@@ -503,11 +503,10 @@ v1's M3 is dropped (§3.2's check holds it). **The wall-clock gap is the largest
 - **D6:** incident flux is internal; `fire_model.md` §5.1 and lesson 24 reworded.
 - **D7:** answered (§6.4). **D8:** the flat stopgap body. **D9:** for O34's law list; this design needs only
   `core/body/`. **D10:** split `region_parts` before step 5's vocabulary v1 (§6.1).
-- **D11:** (a), per-point visibility, clustered within a bound and refreshed on motion (§8).
-- **D12:** 10 NPCs near a fire with a work-counter gate; 100 is a later target.
-
-**Open, D13:** on a bound row's law change, refuse an agent home unless the load names it (recommended), or load
-with a logged warning.
+- **D11, D12,** reconfirmed 2026-11-21 at §8's corrected costs: (a), per-point visibility, clustered within a bound
+  and refreshed on motion; 10 NPCs near a fire, work-counter gated (§8).
+- **D13** (2026-11-21): on a bound row's law change, an agent home is refused unless the load names the change. M16
+  is filed in `embeddable_agent_DRAFT.md` §7.
 
 ## 11. Steps, open questions and risks
 

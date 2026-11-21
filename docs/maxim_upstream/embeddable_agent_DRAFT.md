@@ -176,12 +176,13 @@ named in the digest's definition.
 
 ## 7. Questions left
 
-None. Both of v6's are answered:
+**M16 (new, 2026-11-21): can an embedded body step every tick without cognition?** Our stimulus design steps every
+body each tick and runs cognition slower (`sem_stimuli.md` D5). Your G1–G4 audit calls the `SensorEncoder` body
+world the only path that acts without the LLM (`DECISIONS.md`), and `agentic_runtime` already degrades to it
+(`bounded_stop.md`). If not, every tick is a full step, or contacts between steps go unfelt.
 
-1. **A host-supplied floor:** thank you; we take your segment alternative (O45, §2), so nothing goes on your resume
-   stage's question list.
-2. **GL3.B2's gate wording:** the gate holds unchanged, as you say; OD-EA16 adds that a refusal's pid never appears in
-   a GL3.B2 row (§6).
+v6's two are answered: **a host-supplied floor** (we take your segment alternative, O45, §2), and **GL3.B2's gate**
+(unchanged; OD-EA16 adds that a refusal's pid never appears in a GL3.B2 row, §6).
 
 Searched, nothing found: OD-EA9; a `DECISIONS.md` entry for the host-driven mode (ours:
 `docs/maxim_upstream/decisions_entry_DRAFT.md`).

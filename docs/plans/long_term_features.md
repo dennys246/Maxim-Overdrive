@@ -50,8 +50,8 @@ Each entry says which half each piece of work is.
 | **Contract** | all of it: which quantities, in what units and ranges, sampled where on the body, at what cadence, how they reach Maxim through its frozen SEM types, what is recorded for replay, and the tests that prove no privileged state leaks |
 | **Laws** | the world-side models behind each stimulus (skin heat, radiation onto body regions, luminance after line of sight), each replaceable behind the contract |
 | **Decided** | the world computes the stimulus at the receptor and Maxim transduces it (`fire_model.md` §5.1); fractions, never booleans; no flammability, flash point or φ as a sensor; tissue physics is the world's (lesson 24) |
-| **Status** | design v1 reviewed by seven lenses (15 BLOCKER, 66 SHOULD-FIX, 49 NIT); the owner ruled D1–D12 as recommended (2026-11-20: D5 (c), every body steps each tick; D11 (a), per-site occlusion; D12, a budget of 10 NPCs near a fire with a work-counter gate); v2 folded (`reviews/sem_stimuli/fold.md`), statuses open for the reviewers; D13 open |
-| **Next** | v2, then a delta round whose reviewers set the fold statuses |
+| **Status** | design v1 reviewed by seven lenses (15 BLOCKER, 66 SHOULD-FIX, 49 NIT); the owner ruled D1–D12 as recommended (2026-11-20: D5 (c), every body steps each tick; D11 (a), per-site occlusion; D12, a budget of 10 NPCs near a fire with a work-counter gate); v2 folded (`reviews/sem_stimuli/fold.md`), statuses open for the reviewers; D11–D12 reconfirmed at v2's corrected costs and D13 ruled (2026-11-21) |
+| **Next** | A delta round on v2, whose reviewers set the fold statuses; M16 to Maxim with the embeddable draft |
 
 ## States of matter: liquids, gases and zones
 
