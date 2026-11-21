@@ -3,7 +3,7 @@
 **Status:** v4, the contract only (owner, 2026-11-21: the split). It folds delta round 2
 (`reviews/sem_stimuli/delta2/`; its `fold.md` maps each finding, and the reviewers set its status). Laws, their
 numbers and their tests moved to `docs/plans/checklists.md` ("The SEM stimulus laws" and the 5a, 5b and agent-line
-sections); this document doesn't repeat them. The owner ruled D1–D14 (§10); D12 is provisional, D15 open.
+sections); this document doesn't repeat them. The owner ruled D1–D15 (§10); D12 is provisional.
 Research: `research/sem_stimuli/`, L1–L7.
 
 **Read at:** Overdrive `0918685`; Maxim at local `origin/main` **`043eab8f`**, not fetched. **Tags:** **V** primary,
@@ -313,7 +313,7 @@ environment entity is `phase1/agents`' design (T8, T13), which maps `StructureMo
 bounds by bisection. Superseding `npcs_and_sem.md` §6.6's "measured effect":
 - **`execute` returns `pending`;** the **receipt is `(pid, kind)`**, in the first `BoundFrame` delivered after its
   intent applies (`L_us ≥ 1`, §4.1).
-- **v1 kinds are target-independent (D15, open):** `malformed`, `limit`, `accepted`. Whether the target existed, was
+- **v1 kinds are target-independent (D15):** `malformed`, `limit`, `accepted`. Whether the target existed, was
   in reach or was hit is logged host-side only, and the effect arrives as stimuli. With no vision or touch row there is
   no perception predicate from A's own frame, so `applied` against `unavailable` would be an existence and footprint
   oracle. Target-dependent kinds return, as a receipt version bump, when a row defines "perceived" as "some value in
@@ -495,9 +495,9 @@ Known gap held by T16a; a pain path is a prerequisite for Phase 4's fire scenari
 owner's):** no exchange with cell faces in v1, a Known gap with strict red gates. **The split (the owner's):** this
 document holds the contract; laws and their tests are in the checklist.
 
-**Open:** **D15**, v1's receipt kinds: target-independent (`malformed`, `limit`, `accepted`; recommended, §6.2), or
-keep `applied` and `unavailable` as a named ANALOG existence and footprint leak, recorded by T11. **D12's trade:**
-the per-body budget gives up pooling (§8); the owner confirms it with D12's re-ruling.
+**Ruled 2026-11-21, later:** **D15:** v1's receipt kinds are target-independent (`malformed`, `limit`,
+`accepted`; §6.2). **D12's trade** accepted: per-body budgets, no pooling (§8). **PH2-S2:** the core law is (a),
+superseding tile §2.1's free-relaxation test (checklist, the core).
 
 ## 11. Steps, open questions and risks
 

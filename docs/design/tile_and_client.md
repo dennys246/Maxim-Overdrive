@@ -137,7 +137,7 @@ measurement. `stable_dt` is 46.9 s at 0.1 m: one substep per 0.5 s physics step.
   at 1 m and 2.1 kW/m² at 3 m; absorbed over 0.5 m², 9.3 kW (+2.3 K/min) and 1.0 kW (+0.25 K/min). In the ember phase,
   4–12 kW/m² at 1 m from a face (envelope 640–920 °C), under 1 kW/m² at 3 m. D28's body is therefore
   location-dependent.
-- **Tests:** two closed forms (a body in a box clamped at T_env relaxes with τ = 245 kJ/K ÷ (10 × 1.9) W/K = 12,900 s;
+- **Tests:** two closed forms (free relaxation, τ = 12,900 s, superseded for the core by `sem_stimuli.md` PH2-S2, 2026-11-21;
   a body facing a fixed point source heats at α·q''·A/(m·c)), and a cross-grid test at 0.2 / 0.1 / 0.05 m.
 - **Receptor volumes** (head, hands) are declared in the schema with no Phase 1 caller (DC-N8); a head is under two
   coarse cells, a Known gap needing the reconstruct-then-integrate path (BF-S6).

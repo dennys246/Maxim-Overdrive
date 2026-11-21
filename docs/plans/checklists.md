@@ -380,7 +380,7 @@ measured in the research (L3) or the reviews, **M** are from memory and must be 
   partial contact and clothing as sub-columns and layers. Closed form: the steady profile. The join and restart
   solve it directly (started uniform at the core it needs 1,060 s to settle within 0.1 K, **D**), with a test that a
   joined NPC's tissue doesn't move in its first second at ambient (PH2-N3).
-- **The core** (PH2-S2): v1's core law, (a) held at 37 °C with the supplied power booked as "basal
+- **The core** (PH2-S2; the owner ruled (a), 2026-11-21): v1's core law, (a) held at 37 °C with the supplied power booked as "basal
   thermoregulation, ANALOG" (superseding tile §2.1's free relaxation by name) or (b) free, with the 3.5–4.7 K/h drift
   as a Known gap (**D**). Test: an idle NPC for one world hour.
 - **Sinks** (PH2-S1): each point's convective sink read through `gas.at`/`gas.over` over a volume in metres (a fixed
