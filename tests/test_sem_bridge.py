@@ -4,6 +4,7 @@ import pytest
 
 from maxim_overdrive import data
 from simcore.adapters.sem import bridge
+from simcore.core.applier import Applier
 from simcore.core.scene import Box, Scene
 from simcore.core.world import World
 
@@ -21,7 +22,7 @@ def _world(dx_m, materials):
 
 def test_strike_moves_the_integrity_sensor(dx_m, materials):
     w = _world(dx_m, materials)
-    sensors, mods = bridge.region_parts(w, "wall")
+    sensors, mods = bridge.region_parts(Applier(w), w.frames, "wall")
     assert sensors["integrity"].read().value == pytest.approx(1.0)
     res = mods["structure"].execute("strike", {"energy_j": 6.3e7, "sigma_m": 0.3, "point_m": [0.8, 1.5, 1.2]})
     assert res.success
@@ -31,7 +32,8 @@ def test_strike_moves_the_integrity_sensor(dx_m, materials):
 
 
 def test_bad_actions_fail_cleanly(dx_m, materials):
-    _, mods = bridge.region_parts(_world(dx_m, materials), "wall")
+    w = _world(dx_m, materials)
+    _, mods = bridge.region_parts(Applier(w), w.frames, "wall")
     assert not mods["structure"].execute("extinguish", {}).success  # nothing burning
     assert not mods["structure"].execute("strike", {}).success  # missing energy
     assert not mods["structure"].execute("teleport", {}).success
@@ -40,7 +42,8 @@ def test_bad_actions_fail_cleanly(dx_m, materials):
 def test_regions_are_real_maxim_entities(dx_m, materials):
     sem = pytest.importorskip("maxim.embodiment.sem")
     Modulator, Sensor = sem.Modulator, sem.Sensor
-    ent = bridge.to_maxim_entity(_world(dx_m, materials), "wall")
+    w = _world(dx_m, materials)
+    ent = bridge.to_maxim_entity(Applier(w), w.frames, "wall")
     assert all(isinstance(s, Sensor) for s in ent.sensors.values())
     assert all(isinstance(m, Modulator) for m in ent.modulators.values())
     readings = ent.read_all_sensors()

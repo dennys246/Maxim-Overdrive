@@ -15,17 +15,28 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Literal
 
-from simcore.core.checks import finite_real, finite_vector, format_version, known_keys
+from simcore.core.checks import finite_real, finite_vector, format_version, known_keys, shown
 from simcore.core.grid import Bounds, Footprint, Mask, MaterialGrid, Point
 from simcore.core.materials import MaterialTable
 
 
+def _coordinates(value: object, n: int, what: str) -> tuple[float, ...]:
+    """``n`` finite coordinates, each within ``MAX_EXTENT_M`` of the origin, or a ValueError (step 3b review, B1).
+
+    Checked before any arithmetic: a tile is at most ``MAX_EXTENT_M`` across, so a larger number is no shape, and
+    squaring one (a 1e200 m radius) overflowed a float inside the voxelizer."""
+    values = finite_vector(value, n, what)
+    if any(abs(v) > MAX_EXTENT_M for v in values):
+        raise ValueError(f"{what} must lie within {MAX_EXTENT_M:g} m of the origin, got {shown(value)}")
+    return values
+
+
 def _check_labels(material: object, name: object) -> None:
     if not isinstance(material, str) or not material:
-        raise ValueError(f"primitive {name!r} needs a material name, got {material!r}")
+        raise ValueError(f"primitive {shown(name)} needs a material name, got {shown(material)}")
     if name is not None and (not isinstance(name, str) or not name.strip() or name != name.strip()):
         # Maxim strips the names it resolves, so " crate" would answer to "crate" and "  " to nothing.
-        raise ValueError(f"a primitive's name must be a non-empty string with no outer spaces, got {name!r}")
+        raise ValueError(f"a primitive's name must be a non-empty string with no outer spaces, got {shown(name)}")
 
 
 @dataclass(frozen=True)
@@ -37,7 +48,7 @@ class Box:
     kind: Literal["box"] = "box"
 
     def __post_init__(self) -> None:
-        lo, hi = finite_vector(self.min_m, 3, "min_m"), finite_vector(self.max_m, 3, "max_m")
+        lo, hi = _coordinates(self.min_m, 3, "min_m"), _coordinates(self.max_m, 3, "max_m")
         if not all(a < b for a, b in zip(lo, hi, strict=True)):
             raise ValueError(f"box max_m must exceed min_m on every axis, got {lo} and {hi}")
         _check_labels(self.material, self.name)
@@ -76,9 +87,9 @@ class Cylinder:
     kind: Literal["cylinder"] = "cylinder"
 
     def __post_init__(self) -> None:
-        center = finite_vector(self.center_xy_m, 2, "center_xy_m")
-        (radius,) = finite_vector((self.radius_m,), 1, "radius_m")
-        z = finite_vector(self.z_m, 2, "z_m")
+        center = _coordinates(self.center_xy_m, 2, "center_xy_m")
+        (radius,) = _coordinates((self.radius_m,), 1, "radius_m")
+        z = _coordinates(self.z_m, 2, "z_m")
         if radius <= 0 or z[1] <= z[0]:
             raise ValueError(f"cylinder needs a positive radius and z_m[1] > z_m[0], got {radius} and {z}")
         _check_labels(self.material, self.name)
@@ -90,6 +101,10 @@ class Cylinder:
         x, y, z = grid.mesh()
         cx, cy = self.center_xy_m
         r2 = (x - cx) ** 2 + (y - cy) ** 2
+        # radius_m**2 goes through libm pow, the platform-dependent form; r*r is one correctly rounded multiply, the
+        # same everywhere. It stays **2 only to match fa27d5f's behaviour: at r = 0.28284271247461895 m on the 0.2 m
+        # grid this macOS pow gives 20 cells and r*r 24 (the 1 km bound already rules out the overflow). The real fix
+        # is voxelizing by volume overlap, with no knife edge (docs/standards_backlog.md, B28).
         return (r2 < self.radius_m**2) & (z >= self.z_m[0]) & (z < self.z_m[1])
 
     @property
@@ -173,10 +188,10 @@ def primitives_from_data(listed: object) -> tuple[Primitive, ...]:
     prims: list[Primitive] = []
     for p in listed:
         if not isinstance(p, Mapping):
-            raise ValueError(f"each primitive must be a mapping, got {p!r}")
+            raise ValueError(f"each primitive must be a mapping, got {shown(p)}")
         kind = p.get("kind", "box")
         if not isinstance(kind, str) or kind not in PRIMITIVE_KEYS:  # a list or a mapping isn't hashed
-            raise ValueError(f"unknown primitive kind {kind!r}")
+            raise ValueError(f"unknown primitive kind {shown(kind)}")
         known_keys(p, f"{kind} primitive", required=PRIMITIVE_KEYS[kind], optional={"kind", "name"})
         if kind == "box":
             prims.append(Box(p["min_m"], p["max_m"], p["material"], p.get("name")))
@@ -195,23 +210,24 @@ class Scene:
         x, y, z = finite_vector(self.extent_m, 3, "a scene's extent_m")
         if not (min(x, y, z) > 0 and max(x, y, z) <= MAX_EXTENT_M):
             raise ValueError(
-                f"a scene's extent_m must be between 0 and {MAX_EXTENT_M:g} m on every axis, got {self.extent_m!r}"
+                f"a scene's extent_m must be between 0 and {MAX_EXTENT_M:g} m on every axis, got {shown(self.extent_m)}"
             )
         ambient = finite_real(self.ambient_c, "a scene's ambient_c")
         if not -273.15 < ambient <= MAX_AMBIENT_C:
             limit = f"above absolute zero and at most {MAX_AMBIENT_C:g} C"
-            raise ValueError(f"a scene's ambient_c must be {limit}, got {self.ambient_c!r}")
+            raise ValueError(f"a scene's ambient_c must be {limit}, got {shown(self.ambient_c)}")
         object.__setattr__(self, "extent_m", (x, y, z))
         object.__setattr__(self, "ambient_c", ambient)
 
     def build(self, materials: MaterialTable, *, dx_m: float) -> MaterialGrid:
         for p in self.primitives:
             if p.material not in materials:
-                raise ValueError(f"unknown material {p.material!r} in primitive {p.name or p.kind}")
+                raise ValueError(f"unknown material {shown(p.material)} in primitive {shown(p.name or p.kind)}")
         _check_no_solid_overlaps(self.primitives)
         grid = MaterialGrid.empty(self.extent_m, materials, dx_m=dx_m, ambient_c=self.ambient_c)
-        for p in self.primitives:
-            grid.paint(p.mask(grid), p.material, region=p.name, footprint=footprint_of([p]) if p.name else None)
+        with grid.writing():  # construction, the window's third owner (boundaries §4.1, §6.4)
+            for p in self.primitives:
+                grid.paint(p.mask(grid), p.material, region=p.name, footprint=footprint_of([p]) if p.name else None)
         return grid
 
     @classmethod

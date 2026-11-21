@@ -17,15 +17,32 @@ from typing import Any, SupportsFloat
 
 import numpy as np
 
-from simcore.core.checks import finite_vector, known_keys
-from simcore.core.grid import MaterialGrid, entity_key
+from simcore.core.checks import entity_key, finite_real, finite_vector, known_keys, shown, whole_number
+from simcore.core.grid import Footprint, MaterialGrid
 from simcore.core.scene import Box, Cylinder, Primitive, boxes_overlap, footprint_of, primitives_from_data
 
 
 @dataclass(frozen=True)
 class Budget:
+    """What one imagined object may cost. Every limit is checked before a cell is allocated (boundaries §5.4)."""
+
     max_mass_kg: float = 500.0
     max_extent_m: float = 3.0
+    max_primitives: int = 32  # each primitive costs a full-grid mask to voxelize, one at a time
+    max_name_chars: int = 64
+
+    def __post_init__(self) -> None:
+        # Validating constructor (boundaries §5.1): Budget(max_mass_kg=nan) once built, and removed the mass limit.
+        for name in ("max_mass_kg", "max_extent_m"):
+            value = finite_real(self.__dict__[name], f"budget {name}")
+            if not value > 0:
+                raise ValueError(f"budget {name} must be positive, got {value!r}")
+            object.__setattr__(self, name, value)
+        for name in ("max_primitives", "max_name_chars"):
+            count = whole_number(self.__dict__[name], f"budget {name}")
+            if count < 1:
+                raise ValueError(f"budget {name} must be at least 1, got {count}")
+            object.__setattr__(self, name, count)
 
 
 class SpecRejected(ValueError):
@@ -47,7 +64,16 @@ def _offset(p: Primitive, o: tuple[float, float, float]) -> Primitive:
 SPEC_KEYS = frozenset({"name", "primitives"})
 
 
-def _read(grid: MaterialGrid, spec: object, origin_m: object) -> tuple[str, list[Primitive]]:
+def _within_budget(spec: Mapping[object, object], budget: Budget) -> None:
+    """The counts and lengths a spec may carry, checked before any primitive is built or any cell is allocated."""
+    name, listed = spec.get("name"), spec.get("primitives", [])
+    if isinstance(name, str) and len(name) > budget.max_name_chars:
+        raise SpecRejected(f"an imagined object's name is at most {budget.max_name_chars} characters")
+    if isinstance(listed, Sequence) and len(listed) > budget.max_primitives:
+        raise SpecRejected(f"too many primitives: {len(listed)}, the limit is {budget.max_primitives}")
+
+
+def _read(grid: MaterialGrid, spec: object, origin_m: object, budget: Budget) -> tuple[str, list[Primitive]]:
     """The spec's name and its primitives placed at ``origin_m``, or SpecRejected. Nothing here touches the grid."""
     if not isinstance(spec, Mapping):
         raise SpecRejected(f"an imagined object must be a mapping, got {type(spec).__name__}")
@@ -55,12 +81,13 @@ def _read(grid: MaterialGrid, spec: object, origin_m: object) -> tuple[str, list
         known_keys(spec, "an imagined object", required=(), optional=SPEC_KEYS)
     except ValueError as exc:  # reported as the refusal
         raise SpecRejected(str(exc)) from exc
+    _within_budget(spec, budget)
     name = spec.get("name")
     if not name or not isinstance(name, str) or not name.strip() or name != name.strip():
         raise SpecRejected("an imagined object needs a name, with no outer spaces")
     clash = next((r for r in grid.regions if entity_key(r) == entity_key(name)), None)
     if clash is not None:  # by Maxim's name rule, checked before anything is painted
-        raise SpecRejected(f"something called {clash!r} already exists")
+        raise SpecRejected(f"something called {shown(clash)} already exists")
     try:
         origin = finite_vector(origin_m, 3, "origin_m")
         prims = primitives_from_data(spec.get("primitives", []))
@@ -71,10 +98,49 @@ def _read(grid: MaterialGrid, spec: object, origin_m: object) -> tuple[str, list
         raise SpecRejected("an imagined object needs at least one primitive")
     for p in prims:
         if p.material not in grid.materials:
-            raise SpecRejected(f"{p.material!r} is not a material this world knows")
+            raise SpecRejected(f"{shown(p.material)} is not a material this world knows")
         if p.material == "air":
             raise SpecRejected("objects cannot be made of air")
     return name, placed
+
+
+def _within_world_rules(grid: MaterialGrid, placed: list[Primitive], budget: Budget) -> tuple[Footprint, float]:
+    """The footprint and mass of the placed primitives, or SpecRejected, judged from authored geometry alone: no cell
+    is allocated, and the answer is the same at every grid spacing (boundaries §5.4: budgets before allocation)."""
+    footprint = footprint_of(placed)
+    (x0, y0, z0), (x1, y1, z1) = footprint.bounds_m
+    across_m = max(x1 - x0, y1 - y0, z1 - z0)
+    if across_m > budget.max_extent_m + 1e-9:
+        raise SpecRejected(f"too large: {across_m:.2f} m across, the limit is {budget.max_extent_m:g} m")
+    # The same boundary as authored scenes (scene._check_no_solid_overlaps): an imagined object may not sit inside a
+    # named solid's footprint, even in air carved into it, or a strike on that solid could break the new object.
+    for other, region in grid.regions.items():
+        if region.solid and any(boxes_overlap(region.footprint.bounds_m, p.bounds_m) for p in placed):
+            raise SpecRejected(f"that space belongs to {shown(other)}")
+    mass = sum(p.volume_m3 * grid.materials[p.material].density_kg_m3 for p in placed)
+    if mass > budget.max_mass_kg:
+        raise SpecRejected(f"too heavy: {mass:.0f} kg, the limit is {budget.max_mass_kg:g} kg")
+    return footprint, mass
+
+
+def _voxelize(grid: MaterialGrid, name: str, placed: list[Primitive], footprint: Footprint) -> None:
+    """Paint the primitives and name them, one mask per primitive, each computed once. A refusal raised here (the
+    space is occupied, or the object covers no cell) rolls the window back whole."""
+    solid = grid.solid  # before anything is painted: overlap among the object's own primitives is allowed
+    union = np.zeros(grid.shape, dtype=np.bool_)
+    # TEMPORARY(phase1/sim-clock): place opens the write window itself because the imagine intent kind doesn't exist
+    # yet (boundaries §5.3, §6.4); step 5a's intent log is where every input joins one pipeline, and there place
+    # becomes the applier's stage 2 of an imagine intent, inside Simulation.step's window.
+    with grid.writing():
+        for p in placed:
+            mask = p.mask(grid)
+            if (mask & solid).any():
+                raise SpecRejected("that space is occupied")
+            union |= mask
+            grid.paint(mask, p.material)
+        if not union.any():
+            raise SpecRejected("the object is smaller than one cell at this resolution, or outside the world")
+        grid.name_region(name, union, footprint, solid=True)  # imagined objects are never air (see _read)
 
 
 def place(
@@ -83,33 +149,11 @@ def place(
     """Validate an imagined object and voxelize it as a new region. Returns its mass in kg.
 
     Raises ``SpecRejected`` with a reason if any rule fails; the grid is unchanged in that case. ``spec`` and
-    ``origin_m`` usually come from an LLM, so every malformed shape is a rejection, never another exception.
+    ``origin_m`` usually come from an LLM, so every malformed shape is a rejection, never another exception. Every
+    budget is checked before a cell is allocated: counts and names first (``_within_budget``), then extent, ownership
+    and mass from the authored geometry; only occupancy needs the cells.
     """
-    name, placed = _read(grid, spec, origin_m)
-
-    masks = [p.mask(grid) for p in placed]
-    union = np.any(np.stack(masks), axis=0)
-    if not union.any():
-        raise SpecRejected("the object is smaller than one cell at this resolution, or outside the world")
-    # Size from the authored geometry, like mass, so whether an object is too large doesn't depend on the grid spacing.
-    footprint = footprint_of(placed)
-    (x0, y0, z0), (x1, y1, z1) = footprint.bounds_m
-    across_m = max(x1 - x0, y1 - y0, z1 - z0)
-    if across_m > budget.max_extent_m + 1e-9:
-        raise SpecRejected(f"too large: {across_m:.2f} m across, the limit is {budget.max_extent_m} m")
-    if (union & grid.solid).any():
-        raise SpecRejected("that space is occupied")
-    # The same boundary as authored scenes (scene._check_no_solid_overlaps): an imagined object may not sit inside a
-    # named solid's footprint, even in air carved into it, or a strike on that solid could break the new object.
-    for other, region in grid.regions.items():
-        if region.solid and any(boxes_overlap(region.footprint.bounds_m, p.bounds_m) for p in placed):
-            raise SpecRejected(f"that space belongs to {other}")
-    # Mass from the authored geometry, so the budget does not depend on the grid spacing.
-    mass = sum(p.volume_m3 * grid.materials[p.material].density_kg_m3 for p in placed)
-    if mass > budget.max_mass_kg:
-        raise SpecRejected(f"too heavy: {mass:.0f} kg, the limit is {budget.max_mass_kg:.0f} kg")
-
-    for p, m in zip(placed, masks, strict=True):
-        grid.paint(m, p.material)
-    grid.name_region(name, union, footprint, solid=True)  # imagined objects are never air (see _read)
+    name, placed = _read(grid, spec, origin_m, budget)
+    footprint, mass = _within_world_rules(grid, placed, budget)
+    _voxelize(grid, name, placed, footprint)
     return float(mass)

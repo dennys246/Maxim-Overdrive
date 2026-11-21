@@ -22,6 +22,7 @@ from maxim_overdrive import data
 from simcore.adapters.loaders import MATERIAL_REQUIRED, load_action_limits, load_materials
 from simcore.adapters.sem import bridge
 from simcore.core import damage, heat
+from simcore.core.applier import Applier
 from simcore.core.grid import Footprint, MaterialGrid
 from simcore.core.imagination import Budget, SpecRejected, place
 from simcore.core.materials import MaterialTable
@@ -94,24 +95,25 @@ def test_a_point_outside_the_grid_has_no_cell(dx_m, materials):
 def test_region_names_are_unique(dx_m, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
-    g.paint(
-        np.broadcast_to(x < 0.5, g.shape),
-        "wood",
-        region="crate",
-        footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
-    )
-    with pytest.raises(ValueError, match="already exists"):
+    with g.writing():
         g.paint(
-            np.broadcast_to(x >= 0.5, g.shape),
+            np.broadcast_to(x < 0.5, g.shape),
             "wood",
             region="crate",
-            footprint=Footprint(((0.5, 0, 0), (1, 1, 1)), (0.25, 0.5, 0.5)),
+            footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
         )
+        with pytest.raises(ValueError, match="already exists"):
+            g.paint(
+                np.broadcast_to(x >= 0.5, g.shape),
+                "wood",
+                region="crate",
+                footprint=Footprint(((0.5, 0, 0), (1, 1, 1)), (0.25, 0.5, 0.5)),
+            )
 
 
 def test_a_scene_refuses_unknown_materials(dx_m, materials):
     scene = Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (0.4, 0.4, 0.4), "adamantium", "thing"),))
-    with pytest.raises(ValueError, match="unknown material 'adamantium' in primitive thing"):
+    with pytest.raises(ValueError, match="unknown material 'adamantium' in primitive 'thing'"):
         scene.build(materials, dx_m=dx_m)
 
 
@@ -131,10 +133,12 @@ def test_a_scene_refuses_unknown_primitive_kinds():
 
 def test_no_time_means_no_substeps_and_no_change(dx_m, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
-    g.temperature[0, 0, 0] = 500.0
+    with g.writing():
+        g.temperature[0, 0, 0] = 500.0
     before = g.temperature.copy()
-    assert heat.step(g, 0.0) == 0
-    assert heat.step(g, -5.0) == 0
+    with g.writing():
+        assert heat.step(g, 0.0) == 0
+        assert heat.step(g, -5.0) == 0
     assert np.array_equal(g.temperature, before)
 
 
@@ -148,12 +152,13 @@ def test_a_strike_refuses_negative_energy_and_non_positive_width(dx_m, materials
 def test_a_region_with_no_solid_cells_cannot_be_breached(dx_m, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
-    g.paint(
-        np.broadcast_to(x < 0.5, g.shape),
-        "air",
-        region="doorway",
-        footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
-    )
+    with g.writing():
+        g.paint(
+            np.broadcast_to(x < 0.5, g.shape),
+            "air",
+            region="doorway",
+            footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
+        )
     assert damage.region_breached(g, "doorway") is False
 
 
@@ -170,10 +175,10 @@ def test_a_world_with_no_fire_stays_at_ambient(dx_m, materials):
 
 
 def test_a_source_smaller_than_a_cell_still_delivers_its_full_power(dx_m, materials):
-    w = World.from_scene(
-        Scene((1.0, 1.0, 1.0)), materials, dx_m=dx_m, limits=LIMITS
-    )  # all air: the fire has no solid to sit on
-    w.sources["spark"] = HeatSource((0.5, 0.5, 0.5), radius_m=1e-4, power_w=100.0)
+    # All air, so the fire has no solid to sit on. A source this small is no action's (the limits refuse it), so it
+    # arrives the one other way, at construction.
+    spark = HeatSource((0.5, 0.5, 0.5), radius_m=1e-4, power_w=100.0)
+    w = World(Scene((1.0, 1.0, 1.0)).build(materials, dx_m=dx_m), limits=LIMITS, sources={"spark": spark})
     power = w._power_field()
     assert power is not None
     assert power.sum() == pytest.approx(100.0)
@@ -195,15 +200,16 @@ def _world(dx_m, materials):
 def test_sensors_and_modulators_refuse_unknown_names(dx_m, materials):
     w = _world(dx_m, materials)
     with pytest.raises(ValueError, match="unknown region quantity 'colour'"):
-        bridge.RegionSensor(w, "wall", "colour")
-    with pytest.raises(KeyError, match="no region 'door'"):
-        bridge.RegionSensor(w, "door", "integrity")
-    with pytest.raises(KeyError, match="no region 'door'"):
-        bridge.StructureModulator(w, "door")
+        bridge.RegionInstrument(w.frames, "wall", "colour")
+    with pytest.raises(ValueError, match="no region 'door'"):
+        bridge.RegionInstrument(w.frames, "door", "integrity")
+    with pytest.raises(ValueError, match="no region 'door'"):
+        bridge.StructureModulator(Applier(w), w.frames, "door")
 
 
 def test_every_sensor_reports_its_schema_and_unit(dx_m, materials):
-    sensors, _ = bridge.region_parts(_world(dx_m, materials), "wall")
+    w = _world(dx_m, materials)
+    sensors, _ = bridge.region_parts(Applier(w), w.frames, "wall")
     assert sensors["integrity"].reading_schema == {"type": "float", "range": [0.0, 1.0]}
     assert sensors["breached"].reading_schema == {"type": "float", "range": [0.0, 1.0]}
     assert sensors["temperature_max"].reading_schema == {"type": "float", "range": [-273.0, 6000.0]}
@@ -218,8 +224,9 @@ def test_every_sensor_reports_its_schema_and_unit(dx_m, materials):
 
 def test_a_region_that_lost_all_its_cells_reads_nan_and_cannot_burn(dx_m, materials):
     w = _world(dx_m, materials)
-    sensors, mods = bridge.region_parts(w, "wall")
-    w.grid.regions["wall"].cells[:] = False  # a later paint took every cell
+    sensors, mods = bridge.region_parts(Applier(w), w.frames, "wall")
+    with w.grid.writing():  # a later paint takes every cell
+        w.grid.paint(w.grid.regions["wall"].cells, "air")
     assert math.isnan(sensors["temperature_max"].value())
     res = mods["structure"].execute("ignite", {"power_w": 1000.0})
     assert not res.success
@@ -238,7 +245,7 @@ def test_an_imagined_object_over_its_mass_budget_is_refused(dx_m, materials):
 def test_the_game_data_is_found_installed_or_in_a_checkout_or_refused(tmp_path):
     here = tmp_path / "src" / "maxim_overdrive"
     here.mkdir(parents=True)
-    with pytest.raises(FileNotFoundError, match=r"no game data: neither .*_data.* nor .*data"):
+    with pytest.raises(FileNotFoundError, match=r"no game data .*: none of .*_data, .*data is a directory"):
         data.data_dir(here)
     (tmp_path / "data").mkdir()
     assert data.data_dir(here) == tmp_path / "data"  # a checkout
@@ -254,6 +261,13 @@ def test_a_rig_profile_loads_by_path_and_the_game_finds_its_own_by_name(tmp_path
     assert data.rig_profile("rig").name == "rig"
     with pytest.raises(FileNotFoundError):
         data.rig_profile("no_such_rig")
+
+
+@pytest.mark.parametrize("name", ["../../x", "rigs/rig", "/etc/passwd", "..", "", "rig.yaml", 7, "a b"])
+def test_a_rig_name_with_a_separator_dots_or_an_absolute_path_is_refused(name):
+    # delta round 4, Trust D4-N2: an operator's rig flag joined unchecked into a path read any reachable *.yaml.
+    with pytest.raises(ValueError, match="a rig name is letters, digits"):
+        data.rig_profile(name)
 
 
 # -- every number in a data file is a finite real number, or the loader says which one isn't -------------------------
@@ -332,12 +346,13 @@ def test_a_named_region_needs_its_authored_bounds(dx_m, materials):
         g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate")
     assert "crate" not in g.regions
     assert (g.material == 0).all()  # refused before anything was painted
-    g.paint(
-        np.broadcast_to(x < 0.5, g.shape),
-        "wood",
-        region="crate",
-        footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
-    )
+    with g.writing():
+        g.paint(
+            np.broadcast_to(x < 0.5, g.shape),
+            "wood",
+            region="crate",
+            footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
+        )
     with pytest.raises(ValueError, match="already exists"):
         g.name_region(
             "crate",
@@ -380,8 +395,9 @@ def test_a_later_paint_takes_cells_from_earlier_regions_and_a_refused_paint_chan
     g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
     left = np.broadcast_to(x < 0.6, g.shape)
-    g.paint(left, "wood", region="left", footprint=Footprint(((0, 0, 0), (0.6, 1, 1)), (0.3, 0.5, 0.5)))
-    g.paint(np.broadcast_to(x >= 0.4, g.shape), "concrete")  # unnamed, and it overlaps "left"
+    with g.writing():
+        g.paint(left, "wood", region="left", footprint=Footprint(((0, 0, 0), (0.6, 1, 1)), (0.3, 0.5, 0.5)))
+        g.paint(np.broadcast_to(x >= 0.4, g.shape), "concrete")  # unnamed, and it overlaps "left"
     assert not (g.regions["left"].cells & np.broadcast_to(x >= 0.4, g.shape)).any()
     before = g.material.copy()
     with pytest.raises(ValueError, match="already exists"):
@@ -437,8 +453,9 @@ def test_thermal_degradation_follows_its_closed_form_at_every_rig(spacings, mate
     excess, dt = 150.0, 0.5
     for dx_m in spacings:
         g = Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (1, 1, 1), "wood", "block"),)).build(materials, dx_m=dx_m)
-        g.temperature[:] = wood.degrade_above_c + excess
-        damage.thermal_degrade(g, dt)
+        with g.writing():
+            g.temperature[:] = wood.degrade_above_c + excess
+            damage.thermal_degrade(g, dt)
         expected = 1.0 - wood.degrade_rate_per_s_per_100c * dt * excess / 100.0
         assert g.integrity == pytest.approx(np.full(g.shape, expected), rel=1e-6), dx_m
 
@@ -473,7 +490,7 @@ def test_an_imagined_object_may_not_sit_in_a_named_solids_footprint(dx_m, materi
     doorway = Box((1.0, 1.0, 0.0), (1.6, 2.0, 2.0), "air", "doorway")
     g = Scene((3.0, 3.0, 2.0), (wall, doorway)).build(materials, dx_m=dx_m)
     box = {"name": "box", "primitives": [{"min_m": [0, 0, 0], "max_m": [0.4, 0.4, 0.4], "material": "wood"}]}
-    with pytest.raises(SpecRejected, match="that space belongs to wall"):
+    with pytest.raises(SpecRejected, match="that space belongs to 'wall'"):
         place(g, box, (1.1, 1.3, 0.0))  # in the doorway's air, inside the wall's footprint
     place(g, box, (2.0, 1.3, 0.0))  # beside the wall is fine
     assert "box" in g.regions
@@ -486,8 +503,9 @@ def test_thermal_degradation_is_proportional_to_the_excess(spacings, materials):
         g = Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (1, 1, 1), "wood", "block"),)).build(materials, dx_m=dx_m)
         x, _, _ = g.mesh()
         excess = np.where(np.broadcast_to(x < 0.5, g.shape), 150.0, 50.0)
-        g.temperature[:] = wood.degrade_above_c + excess
-        damage.thermal_degrade(g, 0.5)
+        with g.writing():
+            g.temperature[:] = wood.degrade_above_c + excess
+            damage.thermal_degrade(g, 0.5)
         expected = 1.0 - wood.degrade_rate_per_s_per_100c * 0.5 * excess / 100.0
         assert g.integrity == pytest.approx(expected, rel=1e-6), dx_m
 
@@ -523,7 +541,7 @@ def test_an_imagined_object_may_sit_in_a_named_air_room_but_no_primitive_may_ent
             {"min_m": [1.0, 1.0, 0], "max_m": [1.08, 1.08, 0.2], "material": "wood"},  # in the box's empty corner
         ],
     }
-    with pytest.raises(SpecRejected, match="that space belongs to crate"):
+    with pytest.raises(SpecRejected, match="that space belongs to 'crate'"):
         place(g, two, (1.0, 1.0, 0.0))
 
 
@@ -531,7 +549,8 @@ def test_paint_refuses_a_confusable_name_before_painting(dx_m, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
     footprint = Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5))
-    g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate", footprint=footprint)
+    with g.writing():
+        g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate", footprint=footprint)
     before = g.material.copy()
     with pytest.raises(ValueError, match="already exists"):
         g.paint(np.ones(g.shape, dtype=bool), "steel", region="Crate", footprint=footprint)
@@ -695,7 +714,9 @@ def test_a_rig_file_refuses_a_missing_key_by_name(tmp_path):
         RigProfile.load(path)
 
 
-@pytest.mark.parametrize(("text", "message"), [("name: [1]\n", "name must be a string"), ("name: 7\n", "name must be")])
+@pytest.mark.parametrize(
+    ("text", "message"), [("name: [1]\n", r"needs a name, got \[1\]"), ("name: 7\n", "needs a name, got 7")]
+)
 def test_a_rig_name_must_be_a_string(tmp_path, text, message):
     path = tmp_path / "t.yaml"
     path.write_text(RIG_FILE.replace("name: t\n", text))
@@ -1034,3 +1055,48 @@ def test_a_file_from_a_newer_format_is_refused_for_its_version_not_its_new_field
 def test_a_scene_from_a_newer_format_is_refused_for_its_version_not_its_new_fields():
     with pytest.raises(ValueError, match="scene version must be 0, got 1"):
         Scene.from_dict({"version": 1, "extent_m": [1, 1, 1], "added_in_v1": True})
+
+
+@pytest.mark.parametrize(
+    ("listed", "message"),
+    [
+        ("box", "primitives must be a list"),
+        ({"kind": "box"}, "primitives must be a list"),
+        ([7], "each primitive must be a mapping"),
+        ([{"kind": ["box"]}], "unknown primitive kind"),
+        ([{"kind": "box", "material": "wood"}], "missing key"),
+    ],
+)
+def test_primitives_from_data_refuses_every_malformed_list(listed, message):
+    from simcore.core.scene import primitives_from_data  # noqa: PLC0415
+
+    with pytest.raises(ValueError, match=message):
+        primitives_from_data(listed)
+
+
+def test_the_directory_gate_names_every_candidate_it_refused(tmp_path):
+    from simcore.adapters.loaders import existing_directory  # noqa: PLC0415
+
+    (tmp_path / "a_file").write_text("x")
+    with pytest.raises(FileNotFoundError, match=r"thing: none of .*missing, .*a_file is a directory"):
+        existing_directory([tmp_path / "missing", str(tmp_path / "a_file")], "thing")
+    assert existing_directory([str(tmp_path)], "thing") == tmp_path
+
+
+def test_a_symlinked_package_finds_the_data_beside_the_real_package(tmp_path):
+    # Delta round 6, Executor N-h. The intended behaviour: data is found beside the package's real location, as
+    # before fold 6 moved the resolution into the gate. Both resolutions are pinned: real_path before the
+    # arithmetic, and existing_directory on the directory it returns.
+    from simcore.adapters.loaders import existing_directory, real_path  # noqa: PLC0415
+
+    real = tmp_path / "checkout" / "src" / "maxim_overdrive"
+    real.mkdir(parents=True)
+    (tmp_path / "checkout" / "data").mkdir()
+    link = tmp_path / "site" / "maxim_overdrive"
+    link.parent.mkdir()
+    link.symlink_to(real, target_is_directory=True)
+    assert real_path(link) == real.resolve()
+    assert data.data_dir(link) == (tmp_path / "checkout" / "data").resolve()  # not site/../data, which doesn't exist
+    data_link = tmp_path / "data_link"
+    data_link.symlink_to(tmp_path / "checkout" / "data", target_is_directory=True)
+    assert existing_directory([data_link], "x") == (tmp_path / "checkout" / "data").resolve()
