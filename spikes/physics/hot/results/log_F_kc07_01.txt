@@ -1,0 +1,1 @@
+{"name": "F_kc07_01", "lambda_max": 0.9941822358266854, "spread_class": "spread", "B1": true, "B2": true, "C": false, "C_F": false, "t_ignite": NaN, "t_out": NaN, "wood_at_out_frac": 0.9963704310919147, "cpu_s": 1.0690879999999998, "wall_s": 1.0873627662658691}

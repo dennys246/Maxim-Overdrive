@@ -1,0 +1,1 @@
+{"name": "Sgas_01", "lambda_max": 0.005817764173314431, "spread_class": "none", "B1": false, "B2": false, "C": false, "C_F": false, "t_ignite": NaN, "t_out": 1045.0, "wood_at_out_frac": 0.9941822358266857, "cpu_s": 8.778763, "wall_s": 8.94631290435791}

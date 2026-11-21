@@ -1,0 +1,92 @@
+S_005 0.05 6000 loading_wood=0
+S2_005 0.05 6000 loading_wood=0 incell_contact=1
+Sdev817_005 0.05 6000 loading_wood=0 t_fl_c=817
+K_005 0.05 6000
+K2_005 0.05 6000 incell_contact=1
+Kdev817_005 0.05 6000 t_fl_c=817
+F_005 0.05 0 ignite_base_m=0.6 loading_wood=0
+F2_005 0.05 0 ignite_base_m=0.6 loading_wood=0 incell_contact=1
+Fdev817_005 0.05 0 ignite_base_m=0.6 loading_wood=0 t_fl_c=817
+Ssurf_005 0.05 6000 loading_wood=0 gas_cap=tp
+Sgas_005 0.05 6000 loading_wood=0 surface_mode=pinned
+Ksurf_005 0.05 6000 gas_cap=tp
+Kgas_005 0.05 6000 surface_mode=pinned
+B_005 0.05 0 ignite_base_m=0.1 loading_wood=0
+B2_005 0.05 0 ignite_base_m=0.1 loading_wood=0 incell_contact=1
+S_01 0.1 6000 loading_wood=0
+S2_01 0.1 6000 loading_wood=0 incell_contact=1
+Sdev817_01 0.1 6000 loading_wood=0 t_fl_c=817
+K_01 0.1 6000
+K2_01 0.1 6000 incell_contact=1
+Kdev817_01 0.1 6000 t_fl_c=817
+F_01 0.1 0 ignite_base_m=0.6 loading_wood=0
+F2_01 0.1 0 ignite_base_m=0.6 loading_wood=0 incell_contact=1
+Fdev817_01 0.1 0 ignite_base_m=0.6 loading_wood=0 t_fl_c=817
+Ssurf_01 0.1 6000 loading_wood=0 gas_cap=tp
+Sgas_01 0.1 6000 loading_wood=0 surface_mode=pinned
+Ksurf_01 0.1 6000 gas_cap=tp
+Kgas_01 0.1 6000 surface_mode=pinned
+B_01 0.1 0 ignite_base_m=0.1 loading_wood=0
+B2_01 0.1 0 ignite_base_m=0.1 loading_wood=0 incell_contact=1
+S_02 0.2 6000 loading_wood=0
+S2_02 0.2 6000 loading_wood=0 incell_contact=1
+Sdev817_02 0.2 6000 loading_wood=0 t_fl_c=817
+K_02 0.2 6000
+K2_02 0.2 6000 incell_contact=1
+Kdev817_02 0.2 6000 t_fl_c=817
+F_02 0.2 0 ignite_base_m=0.6 loading_wood=0
+F2_02 0.2 0 ignite_base_m=0.6 loading_wood=0 incell_contact=1
+Fdev817_02 0.2 0 ignite_base_m=0.6 loading_wood=0 t_fl_c=817
+Ssurf_02 0.2 6000 loading_wood=0 gas_cap=tp
+Sgas_02 0.2 6000 loading_wood=0 surface_mode=pinned
+Ksurf_02 0.2 6000 gas_cap=tp
+Kgas_02 0.2 6000 surface_mode=pinned
+B_02 0.2 0 ignite_base_m=0.1 loading_wood=0
+B2_02 0.2 0 ignite_base_m=0.1 loading_wood=0 incell_contact=1
+S_kc07_01 0.1 6000 loading_wood=0 k_c=0.07
+S_kcec5_01 0.1 6000 loading_wood=0 k_c_mode=ec5
+S_rhoc200_01 0.1 6000 loading_wood=0 rho_c=200
+S_tf288_01 0.1 6000 loading_wood=0 t_f_c=288
+S_tf380_01 0.1 6000 loading_wood=0 t_f_c=380
+S_tfl520_01 0.1 6000 loading_wood=0 t_fl_c=520
+S_tfl1027_01 0.1 6000 loading_wood=0 t_fl_c=1027
+S_mz_01 0.1 6000 loading_wood=0 gas_cap=mccaffrey_z
+S_eps85_01 0.1 6000 loading_wood=0 eps=0.85
+S_eps95_01 0.1 6000 loading_wood=0 eps=0.95
+S_qf15_01 0.1 6000 loading_wood=0 q_f=15000
+S_qf35_01 0.1 6000 loading_wood=0 q_f=35000
+K_kc07_01 0.1 6000 k_c=0.07
+K_kcec5_01 0.1 6000 k_c_mode=ec5
+K_rhoc200_01 0.1 6000 rho_c=200
+K_tf288_01 0.1 6000 t_f_c=288
+K_tf380_01 0.1 6000 t_f_c=380
+K_tfl520_01 0.1 6000 t_fl_c=520
+K_tfl1027_01 0.1 6000 t_fl_c=1027
+K_mz_01 0.1 6000 gas_cap=mccaffrey_z
+K_eps85_01 0.1 6000 eps=0.85
+K_eps95_01 0.1 6000 eps=0.95
+K_qf15_01 0.1 6000 q_f=15000
+K_qf35_01 0.1 6000 q_f=35000
+F_kc07_01 0.1 0 ignite_base_m=0.6 loading_wood=0 k_c=0.07
+F_kcec5_01 0.1 0 ignite_base_m=0.6 loading_wood=0 k_c_mode=ec5
+F_rhoc200_01 0.1 0 ignite_base_m=0.6 loading_wood=0 rho_c=200
+F_tf288_01 0.1 0 ignite_base_m=0.6 loading_wood=0 t_f_c=288
+F_tf380_01 0.1 0 ignite_base_m=0.6 loading_wood=0 t_f_c=380
+F_tfl520_01 0.1 0 ignite_base_m=0.6 loading_wood=0 t_fl_c=520
+F_tfl1027_01 0.1 0 ignite_base_m=0.6 loading_wood=0 t_fl_c=1027
+F_mz_01 0.1 0 ignite_base_m=0.6 loading_wood=0 gas_cap=mccaffrey_z
+F_eps85_01 0.1 0 ignite_base_m=0.6 loading_wood=0 eps=0.85
+F_eps95_01 0.1 0 ignite_base_m=0.6 loading_wood=0 eps=0.95
+F_qf15_01 0.1 0 ignite_base_m=0.6 loading_wood=0 q_f=15000
+F_qf35_01 0.1 0 ignite_base_m=0.6 loading_wood=0 q_f=35000
+S_01_rerun 0.1 6000 loading_wood=0
+S_01_sub10 0.1 6000 loading_wood=0 sub_mult=10
+K_01_rerun 0.1 6000
+K_01_sub10 0.1 6000 sub_mult=10
+Z_S_02 0.2 6000 1800 loading_wood=0 surface_mode=pinned gas_cap=tp
+Z_S_01 0.1 6000 1800 loading_wood=0 surface_mode=pinned gas_cap=tp
+Z_F_02 0.2 0 ignite_base_m=0.6 loading_wood=0 surface_mode=pinned gas_cap=tp
+Z_F_01 0.1 0 ignite_base_m=0.6 loading_wood=0 surface_mode=pinned gas_cap=tp
+Z_B_01 0.1 0 1800 ignite_base_m=0.1 loading_wood=0 surface_mode=pinned gas_cap=tp
+Z_N_02 0.2 6000 surface_mode=pinned gas_cap=tp
+Z_N_01 0.1 6000 surface_mode=pinned gas_cap=tp

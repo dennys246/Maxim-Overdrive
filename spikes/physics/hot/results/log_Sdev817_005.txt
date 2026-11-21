@@ -1,0 +1,1 @@
+{"name": "Sdev817_005", "lambda_max": 0.005817764173314432, "spread_class": "none", "B1": false, "B2": false, "C": false, "C_F": false, "t_ignite": NaN, "t_out": 607.0, "wood_at_out_frac": 0.9981476015086241, "cpu_s": 26.505706, "wall_s": 29.601075887680054}

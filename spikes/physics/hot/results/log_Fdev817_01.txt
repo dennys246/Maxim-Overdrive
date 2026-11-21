@@ -1,0 +1,1 @@
+{"name": "Fdev817_01", "lambda_max": 0.9941822358266854, "spread_class": "spread", "B1": true, "B2": true, "C": false, "C_F": false, "t_ignite": 0.5, "t_out": 478.5, "wood_at_out_frac": 0.3866181377082776, "cpu_s": 14.682366, "wall_s": 14.890697956085205}

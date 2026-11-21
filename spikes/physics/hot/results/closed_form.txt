@@ -1,0 +1,19 @@
+(i) steady surface balance, interior cell, (1 - chi_r) q''_f = 17.5 kW/m2, nominal k_c and rho_c
+  m_c=0.050 T_n= 380 C: T_c model  437.63 closed  437.63 C; m'' model  7.646 closed  7.646 g/m2s  PASS
+  m_c=0.050 T_n= 600 C: T_c model  544.04 closed  544.04 C; m'' model 13.558 closed 13.558 g/m2s  PASS
+  m_c=0.375 T_n= 380 C: T_c model  504.09 closed  504.09 C; m'' model  4.535 closed  4.535 g/m2s  PASS
+  m_c=0.375 T_n= 600 C: T_c model  630.04 closed  630.04 C; m'' model  7.334 closed  7.334 g/m2s  PASS
+  m_c=0.750 T_n= 380 C: T_c model  537.49 closed  537.49 C; m'' model  2.639 closed  2.639 g/m2s  PASS
+  m_c=0.750 T_n= 600 C: T_c model  666.75 closed  666.75 C; m'' model  4.075 closed  4.075 g/m2s  PASS
+  m_c=1.500 T_n= 380 C: T_c model  556.85 closed  556.85 C; m'' model  1.427 closed  1.427 g/m2s  PASS
+  m_c=1.500 T_n= 600 C: T_c model  686.58 closed  686.58 C; m'' model  2.148 closed  2.148 g/m2s  PASS
+(ii) front flux at T_c = T_f - 1 K and at T_f: max 0.0e+00 W/m2  PASS
+(iii) energy-limited: exit 849.968181818182 K, closed form 849.968181818182 K  PASS
+(iii) capped at T_fl: exit 1146.150000000000 K, closed form 1146.150000000000 K  PASS
+(iv) Mz x=0.0603 m/kW^0.4: cap - T0 852.950252 K, McCaffrey 852.950252 K  PASS
+(iv) Mz x=0.1195 m/kW^0.4: cap - T0 557.255844 K, McCaffrey 557.255844 K  PASS
+(iv) Mz x=0.1775 m/kW^0.4: cap - T0 375.102144 K, McCaffrey 375.102144 K  PASS
+(iv) Mz x=0.3237 m/kW^0.4: cap - T0 146.236379 K, McCaffrey 146.236379 K  PASS
+(iv) Mz x=0.4907 m/kW^0.4: cap - T0 73.118189 K, McCaffrey 73.118189 K  PASS
+(iv) Mz x=0.6258 m/kW^0.4: cap - T0 48.745460 K, McCaffrey 48.745460 K  PASS
+E3: PASS

@@ -1,0 +1,1 @@
+{"name": "Z_N_01", "lambda_max": 0.005817764173314431, "spread_class": "none", "B1": false, "B2": false, "C": false, "C_F": false, "t_ignite": NaN, "t_out": 556.5, "wood_at_out_frac": 0.9941822358266857, "cpu_s": 10.773599, "wall_s": 13.192955017089844}

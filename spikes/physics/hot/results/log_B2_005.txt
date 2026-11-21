@@ -1,0 +1,1 @@
+{"name": "B2_005", "lambda_max": 0.16666666666666669, "spread_class": "partial", "B1": false, "B2": false, "C": false, "C_F": false, "t_ignite": 0.5, "t_out": 337.0, "wood_at_out_frac": 0.9332353349116891, "cpu_s": 30.741739, "wall_s": 31.179579734802246}

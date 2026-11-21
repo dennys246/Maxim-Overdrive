@@ -1,0 +1,1 @@
+{"name": "Kgas_005", "lambda_max": 0.01761163335809568, "spread_class": "none", "B1": false, "B2": false, "C": false, "C_F": false, "t_ignite": NaN, "t_out": 1831.5, "wood_at_out_frac": 0.9880276817481028, "cpu_s": 60.829078, "wall_s": 64.01373887062073}

@@ -1,0 +1,1 @@
+{"name": "D30_01", "t_A": NaN, "A": false, "lambda_max": 0.0, "B1": false, "t_L95": NaN, "lambda_w_tL95": 0.0, "lambda_w_loose_tL95": 0.0, "lambda_w_max": 0.0, "B2": false, "t_B": NaN, "t_out": NaN, "wood_at_out_frac": 1.0, "C": false, "t_ignite_01": NaN, "ignited_60s_after_pilot": false, "t_crack": NaN, "cpu_s": 0.18746400000000002, "wall_s": 0.2067279815673828}

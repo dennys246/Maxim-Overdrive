@@ -1,0 +1,1 @@
+{"name": "K_qf35_01", "lambda_max": 0.007332528765750154, "spread_class": "none", "B1": false, "B2": false, "C": false, "C_F": false, "t_ignite": NaN, "t_out": 739.0, "wood_at_out_frac": 0.9933294782589679, "cpu_s": 10.894823, "wall_s": 11.199338912963867}

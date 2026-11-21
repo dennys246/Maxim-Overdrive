@@ -1,0 +1,1 @@
+{"name": "F_tf288_01", "lambda_max": 0.9941822358266854, "spread_class": "spread", "B1": true, "B2": true, "C": false, "C_F": false, "t_ignite": 0.5, "t_out": 490.5, "wood_at_out_frac": 0.3680396903389805, "cpu_s": 14.182547999999999, "wall_s": 14.424288988113403}

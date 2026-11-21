@@ -1,0 +1,6 @@
+S dx=0.2: 830 steps identical before the first flame; first flaming area in both at t=415.5 s  PASS
+S dx=0.1: 830 steps identical before the first flame; first flaming area in both at t=415.5 s  PASS
+S dx=0.05: 830 steps identical before the first flame; first flaming area in both at t=415.5 s  PASS
+K dx=0.2: 94 steps identical before the first flame; first flaming area in both at t=47.5 s  PASS
+K dx=0.1: 94 steps identical before the first flame; first flaming area in both at t=47.5 s  PASS
+K dx=0.05: 94 steps identical before the first flame; first flaming area in both at t=47.5 s  PASS

@@ -1,0 +1,1 @@
+{"name": "F_005", "lambda_max": 0.9941822358266857, "spread_class": "spread", "B1": true, "B2": true, "C": false, "C_F": false, "t_ignite": 0.5, "t_out": 466.5, "wood_at_out_frac": 0.4046609497454913, "cpu_s": 57.322533, "wall_s": 60.018502950668335}

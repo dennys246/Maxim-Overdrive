@@ -1,0 +1,1 @@
+{"name": "F_eps85_01", "lambda_max": 0.9941822358266854, "spread_class": "spread", "B1": true, "B2": true, "C": false, "C_F": false, "t_ignite": 0.5, "t_out": 483.5, "wood_at_out_frac": 0.3811107653446897, "cpu_s": 17.084749, "wall_s": 17.488831043243408}

@@ -1,0 +1,1 @@
+{"name": "S_eps95_01", "lambda_max": 0.005817764173314431, "spread_class": "none", "B1": false, "B2": false, "C": false, "C_F": false, "t_ignite": NaN, "t_out": 611.5, "wood_at_out_frac": 0.9985740680868901, "cpu_s": 6.612974, "wall_s": 6.674773931503296}
