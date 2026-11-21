@@ -34,7 +34,7 @@ always **per unit volume** (`fracture_energy_j_m3`, `degrade_*`), so they mean t
 > **The truth grid (0.1 m) agrees with the reference (0.05 m) within a gated tolerance, and converges from the
 > coarse grid (0.2 m)** (world_model §1.1).
 
-Outcome classes never differ: did the wall breach, the crate burn. Two tests per module; heat's through
+Outcomes agree, within bands: did the wall breach, the crate burn. Two tests per module; heat's through
 `simcore.verify` (`docs/design/verify_harness.md`):
 
 1. **Against a closed form,** space and time refined apart (E2). Heat: a steel bar's Gaussian pulse, second

@@ -247,12 +247,9 @@ def test_a_truth_grid_further_from_the_reference_than_the_coarse_grid_isnt_conve
     assert agrees(_at({0.2: 102.0, 0.1: 106.0, 0.05: 100.0}), SPACINGS).converging is False
 
 
-def test_errors_within_the_outcomes_quantum_cant_be_told_apart():
-    # Onset turns are whole: coarse on the reference, truth one turn off, is converging at a quantum of one turn.
-    onsets = _at({0.2: 90.0, 0.1: 91.0, 0.05: 90.0})
-    assert agrees(onsets, SPACINGS).converging is False
-    assert agrees(onsets, SPACINGS, quantum=1.0).converging is True
-    assert agrees(_at({0.2: 90.0, 0.1: 92.0, 0.05: 90.0}), SPACINGS, quantum=1.0).converging is False
+def test_a_truth_grid_one_quantum_further_off_than_the_coarse_grid_isnt_converging():
+    # No allowance for an outcome's resolution: an onset one turn further off at the truth grid fails (PR #24 delta).
+    assert agrees(_at({0.2: 90.0, 0.1: 91.0, 0.05: 90.0}), SPACINGS).converging is False
 
 
 def test_two_grids_have_no_truth_between_them_to_judge():
@@ -279,9 +276,3 @@ def test_an_agreement_study_refuses_spacings_that_arent_coarse_to_fine(spacings,
         agrees(lambda dx_m: 1.0, spacings)
     with pytest.raises(ValueError, match=match):
         same_class(lambda dx_m: 1, spacings)
-
-
-@pytest.mark.parametrize("quantum", [-1.0, math.inf, math.nan])
-def test_agreement_refuses_a_meaningless_quantum(quantum):
-    with pytest.raises(ValueError, match="quantum"):
-        agrees(lambda dx_m: 1.0, (0.2, 0.1), quantum=quantum)

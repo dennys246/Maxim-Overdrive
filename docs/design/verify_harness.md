@@ -55,10 +55,10 @@ counter to report, and its budgets (B5), which read them. Every observable retur
   evaluates every `x`, finds each run's flip point, and refuses an outcome that flips more than once (a coarse grid
   can alias a threshold; bisection would hide it). It reports the band across grids. The test then asserts its
   operating point clears the band by its margin (`tile_and_client.md` §6.3 item 7).
-- **`agrees(observable, spacings, *, quantum=0)` → `Agreement`,** for a scenario outcome that isn't smooth in the
+- **`agrees(observable, spacings)` → `Agreement`,** for a scenario outcome that isn't smooth in the
   spacing, so has no order. `observable(dx_m)` returns the outcome; spacings go coarse to fine. It reports the spread
   across grids, each grid's error against the finest, and `converging`: each coarser grid's error is no smaller than
-  the next finer one's, give or take `quantum`, the outcome's resolution (a whole turn for an onset). That is the
+  the next finer one's, with no allowance for the outcome's resolution. That is the
   rule's "converges from the coarse grid"; it is None with two grids. The test keeps its own bar on the spread: "each
   grid within tol of the reference" would let two grids sit 2 × tol apart.
 - **`same_class(outcome, spacings)` → `bool`:** one outcome class at every spacing.
@@ -102,3 +102,5 @@ counter to report, and its budgets (B5), which read them. Every observable retur
 - Moving scenario tests from `World` to `Simulation`, and so to space alone (step 5a).
 - The exact performance counters (step 5a, with B5's budgets).
 - New physics. Only heat is retrofitted; damage is measured through the existing scenarios.
+- `band_gate`'s first physics caller: the thin-wall breach gate, which asserts its band margin when the PR that fixes
+  that Known gap lands (`docs/architecture.md`). Until then `band_gate` is tested on synthetic outcomes only.

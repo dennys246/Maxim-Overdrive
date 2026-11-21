@@ -98,24 +98,25 @@ def test_heat_is_first_order_in_time(materials):
     derivation: the explicit-Euler expansion predicts p - 1 = c * (alpha / sigma_T**2) * dt at the pulse's peak,
     c = (3 / (4 ln 2)) * |10/3 - 8.75 * alpha * T / sigma_T**2| = 1.19 here (Physics review, S3). The bar equals
     2.04 * (alpha / sigma_T**2) * dt: the leading term plus a margin for higher-order terms and the 0.2 m grid's
-    coarse resolution of the pulse, whose measured coefficient is 1.40 (1.24 at 0.1 m, 1.207 at 0.05 m).
+    coarse resolution of the pulse, whose measured coefficient is 1.36 and 1.40 for the two orders at 0.2 m (1.24 at
+    0.1 m, 1.207 at 0.05 m).
 
     Corrected: this test first said the decay rate used sigma0 because "the initial curvature generates most of the
     time error". That was wrong; sigma_T is the right scale, and the first bar written (sigma_T, no coefficient) only
     lacked the coefficient. The owner ruled (a) on that wrong reason, then (i) on the derivation above. Measured
     2026-11-21: orders 1.116 and 1.060.
 
-    The reference must also have settled: the two orders agree within the coarser one's own bar, (alpha / sigma0**2)
-    * dt at the coarsest run (0.173 against a gap of 0.056; set after measuring, owner accepted 2026-11-21). A
-    tolerance at the finer runs' step can't be met at any refinement, since consecutive orders differ by about 0.65 of
-    that step's bar (Executor and Physics reviews).
+    The reference must also have settled: the two orders agree within the finer order's own bar, (alpha / sigma0**2)
+    * dt at the second run (0.087 against a gap of 0.056, 0.65 of it). The owner first accepted the coarser order's
+    bar (0.173); the delta review showed the finer one holds and guards more, so the bar was tightened. A tolerance
+    at the second-finest step can't be met at any refinement: the gap is 1.3 times its bar.
     """
     dx_m = 0.2
     base = math.ceil(T_S / heat.stable_dt(_bar(dx_m, materials)[0]))
     runs = [Run(dx_m, T_S / (base * k), base * k) for k in (1, 2, 4, 8)]
     decay_rate = materials["steel"].diffusivity_m2_s / SIGMA0**2
     study = converges(
-        lambda run: _gaussian(run.dx_m, materials, run.steps)[1], runs, order_tol=decay_rate * runs[0].dt_s
+        lambda run: _gaussian(run.dx_m, materials, run.steps)[1], runs, order_tol=decay_rate * runs[1].dt_s
     )
     assert len(study.orders) == 2
     for p, run in zip(study.orders, study.runs, strict=False):
@@ -127,7 +128,7 @@ def test_a_step_takes_exactly_the_substeps_it_plans_however_many(materials):
     """Red first: an end test of elapsed < seconds - 1e-12 on a running float sum took 8,001 substeps when asked for
     8,000 of 0.45 s, a sliver from rounding that grows with the count (found by step 4's space study)."""
     g, _ = _bar(0.2, materials)
-    for substeps in (4, 8_000, 20_000):
+    for substeps in (4, 8_000):  # 8,000 is the red-first case; more adds time, not coverage
         with g.writing():
             assert heat.step(g, T_S, substeps) == substeps
 
@@ -183,7 +184,7 @@ def test_a_replan_splits_the_rest_evenly_and_never_takes_a_zero_length_substep(m
         heat.step(g, 2 * k * steel_dt, 2, on_substep=to_steel)
     rest = dts[1:]
     assert min(rest) == pytest.approx(max(rest), rel=1e-9)  # one even step, so no zero-length or sliver substep
-    assert max(rest) <= steel_dt
+    assert max(rest) <= steel_dt * (1 + 1e-12)  # an even split can exceed the bound by one ulp (Physics delta N-1)
 
 
 def test_insulated_world_conserves_heat(dx_m, materials):

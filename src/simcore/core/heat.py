@@ -123,7 +123,7 @@ def step(
         if changed:
             power_w = power() if power is not None else None
             bound = stable_dt(grid)
-            if bound < dt:  # destruction tightened stability: split the rest evenly at no more than the new bound
+            if bound < dt:  # destruction tightened stability: split the rest evenly at the new bound, to rounding
                 remaining = seconds - elapsed
                 more = math.ceil(remaining / bound)
                 dt = remaining / more  # not dt = bound: a remainder of a whole number of bounds would leave a 0 s step

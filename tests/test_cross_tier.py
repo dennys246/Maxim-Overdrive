@@ -20,7 +20,6 @@ from simcore.verify import agrees
 from tests.conftest import FAST_SPACINGS
 
 LIMITS = data.action_limits()
-TURN = 1.0  # an onset is a whole turn: errors within one turn can't be told apart
 
 
 SCENE = Scene(
@@ -48,7 +47,7 @@ def test_fire_outcomes_agree_across_rigs(spacings, materials):
     grids = sorted(spacings, reverse=True)
     runs = {dx_m: _burn(dx_m, materials) for dx_m in grids}
     assert all(r[0] is not None for r in runs.values()), runs  # the crate catches at every grid
-    onset = agrees(lambda dx_m: runs[dx_m][0], grids, quantum=TURN)
+    onset = agrees(lambda dx_m: runs[dx_m][0], grids)
     assert onset.spread <= 0.1 * min(onset.values), onset  # at about the same turn (the bar is unchanged)
     # Converges from coarse (all grids only). Measured 2026-11-21: onset 94, 92, 90 at 0.2, 0.1, 0.05 m.
     assert onset.converging is not False, onset

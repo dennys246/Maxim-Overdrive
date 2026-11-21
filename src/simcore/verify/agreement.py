@@ -30,21 +30,16 @@ class Agreement:
     converging: bool | None
 
 
-def agrees(observable: Callable[[float], float], spacings: Sequence[float], *, quantum: float = 0.0) -> Agreement:
+def agrees(observable: Callable[[float], float], spacings: Sequence[float]) -> Agreement:
     """Measure ``observable(dx_m)`` at each spacing, coarse to fine.
 
     ``errors`` are against the finest spacing. ``converging`` holds when each grid's error is no smaller than the next
-    finer grid's, give or take ``quantum``, the outcome's resolution (a whole turn for an onset turn): within one
-    quantum, two errors can't be told apart. With two grids there is no truth between them to judge.
+    finer grid's. With two grids there is no truth between them to judge.
     """
     spacings = _coarse_to_fine(spacings)
-    if not (math.isfinite(quantum) and quantum >= 0):
-        raise ValueError(f"quantum must be finite and non-negative, got {quantum!r}")
     values = tuple(float(observable(dx_m)) for dx_m in spacings)
     errors = tuple(abs(v - values[-1]) for v in values)
-    converging = (
-        None if len(spacings) < 3 else all(errors[i] + quantum >= errors[i + 1] for i in range(len(errors) - 2))
-    )
+    converging = None if len(spacings) < 3 else all(errors[i] >= errors[i + 1] for i in range(len(errors) - 2))
     return Agreement(spacings, values, errors, max(values) - min(values), converging)
 
 
