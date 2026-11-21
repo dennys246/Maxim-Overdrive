@@ -207,6 +207,12 @@ only review holds.
   and stays in the design, where a number may read "measured at step N". A mechanism nothing else depends on and
   only running can check (a test plant's size, a mesh's lifetime) goes to its build step's checklist as a test to
   write, citing the design section it serves. Laws stay simple and swappable behind the contract. Guard: B32
+- **One owner per contract** (owner, 2026-11-21). Each contract (a format, interface, closed vocabulary or rule that
+  another module depends on) is stated in exactly one section of one design document, its owner. Every other
+  document links to that section and never restates it, so an edit can't leave a stale copy behind. Decision tables
+  and fold tables are kept in `docs/design/reviews/` and indexes, not inside design documents, so design budgets go to
+  contract. When a change touches a contract stated in two places, move it to one owner in the same branch.
+  Guard: B36
 - **Review finds; it doesn't design** (owner, 2026-11-21). A finding is a defect and its failure scenario. A fix a
   reviewer proposes is marked verified, with what they ran, or unverified, and the author verifies it before folding.
   A delta round reviews the diff. When a second paper round on a design finds new blockers in text the folds added,
