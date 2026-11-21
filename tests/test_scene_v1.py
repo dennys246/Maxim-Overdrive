@@ -314,6 +314,8 @@ def test_a_names_reserved_words_are_held_under_maxims_name_rule():
         "\uac00",  # Hangul
         "\u0391\u03b8\u03ae\u03bd\u03b1",  # Greek
         "\u041c\u043e\u0441\u043a\u0432\u0430",  # Cyrillic
+        "\u13e3\u13b3\u13a9",  # Cherokee, written in its capitals (delta round 4, R4-1)
+        "\u063a\u0631\u0641\u0629 \u0662",  # Arabic "room 2" with an Arabic-Indic digit (R4-1)
     ],
 )
 def test_a_name_from_any_script_s_letters_and_digits_is_kept(name):

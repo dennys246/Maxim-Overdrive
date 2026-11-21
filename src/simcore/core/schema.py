@@ -65,12 +65,26 @@ def _visible_name(value: str) -> bool:
         return False
     if any(w in unicodedata.name(ch, "") for ch in value for w in _BLANK_WORDS):
         return False
-    try:
-        for word in words:
-            idna.check_label(word.lower())
-    except (idna.IDNAError, ValueError):  # the label's refusal, reported by the caller as bad_name
+    return all(_visible_word(w) for w in words)
+
+
+def _visible_word(word: str) -> bool:
+    """One word of a name: digits only (any script's, judged as digits: IDNA's per-label bidi rule refuses a lone
+    Arabic-Indic number, so "room \u0662" would be refused while "room 2" is kept; delta round 4, R4-1), or a valid
+    IDNA2008 label as written or lower-cased (Cherokee is written in its capitals, which IDNA allows, and lower-cases
+    to letters it doesn't). A joiner may not end a word: after a virama with nothing following it renders nothing,
+    so "\u0b95\u0bcd\u200d" would be a twin of "\u0b95\u0bcd" (R4-3)."""
+    if all(unicodedata.category(ch) == "Nd" for ch in word):
+        return True
+    if word[-1] in "\u200c\u200d":
         return False
-    return True
+    for candidate in (word, word.lower()):
+        try:
+            idna.check_label(candidate)
+        except idna.IDNAError:  # this spelling is not a valid label; the other may be
+            continue
+        return True
+    return False
 
 
 TEXT_CHARS = 128  # a name's budget (boundaries §5.4): imagined names are held tighter by Budget.max_name_chars
@@ -203,7 +217,10 @@ class Text:
             and _visible_name(value)  # a name an agent can see and tell apart
         )
         if not ok:
-            rule = f"a printable string of 1 to {self.max_chars} characters with no outer spaces"
+            rule = (
+                f"a printable string of 1 to {self.max_chars} characters with no outer spaces, in NFKC form, each word "
+                "made of the letters, digits and marks an identifier may hold (IDNA2008)"
+            )
             raise Refused(f"{what} must be {rule}, got {shown(value)}", code=RefusalCode.BAD_NAME)
         if entity_key(str(value)) in self.reserved:
             message = f"{what} {shown(value)} is a name Maxim resolves to the agent itself"
@@ -217,6 +234,7 @@ class Text:
             *(7, "", " x", "x ", long, "a\nb", "a\u202eb", "cr\u200bate", "a\x00b", "\ud800", "\u3164", "\u2800"),
             *("crate\ufe0f", "a\u17b4b", "-", "cr\u034fate", "crate\U000e0100", "crate\u2800", "cafe\u0301"),
             *("crate\U00013441", "\uff43rate", "\ufb01x", "cr\u200date", "\u1100\u1161"),  # blank, compat, joiner, NFKC
+            *("\u212arate", "\u0b95\u0bcd\u200d", "\u0915\u094d\u200c crate"),  # a Kelvin-sign twin, trailing joiners
             *(type("_NameLike", (str,), {})("crate"), *self.reserved),  # a str subclass, whose __str__ may differ
         )
         return tuple((n, RefusalCode.BAD_NAME) for n in names)

@@ -293,6 +293,7 @@ pain reads as tool failure. That is evidence for OD-A16 (its `call_error` and `w
 `RefusalCode` maps onto. Maxim's own refusals still answer in prose that echoes its caller (`simulation/tools.py`), so
 an agent's prompt mixes both conventions until then. A SEM refusal reaches two readers with no kind at all (`error_kind`
 is `None`, `tools/base.py`): the pain detector books it as an external failure (`executor.py:789`), and the replan path
-renders it as "Failure type: None" in the replan prompt (`loop_state.py:248`, `plan_document.py:281`). Neither reads the
-text; Maxim's one text classifier, `classify_failure_type`, runs only from a planner its own docstring calls dormant
-(delta rounds 2 and 3, SF-1, R3-5).
+renders it as "Failure type: None" in the replan prompt (`loop_state.py:248`, `plan_document.py:281`). Neither
+classifies by the text, though the replan prompt carries it verbatim as "Failure reason:" (`plan_document.py:280`);
+Maxim's one text classifier, `classify_failure_type`, runs only from a planner its own docstring calls dormant (delta
+rounds 2 and 3, SF-1, R3-5).

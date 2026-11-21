@@ -959,10 +959,22 @@ def test_a_data_file_is_a_regular_file_never_a_device_or_a_pipe(tmp_path):
     to_zero.symlink_to("/dev/zero")
     pipe = tmp_path / "pipe.yaml"
     os.mkfifo(pipe)
-    for path in (to_zero, pipe, tmp_path):
+    import threading  # noqa: PLC0415
+
+    def refused(path):
         with pytest.raises(Refused, match="not a regular file") as caught:
             read_yaml(path)
-        assert caught.value.code is RefusalCode.BAD_SHAPE
+        return caught.value.code
+
+    for path in (to_zero, pipe, tmp_path):
+        # On a deadline: a FIFO opened without O_NONBLOCK blocks forever, which would stall the gate, not fail it
+        # (delta round 4, R4-9).
+        codes: list[RefusalCode] = []
+        reader = threading.Thread(target=lambda p=path, out=codes: out.append(refused(p)), daemon=True)
+        reader.start()
+        reader.join(timeout=10)
+        assert not reader.is_alive(), f"{path}: the gate blocked on it"
+        assert codes == [RefusalCode.BAD_SHAPE]
 
 
 # -- the file gate refuses what PyYAML's constructors can't build (step 3b(b) review, Trust T1-S1, Executor S2) ------
