@@ -114,7 +114,7 @@ One NPC, a street vendor at a stall near the alley mouth.
 - Each change of the tree's state requests a line; the server words the prompt from the event's fields.
 - The reply is capped at 25 words, asked of Ollama on 127.0.0.1 off the tick thread, with a 2.5 s timeout.
 - Any failure falls back to a canned line and logs why.
-- Measured (lesson 29): 0.23 s warm with the game alone on the Mac mini; 8 s with other work loading the machine.
+- Measured (lesson 30): 0.23 s warm with the game alone on the Mac mini; 8 s with other work loading the machine.
 
 **Talking to it:** the player's `say` text goes into the next prompt as words. It can change what the NPC says, never
 what it does.

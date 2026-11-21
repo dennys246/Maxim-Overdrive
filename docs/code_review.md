@@ -13,7 +13,8 @@ the Maxim repo), where the record shows that the catches came from a *different*
    **not** get the author's explanation of why the change is right: an agent handed a hypothesis tends to confirm
    it. Commit messages are part of the diff and are fair game, as claims to check.
 3. **Each finding is** a severity, a location (`file::symbol`, not a line number, which drifts), and a concrete
-   failure scenario: the input or state, and the wrong output or crash.
+   failure scenario: the input or state, and the wrong output or crash. A fix the reader proposes is marked
+   *verified*, with what it ran, or *unverified*; the author verifies it before folding.
    - **BLOCKER:** wrong on the shipped path, breaks a standing rule, or a test that cannot fail.
    - **SHOULD-FIX:** a real defect or gap with a narrower trigger, or a rule kept by luck rather than by a check.
    - **NIT:** clarity, naming, small simplifications.
@@ -63,6 +64,9 @@ The contract types, with this codebase's examples:
 | **Mirror** | `simcore/adapters/sem/_compat.py` vs Maxim's SEM types; any Python/GDScript pair that decodes the same bytes |
 | **Claims** | CLAUDE.md, `docs/`, docstrings and commit messages saying a thing works: is it true on the shipped path? |
 
+**One owner per contract** (CLAUDE.md, B36). For each row, name the section that owns the contract. A contract the
+diff states, or restates, in a second place is a finding: the copy that an edit misses is the stale one.
+
 An **empty table** is valid only when the diff changes function bodies alone: no signature, field, key, default,
 dtype, vocabulary word or file format changes. State it as the list of changed functions, each with the search that
 found no other reader.
@@ -73,7 +77,7 @@ Add each lens whose trigger the diff hits. More readers are cheap next to a defe
 
 | Lens | Trigger | Asks |
 |---|---|---|
-| **Physics and resolution** | `simcore/core/`, `simcore/adapters/sem/`, materials, grid spacings, scenes | Is there a closed-form test and a cross-tier test? Is energy deposited by cell average or volume overlap? Are parameters per unit volume, and scenes in metres? Are thin features at least two coarse cells thick? Is it deterministic? Are new gaps recorded with numbers? Does any law apply a threshold or a non-linear rate to a cell's mean where the outcome depends on structure inside the cell (CLAUDE.md, "Reconstruct, decide at the point, integrate upward")? Does any consumer read raw cells instead of a reduction at its own scale? |
+| **Physics and resolution** | `simcore/core/`, `simcore/adapters/sem/`, materials, grid spacings, scenes | Is there a closed-form test, through `simcore.verify` with space and time refined apart, and a cross-grid test that meets the verification rule (`docs/design/world_model.md` §1.1)? Is energy deposited by cell average or volume overlap? Are parameters per unit volume, and scenes in metres? Are thin features at least two coarse cells thick? Is it deterministic? Are new gaps recorded with numbers? Does any law apply a threshold or a non-linear rate to a cell's mean where the outcome depends on structure inside the cell (CLAUDE.md, "Reconstruct, decide at the point, integrate upward")? Does any consumer read raw cells instead of a reduction at its own scale? |
 | **Trust boundary** | the protocol, intent handling, `simcore.core.imagination`, any file or YAML loader, anything that parses input | Can malformed, hostile or oversized input crash the server, change state partially, or reach the cells unvalidated? Is every rejection path tested? Is the localhost, Origin and token check intact? |
 | **Performance** | hot loops, snapshot encoding, the turn loop, shaders, texture uploads | What does it cost at the max profile (about 5×10⁶ cells)? Is anything O(cells) done per message that could be done per turn? Does it stay inside the budgets in `docs/standards_backlog.md` B5? |
 | **Client and rendering** | `client/` | Does the client only draw and send intents, computing nothing that feeds back into the world? Is GDScript typed? Do visuals come from the snapshot channels rather than art? Does it read the same at both profiles apart from detail? Is state shown by more than colour? |
@@ -91,12 +95,12 @@ until it is folded or overruled by the owner with a recorded reason. Each lens's
 `docs/design/reviews/<design>/<lens>.md`, because they explain why the design is what it is. The author then folds
 them into the design and presents one plan to the owner before building.
 
-- **A reader finds; it doesn't design** (owner, 2026-11-21). A fix it proposes is marked *verified*, with the script
-  it ran, or *unverified*. The author verifies every fix before folding it, and the fold table says how.
-- **A delta round on a design reviews the fold's diff,** not the whole document.
-- **The design holds the contract** (CLAUDE.md). A finding about a mechanism only running can check becomes a test in
-  its build step's checklist. When a second paper round finds new blockers in text the folds added, the rounds stop
-  and the author proposes moving the rest into the build steps.
+- **A delta round on a design reviews the fold's diff,** and Wire integrity also reads every section that uses a
+  contract the diff changes. The fold table says how the author verified each fix (step 3).
+- **When the rounds stop** (CLAUDE.md, "Review finds; it doesn't design"): the author proposes the move and the owner
+  accepts it, which is the recorded overrule this section requires. Only findings about mechanisms move, each
+  recorded `deferred` by a reviewer with its build step as the trigger. A contract BLOCKER still folds, or the owner
+  overrules it with a recorded reason.
 
 ## When the reviewers are agents
 

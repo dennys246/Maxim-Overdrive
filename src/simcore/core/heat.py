@@ -111,14 +111,23 @@ def step(
         return 0
     n = max(min_substeps, math.ceil(seconds / stable_dt(grid)))
     dt = seconds / n
+    # Count substeps; never compare a running float sum with an absolute epsilon. The sum of n steps of seconds / n
+    # misses seconds by rounding that grows with n (about 1e-9 s at 8,000 steps of 0.45 s), and an end test of
+    # elapsed < seconds - 1e-12 then took one extra sliver of a substep (step 4's space study found it).
+    planned = n
     taken = 0
     elapsed = 0.0
     changed = False
     power_w = power() if power is not None else None
-    while elapsed < seconds - 1e-12:
+    while taken < planned:
         if changed:
-            dt = min(dt, stable_dt(grid))
             power_w = power() if power is not None else None
+            bound = stable_dt(grid)
+            if bound < dt:  # destruction tightened stability: split the rest evenly at the new bound, to rounding
+                remaining = seconds - elapsed
+                more = math.ceil(remaining / bound)
+                dt = remaining / more  # not dt = bound: a remainder of a whole number of bounds would leave a 0 s step
+                planned = taken + more
         dt = min(dt, seconds - elapsed)
         substep(grid, dt, power_w)
         changed = bool(on_substep(grid, dt)) if on_substep is not None else False

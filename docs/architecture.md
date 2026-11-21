@@ -10,15 +10,14 @@ Godot client (render, input, UI)  ──intents──▶  World server (Python, 
                                   ◀─snapshots──    ├── material grid (cells)
                                                    ├── physics fields (heat today)
                                                    ├── damage
-                                                   ├── SEM bridge  ──▶  Maxim agents (AgentPool)
+                                                   ├── SEM bridge  ──▶  Maxim agents (a worker each)
                                                    └── imagination specs → cells
 ```
 
 - The world server owns all state and all physics. The client never simulates anything that feeds back into the
   world. It may add purely visual effects (particles, debris, interpolation between frames).
 - Cradles and experiments run the same server headless. The physics an NPC grows up in is the game's physics.
-- The game runs in real time with pause (`docs/design/realtime_lanes_coop.md`); neither the world nor an NPC
-  waits for a thought.
+- Real time with pause; late thoughts dilate, hold the floor or land late (`npcs_and_sem.md` §4.4).
 
 ## The world is material cells
 
@@ -29,17 +28,15 @@ is given (`dx_m`). Nothing is authored in cells.
 Materials (`data/materials/core.yaml`) carry textbook thermal properties plus two gameplay calibrations that are
 always **per unit volume** (`fracture_energy_j_m3`, `degrade_*`), so they mean the same thing at every resolution.
 
-## The resolution rule
+## The verification rule
 
-> **A rig profile may change precision, never the outcome class.**
+The rule is stated in `docs/design/world_model.md` §1.1. Two tests per module, through `simcore.verify`
+(`docs/design/verify_harness.md`):
 
-The same scene at two profiles must agree on every gameplay outcome: did the wall breach, did the crate burn, did the
-room get hot enough. Each physics module ships two kinds of test:
-
-1. **Against a closed form.** Heat: a Gaussian pulse in a steel bar against the 1-D heat equation (error 1% / 0.1% /
-   0.01% at 0.2 / 0.1 / 0.05 m cells, second-order convergence). Damage: crater volume against
-   `analytic_crater_radius_m` (within 5%).
-2. **Across tiers.** The same scenario at every profile, gated on the outcome (`tests/test_cross_tier.py`).
+1. **Against a closed form,** space and time refined apart (E2). Heat: a steel bar's Gaussian pulse, second
+   order in space (errors 1.29% / 0.34% / 0.085% at 0.2 / 0.1 / 0.05 m) and first in time. Damage: crater volume
+   against `analytic_crater_radius_m` (within 5%).
+2. **Across grids,** gated on agreement and convergence (`tests/test_cross_tier.py`).
 
 How the rule is kept, so far:
 - Energy lands by **exact cell average** (a strike's Gaussian integrated over each cell) or by **volume overlap**
@@ -52,8 +49,10 @@ How the rule is kept, so far:
   scratch becomes a breach.
 
 **Known gaps (tracked, not gated yet):**
+- NPC inference (no streaming yet, load versus failure, first hops, spend): `docs/design/inference_placement.md` §6.3.
 - Late in a burn the coarsest rig lags (crate integrity 0.55 at 0.2 m vs 0.37–0.38 at 0.1 and 0.05 m after 150
-  turns): a coarse cell degrades as one block. Onset agrees to within 5%.
+  turns): a coarse cell degrades as one block. Onset agrees to within 5%. It falls below 0.7 at turn 138 at 0.2 m
+  against 104 at 0.1 m. Red gate: `tests/test_cross_tier.py::test_the_crate_is_badly_burned_at_the_same_turn_at_every_rig`.
 - No convection or radiation: air only conducts, so rooms heat too slowly and fires must sit on a material.
 - Destroying a cell removes its heat (it becomes air at air's heat capacity). Measured: a 5.4-minute crate-and-pallet
   burn lost 42.2 of 84.0 MJ to 14 destroyed cells (commit 6e8f037).
@@ -75,7 +74,7 @@ How the rule is kept, so far:
   have a radius of at least 0.3 m and a `strike` a width of at least 0.2 m, the coarsest rig's cell
   (`data/world/actions.yaml`, held by `tests/test_act_validation.py`). A `HeatSource` built directly in code can
   still be smaller.
-- **Fires diverge across rigs mid-burn, so fire outcomes don't yet keep the resolution rule.** Measured at the
+- **Fires diverge across rigs mid-burn, so fire outcomes don't yet keep the verification rule.** Measured at the
   largest fire actions allow (500 kW, 0.3 m radius) on the 3×3×2 m crate scene, recording crate integrity every
   turn: the spread across laptop / rig / max exceeds 0.1 on every turn from 18 to 27 and peaks at 0.19 at turn 22
   (0.70 / 0.57 / 0.51). It narrows near turn 30 only because the curves cross, and from about turn 30 the fuel gap
@@ -172,8 +171,7 @@ transport later means replacing one adapter on each side, not the message format
 **Why not a raw TCP socket.** At 5 bytes per cell, a 16×10×4 m tile is about 0.4 MB at 0.2 m cells, 3.2 MB at
 0.1 m and 26 MB at 0.05 m. On localhost either transport moves that in tens of milliseconds, far less than a turn of
 physics. WebSocket frames each message for us (raw TCP means hand-written length-prefix reassembly in GDScript),
-can be inspected with `websocat` or a few lines of Python, is built into Godot 4 (`WebSocketPeer`), and is the only
-one of the two that a web export or `wss://` remote play could use.
+is inspectable with `websocat`, is built into Godot 4 (`WebSocketPeer`), and alone suits a web export or `wss://`.
 
 **What it costs, and what we do about it:**
 - *Any web page can open `ws://localhost`.* Browsers allow cross-origin WebSockets, which a raw socket would not.

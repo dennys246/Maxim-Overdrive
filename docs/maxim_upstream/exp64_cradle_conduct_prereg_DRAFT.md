@@ -73,7 +73,7 @@ recalled records. These are manipulation checks and covariates; they do not gate
 ## Arms (64a)
 
 All arms share the persona, the body (`npcs/street_fixer`-derived, with opaque affordance names per L12), the
-model, `n_ctx`, the seed, the probe order and the equalized drives.
+function, its envelope and its placement digest (Overdrive `inference_placement.md` §4.3, `single` policy), the seed, the probe order and the equalized drives.
 
 | Arm | Episodes (Hippocampus) | NAc / EC state | Prompt | Purpose |
 |---|---|---|---|---|
