@@ -1,0 +1,4 @@
+# Per-launch files: the port and token (run/), session logs (sessions/), Godot's import cache.
+run/
+sessions/
+godot/.godot/

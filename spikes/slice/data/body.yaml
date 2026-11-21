@@ -1,0 +1,19 @@
+# The slice's body tunables (docs/plans/vertical_slice.md §3.4). Throwaway lane: gamey values, tuned by playing.
+version: slice-0
+body:
+  mass_kg: 80.0
+  radius_m: 0.3
+  height_m: 1.8
+  walk_speed_m_s: 1.5
+  overdrive_speed_m_s: 3.0
+  # The drive is a velocity servo: force = mass * (target velocity - velocity) / response_s. Smaller is snappier.
+  response_s: 0.15
+  # No body moves faster than this, knockback included; with substeps it caps the distance moved per substep.
+  max_speed_m_s: 6.0
+  substeps: 8
+  # Lifts the collision cylinder off the floor so the floor's top cell never blocks a step.
+  step_clearance_m: 0.05
+kindle:
+  reach_m: 1.5
+  power_w: 60000.0
+  radius_m: 0.3
