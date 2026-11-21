@@ -70,15 +70,10 @@ Surveyed on `phase1/act-validation` at 2f200b5 (Executor confirmed each item):
 - `src/maxim_overdrive/` has `checks.py`, `config.py`, `world/` (grid, scene, heat, damage, world), `imagination/`
   (spec) and `sem_env/` (bridge, `_compat`), plus a root `__init__` that re-exports config, grid, scene and world.
 - Only `sem_env/bridge.py` imports `maxim`.
-- No module imports `time`, `random`, `datetime`, `uuid`, `os`, `importlib` or `__import__`. **But** the core does
-  reach `pathlib` and `yaml` (`config.py`, file IO on every `World.from_scene` without a table) and `scipy`
-  (`damage.py`: `ndimage`, `special.ndtr`). Those bear on determinism (D-N1, D-B2).
-- The code that writes the world on the shipped path lives outside `world/`: `bridge.StructureModulator._strike`
-  (through `damage.strike`), `_ignite` and `apply` (which set and pop `World.sources`), and `imagination.spec.place`
-  (D-B1).
-- Several "typed, frozen" objects are neither deeply frozen nor validated: `Region.cells` is a writable mask in a
-  frozen dataclass; `MaterialTable` is mutable with public arrays; `RigProfile`, `Material` and `Budget` construct
-  invalid values (TB-B2).
+- No module imports `time`, `random`, `os` or `importlib`, but the core reached `pathlib` and `yaml` (`config.py`)
+  and `scipy` (`damage.py`), which bear on determinism (D-N1, D-B2; the IO left the core in 3a).
+- The world's writers lived outside `world/`, in the bridge and `place` (D-B1); objects called frozen were neither
+  deeply frozen nor validated (TB-B2). Both fixed in 3b.
 - `data/` holds rigs, the material table (physical properties mixed with calibrations the file itself labels
   "GAMEPLAY CALIBRATION"), and action limits.
 
@@ -292,15 +287,8 @@ below it. Siblings on one line are independent of each other.
   constructor calls, and holding an instance is proof it is valid (TB-B2, TB-N3). "Past a gate", not "inside" one
   (TB-N1).
 - **Frozen means deep:** tuples, `frozenset`, `MappingProxyType`, and numpy arrays read-only at the owner (§4.1).
-- **Violations today, and when each is fixed:**
-
-| Type | Problem | Fixed in |
-|---|---|---|
-| `Region.cells` | writable mask inside a frozen dataclass | `phase1/boundaries` (§4.1) |
-| `MaterialTable` | mutable class, public writable arrays, no sign checks | read-only arrays and validation: `phase1/boundaries`; the strict v1 format: material table v1 |
-| `Material` | no validation (`density_kg_m3=0` divides by zero) | `phase1/boundaries` |
-| `RigProfile` | builds `min_substeps_per_turn=1.5`, `full_res_radius_m=-3` | `phase1/boundaries` (and it leaves physics, §2.2) |
-| `Budget` | builds `max_mass_kg=nan`, removing the mass limit | `phase1/boundaries` |
+- **The violations v2 listed** (`Region.cells`, `MaterialTable`, `Material`, `RigProfile`, `Budget`) are fixed in
+  3b; the strict material table v1 format is still its own step.
 
 - **`World` and the grid are the sink,** mutable by design inside the write window, not "objects past a gate".
 - **Maxim's own types are a named exception:** `ModulatorResult` (`params`, `metadata`) and `SensorReading`
@@ -372,9 +360,7 @@ Every registered gate meets all of these, with a rejection test each:
 **Across the worker channel** (`npcs_and_sem.md` §6.6), stage 1 runs in the host on decoded values: an `Entity` target
 arrives as a stable id and is re-checked, so nothing produced in a worker is trusted for having been a Maxim object.
 
-Only `ActionLimits.load` and `parse_action` meet the bar today, and `place` partly. `RigProfile.load`,
-`MaterialTable.load` and `Scene.from_dict` are registered as gates-to-be and hardened in `phase1/boundaries`
-(TB-S2, X S-3). `checks.py`'s docstring claim is corrected with them (TB-N2).
+Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-S2, X S-3, TB-N2).
 
 ## 6. One pipeline for every input (B-9, rewritten)
 
@@ -750,6 +736,14 @@ major version is proposed.
 - **As built in 3a (2026-11-19):** import-linter 2.6 and grimp 3.13 (pymaxim caps `rich<14`), called as
   `lint_imports_command()` with `PYTHONPATH="$PWD/src"` (`-m importlinter.cli` checks nothing). The game package
   exists from 3a, holding only `data.py`, against §2.1; §3's ban covers `logging` too.
+- **As built in 3b(a) (2026-11-20):** a frame holds the read-only owners, which no window writes in place, so it
+  needs no copy, but it pins a whole grid (about 100 MB at 5×10⁶ cells; one pinned per agent is a B5
+  row). Stamped by sequence and `time_s` until the tick. A cell window copies all four channels
+  twice in every build, even unchanged (O8's switch can't reach the core); a sources-only window
+  copies none but still publishes. `place` opens it too (marked for 5a; `imagine` has no intent kind). The
+  membrane gets an applier and a frame view, never the world: that is the guard; the peek and re-export scans are
+  tripwires. Skip-layer covers `encoding`. The registry adds
+  `no input` and `partial`. `Budget` values are engine defaults (O23).
 - A tooling test asserts grimp resolves each root package under this repo's `src/`.
 - `.import_linter_cache/` goes in `.gitignore` (or `--no-cache`), so the gate doesn't dirty the tree.
 - `importlinter` joins the preflight import line in `prepush.sh`.

@@ -30,6 +30,8 @@ guards = _load("lint_guards")
 sizes = _load("lint_sizes")
 ratchet = _load("lint_coverage")
 gitfiles = _load("lint_repo")
+_load("lint_inputs")  # lint_standards imports these siblings by name
+_load("lint_gates")
 lint = _load("lint_standards")
 
 ROADMAP = """\
@@ -633,6 +635,11 @@ def test_a_ratchet_with_nothing_to_compare_says_so(base, base_text, expected):
     notes = lint.ratchet_notes(base, base_text)
     assert len(notes) == len(expected)
     assert all(e in n for e, n in zip(expected, notes, strict=True))
+
+
+def test_main_says_aloud_that_a_repository_without_the_engine_has_no_gate_registry_to_hold(repo, capsys):
+    assert lint.main([], root=repo) == 0
+    assert "no engine under src/simcore/, so the gate registry has nothing to hold" in capsys.readouterr().out
 
 
 def test_main_prints_the_ratchet_notes(repo, capsys):

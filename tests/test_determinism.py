@@ -13,11 +13,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from maxim_overdrive import data
 from simcore.adapters.sem.bridge import region_parts
-from simcore.core.scene import Box, Scene
+from simcore.core.applier import Applier
+from simcore.core.scene import Box, Cylinder, Scene
 from simcore.core.world import World
 from tests.conftest import FAST_SPACINGS
 
@@ -42,9 +44,9 @@ fast_spacings = pytest.mark.parametrize("dx_m", FAST_SPACINGS)
 def run(dx_m: float) -> World:
     """Fire on the crate and a strike on the wall: heat, thermal degradation, thermal and mechanical destruction."""
     w = World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
-    _, crate = region_parts(w, "crate")
+    _, crate = region_parts(Applier(w), w.frames, "crate")
     assert crate["structure"].execute("ignite", {"power_w": FIRE_W, "radius_m": 0.3}).success
-    _, wall = region_parts(w, "wall")
+    _, wall = region_parts(Applier(w), w.frames, "wall")
     assert wall["structure"].execute("strike", {"energy_j": 2.0e7, "sigma_m": 0.2}).success
     for _ in range(TURNS):
         w.advance()
@@ -72,7 +74,7 @@ def digest(w: World) -> str:
 def test_the_scenario_exercises_burning(dx_m):
     """Guard on the guard: if the fire stops reaching degradation, the determinism tests below test too little."""
     w = run(dx_m)
-    sensors, _ = region_parts(w, "crate")
+    sensors, _ = region_parts(Applier(w), w.frames, "crate")
     assert sensors["integrity"].value() < 0.9  # thermal degradation ran
     original_crate = w.grid.regions["crate"].cells & (w.grid.original_material != 0)
     assert (original_crate & ~w.grid.solid).any()  # and destroyed crate cells
@@ -87,7 +89,7 @@ TURN_SUBSTEPS = {0.2: 4, 0.1: 16, 0.05: 64}
 @fast_spacings
 def test_each_turn_takes_the_substeps_the_rigs_took(dx_m):
     w = World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
-    _, crate = region_parts(w, "crate")
+    _, crate = region_parts(Applier(w), w.frames, "crate")
     assert crate["structure"].execute("ignite", {"power_w": FIRE_W, "radius_m": 0.3}).success
     assert [w.advance() for _ in range(3)] == [TURN_SUBSTEPS[dx_m]] * 3
 
@@ -153,7 +155,7 @@ SEEDED_CONSTRUCTORS = {"default_rng", "PCG64", "SeedSequence"}
 # under src/ is scanned.
 NOT_SIMULATION: set[str] = set()
 # Non-vacuity: the scan must reach the turn loop and the laws, wherever a move puts them (boundaries §11.2, W14).
-MUST_SCAN = {"simcore/core/world.py", "simcore/core/heat.py", "simcore/core/damage.py"}
+MUST_SCAN = {"simcore/core/world.py", "simcore/core/heat.py", "simcore/core/damage.py", "simcore/core/applier.py"}
 
 
 def _dotted(node: ast.AST) -> str | None:
@@ -395,3 +397,45 @@ def test_the_scan_ignores(source):
 
 def test_a_chain_is_one_finding():
     assert len(findings(Path("x.py"), "x = np.random.rand(3)\n")) == 1
+
+
+# The digest scene has boxes only. A cylinder's mask squares its radius as radius_m**2, as fa27d5f did; r*r is not
+# the same number for every radius, and at this one, on this grid, the two put a different number of cells inside
+# (20 against 24 on the machine that recorded it; delta 2, Executor N-d). No golden digest is committed (see
+# TURN_SUBSTEPS above: only the outcome class is promised across machines), so the test pins the formula: the mask
+# is the squaring Python gives radius**2. Where pow rounds exactly, the two agree and the test can't tell them apart.
+KNIFE_EDGE_RADIUS_M = 0.28284271247461895
+
+
+def test_a_cylinder_mask_squares_its_radius_as_fa27d5f_did():
+    from simcore.core.grid import MaterialGrid  # noqa: PLC0415
+
+    g = MaterialGrid.empty((3.0, 3.0, 2.0), MATERIALS, dx_m=0.2)
+    x, y, z = g.mesh()
+    r = KNIFE_EDGE_RADIUS_M
+    mask = Cylinder((1.5, 1.5), r, (0.0, 0.8), "wood").mask(g)
+    expected = (((x - 1.5) ** 2 + (y - 1.5) ** 2) < r**2) & (z >= 0.0) & (z < 0.8)
+    assert np.array_equal(mask, expected)
+    # The outcome too (delta 3, Executor N-f): fa27d5f's 20 cells where pow rounds r**2 as this macOS libm does,
+    # and the 24 that fa27d5f's own code gives where pow is exact (then r**2 == r*r and the formula is not visible).
+    assert int(mask.sum()) == (20 if r**2 != r * r else 24)
+
+
+CYLINDER_SCENE = Scene(
+    (3.0, 3.0, 2.0),
+    (Cylinder((1.5, 1.5), 0.37, (0.0, 0.8), "wood", "barrel"), Box((0, 0, 0), (0.6, 3.0, 2.0), "concrete", "wall")),
+)
+
+
+def _cylinder_run(dx_m: float) -> World:
+    w = World.from_scene(CYLINDER_SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
+    _, barrel = region_parts(Applier(w), w.frames, "barrel")
+    assert barrel["structure"].execute("ignite", {"power_w": FIRE_W, "radius_m": 0.3}).success
+    for _ in range(5):
+        w.advance()
+    return w
+
+
+@fast_spacings
+def test_a_cylinder_scene_is_repeatable_in_process(dx_m):
+    assert digest(_cylinder_run(dx_m)) == digest(_cylinder_run(dx_m))

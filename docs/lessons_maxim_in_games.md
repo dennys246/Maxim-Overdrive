@@ -237,6 +237,20 @@ writes the field through the physics. For any engine embedding agents: tags an a
 simulated state, so they can't disagree with the world, and interactions come from one set of laws rather than a
 growing table of tag pairs. New sensors and modulators need no Maxim change; a new SEM concept would.
 
+### 23. Maxim's sensors pull, so a frame must be published when an action applies, not only when time moves (2026-11-20)
+
+**Maxim's `Sensor.read()` is a pull with no tick argument, and its modulator tool reads every sensor on the entity
+right after `execute` returns, as the action's "cascade effects" (`ModulatorAffordanceTool`, pymaxim 1.3.3).
+A world that publishes frames only at physics steps would show the agent the world from before its own act.**
+*Evidence:* step 3b part (a) moved the SEM instruments onto published frames
+(`simcore/core/frames.py`). With publication removed from the window's close (a planted mutation of
+`World.__init__`), `tests/test_sem_bridge.py::test_strike_moves_the_integrity_sensor` went red: the strike
+landed and the integrity reading did not move. *Consequence:* every write window that closes publishes, so an
+application's effect is in the next read (boundaries §4.2's cadence, now held by
+`tests/test_ownership.py::test_the_shipped_path_publishes_a_frame_after_each_application_and_each_advance`). For
+any engine: an agent that perceives by pulling needs its own act reflected in the next pull, or its efference copy
+has nothing to match; publish on change, and make the action's commit a change.
+
 ### 24. A sensor must be something a receptor could sense; read-outs that are true can still be oracles (2026-11-20)
 
 **Lesson 22 was half right.** *Evidence:* the fire redesign's bio-faithful research (`docs/design/fire_model.md`

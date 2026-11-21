@@ -1,4 +1,8 @@
-"""Heat conduction against a closed-form solution, plus conservation and convergence."""
+"""Heat conduction against a closed-form solution, plus conservation and convergence.
+
+The laws write the cells only inside the grid's write window (boundaries §4.1), so each test opens it, as
+``World.advance`` does on the shipped path.
+"""
 
 import numpy as np
 import pytest
@@ -14,13 +18,15 @@ SIGMA0, T_S = 0.3, 3600.0
 def _bar(dx_m, materials):
     g = Scene((4.0, 0.2, 0.2), (Box((0, 0, 0), (4, 0.2, 0.2), "steel"),)).build(materials, dx_m=dx_m)
     x = g.centers(0)[:, None, None]
-    g.temperature[:] = 20 + 100 * np.exp(-((x - 2) ** 2) / (2 * SIGMA0**2))
+    with g.writing():
+        g.temperature[:] = 20 + 100 * np.exp(-((x - 2) ** 2) / (2 * SIGMA0**2))
     return g, x
 
 
 def _error(dx_m, materials):
     g, x = _bar(dx_m, materials)
-    heat.step(g, T_S, heat.min_substeps(dx_m))
+    with g.writing():
+        heat.step(g, T_S, heat.min_substeps(dx_m))
     s2 = SIGMA0**2 + 2 * materials["steel"].diffusivity_m2_s * T_S
     exact = 20 + 100 * SIGMA0 / np.sqrt(s2) * np.exp(-((x - 2) ** 2) / (2 * s2))
     return float(np.abs(g.temperature - exact).max() / (exact.max() - 20))
@@ -39,17 +45,21 @@ def test_insulated_world_conserves_heat(dx_m, materials):
     g = Scene(
         (1.2, 1.2, 1.2), (Box((0, 0, 0), (1.2, 1.2, 0.6), "concrete"), Box((0, 0, 0.6), (1.2, 1.2, 1.2), "steel"))
     ).build(materials, dx_m=dx_m)
-    g.temperature[:] = np.random.default_rng(0).uniform(0, 500, g.shape)
+    with g.writing():
+        g.temperature[:] = np.random.default_rng(0).uniform(0, 500, g.shape)
     before = heat.heat_energy_j(g)
-    heat.step(g, 3600.0, heat.min_substeps(dx_m))
+    with g.writing():
+        heat.step(g, 3600.0, heat.min_substeps(dx_m))
     assert abs(heat.heat_energy_j(g) - before) / before < 1e-9
 
 
 def test_step_never_exceeds_the_stability_bound(materials):
     dx_m = 0.2
     g = Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (1, 1, 1), "steel"),)).build(materials, dx_m=dx_m)
-    g.temperature[2, 2, 2] = 1000.0
-    n = heat.step(g, 10 * 3600.0, min_substeps=1)
+    with g.writing():
+        g.temperature[2, 2, 2] = 1000.0
+    with g.writing():
+        n = heat.step(g, 10 * 3600.0, min_substeps=1)
     assert n >= 10 * 3600.0 / heat.stable_dt(g)
     assert np.isfinite(g.temperature).all()
     assert np.max(g.temperature) <= 1000.0 + 1e-6
@@ -62,7 +72,8 @@ def test_a_cell_destroyed_mid_turn_gets_no_more_source_power(dx_m, materials):
     become air (1/1000 of wood's rho*cp) is what drove burning crates to tens of thousands of degrees.
     """
     g = MaterialGrid.empty((dx_m,) * 3, materials, dx_m=dx_m)
-    g.paint(np.ones(g.shape, dtype=bool), "wood")
+    with g.writing():
+        g.paint(np.ones(g.shape, dtype=bool), "wood")
     p_w = 1000.0
 
     def power():
@@ -74,7 +85,8 @@ def test_a_cell_destroyed_mid_turn_gets_no_more_source_power(dx_m, materials):
         return 0
 
     rho_cp = materials["wood"].volumetric_heat_capacity
-    n = heat.step(g, 6.0, min_substeps=4, power=power, on_substep=destroy_once)
+    with g.writing():
+        n = heat.step(g, 6.0, min_substeps=4, power=power, on_substep=destroy_once)
     assert n == 4
     expected = 20.0 + p_w * 1.5 / (rho_cp * g.cell_volume_m3)
     assert g.temperature[0, 0, 0] == pytest.approx(expected, rel=1e-9)

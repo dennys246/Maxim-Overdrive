@@ -24,7 +24,8 @@ def test_an_imagined_crate_is_destructible_like_any_other(dx_m, materials):
     mass = place(g, CRATE, (1.2, 1.2, 0.0))
     assert mass == pytest.approx(0.216 * 600)  # from authored geometry, the same at every rig
     assert g.volume_m3(g.regions["imagined_crate"].cells) == pytest.approx(0.216, rel=1e-6)
-    damage.strike(g, (1.5, 1.5, 0.3), 5.0e6, 0.3)
+    with g.writing():
+        damage.strike(g, (1.5, 1.5, 0.3), 5.0e6, 0.3)
     assert damage.region_integrity(g, "imagined_crate") < 1.0
 
 
@@ -36,7 +37,7 @@ def test_an_imagined_crate_is_destructible_like_any_other(dx_m, materials):
             (1.2, 1.2, 0),
             "not a material",
         ),
-        (CRATE, (0.0, 0.0, 0.0), "occupied"),
+        (CRATE, (0.0, 0.0, 0.0), "belongs to 'wall'"),  # judged from footprints before any cell is read
         (
             {**CRATE, "primitives": [{**CRATE["primitives"][0], "max_m": [2.0, 2.0, 2.0], "material": "steel"}]},
             (0.8, 0.8, 0),
@@ -134,7 +135,7 @@ def test_an_imagined_crate_is_destructible_like_any_other(dx_m, materials):
         (
             {**CRATE, "primitives": [{**CRATE["primitives"][0], "max_m": [1e308, 1e308, 1e308]}]},
             (1.2, 1.2, 0),
-            "too large|too heavy",
+            "too large|too heavy|lie within",
         ),
     ],
 )
@@ -165,3 +166,17 @@ def test_numpy_scalars_are_numbers(dx_m, materials):
     g = _grid(dx_m, materials)
     crate = {**CRATE, "primitives": [{**CRATE["primitives"][0], "max_m": [np.int64(1), np.float64(0.6), 0.6]}]}
     assert place(g, crate, (np.float32(1.2), 1.2, 0)) == pytest.approx(0.36 * 600)
+
+
+def test_a_space_an_unnamed_solid_fills_is_occupied_and_refusing_it_changes_nothing(dx_m, materials):
+    # No footprint claims an unnamed solid, so only the cells can say the space is taken: this refusal comes from
+    # inside the write window, which rolls back the primitives already painted.
+    slab = Box((1.0, 1.0, 0.0), (2.0, 2.0, 0.4), "concrete")
+    g = Scene((3.0, 3.0, 2.0), (slab,)).build(materials, dx_m=dx_m)
+    before = g.material.copy()
+    above = {"min_m": [0, 0, 1.0], "max_m": [0.4, 0.4, 1.4], "material": "concrete"}  # free: painted first
+    two = {"name": "two", "primitives": [above, CRATE["primitives"][0]]}  # the crate's cells are the slab's
+    with pytest.raises(SpecRejected, match="occupied"):
+        place(g, two, (1.2, 1.2, 0.0))
+    assert np.array_equal(g.material, before)
+    assert "two" not in g.regions
