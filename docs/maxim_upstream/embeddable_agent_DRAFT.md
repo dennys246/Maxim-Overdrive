@@ -176,16 +176,18 @@ named in the digest's definition.
 
 ## 7. Questions left
 
-**M4 (2026-11-21, absorbing M16): may an embedded host call `Embodiment.evaluate_failures()` once per world tick
-between cognition steps,** in the host-driven build, on the injected clock? It drifts, evaluates failure modes and
-publishes pain without cognition (`body.py:258`; `percepts.py:122` calls it alone), but its drift reads `time.time()`
-(`:293-297`; OD-A1, A2). Our design steps bodies every tick (`sem_stimuli.md` D5).
+**M4 (2026-11-21, absorbing M16), a question to GL3.B0, #1176 and `autonomic_layer.md` §1.2a (OD-A10 for the
+host-driven build):** may a host call `evaluate_failures()` (`body.py:258`) between cognition steps, on
+the injected clock (drift reads `time.time()`, `:293-297`)? Callers: the substrate tick
+(`substrate_proposal.py:837`, W-4 order, `grounding.md:451`), the LLM tick (`loop_gates.py:262-309`),
+`tool_bridge.py:776`. On cognition ticks we leave the step to yours; between them, is a publish keyed to the stale
+cluster stash, none, or #1176's per-pass transduction? (`sem_stimuli.md` D5.)
 
-v6's two are answered: **a host-supplied floor** (we take your segment alternative, O45, §2), and **GL3.B2's gate**
-(unchanged; OD-EA16 adds that a refusal's pid never appears in a GL3.B2 row, §6).
+v6's two are answered: **a host-supplied floor** (your segment alternative, O45, §2) and **GL3.B2's gate**
+(unchanged; a refusal's pid never appears in its rows, OD-EA16, §6).
 
 Searched, nothing found: OD-EA9; a `DECISIONS.md` entry for the host-driven mode (ours:
-`decisions_entry_DRAFT.md`); for M4, a host-driven body step (terms "evaluate_failures", "body step").
+`decisions_entry_DRAFT.md`).
 
 ## 8. What it argues against
 

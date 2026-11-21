@@ -290,7 +290,7 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
 - The cradle writer: an arc's fixed event pool plus handcrafted inflection points, assembled per NPC in code.
 - Three NPCs on the first tile (the ripperdoc, a fixer, a street kid), each cradled from an authored life.
 - A dialogue screen and turn order; movement is substrate-primary (no LLM), speech is the LLM's; no NPC meets fire
-  before its body has a pain path (`docs/design/sem_stimuli.md` D14).
+  before its body has a pain path (`docs/design/sem_stimuli.md` §4.6's test).
 - Save format v1: the world plus each NPC's agent home, including the agent's `EventSequencer` high-water seq, so a
   loaded save continues the sequence; `session_id` comes from the intent log's header (the log's root id, the NPC
   key and the segment number, a new segment per restore), never the wall clock or a uuid (O43, O45).

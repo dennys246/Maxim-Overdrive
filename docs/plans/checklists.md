@@ -107,6 +107,16 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 - The u16 region-id array (world_model §10 row 4), which `fire_solid.md` §0 leans on.
 - **6.0a rides this line** (`fire_solid.md` §0, §5): the split material data, its loaders and versions, and the
   fuel tables' registry entries, before the log writer records the first golden.
+- **The SEM stimulus contract's 5a half** (`sem_stimuli.md` v4 §5, §7.1, §11.1; the composition note cites §11.1,
+  A-S10): reserve lane chains (row lanes keyed `(name, derivation_version, producers)`, an events lane and a bound
+  lane per NPC, A3-S5, W11, DP3-N2), header slots (schema, `BoundFrame` and receipt versions, each law's version,
+  truth constants including the event byte budget, DP3-N3) and the `join`, `leave`, `agent_ready`, `agent_failed`
+  records; the per-tick law slot, the two-rate contact exchange and the `body_points` container (A3-S4).
+- **Digest plants** (§5; Y5, Y7): a surface-conductance change moving a digested value by at least one rounding
+  quantum (measured: 10⁻¹² relative moves a node at tick 0, one ulp first at tick 120–152 and never at zero flux),
+  requiring a first differing tick named by the per-tick lanes; an order reversal in `reduce.py`, `join` unchanged,
+  on one-sided exposure, asserting first that the permuted values differ; a producer's version bumped alone, a bound
+  home refused (A3-S5); an unbound row added stays green; events get a plant with their first producer.
 
 ## Step 5b, bodies and movement (`tile_and_client.md` §2, §3, §4.1)
 
@@ -129,6 +139,15 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
   a pid, with its own test.
 - Action vocabulary v1 with `actions.yaml` v1, refused at v0 by version, not migrated (DC-S5), and an interim sphere-overlap
   `kindle` deposit: a marked band-aid, its file listed under Phase 1 in the roadmap, removed by step 6's skin.
+
+- **The SEM stimulus contract's 5b half** (`sem_stimuli.md` v4 §3.1, §4.5, §7.1, §7.3): `body-protected` with
+  layer 6's modules (`Simulation`, the applier, the frame publisher) as allowed importers, the `body-layers`
+  containers contract, and `CORE_PUBLIC_SURFACE` gaining `body.spec` with `MEMBRANE_SURFACE` subtracting it (A3-S2,
+  A3-S6, A3-N1); the store's writer allowlist and its ownership scan (A3-S6); `store.py` implementing `body_points`
+  with no copy, and a save–load plant of a carried field marked `derived` (A3-S4).
+- **Posture, gaze and breath intents** (W12): stage-1 finite and unit-vector checks, ranges in `ActionLimits` from
+  `data/`, a gate-registry row each, every rejection path tested, a Hypothesis "never crashes" property; plant: a
+  NaN gaze, and the world advances with an error receipt.
 
 ## Step 6, fire (D30, T13; `tile_and_client.md` §5)
 
@@ -203,6 +222,34 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
   2026-11-20.
 
 It needs step 7: the host's stage 1 for worker speech calls `engine.text.player_text` (TB-S9).
+
+**The SEM stimulus contract's agent half** (`sem_stimuli.md` v4 §3.2, §4, §6.2, §7.3):
+- `stimuli/wire.py` (importing only `checks` and numpy) and binding validation land here, before the codec
+  (Y3); `agents-reads-body-frames` with `allow_indirect_imports = false` and a grimp closure test over
+  `AGENTS_SURFACE`, planted with a surface module importing `readonly` (W9, Y4, A3-S1; verified on a toy).
+- Versions and gate rows: binding table, `BoundFrame`, receipt, `welcome`, `step_output` (W13); replay refuses an
+  unknown format version by name, planted by bumping the receipt version (W11).
+- Receipts: `pid` per NPC (W14); kinds per D15; delivery concatenates undelivered ticks, planted at divisor 10 by
+  delivering only the current tick's (W10, C1); T11 sweeps a strike point across a footprint edge (W2).
+- `L_us ≥ 1` refused at 0, planted (X5, C3).
+- The overlap gate (§4.1; F1, Y6, DP3-N1): stub replies held and released at host hooks (before step 6, a test-only
+  hook inside it, after the join) in two fixed orders; a cell-writing stub intent; the plant applies a `step_output` on
+  arrival and the replay leg must go red (toy-verified: an `ignite` plant goes red on both legs, a posture plant only
+  on replay).
+- The worker's checks (§4.4): the value check before each push against the recorded clamped value, a bite counted,
+  planted with a stub modulator writing during cognition (X1, Y2); `world_owned_sensors` equals the bound set, and an
+  anonymous `world_set_axis` on a bound sensor returns `False`, planted with an empty tuple (Y8); the thread baseline
+  at `agent_ready` by name multiset, re-baselined at session boundaries, its real-Maxim test strict red on OD-EA7,
+  planted with a new thread at the third park (C2); one `evaluate_failures` per agent step on a cognition tick
+  (D2-S2); the worker refuses `MAXIM_ENABLE_BODY_STATE_PROMPT` (D2-S3); the bindings-digest refusal planted by editing
+  only the worker's copy (W4).
+- Bounds (§4.3): a burst keeps the agent alive; a failed NPC's buffer stays empty for 10,000 ticks; a worker reading
+  one byte at a time lives; one that never reads lets the world advance; one sending half a `step_output` is `hung`,
+  nothing merged, matching replay (C4); NaN, ±Infinity, `1e400` and `bool` refused, each planted; each lifecycle row
+  gets a crash-injection test.
+- T16a and D14's Known gap (§4.6), landing with the contact law as `xfail(strict=True, raises=AssertionError)`; it
+  flips only with the barrier's B5 row at 1× and the dial's maximum, counted per tick, with the pump's cost and GIL
+  share (Y1, F2, S9, C5, C6).
 
 **Precedence.** For the agent half, a finding in `docs/design/reviews/npcs_v3_1/` overrides the frozen §6.6 text it
 contradicts (TB-S5). Before the codec's fixtures freeze, each of these is a test or a fixed codec kind:
@@ -324,3 +371,65 @@ workaround. Control: with the stamps unshifted both keep it.
 - Maxim answers a second candidates round (the first, #1688, is answered by errata);
 - Maxim's review of `embeddable_agent_DRAFT.md` (O36; fired 2026-11-19, folded in npcs v3.2; its delta review in v3.3,
   its review of v5 in v3.4).
+
+## The SEM stimulus laws (with `tissue_temperature`, before Phase 4; `sem_stimuli.md` v4 §2.3, §8)
+
+Moved out of the design by the owner's split (2026-11-21). Each item is a test to write; numbers marked **D** were
+measured in the research (L3) or the reviews, **M** are from memory and must be cited before `data/`.
+- **Tissue:** a 3-layer Pennes column per point (0.1 / 2 / 10 mm, a node at each declared depth; Torvi & Dale, S);
+  partial contact and clothing as sub-columns and layers. Closed form: the steady profile. The join and restart
+  solve it directly (started uniform at the core it needs 1,060 s to settle within 0.1 K, **D**), with a test that a
+  joined NPC's tissue doesn't move in its first second at ambient (PH2-N3).
+- **The core** (PH2-S2): v1's core law, (a) held at 37 °C with the supplied power booked as "basal
+  thermoregulation, ANALOG" (superseding tile §2.1's free relaxation by name) or (b) free, with the 3.5–4.7 K/h drift
+  as a Known gap (**D**). Test: an idle NPC for one world hour.
+- **Sinks** (PH2-S1): each point's convective sink read through `gas.at`/`gas.over` over a volume in metres (a fixed
+  reservoir in Phase 1's still air, rest 32.4 °C; with the tile's exchange volume as sink it rests at 34.7, **D**);
+  the radiative sink named (v1: the fixed ambient) with the exact secant coefficient, not a coefficient fixed at
+  rest (low by 28% at 100 °C, 2.2× at 200 °C, **D**). Test: a two-region body, one region in a hot zone, burns only
+  that region.
+- **Immersion and plume** (PH2-S3): a continuous gas-temperature field per flame (flame, intermittent and plume
+  regions from a cited correlation), h(d)·(T_gas − T_s) per point; a cross-tier test with an outcome margin for a
+  hand at the flame edge; until then "plume gas doesn't heat" is a Known gap with a number.
+- **Contact** (PH2-B1): the object-side sub-mesh, refined to the substep's penetration depth, persists for the whole
+  contact, read by the solid law through a conservative remap and remapped once at release. Outcome gate: wood at
+  90 °C stays painless and wood at 120 °C hurts at 0.76 s against the persistent reference; the per-tick rebuild is
+  the planted red case (measured: painless 90 °C wood hurts at 2.35 s rebuilt, 0.40 s from stale state, **D**).
+  Convergence: rebuild interval × object nodes; the two-way coupling with a solid stepping at 0.5 s is unmeasured.
+  Contact onset and release interpolate between poses (holding a pose quantises onset to ±0.1 s, 40–50% of steel's
+  time to pain, **D**). Components share sub-mesh nodes, never just an object (DP3-S3); `contact.py` composes
+  tissue's operator on one grid per component (A3-S3).
+- **Accuracy:** error-controlled substeps per point, memoryless, against the header's kelvin tolerance; a fixed
+  0.1 s step makes 70 °C steel pain 20% late and radiant error 1.25 K at 80 kW/m² (**D**). Ω's sensitivity is 5.1–5.5%
+  per 0.1 K under L3's ΔE/R = 55,000 K, and 0.68–0.75 per K if Henriques is P ≈ 3.1×10⁹⁸, ΔE/R ≈ 75,500 K (**M**):
+  fix it after the constant trace (Y9, PH2-N1). Convergence to 80 kW/m², for immersion and for contact.
+- **Flux and occlusion:** quadrature view factors; intact authored geometry occludes as primitives in metres, altered
+  cells by transmittance defined per path length (fraction/λ along the chord) or sub-cell reconstruction, with a
+  grazing ray in the wall-edge test (PH2-N2); B28 first; a grid-only march is the planted red case. Cross-tier tests
+  per coupling (occlusion, face emission, face contact, zone gas, immersion) at offsets 0, dx/3, 2dx/3, band gates
+  and a wall edge; a half-shaded body's burned area matches per-point rays. Face couplings strict red in v1 (S4).
+- **Damage:** Ω ≥ 1 at the basal layer is a burned point. A region half at 15 kW/m² and half at 5 burns first at
+  6.2 s; one column at the mean, at 11.8 s (**D**).
+- **Refresh schedule** (§8; DP3-B1, DP3-S1, DP3-S2): a cap of k pairs per body per emitter per tick, ranked by one
+  total order from saved state (last refresh tick, body sort position, point id, emitter key), the literal
+  "moved first" rule having starved stationary pairs for 100 of 100 ticks (**D**). At k = 12, ten running NPCs see at
+  most 5 ticks of staleness, as a shared K = 116 did, and a shared cap changed A's refresh ticks when others ran
+  (**D**, rerun 2026-11-21). The header records the maximum emitter count; D12's measurement runs on one body at that
+  count: time to pain and burned area against every-tick refresh, stepping from behind a wall into 20 kW/m² (pain at
+  1.1 s). Emitters are summed in stable-key order (DP3-N5). Clustering's bound: the angular spread's maximum over the
+  emitter's quadrature points (a 0.68 m flame at 1 m subtends about 38°, **D**).
+- **Cost table** (basis: 58 points, the 0.1 m tier, light heat load ~1.4 s per world second, one emitter; 10 NPCs, per
+  world second, **D**): skin at one substep per tick plus quadrature flux ~21–32 ms; visibility once per physics step
+  ~73–90 ms (c ≈ 63–78 µs per pair); delivery ~15–30 ms; stationary ~110–150 ms against ~140; visibility every tick
+  for ten runners ~365–450 ms; substeps near a fire ~11–14 ms on this basis (DP3-N4); contact and the Maxim body step
+  unmeasured. 100 NPCs stationary: ~2.5–2.9 wall seconds per world second. Under D14 the barrier's parks divide by the
+  cognition divisor (C6).
+- **The first body** (§3.3): the region-to-modulator map, tagged ANALOG, with the planted-burn test (SF-2, trigger
+  this PR); the A4 gain weighs `(|v−0.5|·2)³` (`encoder.py:596`), so centred at 33 °C over [−4, 70] °C, 45 °C weighs
+  0.034 and 60 °C 0.39 (**D**); an apparatus check of the measured rest per depth and ambient in the shipped scenes
+  against the declared rest (28.5–35.1 °C from 5 to 30 °C ambient, **D**; D2-N1).
+- **Before `data/`:** trace Henriques' constants; grade Ω = 1 against two published second-degree times; record
+  Jasiński's miss; cite the contact conductance (it moves steel pain 4.5×) and ambient h; anchor on ISO 13732-1
+  Table A.1 (S); verify receptor depths, anthropometry, ear spacing and tidal volume; reconcile L3's buttocks share
+  with `geom.py` (Q1).
+- **T16b** (§4.6), the future bar, on a fixture body with a skin drive, strict red naming M4 and #1176.

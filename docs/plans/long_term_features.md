@@ -50,8 +50,8 @@ Each entry says which half each piece of work is.
 | **Contract** | all of it: which quantities, in what units (ranges are Maxim's transduction), sampled where on the body, at what cadence, how they reach Maxim through its frozen SEM types, what is recorded for replay, and the tests that prove no privileged state leaks |
 | **Laws** | the world-side models behind each stimulus (skin heat, radiation onto body regions, luminance after line of sight), each replaceable behind the contract |
 | **Decided** | the world computes the stimulus at the receptor and Maxim transduces it (`fire_model.md` §5.1); fractions, never booleans; no flammability, flash point or φ as a sensor; tissue physics is the world's (lesson 24) |
-| **Status** | v1 reviewed by seven lenses (15 BLOCKER, 66 SHOULD-FIX, 49 NIT), folded into v2; delta round 1 on v2 (reviewer-set: 102 fixed, 12 deferred, 1 rejected, 15 open; new 2 BLOCKER, 30 SHOULD-FIX, 27 NIT), folded into v3 (`reviews/sem_stimuli/delta1/fold.md`), statuses open for the reviewers. The owner ruled D1–D14 (2026-11-20, 21): D5 (c) as the contract, with D14's interim (delivery at the cognition rate until a body has a pain path); D11 (a), per-point visibility; D12 provisional, re-ruled on a measured refresh cost; M16 merged into M4 |
-| **Next** | Delta round 2 on v3, whose reviewers set the fold statuses; M4 to Maxim with the embeddable draft; then D12's refresh measurement before the irradiance law |
+| **Status** | v1, delta 1 and delta 2 reviewed by seven lenses each (blockers 15, 2, 4); delta 2 reviewer-set: 63 fixed, 6 deferred, 9 open. **v4 is the contract only** (owner's split, 2026-11-21): laws and their tests moved to `checklists.md` ("The SEM stimulus laws" and the 5a, 5b and agent-line items); delta 2 folded (`reviews/sem_stimuli/delta2/fold.md`), statuses open for the reviewers. Ruled D1–D14 and S4; D12 provisional; D15 (receipt kinds) open |
+| **Next** | The owner's D15; one last delta round on v4's diff only; then 5a carries the contract's reservations (`sem_stimuli.md` §11.1) |
 
 ## States of matter: liquids, gases and zones
 

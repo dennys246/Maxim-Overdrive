@@ -300,3 +300,17 @@ the fold itself: a delivery and digest that turned every new row into a replay b
 ruled on stationary bodies only (DP2-B1). *Consequence:* the v3 fold measured or traced each checkable fix before
 writing it, and recorded "unverified" where it couldn't. For any project folding reviews: a reviewer's fix gets the
 same check as a source's number, because a test that can't fail, adopted on a reviewer's word, guards nothing.
+
+### 27. A host that steps a Maxim body must not step it inside the agent's own tick (2026-11-21)
+
+**Maxim's substrate tick steps the body in a fixed order, and pain is keyed to the situation noted just before.**
+*Evidence:* at `origin/main` 043eab8f the substrate-primary proposal runs `note_active_clusters` and then
+`evaluate_failures`, so a pain publish is "keyed to the clusters noted above" (`substrate_proposal.py:808-839`; the
+W-4 order, `grounding.md:451`), and `loop_gates.py` warns that a second call doubles the tick. The v3 design pushed
+stimuli and then stepped the body from the host before the agent's tick (bio D2-S2): drive pain latches on band entry,
+so the host's call would publish the onset against the previous step's clusters and the agent's own call would find
+the latch set and publish nothing, keying a burn's fear to where the NPC stood up to a cognition step earlier.
+*Consequence:* v4 pushes on a cognition tick and leaves the body step to the agent's tick; the host steps the body
+only between cognition steps, and how such a publish is keyed is asked of Maxim (M4, a question to GL3.B0 and #1176).
+For any game hosting Maxim: deliver stimuli from outside, but let the agent's own loop own the order in which its
+body is stepped and its pain is credited.
