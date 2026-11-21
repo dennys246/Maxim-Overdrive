@@ -12,14 +12,26 @@ separately; see docs/architecture.md.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any, SupportsFloat
 
 import numpy as np
 
-from simcore.core.checks import entity_key, finite_real, finite_vector, known_keys, shown, whole_number
+from simcore.core.checks import entity_key, finite_vector, known_keys, shown
 from simcore.core.grid import Footprint, MaterialGrid
+from simcore.core.refusals import RefusalCode, Refused
 from simcore.core.scene import Box, Cylinder, Primitive, boxes_overlap, footprint_of, primitives_from_data
+from simcore.core.schema import Field, Real, Schema, Whole
+
+# Budget(max_mass_kg=nan) once built, and removed the mass limit; so each limit is held to its rule (boundaries §5.1).
+_BUDGET = Schema(
+    (
+        Field("max_mass_kg", Real(lo=0.0, lo_open=True)),
+        Field("max_extent_m", Real(lo=0.0, lo_open=True)),
+        Field("max_primitives", Whole(1, 4096)),  # at most a scene's (scene.MAX_PRIMITIVES)
+        Field("max_name_chars", Whole(1, 1024)),
+    )
+)
 
 
 @dataclass(frozen=True)
@@ -33,20 +45,13 @@ class Budget:
 
     def __post_init__(self) -> None:
         # Validating constructor (boundaries §5.1): Budget(max_mass_kg=nan) once built, and removed the mass limit.
-        for name in ("max_mass_kg", "max_extent_m"):
-            value = finite_real(self.__dict__[name], f"budget {name}")
-            if not value > 0:
-                raise ValueError(f"budget {name} must be positive, got {value!r}")
+        for name, value in _BUDGET.check(asdict(self), "budget").items():
             object.__setattr__(self, name, value)
-        for name in ("max_primitives", "max_name_chars"):
-            count = whole_number(self.__dict__[name], f"budget {name}")
-            if count < 1:
-                raise ValueError(f"budget {name} must be at least 1, got {count}")
-            object.__setattr__(self, name, count)
 
 
-class SpecRejected(ValueError):
-    """The world refused an imagined object. The message says why, for the agent and the player."""
+class SpecRejected(Refused):
+    """The world refused an imagined object. Its code is what an agent is told; the message says why, in words, for
+    logs, tests and the player's own view."""
 
 
 def _offset(p: Primitive, o: tuple[float, float, float]) -> Primitive:
@@ -68,39 +73,43 @@ def _within_budget(spec: Mapping[object, object], budget: Budget) -> None:
     """The counts and lengths a spec may carry, checked before any primitive is built or any cell is allocated."""
     name, listed = spec.get("name"), spec.get("primitives", [])
     if isinstance(name, str) and len(name) > budget.max_name_chars:
-        raise SpecRejected(f"an imagined object's name is at most {budget.max_name_chars} characters")
+        message = f"an imagined object's name is at most {budget.max_name_chars} characters"
+        raise SpecRejected(message, code=RefusalCode.OVER_BUDGET, field="name")
     if isinstance(listed, Sequence) and len(listed) > budget.max_primitives:
-        raise SpecRejected(f"too many primitives: {len(listed)}, the limit is {budget.max_primitives}")
+        message = f"too many primitives: {len(listed)}, the limit is {budget.max_primitives}"
+        raise SpecRejected(message, code=RefusalCode.OVER_BUDGET, field="primitives")
 
 
 def _read(grid: MaterialGrid, spec: object, origin_m: object, budget: Budget) -> tuple[str, list[Primitive]]:
     """The spec's name and its primitives placed at ``origin_m``, or SpecRejected. Nothing here touches the grid."""
     if not isinstance(spec, Mapping):
-        raise SpecRejected(f"an imagined object must be a mapping, got {type(spec).__name__}")
+        message = f"an imagined object must be a mapping, got {type(spec).__name__}"
+        raise SpecRejected(message, code=RefusalCode.BAD_SHAPE)
     try:
         known_keys(spec, "an imagined object", required=(), optional=SPEC_KEYS)
-    except ValueError as exc:  # reported as the refusal
-        raise SpecRejected(str(exc)) from exc
+    except Refused as exc:  # reported as the refusal, with its code
+        raise SpecRejected(str(exc), code=exc.code, field=exc.field) from exc
     _within_budget(spec, budget)
     name = spec.get("name")
     if not name or not isinstance(name, str) or not name.strip() or name != name.strip():
-        raise SpecRejected("an imagined object needs a name, with no outer spaces")
+        raise SpecRejected("an imagined object needs a name, with no outer spaces", code=RefusalCode.BAD_NAME)
     clash = next((r for r in grid.regions if entity_key(r) == entity_key(name)), None)
     if clash is not None:  # by Maxim's name rule, checked before anything is painted
-        raise SpecRejected(f"something called {shown(clash)} already exists")
+        raise SpecRejected(f"something called {shown(clash)} already exists", code=RefusalCode.NAME_TAKEN)
     try:
         origin = finite_vector(origin_m, 3, "origin_m")
         prims = primitives_from_data(spec.get("primitives", []))
         placed = [_offset(p, (origin[0], origin[1], origin[2])) for p in prims]  # offsetting re-validates
-    except (KeyError, TypeError, ValueError) as exc:
-        raise SpecRejected(f"malformed spec: {exc}") from exc
+    except Refused as exc:  # every malformed shape is coded where it is found (schema, checks, constructors)
+        raise SpecRejected(f"malformed spec: {exc}", code=exc.code, field=exc.field) from exc
     if not prims:
-        raise SpecRejected("an imagined object needs at least one primitive")
+        raise SpecRejected("an imagined object needs at least one primitive", code=RefusalCode.MISSING_FIELD)
     for p in prims:
         if p.material not in grid.materials:
-            raise SpecRejected(f"{shown(p.material)} is not a material this world knows")
+            message = f"{shown(p.material)} is not a material this world knows"
+            raise SpecRejected(message, code=RefusalCode.UNKNOWN_MATERIAL)
         if p.material == "air":
-            raise SpecRejected("objects cannot be made of air")
+            raise SpecRejected("objects cannot be made of air", code=RefusalCode.NOT_SOLID)
     return name, placed
 
 
@@ -111,15 +120,17 @@ def _within_world_rules(grid: MaterialGrid, placed: list[Primitive], budget: Bud
     (x0, y0, z0), (x1, y1, z1) = footprint.bounds_m
     across_m = max(x1 - x0, y1 - y0, z1 - z0)
     if across_m > budget.max_extent_m + 1e-9:
-        raise SpecRejected(f"too large: {across_m:.2f} m across, the limit is {budget.max_extent_m:g} m")
+        message = f"too large: {across_m:.2f} m across, the limit is {budget.max_extent_m:g} m"
+        raise SpecRejected(message, code=RefusalCode.OVER_BUDGET)
     # The same boundary as authored scenes (scene._check_no_solid_overlaps): an imagined object may not sit inside a
     # named solid's footprint, even in air carved into it, or a strike on that solid could break the new object.
     for other, region in grid.regions.items():
         if region.solid and any(boxes_overlap(region.footprint.bounds_m, p.bounds_m) for p in placed):
-            raise SpecRejected(f"that space belongs to {shown(other)}")
+            raise SpecRejected(f"that space belongs to {shown(other)}", code=RefusalCode.SPACE_TAKEN)
     mass = sum(p.volume_m3 * grid.materials[p.material].density_kg_m3 for p in placed)
     if mass > budget.max_mass_kg:
-        raise SpecRejected(f"too heavy: {mass:.0f} kg, the limit is {budget.max_mass_kg:g} kg")
+        message = f"too heavy: {mass:.0f} kg, the limit is {budget.max_mass_kg:g} kg"
+        raise SpecRejected(message, code=RefusalCode.OVER_BUDGET)
     return footprint, mass
 
 
@@ -135,11 +146,12 @@ def _voxelize(grid: MaterialGrid, name: str, placed: list[Primitive], footprint:
         for p in placed:
             mask = p.mask(grid)
             if (mask & solid).any():
-                raise SpecRejected("that space is occupied")
+                raise SpecRejected("that space is occupied", code=RefusalCode.SPACE_TAKEN)
             union |= mask
             grid.paint(mask, p.material)
         if not union.any():
-            raise SpecRejected("the object is smaller than one cell at this resolution, or outside the world")
+            message = "the object is smaller than one cell at this resolution, or outside the world"
+            raise SpecRejected(message, code=RefusalCode.TOO_SMALL)
         grid.name_region(name, union, footprint, solid=True)  # imagined objects are never air (see _read)
 
 

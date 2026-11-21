@@ -23,18 +23,34 @@ from simcore.core.checks import shown
 from simcore.core.grid import Point
 from simcore.core.intents import AFFORDANCE_OF, Action, ActionRefused, Ignite, Strike
 from simcore.core.limits import ActionLimits
+from simcore.core.refusals import RefusalCode, Refused
 from simcore.core.world import HeatSource, World
 
 
 @dataclass(frozen=True)
 class Outcome:
-    """What applying one action did. ``params`` are the action's values as applied (finite, JSON-shaped)."""
+    """What applying one action did. ``params`` are the action's values as applied (finite, JSON-shaped). A refusal
+    carries its ``code`` (and the schema ``field`` at fault, if one is), which is all an agent is told, and ``error``,
+    the words, for logs and tests."""
 
     affordance: str
     params: Mapping[str, object]
     success: bool
     error: str | None = None
     metadata: Mapping[str, float] = field(default_factory=lambda: MappingProxyType({}))
+    code: RefusalCode | None = None
+    field: str | None = None
+
+    @property
+    def agent_text(self) -> str | None:
+        """The refusal in the closed vocabulary (boundaries §5.4), or None when the action was applied."""
+        if self.code is None:
+            return None
+        return Refused("", code=self.code, field=self.field).agent_text
+
+
+def _refused(affordance: str, params: Mapping[str, object], exc: Refused) -> Outcome:
+    return Outcome(affordance, params, False, str(exc), code=exc.code, field=exc.field)
 
 
 class Applier:
@@ -57,7 +73,7 @@ class Applier:
             action.check(self._world.limits)
             self._check_region(region)
         except ActionRefused as exc:
-            return Outcome(affordance, params, False, str(exc))
+            return _refused(affordance, params, exc)
         # TEMPORARY(phase1/sim-clock): the applier opens the world's write window itself, synchronously, until
         # Simulation.step exists (boundaries §4.1, 2c); there the step owns the window and applies intents in order.
         if isinstance(action, Strike):
@@ -73,11 +89,11 @@ class Applier:
     def _check_region(self, region: str) -> None:
         regions = self._world.grid.regions
         if not isinstance(region, str) or region not in regions:
-            raise ActionRefused(f"there is no {shown(region)} in this world")
-        if not regions[region].solid:
-            raise ActionRefused(f"the {region} is air: there is no structure to act on")  # a name in the table
+            raise ActionRefused(f"there is no {shown(region)} in this world", code=RefusalCode.NO_REGION)
+        if not regions[region].solid:  # a name in the table
+            raise ActionRefused(f"the {region} is air: there is no structure to act on", code=RefusalCode.NOT_SOLID)
         if not regions[region].cells.any():
-            raise ActionRefused(f"the {region} is gone")
+            raise ActionRefused(f"the {region} is gone", code=RefusalCode.REGION_GONE)
 
     def _on_region(self, region: str, point: Point, sigma_m: float) -> bool:
         """Whether a strike at ``point`` is a strike on ``region``, judged from authored footprints in metres.
@@ -101,7 +117,8 @@ class Applier:
     def _strike(self, region: str, action: Strike, params: Mapping[str, object]) -> Outcome:
         point = action.point_m if action.point_m is not None else self._centroid_m(region)
         if not self._on_region(region, point, action.sigma_m):
-            return Outcome("strike", params, False, f"point_m is not on the {region}")
+            refusal = ActionRefused(f"point_m is not on the {region}", code=RefusalCode.NOT_ON_REGION, field="point_m")
+            return _refused("strike", params, refusal)
         with self._world.writing():
             res = damage.strike(self._world.grid, point, action.energy_j, action.sigma_m)
         meta = {"destroyed_volume_m3": res.destroyed_volume_m3, "absorbed_j": res.absorbed_j}
@@ -119,7 +136,8 @@ class Applier:
 
     def _extinguish(self, region: str, params: Mapping[str, object]) -> Outcome:
         if f"fire:{region}" not in self._world.sources:
-            return Outcome("extinguish", params, False, f"nothing is burning on the {region}")
+            refusal = ActionRefused(f"nothing is burning on the {region}", code=RefusalCode.NOT_BURNING)
+            return _refused("extinguish", params, refusal)
         with self._world.writing(cells=False) as sources:
             del sources[f"fire:{region}"]
         return Outcome("extinguish", params, True)

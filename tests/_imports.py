@@ -34,6 +34,9 @@ _NUMERIC = {
     "collections": "Mapping, Sequence and friends from collections.abc",
     "contextlib": "the write window's context manager",
     "dataclasses": "frozen value types",
+    "enum": "StrEnum, the refusal codes' closed vocabulary",
+    "hashlib": "sha256 for versioned content digests (simcore.core.digest); not the builtin hash()",
+    "re": "the shape of a stored digest",
     "math": "scalar maths",
     "numbers": "Real and Integral, to refuse bools and strings posing as numbers",
     "reprlib": "the bounded echo",
@@ -52,6 +55,7 @@ ALLOWED: dict[str, dict[str, str]] = {
         "typing": "types only",
         "pathlib": "the file gate: it reads files from an explicit path",
         "yaml": "the file gate: strict YAML through a SafeLoader subclass",
+        "re": "the bare-name check a DataPath joins with",
     },
     "simcore.adapters.sem": {
         "__future__": "postponed annotations",
@@ -83,20 +87,21 @@ ALLOWED: dict[str, dict[str, str]] = {
 _NAMES_CORE = frozenset({
     "__future__.annotations", "collections.abc.Callable", "collections.abc.Collection", "collections.abc.Iterator",
     "collections.abc.Mapping", "collections.abc.Sequence", "contextlib.contextmanager", "dataclasses.asdict",
-    "dataclasses.dataclass", "dataclasses.field", "math.ceil", "math.isfinite", "math.log", "math.nan", "math.pi",
-    "math.prod", "math.sqrt", "numbers.Integral", "numbers.Real", "numpy.all", "numpy.arange", "numpy.argmin",
+    "dataclasses.dataclass", "dataclasses.field", "enum.StrEnum", "hashlib.sha256", "math.ceil", "math.inf",
+    "math.isfinite", "math.log", "math.nan", "math.pi", "math.prod", "math.sqrt", "numbers.Integral", "numbers.Real",
+    "numpy.all", "numpy.arange", "numpy.argmin",
     "numpy.argwhere", "numpy.array", "numpy.asarray", "numpy.bool_", "numpy.diff", "numpy.errstate",
     "numpy.flatnonzero", "numpy.float32", "numpy.float64", "numpy.floating", "numpy.floor", "numpy.frombuffer",
     "numpy.full", "numpy.generic", "numpy.inf", "numpy.integer", "numpy.intersect1d", "numpy.logical_and",
-    "numpy.max", "numpy.mean", "numpy.rint", "numpy.take", "numpy.typing.NDArray", "numpy.uint8", "numpy.where",
-    "numpy.zeros", "reprlib.Repr", "scipy.ndimage", "scipy.ndimage.label", "scipy.special.ndtr",
+    "numpy.max", "numpy.mean", "numpy.take", "numpy.typing.NDArray", "numpy.uint8", "numpy.where",
+    "numpy.zeros", "re.compile", "reprlib.Repr", "scipy.ndimage", "scipy.ndimage.label", "scipy.special.ndtr",
     "types.MappingProxyType", "typing.Any", "typing.Literal", "typing.Protocol", "typing.SupportsFloat",
 })  # fmt: skip
 
 # the file gate: paths, and strict YAML through a SafeLoader subclass
 _NAMES_LOADERS = frozenset({
-    "__future__.annotations", "collections.Counter", "collections.abc.Mapping", "collections.abc.Sequence",
-    "pathlib.Path", "typing.Any", "yaml.MappingNode", "yaml.SafeLoader", "yaml.YAMLError", "yaml.load",
+    "__future__.annotations", "collections.Counter", "collections.abc.Sequence", "pathlib.Path", "re.compile",
+    "typing.Any", "yaml.MappingNode", "yaml.SafeLoader", "yaml.YAMLError", "yaml.load",
     "yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG",
 })  # fmt: skip
 
@@ -172,9 +177,11 @@ PATH_HOLDERS: dict[str, dict[str, str]] = {
         "load": "RigProfile.load, which hands the path on",
     },
     "simcore.protocol.tiers": {
-        "get": "Mapping.get on the decoded profile",
+        "check": "RIG_PROFILE.schema.check, the constructor's field rules",
+        "from_document": "RigProfile.from_document, which builds from a read document",
         "name": "the profile's own name field",
-        "strip": "str.strip in the name check",
+        "read": "RIG_PROFILE.read, the format's reader of the parsed document (no file: read_yaml opened it)",
+        "schema": "RIG_PROFILE.schema",
     },
 }
 

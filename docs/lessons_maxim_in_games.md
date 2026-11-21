@@ -267,3 +267,18 @@ receptor's). Tissue is world physics even when its constants come from physiolog
 damage belong to the world, or the body gets a second heat path (design review, `reviews/fire_model/bio_faithful.md`
 S4). For any engine embedding agents: "computed from the world" is necessary for a sensor, not sufficient; it must
 also be sensible.
+
+### 25. An agent's refusal vocabulary must be closed, and it still has to steer (2026-11-21)
+
+**What the world tells an agent when it refuses is an input to the agent's next thought, so it is a protocol, not a
+message.** *Evidence:* step 3b part (b) replaced the SEM membrane's free-text errors with the refusal-code enum
+(`simcore/core/refusals.py`, WT-S1; boundaries §5.4): free text echoed the caller's own values back to the LLM
+(bounded by `checks.shown`, never scrubbed), and an unknown parameter's made-up name was repeated into the next
+prompt. A code alone loses guidance the old words carried, so two parts were kept: the schema's own field name
+(`out_of_range (power_w)`, a name we wrote, never one the caller sent), and two codes where one would loop. A target
+that is another thing of the same name was `wrong_target`, whose advice "name the crate" sends the agent straight
+back to the namesake; it is `namesake` now. *Consequence:* codes are append-only from their first shipment (the
+intent log and the wire carry them), a refusal names at most a field from the reader's schema, and a code is split
+when two causes need different next actions from the agent. For Maxim: a tool's error string is part of the agent's
+observation stream, so a closed, versioned error vocabulary for modulators belongs in SEM's contract rather than in
+each host (a Phase 3 candidate; Maxim's `origin/main` not yet searched for it, so no item is filed).

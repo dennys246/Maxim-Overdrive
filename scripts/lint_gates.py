@@ -30,7 +30,7 @@ MAXIM_PROTOCOLS = {
     "Sensor": frozenset({"name", "unit", "reading_schema", "read"}),
     "Modulator": frozenset({"name", "affordances", "execute"}),
 }
-EXCEPTION_BASES = {"Exception", "ValueError", "TypeError", "RuntimeError", "KeyError"}
+EXCEPTION_BASES = {"Exception", "ValueError", "TypeError", "RuntimeError", "KeyError", "Refused"}
 
 
 @dataclass(frozen=True)
@@ -46,23 +46,39 @@ _VAL = "tests/test_validation.py"
 _SEM = "tests/test_sem_bridge.py"
 _CON = "tests/test_constructors.py"
 _EXT = "tests/test_extremes.py"
-# §5.4 asks anything agent-facing (errors, receipts) to answer in a closed code vocabulary. These gates answer an LLM's
-# input in free text today, bounded by checks.shown, so they meet every clause but that one (step 3b review, Trust S3).
-_FREE_TEXT = "partial: free-text refusals until the refusal-code enum (plan step 3b part b, WT-S1)"
+_FMT = "tests/test_formats.py"
+# §5.4 asks anything agent-facing (errors, receipts) to answer in a closed code vocabulary. Since step 3b part (b) every
+# refusal these gates give carries a code (simcore.core.refusals, WT-S1), and the membrane answers an agent with the
+# code alone (step 3b review, Trust S3).
 
 GATE_MODULES = (
     "src/simcore/adapters/loaders.py",
+    "src/simcore/core/schema.py",
     "src/simcore/adapters/sem/bridge.py",
     "src/simcore/core/imagination.py",
     "src/simcore/core/intents.py",
     "src/simcore/protocol/tiers.py",
 )
 
+_SCHEMA_READERS = (
+    "Real", "Real.convert", "Whole", "Whole.convert", "Vector", "Vector.convert", "Rgb", "Rgb.convert", "Text",
+    "Text.convert", "Identity", "Identity.convert", "Nested", "Nested.convert", "Tagged", "Tagged.convert", "ListOf",
+    "ListOf.convert", "MapOf", "MapOf.convert", "Field", "Field.read", "Schema", "Schema.read", "Schema.check",
+    "read_version", "Format", "Format.read",
+)  # fmt: skip
+# what each converter refuses (the generated tests' input) and a schema's fields by name: descriptions, not readers
+_SCHEMA_DESCRIPTIONS = (
+    "Real.bad", "Whole.bad", "Vector.bad", "Rgb.bad", "Text.bad", "Identity.bad", "Nested.bad", "Tagged.bad",
+    "ListOf.bad", "MapOf.bad", "Schema.by_name",
+)  # fmt: skip
+
 GATES: dict[str, Gate] = {
     # file gates: strict YAML, a version, closed keys, ValueError only, bounded echo; not agent-facing
     "src/simcore/adapters/loaders.py::read_yaml": Gate(_V, _ACT, "meets"),
     "src/simcore/adapters/loaders.py::existing_directory": Gate(_V, _VAL, "meets"),
     "src/simcore/adapters/loaders.py::real_path": Gate(_V, _VAL, "no input"),
+    # B29: the data locator's handle, which joins bare names only and which only these gates open
+    "src/simcore/adapters/loaders.py::DataPath": Gate(_V, _VAL, "meets"),
     # an operator's rig name: a malformed name is a ValueError; a well-formed name with no file is the gate's
     # FileNotFoundError (an OSError), which tells an operator the rig is missing rather than malformed
     "src/maxim_overdrive/data.py::rig_profile": Gate(
@@ -72,32 +88,42 @@ GATES: dict[str, Gate] = {
     "src/simcore/adapters/loaders.py::load_action_limits": Gate(_V, _ACT, "meets"),
     "src/simcore/protocol/tiers.py::RigProfile": Gate(_V, _VAL, "meets"),
     "src/simcore/protocol/tiers.py::RigProfile.load": Gate(_V, _VAL, "meets"),
+    "src/simcore/protocol/tiers.py::RigProfile.from_document": Gate(_V, _FMT, "meets"),
+    # the one reader every format applies (simcore.core.schema): its converters, fields, schemas and versions
+    **{f"src/simcore/core/schema.py::{name}": Gate(_V, _FMT, "meets") for name in _SCHEMA_READERS},
+    **{f"src/simcore/core/schema.py::{name}": Gate(_V, _FMT, "no input") for name in _SCHEMA_DESCRIPTIONS},
+    "src/simcore/core/materials.py::MaterialTable.from_document": Gate(_V, _FMT, "meets"),
+    "src/simcore/core/limits.py::ActionLimits.from_document": Gate(_V, _FMT, "meets"),
     # validating constructors the loaders and the actions build (§5.1)
     "src/simcore/core/materials.py::Material": Gate(_V, _CON, "meets"),
     "src/simcore/core/materials.py::MaterialTable": Gate(_V, _CON, "meets"),
     "src/simcore/core/limits.py::ActionLimits": Gate(_V, _ACT, "meets"),
     "src/simcore/core/world.py::HeatSource": Gate(_V, _ACT, "meets"),
     # stage 1 of every action: typed parsing, finiteness and ceilings
-    "src/simcore/core/intents.py::parse_action": Gate(_V, _ACT, _FREE_TEXT),
-    "src/simcore/core/intents.py::Strike": Gate(_V, _ACT, _FREE_TEXT),
-    "src/simcore/core/intents.py::Strike.check": Gate(_V, _ACT, _FREE_TEXT),
-    "src/simcore/core/intents.py::Ignite": Gate(_V, _ACT, _FREE_TEXT),
-    "src/simcore/core/intents.py::Ignite.check": Gate(_V, _ACT, _FREE_TEXT),
+    "src/simcore/core/intents.py::parse_action": Gate(_V, _ACT, "meets"),
+    "src/simcore/core/intents.py::Strike": Gate(_V, _ACT, "meets"),
+    "src/simcore/core/intents.py::Strike.check": Gate(_V, _ACT, "meets"),
+    "src/simcore/core/intents.py::Ignite": Gate(_V, _ACT, "meets"),
+    "src/simcore/core/intents.py::Ignite.check": Gate(_V, _ACT, "meets"),
     "src/simcore/core/intents.py::Extinguish": Gate(_V, _ACT, "no input"),
     "src/simcore/core/intents.py::Extinguish.check": Gate(_V, _ACT, "no input"),
     # stage 2: the world checks, which the host's step will call directly from phase1/agents
-    "src/simcore/core/applier.py::Applier.apply": Gate("authorization", _CON, _FREE_TEXT),
+    "src/simcore/core/applier.py::Applier.apply": Gate("authorization", _CON, "meets"),
     # imagined objects: spec constructors, budgets before allocation, then the world's rules
     "src/simcore/core/imagination.py::Budget": Gate(_V, _CON, "meets"),
-    "src/simcore/core/imagination.py::place": Gate(_V, "tests/test_imagination.py", _FREE_TEXT),
-    "src/simcore/core/scene.py::primitives_from_data": Gate(_V, _VAL, _FREE_TEXT),
-    "src/simcore/core/scene.py::Box": Gate(_V, _EXT, _FREE_TEXT),
-    "src/simcore/core/scene.py::Cylinder": Gate(_V, _EXT, _FREE_TEXT),
-    "src/simcore/core/scene.py::Scene.from_dict": Gate(_V, _VAL, "to-be: scene v1 (plan step 3b part b)"),
+    "src/simcore/core/imagination.py::place": Gate(_V, "tests/test_imagination.py", "meets"),
+    "src/simcore/core/scene.py::primitives_from_data": Gate(_V, _VAL, "meets"),
+    "src/simcore/core/scene.py::Box": Gate(_V, _EXT, "meets"),
+    "src/simcore/core/scene.py::Cylinder": Gate(_V, _EXT, "meets"),
+    "src/simcore/core/scene.py::Scene.from_dict": Gate(_V, _FMT, "meets"),
+    "src/simcore/core/scene.py::Scene": Gate(_V, _VAL, "meets"),
+    "src/simcore/core/scene.py::Spawn": Gate(_V, "tests/test_scene_v1.py", "meets"),
+    "src/simcore/core/scene.py::Spawn.from_document": Gate(_V, "tests/test_scene_v1.py", "meets"),
+    "src/simcore/core/checks.py::identity_key": Gate(_V, "tests/test_scene_v1.py", "meets"),
     # the SEM membrane: Maxim's calls arrive through these methods
     "src/simcore/adapters/sem/bridge.py::StructureModulator": Gate(_V, _VAL, "meets"),
     "src/simcore/adapters/sem/bridge.py::StructureModulator.affordances": Gate(_V, _ACT, "no input"),
-    "src/simcore/adapters/sem/bridge.py::StructureModulator.execute": Gate("authorization", _ACT, _FREE_TEXT),
+    "src/simcore/adapters/sem/bridge.py::StructureModulator.execute": Gate("authorization", _ACT, "meets"),
     "src/simcore/adapters/sem/bridge.py::RegionInstrument": Gate(_V, "tests/test_frames.py", "meets"),
     "src/simcore/adapters/sem/bridge.py::RegionInstrument.name": Gate(_V, _VAL, "no input"),
     "src/simcore/adapters/sem/bridge.py::RegionInstrument.unit": Gate(_V, _VAL, "no input"),

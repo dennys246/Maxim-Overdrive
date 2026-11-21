@@ -158,14 +158,37 @@ def test_a_subclass_that_overrides_a_modulators_execute_needs_a_row():
     assert f"gate registry: {rel}::Door.execute is an entry point with no row" in gates.check_gates(files)
 
 
-def test_an_agent_facing_gate_does_not_claim_the_closed_code_vocabulary_it_lacks():
+def test_an_agent_facing_gate_claims_the_closed_code_vocabulary_only_because_it_answers_in_it():
+    """§5.4's last clause: these gates were partial until the refusal codes (step 3b part b). Each now meets it, and
+    each is called with a bad input here to show its refusal is a code, never words (WT-S1)."""
+    from maxim_overdrive import data  # noqa: PLC0415
+    from simcore.adapters.sem.bridge import region_parts  # noqa: PLC0415
+    from simcore.core.applier import Applier  # noqa: PLC0415
+    from simcore.core.imagination import SpecRejected, place  # noqa: PLC0415
+    from simcore.core.intents import ActionRefused, Ignite, parse_action  # noqa: PLC0415
+    from simcore.core.refusals import RefusalCode  # noqa: PLC0415
+    from simcore.core.scene import Box, Scene  # noqa: PLC0415
+    from simcore.core.world import World  # noqa: PLC0415
+
     for name in (
         "src/simcore/adapters/sem/bridge.py::StructureModulator.execute",
         "src/simcore/core/imagination.py::place",
         "src/simcore/core/intents.py::parse_action",
         "src/simcore/core/applier.py::Applier.apply",
     ):
-        assert gates.GATES[name].status.startswith("partial: "), name
+        assert gates.GATES[name].status == "meets", name
+    scene = Scene((2.0, 2.0, 2.0), (Box((0.6, 0.6, 0.0), (1.2, 1.2, 0.6), "wood", "crate"),))
+    world = World.from_scene(scene, data.materials(), dx_m=0.2, limits=data.action_limits())
+    applier = Applier(world)
+    _, modulators = region_parts(applier, world.frames, "crate")
+    assert RefusalCode(modulators["structure"].execute("ignite", {"power_w": "hot"}).error.split(" ")[0])
+    with pytest.raises(ActionRefused) as refused:
+        parse_action("ignite", {"power_w": 1e30}, world.limits)
+    assert refused.value.agent_text == "out_of_range (power_w)"
+    assert applier.apply("nowhere", Ignite(1.0, 0.3)).agent_text == "no_region"
+    with pytest.raises(SpecRejected) as rejected:
+        place(world.grid, {"name": "crate", "primitives": []}, (0.0, 0.0, 0.0))
+    assert rejected.value.agent_text == "name_taken"
 
 
 def test_a_test_module_names_its_gate_as_code_not_in_a_comment_or_a_string():

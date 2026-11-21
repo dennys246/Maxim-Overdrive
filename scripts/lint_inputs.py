@@ -19,16 +19,23 @@ path. This lint covers what those can't show, in closed lists:
   that is not a literal ``False`` (by keyword, or by position to ``numpy.load``, ``lib.npyio.load``, ``NpzFile`` and
   ``read_array``); and ``*`` or ``**`` arguments to any of them.
 
+- **Routes through a value** in ``src/`` (B29; step 3b delta round 7): the attributes that reach a namespace
+  (``__globals__``, ``__dict__``, ``__builtins__``, ``__subclasses__``, ``__code__``, ``__closure__``) on any value,
+  and a ``str.format`` field naming one (``'{0.__globals__[os]}'``); and, outside the input gates, a filesystem or
+  receive method on any value (``read_text``, ``open``, ``readline``, ``recv`` and the rest of ``FS_METHODS``), since
+  a path or a stream handed in is still input. ``maxim_overdrive.data.data_dir`` hands out a ``DataPath``, which has
+  none of them.
+
 What it can't see: a value passed through a variable, a container or a function (``f = pick(yaml)``,
-``operator.attrgetter('unsafe_load')(yaml)``, ``functools.partial(np.load, ...)`` outside ``src/``), a method on an
-object handed in (a stream's ``readline``), a name built at run time, and ``from x import *`` (ruff's F403 refuses
-that). It guards mistakes, not adversaries.
+``operator.attrgetter('unsafe_load')(yaml)``, ``functools.partial(np.load, ...)`` outside ``src/``), a method named
+at run time, and ``from x import *`` (ruff's F403 refuses that). It guards mistakes, not adversaries.
 ``tests/test_lint_inputs_corpus.py`` judges every reported spelling by this lint and the contract together.
 """
 
 from __future__ import annotations
 
 import ast
+import re
 
 # The modules that may read input, each with what it reads. A new gate joins this list, the contract's ignore list
 # and the gate registry (lint_gates.py) in the change that makes it.
@@ -51,6 +58,18 @@ SAFE_LOADERS = {"SafeLoader", "CSafeLoader"}
 IMPORTERS = {"importlib.import_module", "builtins.__import__", "importlib.__import__"}
 NAMESPACES = {"builtins.vars", "builtins.globals", "builtins.locals"}  # vars(x) is x's names; globals() the module's
 BUILTINS = {"open", "input", "eval", "exec", "__import__", "compile", "getattr", "vars", "globals", "locals"}
+# Attributes that reach a module's namespace from any value (contextmanager(len).__globals__['os']), in src/.
+NAMESPACE_ATTRIBUTES = {"__globals__", "__dict__", "__builtins__", "__subclasses__", "__code__", "__closure__"}
+# A str.format field that reads one of them itself ('{0.__globals__[os]}'.format(f)), or any dunder by attribute or
+# by subscript: a format field is code that runs on its arguments.
+FORMAT_DUNDER = re.compile(r"\{[^{}]*[.\[]\s*__")
+# Methods that read the filesystem or a stream from a value (a Path or a socket handed in), outside the input gates.
+# Not read, which is also every format's reader (Format.read); a file object's read needs open, refused above.
+FS_METHODS = {
+    "read_text", "read_bytes", "write_text", "write_bytes", "open", "iterdir", "glob", "rglob", "walk", "exists",
+    "is_file", "is_dir", "is_symlink", "stat", "lstat", "resolve", "readlink", "touch", "mkdir", "rmdir", "unlink",
+    "chmod", "samefile", "expanduser", "absolute", "readline", "readlines", "recv", "recv_into", "recvfrom",
+}  # fmt: skip
 
 
 def aliases(tree: ast.Module) -> dict[str, str]:
@@ -221,12 +240,29 @@ def _computed_getattr(rel: str, source: str) -> list[str]:
     ]
 
 
+def _value_routes(rel: str, source: str, gate: bool) -> list[str]:
+    """Namespace attributes and dunder format fields on any value; filesystem methods outside a gate (B29)."""
+    out = []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Attribute) and node.attr in NAMESPACE_ATTRIBUTES:
+            out.append(f"{rel}:{node.lineno}: reads {node.attr}, a namespace through a value (B29)")
+        elif isinstance(node, ast.Attribute) and node.attr in FS_METHODS and not gate:
+            out.append(f"{rel}:{node.lineno}: calls .{node.attr}, input through a value outside the gates (B29)")
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str) and FORMAT_DUNDER.search(node.value):
+            out.append(f"{rel}:{node.lineno}: a format field names a dunder, a namespace through a value (B29)")
+    return out
+
+
 def input_findings(rel: str, source: str) -> list[str]:
-    """The input builtins and a module's own loader, in a ``src/`` module that is not an input gate."""
-    if not rel.startswith("src/") or rel in INPUT_GATES:
+    """The input builtins and a module's own loader, in a ``src/`` module that is not an input gate; and the routes
+    through a value, in every ``src/`` module (filesystem methods outside the gates only)."""
+    if not rel.startswith("src/"):
         return []
+    routes = _value_routes(rel, source, gate=rel in INPUT_GATES)
+    if rel in INPUT_GATES:
+        return routes
     computed = _computed_getattr(rel, source) if rel.startswith("src/simcore/") else []
-    return _findings(rel, source, IN_SRC, calls=False) + computed
+    return _findings(rel, source, IN_SRC, calls=False) + computed + routes
 
 
 def check_inputs(files: dict[str, str]) -> list[str]:

@@ -32,6 +32,7 @@ SRC = "src/simcore/protocol/x.py"  # in the engine, outside the gates; planted r
 DATA = "src/maxim_overdrive/data.py"  # a path holder: rows here judge its attributes
 TIERS = "src/simcore/protocol/tiers.py"  # the other path holder
 CORE = "src/simcore/core/x.py"  # the sealed core, whose import list is the engine's widest
+GAME = "src/maxim_overdrive/game.py"  # the game: a module beside the data locator
 ANY = "tests/test_x.py"  # the unsafe rule holds in every file
 
 # (rule, file, source, flagged, where it was reported)
@@ -170,6 +171,44 @@ CASES: list[tuple[str, str, str, bool, str]] = [
     ("input", CORE, "import math\nr = math.sqrt(2.0)", False, "delta 6: a name the core uses"),
     # D6-N1: a name built at run time; in simcore the lint refuses any computed getattr, so it is caught there
     ("input", SRC, "from simcore.core import grid\nx = getattr(grid, 'n' + 'p')", True, "delta 6: a computed getattr"),
+    # -- input, delta 7 (D7-N1, D7-N2; B29): routes through a value, closed in step 3b part (b) ---------------------
+    ("input", CORE, "import contextlib\ne = contextlib.contextmanager(len).__globals__['os'].environ", True, "delta 7"),
+    (
+        "input",
+        CORE,
+        "from dataclasses import field\ne = field().__class__.__init__.__globals__['sys'].argv",
+        True,
+        "delta 7",
+    ),
+    (
+        "input",
+        CORE,
+        "from contextlib import contextmanager\ns = '{0.__globals__[os].environ}'.format(contextmanager)",
+        True,
+        "delta 7: a format field",
+    ),
+    (
+        "input",
+        GAME,
+        "from maxim_overdrive.data import data_dir\nt = (data_dir() / 'x.yaml').read_text()",
+        True,
+        "delta 7: data_dir",
+    ),
+    ("input", CORE, "def f(x):\n    return x.__dict__", True, "B29: __dict__"),
+    ("input", CORE, "c = int.__subclasses__()", True, "B29: __subclasses__"),
+    ("input", CORE, "def f(g):\n    return g.__builtins__", True, "B29: __builtins__"),
+    ("input", CORE, "def f(g):\n    return g.__code__", True, "B29: __code__, the reviewer's"),
+    ("input", SRC, "s = '{x[__class__]}'.format(x=v)", True, "B29: a format field by subscript"),
+    ("input", SRC, "t = Path(p).read_text()", True, "B29: once left out (Path unbound), now a filesystem method"),
+    ("input", SRC, "b = path.read_bytes()", True, "B29: a filesystem method on a value"),
+    ("input", SRC, "h = path.open()", True, "B29: a filesystem method on a value"),
+    ("input", SRC, "m = sock.recv(1024)", True, "B29: a receive on a value"),
+    ("input", SRC, "async def f(r):\n    return await r.readline()", True, "B29: a read on a value"),
+    ("input", CORE, "def f(x):\n    return type(x).__name__", False, "B29: a name is not a namespace"),
+    ("input", CORE, "s = '{0.name} {1[a]}'.format(x, y)", False, "B29: a format field with no dunder"),
+    ("input", CORE, "s = 'a.__b'", False, "B29: dunder text outside a format field"),
+    ("input", CORE, "doc = SCENE.read(raw, 'scene')", False, "B29: a format's reader is not a file read"),
+    ("input", "src/simcore/adapters/loaders.py", "t = path.read_bytes()", False, "B29: the gate itself"),
     # -- input: clean, must not be flagged ----------------------------------------------------------------------------
     ("input", "src/simcore/adapters/loaders.py", "t = path.read_text()", False, "build: the gate itself"),
     ("input", "scripts/x.py", "t = path.read_text()", False, "build: outside src"),
@@ -277,22 +316,7 @@ CASES: list[tuple[str, str, str, bool, str]] = [
 # Spellings the design deliberately doesn't cover, each with the reason. The joint judge must not flag them; if one
 # becomes covered, move it into CASES.
 NOT_COVERED: list[tuple[str, str, str, str]] = [
-    (
-        "input",
-        "t = Path(p).read_text()",
-        "build",
-        "Path unbound: only an import brings it in, which the contract forbids",
-    ),
-    ("input", "b = path.read_bytes()", "build", "a method on an object handed in; values aren't followed"),
-    ("input", "m = sock.recv(1024)", "build", "a method on an object handed in; values aren't followed"),
-    ("input", "h = path.open()", "build", "a method on an object handed in; values aren't followed"),
     ("input", "v = getenv('X')", "build", "getenv unbound is a NameError; importing it is a contract finding"),
-    (
-        "input",
-        "async def f(r):\n    return await r.readline()",
-        "delta 3",
-        "an asyncio stream handed in; asyncio is forbidden",
-    ),
     ("unsafe", "import yaml\nf = getattr(yaml, name)", "round 1", "a computed name, a value; in src yaml is forbidden"),
     ("unsafe", "from numpy import *\na = load(f, None, True)", "delta 3", "a star import; ruff's F403 refuses it"),
     ("unsafe", "import operator, yaml\nf = operator.attrgetter('unsafe_load')(yaml)", "delta 3", "a name as a value"),
@@ -363,6 +387,6 @@ def test_a_spelling_the_design_leaves_out_is_still_left_out(contract_hits, index
 
 def test_the_corpus_holds_every_round_and_both_verdicts():
     origins = {c[4].split(":")[0] for c in CASES}
-    assert {"build", "round 1", "delta 1", "delta 2", "delta 3", "delta 4", "delta 5", "delta 6"} <= origins
+    assert {"build", "round 1", "delta 1", "delta 2", "delta 3", "delta 4", "delta 5", "delta 6", "delta 7"} <= origins
     assert {c[3] for c in CASES if c[0] == "input"} == {True, False}
     assert {c[3] for c in CASES if c[0] == "unsafe"} == {True, False}

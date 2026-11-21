@@ -23,6 +23,7 @@ from simcore.core.applier import Applier, Outcome
 from simcore.core.checks import entity_key, shown
 from simcore.core.frames import QUANTITIES, FrameSource
 from simcore.core.intents import ActionRefused, parse_action
+from simcore.core.refusals import RefusalCode
 
 if TYPE_CHECKING:
     # Type-check against Maxim's own classes; tests/test_sem_compat.py holds the _compat mirror to the same fields.
@@ -156,20 +157,15 @@ class StructureModulator:
         label = affordance if isinstance(affordance, str) and len(affordance) <= 40 else shown(affordance)
         try:
             action = parse_action(affordance, params, self._applier.limits)
-        except ActionRefused as exc:
-            return self._result(label, {}, False, str(exc))
+        except ActionRefused as exc:  # the agent is told the code, never the words (boundaries §5.4)
+            return self._result(label, {}, False, exc.agent_text)
         target = params.get("target") if isinstance(params, Mapping) else None
+        # Told apart for the agent, in the closed vocabulary with no name echoed: another thing of this name (an item,
+        # an NPC called "crate") is a namesake, and "name the crate" would loop it; anything else is the wrong target.
         if self._is_namesake(target):
-            other = f"that is another thing called {self._target_label(target)}, not this {self._region}"
-            return self._result(label, {}, False, other)
+            return self._result(label, {}, False, RefusalCode.NAMESAKE.value)
         if target is not None and not self._is_this_region(target):
-            return self._result(
-                label,
-                {},
-                False,
-                f"the {self._region}'s structure is acted on directly, not on {self._target_label(target)}: "
-                f"name the {self._region} as the target",
-            )
+            return self._result(label, {}, False, RefusalCode.WRONG_TARGET.value)
         # TEMPORARY(phase1/agents): execute applies synchronously and logs nothing (boundaries §6.4). In phase1/agents
         # it only parses, checks the bound actor and appends the intent to the stepping agent's outbox, returning a
         # pending, neutral result; the host's step applies it.
@@ -177,7 +173,7 @@ class StructureModulator:
 
     def _from(self, outcome: Outcome) -> ModulatorResult:
         return self._result(
-            outcome.affordance, dict(outcome.params), outcome.success, outcome.error, **outcome.metadata
+            outcome.affordance, dict(outcome.params), outcome.success, outcome.agent_text, **outcome.metadata
         )
 
     def _is_namesake(self, target: object) -> bool:
@@ -196,13 +192,6 @@ class StructureModulator:
         if HAVE_MAXIM and isinstance(target, Entity):
             return target.modulators.get("structure") is self
         return type(target) is str and entity_key(target) == entity_key(self._region)
-
-    @staticmethod
-    def _target_label(target: object) -> str:
-        """A short, deterministic label for a refused target: no memory addresses, which would differ between runs
-        and break a replayed log's bytes."""
-        name = target.name if HAVE_MAXIM and isinstance(target, Entity) else target
-        return shown(name) if type(name) in (str, int, float) else f"<a {type(name).__name__}>"
 
 
 def region_parts(

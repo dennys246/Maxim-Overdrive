@@ -22,6 +22,18 @@ import numpy.typing as npt
 from simcore.core.checks import entity_key, finite_real
 from simcore.core.materials import AIR_ID, MaterialTable
 from simcore.core.readonly import frozen
+from simcore.core.refusals import RefusalCode, Refused
+
+UM_PER_M = 1_000_000
+
+
+def _whole_micrometres(length_m: float, what: str) -> int:
+    """A length as whole micrometres, or a Refused: cell edges are integer micrometres (F13, fire_solid §1.3)."""
+    um = round(length_m * UM_PER_M)
+    if abs(length_m * UM_PER_M - um) > 1e-3:  # a nanometre: float noise on a whole micrometre, never a real length
+        raise Refused(f"{what} {length_m} m is not a whole number of micrometres", code=RefusalCode.OUT_OF_RANGE)
+    return um
+
 
 # Array types for the grid's fields. Typing the element type (not bare np.ndarray) is what strict mypy needs on every
 # supported numpy: older stubs give ndarray no default type parameters.
@@ -309,17 +321,25 @@ class MaterialGrid(GridGeometry, CellStore):
         """An all-air grid over ``extent_m`` in cells of edge ``dx_m``, the simulation's truth resolution (D20)."""
         dx = finite_real(dx_m, "dx_m")
         if not dx > 0:  # the check RigProfile made on cell_size_m before resolution left the rig
-            raise ValueError(f"dx_m must be positive, got {dx_m}")
-        shape = tuple(max(1, int(np.rint(e / dx))) for e in extent_m)  # int: numpy 1.x round() keeps float64
-        for e, n in zip(extent_m, shape, strict=True):
-            if abs(n * dx - e) > 1e-6 * max(1.0, e):
-                raise ValueError(
+            raise Refused(f"dx_m must be positive, got {dx_m}", code=RefusalCode.OUT_OF_RANGE, field="dx_m")
+        # Grid alignment is checked in integers (world_model F13): 0.6 / 0.2 is 2.9999999999999996 in floats, so a
+        # float test needs a tolerance that some extent always falls across. Whole micrometres have no such edge.
+        dx_um = _whole_micrometres(dx, "dx_m")
+        cells = []
+        for e in extent_m:
+            n, rest = divmod(_whole_micrometres(e, "extent_m"), dx_um)
+            if rest or n < 1:
+                raise Refused(
                     f"extent {e} m is not a whole number of {dx} m cells; author tile extents as multiples of the "
-                    "coarsest grid's cell size so every grid spacing covers the same space"
+                    "coarsest grid's cell size so every grid spacing covers the same space",
+                    code=RefusalCode.OUT_OF_RANGE,
+                    field="extent_m",
                 )
+            cells.append(n)
+        shape = (cells[0], cells[1], cells[2])
         return cls(
             dx,
-            shape,  # type: ignore[arg-type]
+            shape,
             materials,
             material=np.zeros(shape, dtype=np.uint8),
             original_material=np.zeros(shape, dtype=np.uint8),
@@ -337,7 +357,7 @@ class MaterialGrid(GridGeometry, CellStore):
         A named region needs its ``footprint``, its authored shape in metres (see ``Region``).
         """
         if region is not None and any(entity_key(r) == entity_key(region) for r in self._region_names()):
-            raise ValueError(f"region {region!r} already exists")
+            raise Refused(f"region {region!r} already exists", code=RefusalCode.NAME_TAKEN)
         if region is not None and footprint is None:
             raise ValueError(f"region {region!r} needs its authored footprint in metres")
         self._require_window("a paint")
@@ -359,7 +379,8 @@ class MaterialGrid(GridGeometry, CellStore):
         """
         clash = next((r for r in self._region_names() if entity_key(r) == entity_key(region)), None)
         if clash is not None:
-            raise ValueError(f"region {region!r} already exists" + ("" if clash == region else f" (as {clash!r})"))
+            message = f"region {region!r} already exists" + ("" if clash == region else f" (as {clash!r})")
+            raise Refused(message, code=RefusalCode.NAME_TAKEN)
         self._require_window("a region")
         self._window_table()
         assert self._masks is not None

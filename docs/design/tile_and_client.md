@@ -77,9 +77,9 @@ T8–T12 are client decisions (`client_rendering.md` §0).
 ### 1.3 Scene format and files
 
 - **Scene v1 = world_model F13's strict loader plus a required `spawns` list** (WT-S8), in step 3b; zones become v2
-  in Phase 2. v0 migrates by the literal `spawns: []` (F12); `join` with no spawn for its archetype is refused.
+  in Phase 2. v0 is refused by version (step 3b); `join` with no spawn for its archetype is refused.
 - **The format checks syntax and extent only;** clearance is checked at construction and `join` (AR-S9); spawns
-  convert to integer mm by F13's rule; a bed's φ and σ are validated (0 < φ < 1, σ > 0) where the primitive is made.
+  convert to integer mm by F13's rule.
 - **Files:** `content/scenes/alley.yaml` (rights reserved, step 8); engine tests and step 5 use an Apache fixture
   with the same boxes, `tests/fixtures/scenes/alley_box.yaml`. Cut-away walls are client data (DC-N4).
 

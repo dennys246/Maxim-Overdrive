@@ -64,20 +64,30 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
   - done: B-4's input-primitive allowlist and banned unsafe calls (`tests/test_input_allowlist.py`, `scripts/lint_inputs.py`);
     B-10's `Observation` protocol and frame tests (`simcore/core/frames.py`, `tests/test_frames.py`); B-13's import
     half (`membrane-reads-frames`; the field registry joins its allowed list in step 5a).
-- Scene v1: F13 plus a required `spawns`; scene v0 is refused by version, not migrated (it would migrate to a
-  scene `join` refuses); golden v0 and v1 fixtures (WT-S8).
-- One schema and one reader per data format; `MaterialTable`'s lookup arrays and every rejection test generated
-  from it.
-- One small migration mechanism (`read_version` plus a registry keyed by format and version), used only for
-  formats other people hold: saves, logs, bug reports, later mods. Repo-only files get a version bump and a
-  refusal test instead.
-- Digests stored versioned, as `sha256/c14n-1:<hex>`.
-- Content stores time in world units (m/s, seconds), never ticks; ticks are derived at load.
-- Loader types for body archetypes and items; the refusal-code enum (WT-S1).
-- Identity keys contain no `:` (Maxim's owner, 2026-11-19: `make_agent_rng` joins `f"{base_seed}:{agent_id}"`, so a
-  `:` would make streams ambiguous). Every loader that reads one (`body_key`, NPC keys, stream names; later save v0)
-  refuses it with a typed code, and each has a rejection test (`npcs_and_sem.md` §3.4).
-- Fuel-bed fields (φ, σ) on primitives, validated where made.
+- Part (b), on `phase1/formats`:
+  - done: scene v1, F13 plus a required `spawns`; scene v0 is refused by version, not migrated (it would migrate to a
+    scene `join` refuses); golden v0 and v1 fixtures (WT-S8); zones, vents and gaps refused by path; grid alignment
+    in whole micrometres (`simcore/core/scene.py`, `grid.py`; `tests/fixtures/formats/v0/scene.yaml`, `v1/scene.yaml`,
+    `tests/fixtures/scenes/alley_box.yaml`; `tests/test_scene_v1.py`).
+  - done: one schema and one reader per data format; `MaterialTable`'s lookup arrays and every rejection test
+    generated from it (`simcore/core/schema.py`; `tests/test_formats.py` finds every `Format`, fail closed).
+  - done: one small migration mechanism (`read_version` plus `Format.migrations`, keyed by format and version),
+    refused for a repo-only format at declaration; no shipped format is held by others yet, so none migrates.
+  - done, no shipped caller until step 5a's log header: digests stored versioned, as `sha256/c14n-1:<hex>`
+    (`simcore/core/digest.py`).
+  - done: content stores time in world units, never ticks: a schema field named for ticks is refused where it is
+    declared. Ticks derived at load arrive with the tick (step 5a).
+  - done: the refusal-code enum (WT-S1, `simcore/core/refusals.py`), append-only and pinned; every gate's refusal
+    carries a code, and the SEM membrane answers an agent with the code alone.
+  - done: identity keys contain no `:` (Maxim's owner, 2026-11-19: `make_agent_rng` joins `f"{base_seed}:{agent_id}"`,
+    so a `:` would make streams ambiguous), refused as `bad_identity_key` (`checks.identity_key`). Today's one loader
+    of them, the scene's spawns (name, archetype, held item), has a rejection test per key; NPC keys and stream
+    names get theirs with their loaders (`phase1/agents`), save v0's `body_key` at step 9 (`npcs_and_sem.md` §3.4).
+  - done: B29 (`loaders.DataPath`; `scripts/lint_inputs.py`'s routes through a value; the four corpus rows).
+  - not built: loader types for body archetypes (the body contract is being redesigned, `sem_stimuli.md` v4 on
+    `phase1/sem-stimulus`; owner, 2026-11-21) and for items, which travel with them (open: the owner to confirm).
+  - superseded: fuel-bed fields (φ, σ) on primitives. `fire_solid.md` (accepted 2026-11-20) makes a fuel an object,
+    never a cell field, and dropped `bed:` from tile §1.3.
 
 ## Step 4, verify
 

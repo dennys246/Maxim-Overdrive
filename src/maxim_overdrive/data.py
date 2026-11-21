@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from simcore.adapters.loaders import existing_directory, load_action_limits, load_materials, real_path
+from simcore.adapters.loaders import DataPath, existing_directory, load_action_limits, load_materials, real_path
 from simcore.core.checks import shown
 from simcore.core.limits import ActionLimits
 from simcore.core.materials import MaterialTable
@@ -22,10 +22,11 @@ __all__ = ["action_limits", "data_dir", "materials", "rig_profile"]
 RIG_NAME = re.compile(r"[A-Za-z0-9_-]+")
 
 
-def data_dir(here: Path | None = None) -> Path:
+def data_dir(here: Path | None = None) -> DataPath:
     """Bundled data: inside the wheel when installed, the repo's ``data/`` in a checkout. Neither is a FileNotFoundError
     that names both, never a path that silently doesn't exist (boundaries §11.2, W5). ``here`` is this package's
-    directory; a test passes another."""
+    directory; a test passes another. It is a ``DataPath``, which only the file gates open (B29), so game code can't
+    read a data file past the strict YAML gate."""
     # Resolved before any arithmetic: a package reached through a symlink finds the data beside the real package
     # (delta round 6, Executor N-h). The gate resolves, since realpath reads the filesystem.
     here = real_path(Path(__file__).parent if here is None else here)

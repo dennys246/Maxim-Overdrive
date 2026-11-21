@@ -6,20 +6,39 @@ passed in as a required parameter, so the core has no default path into anyone's
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass
 from types import MappingProxyType
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 
-from simcore.core.checks import finite_real, shown, whole_number
+from simcore.core.checks import shown
 from simcore.core.readonly import frozen
+from simcore.core.refusals import RefusalCode, Refused
+from simcore.core.schema import Field, Format, MapOf, Nested, Real, Rgb, Schema, Text, Whole
 
-# The physical bounds a material must meet, whoever builds it (boundaries §5.1, TB-B2): heat capacity divides, so a
-# zero density or specific heat would make the first heat step divide by zero.
-_POSITIVE = ("density_kg_m3", "specific_heat_j_kgk")
-_NON_NEGATIVE = ("conductivity_w_mk", "fracture_energy_j_m3", "degrade_rate_per_s_per_100c")
+# The material's one schema (boundaries §5.1, TB-B2): the file's reader, Material's constructor and the table's lookup
+# arrays all read it. Heat capacity divides, so a zero density or specific heat would make the first heat step divide
+# by zero; a negative conductivity would run heat uphill. ``lookup`` is the value an unused id gets in its array.
+_POSITIVE, _NON_NEGATIVE = Real(lo=0.0, lo_open=True), Real(lo=0.0)
+MATERIAL = Schema(
+    (
+        Field("id", Whole(0, 255)),  # uint8 cells; a negative id would index the property arrays from the end
+        Field("density_kg_m3", _POSITIVE),
+        Field("specific_heat_j_kgk", _POSITIVE),
+        Field("conductivity_w_mk", _NON_NEGATIVE, lookup=0.0),
+        Field("fracture_energy_j_m3", _NON_NEGATIVE, lookup=0.0),
+        Field("degrade_above_c", Real(), required=False, nullable=True, lookup=np.inf),
+        Field("degrade_rate_per_s_per_100c", _NON_NEGATIVE, required=False, default=0.0, lookup=0.0),
+        Field("color_rgb", Rgb()),
+    )
+)
+MAX_MATERIALS = 256  # one per uint8 id
+MATERIAL_TABLE = Format(
+    "material table", 0, Schema((Field("materials", MapOf(Text(), Nested(MATERIAL), MAX_MATERIALS)),))
+)
 
 
 @dataclass(frozen=True)
@@ -36,21 +55,10 @@ class Material:
 
     def __post_init__(self) -> None:
         if not isinstance(self.name, str) or not self.name:
-            raise ValueError(f"a material needs a name, got {shown(self.name)}")
-        number = whole_number(self.id, f"{self.name}.id")
-        if not 0 <= number <= 255:  # a negative id would index the property arrays from the end
-            raise ValueError(f"{self.name}.id must fit in uint8 (0 to 255), got {number}")
-        object.__setattr__(self, "id", number)
-        for name in (*_POSITIVE, *_NON_NEGATIVE):
-            value = finite_real(self.__dict__[name], f"{self.name}.{name}")
-            if value < 0 or (value == 0 and name in _POSITIVE):
-                kind = "positive" if name in _POSITIVE else "non-negative"
-                raise ValueError(f"{self.name}.{name} must be {kind}, got {value!r}")
+            raise Refused(f"a material needs a name, got {shown(self.name)}", code=RefusalCode.BAD_NAME)
+        values = asdict(self)
+        for name, value in MATERIAL.check(values, f"material {self.name}").items():
             object.__setattr__(self, name, value)
-        if self.degrade_above_c is not None:
-            above = finite_real(self.degrade_above_c, f"{self.name}.degrade_above_c")
-            object.__setattr__(self, "degrade_above_c", above)
-        object.__setattr__(self, "color_rgb", _colour(self.color_rgb, f"{self.name}.color_rgb"))
 
     @property
     def diffusivity_m2_s(self) -> float:
@@ -60,16 +68,6 @@ class Material:
     def volumetric_heat_capacity(self) -> float:
         """J / (m^3 K)."""
         return self.density_kg_m3 * self.specific_heat_j_kgk
-
-
-def _colour(value: object, what: str) -> tuple[int, int, int]:
-    """Three whole numbers from 0 to 255, or a ValueError that names the field."""
-    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or len(value) != 3:
-        raise ValueError(f"{what} must be three values from 0 to 255, got {shown(value)}")
-    rgb = tuple(whole_number(c, what) for c in value)
-    if not all(0 <= c <= 255 for c in rgb):
-        raise ValueError(f"{what} must be three values from 0 to 255, got {shown(value)}")
-    return (rgb[0], rgb[1], rgb[2])
 
 
 AIR_ID = 0
@@ -92,21 +90,30 @@ class MaterialTable:
     def __init__(self, materials: Mapping[str, Material]) -> None:
         for key, m in materials.items():
             if not isinstance(m, Material) or m.name != key:
-                raise ValueError(f"material {shown(key)} must be a Material of that name")
+                raise Refused(f"material {shown(key)} must be a Material of that name", code=RefusalCode.BAD_SHAPE)
         ids = [m.id for m in materials.values()]
         if len(set(ids)) != len(ids):
-            raise ValueError("material ids must be unique")
+            raise Refused("material ids must be unique", code=RefusalCode.NAME_TAKEN, field="id")
         if AIR_ID not in ids or materials.get("air") is None or materials["air"].id != AIR_ID:
-            raise ValueError("the table must define 'air' with id 0")
+            raise Refused("the table must define 'air' with id 0", code=RefusalCode.MISSING_FIELD, field="air")
         self._by_name = MappingProxyType(dict(materials))
         self._by_id = MappingProxyType({m.id: m for m in materials.values()})
-        n, ms = max(ids) + 1, list(materials.values())
-        self._rho_cp = _lookup(1.0, n, {m.id: m.volumetric_heat_capacity for m in ms})
-        self._conductivity = _lookup(0.0, n, {m.id: m.conductivity_w_mk for m in ms})
-        self._fracture = _lookup(0.0, n, {m.id: m.fracture_energy_j_m3 for m in ms})
-        above = {m.id: m.degrade_above_c for m in ms if m.degrade_above_c is not None}
-        self._degrade_above = _lookup(np.inf, n, above)
-        self._degrade_rate = _lookup(0.0, n, {m.id: m.degrade_rate_per_s_per_100c for m in ms})
+        n, ms = max(ids) + 1, [asdict(m) for m in materials.values()]
+        # One array per field the schema marks with a lookup value, so a new per-id property is declared once.
+        self._lookups = MappingProxyType(
+            {
+                f.name: _lookup(f.lookup, n, {m["id"]: m[f.name] for m in ms if m[f.name] is not None})
+                for f in MATERIAL.fields
+                if f.lookup is not None
+            }
+        )
+        self._rho_cp = _lookup(1.0, n, {m["id"]: m["density_kg_m3"] * m["specific_heat_j_kgk"] for m in ms})
+
+    @classmethod
+    def from_document(cls, doc: Mapping[str, object]) -> MaterialTable:
+        """The table from a document ``MATERIAL_TABLE`` has read."""
+        entries: Mapping[str, Mapping[str, Any]] = doc["materials"]  # type: ignore[assignment]  # the schema's MapOf
+        return cls({name: Material(name=name, **entry) for name, entry in entries.items()})
 
     @property
     def by_name(self) -> Mapping[str, Material]:
@@ -121,20 +128,25 @@ class MaterialTable:
         return self._rho_cp
 
     @property
+    def lookups(self) -> Mapping[str, Lookup]:
+        """Every per-id array the schema declares, by field name."""
+        return self._lookups
+
+    @property
     def conductivity(self) -> Lookup:
-        return self._conductivity
+        return self._lookups["conductivity_w_mk"]
 
     @property
     def fracture(self) -> Lookup:
-        return self._fracture
+        return self._lookups["fracture_energy_j_m3"]
 
     @property
     def degrade_above(self) -> Lookup:
-        return self._degrade_above
+        return self._lookups["degrade_above_c"]
 
     @property
     def degrade_rate(self) -> Lookup:
-        return self._degrade_rate
+        return self._lookups["degrade_rate_per_s_per_100c"]
 
     def __getitem__(self, name: str) -> Material:
         return self.by_name[name]
