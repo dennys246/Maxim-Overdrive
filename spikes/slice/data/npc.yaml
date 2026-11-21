@@ -1,0 +1,29 @@
+# The slice's vendor (docs/plans/vertical_slice.md §3.5): gamey tunables, tuned by playing. The persona and lines are
+# placeholder text for the slice, not the game's characters or lore.
+version: slice-0
+vendor:
+  stall_x: 4.6             # the stall: mid-alley on the north side, 1.4 m west of the crate
+  stall_y: 3.0
+  safe_x: 0.8              # where it runs: the pavement at the alley's mouth
+  safe_y: 2.0
+  effort: 0.8              # a walking pace, short of the body's top speed
+  flee_flux_w_m2: 2500.0   # 2 kW/m^2 is painful within 45 s (fire_model.md §5, NOAA ALOHA)
+  douse_range_m: 3.0       # a fire this close to the stall is its business
+  douse_reach_m: 1.2       # an extinguisher's useful throw
+  small_fire_w: 100000.0   # "small": under 100 kW, about 50 s into a fast t-squared fire
+  charges: 1
+  warn_range_m: 8.0
+  comment_range_m: 3.0
+voice:
+  model: qwen2.5:3b        # measured by the LLM spike: ~0.3 s to the first token, 1-2 s a short reply
+  host: http://127.0.0.1:11434
+  timeout_s: 2.5
+  max_words: 25
+  persona: You run a noodle stall in a rainy neon alley. You are tired, blunt and quick. You speak in short sentences.
+canned:
+  flee: ["Out! Get out, it's coming this way!", "Too hot, I'm gone!"]
+  douse: ["Not on my watch.", "Hold on, I've got this."]
+  doused: ["Out. Don't do that again.", "There. Who lights a crate in an alley?"]
+  warn: ["Fire! Back off from it!", "That's spreading, watch yourself."]
+  comment: ["You're smoking. Ease off the chrome.", "Your rig's running hot, friend."]
+  idle: ["Noodles. Two creds.", "Rain's not stopping."]

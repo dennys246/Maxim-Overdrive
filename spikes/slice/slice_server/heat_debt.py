@@ -74,3 +74,10 @@ def step(
     refill = p.puddle_refill_kg_s if in_puddle else p.coolant_refill_kg_s
     h.coolant_kg = min(p.coolant_kg, h.coolant_kg - evaporated * dt + refill * dt)
     h.tripped_s = p.trip_s if h.core_c >= p.trip_c else max(0.0, h.tripped_s - dt)
+
+
+def add_heat(h: BodyHeat, p: HeatParams, joules: float) -> None:
+    """A burst of heat into the node (an Overdrive strike), with the trip checked at once."""
+    h.core_c += joules / p.capacity_j_k
+    if h.core_c >= p.trip_c:
+        h.tripped_s = p.trip_s

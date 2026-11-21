@@ -16,18 +16,22 @@ from pathlib import Path
 from slice_server import config, intents
 from slice_server.server import Server, write_run_file
 from slice_server.sim import Sim, replay
+from slice_server.voice import Voice, ollama
 
 HERE = Path(__file__).resolve().parents[1]
 
 
-def serve(dx_m: float, port: int) -> None:
+def serve(dx_m: float, port: int, *, llm: bool) -> None:
     sessions = HERE / "sessions"
     sessions.mkdir(exist_ok=True)
     log_path = sessions / f"{time.strftime('%Y%m%dT%H%M%S')}.jsonl"
     token = secrets.token_hex(16)
     with log_path.open("w") as log:
         log.write(json.dumps({"meta": {"dx_m": dx_m, "tick_s": 0.1}}) + "\n")
-        server = Server(Sim(config.load(), dx_m=dx_m), token=token, log=log, port=port)
+        cfg = config.load()
+        # Engine choice: the voice talks to Ollama on 127.0.0.1 with stdlib urllib, so the slice adds no dependency.
+        voice = Voice(cfg.npc.voice, cfg.npc.canned, ollama(cfg.npc.voice) if llm else None)
+        server = Server(Sim(cfg, dx_m=dx_m), token=token, log=log, port=port, voice=voice)
         write_run_file(HERE / "run" / "session.json", server.port, token)
         print(f"slice: 127.0.0.1:{server.port}, logging to {log_path}", flush=True)
         # Ctrl-C and SIGTERM only ask: KeyboardInterrupt would land mid-tick, half an advance into the final digest,
@@ -72,12 +76,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     run = sub.add_parser("serve")
     run.add_argument("--dx", type=float, default=0.2)
     run.add_argument("--port", type=int, default=0)
+    run.add_argument("--no-llm", action="store_true", help="canned vendor lines only (the cut list's first cut)")
     check = sub.add_parser("replay")
     check.add_argument("log", type=Path)
     args = parser.parse_args(argv)
     if args.cmd == "replay":
         return 0 if check_replay(args.log) else 1
-    serve(getattr(args, "dx", 0.2), getattr(args, "port", 0))
+    serve(getattr(args, "dx", 0.2), getattr(args, "port", 0), llm=not getattr(args, "no_llm", False))
     return 0
 
 

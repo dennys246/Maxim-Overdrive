@@ -13,6 +13,7 @@ from slice_server import WIRE_VERSION, config
 from slice_server.__main__ import check_replay
 from slice_server.server import Server
 from slice_server.sim import Sim
+from slice_server.voice import Voice
 from slice_server.wire import FrameReader, encode
 
 TOKEN = "t" * 32
@@ -115,3 +116,50 @@ def test_stop_ends_the_loop_between_ticks_so_the_last_digest_replays(tmp_path: P
     path = tmp_path / "session.jsonl"
     path.write_text(log.getvalue())
     assert check_replay(path)
+
+
+def test_a_change_of_the_vendors_state_sends_a_line_and_logs_it(tmp_path: Path) -> None:
+    cfg = config.load()
+    log = io.StringIO()
+    log.write('{"meta":{"dx_m":0.2,"tick_s":0.1}}\n')
+    sim = Sim(cfg)
+    server = Server(sim, token=TOKEN, log=log, voice=Voice(cfg.npc.voice, cfg.npc.canned, None))
+    thread = threading.Thread(target=server.run, args=(30,), daemon=True)
+    thread.start()
+    got: list[dict] = []
+    try:
+        with socket.create_connection(("127.0.0.1", server.port)) as sock:
+            sock.sendall(_hello())
+            sock.sendall(encode({"type": "say", "text": "two bowls, please"}))
+            reader = FrameReader()
+            sock.settimeout(10)
+            while not any(m["type"] == "npc_line" for m in got):  # until the line arrives, not until a close
+                data = sock.recv(65536)
+                if not data:
+                    break
+                got += list(reader.feed(data))
+                if sim.vendor_state == "idle" and any(m["type"] == "welcome" for m in got):
+                    # Once this client is in, stage a change: the vendor's next tick, back to idle, is a new state.
+                    sim.vendor_state = "warn"
+    finally:
+        thread.join(timeout=30)
+        server.close()
+    lines = [m for m in got if m["type"] == "npc_line"]
+    assert lines, "a line reached the client"
+    assert lines[0]["source"] == "canned"
+    assert lines[0]["text"] in cfg.npc.canned[lines[0]["state"]]
+    assert '"line":' in log.getvalue(), "and the session log"
+    path = tmp_path / "session.jsonl"
+    path.write_text(log.getvalue())
+    assert check_replay(path), "a session with words and lines in it still replays"
+
+
+def test_the_server_runs_past_its_stats_report() -> None:
+    # A stray line in _report once broke every session at tick 50, after every other test had stopped short of it.
+    cfg = config.load()
+    server = Server(Sim(cfg), token=TOKEN, log=io.StringIO(), voice=Voice(cfg.npc.voice, cfg.npc.canned, None))
+    try:
+        server.run(ticks=55)
+    finally:
+        server.close()
+    assert server.sim.tick == 55

@@ -1,3 +1,5 @@
+import dataclasses
+
 import numpy as np
 import pytest
 from slice_server import config
@@ -5,7 +7,10 @@ from slice_server.body import Body, Command
 from slice_server.intents import Kindle, Move
 from slice_server.sim import Sim, replay
 
-C = config.load()
+_LOADED = config.load()
+C = dataclasses.replace(  # no extinguisher charge: these tests watch the player and the fire, not the vendor
+    _LOADED, npc=dataclasses.replace(_LOADED.npc, vendor=dataclasses.replace(_LOADED.npc.vendor, charges=0))
+)
 
 
 def _crate_hottest(sim: Sim) -> float:
@@ -17,13 +22,13 @@ def test_kindling_in_front_of_the_crate_lights_it_through_the_applier() -> None:
     sim = Sim(C)
     sim.body = Body(5.4, 2.9, 0.4, yaw=0.0)  # 0.6 m from the crate's west face, facing it
     before = _crate_hottest(sim)
-    events = sim.step([Kindle()])
+    events = [e for e in sim.step([Kindle()]) if e["what"] == "kindle"]  # the vendor may react in the same tick
     assert events == [{"type": "event", "what": "kindle", "region": "crate", "ok": True, "error": None}]
     assert "fire:crate" in sim.world.sources
     for _ in range(50):
         sim.step([])
-    # 60 kW into the bulk heats slowly (the glow probe: 175 C at the hottest cell after 300 s); 5 s gives a few K.
-    assert _crate_hottest(sim) > before + 1.0
+    # The fire grows as t^2 over 90 s, so after 5 s it has released little: the crate warms, but barely.
+    assert _crate_hottest(sim) > before
     state = sim.state()
     (burning,) = state["burning"]
     assert burning["region"] == "crate"

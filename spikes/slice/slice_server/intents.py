@@ -1,8 +1,8 @@
 """The client's intents, parsed: every key checked, every number finite and in range, or a coded refusal.
 
 The client is untrusted input (CLAUDE.md, Game engineering). A refusal is an ``error`` reply and changes nothing;
-it never crashes the server or half-applies an intent. Week 1 knows ``move`` and ``kindle``; the plan's other
-intents (``look``, ``strike``, ``say``) arrive with the weeks that use them, and until then are ``unknown_type``.
+it never crashes the server or half-applies an intent. The slice knows ``move``, ``kindle``, ``strike`` and ``say``;
+the plan's ``look`` never earned its place (the client turns the camera itself) and is ``unknown_type``.
 """
 
 from __future__ import annotations
@@ -25,7 +25,20 @@ class Kindle:
     """Light whatever named solid is in front of the body, within reach. The server picks the target."""
 
 
-Intent = Move | Kindle
+@dataclass(frozen=True)
+class Strike:
+    """Hit whatever named solid is in front, within reach: harder, hotter and with recoil when in Overdrive."""
+
+
+@dataclass(frozen=True)
+class Say:
+    """Words to the vendor. They reach its voice as words and never its behaviour: the simulation ignores them."""
+
+    text: str
+
+
+MAX_SAY = 200  # characters
+Intent = Move | Kindle | Strike | Say
 
 
 def _keys(raw: Mapping[str, object], allowed: set[str]) -> None:
@@ -63,4 +76,13 @@ def parse(raw: Mapping[str, object]) -> Intent:
     if kind == "kindle":
         _keys(raw, {"type"})
         return Kindle()
+    if kind == "strike":
+        _keys(raw, {"type"})
+        return Strike()
+    if kind == "say":
+        _keys(raw, {"type", "text"})
+        text = raw["text"]
+        if not isinstance(text, str) or not text.strip() or len(text) > MAX_SAY:
+            raise WireRefused("bad_intent", f"text must be 1 to {MAX_SAY} characters")
+        return Say(text.strip())
     raise WireRefused("unknown_type", f"no intent called {str(kind)[:40]!r}")

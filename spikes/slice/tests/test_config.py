@@ -32,6 +32,7 @@ def test_the_shipped_files_load() -> None:
         (lambda r: r.update(kindle=[]), "mapping"),
         (lambda r: r["heat"].update(warn_c=90.0), "warn_c must be below trip_c"),
         (lambda r: r["heat"].pop("latent_j_kg"), "missing"),
+        (lambda r: r.pop("strike"), "top-level"),
     ],
 )
 def test_a_bad_body_file_is_refused_by_name(change, message: str) -> None:
@@ -59,6 +60,26 @@ def test_a_bad_fuel_file_is_refused_by_name(change, message: str) -> None:
     change(raw)
     with pytest.raises(ValueError, match=message):
         config.parse_fuel(raw, ambient_c=20.0)
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        (lambda r: r["vendor"].update(charges=1.5), "whole number"),
+        (lambda r: r["vendor"].pop("stall_x"), "missing"),
+        (lambda r: r["voice"].update(extra="x"), "keys must be"),
+        (lambda r: r["voice"].update(max_words=2.5), "whole number"),
+        (lambda r: r["voice"].update(persona="  "), "non-empty text"),
+        (lambda r: r["canned"].pop("flee"), "exactly"),
+        (lambda r: r["canned"].update(flee=[]), "non-empty list"),
+        (lambda r: r["canned"].update(flee=[3]), "non-empty text"),
+    ],
+)
+def test_a_bad_npc_file_is_refused_by_name(change, message: str) -> None:
+    raw = copy.deepcopy(_raw("npc.yaml"))
+    change(raw)
+    with pytest.raises(ValueError, match=message):
+        config.parse_npc(raw)
 
 
 def test_a_file_must_be_a_mapping() -> None:

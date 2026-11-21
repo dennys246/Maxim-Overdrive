@@ -64,13 +64,12 @@ def test_the_burnout_time_follows_the_shrinking_area_closed_form() -> None:
 def test_burnout_returns_a_zero_power_decision_once() -> None:
     fire = Fire(PARAMS, {"crate": _fuel(fraction=0.0005)})
     fire.kindle("crate")
-    powers = []
+    decisions = []
     for _ in range(400):
-        decisions, _ = fire.step(0.1)
-        powers += [d.power_w for d in decisions]
-    assert powers[-1] == 0.0, "the last decision puts the fire out"
-    assert powers.count(0.0) == 1
-    assert all(p > 0 for p in powers[:-1])
+        decisions += fire.step(0.1)[0]
+    assert decisions[-1].out, "the last decision puts the fire out"
+    assert sum(d.out for d in decisions) == 1
+    assert decisions[0].power_w == 0.0, "a fire that has just lit has not grown yet, and is not out"
 
 
 def _heated_skin(flux: float, seconds: float) -> Fuel:
@@ -122,3 +121,18 @@ def test_fuels_from_refuses_unknown_names_and_non_fuel_materials() -> None:
 def test_fire_params_come_from_the_fuel_file() -> None:
     assert isinstance(PARAMS, FireParams)
     assert dataclasses.asdict(PARAMS)["ambient_c"] == 20.0
+
+
+def test_a_fire_grows_as_t_squared_to_its_fuel_limited_power() -> None:
+    fuel = _fuel()
+    fuel.growth_s = 90.0
+    fire = Fire(PARAMS, {"crate": fuel})
+    fire.kindle("crate")
+    full = fuel.peak_power_w()
+    for _ in range(450):  # 45 s: half the growth time
+        fire.step(0.1)
+    shrink = (fuel.fuel_kg / fuel.fuel0_kg) ** (2 / 3)
+    assert fuel.power_w() == pytest.approx(full * shrink * 0.25, rel=1e-6)
+    for _ in range(600):  # past the growth time: fuel-limited
+        fire.step(0.1)
+    assert fuel.power_w() == pytest.approx(full * (fuel.fuel_kg / fuel.fuel0_kg) ** (2 / 3), rel=1e-12)

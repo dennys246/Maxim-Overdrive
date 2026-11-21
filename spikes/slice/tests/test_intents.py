@@ -1,7 +1,7 @@
 import math
 
 import pytest
-from slice_server.intents import Kindle, Move, parse
+from slice_server.intents import Kindle, Move, Say, Strike, parse
 from slice_server.wire import WireRefused
 
 
@@ -19,8 +19,10 @@ def test_a_zero_direction_stands_still() -> None:
     assert intent.command.effort == 0.0
 
 
-def test_kindle_parses() -> None:
+def test_kindle_strike_and_say_parse() -> None:
     assert parse({"type": "kindle"}) == Kindle()
+    assert parse({"type": "strike"}) == Strike()
+    assert parse({"type": "say", "text": "  hot noodles?  "}) == Say("hot noodles?")
 
 
 GOOD = {"type": "move", "dir": [1, 0], "effort": 1, "overdrive": False}
@@ -40,7 +42,12 @@ GOOD = {"type": "move", "dir": [1, 0], "effort": 1, "overdrive": False}
         ({**GOOD, "effort": "1"}, "bad_intent"),
         ({**GOOD, "overdrive": 1}, "bad_intent"),
         ({"type": "kindle", "at": [1, 2, 3]}, "bad_intent"),
-        ({"type": "say", "text": "hi"}, "unknown_type"),
+        ({"type": "look", "yaw": 1.0}, "unknown_type"),
+        ({"type": "strike", "at": [1, 2, 3]}, "bad_intent"),
+        ({"type": "say"}, "bad_intent"),
+        ({"type": "say", "text": "   "}, "bad_intent"),
+        ({"type": "say", "text": "x" * 201}, "bad_intent"),
+        ({"type": "say", "text": 42}, "bad_intent"),
         ({"no": "type"}, "unknown_type"),
     ],
 )

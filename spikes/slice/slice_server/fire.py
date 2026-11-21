@@ -8,6 +8,9 @@ simulation applies each decision through ``simcore.core.applier``, so the world 
   of the box that is burnable: slats and packing, a gamey per-object number). A burning object releases
   ``burn_rate x area x releasable_energy`` watts, with the burning area shrinking as fuel goes, ``(m / m0)^(2/3)``.
   It burns out at 5% of its fuel, the tile spec's ``t_gone`` rule.
+- **Growth.** A fire doesn't start at full power: it grows as ``(t / growth_s)^2`` until it reaches its fuel-limited
+  power, fire engineering's t-squared design fire (NFPA's "fast" class reaches about 350 kW in 90 s). Without it a
+  fire is never small, so nothing can be put out early. Fuel burns at the power released, so energy still balances.
 - **Ignition.** A skin node per object, the outer ``skin_depth_m`` of its exposed faces, heated by the radiation it
   absorbs and cooled by convection and its own re-radiation. The object lights when its skin passes the material's
   ignition temperature. The skin is the slice's, not the world's: its energy is not put into cells, the same
@@ -41,6 +44,7 @@ class FuelMaterial:
 @dataclass(frozen=True)
 class FireParams:
     radiant_fraction: float
+    growth_s: float
     source_radius_m: float
     burnout_fraction: float
     skin_depth_m: float
@@ -64,12 +68,15 @@ class Fuel:
     burning: bool = False
     burnt_out: bool = False
     released_j: float = 0.0
+    burning_s: float = 0.0  # since it last lit: the t-squared growth clock
+    growth_s: float = 1.0
 
     def power_w(self) -> float:
         if not self.burning:
             return 0.0
         area = self.area_m2 * (self.fuel_kg / self.fuel0_kg) ** (2.0 / 3.0)
-        return self.material.burn_rate_kg_s_m2 * area * self.material.releasable_energy_j_kg
+        growth = min(1.0, (self.burning_s / self.growth_s) ** 2)
+        return growth * self.material.burn_rate_kg_s_m2 * area * self.material.releasable_energy_j_kg
 
     def peak_power_w(self) -> float:
         return self.material.burn_rate_kg_s_m2 * self.area_m2 * self.material.releasable_energy_j_kg
@@ -77,10 +84,12 @@ class Fuel:
 
 @dataclass(frozen=True)
 class Decision:
-    """What the simulation must do through the applier: ``power_w`` > 0 sets the object's fire, 0 puts it out."""
+    """What the simulation must do through the applier: set the object's fire to ``power_w`` (which is 0 at the
+    instant a fire lights, before it grows), or put it out when ``out``. Explicit, so the two can't be confused."""
 
     region: str
     power_w: float
+    out: bool = False
 
 
 @dataclass
@@ -103,8 +112,18 @@ class Fire:
             return f"the {region} doesn't burn"
         if fuel.burnt_out:
             return f"the {region} has burnt out"
-        fuel.burning = True
+        if not fuel.burning:
+            fuel.burning, fuel.burning_s = True, 0.0
         return None
+
+    def douse(self, region: str) -> bool:
+        """Put a burning object out (the vendor's extinguisher). Its skin cools to ambient, so it doesn't relight at
+        once; a neighbour still burning can heat it back up. Returns whether there was a fire to put out."""
+        fuel = self.fuels.get(region)
+        if fuel is None or not fuel.burning:
+            return False
+        fuel.burning, fuel.skin_c = False, self.params.ambient_c
+        return True
 
     def step(self, dt: float) -> tuple[list[Decision], list[dict[str, object]]]:
         """One tick: heat the skins, light what passes ignition, burn fuel. Returns decisions and events."""
@@ -116,7 +135,7 @@ class Fire:
                 continue
             fuel.skin_c += self._skin_rate(fuel, flux) * dt
             if fuel.skin_c >= fuel.material.ignition_c:
-                fuel.burning = True
+                fuel.burning, fuel.burning_s = True, 0.0
                 events.append({"type": "event", "what": "ignited", "region": name, "flux_w_m2": flux})
         decisions = []
         for name, fuel in sorted(self.fuels.items()):
@@ -126,11 +145,12 @@ class Fire:
             burned = power / fuel.material.releasable_energy_j_kg * dt
             if fuel.fuel_kg - burned <= self.params.burnout_fraction * fuel.fuel0_kg:
                 fuel.burning, fuel.burnt_out = False, True
-                decisions.append(Decision(name, 0.0))
+                decisions.append(Decision(name, 0.0, out=True))
                 events.append({"type": "event", "what": "burnt_out", "region": name})
                 continue
             fuel.fuel_kg -= burned
             fuel.released_j += power * dt
+            fuel.burning_s += dt
             decisions.append(Decision(name, power))
         return decisions, events
 
@@ -178,6 +198,7 @@ def fuels_from(
     *,
     floor_z: float,
     ambient_c: float,
+    growth_s: float = 1.0,
 ) -> dict[str, Fuel]:
     """A ``Fuel`` for every named box whose name has a fuel fraction; its material must be flammable."""
     out: dict[str, Fuel] = {}
@@ -192,5 +213,7 @@ def fuels_from(
         volume = (x1 - x0) * (y1 - y0) * (z1 - z0)
         mass = volume * material.density_kg_m3 * fraction
         centroid = ((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
-        out[name] = Fuel(name, material, centroid, bounds, exposed_area(bounds, floor_z), mass, mass, ambient_c)
+        out[name] = Fuel(
+            name, material, centroid, bounds, exposed_area(bounds, floor_z), mass, mass, ambient_c, growth_s=growth_s
+        )
     return out

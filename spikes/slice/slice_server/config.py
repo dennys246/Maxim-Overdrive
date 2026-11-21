@@ -11,28 +11,35 @@ from pathlib import Path
 import yaml
 
 from slice_server import WIRE_VERSION
+from slice_server.body import BodyParams
 from slice_server.fire import FireParams
 from slice_server.heat_debt import HeatParams
+from slice_server.npc import NpcParams
+from slice_server.voice import VoiceParams
 
 DATA = Path(__file__).resolve().parents[1] / "data"
 
 
 @dataclass(frozen=True)
-class BodyParams:
-    mass_kg: float
-    radius_m: float
-    height_m: float
-    walk_speed_m_s: float
-    overdrive_speed_m_s: float
-    response_s: float
-    max_speed_m_s: float
-    substeps: int
-    step_clearance_m: float
+class KindleParams:
+    reach_m: float
 
 
 @dataclass(frozen=True)
-class KindleParams:
+class StrikeParams:
     reach_m: float
+    energy_j: float
+    overdrive_energy_j: float
+    sigma_m: float
+    overdrive_heat_j: float
+    recoil_ns: float
+
+
+@dataclass(frozen=True)
+class NpcConfig:
+    vendor: NpcParams
+    voice: VoiceParams
+    canned: Mapping[str, list[str]]  # state -> lines, used when the model can't answer
 
 
 @dataclass(frozen=True)
@@ -56,7 +63,9 @@ class SliceConfig:
     body: BodyParams
     kindle: KindleParams
     heat: HeatParams
+    strike: StrikeParams
     fuel: FuelConfig
+    npc: NpcConfig
 
 
 def _positive(value: object, where: str) -> float:
@@ -92,8 +101,8 @@ def _fields(cls: type) -> tuple[str, ...]:
     return tuple(cls.__dataclass_fields__)  # type: ignore[attr-defined]
 
 
-def parse_body(raw: object) -> tuple[BodyParams, KindleParams, HeatParams]:
-    top = _top(raw, {"version", "body", "kindle", "heat"}, "body")
+def parse_body(raw: object) -> tuple[BodyParams, KindleParams, HeatParams, StrikeParams]:
+    top = _top(raw, {"version", "body", "kindle", "heat", "strike"}, "body")
     body = _section(top, "body", _fields(BodyParams))
     if not body["substeps"].is_integer():
         raise ValueError(f"body.substeps: must be a whole number, got {body['substeps']!r}")
@@ -102,7 +111,8 @@ def parse_body(raw: object) -> tuple[BodyParams, KindleParams, HeatParams]:
     heat = _section(top, "heat", _fields(HeatParams))
     if not heat["warn_c"] < heat["trip_c"]:
         raise ValueError("heat: warn_c must be below trip_c")
-    return BodyParams(**body, substeps=substeps), KindleParams(**kindle), HeatParams(**heat)
+    strike = StrikeParams(**_section(top, "strike", _fields(StrikeParams)))
+    return BodyParams(**body, substeps=substeps), KindleParams(**kindle), HeatParams(**heat), strike
 
 
 def parse_fuel(raw: object, *, ambient_c: float) -> FuelConfig:
@@ -117,7 +127,45 @@ def parse_fuel(raw: object, *, ambient_c: float) -> FuelConfig:
     return FuelConfig(materials, objects, FireParams(**fire, ambient_c=ambient_c))
 
 
+NPC_STATES = ("flee", "douse", "doused", "warn", "comment", "idle")
+
+
+def _text(value: object, where: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{where}: must be non-empty text")
+    return value
+
+
+def parse_npc(raw: object) -> NpcConfig:
+    top = _top(raw, {"version", "vendor", "voice", "canned"}, "npc")
+    vendor = _section(top, "vendor", _fields(NpcParams))
+    if not vendor["charges"].is_integer():
+        raise ValueError(f"vendor.charges: must be a whole number, got {vendor['charges']!r}")
+    charges = int(vendor.pop("charges"))
+    voice = _mapping(top["voice"], "voice")
+    if set(voice) != set(_fields(VoiceParams)):
+        raise ValueError(f"voice: keys must be {sorted(_fields(VoiceParams))}, got {sorted(voice)}")
+    max_words = _positive(voice["max_words"], "voice.max_words")
+    if not max_words.is_integer():
+        raise ValueError(f"voice.max_words: must be a whole number, got {max_words!r}")
+    params = VoiceParams(
+        _text(voice["model"], "voice.model"), _text(voice["host"], "voice.host"),
+        _positive(voice["timeout_s"], "voice.timeout_s"), int(max_words), _text(voice["persona"], "voice.persona"),
+    )  # fmt: skip
+    canned = _mapping(top["canned"], "canned")
+    if set(canned) != set(NPC_STATES):
+        raise ValueError(f"canned: needs lines for exactly {sorted(NPC_STATES)}, got {sorted(canned)}")
+    lines = {}
+    for state in NPC_STATES:
+        listed = canned[state]
+        if not isinstance(listed, list) or not listed:
+            raise ValueError(f"canned.{state}: must be a non-empty list of lines")
+        lines[state] = [_text(line, f"canned.{state}") for line in listed]
+    return NpcConfig(NpcParams(**vendor, charges=charges), params, lines)
+
+
 def load(data: Path = DATA, *, ambient_c: float = 20.0) -> SliceConfig:
-    body, kindle, heat = parse_body(yaml.safe_load((data / "body.yaml").read_text()))
+    body, kindle, heat, strike = parse_body(yaml.safe_load((data / "body.yaml").read_text()))
     fuel = parse_fuel(yaml.safe_load((data / "fuel.yaml").read_text()), ambient_c=ambient_c)
-    return SliceConfig(body, kindle, heat, fuel)
+    npc = parse_npc(yaml.safe_load((data / "npc.yaml").read_text()))
+    return SliceConfig(body, kindle, heat, strike, fuel, npc)

@@ -19,14 +19,16 @@ from maxim_overdrive import data
 from simcore.core.applier import Applier
 from simcore.core.frames import CellFrame
 from simcore.core.intents import Extinguish, Ignite
+from simcore.core.intents import Strike as StrikeAction
 from simcore.core.scene import Box
 from simcore.core.world import World
 from simcore.protocol.encoding import snapshot
-from slice_server import alley, heat_debt
-from slice_server.body import Body, Cells, Command, check_no_tunnelling, step
+from slice_server import alley, heat_debt, npc
+from slice_server.body import Body, Cells, Command, blocked, check_no_tunnelling, impulse, step
 from slice_server.config import SliceConfig
-from slice_server.fire import Decision, Fire, FuelMaterial, Point, fuels_from
-from slice_server.intents import Intent, Kindle, Move
+from slice_server.fire import Decision, Fire, FuelMaterial, Point, fuels_from, nearest_point
+from slice_server.intents import Intent, Kindle, Move, Say, Strike
+from slice_server.reach import nearest_in_front
 from slice_server.wire import pack_cells
 
 # The slice's heat channel, display only: 20 C is 0 and 500 C is 255. Glow starts near 525 C and the energy of a
@@ -48,6 +50,13 @@ class Sim:
         self.heat = heat_debt.start(config.heat)
         self.fire = Fire(config.fuel.fire, _fuels(config, scene.primitives, table))
         self._check_fire_fits_the_limits()
+        v = config.npc.vendor
+        self.vendor = Body(v.stall_x, v.stall_y, feet_z=alley.FLOOR_TOP_M, yaw=math.pi)
+        self.vendor_state, self.charges = "idle", v.charges
+        if blocked(
+            Cells(self.frame.solid, self.frame.dx_m), self.vendor.x, self.vendor.y, self.vendor.feet_z, config.body
+        ):
+            raise ValueError(f"the vendor's stall ({v.stall_x}, {v.stall_y}) is inside a solid")
 
     def _check_fire_fits_the_limits(self) -> None:
         limits, radius = self.world.limits, self.config.fuel.fire.source_radius_m
@@ -66,7 +75,9 @@ class Sim:
         events = [e for intent in intents if (e := self._take(intent)) is not None]
         frame = self.frame
         command = self._effective(self.command)
-        step(self.body, command, Cells(frame.solid, frame.dx_m), self.config.body, self.tick_s)
+        cells = Cells(frame.solid, frame.dx_m)
+        step(self.body, command, cells, self.config.body, self.tick_s)
+        events += self._vendor_step(cells)
         self._heat_body(command)
         decisions, fire_events = self.fire.step(self.tick_s)
         for decision in decisions:
@@ -81,6 +92,10 @@ class Sim:
             return None
         if isinstance(intent, Kindle):
             return self._kindle()
+        if isinstance(intent, Strike):
+            return self._strike()
+        if isinstance(intent, Say):
+            return None  # words reach the vendor's voice on the server, never the simulation
         raise TypeError(f"not an intent: {type(intent).__name__}")  # a programming error: intents are parsed first
 
     def _effective(self, command: Command) -> Command:
@@ -104,36 +119,89 @@ class Sim:
         )
 
     def _apply(self, decision: Decision) -> None:
-        if decision.power_w > 0:
-            action: Ignite | Extinguish = Ignite(decision.power_w, self.config.fuel.fire.source_radius_m)
+        if decision.out:
+            action: Ignite | Extinguish = Extinguish()
         else:
-            action = Extinguish()
+            action = Ignite(decision.power_w, self.config.fuel.fire.source_radius_m)
         outcome = self._applier.apply(decision.region, action)
         if not outcome.success:  # the powers were checked against the limits at start: this is a bug, say so
             raise RuntimeError(f"the applier refused the fire's {decision}: {outcome.error}")
 
-    def _target(self) -> str | None:
-        """The nearest object that can still burn, within reach of the body's axis and in front of it."""
-        b, reach = self.body, self.config.kindle.reach_m
-        best: tuple[float, str] | None = None
-        for name, fuel in sorted(self.fire.fuels.items()):
-            if fuel.burnt_out:
-                continue
-            (x0, y0, _), (x1, y1, _) = fuel.bounds
-            nx, ny = min(max(b.x, x0), x1), min(max(b.y, y0), y1)
-            dist = math.hypot(nx - b.x, ny - b.y)
-            # In front means within 60 degrees of the facing (cos 60 = 0.5); touching it counts as in front.
-            ahead = dist < 1e-9 or (nx - b.x) * math.cos(b.yaw) + (ny - b.y) * math.sin(b.yaw) >= 0.5 * dist
-            if dist <= reach and ahead and (best is None or dist < best[0]):
-                best = (dist, name)
-        return None if best is None else best[1]
-
     def _kindle(self) -> dict[str, object]:
-        target = self._target()
+        burnable = ((n, f.bounds) for n, f in self.fire.fuels.items() if not f.burnt_out)
+        target = nearest_in_front(self.body, burnable, self.config.kindle.reach_m)
         if target is None:
             return {"type": "event", "what": "kindle", "ok": False, "error": "nothing that burns within reach"}
         why_not = self.fire.kindle(target)
         return {"type": "event", "what": "kindle", "region": target, "ok": why_not is None, "error": why_not}
+
+    def _strike(self) -> dict[str, object]:
+        """Hit the nearest named solid in front: cracks where it lands; in Overdrive, harder, with heat and recoil."""
+        s, b = self.config.strike, self.body
+        solids = (
+            (n, r.footprint.bounds_m)
+            for n, r in self.frame.regions.items()
+            if r.solid and n != "floor" and r.cells.any()
+        )
+        target = nearest_in_front(b, solids, s.reach_m)
+        if target is None:
+            return {"type": "event", "what": "strike", "ok": False, "error": "nothing within reach"}
+        overdrive = self._effective(self.command).overdrive
+        point = nearest_point(self.frame.regions[target].footprint.bounds_m, self._chest())
+        energy = s.overdrive_energy_j if overdrive else s.energy_j
+        outcome = self._applier.apply(target, StrikeAction(energy, s.sigma_m, point))
+        if not outcome.success:  # reach and limits were checked here: a refusal is a bug, say so
+            raise RuntimeError(f"the applier refused a strike on the {target}: {outcome.error}")
+        if overdrive:
+            heat_debt.add_heat(self.heat, self.config.heat, s.overdrive_heat_j)
+            impulse(b, -math.cos(b.yaw) * s.recoil_ns, -math.sin(b.yaw) * s.recoil_ns, self.config.body)
+        destroyed = float(outcome.metadata.get("destroyed_volume_m3", 0.0))
+        return {"type": "event", "what": "strike", "region": target, "ok": True, "overdrive": overdrive,
+                "energy_j": energy, "destroyed_m3": destroyed}  # fmt: skip
+
+    def _vendor_step(self, cells: Cells) -> list[dict[str, object]]:
+        """Perceive (by oracle), decide, move, and douse through the fire and the applier."""
+        v, b = self.vendor, self.body
+        burning = [
+            npc.SeenFire(f.name, f.centroid, f.bounds, f.power_w()) for f in self.fire.fuels.values() if f.burning
+        ]
+        seen = npc.Perception(
+            self.fire.flux_at((v.x, v.y, v.feet_z + CHEST_M)), burning, b.x, b.y, self.heat.core_c,
+            self.config.heat.warn_c, self.charges,
+        )  # fmt: skip
+        decision = npc.decide(v, seen, self.config.npc.vendor)
+        step(v, decision.command, cells, self.config.body, self.tick_s)
+        if decision.command.effort == 0.0:
+            npc.face(v, *self._facing_point(decision, b))
+        events: list[dict[str, object]] = []
+        state = decision.state
+        if decision.douse is not None and self.fire.douse(decision.douse):
+            self.charges -= 1
+            self._apply(Decision(decision.douse, 0.0, out=True))
+            state = "doused"
+            events.append({"type": "event", "what": "doused", "region": decision.douse, "by": "vendor"})
+        if state != self.vendor_state:
+            self.vendor_state = state
+            events.append({"type": "event", "what": "npc", "state": state, "facts": self._facts(decision)})
+        return events
+
+    def _facing_point(self, decision: npc.NpcDecision, player: Body) -> tuple[float, float]:
+        if decision.target is not None:
+            c = self.fire.fuels[decision.target].centroid
+            return c[0], c[1]
+        return player.x, player.y
+
+    def _facts(self, decision: npc.NpcDecision) -> str:
+        """What the vendor's voice is told: plain words, built from the simulation, never read back."""
+        parts = {
+            "flee": "the fire's heat is on you and you are running for the alley's mouth",
+            "douse": f"a fire has started on the {decision.target} near your stall and you go to put it out",
+            "doused": f"you just put out the fire on the {decision.target}",
+            "warn": f"the {decision.target} is burning and you can't put it out",
+            "comment": f"the customer's cyberware is overheating, at {self.heat.core_c:.0f} C",
+            "idle": "it is quiet and you are back at your stall",
+        }
+        return parts[self.vendor_state]
 
     def state(self) -> dict[str, object]:
         """The tick's message to the client: the body, its heat, the fires and the cells, quantized for display."""
@@ -168,6 +236,12 @@ class Sim:
                 for f in self.fire.fuels.values()
             ],
             "puddle": list(alley.PUDDLE_XY),
+            "vendor": {
+                "pos": [self.vendor.x, self.vendor.y, self.vendor.feet_z],
+                "yaw": self.vendor.yaw,
+                "state": self.vendor_state,
+                "charges": self.charges,
+            },
             "cells": {name: pack_cells(snap[name]) for name in ("material", "crack", "glow", "heat")},
         }
 
@@ -176,7 +250,13 @@ class Sim:
         f, h = self.frame, hashlib.sha256()
         for array in (f.material, f.integrity, f.temperature):
             h.update(array.tobytes())
-        numbers = [*astuple(self.body), *astuple(self.command), *astuple(self.heat)]
+        numbers = [
+            *astuple(self.body),
+            *astuple(self.command),
+            *astuple(self.heat),
+            *astuple(self.vendor),
+            self.charges,
+        ]
         for fuel in self.fire.fuels.values():
             numbers += [fuel.fuel_kg, fuel.skin_c, fuel.released_j, fuel.burning, fuel.burnt_out]
         h.update(struct.pack(f"<{len(numbers)}d", *(float(n) for n in numbers)))
@@ -194,8 +274,14 @@ def _fuels(config: SliceConfig, primitives: Sequence[object], table: object) -> 
             entry.releasable_energy_j_kg, entry.ignition_c, entry.burn_rate_kg_s_m2,
             m.density_kg_m3, m.density_kg_m3 * m.specific_heat_j_kgk,
         )  # fmt: skip
+    fire = config.fuel.fire
     return fuels_from(
-        boxes, config.fuel.objects, materials, floor_z=alley.FLOOR_TOP_M, ambient_c=config.fuel.fire.ambient_c
+        boxes,
+        config.fuel.objects,
+        materials,
+        floor_z=alley.FLOOR_TOP_M,
+        ambient_c=fire.ambient_c,
+        growth_s=fire.growth_s,
     )
 
 

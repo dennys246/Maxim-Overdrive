@@ -12,6 +12,7 @@ objects:
   pallet: 0.03
 fire:
   radiant_fraction: 0.3     # the share of a fire's power radiated: 0.3 is the usual figure for wood fires
+  growth_s: 90.0            # t-squared growth to full power: NFPA's "fast" fire reaches ~350 kW in about 90 s
   source_radius_m: 0.3      # the heat source's sphere in the world, at the action limits' minimum
   burnout_fraction: 0.05    # out at 5% of fuel left, the tile spec's t_gone rule
   skin_depth_m: 0.002       # the heated surface layer that decides ignition

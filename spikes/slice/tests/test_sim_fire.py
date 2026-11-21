@@ -12,7 +12,11 @@ from slice_server.sim import Sim
 
 from maxim_overdrive import data
 
-C = config.load()
+# The vendor has no extinguisher charge here, so these tests watch the fire and the body, not the vendor dousing it.
+_LOADED = config.load()
+C = dataclasses.replace(
+    _LOADED, npc=dataclasses.replace(_LOADED.npc, vendor=dataclasses.replace(_LOADED.npc.vendor, charges=0))
+)
 RHO_C = np.zeros(256)
 for _id, _m in data.materials().by_id.items():
     RHO_C[_id] = _m.density_kg_m3 * _m.specific_heat_j_kgk
@@ -34,10 +38,10 @@ def test_the_cells_gain_exactly_the_energy_the_fire_releases() -> None:
     sim = _at_the_crate()
     before = _energy_j(sim)
     sim.step([Kindle()])
-    for _ in range(50):
+    for _ in range(300):  # 30 s of t-squared growth: about 0.4 MJ
         sim.step([])
     released = sim.fire.fuels["crate"].released_j
-    assert released > 1e6
+    assert released > 3e5
     assert _energy_j(sim) - before == pytest.approx(released, rel=1e-6)
 
 
@@ -58,7 +62,7 @@ def test_a_burnt_out_object_leaves_no_fire_in_the_world() -> None:
 def test_a_neighbour_that_ignites_gets_a_fire_in_the_world() -> None:
     sim = _at_the_crate()
     sim.step([Kindle()])
-    sim.fire.fuels["pallet"].skin_c = C.fuel.materials["wood"].ignition_c - 0.01  # a moment from lighting
+    sim.fire.fuels["pallet"].skin_c = C.fuel.materials["wood"].ignition_c + 5.0  # past ignition: lights this tick
     events = sim.step([])
     assert any(e["what"] == "ignited" and e["region"] == "pallet" for e in events)
     assert "fire:pallet" in sim.world.sources

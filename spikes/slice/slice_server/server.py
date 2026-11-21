@@ -23,8 +23,9 @@ from typing import IO
 
 from maxim_overdrive import data
 from slice_server import WIRE_VERSION
-from slice_server.intents import Intent, parse
+from slice_server.intents import Intent, Say, parse
 from slice_server.sim import Sim
+from slice_server.voice import Line, Voice
 from slice_server.wire import FrameReader, WireRefused, encode
 
 MAX_OUTBOX = 8 << 20  # a client this far behind isn't reading; drop it rather than buffer without bound
@@ -70,7 +71,7 @@ class Meter:
 
 
 class Server:
-    def __init__(self, sim: Sim, *, token: str, log: IO[str], port: int = 0) -> None:
+    def __init__(self, sim: Sim, *, token: str, log: IO[str], port: int = 0, voice: Voice | None = None) -> None:
         self.sim, self._token, self._log = sim, token, log
         self._listener = socket.create_server(("127.0.0.1", port))
         self._listener.setblocking(False)
@@ -80,6 +81,7 @@ class Server:
         self._client: Client | None = None
         self._pending: list[tuple[Intent, dict[str, object]]] = []
         self.meter = Meter()
+        self._voice = voice  # the vendor's lines: server side, never read by the simulation
         self._stop = threading.Event()
 
     # The loop ---------------------------------------------------------------------------------------------------
@@ -91,6 +93,7 @@ class Server:
         while not self._stop.is_set() and (ticks is None or self.sim.tick < ticks):
             for key, events in self._sel.select(max(0.0, deadline - time.monotonic())):
                 self._ready(key.fileobj, events)  # type: ignore[arg-type]
+            self._deliver_lines()
             if time.monotonic() >= deadline:
                 self._tick()
                 deadline += self.sim.tick_s
@@ -108,6 +111,8 @@ class Server:
             self._drop("server closing")
         self._sel.close()
         self._listener.close()
+        if self._voice is not None:
+            self._voice.close()
 
     def _tick(self) -> None:
         pending, self._pending = self._pending, []
@@ -123,8 +128,38 @@ class Server:
             for event in events:
                 self._send(encode(event))
             self._send(message)
+        self._ask_for_lines(events)
         if self.sim.tick % STATS_EVERY == 0:
             self._report()
+
+    def _ask_for_lines(self, events: list[dict[str, object]]) -> None:
+        """A change of the vendor's state asks its voice for a line; a canned line (no model) comes back at once."""
+        if self._voice is None:
+            return
+        for event in events:
+            if event["what"] == "npc":
+                line = self._voice.request(str(event["state"]), str(event["facts"]))
+                if line is not None:
+                    self._send_line(line)
+
+    def _deliver_lines(self) -> None:
+        if self._voice is not None:
+            for line in self._voice.ready():
+                self._send_line(line)
+
+    def _send_line(self, line: Line) -> None:
+        """To the client, and to the session log as telemetry (replay ignores it: a line changes nothing)."""
+        message: dict[str, object] = {
+            "type": "npc_line",
+            "text": line.text,
+            "state": line.state,
+            "source": line.source,
+            "latency_s": line.latency_s,
+            "why_canned": line.why_canned,
+        }
+        self._log_line({"line": message, "tick": self.sim.tick})
+        if self._client is not None and self._client.authed:
+            self._send(encode(message))
 
     def _report(self) -> None:
         stats = self.meter.report()
@@ -174,9 +209,13 @@ class Server:
             self._hello(message)
             return
         try:
-            self._pending.append((parse(message), message))
+            intent = parse(message)
         except WireRefused as exc:  # a malformed intent gets an error reply and changes nothing
             self._send(encode({"type": "error", "code": exc.code, "detail": exc.detail}))
+            return
+        if isinstance(intent, Say) and self._voice is not None:
+            self._voice.heard(intent.text)  # words reach the voice; the simulation ignores them
+        self._pending.append((intent, message))
 
     def _hello(self, message: dict[str, object]) -> None:
         token = message.get("token")

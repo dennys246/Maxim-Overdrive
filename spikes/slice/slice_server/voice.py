@@ -1,0 +1,127 @@
+"""The vendor's voice: a local LLM writes its lines, and only its lines (plan §3.5, VS2).
+
+Server side, not simulation: the voice does IO and takes wall-clock time, so it lives beside the tick loop and never
+inside ``Sim``. Its output is text for the client and the session log. Nothing reads it back: no simulation code
+imports this module, and a line can't become an act (``tests/test_voice.py`` holds both). The player's ``say`` text
+goes into the next prompt as words, and can change what the vendor says, never what it does.
+
+A request runs on one worker thread with a timeout, so a slow model never stalls a tick. Any failure (the server is
+down, the call times out, the reply is malformed or empty) falls back to a canned line for the state, and the reason
+is kept with the line: a fallback is reported, never silent.
+"""
+
+from __future__ import annotations
+
+import json
+import time
+import urllib.error
+import urllib.request
+from collections import deque
+from collections.abc import Callable, Mapping
+from concurrent.futures import Future, ThreadPoolExecutor
+from dataclasses import dataclass
+
+Ask = Callable[[str, float], str]  # (prompt, timeout_s) -> reply text
+
+
+@dataclass(frozen=True)
+class VoiceParams:
+    model: str
+    host: str
+    timeout_s: float
+    max_words: int
+    persona: str
+
+
+@dataclass(frozen=True)
+class Line:
+    text: str
+    state: str
+    source: str  # "llm" or "canned"
+    latency_s: float
+    why_canned: str | None = None
+
+
+class VoiceFailed(RuntimeError):
+    """The model gave no usable line; the message says why."""
+
+
+def ollama(params: VoiceParams) -> Ask:
+    """A call to a local Ollama server on 127.0.0.1 (the LLM spike's setup): one non-streamed generation."""
+    if not params.host.startswith("http://127.0.0.1:"):
+        raise ValueError(f"the voice talks only to a local model, got {params.host!r}")
+
+    def ask(prompt: str, timeout_s: float) -> str:
+        body = json.dumps({"model": params.model, "prompt": prompt, "stream": False}).encode()
+        request = urllib.request.Request(f"{params.host}/api/generate", body, {"Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(request, timeout=timeout_s) as response:
+                reply = json.loads(response.read())
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+            raise VoiceFailed(f"{type(exc).__name__}: {exc}") from exc
+        text = reply.get("response") if isinstance(reply, dict) else None
+        if not isinstance(text, str):
+            raise VoiceFailed("the reply had no response text")
+        return text
+
+    return ask
+
+
+def cap(text: str, max_words: int) -> str:
+    """One line, at most ``max_words`` words, without stage directions in asterisks or quotes around it."""
+    words = text.replace("*", " ").strip().strip('"').split()
+    return " ".join(words[:max_words])
+
+
+class Voice:
+    def __init__(self, params: VoiceParams, canned: Mapping[str, list[str]], ask: Ask | None) -> None:
+        self._params, self._canned, self._ask = params, canned, ask
+        self._turn = dict.fromkeys(canned, 0)  # canned lines rotate per state, deterministically
+        self._heard: deque[str] = deque(maxlen=3)
+        self._pool = ThreadPoolExecutor(max_workers=1) if ask is not None else None
+        self._pending: list[Future[Line]] = []
+
+    def heard(self, text: str) -> None:
+        """What the player said, for the next prompts."""
+        self._heard.append(text)
+
+    def request(self, state: str, facts: str) -> Line | None:
+        """Ask for a line for ``state``. With no model it returns the canned line at once; with one, it queues the
+        request and its line arrives later from ``ready``."""
+        if self._pool is None or self._ask is None:
+            return self._fallback(state, 0.0, "no model configured")
+        self._pending.append(self._pool.submit(self._speak, self._ask, state, self._prompt(state, facts)))
+        return None
+
+    def ready(self) -> list[Line]:
+        """The lines whose requests have finished, in the order they were asked."""
+        done = [f for f in self._pending if f.done()]
+        self._pending = [f for f in self._pending if not f.done()]
+        return [f.result() for f in done]
+
+    def close(self) -> None:
+        if self._pool is not None:
+            self._pool.shutdown(wait=False, cancel_futures=True)
+
+    def _prompt(self, state: str, facts: str) -> str:
+        heard = " ".join(f'The player said: "{t}".' for t in self._heard)
+        return (
+            f"{self._params.persona}\nWhat is happening: {facts}. {heard}\n"
+            f"Say one short line out loud (at most {self._params.max_words} words), no stage directions."
+        )
+
+    def _speak(self, ask: Ask, state: str, prompt: str) -> Line:
+        start = time.monotonic()
+        try:
+            text = cap(ask(prompt, self._params.timeout_s), self._params.max_words)
+        except VoiceFailed as exc:
+            return self._fallback(state, time.monotonic() - start, str(exc))
+        if not text:
+            return self._fallback(state, time.monotonic() - start, "the model said nothing")
+        return Line(text, state, "llm", time.monotonic() - start)
+
+    def _fallback(self, state: str, latency_s: float, why: str) -> Line:
+        lines = self._canned[state]
+        text = lines[self._turn[state] % len(lines)]
+        self._turn[state] += 1
+        return Line(text, state, "canned", latency_s, why)

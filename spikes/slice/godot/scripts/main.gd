@@ -34,11 +34,19 @@ var _work_j: float = 0.0
 var _vitals: Label = Label.new()  # core temperature, coolant, Overdrive: words and bars, never colour alone
 var _fire_lines: PackedStringArray = PackedStringArray()
 var _puddle: MeshInstance3D = null
+var _vendor: MeshInstance3D = MeshInstance3D.new()
+var _vendor_label: Label3D = Label3D.new()  # a billboard label: always faces the camera, drawn in the 3-D scene
+var _vendor_state: String = ""
+var _line_left_s: float = 0.0
+var _say_box: LineEdit = LineEdit.new()
+var _typing: bool = false
 var _speed: float = 0.0
 var _events: PackedStringArray = PackedStringArray()
 var _args: Dictionary = {}
 var _frames_since_state: int = 0
-var _demo_t: float = 0.0
+var _server_tick: int = 0
+var _demo_start_tick: int = -1
+var _demo_kindled: bool = false
 
 
 func _ready() -> void:
@@ -91,6 +99,22 @@ func _build_scene() -> void:
 	capsule.material = skin
 	_body.mesh = capsule
 	add_child(_body)
+	var apron: CapsuleMesh = CapsuleMesh.new()
+	apron.radius = 0.3
+	apron.height = 1.8
+	var cloth: StandardMaterial3D = StandardMaterial3D.new()
+	cloth.albedo_color = Color(0.95, 0.6, 0.2)
+	apron.material = cloth
+	_vendor.mesh = apron
+	_vendor_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_vendor_label.position = Vector3(0.0, 1.35, 0.0)
+	_vendor_label.pixel_size = 0.004
+	_vendor_label.font_size = 40
+	_vendor_label.outline_size = 10
+	_vendor_label.width = 600.0
+	_vendor_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_vendor.add_child(_vendor_label)
+	add_child(_vendor)
 	_camera.fov = 60.0
 	add_child(_camera)
 	_hud.position = Vector2(12, 8)
@@ -100,6 +124,12 @@ func _build_scene() -> void:
 	_vitals.position = Vector2(12, 560)
 	_vitals.add_theme_font_size_override("font_size", 20)
 	layer.add_child(_vitals)
+	_say_box.position = Vector2(12, 520)
+	_say_box.size = Vector2(520, 32)
+	_say_box.placeholder_text = "say something to the vendor, Enter to send"
+	_say_box.visible = false
+	var _connected: int = _say_box.text_submitted.connect(_on_say)
+	layer.add_child(_say_box)
 	add_child(layer)
 
 
@@ -122,6 +152,14 @@ func _on_message(message: Dictionary) -> void:
 			_on_welcome(message)
 		"state":
 			_on_state(message)
+		"npc_line":
+			var text: String = message["text"]
+			var source: String = message["source"]
+			_vendor_label.text = text
+			_line_left_s = 6.0
+			var _logged: bool = _events.append("vendor (%s): %s" % [source, text])
+			if _events.size() > 4:
+				_events.remove_at(0)
 		"event", "error":
 			var _added: bool = _events.append(JSON.stringify(message))
 			if _events.size() > 4:
@@ -147,6 +185,7 @@ func _on_state(message: Dictionary) -> void:
 		var packed: Dictionary = cells[channel]
 		channels.append(SliceNet.unpack_cells(packed))
 	_voxels.show_cells(channels[0], channels[1], channels[2], channels[3])
+	_server_tick = SliceNet.num_int(message["tick"])
 	var body: Dictionary = message["body"]
 	var v: Array = body["vel"]
 	var now: Vector3 = SliceNet.vec3(body["pos"])
@@ -162,6 +201,10 @@ func _on_state(message: Dictionary) -> void:
 	_show_vitals(heat)
 	var fires: Array = message["fires"]
 	_show_fires(fires)
+	var vendor: Dictionary = message["vendor"]
+	_vendor.position = SliceNet.vec3(vendor["pos"]) + Vector3(0.0, 0.9, 0.0)
+	_vendor.rotation.y = SliceNet.num(vendor["yaw"]) - PI / 2.0  # server yaw is from +x; Godot's from -z
+	_vendor_state = vendor["state"]
 	if _puddle == null:
 		_puddle = _make_puddle(message["puddle"], now.y)
 	_state_kb = JSON.stringify(message).length() / 1024.0
@@ -274,7 +317,28 @@ func _pressed_once(key: Key) -> bool:
 	return down and not was
 
 
+func _on_say(text: String) -> void:
+	if not text.strip_edges().is_empty() and _net.is_connected_to_server():
+		_net.send({"type": "say", "text": text.strip_edges().left(200)})
+	_say_box.clear()
+	_say_box.visible = false
+	_say_box.release_focus()
+	_typing = false
+
+
 func _read_input(delta: float) -> void:
+	_line_left_s = maxf(0.0, _line_left_s - delta)
+	_vendor_label.visible = _line_left_s > 0.0
+	if _typing:
+		_send_move(Vector2.ZERO, false, delta)  # stand still while typing: the keys are words now
+		return
+	if _pressed_once(KEY_ENTER):
+		_typing = true
+		_say_box.visible = true
+		_say_box.grab_focus()
+		return
+	if _pressed_once(KEY_SPACE) and _net.is_connected_to_server():
+		_net.send({"type": "strike"})
 	if Input.is_physical_key_pressed(KEY_Q):
 		_orbit_deg += ORBIT_DEG_S * delta
 	if Input.is_physical_key_pressed(KEY_E):
@@ -298,17 +362,19 @@ func _axis(positive: Key, negative: Key) -> float:
 	return float(Input.is_physical_key_pressed(positive)) - float(Input.is_physical_key_pressed(negative))
 
 
-## --demo: walk forward (east, toward the crate) for 3.8 s, kindle it on the way, then stand and watch.
-func _demo_input(delta: float) -> Array:
+## --demo: walk forward (east, toward the crate) for 38 server ticks, kindling it at tick 34 on the way. Counted in
+## the server's ticks, not the client's seconds: under load the server dilates time, and a wall-clock script once
+## kindled after 22 ticks of walking instead of 34, 2 m short of the crate (found by replaying the session log).
+func _demo_input(_delta: float) -> Array:
 	if not _have_state:
 		return [Vector2.ZERO, false]
-	var before: float = _demo_t
-	_demo_t += delta
-	# Kindle while still walking: at 3.4 s the body is about 0.9 m from the crate's corner, about 40 degrees off its
-	# heading, inside the 60-degree cone. (At 3.2 s it was 1.71 m away, past the 1.5 m reach: found by replaying the log.)
-	var walking: bool = _demo_t < 3.8
-	var kindle_now: bool = before < 3.4 and _demo_t >= 3.4
-	return [Vector2(0.0, 1.0) if walking else Vector2.ZERO, kindle_now]  # forward: east at the starting orbit
+	if _demo_start_tick < 0:
+		_demo_start_tick = _server_tick
+	var walked: int = _server_tick - _demo_start_tick
+	var kindle_now: bool = walked >= 34 and not _demo_kindled
+	if kindle_now:
+		_demo_kindled = true
+	return [Vector2(0.0, 1.0) if walked < 38 else Vector2.ZERO, kindle_now]  # forward: east at the starting orbit
 
 
 ## WASD is relative to the camera: forward is where the camera looks, flattened onto the ground.
@@ -345,7 +411,7 @@ func _hud_text() -> String:
 		"slice-0  %s  %d fps" % [_status, Engine.get_frames_per_second()],
 		"state %.1f KB/tick   speed %.2f m/s   drive work %.0f J" % [_state_kb, _speed, _work_j],
 		"burning: %s   heat view (H): %s" % [", ".join(PackedStringArray(_flames.keys())), "on" if _heat_view else "off"],
-		"WASD move   Shift Overdrive   F kindle   Q/E orbit",
+		"WASD move   Shift Overdrive   F kindle   Space strike   Enter talk   Q/E orbit   vendor: %s" % _vendor_state,
 	])
 	lines.append_array(_fire_lines)
 	lines.append_array(_events)

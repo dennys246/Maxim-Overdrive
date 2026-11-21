@@ -327,3 +327,17 @@ energy-conserving plant (metabolism, skin blood flow, sweat, shivering), and eff
 contract, set by a marked ANALOG stand-in until Maxim drives them (M20). For any game hosting Maxim: model the
 physiology the controller acts on, and leave the set point and the effector choice to the agent; a world that
 regulates on the agent's behalf hides the very signal the agent is supposed to learn from.
+
+### 29. A local model's latency is the machine's, not the model's: measure it under the load the game will share (2026-11-21)
+
+**The LLM spike measured a quiet machine; the game never runs on one.** *Evidence:* the spike (`spikes/llm/results/`)
+timed qwen2.5:3b at about 0.3 s to the first token and 1–2 s for a short reply, at a load average near 7. The
+vertical slice's vendor asked the same model for its lines while the world, the client and other sessions shared
+the machine (load average 125–142): every line timed out at 2.5 s and fell back to a canned one, and direct calls
+took 48 s cold and 8 s warm. The vendor still walked to the fire and put it out on time, because a behaviour tree
+decided and the model only spoke (`spikes/slice/slice_server/npc.py`, `voice.py`). `npcs_and_sem.md` §4.5 bounds the
+world at `D / L` while a thought is pending and computes it with L = 3 s; at the measured 8 s the bound is 1/8 of
+real time, not 1/3. *Consequence:* for any game hosting Maxim in its LLM-harness mode, latency is set by everything
+else the machine is doing, so (a) keep a decision path that acts within a tick without the model (a reflex, a
+substrate policy, a behaviour tree), and let the model add to it rather than gate it; and (b) set L from a
+measurement under the game's expected load, then recompute §4.5's dial with it before the NPC line commits to it.

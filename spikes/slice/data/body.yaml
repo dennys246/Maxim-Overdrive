@@ -35,3 +35,12 @@ heat:
   trip_s: 10.0
   tripped_speed_factor: 0.5
   sense_radius_m: 1.0         # T_air is the mean air temperature in this sphere around the body
+strike:
+  # Gamey. A strike cracks what it hits; it can't breach a wall (a walkable gap in 0.4 m drywall took 31 strikes of
+  # 250 kJ: the world's crater law, measured for the plan's week 3, owner 2026-11-21).
+  reach_m: 1.0
+  energy_j: 2000.0              # an ordinary blow: dents nothing
+  overdrive_energy_j: 120000.0  # an Overdrive blow: cracks wood and drywall where it lands
+  sigma_m: 0.2                  # the action limits' minimum: the coarsest rig's cell
+  overdrive_heat_j: 6000.0      # each Overdrive blow heats the cyberware by this much (4 K at 1500 J/K)
+  recoil_ns: 40.0               # the kick back on the striker, newton-seconds (0.5 m/s on 80 kg)

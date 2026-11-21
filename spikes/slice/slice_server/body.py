@@ -17,9 +17,20 @@ from dataclasses import dataclass
 import numpy as np
 import numpy.typing as npt
 
-from slice_server.config import BodyParams
-
 Mask = npt.NDArray[np.bool_]
+
+
+@dataclass(frozen=True)
+class BodyParams:
+    mass_kg: float
+    radius_m: float
+    height_m: float
+    walk_speed_m_s: float
+    overdrive_speed_m_s: float
+    response_s: float
+    max_speed_m_s: float
+    substeps: int
+    step_clearance_m: float
 
 
 @dataclass
