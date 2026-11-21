@@ -17,8 +17,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from simcore.core.checks import shown
-from simcore.core.grid import Bounds, Footprint, Mask, MaterialGrid, Point
+from simcore.core.checks import entity_key, shown
+from simcore.core.grid import Bounds, Footprint, Mask, MaterialGrid, Point, whole_micrometres
 from simcore.core.materials import MaterialTable
 from simcore.core.refusals import RefusalCode, Refused
 from simcore.core.schema import Field, Format, Identity, ListOf, Nested, Real, Schema, Tagged, Text, Vector, Whole
@@ -46,6 +46,13 @@ CYLINDER = Schema(
 PRIMITIVE = Tagged("kind", "box", {"box": BOX, "cylinder": CYLINDER})
 
 
+def _check_volume(p: Box | Cylinder) -> None:
+    """A shape with no volume has no footprint centroid: a 1e-300 m radius underflows to 0 m³ (step 3b(b) review,
+    Wire S4)."""
+    if not p.volume_m3 > 0:
+        raise Refused(f"a {p.kind}'s volume must be above 0 m³, got {p.volume_m3!r}", code=RefusalCode.TOO_SMALL)
+
+
 @dataclass(frozen=True)
 class Box:
     min_m: tuple[float, float, float]
@@ -63,6 +70,7 @@ class Box:
             )
         object.__setattr__(self, "min_m", lo)
         object.__setattr__(self, "max_m", hi)
+        _check_volume(self)
 
     def mask(self, grid: MaterialGrid) -> Mask:
         x, y, z = grid.mesh()
@@ -103,6 +111,7 @@ class Cylinder:
             raise Refused(f"cylinder needs z_m[1] > z_m[0], got {z}", code=RefusalCode.OUT_OF_RANGE)
         for name in given:
             object.__setattr__(self, name, v[name])
+        _check_volume(self)
 
     def mask(self, grid: MaterialGrid) -> Mask:
         x, y, z = grid.mesh()
@@ -189,8 +198,18 @@ MAX_EXTENT_MM = round(MAX_EXTENT_M * MM_PER_M)
 
 
 def to_mm(value_m: float) -> int:
-    """A length in metres as whole millimetres, rounded to the nearest (F13: positions are compared in integers)."""
+    """A length in metres as whole millimetres, so positions are compared in integers (F13). Rounded to the nearest,
+    and an exact tie to the even millimetre: Python's ``round`` on the float product (0.0025 m is 2 mm, 0.0035 m is
+    4). Any other reader of a scene (a client tool) must round the same way, or refuse a position off the millimetre."""
     return round(value_m * MM_PER_M)
+
+
+ALIGNMENT_M = 0.2  # the coarsest verification grid's cell (CLAUDE.md, the resolution rule): every extent's quantum
+ALIGNMENT_UM = round(ALIGNMENT_M * 1_000_000)
+# Target names Maxim's tools resolve to the calling agent's own body before any lookup (pymaxim 1.3.3 and Maxim
+# origin/main 043eab8: embodiment/tool_bridge.py::ModulatorAffordanceTool._resolve_target_body,
+# simulation/tools.py::OrchestratorActorTool._TARGET_ALIASES). A body called "player" could never be named by an NPC.
+MAXIM_TARGET_ALIASES = frozenset({"self", "aut", "player"})
 
 
 # A spawn names a body by an identity key: save v0 maps each body to its persistent body_key (tile §2.1), so a ":"
@@ -235,8 +254,8 @@ class Spawn:
 
 
 _V0_REFUSED = (
-    "scene v0 had no spawns, and migrating it by 'spawns: []' would make a scene that join refuses (step 3b): add its "
-    "spawns and set version 1"
+    "scene files are repo-only, so an old version is refused, never migrated (step 3b): add its spawns and set "
+    "version 1"
 )
 _LATER = "zones, vents and gaps arrive with scene v2 in Phase 2 (world_model F13)"
 SCENE = Format(
@@ -268,20 +287,40 @@ class Scene:
         object.__setattr__(self, "ambient_c", own["ambient_c"].read(self.ambient_c, "scene"))
         object.__setattr__(self, "primitives", tuple(self.primitives))
         object.__setattr__(self, "spawns", tuple(self.spawns))
+        self._check_alignment()
         self._check_spawns()
 
+    def _check_alignment(self) -> None:
+        """Every extent is a whole number of ``ALIGNMENT_M`` cells, so a scene that builds at one verification grid
+        builds at all of them (the resolution rule; world_model WT-5, WT-11). Judged in whole micrometres (F13)."""
+        for e in self.extent_m:
+            if whole_micrometres(e, "a scene's extent_m") % ALIGNMENT_UM:
+                raise Refused(
+                    f"a scene's extent_m must be whole multiples of {ALIGNMENT_M:g} m (the coarsest verification "
+                    f"grid's cell), got {shown(self.extent_m)}",
+                    code=RefusalCode.OUT_OF_RANGE,
+                    field="extent_m",
+                )
+
     def _check_spawns(self) -> None:
-        """Each spawn is a ``Spawn`` with its own name, inside the extent, compared in whole millimetres (F13)."""
+        """Each spawn is a ``Spawn`` inside the extent, compared in whole millimetres (F13), with a name that Maxim
+        can't confuse: unique under its name rule (``checks.entity_key``), not a region's name, and not one of the
+        target aliases Maxim resolves to the calling agent's own body (step 3b(b) review, Bio-faithful S3)."""
         if len(self.spawns) > MAX_SPAWNS:
             raise Refused(f"a scene holds at most {MAX_SPAWNS} spawns", code=RefusalCode.OVER_BUDGET)
         extent_mm = [to_mm(e) for e in self.extent_m]
-        seen: set[str] = set()
+        seen = {entity_key(p.name) for p in self.primitives if p.name}
         for spawn in self.spawns:
             if not isinstance(spawn, Spawn):
                 raise Refused(f"a scene's spawns must be Spawns, got {shown(spawn)}", code=RefusalCode.BAD_SHAPE)
-            if spawn.name in seen:
-                raise Refused(f"two spawns are called {shown(spawn.name)}", code=RefusalCode.NAME_TAKEN, field="name")
-            seen.add(spawn.name)
+            key = entity_key(spawn.name)
+            if key in MAXIM_TARGET_ALIASES:
+                message = f"spawn {shown(spawn.name)} is a name Maxim resolves to the calling agent itself"
+                raise Refused(message, code=RefusalCode.BAD_IDENTITY_KEY, field="name")
+            if key in seen:
+                message = f"spawn {shown(spawn.name)} shares its name with another spawn or a region"
+                raise Refused(message, code=RefusalCode.NAME_TAKEN, field="name")
+            seen.add(key)
             if not all(0 <= c <= e for c, e in zip(spawn.at_mm, extent_mm, strict=True)):
                 raise Refused(
                     f"spawn {spawn.name} at {spawn.at_mm} mm lies outside the scene's {extent_mm} mm",

@@ -21,23 +21,27 @@ from simcore.core.schema import Field, Format, MapOf, Nested, Real, Rgb, Schema,
 
 # The material's one schema (boundaries §5.1, TB-B2): the file's reader, Material's constructor and the table's lookup
 # arrays all read it. Heat capacity divides, so a zero density or specific heat would make the first heat step divide
-# by zero; a negative conductivity would run heat uphill. ``lookup`` is the value an unused id gets in its array.
-_POSITIVE, _NON_NEGATIVE = Real(lo=0.0, lo_open=True), Real(lo=0.0)
+# by zero; a negative conductivity would run heat uphill. The upper bounds are validity bounds, not tunables, each
+# well past any real material (osmium 22,590 kg/m³, hydrogen 14,300 J/kg K, graphene about 5,000 W/m K), so no
+# product a law forms overflows: 1e200 times 1e200 made rho_cp infinite and the first step NaN (step 3b(b) review,
+# T1-S7).
+# ``lookup`` is the value an unused id gets in its array.
 MATERIAL = Schema(
     (
         Field("id", Whole(0, 255)),  # uint8 cells; a negative id would index the property arrays from the end
-        Field("density_kg_m3", _POSITIVE),
-        Field("specific_heat_j_kgk", _POSITIVE),
-        Field("conductivity_w_mk", _NON_NEGATIVE, lookup=0.0),
-        Field("fracture_energy_j_m3", _NON_NEGATIVE, lookup=0.0),
-        Field("degrade_above_c", Real(), required=False, nullable=True, lookup=np.inf),
-        Field("degrade_rate_per_s_per_100c", _NON_NEGATIVE, required=False, default=0.0, lookup=0.0),
+        Field("density_kg_m3", Real(lo=0.0, lo_open=True, hi=1e5)),
+        Field("specific_heat_j_kgk", Real(lo=0.0, lo_open=True, hi=1e5)),
+        Field("conductivity_w_mk", Real(lo=0.0, hi=1e4), lookup=0.0),
+        Field("fracture_energy_j_m3", Real(lo=0.0, hi=1e12), lookup=0.0),
+        Field("degrade_above_c", Real(lo=-273.15, hi=1e4), required=False, nullable=True, lookup=np.inf),
+        Field("degrade_rate_per_s_per_100c", Real(lo=0.0, hi=1e3), required=False, default=0.0, lookup=0.0),
         Field("color_rgb", Rgb()),
     )
 )
+MATERIAL_NAME = Text()  # the file's key and Material.name: one rule whoever builds the material
 MAX_MATERIALS = 256  # one per uint8 id
 MATERIAL_TABLE = Format(
-    "material table", 0, Schema((Field("materials", MapOf(Text(), Nested(MATERIAL), MAX_MATERIALS)),))
+    "material table", 0, Schema((Field("materials", MapOf(MATERIAL_NAME, Nested(MATERIAL), MAX_MATERIALS)),))
 )
 
 
@@ -54,8 +58,7 @@ class Material:
     color_rgb: tuple[int, int, int]
 
     def __post_init__(self) -> None:
-        if not isinstance(self.name, str) or not self.name:
-            raise Refused(f"a material needs a name, got {shown(self.name)}", code=RefusalCode.BAD_NAME)
+        object.__setattr__(self, "name", MATERIAL_NAME.convert(self.name, "a material's name"))
         values = asdict(self)
         for name, value in MATERIAL.check(values, f"material {self.name}").items():
             object.__setattr__(self, name, value)
@@ -93,9 +96,9 @@ class MaterialTable:
                 raise Refused(f"material {shown(key)} must be a Material of that name", code=RefusalCode.BAD_SHAPE)
         ids = [m.id for m in materials.values()]
         if len(set(ids)) != len(ids):
-            raise Refused("material ids must be unique", code=RefusalCode.NAME_TAKEN, field="id")
+            raise Refused("material ids must be unique", code=RefusalCode.DUPLICATE_KEY, field="id")
         if AIR_ID not in ids or materials.get("air") is None or materials["air"].id != AIR_ID:
-            raise Refused("the table must define 'air' with id 0", code=RefusalCode.MISSING_FIELD, field="air")
+            raise Refused("the table must define 'air' with id 0", code=RefusalCode.MISSING_FIELD)
         self._by_name = MappingProxyType(dict(materials))
         self._by_id = MappingProxyType({m.id: m for m in materials.values()})
         n, ms = max(ids) + 1, [asdict(m) for m in materials.values()]

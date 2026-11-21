@@ -218,9 +218,9 @@ Decode → stage 1 (`simcore` core intents) → log → stage 2 against the worl
   Until step 6's skin exists, step 5's `kindle` deposits by sphere volume overlap at the point with the item's radius,
   a marked, scheduled band-aid that step 6 removes. The red gate
   `test_a_fire_that_has_burned_its_fuel_stops_heating` is rewritten to use `kindle` when step 6 flips it.
-- **`data/world/actions.yaml` v1** carries `kindle`'s physics-safety ceiling (`max_power_w`, `max_duration_ticks`,
-  `min_radius_m` = 0.2) and drops `ignite`. A registered migration `actions_v0_to_v1` loads the committed v0 fixture
-  to its expected v1 value. Limits are the ceiling intersected with the item's capability (boundaries §6.1 rule 3).
+- **`data/world/actions.yaml` v1** carries `kindle`'s physics-safety ceiling (`max_power_w`, `max_duration_s`,
+  `min_radius_m` = 0.2) and drops `ignite`. It is repo-only, so v0 is refused by version with a test, never migrated (step
+  3b). Limits are the ceiling intersected with the item's capability (boundaries §6.1 rule 3).
 - **Power belongs to the item.** `content/items/torch.yaml`: `power_w`, footprint `radius_m` (≥ 0.2 m),
   `max_duration_ticks`, `restrike_ticks` (world time). Phase 1's torch is a propane pilot of order 2 kW, 15.9 kW/m²
   over its 0.2 m disc (*from memory*); its values come from step 6's band measurement (§6.3).
@@ -488,7 +488,7 @@ wall, crack read as crack, glow as heat, burn-out as fuel running out, the dial.
 | Requirement | Step |
 |---|---|
 | Amend realtime §7 to §3.3's table; architecture.md line 20 | 1 |
-| Scene v1 (+ `spawns`, bed fields), loader types for archetypes and items, the refusal-code enum | 3b |
+| Scene v1 (+ `spawns`), loader types for archetypes and items, the refusal-code enum | 3b |
 | `Simulation` with actor and pilots tables, body motion, walk grid, A\*, body heat (convection; radiation closed forms), `move`/`move_to`, `cause` and `invocation` (§3.1), vocabulary v1 with the interim `kindle` deposit, `actions.yaml` v1 and its migration, the `Frame` rule, the alley fixture and its B5 meters | 5 |
 | 6a–6d, the constants' provenance, the ledger lines, the skin deposit for `kindle`, the torch's band, the 0.05 m reference, V_floor, the red gate's flip | 6 |
 | §3.3's messages, `intent_result`, `observed_tick` stamping, `cause` in events, the wire (`client_rendering.md` §4) | 7 |

@@ -272,13 +272,22 @@ also be sensible.
 
 **What the world tells an agent when it refuses is an input to the agent's next thought, so it is a protocol, not a
 message.** *Evidence:* step 3b part (b) replaced the SEM membrane's free-text errors with the refusal-code enum
-(`simcore/core/refusals.py`, WT-S1; boundaries §5.4): free text echoed the caller's own values back to the LLM
-(bounded by `checks.shown`, never scrubbed), and an unknown parameter's made-up name was repeated into the next
-prompt. A code alone loses guidance the old words carried, so two parts were kept: the schema's own field name
-(`out_of_range (power_w)`, a name we wrote, never one the caller sent), and two codes where one would loop. A target
-that is another thing of the same name was `wrong_target`, whose advice "name the crate" sends the agent straight
-back to the namesake; it is `namesake` now. *Consequence:* codes are append-only from their first shipment (the
-intent log and the wire carry them), a refusal names at most a field from the reader's schema, and a code is split
-when two causes need different next actions from the agent. For Maxim: a tool's error string is part of the agent's
-observation stream, so a closed, versioned error vocabulary for modulators belongs in SEM's contract rather than in
-each host (a Phase 3 candidate; Maxim's `origin/main` not yet searched for it, so no item is filed).
+(`simcore/core/refusals.py`, WT-S1; boundaries §5.4). The old words echoed the caller's own values ("got 1e+12",
+bounded by `checks.shown`, never scrubbed) and repeated a made-up parameter's name into the next prompt. In Maxim
+(`origin/main` 043eab8) that text reaches the deliberation prompt (`exec_agent.py`, "tool: FAILED: <error>"), the
+episode's recall tokens and its dedup key (`memory/types.py`), so every refused value was a distinct episode; a code
+makes repeated refusals of one kind one recognisable episode. The cost was real too, and two pieces had to come back:
+a field name from the reader's own schema (`out_of_range (power_w)`, a name we wrote), and the fix for the commonest
+refusal. Maxim's actor tool defaults `target` to the caller's body, so a structure call's likeliest answer is
+`wrong_target`; bare, that code let an agent retry "player" or "self" forever, so it is `wrong_target (target)` with
+the rule stated in each affordance's description (round 1 review, Bio-faithful S1). The namesake case kept its own
+code, as it had its own words before: "name the crate" would loop it. Authored bounds left the error text; they stay
+in the description an agent reads. *Consequence:* codes are append-only from their first shipment (the intent log
+and the wire carry them), a refusal names at most a schema field, and a code is split when two causes need different
+next actions. For Maxim: it already has a closed vocabulary, `ToolErrorKind` and `GATE_REFUSAL_KINDS`
+(`tools/base.py`), threaded through credit by `docs/plans/tool_failure_credit.md`, but `ModulatorResult` has no kind,
+so `tool_bridge.py`'s `ToolOutput(success=False, error=result.error)` books every SEM refusal as an external failure,
+which pain reads as tool failure. That is evidence for OD-A16 (its `call_error` and `wrong_target` kinds, and
+`docs/maxim_upstream/propose_settle_amendment_DRAFT.md`), not a new item: the ask is a kind on `ModulatorResult` that
+`RefusalCode` maps onto. Maxim's own refusals still answer in prose that echoes its caller (`simulation/tools.py`), so
+an agent's prompt mixes both conventions until then.

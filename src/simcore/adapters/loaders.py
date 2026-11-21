@@ -111,19 +111,39 @@ def existing_directory(candidates: Sequence[str | Path], what: str) -> DataPath:
     raise FileNotFoundError(f"{what}: none of {', '.join(str(c) for c in candidates)} is a directory")
 
 
+MAX_FILE_BYTES = 16 * 2**20  # a data file's budget, checked before it is read (boundaries §5.4); core.yaml is 2 kB
+
+
+def _text_of(path: FilePath) -> str:
+    """The file's text as UTF-8 (never the machine's locale), or a Refused if it is too large or not UTF-8."""
+    where = _path(path)
+    if where.stat().st_size > MAX_FILE_BYTES:
+        raise Refused(f"{path}: larger than {MAX_FILE_BYTES} bytes, no data file is", code=RefusalCode.OVER_BUDGET)
+    try:
+        return where.read_bytes().decode("utf-8")
+    except UnicodeDecodeError:
+        raise Refused(f"{path}: not UTF-8 text", code=RefusalCode.BAD_SHAPE) from None
+
+
 def read_yaml(path: FilePath) -> object:
     """A data file parsed strictly: invalid YAML and repeated keys are refused, with the file named.
 
-    Every data loader reads through here, so none of them can keep the last of two values for one key.
+    Every data loader reads through here, so none of them can keep the last of two values for one key. A scalar
+    SafeLoader can't build (``2026-02-30``, ``!!int x``, ``!!bool maybe``, a 5,000-digit int) is a refusal too:
+    those raise ValueError, KeyError or AttributeError inside PyYAML's constructors (step 3b(b) review, T1-S1, S2).
     """
+    text = _text_of(path)
     try:
-        return yaml.load(_path(path).read_text(), Loader=_StrictLoader)  # a SafeLoader subclass
+        return yaml.load(text, Loader=_StrictLoader)  # a SafeLoader subclass
     except yaml.YAMLError as exc:  # reported, with the file, as the refusal
         raise Refused(f"{path}: not valid YAML: {exc}", code=RefusalCode.BAD_SHAPE) from None
     except RecursionError:  # the parser recurses per level; no data file nests this deep
         raise Refused(f"{path}: nested too deeply to be a data file", code=RefusalCode.OVER_BUDGET) from None
     except Refused as exc:
         raise Refused(f"{path}: {exc}", code=exc.code, field=exc.field) from None
+    except (ValueError, KeyError, AttributeError, TypeError, OverflowError) as exc:  # a scalar it can't build
+        message = f"{path}: a value YAML can't build ({type(exc).__name__}): {shown(str(exc))}"
+        raise Refused(message, code=RefusalCode.BAD_SHAPE) from None
 
 
 def load_materials(path: FilePath) -> MaterialTable:

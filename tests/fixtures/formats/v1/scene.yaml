@@ -4,7 +4,7 @@ version: 1
 extent_m: [3.0, 2.0, 2.0]
 ambient_c: 20.0
 spawns:
-  - {name: player, archetype: human, holding: torch, at_m: [0.6, 1.0, 0.4]}
+  - {name: runner, archetype: human, holding: torch, at_m: [0.6, 1.0, 0.4]}
   - {name: guard, archetype: human, at_m: [2.4, 1.0, 0.4]}
 primitives:
   - {kind: box, name: floor, material: concrete, min_m: [0.0, 0.0, 0.0], max_m: [3.0, 2.0, 0.4]}

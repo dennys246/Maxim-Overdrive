@@ -6,8 +6,10 @@ canonical serialisation (world_model §8). The log header (step 5a) records each
 
 **c14n-1**, the canonical serialisation of a loaded value: JSON text with no whitespace, mapping keys (strings only)
 sorted by code point, sequences as arrays, ``None``, ``True`` and ``False`` as ``null``, ``true`` and ``false``, an
-int in decimal, a float by ``repr`` (the shortest text that reads back as the same float; non-finite floats are
-refused, as JSON has none), and strings UTF-8 with only ``"``, ``\\`` and the C0 controls escaped. Anything else is a
+int in decimal (below 4,000 digits), a float by ``repr`` (the shortest text that reads back as the same float; -0.0 as
+0.0; non-finite floats are refused, as JSON has none), and strings UTF-8 with only ``"``, ``\\`` and the C0 controls
+escaped (a lone surrogate is refused). Types are exact: a numpy scalar, a bool posing as an int, or a str subclass is
+refused, so a value's text never depends on which library computed it. Anything else is a
 programming error, not input: a digest is taken of a value a reader has already built.
 """
 
@@ -26,26 +28,44 @@ _ESCAPES = {'"': '\\"', "\\": "\\\\"} | {chr(c): f"\\u{c:04x}" for c in range(0x
 
 
 def _text(value: str) -> str:
+    if any(0xD800 <= ord(ch) <= 0xDFFF for ch in value):  # a lone surrogate has no UTF-8 form
+        raise TypeError("c14n-1 has no form for a lone surrogate")
     return '"' + "".join(_ESCAPES.get(ch, ch) for ch in value) + '"'
+
+
+_MAX_INT_DIGITS = 4000  # below CPython's int-to-text limit (4300 by default, set per process by the environment)
+
+
+def _scalar(value: object) -> str | None:
+    """A scalar's c14n-1 text, or None if ``value`` is not one. Exact types only: a numpy float is a float subclass
+    whose repr is ``np.float64(1.5)``, and a bool is an int subclass, so neither may take the int or float branch."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool) and type(value) is bool:
+        return "true" if value else "false"
+    if isinstance(value, int) and type(value) is int:
+        if abs(value) >= 10**_MAX_INT_DIGITS:
+            raise TypeError("c14n-1 has no form for an int this long")
+        return str(value)
+    if isinstance(value, float) and type(value) is float:
+        if not math.isfinite(value):
+            raise TypeError(f"c14n-1 has no form for {value!r}")
+        return repr(value + 0.0)  # + 0.0 turns -0.0 into 0.0: equal floats, one text
+    if isinstance(value, str) and type(value) is str:
+        return _text(value)
+    return None
 
 
 def canonical(value: object) -> str:
     """``value`` in c14n-1, or a TypeError for anything c14n-1 has no form for."""
-    if value is None or isinstance(value, bool):
-        return {None: "null", True: "true", False: "false"}[value]
-    if isinstance(value, int):
-        return str(value)
-    if isinstance(value, float):
-        if not math.isfinite(value):
-            raise TypeError(f"c14n-1 has no form for {value!r}")
-        return repr(value)
-    if isinstance(value, str):
-        return _text(value)
+    text = _scalar(value)
+    if text is not None:
+        return text
     if isinstance(value, Mapping):
-        if not all(isinstance(k, str) for k in value):
+        if not all(type(k) is str for k in value):
             raise TypeError("c14n-1 mapping keys are strings")
         return "{" + ",".join(f"{_text(k)}:{canonical(value[k])}" for k in sorted(value)) + "}"
-    if isinstance(value, Sequence) and not isinstance(value, bytes | bytearray):
+    if isinstance(value, Sequence) and not isinstance(value, str | bytes | bytearray):
         return "[" + ",".join(canonical(v) for v in value) + "]"
     raise TypeError(f"c14n-1 has no form for a {type(value).__name__}")
 

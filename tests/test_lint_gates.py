@@ -7,6 +7,7 @@ public entry point with no row, a new ``handle(raw: bytes)`` inside a gate modul
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import pytest
@@ -214,3 +215,36 @@ def test_a_tuple_assignment_does_not_hide_a_modulator():
     )
     problems = gates.check_gates(files)
     assert f"gate registry: {rel}::Door.execute is an entry point with no row" in problems
+
+
+def test_no_registered_gate_raises_an_uncoded_value_error():
+    """Every refusal from a registered gate carries a code (WT-S1; step 3b(b) review, Architecture A4): a `raise
+    ValueError(...)` written in a gate's own body is a refusal nobody can tell an agent. TypeError stays for programming
+    errors. Planting one goes red."""
+
+    def uncoded(source: str, name: str) -> list[int]:
+        tree = ast.parse(source)
+        parts = name.split(".")
+        scopes: list[ast.AST] = [tree]
+        for part in parts:
+            scopes = [
+                n
+                for scope in scopes
+                for n in ast.iter_child_nodes(scope)
+                if isinstance(n, ast.FunctionDef | ast.ClassDef) and n.name == part
+            ]
+        return [
+            n.lineno
+            for scope in scopes
+            for n in ast.walk(scope)
+            if isinstance(n, ast.Raise)
+            and isinstance(n.exc, ast.Call)
+            and isinstance(n.exc.func, ast.Name)
+            and n.exc.func.id == "ValueError"
+        ]
+
+    files = _repo_files()
+    found = {row: lines for row in gates.GATES if (lines := uncoded(files[row.split("::")[0]], row.split("::")[1]))}
+    assert found == {}
+    planted = "class HeatSource:\n    def __post_init__(self):\n        raise ValueError('x')\n"
+    assert uncoded(planted, "HeatSource") == [3]

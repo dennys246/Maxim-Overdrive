@@ -172,6 +172,7 @@ GATES = ("simcore.adapters.loaders", "maxim_overdrive.data")
 PATH_ARITHMETIC = {"parent", "parents", "name", "stem", "suffix", "with_suffix", "joinpath"}
 PATH_HOLDERS: dict[str, dict[str, str]] = {
     "maxim_overdrive.data": {
+        "BAD_NAME": "RefusalCode.BAD_NAME, the rig-name refusal's code",
         "compile": "re.compile, the rig-name pattern",
         "fullmatch": "RIG_NAME.fullmatch, the name check",
         "load": "RigProfile.load, which hands the path on",

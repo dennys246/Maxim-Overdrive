@@ -22,8 +22,8 @@ from typing import TYPE_CHECKING, Any
 from simcore.core.applier import Applier, Outcome
 from simcore.core.checks import entity_key, shown
 from simcore.core.frames import QUANTITIES, FrameSource
-from simcore.core.intents import ActionRefused, parse_action
-from simcore.core.refusals import RefusalCode
+from simcore.core.intents import AFFORDANCE_OF, ActionRefused, parse_action
+from simcore.core.refusals import RefusalCode, Refused, agent_text
 
 if TYPE_CHECKING:
     # Type-check against Maxim's own classes; tests/test_sem_compat.py holds the _compat mirror to the same fields.
@@ -56,9 +56,9 @@ class RegionInstrument:
 
     def __init__(self, frames: FrameSource, region: str, quantity: str) -> None:
         if not isinstance(quantity, str) or quantity not in QUANTITIES:
-            raise ValueError(f"unknown region quantity {shown(quantity)}")
+            raise Refused(f"unknown region quantity {shown(quantity)}", code=RefusalCode.UNKNOWN_KIND)
         if not isinstance(region, str) or region not in frames.latest.region_names:
-            raise ValueError(f"no region {shown(region)} in this world")
+            raise Refused(f"no region {shown(region)} in this world", code=RefusalCode.NO_REGION)
         self._frames, self._region, self._quantity = frames, region, quantity
 
     @property
@@ -98,6 +98,10 @@ class RegionInstrument:
 # meant the wall.
 
 
+# What a refused target means, stated where the agent reads the affordance (step 3b(b) review, Bio-faithful S1).
+_TARGET_RULE = "The target, if given, is this structure itself, by its name; never the caller or another thing."
+
+
 class StructureModulator:
     """What can be done *to* a region: the gate in front of the applier. Time passes only in ``World.advance``.
 
@@ -111,9 +115,9 @@ class StructureModulator:
     def __init__(self, applier: Applier, frames: FrameSource, region: str) -> None:
         frame = frames.latest
         if not isinstance(region, str) or region not in frame.region_names:
-            raise ValueError(f"no region {shown(region)} in this world")
+            raise Refused(f"no region {shown(region)} in this world", code=RefusalCode.NO_REGION)
         if not frame.is_solid(region):
-            raise ValueError(f"region {shown(region)} is air: there is no structure to act on")
+            raise Refused(f"region {shown(region)} is air: there is no structure to act on", code=RefusalCode.NOT_SOLID)
         self._applier, self._region = applier, region
 
     @property
@@ -125,17 +129,18 @@ class StructureModulator:
                 description=(
                     "Deliver mechanical energy to this structure (a blow, a bullet, a blast): energy_j up to "
                     f"{lim.max_energy_j:g} J, spread over sigma_m from {lim.min_sigma_m:g} to {lim.max_sigma_m:g} m, "
-                    "at point_m on the structure (its middle if omitted)."
+                    f"at point_m on the structure (its middle if omitted). {_TARGET_RULE}"
                 ),
             ),
             "ignite": AffordanceSchema(
                 params={"power_w": float, "radius_m": (float, lim.default_radius_m)},
                 description=(
                     "Start a fire at this structure's surface; it burns until extinguished. power_w up to "
-                    f"{lim.max_power_w:g} W, radius_m from {lim.min_radius_m:g} to {lim.max_radius_m:g} m."
+                    f"{lim.max_power_w:g} W, radius_m from {lim.min_radius_m:g} to {lim.max_radius_m:g} m. "
+                    f"{_TARGET_RULE}"
                 ),
             ),
-            "extinguish": AffordanceSchema(description="Put out a fire started on this structure."),
+            "extinguish": AffordanceSchema(description=f"Put out a fire started on this structure. {_TARGET_RULE}"),
         }
 
     def _result(
@@ -154,7 +159,8 @@ class StructureModulator:
     def execute(self, affordance: str, params: dict[str, Any]) -> ModulatorResult:
         """Parse, judge the target, then apply. A refused result carries no params, so it never echoes a non-finite
         value back."""
-        label = affordance if isinstance(affordance, str) and len(affordance) <= 40 else shown(affordance)
+        # The affordance is echoed only when it is one of ours: a made-up one is "unknown", never its own text.
+        label = affordance if affordance in AFFORDANCE_OF.values() else "unknown"
         try:
             action = parse_action(affordance, params, self._applier.limits)
         except ActionRefused as exc:  # the agent is told the code, never the words (boundaries §5.4)
@@ -165,7 +171,10 @@ class StructureModulator:
         if self._is_namesake(target):
             return self._result(label, {}, False, RefusalCode.NAMESAKE.value)
         if target is not None and not self._is_this_region(target):
-            return self._result(label, {}, False, RefusalCode.WRONG_TARGET.value)
+            # The schema's own key names the fix, which the affordance's description states (_TARGET_RULE): Maxim's
+            # actor tool defaults target to the calling agent's body, a structure has no declared direction for it
+            # (OD-C3, OD-A16), so this is its most likely refusal (step 3b(b) review, Bio-faithful S1).
+            return self._result(label, {}, False, agent_text(RefusalCode.WRONG_TARGET, "target"))
         # TEMPORARY(phase1/agents): execute applies synchronously and logs nothing (boundaries §6.4). In phase1/agents
         # it only parses, checks the bound actor and appends the intent to the stepping agent's outbox, returning a
         # pending, neutral result; the host's step applies it.

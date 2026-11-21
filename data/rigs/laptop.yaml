@@ -1,4 +1,4 @@
-version: 1  # the rig profile format (simcore.protocol.tiers.RIG_PROFILE_VERSION); v0 carried physics and is refused
+version: 1  # the rig profile format (simcore.protocol.tiers.RIG_PROFILE); v0 carried physics and is refused
 # Rendering tier: how much of the world this machine's client draws. Every tier simulates the same world at the same
 # grid spacing (world_model D20); a tier changes what is drawn, never what happens. It holds a name only until the
 # client reads a detail setting.

@@ -65,12 +65,18 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
     B-10's `Observation` protocol and frame tests (`simcore/core/frames.py`, `tests/test_frames.py`); B-13's import
     half (`membrane-reads-frames`; the field registry joins its allowed list in step 5a).
 - Part (b), on `phase1/formats`:
-  - done: scene v1, F13 plus a required `spawns`; scene v0 is refused by version, not migrated (it would migrate to a
-    scene `join` refuses); golden v0 and v1 fixtures (WT-S8); zones, vents and gaps refused by path; grid alignment
-    in whole micrometres (`simcore/core/scene.py`, `grid.py`; `tests/fixtures/formats/v0/scene.yaml`, `v1/scene.yaml`,
-    `tests/fixtures/scenes/alley_box.yaml`; `tests/test_scene_v1.py`).
+  - done, no shipped caller until step 5b (spawns) and step 8 (the shipped scene, with a scene file loader in
+    `loaders.py`): scene v1, F13 plus a required `spawns`; scene v0 is refused by version, not migrated (scenes are
+    repo-only); golden v0 and v1 fixtures (WT-S8); zones, vents and gaps refused by path; every extent a whole
+    number of 0.2 m cells, judged in whole micrometres, so a scene builds at every grid or none (world_model WT-5,
+    WT-11); spawn names unique under Maxim's name rule, never a region's name nor one of Maxim's target aliases
+    (`self`, `aut`, `player`) (`simcore/core/scene.py`, `grid.py`; `tests/fixtures/formats/v0/scene.yaml`,
+    `v1/scene.yaml`, `tests/fixtures/scenes/alley_box.yaml`; `tests/test_scene_v1.py`).
   - done: one schema and one reader per data format; `MaterialTable`'s lookup arrays and every rejection test
-    generated from it (`simcore/core/schema.py`; `tests/test_formats.py` finds every `Format`, fail closed).
+    generated from it (`simcore/core/schema.py`; `tests/test_formats.py` finds every `Format`, fail closed, walks
+    every tagged kind, and pins each schema in `tests/fixtures/formats/schemas.txt`). Not built: units and provenance
+    on `Field` (flexibility review row 7), which land with 6.0a's material table v1 (tile §5.1's provenance rows);
+    stage-1 intent parsing (`intents.py`) stays its own idiom until step 7 moves the wire format onto the schema.
   - done: one small migration mechanism (`read_version` plus `Format.migrations`, keyed by format and version),
     refused for a repo-only format at declaration; no shipped format is held by others yet, so none migrates.
   - done, no shipped caller until step 5a's log header: digests stored versioned, as `sha256/c14n-1:<hex>`
@@ -97,6 +103,9 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 ## Step 5a, the simulation core (O34)
 
 - Retire `imagination.place`'s write window (its `TEMPORARY(phase1/sim-clock)` marker): owner confirmed 2026-11-20.
+- From step 3b part (b)'s review: the scene format becomes held by others once the log header records a scene (bug
+  reports carry it), so `SCENE` is declared `held_by_others` then and an old version migrates (Architecture A3); the
+  refusal codes produced today get their stage, reply and logging class beside tile §3.4's (Wire N6).
 
 - The substep floor (from 3a, marked `TEMPORARY(phase1/sim-clock)` in `src/simcore/core/heat.py`): `World.advance`
   takes `max(heat.min_substeps(dx), stability)` substeps per call, the retired rigs' 4/16/64 as 0.16 m² / dx²,
@@ -119,6 +128,9 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
   fuel tables' registry entries, before the log writer records the first golden.
 
 ## Step 5b, bodies and movement (`tile_and_client.md` §2, §3, §4.1)
+
+- From step 3b part (b)'s review (Determinism N7): a spawn maps to a cell in integers (`at_mm * 1000 // dx_um`), with
+  a stated side for a point on a cell face; the alley's spawn sits on the floor's top face at every grid.
 
 - The actor table, body motion, the walk grid and A*, the "move bodies" stage (AR-B1).
 - Body heat exchange as a reduction over a volume in metres, with closed-form and cross-grid tests (BF-B2).

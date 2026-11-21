@@ -23,7 +23,7 @@ from simcore.core.checks import shown
 from simcore.core.grid import Point
 from simcore.core.intents import AFFORDANCE_OF, Action, ActionRefused, Ignite, Strike
 from simcore.core.limits import ActionLimits
-from simcore.core.refusals import RefusalCode, Refused
+from simcore.core.refusals import RefusalCode, Refused, agent_text
 from simcore.core.world import HeatSource, World
 
 
@@ -41,12 +41,14 @@ class Outcome:
     code: RefusalCode | None = None
     field: str | None = None
 
+    def __post_init__(self) -> None:
+        if (self.code is None) != self.success:  # a refusal the agent can't be told is a programming error
+            raise TypeError(f"an outcome carries a code exactly when it is refused: {self.success}, {self.code}")
+
     @property
     def agent_text(self) -> str | None:
         """The refusal in the closed vocabulary (boundaries §5.4), or None when the action was applied."""
-        if self.code is None:
-            return None
-        return Refused("", code=self.code, field=self.field).agent_text
+        return None if self.code is None else agent_text(self.code, self.field)
 
 
 def _refused(affordance: str, params: Mapping[str, object], exc: Refused) -> Outcome:

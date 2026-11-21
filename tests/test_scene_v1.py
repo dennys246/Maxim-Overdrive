@@ -40,7 +40,7 @@ def _code(call, *args) -> RefusalCode:
 def test_the_committed_v1_scene_still_loads_and_builds():
     scene = Scene.from_dict(_raw())
     assert scene.spawns == (
-        Spawn("player", "human", (600, 1000, 400), "torch"),
+        Spawn("runner", "human", (600, 1000, 400), "torch"),
         Spawn("guard", "human", (2400, 1000, 400), None),
     )
     assert [p.name for p in scene.primitives] == ["floor", "post"]
@@ -50,7 +50,7 @@ def test_the_committed_v1_scene_still_loads_and_builds():
 def test_the_committed_v0_scene_is_refused_by_version_not_migrated():
     """A v0 scene has no spawns; migrated by ``spawns: []`` it would be a scene ``join`` refuses (checklist 3b)."""
     raw = yaml.safe_load((FORMATS / "v0" / "scene.yaml").read_text())
-    with pytest.raises(Refused, match="version must be 1, got 0: scene v0 had no spawns") as caught:
+    with pytest.raises(Refused, match="version must be 1, got 0: scene files are repo-only") as caught:
         Scene.from_dict(raw)
     assert caught.value.code is RefusalCode.BAD_VERSION
     assert not SCENE.migrations
@@ -61,7 +61,7 @@ def test_the_apache_alley_fixture_builds_the_tiles_regions(dx_m):
     scene = Scene.from_dict(yaml.safe_load((ROOT / "tests" / "fixtures" / "scenes" / "alley_box.yaml").read_text()))
     grid = scene.build(MATERIALS, dx_m=dx_m)
     assert sorted(grid.regions) == ["crate", "crate_far", "floor", "wall_end", "wall_north", "wall_south"]
-    assert scene.spawns == (Spawn("player", "human", (600, 2000, 400), "torch"),)
+    assert scene.spawns == (Spawn("runner", "human", (600, 2000, 400), "torch"),)
     assert grid.shape == tuple(round(e / dx_m) for e in (12.0, 4.0, 4.8))
 
 
@@ -177,3 +177,63 @@ def test_grid_alignment_is_judged_in_whole_micrometres(extent, dx_m, ok):
 
 def test_a_grid_spacing_must_be_positive():
     assert _code(lambda: MaterialGrid.empty((1.0, 1.0, 1.0), MATERIALS, dx_m=0.0)) is RefusalCode.OUT_OF_RANGE
+
+
+# -- step 3b(b) round 1 folds ------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("names", "code"),
+    [
+        (
+            ["Guard", "guard"],
+            RefusalCode.NAME_TAKEN,
+        ),  # one entity under Maxim's name rule (Bio-faithful S3, Executor N4)
+        (["guard captain", "guard_captain"], RefusalCode.NAME_TAKEN),
+        (["post"], RefusalCode.NAME_TAKEN),  # the v1 fixture's region: a body would be its namesake
+        (["player"], RefusalCode.BAD_IDENTITY_KEY),  # Maxim resolves these to the calling agent's own body
+        (["Self"], RefusalCode.BAD_IDENTITY_KEY),
+        (["AUT"], RefusalCode.BAD_IDENTITY_KEY),
+    ],
+)
+def test_a_spawn_name_is_one_maxim_cannot_confuse(names, code):
+    spawns = [{"name": n, "archetype": "human", "at_m": [1, 1, 1]} for n in names]
+    assert _code(Scene.from_dict, _raw(spawns=spawns)) is code
+
+
+@pytest.mark.parametrize(
+    ("extent", "ok"), [([0.4, 1.0, 0.8], True), ([0.3, 0.4, 0.8], False), ([12.1, 4.0, 4.8], False)]
+)
+def test_every_extent_is_a_whole_number_of_coarse_cells_so_it_builds_at_every_grid(extent, ok):
+    """Determinism and Physics SF3: [0.3, 0.4, 0.8] built at 0.1 m and was refused at 0.2 m, so whether a scene builds
+    at all depended on the grid spacing."""
+    if not ok:
+        assert _code(Scene, tuple(extent)) is RefusalCode.OUT_OF_RANGE
+        return
+    for dx_m in (0.2, 0.1, 0.05):
+        Scene(tuple(extent)).build(MATERIALS, dx_m=dx_m)
+
+
+@pytest.mark.parametrize(
+    "primitive",
+    [
+        {"kind": "cylinder", "center_xy_m": [1, 1], "radius_m": 1e-300, "z_m": [0, 1], "material": "wood"},
+        {"kind": "box", "min_m": [0, 0, 0], "max_m": [1e-200, 1e-200, 1e-200], "material": "wood"},
+    ],
+)
+def test_a_primitive_with_no_volume_is_refused_where_it_is_made(primitive):
+    """Wire S4: their volume underflowed to 0 m³ and footprint_of divided by it (ZeroDivisionError)."""
+    assert _code(Scene.from_dict, _raw(primitives=[primitive])) is RefusalCode.TOO_SMALL
+
+
+@pytest.mark.parametrize(
+    ("extent", "dx_m"),
+    [((1.0, 1.0, 1.0), 1e303), ((1.0, 1.0, 1.0), 1e-12), ((1.0, 1.0, 1.0), 5e-10), ((1e303, 1.0, 1.0), 0.1)],
+)
+def test_an_impossible_spacing_or_extent_is_refused_not_crashed_on(extent, dx_m):
+    """Executor S3, Determinism N6: OverflowError and ZeroDivisionError before."""
+    assert _code(lambda: MaterialGrid.empty(extent, MATERIALS, dx_m=dx_m)) is RefusalCode.OUT_OF_RANGE
+
+
+def test_a_position_on_a_half_millimetre_rounds_to_the_even_millimetre():
+    assert [to_mm(v) for v in (0.0005, 0.0015, 0.0025, 0.0035)] == [0, 2, 2, 4]

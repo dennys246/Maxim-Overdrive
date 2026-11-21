@@ -33,6 +33,18 @@ _NOT_NUMBERS: Bad = (
 )
 
 
+TEXT_CHARS = 128  # a name's budget (boundaries §5.4): imagined names are held tighter by Budget.max_name_chars
+
+
+def _count(value: Sequence[object] | Mapping[object, object]) -> int:
+    """A container's length, or one past any budget for a length too large to count (``range(10**20)``; no file
+    holds one)."""
+    try:
+        return len(value)
+    except OverflowError:
+        return 2**63
+
+
 def _out_of_range(what: str, value: object, rule: str) -> Refused:
     return Refused(f"{what} must be {rule}, got {shown(value)}", code=RefusalCode.OUT_OF_RANGE)
 
@@ -114,7 +126,7 @@ class Rgb:
     """A colour: three whole numbers from 0 to 255."""
 
     def convert(self, value: object, what: str) -> tuple[int, int, int]:
-        if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or len(value) != 3:
+        if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or _count(value) != 3:
             raise Refused(f"{what} must be three whole numbers, got {shown(value)}", code=RefusalCode.BAD_SHAPE)
         byte = Whole(0, 255)
         return (byte.convert(value[0], what), byte.convert(value[1], what), byte.convert(value[2], what))
@@ -127,18 +139,23 @@ class Rgb:
 
 @dataclass(frozen=True)
 class Text:
-    """A display or lookup name: a non-empty string with no outer spaces (Maxim strips the names it resolves)."""
+    """A display or lookup name: a printable string of 1 to ``TEXT_CHARS`` characters with no outer spaces.
+
+    Maxim strips the names it resolves, so " crate" would answer to "crate". A region's name reaches every agent as
+    an entity name, so a control, bidi or format character (a newline, U+202E, U+200B) is refused, not passed on
+    (boundaries §5.3, §5.4; step 3b(b) review, Trust T1-S2)."""
 
     def convert(self, value: object, what: str) -> str:
-        if not isinstance(value, str) or not value.strip() or value != value.strip():
-            raise Refused(
-                f"{what} must be a non-empty string with no outer spaces, got {shown(value)}", code=RefusalCode.BAD_NAME
-            )
-        return value
+        ok = isinstance(value, str) and 0 < len(value) <= TEXT_CHARS and value.isprintable() and value == value.strip()
+        if not ok:
+            rule = f"a printable string of 1 to {TEXT_CHARS} characters with no outer spaces"
+            raise Refused(f"{what} must be {rule}, got {shown(value)}", code=RefusalCode.BAD_NAME)
+        return str(value)
 
     @property
     def bad(self) -> Bad:
-        return ((7, RefusalCode.BAD_NAME), ("", RefusalCode.BAD_NAME), (" x", RefusalCode.BAD_NAME))
+        names = (7, "", " x", "x ", "x" * (TEXT_CHARS + 1), "a\nb", "a\u202eb", "cr\u200bate", "a\x00b", "\ud800")
+        return tuple((n, RefusalCode.BAD_NAME) for n in names)
 
 
 @dataclass(frozen=True)
@@ -206,7 +223,7 @@ class ListOf:
     def convert(self, value: object, what: str) -> tuple[Mapping[str, object], ...]:
         if isinstance(value, (str, bytes, Mapping)) or not isinstance(value, Sequence):
             raise Refused(f"{what} must be a list, got {type(value).__name__}", code=RefusalCode.BAD_SHAPE)
-        if len(value) > self.max_items:
+        if _count(value) > self.max_items:
             raise Refused(f"{what} holds at most {self.max_items} items", code=RefusalCode.OVER_BUDGET)
         return tuple(self.item.convert(v, f"{what}[{i}]") for i, v in enumerate(value))
 
@@ -226,7 +243,7 @@ class MapOf:
     def convert(self, value: object, what: str) -> Mapping[str, Mapping[str, object]]:
         if not isinstance(value, Mapping):
             raise Refused(f"{what} must be a mapping, got {type(value).__name__}", code=RefusalCode.BAD_SHAPE)
-        if len(value) > self.max_items:
+        if _count(value) > self.max_items:
             raise Refused(f"{what} holds at most {self.max_items} entries", code=RefusalCode.OVER_BUDGET)
         out = {self.key.convert(k, f"a name in {what}"): v for k, v in value.items()}
         return MappingProxyType({k: self.value.convert(v, f"{what} {k}") for k, v in out.items()})
@@ -269,7 +286,7 @@ class Schema:
         names = [f.name for f in self.fields]
         if len(set(names)) != len(names):  # a schema contradicting itself is a programming error, not bad input
             raise TypeError(f"a schema names a field twice: {sorted(names)}")
-        ticks = [n for n in names if "tick" in n]
+        ticks = [n for n in names if {"tick", "ticks"} & set(n.split("_"))]  # a word, not a substring: stick_m is fine
         if ticks:
             raise TypeError(f"content stores time in seconds, never ticks: {ticks} (tile §3.2)")
         object.__setattr__(self, "reserved", MappingProxyType(dict(self.reserved)))

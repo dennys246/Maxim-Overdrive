@@ -20,6 +20,7 @@ from typing import Any
 import pytest
 import yaml
 
+import maxim_overdrive
 import simcore
 from simcore.core import schema as schema_module
 from simcore.core.limits import ACTION_LIMITS, ActionLimits
@@ -56,12 +57,21 @@ def _scene(doc: Mapping[str, object]) -> Scene:
     return Scene.from_dict(doc)  # the scene's reader reads and builds in one call
 
 
+def _scene_sample() -> dict[str, Any]:
+    """The alley fixture plus one primitive of every kind it lacks, so the walk reaches each tagged kind's fields
+    (step 3b(b) review, Executor S1: the alley is all boxes, so the cylinder went unwalked)."""
+    doc = _yaml("tests/fixtures/scenes/alley_box.yaml")
+    post = {"kind": "cylinder", "name": "post", "material": "wood", "center_xy_m": [3.0, 2.0], "radius_m": 0.2}
+    doc["primitives"].append({**post, "z_m": [0.4, 1.6]})
+    return doc
+
+
 # Every format, a valid document of it, and what builds the format's type from a read document.
 SAMPLES: dict[str, tuple[Format, dict[str, Any], Callable[[Any], object]]] = {
     "material table": (MATERIAL_TABLE, _yaml("data/materials/core.yaml"), MaterialTable.from_document),
     "action limits": (ACTION_LIMITS, _yaml("data/world/actions.yaml"), ActionLimits.from_document),
     "rig profile": (RIG_PROFILE, _yaml("data/rigs/rig.yaml"), RigProfile.from_document),
-    "scene": (SCENE, _yaml("tests/fixtures/scenes/alley_box.yaml"), lambda doc: doc),
+    "scene": (SCENE, _scene_sample(), lambda doc: doc),
 }
 
 
@@ -74,7 +84,8 @@ def _read_and_build(name: str, doc: object) -> object:
 
 def _declared_formats() -> dict[str, Format]:
     found: dict[str, Format] = {}
-    for info in pkgutil.walk_packages(simcore.__path__, "simcore."):
+    packages = [(simcore.__path__, "simcore."), (maxim_overdrive.__path__, "maxim_overdrive.")]
+    for info in (i for path, prefix in packages for i in pkgutil.walk_packages(path, prefix)):
         if info.name.startswith("simcore.adapters.sem"):
             continue  # imports maxim optionally; it declares no format
         module = importlib.import_module(info.name)
@@ -92,6 +103,7 @@ def test_every_declared_format_has_a_sample_and_every_sample_builds():
 # -- the walk: every field path of a format over its sample -----------------------------------------------------------
 
 Case = tuple[str, Callable[[dict[str, Any]], None], RefusalCode]
+VISITED: set[tuple[int, str]] = set()  # (a Tagged converter, a kind) the walk descended into
 
 
 def _set(path: tuple[object, ...], value: object) -> Callable[[dict[str, Any]], None]:
@@ -119,7 +131,9 @@ def _inner(convert: object, value: Any, path: tuple[object, ...]) -> Iterator[tu
     if isinstance(convert, Nested):
         yield convert.schema, value, path
     elif isinstance(convert, Tagged) and isinstance(value, Mapping):
-        yield convert.schemas[value.get(convert.tag, convert.default)], value, path
+        kind = value.get(convert.tag, convert.default)
+        VISITED.add((id(convert), kind))
+        yield convert.schemas[kind], value, path
     elif isinstance(convert, ListOf) and value:
         for i, item in enumerate(value):  # every item, so each kind of a tagged list is reached
             yield from _inner(convert.item, item, (*path, i))
@@ -174,6 +188,10 @@ def test_the_walk_reaches_every_level_of_every_format():
     assert {("action limits", "ignite"), ("action limits", "strike")} <= reached
     assert {("scene", "spawns/0"), ("scene", "primitives/0")} <= reached
     assert len(CASES) > 250
+    tagged = {id(c): c for fmt, _, _ in SAMPLES.values() for f in _walk_fields(fmt.schema) for c in _tagged(f.convert)}
+    missing = {(t.tag, k) for i, t in tagged.items() for k in t.schemas if (i, k) not in VISITED}
+    assert tagged
+    assert not missing, f"no sample reaches these kinds, so their fields go unwalked: {missing}"
 
 
 @pytest.mark.parametrize("name", sorted(SAMPLES))
@@ -242,6 +260,20 @@ def _walk_fields(s: Schema) -> Iterator[Field]:
             )
         if isinstance(c, Tagged):
             yield from (g for t in c.schemas.values() for g in _walk_fields(t))
+
+
+def _tagged(convert: object) -> list[Tagged]:
+    if isinstance(convert, Tagged):
+        return [convert]
+    if isinstance(convert, ListOf):
+        return _tagged(convert.item)
+    return []
+
+
+def test_the_tick_rule_reads_words_not_letters():
+    Schema((Field("stick_length_m", Real()),))  # "tick" inside a word is not a tick count
+    with pytest.raises(TypeError, match="never ticks"):
+        Schema((Field("delay_ticks", Whole(0, 9)),))
 
 
 def test_no_shipped_format_has_a_field_counted_in_ticks():
@@ -372,3 +404,57 @@ def test_the_material_tables_lookup_arrays_are_generated_from_the_schema():
             want = getattr(m, name)
             assert array[m.id] == (fill if want is None else want), (name, m.name)
     assert table.conductivity is table.lookups["conductivity_w_mk"]
+
+
+# -- each format's schema, pinned -------------------------------------------------------------------------------------
+# The walk derives its cases from the schema, so it proves the reader keeps the schema, never that the schema is right:
+# a field made optional loses its "missing" case and the walk stays green (step 3b(b) review, Executor S1, measured).
+# Every format's fields, with their rules, are therefore pinned in a committed file; a change to one is a reviewed diff
+# of tests/fixtures/formats/schemas.txt, made with the version bump and the refusal test it needs.
+
+SNAPSHOT = ROOT / "tests" / "fixtures" / "formats" / "schemas.txt"
+
+
+def _describe(schema: Schema, prefix: str) -> list[str]:
+    lines = [f"{prefix} reserved {sorted(schema.reserved)}"] if schema.reserved else []
+    for f in schema.fields:
+        flags = "required" if f.required else f"optional, default {f.default!r}"
+        flags += ", nullable" if f.nullable else ""
+        flags += f", lookup {f.lookup!r}" if f.lookup is not None else ""
+        c = f.convert
+        inner = c.item if isinstance(c, ListOf) else c.value if isinstance(c, MapOf) else c
+        lines.append(f"{prefix}.{f.name}: {type(c).__name__} {_rule(c)} ({flags})")
+        if isinstance(inner, Nested):
+            lines += _describe(inner.schema, f"{prefix}.{f.name}")
+        elif isinstance(inner, Tagged):
+            for kind, s in sorted(inner.schemas.items()):
+                lines += _describe(s, f"{prefix}.{f.name}[{inner.tag}={kind}]")
+    return lines
+
+
+def _rule(c: object) -> str:
+    if isinstance(c, ListOf | MapOf):
+        return f"max {c.max_items}"
+    if isinstance(c, Nested | Tagged):
+        return ""
+    return repr(c)
+
+
+def _snapshot() -> str:
+    out = []
+    for name, (fmt, _, _) in sorted(SAMPLES.items()):
+        refused = {v: "refused" for v in fmt.refused}
+        out.append(f"{name} v{fmt.version} held_by_others={fmt.held_by_others} old={refused}")
+        out += _describe(fmt.schema, f"  {name}")
+    return "\n".join(out) + "\n"
+
+
+def test_every_formats_schema_is_the_one_committed():
+    assert _snapshot() == SNAPSHOT.read_text(), "a format's schema changed: review it, then regenerate schemas.txt"
+
+
+def test_a_list_too_long_to_count_is_over_budget_not_a_crash():
+    """Trust T1-N1: len(range(10**20)) raises OverflowError."""
+    with pytest.raises(Refused) as caught:
+        ListOf(Nested(Schema(())), max_items=4).convert(range(10**20), "x")
+    assert caught.value.code is RefusalCode.OVER_BUDGET

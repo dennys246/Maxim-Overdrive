@@ -19,7 +19,7 @@ from typing import Protocol
 import numpy as np
 import numpy.typing as npt
 
-from simcore.core.checks import entity_key, finite_real
+from simcore.core.checks import entity_key, finite_real, shown
 from simcore.core.materials import AIR_ID, MaterialTable
 from simcore.core.readonly import frozen
 from simcore.core.refusals import RefusalCode, Refused
@@ -27,10 +27,18 @@ from simcore.core.refusals import RefusalCode, Refused
 UM_PER_M = 1_000_000
 
 
-def _whole_micrometres(length_m: float, what: str) -> int:
-    """A length as whole micrometres, or a Refused: cell edges are integer micrometres (F13, fire_solid §1.3)."""
+MAX_LENGTH_M = 1000.0  # as scene.MAX_EXTENT_M: no tile is a kilometre across, and the conversion below stays finite
+
+
+def whole_micrometres(length_m: float, what: str) -> int:
+    """A positive length of at most ``MAX_LENGTH_M`` as whole micrometres, or a Refused: cell edges are integer
+    micrometres (F13, fire_solid §1.3). The 1 nm allowance is float noise on a whole micrometre, never a real length."""
+    if not (0 < length_m <= MAX_LENGTH_M):  # NaN fails too; bounded before arithmetic, so round() never overflows
+        raise Refused(
+            f"{what} must be above 0 and at most {MAX_LENGTH_M:g} m, got {length_m!r}", code=RefusalCode.OUT_OF_RANGE
+        )
     um = round(length_m * UM_PER_M)
-    if abs(length_m * UM_PER_M - um) > 1e-3:  # a nanometre: float noise on a whole micrometre, never a real length
+    if um < 1 or abs(length_m * UM_PER_M - um) > 1e-3:
         raise Refused(f"{what} {length_m} m is not a whole number of micrometres", code=RefusalCode.OUT_OF_RANGE)
     return um
 
@@ -324,10 +332,10 @@ class MaterialGrid(GridGeometry, CellStore):
             raise Refused(f"dx_m must be positive, got {dx_m}", code=RefusalCode.OUT_OF_RANGE, field="dx_m")
         # Grid alignment is checked in integers (world_model F13): 0.6 / 0.2 is 2.9999999999999996 in floats, so a
         # float test needs a tolerance that some extent always falls across. Whole micrometres have no such edge.
-        dx_um = _whole_micrometres(dx, "dx_m")
+        dx_um = whole_micrometres(dx, "dx_m")
         cells = []
         for e in extent_m:
-            n, rest = divmod(_whole_micrometres(e, "extent_m"), dx_um)
+            n, rest = divmod(whole_micrometres(e, "extent_m"), dx_um)
             if rest or n < 1:
                 raise Refused(
                     f"extent {e} m is not a whole number of {dx} m cells; author tile extents as multiples of the "
@@ -357,9 +365,11 @@ class MaterialGrid(GridGeometry, CellStore):
         A named region needs its ``footprint``, its authored shape in metres (see ``Region``).
         """
         if region is not None and any(entity_key(r) == entity_key(region) for r in self._region_names()):
-            raise Refused(f"region {region!r} already exists", code=RefusalCode.NAME_TAKEN)
+            raise Refused(f"region {shown(region)} already exists", code=RefusalCode.NAME_TAKEN)
         if region is not None and footprint is None:
-            raise ValueError(f"region {region!r} needs its authored footprint in metres")
+            raise Refused(
+                f"region {shown(region)} needs its authored footprint in metres", code=RefusalCode.MISSING_FIELD
+            )
         self._require_window("a paint")
         mid = self.materials[material_name].id
         self.material[mask] = mid
@@ -379,7 +389,7 @@ class MaterialGrid(GridGeometry, CellStore):
         """
         clash = next((r for r in self._region_names() if entity_key(r) == entity_key(region)), None)
         if clash is not None:
-            message = f"region {region!r} already exists" + ("" if clash == region else f" (as {clash!r})")
+            message = f"region {shown(region)} already exists" + ("" if clash == region else f" (as {shown(clash)})")
             raise Refused(message, code=RefusalCode.NAME_TAKEN)
         self._require_window("a region")
         self._window_table()

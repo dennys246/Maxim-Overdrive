@@ -88,12 +88,13 @@ GATES: dict[str, Gate] = {
     "src/simcore/adapters/loaders.py::load_action_limits": Gate(_V, _ACT, "meets"),
     "src/simcore/protocol/tiers.py::RigProfile": Gate(_V, _VAL, "meets"),
     "src/simcore/protocol/tiers.py::RigProfile.load": Gate(_V, _VAL, "meets"),
-    "src/simcore/protocol/tiers.py::RigProfile.from_document": Gate(_V, _FMT, "meets"),
+    # builders from a document their Format has already read: the Format is the gate (step 3b(b) review, A1)
+    "src/simcore/protocol/tiers.py::RigProfile.from_document": Gate(_V, _FMT, "no input"),
     # the one reader every format applies (simcore.core.schema): its converters, fields, schemas and versions
     **{f"src/simcore/core/schema.py::{name}": Gate(_V, _FMT, "meets") for name in _SCHEMA_READERS},
     **{f"src/simcore/core/schema.py::{name}": Gate(_V, _FMT, "no input") for name in _SCHEMA_DESCRIPTIONS},
-    "src/simcore/core/materials.py::MaterialTable.from_document": Gate(_V, _FMT, "meets"),
-    "src/simcore/core/limits.py::ActionLimits.from_document": Gate(_V, _FMT, "meets"),
+    "src/simcore/core/materials.py::MaterialTable.from_document": Gate(_V, _FMT, "no input"),
+    "src/simcore/core/limits.py::ActionLimits.from_document": Gate(_V, _FMT, "no input"),
     # validating constructors the loaders and the actions build (§5.1)
     "src/simcore/core/materials.py::Material": Gate(_V, _CON, "meets"),
     "src/simcore/core/materials.py::MaterialTable": Gate(_V, _CON, "meets"),
@@ -115,10 +116,12 @@ GATES: dict[str, Gate] = {
     "src/simcore/core/scene.py::primitives_from_data": Gate(_V, _VAL, "meets"),
     "src/simcore/core/scene.py::Box": Gate(_V, _EXT, "meets"),
     "src/simcore/core/scene.py::Cylinder": Gate(_V, _EXT, "meets"),
-    "src/simcore/core/scene.py::Scene.from_dict": Gate(_V, _FMT, "meets"),
+    "src/simcore/core/scene.py::Scene.from_dict": Gate(
+        _V, _FMT, "partial: no cell budget before Scene.build allocates the grid, until step 5a's memory budget (T1-S6)"
+    ),
     "src/simcore/core/scene.py::Scene": Gate(_V, _VAL, "meets"),
     "src/simcore/core/scene.py::Spawn": Gate(_V, "tests/test_scene_v1.py", "meets"),
-    "src/simcore/core/scene.py::Spawn.from_document": Gate(_V, "tests/test_scene_v1.py", "meets"),
+    "src/simcore/core/scene.py::Spawn.from_document": Gate(_V, "tests/test_scene_v1.py", "no input"),
     "src/simcore/core/checks.py::identity_key": Gate(_V, "tests/test_scene_v1.py", "meets"),
     # the SEM membrane: Maxim's calls arrive through these methods
     "src/simcore/adapters/sem/bridge.py::StructureModulator": Gate(_V, _VAL, "meets"),

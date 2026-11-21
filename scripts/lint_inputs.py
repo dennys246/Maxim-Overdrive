@@ -20,11 +20,13 @@ path. This lint covers what those can't show, in closed lists:
   ``read_array``); and ``*`` or ``**`` arguments to any of them.
 
 - **Routes through a value** in ``src/`` (B29; step 3b delta round 7): the attributes that reach a namespace
-  (``__globals__``, ``__dict__``, ``__builtins__``, ``__subclasses__``, ``__code__``, ``__closure__``) on any value,
-  and a ``str.format`` field naming one (``'{0.__globals__[os]}'``); and, outside the input gates, a filesystem or
-  receive method on any value (``read_text``, ``open``, ``readline``, ``recv`` and the rest of ``FS_METHODS``), since
-  a path or a stream handed in is still input. ``maxim_overdrive.data.data_dir`` hands out a ``DataPath``, which has
-  none of them.
+  (``__globals__``, ``__dict__``, ``__self__``, frame attributes and the rest of ``NAMESPACE_ATTRIBUTES``) on any
+  value, by attribute, by ``getattr`` with a literal name or by ``__getattribute__``, and a format field naming one
+  in a str or bytes constant (``'{0.__globals__[os]}'``); and, outside the input gates, a filesystem or receive
+  method on any value (``read_text``, ``readline``, ``recv`` and the rest of ``FS_METHODS``), since a path or a stream
+  handed in is still input. Names this game also uses for its own things (``open``, ``read``, ``walk``, ``resolve``)
+  are left out; the guard there is the capability: ``maxim_overdrive.data.data_dir`` hands out a ``DataPath``, which
+  has none of them.
 
 What it can't see: a value passed through a variable, a container or a function (``f = pick(yaml)``,
 ``operator.attrgetter('unsafe_load')(yaml)``, ``functools.partial(np.load, ...)`` outside ``src/``), a method named
@@ -59,16 +61,24 @@ IMPORTERS = {"importlib.import_module", "builtins.__import__", "importlib.__impo
 NAMESPACES = {"builtins.vars", "builtins.globals", "builtins.locals"}  # vars(x) is x's names; globals() the module's
 BUILTINS = {"open", "input", "eval", "exec", "__import__", "compile", "getattr", "vars", "globals", "locals"}
 # Attributes that reach a module's namespace from any value (contextmanager(len).__globals__['os']), in src/.
-NAMESPACE_ATTRIBUTES = {"__globals__", "__dict__", "__builtins__", "__subclasses__", "__code__", "__closure__"}
+NAMESPACE_ATTRIBUTES = {
+    "__globals__", "__dict__", "__builtins__", "__subclasses__", "__code__", "__closure__", "__self__",
+    "__getattribute__", "__loader__", "__spec__", "f_globals", "f_builtins", "f_locals", "f_back", "tb_frame",
+    "gi_frame", "cr_frame", "ag_frame",
+}  # fmt: skip
 # A str.format field that reads one of them itself ('{0.__globals__[os]}'.format(f)), or any dunder by attribute or
-# by subscript: a format field is code that runs on its arguments.
+# by subscript: a format field is code that runs on its arguments. Bytes constants too (b'{0.__globals__}'.decode()).
 FORMAT_DUNDER = re.compile(r"\{[^{}]*[.\[]\s*__")
-# Methods that read the filesystem or a stream from a value (a Path or a socket handed in), outside the input gates.
-# Not read, which is also every format's reader (Format.read); a file object's read needs open, refused above.
+# Methods that read or write the filesystem or a stream from a value (a Path or a socket handed in), outside the input
+# gates: only names with no other meaning in this game. read, replace, copy, move, open, walk, resolve, exists, stat,
+# touch and absolute are also str, dict, Format.read, a door, a body's walk or target resolution (step 3b(b) review,
+# Architecture A6), so they are a stated blind spot; the guard for those is the capability: data_dir hands out a
+# DataPath, which has none of them (Trust T1-S3, T1-S5).
 FS_METHODS = {
-    "read_text", "read_bytes", "write_text", "write_bytes", "open", "iterdir", "glob", "rglob", "walk", "exists",
-    "is_file", "is_dir", "is_symlink", "stat", "lstat", "resolve", "readlink", "touch", "mkdir", "rmdir", "unlink",
-    "chmod", "samefile", "expanduser", "absolute", "readline", "readlines", "recv", "recv_into", "recvfrom",
+    "read_text", "read_bytes", "write_text", "write_bytes", "iterdir", "glob", "rglob", "is_file", "is_dir",
+    "is_symlink", "is_mount", "lstat", "readlink", "mkdir", "rmdir", "unlink", "rename", "symlink_to", "hardlink_to",
+    "chmod", "lchmod", "owner", "samefile", "expanduser", "scandir", "readline", "readlines", "readinto",
+    "readexactly", "readuntil", "recv", "recv_into", "recvfrom", "recvfrom_into", "recvmsg", "recv_bytes", "makefile",
 }  # fmt: skip
 
 
@@ -240,17 +250,40 @@ def _computed_getattr(rel: str, source: str) -> list[str]:
     ]
 
 
+def _attribute_named(node: ast.AST) -> str | None:
+    """The attribute ``node`` reads: ``v.name``, ``getattr(v, 'name')``, ``v.__getattribute__('name')`` and
+    ``object.__getattribute__(v, 'name')`` alike (step 3b(b) review, Trust T1-S4)."""
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    if not isinstance(node, ast.Call):
+        return None
+    func = node.func
+    by_getattr = isinstance(func, ast.Name) and func.id == "getattr" and len(node.args) > 1
+    by_dunder = isinstance(func, ast.Attribute) and func.attr == "__getattribute__"
+    if not (by_getattr or by_dunder):
+        return None
+    named = [a.value for a in node.args if isinstance(a, ast.Constant) and isinstance(a.value, str)]
+    return named[-1] if named else None
+
+
+def _format_text(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str | bytes):
+        return node.value if isinstance(node.value, str) else node.value.decode("latin-1")
+    return None
+
+
 def _value_routes(rel: str, source: str, gate: bool) -> list[str]:
     """Namespace attributes and dunder format fields on any value; filesystem methods outside a gate (B29)."""
     out = []
     for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.Attribute) and node.attr in NAMESPACE_ATTRIBUTES:
-            out.append(f"{rel}:{node.lineno}: reads {node.attr}, a namespace through a value (B29)")
-        elif isinstance(node, ast.Attribute) and node.attr in FS_METHODS and not gate:
-            out.append(f"{rel}:{node.lineno}: calls .{node.attr}, input through a value outside the gates (B29)")
-        elif isinstance(node, ast.Constant) and isinstance(node.value, str) and FORMAT_DUNDER.search(node.value):
-            out.append(f"{rel}:{node.lineno}: a format field names a dunder, a namespace through a value (B29)")
-    return out
+        name, text, line = _attribute_named(node), _format_text(node), getattr(node, "lineno", 0)
+        if name in NAMESPACE_ATTRIBUTES:
+            out.append(f"{rel}:{line}: reads {name}, a namespace through a value (B29)")
+        elif name in FS_METHODS and not gate:
+            out.append(f"{rel}:{line}: calls .{name}, input through a value outside the gates (B29)")
+        elif text is not None and FORMAT_DUNDER.search(text):
+            out.append(f"{rel}:{line}: a format field names a dunder, a namespace through a value (B29)")
+    return sorted(set(out))
 
 
 def input_findings(rel: str, source: str) -> list[str]:

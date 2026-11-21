@@ -46,7 +46,7 @@ WOOD = MATERIALS["wood"]
         ({"id": 256}, "id must be from 0 to 255, got 256"),
         ({"id": -1}, "id must be from 0 to 255"),
         ({"id": 1.5}, "id must be a whole number"),
-        ({"name": ""}, "a material needs a name"),
+        ({"name": ""}, "a material.s name must be a printable string"),
         ({"color_rgb": (0, 0, 256)}, "color_rgb must be from 0 to 255"),
         ({"color_rgb": (0, 0)}, "color_rgb must be three whole numbers"),
         ({"color_rgb": "red"}, "color_rgb must be three whole numbers"),
@@ -87,7 +87,7 @@ def test_a_budget_refuses_a_limit_that_is_no_limit(kwargs, message):
 
 @pytest.mark.parametrize("name", ["", "   ", 7, None])
 def test_a_rig_profile_needs_a_name(name):
-    with pytest.raises(ValueError, match=r"a rig profile\.name must be a non-empty string"):
+    with pytest.raises(ValueError, match=r"a rig profile\.name must be a printable string"):
         RigProfile(name)
 
 
@@ -317,3 +317,27 @@ def test_size_and_mass_refusals_read_as_plain_numbers():
     ]  # 1,999.8 m apart: ".3g" read it as "2e+03" (delta review, Trust D-N2)
     with pytest.raises(SpecRejected, match=r"too large: 1999\.80 m across"):
         place(_grid(), {"name": "x", "primitives": ends}, (0.0, 0.0, 0.0))
+
+
+def test_a_material_built_in_code_keeps_the_files_name_rule():
+    """Architecture A9, Wire N4: " wood" built directly but couldn't be loaded from a file."""
+    from simcore.core.materials import Material  # noqa: PLC0415
+    from simcore.core.refusals import RefusalCode, Refused  # noqa: PLC0415
+
+    with pytest.raises(Refused) as caught:
+        Material(" wood", 9, 1.0, 1.0, 1.0, 1.0, None, 0.0, (0, 0, 0))
+    assert caught.value.code is RefusalCode.BAD_NAME
+
+
+def test_the_gates_that_were_left_uncoded_now_answer_with_a_code():
+    """Architecture A4, Trust T1-N4."""
+    from maxim_overdrive import data  # noqa: PLC0415
+    from simcore.core.refusals import RefusalCode, Refused  # noqa: PLC0415
+    from simcore.core.world import HeatSource  # noqa: PLC0415
+
+    with pytest.raises(Refused) as caught:
+        HeatSource((0.0, 0.0, 0.0), 0.0, 1.0)
+    assert caught.value.code is RefusalCode.OUT_OF_RANGE
+    with pytest.raises(Refused) as caught:
+        data.rig_profile("../x")
+    assert caught.value.code is RefusalCode.BAD_NAME

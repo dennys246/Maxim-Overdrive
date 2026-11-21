@@ -150,9 +150,10 @@ def test_an_imagined_object_with_any_numbers_is_placed_or_refused(reach):
     run()
     # Measured reach (2026-11-21, step 3b part b): the schema's reader now runs the field rules the constructor used
     # to run first, so a primitive is constructed only once its fields pass (59% of examples, was 100%, the same rules
-    # one layer earlier); about half are valid shapes; masks are computed for the ones that pass the analytic budgets.
-    # The floors keep the fuzzer from drifting back to junk.
-    assert reach["constructed"] >= 0.5 * reach["examples"], reach
+    # one layer earlier). The round 1 fold refuses a shape whose volume underflows to 0 m³ at its first constructor,
+    # before imagination offsets it and constructs it again: 43% (172 of 400), valid 31%, masked 5.5%. The floors
+    # keep the fuzzer from drifting back to junk.
+    assert reach["constructed"] >= 0.4 * reach["examples"], reach
     assert reach["valid"] >= 0.2 * reach["examples"], reach
     assert reach["masked"] >= 0.02 * reach["examples"], reach
 

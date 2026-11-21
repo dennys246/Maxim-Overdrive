@@ -169,7 +169,9 @@ def identity_key(value: object, what: str) -> str:
     ``bad_identity_key``: a printable string of 1 to 64 characters with no outer spaces and no ``:``.
 
     No ``:`` because Maxim's ``make_agent_rng`` seeds a stream from ``f"{base_seed}:{agent_id}"`` (Maxim's owner,
-    2026-11-19), so a key holding one would make two streams' seeds the same string (npcs_and_sem §3.4)."""
+    2026-11-19), and until its stream argument lands the agent id is the composite ``f"{npc_key}:{stream}"`` (O40,
+    OD-A7): with a ``:`` in a key, ("a:b", "c") and ("a", "b:c") seed one stream (npcs_and_sem §3.4). An int base seed
+    alone would not collide, so the composite is the reason; keep the rule while it exists."""
     ok = (
         isinstance(value, str)
         and 0 < len(value) <= IDENTITY_KEY_CHARS

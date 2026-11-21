@@ -55,9 +55,9 @@ class Strike:
         if self.point_m is not None:
             try:
                 x, y, z = finite_vector(self.point_m, 3, "point_m")
-            except ValueError:
+            except Refused as exc:  # its own code: a NaN is not_finite here as in every reader, a pair is bad_shape
                 message = f"point_m must be 3 finite numbers, got {shown(self.point_m)}"
-                raise ActionRefused(message, code=RefusalCode.BAD_SHAPE, field="point_m") from None
+                raise ActionRefused(message, code=exc.code, field="point_m") from None
             object.__setattr__(self, "point_m", (x, y, z))
 
     def check(self, limits: ActionLimits) -> None:

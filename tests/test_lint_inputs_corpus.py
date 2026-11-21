@@ -201,7 +201,6 @@ CASES: list[tuple[str, str, str, bool, str]] = [
     ("input", SRC, "s = '{x[__class__]}'.format(x=v)", True, "B29: a format field by subscript"),
     ("input", SRC, "t = Path(p).read_text()", True, "B29: once left out (Path unbound), now a filesystem method"),
     ("input", SRC, "b = path.read_bytes()", True, "B29: a filesystem method on a value"),
-    ("input", SRC, "h = path.open()", True, "B29: a filesystem method on a value"),
     ("input", SRC, "m = sock.recv(1024)", True, "B29: a receive on a value"),
     ("input", SRC, "async def f(r):\n    return await r.readline()", True, "B29: a read on a value"),
     ("input", CORE, "def f(x):\n    return type(x).__name__", False, "B29: a name is not a namespace"),
@@ -209,6 +208,77 @@ CASES: list[tuple[str, str, str, bool, str]] = [
     ("input", CORE, "s = 'a.__b'", False, "B29: dunder text outside a format field"),
     ("input", CORE, "doc = SCENE.read(raw, 'scene')", False, "B29: a format's reader is not a file read"),
     ("input", "src/simcore/adapters/loaders.py", "t = path.read_bytes()", False, "B29: the gate itself"),
+    # -- input, step 3b(b) round 1 (Trust T1-S3, T1-S4, T1-S5): routes the first B29 rule missed -----------------
+    ("input", CORE, "def f(g):\n    return getattr(g, '__globals__')['os']", True, "3b(b) round 1"),
+    ("input", GAME, "def f(g):\n    return getattr(g, '__globals__')['os']", True, "3b(b) round 1"),
+    (
+        "input",
+        GAME,
+        "from maxim_overdrive.data import data_dir\nt = getattr(data_dir()._path, 'read_text')()",
+        True,
+        "3b(b) round 1",
+    ),
+    ("input", CORE, "def f(p):\n    return getattr(p, 'read_text')()", True, "3b(b) round 1"),
+    ("input", CORE, "def f():\n    return len.__self__.__import__('os').environ", True, "3b(b) round 1"),
+    ("input", CORE, "def f():\n    return vars(len.__self__)['eval']", True, "3b(b) round 1"),
+    (
+        "input",
+        CORE,
+        "def f():\n    try:\n        raise ValueError\n    except ValueError as e:\n"
+        "        return e.__traceback__.tb_frame.f_builtins['open']",
+        True,
+        "3b(b) round 1: a frame",
+    ),
+    (
+        "input",
+        CORE,
+        "def f():\n    try:\n        raise ValueError\n    except ValueError as e:\n"
+        "        return e.__traceback__.tb_frame.f_back.f_globals['os']",
+        True,
+        "3b(b) round 1: a frame",
+    ),
+    ("input", CORE, "def f(g):\n    return g.__getattribute__('__globals__')", True, "3b(b) round 1"),
+    ("input", CORE, "def f(g):\n    return object.__getattribute__(g, '__globals__')", True, "3b(b) round 1"),
+    ("input", CORE, "def f(g):\n    return b'{0.__globals__[os]}'.decode().format(g)", True, "3b(b) round 1: bytes"),
+    ("input", CORE, "def f(m, p):\n    return m.__loader__.get_data(p)", True, "3b(b) round 1"),
+    ("input", CORE, "def f(m, p):\n    return m.__spec__.loader.get_data(p)", True, "3b(b) round 1"),
+    (
+        "input",
+        GAME,
+        "from simcore.adapters.loaders import real_path\nt = getattr(real_path('x'), 'read_text')()",
+        True,
+        "3b(b) round 1: real_path",
+    ),
+    (
+        "input",
+        GAME,
+        "from simcore.adapters.loaders import real_path\nt = real_path('x').rename('y')",
+        True,
+        "3b(b) round 1",
+    ),
+    (
+        "input",
+        GAME,
+        "from simcore.adapters.loaders import real_path\nt = real_path('x').with_name('y').symlink_to('/etc')",
+        True,
+        "3b(b) round 1",
+    ),
+    ("input", SRC, "def f(p):\n    return p.rename('q')", True, "3b(b) round 1"),
+    ("input", SRC, "async def f(r):\n    return await r.readexactly(4)", True, "3b(b) round 1"),
+    ("input", SRC, "async def f(r):\n    return await r.readuntil(b'x')", True, "3b(b) round 1"),
+    ("input", SRC, "def f(s):\n    return s.recvmsg(10)", True, "3b(b) round 1"),
+    ("input", SRC, "def f(s, b):\n    return s.recvfrom_into(b)", True, "3b(b) round 1"),
+    ("input", SRC, "def f(c):\n    return c.recv_bytes()", True, "3b(b) round 1"),
+    ("input", SRC, "def f(s):\n    return s.makefile()", True, "3b(b) round 1"),
+    ("input", SRC, "def f(fh, b):\n    return fh.readinto(b)", True, "3b(b) round 1"),
+    ("input", SRC, "def f(p):\n    return p.symlink_to('/etc')", True, "3b(b) round 1"),
+    ("input", SRC, "def f(p):\n    return p.hardlink_to('/etc/x')", True, "3b(b) round 1"),
+    ("input", SRC, "def f(p):\n    return p.owner()", True, "3b(b) round 1"),
+    ("input", SRC, "def f(p):\n    return p.is_mount()", True, "3b(b) round 1"),
+    ("input", SRC, "def f(p):\n    return p.scandir()", True, "3b(b) round 1"),
+    ("input", CORE, "def f(body):\n    return body.walk(1)", False, "3b(b) round 1: a body walks (Architecture A6)"),
+    ("input", CORE, "def f(door):\n    return door.open()", False, "3b(b) round 1: a door opens (Architecture A6)"),
+    ("input", CORE, "def f(t):\n    return t.resolve('crate')", False, "3b(b) round 1: a target resolves"),
     # -- input: clean, must not be flagged ----------------------------------------------------------------------------
     ("input", "src/simcore/adapters/loaders.py", "t = path.read_text()", False, "build: the gate itself"),
     ("input", "scripts/x.py", "t = path.read_text()", False, "build: outside src"),
@@ -317,6 +387,16 @@ CASES: list[tuple[str, str, str, bool, str]] = [
 # becomes covered, move it into CASES.
 NOT_COVERED: list[tuple[str, str, str, str]] = [
     ("input", "v = getenv('X')", "build", "getenv unbound is a NameError; importing it is a contract finding"),
+    ("input", "h = path.open()", "3b(b) round 1", "open is also a door's; the capability (DataPath) is the guard"),
+    ("input", "async def f(r):\n    return await r.read(100)", "3b(b) round 1", "read is also Format.read"),
+    ("input", "def f(p):\n    return p.replace('q')", "3b(b) round 1", "replace is also str.replace"),
+    ("input", "def f(p):\n    return p.copy('q')", "3b(b) round 1", "copy is also dict.copy"),
+    (
+        "input",
+        "def f(g):\n    return ''.join(['{0.', '__globals__}']).format(g)",
+        "3b(b) round 1",
+        "a name built at run time",
+    ),
     ("unsafe", "import yaml\nf = getattr(yaml, name)", "round 1", "a computed name, a value; in src yaml is forbidden"),
     ("unsafe", "from numpy import *\na = load(f, None, True)", "delta 3", "a star import; ruff's F403 refuses it"),
     ("unsafe", "import operator, yaml\nf = operator.attrgetter('unsafe_load')(yaml)", "delta 3", "a name as a value"),
@@ -387,6 +467,7 @@ def test_a_spelling_the_design_leaves_out_is_still_left_out(contract_hits, index
 
 def test_the_corpus_holds_every_round_and_both_verdicts():
     origins = {c[4].split(":")[0] for c in CASES}
-    assert {"build", "round 1", "delta 1", "delta 2", "delta 3", "delta 4", "delta 5", "delta 6", "delta 7"} <= origins
+    rounds = {"build", "round 1", "delta 1", "delta 2", "delta 3", "delta 4", "delta 5", "delta 6", "delta 7"}
+    assert rounds | {"3b(b) round 1"} <= origins
     assert {c[3] for c in CASES if c[0] == "input"} == {True, False}
     assert {c[3] for c in CASES if c[0] == "unsafe"} == {True, False}

@@ -19,7 +19,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from maxim_overdrive import data
-from simcore.adapters.loaders import DataPath, load_action_limits, load_materials
+from simcore.adapters.loaders import DataPath, load_action_limits, load_materials, read_yaml
 from simcore.adapters.sem import bridge
 from simcore.core import damage, heat
 from simcore.core.applier import Applier
@@ -585,11 +585,11 @@ CYLINDER_RAW = {"kind": "cylinder", "center_xy_m": [0.5, 0.5], "radius_m": 0.2, 
 
 
 def test_a_scene_accepts_every_key_it_knows():
-    spawn = {"name": "player", "archetype": "human", "holding": "torch", "at_m": [0.5, 0.5, 0.0]}
+    spawn = {"name": "runner", "archetype": "human", "holding": "torch", "at_m": [0.5, 0.5, 0.0]}
     scene = Scene.from_dict({**SCENE_RAW, "primitives": [BOX_RAW, CYLINDER_RAW], "ambient_c": 25.0, "spawns": [spawn]})
     assert [p.kind for p in scene.primitives] == ["box", "cylinder"]
     assert scene.ambient_c == 25.0
-    assert scene.spawns == (Spawn("player", "human", (500, 500, 0), "torch"),)
+    assert scene.spawns == (Spawn("runner", "human", (500, 500, 0), "torch"),)
 
 
 @pytest.mark.parametrize(
@@ -950,3 +950,50 @@ def test_a_symlinked_package_finds_the_data_beside_the_real_package(tmp_path):
     data_link = tmp_path / "data_link"
     data_link.symlink_to(tmp_path / "checkout" / "data", target_is_directory=True)
     assert str(existing_directory([data_link], "x")) == str((tmp_path / "checkout" / "data").resolve())
+
+
+# -- the file gate refuses what PyYAML's constructors can't build (step 3b(b) review, Trust T1-S1, Executor S2) ------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "version: " + "9" * 5000 + "\n",  # int() past CPython's 4,300-digit limit
+        "version: 2020-13-45\n",
+        "version: 2001-02-29\n",
+        "k: 2026-01-01 25:00:00\n",
+        "k: !!int x\n",
+        "k: !!float x\n",
+        "k: !!timestamp x\n",
+        "k: !!bool maybe\n",
+    ],
+)
+def test_a_value_yaml_cannot_build_is_a_coded_refusal_that_names_the_file(tmp_path, text):
+    path = tmp_path / "bad.yaml"
+    path.write_text(text)
+    with pytest.raises(Refused, match=r"bad\.yaml") as caught:
+        read_yaml(path)
+    assert caught.value.code is RefusalCode.BAD_SHAPE
+
+
+def test_a_data_file_is_utf8_whatever_the_machines_locale(tmp_path):
+    path = tmp_path / "bad.yaml"
+    path.write_bytes(b"version: 0\nname: \xff\xfe\n")
+    with pytest.raises(Refused, match="not UTF-8") as caught:
+        read_yaml(path)
+    assert caught.value.code is RefusalCode.BAD_SHAPE
+    path.write_bytes("name: Zoë\n".encode())
+    assert read_yaml(path) == {"name": "Zoë"}
+
+
+def test_a_data_file_over_its_byte_budget_is_refused_before_it_is_read(tmp_path, monkeypatch):
+    from simcore.adapters import loaders  # noqa: PLC0415
+
+    path = tmp_path / "big.yaml"
+    path.write_text("a: [1, 2, 3]\n")  # 13 bytes
+    monkeypatch.setattr(loaders, "MAX_FILE_BYTES", 12)
+    with pytest.raises(Refused, match="larger than 12 bytes") as caught:
+        read_yaml(path)
+    assert caught.value.code is RefusalCode.OVER_BUDGET
+    monkeypatch.setattr(loaders, "MAX_FILE_BYTES", 13)
+    assert read_yaml(path) == {"a": [1, 2, 3]}

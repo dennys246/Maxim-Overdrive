@@ -3,6 +3,9 @@
 Anything agent-facing (a modulator's error, later a receipt) answers with a code, never exception text, since
 ``checks.shown`` bounds an echo but doesn't scrub it. The message stays on the exception for logs and tests.
 
+Codes that reach the wire or the log are classed by stage, reply and logging in tile §3.4; the codes produced today
+get their class with the intent log (step 5a), whose writer needs it.
+
 The enum is append-only: a code's value is its wire spelling and, from step 5a, part of the intent log, so a code is
 never renamed, reused or removed (``tests/test_refusals.py`` pins every value in order). Tile §3.4's codes are listed
 before they have a producer, so the protocol (step 7), bodies (5) and fire (6) add producers, not codes.
@@ -70,4 +73,9 @@ class Refused(ValueError):
 
     @property
     def agent_text(self) -> str:
-        return self.code.value if self.field is None else f"{self.code.value} ({self.field})"
+        return agent_text(self.code, self.field)
+
+
+def agent_text(code: RefusalCode, field: str | None = None) -> str:
+    """What an agent is told of a refusal: its code, and the schema field at fault when there is one."""
+    return code.value if field is None else f"{code.value} ({field})"

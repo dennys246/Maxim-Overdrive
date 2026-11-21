@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import math
 
+import numpy as np
 import pytest
 
 from simcore.core import digest as digest_module
@@ -92,7 +93,7 @@ def test_the_canonical_form_ignores_key_order_and_container_type():
         (False, "false"),
         (0.1, "0.1"),
         (1e300, "1e+300"),
-        (-0, "0"),
+        (-0.0, "0.0"),  # equal floats, one text (Determinism N4)
         ([], "[]"),
         ({}, "{}"),
     ],
@@ -101,10 +102,35 @@ def test_the_canonical_form_of_each_kind_of_value(value, text):
     assert canonical(value) == text
 
 
-@pytest.mark.parametrize("value", [math.nan, math.inf, {1: "a"}, b"raw", object(), {1.5}])
+class _Str(str):
+    pass
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        math.nan,
+        math.inf,
+        {1: "a"},
+        b"raw",
+        object(),
+        {1.5},
+        np.float64(1.5),  # a float subclass whose repr is np.float64(1.5) (Executor N1, Wire S3, Architecture A8)
+        np.int64(3),
+        _Str("x"),
+        "\ud800",  # a lone surrogate, which a YAML file can carry (Determinism SF2)
+        {"k": np.float32(0.5)},
+    ],
+)
 def test_the_canonical_form_refuses_what_it_has_no_form_for(value):
     with pytest.raises(TypeError, match="c14n-1"):
         canonical(value)
+
+
+def test_an_int_too_long_for_text_has_no_canonical_form():
+    with pytest.raises(TypeError, match="c14n-1"):
+        canonical(10**5000)  # past what int-to-text allows in every process
+    assert canonical(10**3999) == "1" + "0" * 3999
 
 
 def test_a_stored_digest_is_held_to_the_scheme_this_reader_knows():
