@@ -23,6 +23,9 @@ frame and quits.
 ## Check a session
 
 `../../.venv/bin/python -m slice_server replay sessions/<file>.jsonl` reruns its intents and compares the final digest.
+`../../.venv/bin/python -m slice_server metrics sessions/<file>.jsonl` replays it and prints the playtest numbers
+(Overdrive seconds per minute, trips, puddle time, fires, the vendor's states, voice and budget); `--json` for the raw
+numbers. It exits non-zero, and says so, when the replay doesn't match the recorded end.
 The tests: `../../.venv/bin/pytest tests` from `spikes/slice`.
 
 ## Playtests
