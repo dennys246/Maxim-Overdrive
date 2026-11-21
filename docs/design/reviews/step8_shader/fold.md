@@ -1,16 +1,14 @@
 # Step 8 shader fold: author's record
 
-**This is the author's record, not a fold-status table.** Under O25 a reviewer sets each finding's status from the
-tree. It lists what the author changed per finding and the proof that the change is guarded. Round one ran at
+**The author's record, not a fold-status table** (O25: reviewers set statuses from the tree). Round one ran at
 ce06d7b: `executor.md`, `architecture.md`, `wire_integrity.md`, `client_rendering.md`, `performance.md`. No
-BLOCKERs were raised. Finding ids are the reports' own (E = Executor, A = Architecture, W = Wire integrity, C =
-Client and rendering, P = Performance).
+BLOCKERs were raised. Ids: E Executor, A Architecture, W Wire integrity, C Client and rendering, P Performance.
 
 ## Shader
 
 | Finding | Change | Proof |
 |---|---|---|
-| C S1 (black pixel at (543, 224) in the rig and max goldens) | **Superseded in delta 1 (below): this fix added 47 dots per frame.** Measured, not guessed: an instrumented build on llvmpipe showed that ray ran out of steps, cycling between two bricks while sitting on two brick boundaries (y = 36, z = 12). `skip_brick` now takes an ordinary cell step whenever a jump would not move t forward or would land in the same brick, and `walk_at` picks the uncrossed axes' cells just past the boundary along the ray. A first fix (same-brick check only) did not cure it; the probe showed why. | Probe after the fix: 0 exhausted rays in the rig frame, longest walk about 39 iterations; the pixel is wall-coloured in the re-recorded goldens. |
+| C S1 (black pixel at (543, 224)) | **Superseded in delta 1: this fix added 47 dots per frame.** An instrumented llvmpipe build showed the ray cycling between two bricks on two boundaries until out of steps; the jump was patched. | — |
 | E S1 (`groove_t0` never reset) | Reset whenever the walk leaves the material (an empty brick or an undrawn cell). | Goldens re-recorded; the dark fringe term is gone by construction. |
 | C (grooves see through solid cells) | Grooves end at `GROOVE_MAX_DEPTH_M` (0.05 m); a ray that reaches it hits the fissure floor, shaded as a face darkened by depth. | — |
 | C (1.5 px floor not met on slanted faces) | The pixel floor is divided by the face's cosine with the ray (floored at 0.25). | — |
@@ -71,9 +69,13 @@ Layout names the new files.
    counts on both sides; the advisory pairs are gone and every pair is gated. A see-through body silhouette is a
    later feature, not scheduled.
 3. **AO at 8 taps:** accepted; §5.5 says so.
-4. **Crack polygons at least 12 px:** accepted (in a 0.1-octave hold, down to about 11.2 px); §5.4 says so.
-5. **Ember gain:** the owner chose 7 from a sweep of 4, 7 and 10; §5.3 and the goldens follow.
-6. **Black night:** accepted; B30. A two-line Godot issue drafted for the owner to file or not.
+4. **Crack polygons at least 12 px:** accepted (in a 0.1-octave hold, down to about 11.2 px); §5.4 says "~12 px, held".
+5. **Ember gain:** the owner chose 7 from a sweep of 4, 7 and 10. The author described it as keeping the hottest
+   faces' gradation; delta 4 showed it clips about 1,230-1,400 °C to white (top fifth, against a tenth at 4). A soft
+   knee and two tonemappers were measured and rejected (the knee killed the bloom); the owner kept plain gain 7, the
+   bloom halo carrying heat beyond white, the laptop tier's flat band recorded in B7.
+6. **Black night:** accepted; B30. Whether the clear-colour behaviour is an engine bug is to be settled before step 8
+   closes, and nothing filed without the owner's go (B31).
 7. **Crack severity by shape:** scheduled as its own branch after this one: severity drives polygon density, every
    cracked cell is guaranteed an edge, and a mild-against-severe edge-density check holds it. B7 names it.
 8. **Stump height (delta 3):** 0.2 m, not §2's 0.3 m: two stumps in a dead-end corner hid 6.5% of the body
@@ -99,8 +101,6 @@ two readers independently.
 | EW N1 | The summary says "goldens not judged" under `--no-xvfb`; the matching-frames test judges goldens. | — |
 | EW N3, A NIT 10 | The shader's palette clamp, cut loop bound and brick size are now held to the GDScript constants by the uniform test. | — |
 | A (B30 a grab-bag) | Split: each item has its own trigger; unmeasured hatching moved to B7. | — |
-
-`client_rendering.md` stays at 3,798 words (3,800 before the branch).
 
 **Not folded, with reasons:**
 - A NIT 11 (alley numbers in `cutaway.gd`'s docstring): they are the evidence for the rule, kept deliberately.
@@ -151,3 +151,21 @@ hides more than 5%.
 Not folded: N2 (walls cut on a 0.05 m margin band that hide nothing: scenery only), N3 (the hold widens sideways,
 not in reach: latent in the alley), N6 (runtime: ci9's 80.6 s came from a loaded machine; remeasured in the final
 run below), CP N10's fresh-volume test, delta-1 EW S1.
+
+## Delta 4 (at 9e3731b and 8c28afc)
+
+Report: `delta4_all.md`. No BLOCKER. `prepush: PASS 8c28afc5a93f`.
+
+| Finding | Change |
+|---|---|
+| SHOULD-FIX (gain 7's comment: "without flattening the hottest faces") | False, and corrected first in the hand-off. Measured alternatives (decision 5); plain gain 7 kept by the owner; the comment, §5.3 and B7 now say what it does. |
+| N1 (§2 stump sentence) | The derivation and the measurement are separate clauses, each tagged. |
+| N2, S2 residue (the hold stated as shipped) | §2 says built, wired with `main.tscn`; B30 (1) names it. |
+| N4 (corner samples undocumented) | The scene's header says why they exist. |
+| N6, D2 N5 residue (§5.4 "≥ 12 px") | §5.4 says "~12 px, held". |
+| (owner) the Godot clear colour | B31, with its steps and trigger. |
+
+Not folded, named: N3 (`cut_all`'s overflow report can't run with three walls), N5 (`golden_compare` reads the first
+renderer line of the joined log; every call uses the same renderer), P1 (runtime under load: the split calls ran
+25-76 s at a load of 80-150; no idle baseline), and the earlier not-folded set. This fold changes a comment and docs
+only: no code path, no pixel.

@@ -23,7 +23,8 @@ const TIER: RenderTier = preload("res://game/tiers/rig.tres")
 ## crate: where the exit script kindles it from (5.5, 2.925), and against its south and east faces. Feet on the
 ## floor's top. Positions avoid the crates, whose 0.6 m boxes leave no room for a 0.5 m body against a wall. The
 ## pavement samples (x < 1.2 m, the spawn among them) are off the walls' ends, where every proxy-point rule failed;
-## the two strip samples stand level with a wall's thickness, beside its end.
+## the two strip samples stand level with a wall's thickness, beside its end; the two corner samples stand where two
+## cut walls meet at the dead end, where two stumps hide the most (they set the stump's 0.2 m).
 ## scripts/golden_measures.py::CUTAWAY_SAMPLES must name the same samples; a test holds the two lists together.
 const SAMPLES: Dictionary[String, Vector3] = {
 	"south-2": Vector3(2.0, 0.65, 0.4), "south-4": Vector3(4.0, 0.65, 0.4),

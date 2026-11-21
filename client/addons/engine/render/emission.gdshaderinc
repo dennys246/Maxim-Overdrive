@@ -20,7 +20,11 @@ uniform float glow_scale_c = 0.0;
 uniform float flicker_amount = 0.0;
 
 // 7, not §5.3's first 4: at 4 the ember envelope near 920 °C stayed below the bloom threshold and read dull; at 7 it
-// blooms without flattening the hottest faces to white (owner, from a 4 / 7 / 10 sweep, 2026-11-21).
+// blooms from about 910 °C. The cost: from about 1,230 °C every channel passes 1.0, so the linear tonemap draws the
+// top fifth of the range flat white, and the bloom halo, which keeps growing with the HDR value, carries the heat
+// beyond it (on the laptop tier, with bloom off, that band is plain white: B7). A soft knee and the Reinhard and AgX
+// tonemappers were measured as alternatives and rejected: the knee washed the crate grey and killed the bloom, the
+// tonemappers barely narrowed the band and dimmed the frame (owner, 2026-11-21).
 const float GLOW_GAIN = 7.0;
 const float GLOW_REFERENCE_K = 1773.0;
 const vec3 GLOW_DULL = vec3(0.55, 0.04, 0.0);
