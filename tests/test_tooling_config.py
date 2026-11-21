@@ -230,14 +230,61 @@ def _lint_imports(tree: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(cmd, cwd=tree, env=env, capture_output=True, text=True, check=False)
 
 
-def test_a_planted_violation_fails_the_gates_import_command(tmp_path):
+# One planted import per contract that step 3b added, plus 3a's: each must turn the gate's own command red.
+PLANTED = [
+    ("simcore/host.py", "from maxim_overdrive import data", "the engine never imports the game"),
+    ("simcore/protocol/encoding.py", "from simcore.core import grid", "adapters and protocol reach no cells"),
+    ("simcore/adapters/sem/bridge.py", "from simcore.core import materials", "the SEM membrane reads frames"),
+]
+
+
+@pytest.mark.parametrize(("module", "line", "contract"), PLANTED, ids=[p[0] for p in PLANTED])
+def test_a_planted_violation_fails_the_gates_import_command(tmp_path, module, line, contract):
     shutil.copytree(ROOT / "src", tmp_path / "src", ignore=shutil.ignore_patterns("__pycache__"))
     shutil.copy(ROOT / "pyproject.toml", tmp_path)
     assert _lint_imports(tmp_path).returncode == 0
-    (tmp_path / "src" / "simcore" / "host.py").write_text("from maxim_overdrive import data\n")
+    target = tmp_path / "src" / module
+    target.write_text((target.read_text() if target.exists() else "") + line + "\n")
     broken = _lint_imports(tmp_path)
     assert broken.returncode == 1, broken.stdout
-    assert "the engine never imports the game" in broken.stdout
+    assert contract in broken.stdout
+
+
+def _core_modules() -> set[str]:
+    return {f"simcore.core.{p.stem}" for p in (ROOT / "src" / "simcore" / "core").glob("*.py") if p.stem != "__init__"}
+
+
+# The core's public surface to the adapters and the protocol (boundaries §2.2, the skip-layer rule): the simulation
+# (world, applier, frames), the intents (intents, limits), the material types and the checks. A new core module joins
+# this set or the contract's forbidden list in the change that makes it.
+CORE_PUBLIC_SURFACE = {
+    "simcore.core.world",
+    "simcore.core.applier",
+    "simcore.core.frames",
+    "simcore.core.intents",
+    "simcore.core.limits",
+    "simcore.core.materials",
+    "simcore.core.checks",
+}
+# What the membrane may import from the core (B-13): frames to read, the applier to write, the intents to parse. Not the
+# world: it is handed an applier and a frame view instead (step 3b review, Architecture S1).
+MEMBRANE_SURFACE = CORE_PUBLIC_SURFACE - {"simcore.core.materials", "simcore.core.world"}
+
+
+def test_the_skip_layer_contract_forbids_every_core_module_outside_the_public_surface():
+    contract = _contracts()["skip-layer"]
+    assert (contract["type"], contract["source_modules"]) == ("forbidden", ["simcore.adapters", "simcore.protocol"])
+    assert _core_modules() >= CORE_PUBLIC_SURFACE
+    assert set(contract["forbidden_modules"]) == _core_modules() - CORE_PUBLIC_SURFACE
+    assert contract["allow_indirect_imports"] is True  # the public surface reaches the cells; a direct import may not
+
+
+def test_the_membrane_contract_leaves_it_frames_the_applier_and_the_intents_only():
+    contract = _contracts()["membrane-reads-frames"]
+    assert (contract["type"], contract["source_modules"]) == ("forbidden", ["simcore.adapters.sem"])
+    expected = (_core_modules() - MEMBRANE_SURFACE) | {"simcore.adapters.loaders"}
+    assert set(contract["forbidden_modules"]) == expected
+    assert contract["allow_indirect_imports"] is True
 
 
 def test_the_gate_exports_the_tier_switch_conftest_reads():

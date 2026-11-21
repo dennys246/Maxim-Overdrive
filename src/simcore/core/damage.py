@@ -23,7 +23,7 @@ from scipy import ndimage
 from scipy.special import ndtr
 
 from simcore.core.checks import finite_real, finite_vector
-from simcore.core.grid import Field, MaterialGrid
+from simcore.core.grid import CellState, Field, MaterialGrid
 from simcore.core.materials import AIR_ID
 
 
@@ -55,7 +55,8 @@ def strike(grid: MaterialGrid, point_m: tuple[float, float, float], energy_j: fl
     fracture = grid.materials.fracture[grid.material]
     with np.errstate(divide="ignore", invalid="ignore"):
         loss = np.where(solid & (fracture > 0), density / fracture, 0.0)
-    grid.integrity -= loss.astype(grid.integrity.dtype)
+    integrity = grid.integrity  # the window's writable array (an attribute can't be assigned: boundaries §4.1)
+    integrity -= loss.astype(integrity.dtype)
     gone = solid & (grid.integrity <= 0.0)
     n = grid.destroy(gone)
     absorbed = float(cell_energy[solid].sum())
@@ -82,14 +83,14 @@ def thermal_degrade(grid: MaterialGrid, dt: float) -> int:
     return grid.destroy(hot & (grid.integrity <= 0.0))
 
 
-def region_integrity(grid: MaterialGrid, region: str) -> float:
+def region_integrity(grid: CellState, region: str) -> float:
     """Mean integrity over the region's original solid cells, destroyed cells counting 0."""
     mask = grid.regions[region].cells & (grid.original_material != AIR_ID)
     n = int(mask.sum())
     return float(grid.integrity[mask].clip(min=0.0).sum() / n) if n else 0.0
 
 
-def region_breached(grid: MaterialGrid, region: str) -> bool:
+def region_breached(grid: CellState, region: str) -> bool:
     """True if destroyed cells form a hole through the region along its thinnest axis (a hole through a wall)."""
     orig = grid.regions[region].cells & (grid.original_material != AIR_ID)
     if not orig.any():

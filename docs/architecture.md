@@ -65,10 +65,8 @@ How the rule is kept, so far:
   when it has nothing to burn. It blocks the exit test's "burn away", so it lands before the tile's crate scenario
   is gated. Red gate: `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`
   (`xfail(strict=True)`).
-  *Fixed 2026-11-15, the other half:* `heat.step` used to deposit a turn's power field into cells destroyed mid-turn
-  (now air), which peaked the same scene at 16,619 °C by turn 30. Power is now recomputed after any substep that
-  destroys cells. Peaks while the crate still burns are 538 °C at 0.2 m and 613 °C at 0.1 m, and crate damage is
-  unchanged (integrity 0.32 and 0.36). Guards: `tests/test_heat.py::test_a_cell_destroyed_mid_turn_gets_no_more_source_power`
+  *Fixed 2026-11-15, the other half:* power went into cells destroyed mid-turn (16,619 °C by turn 30); it is now
+  recomputed after any substep that destroys cells (peaks 538 °C at 0.2 m, 613 °C at 0.1 m). Guards: `tests/test_heat.py::test_a_cell_destroyed_mid_turn_gets_no_more_source_power`
   and `tests/test_cross_tier.py::test_a_fierce_fire_never_heats_any_cell_past_the_flame_temperature`.
 - **A source smaller than a cell heats one cell.** `World._power_field` puts all of a sub-cell source's power into
   the cell it sits in, so total power is right but its density is P/dx³: 64× higher at 0.05 m cells than at 0.2 m.
@@ -104,9 +102,8 @@ How the rule is kept, so far:
   `tests/test_act_validation.py::test_a_strike_breaches_a_thin_wall_the_same_at_every_rig`). How the resolution
   rule should treat outcomes at a class boundary is an open decision.
 - **A destroyed region still claims its space,** for strikes and for imagined objects alike (`spec.place` refuses
-  a new object inside a burnt-out crate's old box). A region's footprint is its authored shape, so a crate burned to
-  nothing still owns its old box: a strike there is still "on the crate", and `ignite` on a burnt-out crate puts the
-  fire into air. "Gone" only means a later paint took every cell. Ownership per cell (the region id array planned
+  a new object inside a burnt-out crate's old box). A crate burned to nothing still owns its authored box: a strike there
+  is "on the crate", and `ignite` puts the fire into air. "Gone" only means a later paint took every cell. Ownership per cell (the region id array planned
   for design v2) removes it.
 - **Overlap is judged on bounding boxes, and it has an authoring cost.** Named solids may not overlap a later solid
   (`scene._check_no_solid_overlaps`, and `imagination.place` for imagined objects), and a cylinder's box corners
@@ -116,36 +113,36 @@ How the rule is kept, so far:
 - **A region carved hollow keeps its authored centroid.** Air may carve into a named solid (a doorway), but the
   solid's footprint and centroid stay those of the authored box. With a doorway through a wall's middle, the
   centroid is in air: `ignite` puts the fire in the doorway, where it heats only air, and an aimless strike lands
-  there too. Refusing such a fire by checking the region's cells was tried and withdrawn: whether a fire touches
-  the region's cells depends on the rig when the carving sits off the coarse grid (a 0.33 m fire is accepted at
-  laptop and rig and refused at max), which is the kind of decision CLAUDE.md's "reconstruct, decide, integrate"
-  rule forbids. Held by a strict red gate,
+  there too. Refusing such a fire by its cells was tried and withdrawn: off the coarse grid that decision
+  depends on the rig (a 0.33 m fire was accepted at laptop and rig, refused at max). Held by a strict red gate,
   `tests/test_act_validation.py::test_a_fire_on_a_region_carved_hollow_heats_the_region_not_air`. Per-cell ownership
   with authored geometry (design v2) removes it.
 - **Whether an imagined object fits in the world can depend on the rig.** `imagination.place` refuses an object
   "smaller than one cell at this resolution" when it covers no cell centre, which can happen at the coarse rig and
-  not at a finer one. Its size and mass budgets come from the authored geometry (rig-independent since
-  2026-11-15); this check is still rig-dependent. The thin-features rule (two coarse cells) as a minimum authored size
+  not at a finer one. Its size and mass budgets are rig-independent; this check
+  isn't. The thin-features rule (two coarse cells) as a minimum authored size
   would remove it.
-- **A region's temperature reading can leave its declared range.** `RegionSensor` declares
+- **A region's temperature reading can leave its declared range.** `RegionInstrument` declares
   `temperature_max` as [-273, 6000] °C, but the fuel gap lets legal fires drive cells far past that (about 4×10⁵ °C
   after 60 turns of a 500 kW fire, once the crate has burned away). The reading isn't clipped, because clipping
   would hide the gap; the fuel model is the fix.
-- Cost: the 0.05 m profile is about 60x slower than 0.1 m on a fire scenario (explicit heat, Python + numpy).
-  Far cells never run coarser (world_model D21).
+- **Physics runs slower than real time at tile scale.** `advance(0.5)` takes 0.7 s of CPU at 1.92×10⁶ cells (a
+  40×8×6 m tile at 0.1 m) lightly loaded, 1.4× real time (about 3.6× at 5×10⁶ by scaling); under heavy load 1.2–1.45 s
+  (2.3–2.9×) and 3.9 s at 5×10⁶ (7.7×). Main is the same (`process_time`, min of 2–5 runs; step 3b). 0.05 m is about
+  60× slower than 0.1 m. Step 5a owns it (B5); far cells never run coarser (D21).
 
 ## SEM for the environment
 
-`simcore/adapters/sem/bridge.py` makes any named region (a wall, a door, an imagined crate) an SEM Entity: sensors `integrity`,
+`simcore/adapters/sem/bridge.py` makes any named region (a wall, a door, an imagined crate) an SEM Entity: instruments `integrity`,
 `temperature_max`, `temperature_mean` and `breached`, and a `structure` modulator with `strike`, `ignite` and
 `extinguish`. With pymaxim installed, `to_maxim_entity` returns a real `maxim.embodiment.sem.Entity`, so Maxim's tool
 generation, affordance gating and prompt formatting work on the environment unchanged. The environment has no drives,
 pain or learning: it is SEM without embodiment.
 
-**The modulator is a trust boundary.** An NPC's tool call, an LLM's output and a client's intent will all reach the
+**The modulator is a trust boundary.** An NPC's tool call, an LLM's output and a client's intent all reach the
 world through it, so it works in two stages. `parse_action` turns the untrusted `(affordance, params)` into a frozen
 `Strike`, `Ignite` or `Extinguish` inside the world's `ActionLimits` (`data/world/actions.yaml`), reading nothing from
-the world, so the protocol layer can run it first. `StructureModulator.apply` re-checks the action against the
+the world, so the protocol layer can run it first. The applier re-checks the action against the
 limits, then checks what depends on the world now (the region still has cells, a strike's point is on the region, judged
 from authored footprints in metres so the answer is the same at every spacing). A region is its cells plus its authored
 footprint; named solids can't share space with a later solid, so a footprint never covers another object's cells.

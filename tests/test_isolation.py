@@ -139,6 +139,8 @@ ALLOWED_SPAWNS = {
     ("tests/test_tooling_config.py", "_ruff"): "given",  # ruff, reading the tree
     ("tests/test_tooling_config.py", "_lint_imports"): "given",  # import-linter, on a tmp copy of src/
     ("tests/test_determinism.py", "test_runs_in_processes_with_different_hash_seeds_agree"): "given",  # Python
+    ("tests/test_constructors.py", "test_a_set_echoes_in_the_same_order_under_every_hash_seed"): "given",  # Python
+    ("tests/_imports.py", "external_imports"): "given",  # grimp's graph of a tree's src/, in its own interpreter
     ("tests/test_client_project.py", "_detected"): "given",  # ci/install_godot.sh --platform, PATH only
 }
 SPAWN_MODULES = {

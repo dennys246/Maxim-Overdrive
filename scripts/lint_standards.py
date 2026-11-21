@@ -4,6 +4,8 @@
 2. Guard citations: every standards rule names the check or backlog row that holds it: ``lint_guards.py``.
 3. The coverage floor only ratchets: ``lint_coverage.py``.
 4. Size tripwires and the size ratchet: ``lint_sizes.py``.
+5. Untrusted input by source: input primitives only in input gates, unsafe decoders nowhere: ``lint_inputs.py``.
+6. The gate registry: every entry point untrusted input can reach has a row: ``lint_gates.py``.
 What they read from git comes from ``lint_repo.py``. This module runs them and says what the ratchets could not
 compare.
 
@@ -17,7 +19,9 @@ import sys
 from pathlib import Path
 
 from lint_coverage import check_coverage_ratchet, fail_under
+from lint_gates import check_gates
 from lint_guards import check_guards
+from lint_inputs import check_inputs
 from lint_markers import check_markers
 from lint_repo import base_pyproject, tracked_text_files
 from lint_sizes import check_size_ratchet, check_sizes, size_limits
@@ -51,6 +55,9 @@ def main(argv: list[str] | None = None, root: Path = ROOT) -> int:
     problems = check_markers(files, (root / "docs/roadmap.md").read_text())
     guard_problems, checked, review_only = check_guards((root / "CLAUDE.md").read_text(), backlog, root)
     problems += guard_problems
+    problems += check_inputs(files)
+    engine = any(rel.startswith("src/simcore/") for rel in files)
+    problems += check_gates(files) if engine else []
     base_text, base_problems = base_pyproject(root, args.base)
     problems += base_problems
     pyproject = (root / "pyproject.toml").read_text()
@@ -64,6 +71,8 @@ def main(argv: list[str] | None = None, root: Path = ROOT) -> int:
         print(p, file=sys.stderr)
     for n in [] if base_problems else ratchet_notes(args.base, base_text):  # a bad ref is already a finding
         print(f"lint_standards: {n}")
+    if not engine:
+        print("lint_standards: note: no engine under src/simcore/, so the gate registry has nothing to hold")
     verdict = "FAIL" if problems else "PASS"
     print(
         f"lint_standards: {verdict} ({len(problems)} finding(s)); rules enforced by a check: {checked}, "
