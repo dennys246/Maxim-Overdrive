@@ -50,8 +50,8 @@ Each entry says which half each piece of work is.
 | **Contract** | all of it: which quantities, in what units (ranges are Maxim's transduction), sampled where on the body, at what cadence, how they reach Maxim through its frozen SEM types, what is recorded for replay, and the tests that prove no privileged state leaks |
 | **Laws** | the world-side models behind each stimulus (skin heat, radiation onto body regions, luminance after line of sight), each replaceable behind the contract |
 | **Decided** | the world computes the stimulus at the receptor and Maxim transduces it (`fire_model.md` §5.1); fractions, never booleans; no flammability, flash point or φ as a sensor; tissue physics is the world's (lesson 24) |
-| **Status** | v1, delta 1 and delta 2 reviewed by seven lenses each (blockers 15, 2, 4); delta 2 reviewer-set: 63 fixed, 6 deferred, 9 open. **v4 is the contract only** (owner's split, 2026-11-21): laws and their tests moved to `checklists.md` ("The SEM stimulus laws" and the 5a, 5b and agent-line items); delta 2 folded (`reviews/sem_stimuli/delta2/fold.md`), statuses open for the reviewers. Ruled D1–D14 and S4; D12 provisional; D15 (receipt kinds) open |
-| **Next** | The owner's D15; one last delta round on v4's diff only; then 5a carries the contract's reservations (`sem_stimuli.md` §11.1) |
+| **Status** | **v5, the contract, is final on paper** (owner, 2026-11-21: the rounds stop). Four paper rounds of seven lenses (blockers 15, 2, 4, 1); the final round's findings are folded into v5 or moved to `checklists.md` as tests (`reviews/sem_stimuli/final/fold.md`), statuses set when the code PRs' reviews read the tree. Ruled D1–D15 and S4; D12 provisional; PH2-S2 re-ruled to (c): the world is the body's plant and the NPC its controller, with effector commands reserved and an ANALOG stand-in until Maxim drives them (M20, OD-C11) |
+| **Next** | 5a carries the contract's reservations (`sem_stimuli.md` §11.1); 5b, `phase1/agents` and the tissue row build the rest, each reviewed as code; T16c and T17 are future bars on Maxim (OD-A22, OD-C11) |
 
 ## States of matter: liquids, gases and zones
 

@@ -176,12 +176,12 @@ named in the digest's definition.
 
 ## 7. Questions left
 
-**M4 (2026-11-21, absorbing M16), a question to GL3.B0, #1176 and `autonomic_layer.md` §1.2a (OD-A10 for the
-host-driven build):** may a host call `evaluate_failures()` (`body.py:258`) between cognition steps, on
-the injected clock (drift reads `time.time()`, `:293-297`)? Callers: the substrate tick
-(`substrate_proposal.py:837`, W-4 order, `grounding.md:451`), the LLM tick (`loop_gates.py:262-309`),
-`tool_bridge.py:776`. On cognition ticks we leave the step to yours; between them, is a publish keyed to the stale
-cluster stash, none, or #1176's per-pass transduction? (`sem_stimuli.md` D5.)
+**M4 (2026-11-21, absorbing M16), a question to `autonomic_layer.md` §3.1.4's out-of-band producer (G9), with
+#1176 for the in-pass half (GL3.B0's census as evidence; OD-A10):** may a host call `evaluate_failures()`
+(`body.py:258`) between cognition steps, on the injected clock (drift reads `time.time()`, `:293-297`)? Callers:
+`substrate_proposal.py:837` (W-4 order), `loop_gates.py:262-309`, `tool_bridge.py:776`. Between steps, does G9's
+record (`drain_outcomes()`, `CauseRef.cause_pid`) join such a publish to its situation rather than the stale cluster
+stash? Our T16c waits on it (`sem_stimuli.md` §4.6).
 
 v6's two are answered: **a host-supplied floor** (your segment alternative, O45, §2) and **GL3.B2's gate**
 (unchanged; a refusal's pid never appears in its rows, OD-EA16, §6).

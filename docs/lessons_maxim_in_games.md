@@ -311,6 +311,19 @@ stimuli and then stepped the body from the host before the agent's tick (bio D2-
 so the host's call would publish the onset against the previous step's clusters and the agent's own call would find
 the latch set and publish nothing, keying a burn's fear to where the NPC stood up to a cognition step earlier.
 *Consequence:* v4 pushes on a cognition tick and leaves the body step to the agent's tick; the host steps the body
-only between cognition steps, and how such a publish is keyed is asked of Maxim (M4, a question to GL3.B0 and #1176).
+only between cognition steps, and how such a publish is keyed is asked of Maxim (M4, a question to `autonomic_layer.md` §3.1.4's out-of-band producer, G9, and #1176).
 For any game hosting Maxim: deliver stimuli from outside, but let the agent's own loop own the order in which its
 body is stepped and its pain is credited.
+
+### 28. A world that holds a regulated variable fixed does the agent's homeostasis for it (2026-11-21)
+
+**The world should be the body's plant; the agent should be its controller.** *Evidence:* v4's core law (a) held the
+core node at 37 °C, which closed the energy books by booking whatever power that took. The final round showed what
+that costs (Physics S1, Bio-faithful F-S3): a body 3 m from the tile's fire absorbs about 1.0 kW, so a free core would
+rise about 5 K in 20 world minutes, while the held core reads 37.0 °C and sinks the heat unbooked. A bound
+`core_temperature` would then be a constant, and Maxim's own two-sided thermoregulation need (`autonomic_layer.md`
+R-2, §3.3) could never be exercised or learned. *Consequence:* the owner re-ruled PH2-S2 to (c): a free core, an
+energy-conserving plant (metabolism, skin blood flow, sweat, shivering), and effector commands reserved in the
+contract, set by a marked ANALOG stand-in until Maxim drives them (M20). For any game hosting Maxim: model the
+physiology the controller acts on, and leave the set point and the effector choice to the agent; a world that
+regulates on the agent's behalf hides the very signal the agent is supposed to learn from.
