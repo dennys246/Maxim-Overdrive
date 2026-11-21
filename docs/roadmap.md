@@ -352,8 +352,7 @@ The engineering standards (no band-aids, testing, the pre-push review, determini
 rules) live in `CLAUDE.md`, each with the check that enforces it; unenforced ones are rows in
 `docs/standards_backlog.md`. The rules below are the design rules.
 
-- **The verification rule:** the truth grid agrees with the reference within a gated tolerance, and converges
-  from the coarse grid.
+- **The verification rule:** stated in `docs/design/world_model.md` §1.1.
 - Physics parameters are per unit volume. Scenes are authored in metres, never in cells.
 - Energy lands by exact cell average or by volume overlap, never by whether the cell centre is inside.
 - The world server is authoritative. The client never simulates anything that feeds back into the world.
