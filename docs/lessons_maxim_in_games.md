@@ -327,3 +327,18 @@ energy-conserving plant (metabolism, skin blood flow, sweat, shivering), and eff
 contract, set by a marked ANALOG stand-in until Maxim drives them (M20). For any game hosting Maxim: model the
 physiology the controller acts on, and leave the set point and the effector choice to the agent; a world that
 regulates on the agent's behalf hides the very signal the agent is supposed to learn from.
+
+### 29. A router built for one agent's loop is the wrong scheduler for a world of agents (2026-11-21)
+
+**Maxim's distributed infrastructure moves inference, not agents, and its router is a scheduler of its own.**
+*Evidence:* at `origin/main` 043eab8f the networked mesh was deleted as dead code (`mesh/__init__.py`), and the peer
+system sends a machine's model calls to a leader. Every call on one `LLMRouter` takes `_inference_lock`
+(`router.py:192`). The router fails over between providers inside one call (`llm_routing.md`, `_try_provider`). It
+reads process-global state (`router.py:77`, `:201`; `~/.maxim/util/drained_nodes.*`). The cloud backends signal
+failure with an empty reply (`anthropic_backend.py:333-335`, `openai_backend.py:505`) and take no per-call deadline.
+A host that owns deadlines, capacity, consent and a reproducible cache would have the router override it without
+either seeing the other. *Consequence:* the host's thinking lane owns placement (O46): each request names a role, the
+lane picks the model, and Maxim's backends are only transports, in a host-owned gateway process
+(`docs/design/inference_placement.md`). The cache key names the role, never the model, and each reply records which
+placement served it. For any game hosting Maxim: let the agent ask for a kind of model, and let the host decide
+which one answers and record that it did.

@@ -332,10 +332,10 @@ substrate. This needs the host to own every LLM call, which the request/reply cu
 as a value and the host executes it (§6.1). **[after A]** with real Maxim, **[now]** with the test double.
 
 **Two channels the cost model doesn't remove, stated (BF2-8):**
-- **Model capability.** The player's VRAM decides the model, its quantisation and context length, so a bigger GPU
-  gives cleverer NPCs at every dial. It can't be modelled away. It is the agent analogue of a rig profile: the model
-  profile goes in the log header and the rerun manifest, and the Known gaps record that **the outcome class is not
-  promised across model profiles.**
+- **Model capability.** The placement table decides each role's model (`inference_placement.md`), so a bigger GPU
+  or a cloud model gives cleverer NPCs at every dial. It can't be modelled away. It is the agent analogue of a rig
+  profile: each reply records its placement, and the Known gaps record that **the outcome class is not promised
+  across model profiles.**
 - **The kind may depend on the NPC's state and context, never on host load or the dial.** Test: the same scene at
   1× and 20× with the test double at varied wall latencies gives the same kinds.
 
@@ -506,15 +506,15 @@ before the barrier (§6.3), the agent state that builds the next request depends
 S9). With both:
 
 - **A response cache, per LLM call** (each segment), not per thought.
-- **The canonical request** is a frozen, versioned type with golden fixtures: the model id and a weights or
-  quantisation digest; sampling parameters (temperature, top-p, top-k, seed, max tokens, stops); the system prompt; the
-  message list; the model role; the prompt-template and pymaxim versions; and an assertion that `tools is None`
+- **The canonical request** is a frozen, versioned type with golden fixtures: the model role and its envelope's
+  version (never the model: `inference_placement.md` §4.2); sampling parameters (temperature, top-p, top-k, seed, max tokens, stops); the system prompt; the
+  message list; the prompt-template and pymaxim versions; and an assertion that `tools is None`
   (Maxim's planning call renders tools into the prompt text and sends no native `tools=`, so a later move to native
   tools changes the key loudly). Serialised as canonical
   JSON: sorted keys, no floats or a fixed float format, NFC strings, explicit separators.
 - **Occurrences:** keyed by `(content hash, occurrence index)`, so two identical requests at temperature above 0 in
   one run reproduce both answers.
-- **An entry holds only the raw model output and the full canonical request.** On read the gate recomputes the hash
+- **An entry holds only the raw model output, the full canonical request and its provenance.** On read the gate recomputes the hash
   and refuses a mismatch; actor, kind, timing and targets are recomputed from the request and the cost model, never
   read from the entry (TB2-S4).
 - **Misses on a rerun are loud errors**, never a live call, so a rerun can't silently become tier 3.
@@ -631,7 +631,7 @@ What Maxim must offer for Overdrive to run real NPCs, all **[after A]** and draf
 | Piece | What it is | Why |
 |---|---|---|
 | **Host-called `step`, `think` and `settle`** (O39) | Overdrive's port, in ticks: `step(now_tick, dt_ticks, frame)`, `think(handle, reply \| None)`, `settle(receipts, writes)`; Maxim's function `step(agent, world_dt_us, frame)`; `settle` the only writer, applying the host-gated writes (Maxim's cand. A6) and the credit through the agent bus; the continuation split into a host-owned header and an opaque agent-owned body (§6.6); nothing runs on its own thread | the host owns time and order; generate vs apply (OD-A15, OD-A18). Maxim has no inner tool loop (`agent_loop.py:2172`, `:2264`), so the only thing `think` waits on is a model call, but PFC deliberation makes up to 3 by default (`:3110-3111` on f0b1cea4; `llm.deliberation_max_cycles` overrides it, so the host's cap governs) |
-| **The request/reply cut** (replaces v2's "host-supplied gateway") | the request is a value (rendered text, sampling, model **role**, template version, `tools is None`; the host stamps priority and deadline from the kind, outside the cache key); produced at the `LLMRouter._complete_text` cut (`router.py:958`), the host supplying the bound model's `n_ctx` and tokenizer (`token_counter`) to the `PromptBudgeter` (Maxim's `docs/lessons/sim-n-ctx-config-drift.md`); the reply is `complete(text)`, with reserved `cancelled(prefix)` and `truncated(prefix, reason)` variants that bypass the parse-failure template; speech is a top-level field emitted first | the gateway sits above the backend, so the router's per-router `_inference_lock` (`router.py:192`, `:1094`, `:1225`) never serialises NPCs, and the host holds, stamps, cancels and caches (Maxim's answer; Arch 2.1, 2.5, 2.6) |
+| **The request/reply cut** (replaces v2's "host-supplied gateway") | the request is a value (rendered text, sampling, model **role**, template version, `tools is None`; the host stamps priority and deadline from the kind, outside the cache key); produced at the `LLMRouter._complete_text` cut (`router.py:958`), the host supplying the role's envelope (`n_ctx`, `token_counter`; `inference_placement.md` §2.1) to the `PromptBudgeter` (Maxim's `docs/lessons/sim-n-ctx-config-drift.md`); the reply is `complete(text)`, with reserved `cancelled(prefix)` and `truncated(prefix, reason)` variants that bypass the parse-failure template; speech is a top-level field emitted first | the gateway sits above the backend, so the router's per-router `_inference_lock` (`router.py:192`, `:1094`, `:1225`) never serialises NPCs, and the host holds, stamps, cancels and caches (Maxim's answer; Arch 2.1, 2.5, 2.6) |
 | **The deliberation continuation** | a frozen, versioned, pickle-free value, not the whole agent, split by owner (§6.6) | `step` keeps running while a thought is out, so resume must decide staleness against the current agent (Arch 2.2, 2.3) |
 | **World tools vs cognition tools** *(proposed; not adopted)* | resolving cognition tools inside `think` would be an inner tool loop, Maxim's C10 question; until an experiment decides it, cognition tools go through follow-ups like world tools (§6.6) | a recall through a follow-up costs a full L (Arch 1.2, Arch S3) |
 | **A closed tool roster** | the membrane's affordances plus reviewed cognition tools, sealed with the advisor's patterns (`ToolPolicy`, the `Effect` ceiling); engineering, on its own clock | the default registry holds file tools (`runtime/bootstrap.py:132-135`) and `BashTool` (`:27`), and the CLI and embodied runtime add internet tools (`:255-276`); player speech is in the prompt |
@@ -672,7 +672,7 @@ own that survey; this part only depends on its outcome.
   It may script fillers as fixed outputs for interface tests only, and the tests say so (OA3). Every [now] test in this part runs
   against it. It is a test double, never shipped as an NPC, and the tests say so.
 - **Real Maxim** behind `engine.adapters.agents` is a **strict red gate** (`xfail(strict=True)`) until tier A ships,
-  with the reason naming the missing piece. Nothing is built around Maxim's router, which the push-back rule forbids.
+  with the reason naming the missing piece. The lane never uses Maxim's router; its backends are the transports (O46, `inference_placement.md`).
 - **The membrane's synchronous path.** Today `StructureModulator.execute` applies the act within the call. After the
   boundaries split it calls the applier synchronously with no log, under a TEMPORARY marker scheduled for
   `phase1/agents` (not

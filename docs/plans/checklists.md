@@ -299,11 +299,15 @@ contradicts (TB-S5). Before the codec's fixtures freeze, each of these is a test
 - Windows NPCs before Phase 8 need a Phase 3 item; the owner decides whether they are wanted. Until then, a Known
   gap: real NPCs on macOS and Linux only.
 
-**The lane's model (MS-S8, O18).**
-- Build the router with `models/download.py::consented_router`, with no cloud or peer tail when guests are present,
-  the model provisioned before play, and stdin not a terminal.
-- A gate test: a missing local model with guests present refuses (typed, and shown in the client). It never falls
-  through to a remote tail.
+**The lane's model (MS-S8, O18; `docs/design/inference_placement.md`, O46).**
+- The lane dispatches through the inference gateway (§3 there) with a scripted transport; Maxim's router is never
+  built on this path. Local models are loopback servers, provisioned before play.
+- A gate test: with guests present and no accepted disclosure, only `loopback` placements are eligible, and a missing
+  local model refuses (typed, and shown in the client). It never falls through to a remote placement.
+- Tests (§8 there): every placement-table rejection, an uncovered role and an envelope a placement can't fit among
+  them; `pinned` against `spill` with a full slot; a cancelled call holding its slot until its scripted return; each
+  outcome mapped once, `empty` included; provenance golden fixtures; dial invisibility across placement mixes; a
+  planted credential and `owner_lan` endpoint found in no log, manifest, cache entry or meter.
 
 **Coverage of the worker (ST-S2).** Coverage follows the child: `patch = ["subprocess"]`, or
 `COVERAGE_PROCESS_START` with `parallel` and `combine`. Admit coverage's variables through test 2's allowlist, by

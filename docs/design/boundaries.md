@@ -330,7 +330,7 @@ below it. Siblings on one line are independent of each other.
 | Thought results: intents, speech and **memory writes** | the agent's `StepOutput` and `ThoughtOutput`, decoded from the worker channel | the bound actor | an NPC's own memory only, with provenance by source actor (§6.6) | everything re-validated **in the host**: intents and speech through stage 1, memory writes through the host's gate before the host passes them to `settle` (canonical order; O39); a **gate-to-be** until generate vs apply (OD-A18) gives the game a value to check, an OPEN divergence with a strict red gate (foundations TB2-S3) | `phase1/agents` (types); OD-A18 (memory) |
 | **Thought budgets** (foundations TB2-B3) | the host's thinking lane | — | — | PFC cycles, `parallel_actions`, `next_actions` and follow-up chains per triggering input, tokens per call (a generation limit and a stream cut-off before buffering), held-buffer bytes, memory writes, `cancel_on` length, `D` ceilings, from `data/agents/thought_budget.yaml` | `phase1/agents` |
 | **Player speech and all guest text** (foundations TB2-S1; TB3-S3, TB3-S4, TB3-N4) | network lane | session token | per-session rate limit | one gate, `engine.text.player_text`, for `speak` and every guest string that can reach a prompt: length cap, NFC, then on the **decoded** text, per chunk and whole, refuse controls, bidi overrides, every line separator `str.splitlines` splits on (U+2028, U+2029, U+0085, `\v`, `\f`, U+001C–U+001E) and every format (Cf) character, zero-width and tag characters included | `phase1/protocol` |
-| **The response cache** (foundations DR-B3, TB2-S4, Wire S9) | disk, per save | — | — | the strictest contract: versioned, strict decoder, size budgets; an entry holds only raw output and the canonical request, and the gate recomputes the hash and refuses a mismatch; never read by replay | after tier A |
+| **The response cache** (foundations DR-B3, TB2-S4, Wire S9) | disk, per save | — | — | the strictest contract: versioned, strict decoder, size budgets; an entry holds only raw output, the canonical request and its provenance, and the gate recomputes the hash and refuses a mismatch; never read by replay | after tier A |
 | Scene files, saves, intent logs, bug reports | disk, **strangers' machines** | — | — | the strictest gate (world_model F14): no pickle, budget before allocation, all-or-nothing | scene v1, save v0, sim-clock |
 | Rigs, materials, limits, vocabulary, presets, rosters, arcs | `data/`, `content/`, later mods | — | — | a loader each under the gate contract (§5.4) | today and as each lands |
 | Handshake, per-launch token, `Origin` | network lane | `hmac.compare_digest`, `Origin` refused, loopback bind (lanes §5) | — | the protocol decoder | `phase1/protocol` |
@@ -453,8 +453,8 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
   make a red test green.
 - **A rerun manifest beside the header (foundations DR-S7, Wire S8),** with the same refuse-on-mismatch rule, for
   tier-2 reruns that re-run agents: the digests of `data/agents/` (timing, speech, fatigue, thought budget), the
-  roster and each agent home's initial state; the pymaxim version and config digest; the model ids, weights or
-  quantisation digests and context lengths (the model profile, `npcs_and_sem.md` §4.1); the response cache's digest;
+  roster and each agent home's initial state; the pymaxim version and config digest; the placement table's digest
+  and role envelopes (reported, never refused: `inference_placement.md` §4.3); the response cache's digest;
   the agent seed namespace; the syllabifier version. A run with any machine-decided thought failure, or under
   `abandon`, is flagged tier 3 in it.
 
@@ -509,8 +509,8 @@ contract Maxim must offer is in `npcs_and_sem.md` §6.1.
 - **The membrane factory** takes a frame source and returns intents in `StepOutput`, never `World` (foundations Arch
   S3, Wire B2).
 - **The host's thinking lane** in `engine.host` executes request values, by deadline, with the response cache and
-  cancel as a reply. It is the only path to a model; it sits above Maxim's backends, so the router's per-router lock
-  never serialises NPCs (`npcs_and_sem.md` §4, §6.1).
+  cancel as a reply. It is the only path to a model and owns placement; a host-owned gateway makes the calls through
+  Maxim's backends, never its router (`inference_placement.md`).
 
 **The agent lane (supersedes `realtime_lanes_coop.md` §4.1's "the simulation lane owns … agents" and "agents step
 inside the simulation lane's tick"):**

@@ -10,15 +10,14 @@ Godot client (render, input, UI)  ──intents──▶  World server (Python, 
                                   ◀─snapshots──    ├── material grid (cells)
                                                    ├── physics fields (heat today)
                                                    ├── damage
-                                                   ├── SEM bridge  ──▶  Maxim agents (AgentPool)
+                                                   ├── SEM bridge  ──▶  Maxim agents (a worker each)
                                                    └── imagination specs → cells
 ```
 
 - The world server owns all state and all physics. The client never simulates anything that feeds back into the
   world. It may add purely visual effects (particles, debris, interpolation between frames).
 - Cradles and experiments run the same server headless. The physics an NPC grows up in is the game's physics.
-- The game runs in real time with pause (`docs/design/realtime_lanes_coop.md`); neither the world nor an NPC
-  waits for a thought.
+- Real time with pause; a late thought dilates the world or holds the floor (`docs/design/npcs_and_sem.md` §4).
 
 ## The world is material cells
 
