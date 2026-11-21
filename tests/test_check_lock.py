@@ -152,8 +152,8 @@ def test_ci_runs_on_pull_requests_and_pushes_to_main_only() -> None:
 
 
 def test_macos_runs_on_githubs_runners_only_for_pushes_to_main_and_the_weekly_drift() -> None:
-    # Private-repo macOS minutes bill at 10x Linux's (owner, 2026-11-21, option B). A PR's macOS check is the mini's
-    # prepush PASS; no job runs on a self-hosted runner, so untrusted PR code never reaches the owner's machine.
+    # Private-repo macOS minutes bill at 10x Linux's (owner, 2026-11-21, option B). A PR's macOS check at Python 3.12
+    # is the mini's prepush PASS; 3.14 on macOS waits for main. No job runs off GitHub's runners.
     gate = _workflow("test.yml")["jobs"]["prepush"]
     assert gate["runs-on"] == "${{ matrix.os }}"
     both, linux = '["ubuntu-latest", "macos-latest"]', '["ubuntu-latest"]'
@@ -162,9 +162,14 @@ def test_macos_runs_on_githubs_runners_only_for_pushes_to_main_and_the_weekly_dr
     )
     drift = _workflow("drift.yml")["jobs"]["drift"]
     assert drift["strategy"]["matrix"]["os"] == ["ubuntu-latest", "macos-latest"]
+    hosted = {"ubuntu-latest", "macos-latest"}
     for name in ("test.yml", "drift.yml", "golden.yml"):
         for job in _workflow(name)["jobs"].values():
-            assert "self-hosted" not in str(job["runs-on"]), name
+            labels = {job["runs-on"]} if job["runs-on"] != "${{ matrix.os }}" else set()
+            matrix_os = job.get("strategy", {}).get("matrix", {}).get("os", [])
+            labels |= set(re.findall(r'"([^"]+)"', matrix_os)) if isinstance(matrix_os, str) else set(matrix_os)
+            assert labels, name
+            assert labels <= hosted, (name, labels)  # GitHub-hosted only: no custom or self-hosted label
 
 
 def test_installed_names_lists_this_environment() -> None:

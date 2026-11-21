@@ -12,8 +12,9 @@ permissions:
   contents: read
 
 jobs:
-# Linux on every run; macOS (billed at 10x Linux on a private repo) only on pushes to main. A PR's macOS check is the
-# prepush PASS from the owner's Mac mini that every hand-off carries; untrusted PR code never runs on that machine.
+# Linux on every run; macOS (billed at 10x Linux on a private repo) only on pushes to main. A PR's macOS check at
+# Python 3.12 is the prepush PASS from the owner's Mac mini that every hand-off carries; macOS at 3.14 is checked only
+# on main. Untrusted PR code never runs on that machine.
   prepush:
     strategy:
       fail-fast: false
