@@ -22,8 +22,9 @@ def _burn(dx_m, materials, turns=150, power_w=60_000.0):
     w = World.from_scene(SCENE, materials, dx_m=dx_m, limits=LIMITS)
     crate_s, crate_m = region_parts(Applier(w), w.frames, "crate")
     wall_s, wall_m = region_parts(Applier(w), w.frames, "wall")
-    assert crate_m["structure"].execute("ignite", {"power_w": power_w, "radius_m": 0.3}).success
-    assert wall_m["structure"].execute("ignite", {"power_w": power_w, "radius_m": 0.3}).success
+    for mods in (crate_m, wall_m):  # preconditions raise RuntimeError, never a red gate's AssertionError
+        if not mods["structure"].execute("ignite", {"power_w": power_w, "radius_m": 0.3}).success:
+            raise RuntimeError("ignite refused: the test can't reach its bar")
     onset = None
     for turn in range(turns):
         w.advance()
@@ -39,8 +40,40 @@ def test_fire_outcomes_agree_across_rigs(spacings, materials):
     assert max(onsets) - min(onsets) <= 0.1 * min(onsets), runs  # and at about the same turn
     assert all(r[1] < 0.7 for r in runs.values()), runs  # it is badly burned everywhere
     assert all(r[2] > 0.99 for r in runs.values()), runs  # the concrete wall survives everywhere
-    # Known gap (docs/architecture.md): late in a burn the coarsest rig lags, because a coarse cell degrades as one
-    # block. Not gated yet.
+    # Known gap (docs/architecture.md): the coarsest rig lags in the burn; gated below.
+
+
+BADLY_BURNED = 0.7  # the level test_fire_outcomes_agree_across_rigs asserts every rig reaches
+TIME_TOL = 0.15  # tile_and_client.md §6.3 item 8: a crack-like time converges within 15% of the finer grid's
+
+
+def _turn_below(dx_m, materials, level, turns=300, power_w=60_000.0):
+    w = World.from_scene(SCENE, materials, dx_m=dx_m, limits=LIMITS)
+    crate_s, crate_m = region_parts(Applier(w), w.frames, "crate")
+    wall_m = region_parts(Applier(w), w.frames, "wall")[1]
+    for mods in (crate_m, wall_m):
+        if not mods["structure"].execute("ignite", {"power_w": power_w, "radius_m": 0.3}).success:
+            raise RuntimeError("ignite refused: the gate can't reach its bar")
+    for turn in range(turns):
+        w.advance()
+        if crate_s["integrity"].value() < level:
+            return turn
+    raise RuntimeError(f"the crate never fell below {level} in {turns} turns at {dx_m} m")
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason=(
+        "Known gap (docs/architecture.md): the coarsest rig lags in the burn, because a coarse cell degrades as one "
+        "block. Measured 2026-11-21: the crate falls below 0.7 at turn 138 at 0.2 m against 104 at 0.1 m (33%, "
+        "against tile §6.3's 15%); below 0.5 the lag is 152 against 135 (12.6%). The fix is the reconstructed burn "
+        "rate (roadmap Phase 2, 'Close the known gap'); this gate then flips and must be removed."
+    ),
+)
+def test_the_crate_is_badly_burned_at_the_same_turn_at_every_rig(materials):
+    coarse, fine = (_turn_below(dx_m, materials, BADLY_BURNED) for dx_m in FAST_SPACINGS)
+    assert abs(coarse - fine) <= TIME_TOL * fine, (coarse, fine)
 
 
 def test_a_small_fire_changes_nothing_at_any_rig(spacings, materials):

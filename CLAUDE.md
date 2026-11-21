@@ -165,13 +165,13 @@ only review holds.
 - **Every outcome bar on physics or NPC behaviour is one of three kinds** (owner, 2026-11-21). Process bars (coverage,
   sizes, word budgets) and determinism (bit-identical) are not. **Verification:** the code solves the equations we
   wrote, against a closed form, an oracle (FDS) or another grid. It is required now and is never a future bar: a miss
-  never waits on Maxim or a later phase, and is a strict red gate plus a Known gap with its numbers, fixed in this
-  repo (owner, 2026-11-21, A1). **Validation:** the equations describe reality, against cited data; a miss ships as
-  a Known gap with its numbers. **Perception and learning:** an NPC senses and learns the regularity; it may be a
-  future bar. No band ever loosens. A bar written from now on is derived from its source's error (a closed form's
-  from the scheme's error at the spacing, an oracle's spread, an experiment's scatter), never a round number, and is
-  written before the measurement; older round-number bars are listed in B30, and re-deriving one never widens it
-  without the owner's ruling. Guard: B30, B10
+  never waits on Maxim, and is a strict red gate plus a Known gap with its numbers, fixed in a named step of this
+  repo, which may be a later phase (owner, 2026-11-21, A1 and D1). **Validation:** the equations describe reality,
+  against cited data; a miss ships as a Known gap with its numbers. **Perception and learning:** an NPC senses and
+  learns the regularity; it may be a future bar. No band ever loosens. A bar written from now on is derived from its
+  source's error (a closed form's from the scheme's error at the spacing, an oracle's spread, an experiment's
+  scatter), never a round number, and is written before the measurement; older round-number bars are listed in B30,
+  and re-deriving one never widens it without the owner's ruling. Guard: B30, B10
 - **A future bar is tracked, never dropped** (owner, 2026-11-21). A perception or learning bar that Maxim can't meet
   yet becomes a strict red gate whose reason names the Phase 3 item (and its issue once filed), a Phase 3 row in
   `docs/roadmap.md` with the trigger that flips it, and evidence that isolates the cause: a separate, passing test
