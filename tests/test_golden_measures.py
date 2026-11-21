@@ -76,6 +76,15 @@ def test_every_sample_is_gated_the_crate_ones_included(tmp_path):
     ]
 
 
+def test_a_reference_that_shows_less_of_the_body_than_the_cut_fails(tmp_path):
+    _all_pairs(tmp_path)
+    _save(tmp_path / "cut-end-k0-with.png", _body(_frame(), slice(20, 60)))
+    _save(tmp_path / "cut-end-k0-without.png", _body(_frame(), slice(20, 50)))  # the reference kept a wall
+    assert gm.cutaway_findings(tmp_path) == [
+        "cutaway: cut-end-k0-with.png: 133.3% of the body visible, more than the all-walls-cut reference"
+    ]
+
+
 def test_a_missing_extra_or_half_pair_fails(tmp_path):
     assert len(gm.cutaway_findings(tmp_path)) == 4 * len(gm.CUTAWAY_SAMPLES)
     _all_pairs(tmp_path)

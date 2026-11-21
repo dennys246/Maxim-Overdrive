@@ -16,7 +16,7 @@ func _walls() -> Dictionary[int, AABB]:
 
 
 func _cut(walls: Dictionary[int, AABB], x: float, y: float, k: int) -> PackedInt32Array:
-	return Cutaway.cut_regions(walls, Vector3(x, y, 0.4), IsoCamera.step_yaw(k))
+	return Cutaway.cut_regions(walls, Vector3(x, y, 0.4), IsoCamera.step_yaw(k), PackedInt32Array())
 
 
 func test_the_flagged_boxes_are_the_authored_walls(t: TestContext) -> void:
@@ -100,8 +100,8 @@ func test_the_sightline_slab_test(t: TestContext) -> void:
 
 
 func test_the_stump_and_the_cut_limit(t: TestContext) -> void:
-	t.check(is_equal_approx(Cutaway.stump_top_m(0.4), 0.7), "a 0.3 m stump above the feet")
+	t.check(is_equal_approx(Cutaway.stump_top_m(0.4), 0.6), "a 0.2 m stump above the feet")
 	var many: Dictionary[int, AABB] = {}
 	for id: int in range(1, 12):
 		many[id] = AABB(Vector3(0.5, -0.5, 0.0), Vector3(1.0, 1.0, 4.0))  # south-east of the player, in the way at yaw 45
-	t.check_eq(Cutaway.cut_regions(many, Vector3.ZERO, IsoCamera.step_yaw(0)).size(), Cutaway.MAX_CUT, "at most the shader's array of ids")
+	t.check_eq(Cutaway.cut_regions(many, Vector3.ZERO, IsoCamera.step_yaw(0), PackedInt32Array()).size(), Cutaway.MAX_CUT, "at most the shader's array of ids")

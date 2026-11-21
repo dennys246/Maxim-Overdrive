@@ -61,7 +61,7 @@ func test_the_crack_octave_keeps_polygons_wide_and_holds_at_a_boundary(t: TestCo
 	t.check_eq(CellVolume.crack_octave(0.1, 10.0 / 720.0, -1), 1, "the golden view")
 	t.check_eq(CellVolume.crack_octave(0.1, 10.0 / 360.0, -1), 2, "the laptop tier's half resolution")
 	t.check_eq(CellVolume.crack_octave(0.1, 0.005, -1), 0, "zoomed in: one polygon per cell")
-	# The default 12 m view at 720 px is exactly 2 octaves: rounding must not flip it, whichever side it lands.
+	# The default 12 m view at 720 px sits exactly on the octave-1/2 boundary: rounding must not flip it.
 	for current: int in [1, 2]:
 		t.check_eq(CellVolume.crack_octave(0.1, 12.0 / 720.0, current), current, "holds %d on the boundary" % current)
 	t.check_eq(CellVolume.crack_octave(0.1, 12.0 / 720.0 * 1.2, 1), 2, "moves on once well past it")

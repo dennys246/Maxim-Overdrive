@@ -50,9 +50,10 @@ if not os.path.exists(mark):  # as the real Godot fails on a class_name in a pro
 user = sys.argv[sys.argv.index("--") + 1:]
 outs = [a.removeprefix("--shot=").split(":", 3)[3] for a in user if a.startswith("--shot=")]
 for a in user:
-    if a.startswith("--out="):  # the cut-away scene: one pair
+    if a.startswith("--out="):  # the cut-away scene: one pair at the yaw step it was given
         d = a.removeprefix("--out=")
-        outs += [os.path.join(d, "cut-end-k0-with.png"), os.path.join(d, "cut-end-k0-without.png")]
+        k = next(x for x in user if x.startswith("--yaw=")).removeprefix("--yaw=")
+        outs += [os.path.join(d, f"cut-end-k{{k}}-with.png"), os.path.join(d, f"cut-end-k{{k}}-without.png")]
 if any(not os.path.isabs(o) for o in outs):
     print("ERROR: Can't save PNG at a relative path")  # the real Godot reads it against the project
     sys.exit(1)
@@ -115,12 +116,14 @@ def test_matching_frames_pass_every_shot_is_drawn_and_the_logs_are_kept(setup, t
     assert code == 0, capsys.readouterr().err
     printed = capsys.readouterr().out
     assert printed.endswith("golden_run: PASS (12 shots, 3 goldens, cut-away)\n")
-    assert "res://tests/cutaway_check.tscn took" in printed
+    assert printed.count("res://tests/cutaway_check.tscn took") == 4
+    assert printed.count("res://tests/golden.tscn took") == 3  # one call per tier
     out = tmp_path / "out"
     assert sorted(p.name for p in out.glob("*.png")) == sorted(name for name, *_ in gr.SHOTS)
     assert "llvmpipe (LLVM 20.1.2, 256 bits)" in (out / "golden.log").read_text()
-    assert (out / "cutaway.log").is_file()
-    assert (out / "cutaway" / "cut-end-k0-with.png").is_file()
+    for k in range(4):  # one call per yaw step
+        assert (out / f"cutaway-k{k}.log").is_file()
+        assert (out / "cutaway" / f"cut-end-k{k}-with.png").is_file()
     assert measured == [out / "cutaway"]
     assert not list(out.glob("*.diff.png"))
 

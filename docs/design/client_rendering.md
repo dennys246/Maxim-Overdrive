@@ -42,9 +42,8 @@ T3–T7 are world decisions (world §0).
 - **Which regions:** walls, as named in client data (`client/game/cutaway.tres`, keyed by region name; DC-N4).
 - **When:** a flagged region is cut when a sightline from the body towards the camera, at the **target** yaw, meets
   its box before climbing over it: within (top − feet)/tan 40° in plan (owner, 2026-11-21).
-- **Stumps:** cut regions keep a 0.3 m stump, the cells whose top is ≤ feet + 0.3 m. With the body's axis 0.25 m from
-  a wall face, the sightline at 40° rises 0.30 m by the face (0.25/sin 45° × tan 40°, derived). So the stump hides at
-  most the feet's edge.
+- **Stumps:** cut regions keep a 0.2 m stump, the cells whose top is ≤ feet + 0.2 m. With the body's axis 0.25 m from
+  a wall face, the sightline at 40° rises 0.30 m by the face (derived), so even two stumps, in a corner, hide 1.3%.
 - **Hatching:** cut faces are hatched, a shape rather than a colour, so a cut wall never reads as burned away.
 - **Never cut:** the crate and other non-wall regions, so the fire stays visible from anywhere.
 - **No pops:** the flag changes at tween start, or where the body enters a wall's shadow; a cut wall holds 0.25 m
@@ -171,9 +170,9 @@ T3–T7 are world decisions (world §0).
   has a capsule half inside a wall (CR-S1).
 - **Lighting** (`render_mode unshaded`): a fixed key light, three-tone face shading, neighbour AO, a fixed night
   ambient. No dynamic shadows.
-- **Glow:** T = offset + scale·g, both from the catalogue. Emission = 4.0 × ((T_K/1773)⁴ − (T₀/1773)⁴) `[engineering]`, T₀ the offset, a
+- **Glow:** T = offset + scale·g, both from the catalogue. Emission = 7.0 × ((T_K/1773)⁴ − (T₀/1773)⁴) `[engineering]`, T₀ the offset, a
   **stylisation**: T⁴ is total radiance, not visible radiance (PH-N2, CR-N4). Hue goes dull red → orange →
-  yellow-white. Ember envelopes near 920 °C (world §5.3) read orange-red, below bloom. Output above 1.0 drives glow
+  yellow-white. Ember envelopes near 920 °C (world §5.3) read hot orange and bloom. Output above 1.0 drives glow
   [ran].
 - **Flames from `burning`:** emissive flicker plus `GPUParticles3D` at burning cells. Visual only, and off in goldens.
 

@@ -9,6 +9,9 @@ extends Node
 ## Engine why: the root only orchestrates; RenderStage (a SubViewport) draws, at a resolution of its own.
 
 const OUT_FLAG: String = "--out="
+## One yaw step per run, so each Godot call draws a quarter of the frames: drawn in one call, 144 frames on llvmpipe
+## under emulation crossed the job's 120 s timeout.
+const YAW_FLAG: String = "--yaw="
 const WIDTH: int = 960
 const HEIGHT: int = 540
 const SIZE_M: float = 12.0
@@ -33,6 +36,7 @@ const SAMPLES: Dictionary[String, Vector3] = {
 	"pavement-spawn": Vector3(0.6, 2.0, 0.4), "pavement-south": Vector3(0.9, 0.65, 0.4),
 	"pavement-north": Vector3(0.9, 3.35, 0.4),
 	"pavement-strip-south": Vector3(0.9, 0.3, 0.4), "pavement-strip-north": Vector3(0.9, 3.7, 0.4),
+	"corner-south": Vector3(11.35, 0.65, 0.4), "corner-north": Vector3(11.35, 3.35, 0.4),
 }
 
 var _stage: RenderStage = RenderStage.new()
@@ -42,10 +46,12 @@ func _ready() -> void:
 	if DisplayServer.get_name() == "headless":
 		_fail("--headless draws nothing; run under a display (Xvfb in CI)")
 		return
-	var out: String = _out_dir()
-	if out.is_empty():
-		_fail("pass the output directory after --: -- %s<dir>" % OUT_FLAG)
+	var out: String = _arg(OUT_FLAG)
+	var yaw_text: String = _arg(YAW_FLAG)
+	if out.is_empty() or not (yaw_text in ["0", "1", "2", "3"]):
+		_fail("pass the output directory and a yaw step after --: -- %s<dir> %s<0-3>" % [OUT_FLAG, YAW_FLAG])
 		return
+	var k: int = yaw_text.to_int()
 	var fixture: SnapshotFixture = SnapshotFixture.named(FIXTURE)
 	if not fixture.problems.is_empty():
 		_fail("fixture: " + "; ".join(fixture.problems))
@@ -56,12 +62,11 @@ func _ready() -> void:
 	_stage.use_tier(TIER)
 	_stage.use_pass(CellVolume.Pass.OCCLUDER, false)
 	for sample: String in SAMPLES:
-		for k: int in 4:
-			var why: String = await _pair(out, sample, k)
-			if not why.is_empty():
-				_fail(why)
-				return
-	print("cutaway: wrote %d pairs" % (SAMPLES.size() * 4))
+		var why: String = await _pair(out, sample, k)
+		if not why.is_empty():
+			_fail(why)
+			return
+	print("cutaway: wrote %d pairs at yaw step %d" % [SAMPLES.size(), k])
 	get_tree().quit(0)
 
 
@@ -84,10 +89,10 @@ func _pair(out: String, sample: String, k: int) -> String:
 	return ""
 
 
-func _out_dir() -> String:
+func _arg(flag: String) -> String:
 	for arg: String in OS.get_cmdline_user_args():
-		if arg.begins_with(OUT_FLAG):
-			return arg.substr(OUT_FLAG.length())
+		if arg.begins_with(flag):
+			return arg.substr(flag.length())
 	return ""
 
 

@@ -98,19 +98,28 @@ def measured_findings(out: Path, cut: Path) -> list[str]:
 def draw_all(
     godot: str, project: Path, out: Path, *, home: Path, timeout_s: float, wrapper: tuple[str, ...]
 ) -> tuple[list[str], str]:
-    """Both scenes; returns (findings, the golden scene's log)."""
-    shots = [f"--shot={fixture}:{tier}:{kind}:{out / name}" for name, fixture, tier, kind in SHOTS]
-    found, log = draw(godot, project, GOLDEN_SCENE, shots, home=home, timeout_s=timeout_s, wrapper=wrapper)
+    """Both scenes, each split into calls that stay well inside the timeout (one per tier, one per yaw step: a
+    loaded machine took 83 s for all twelve shots in one call); returns (findings, the golden scene's logs)."""
+    found: list[str] = []
+    logs: list[str] = []
+    for tier in TIERS:
+        shots = [f"--shot={fx}:{t}:{kind}:{out / name}" for name, fx, t, kind in SHOTS if t == tier]
+        drawn, log = draw(godot, project, GOLDEN_SCENE, shots, home=home, timeout_s=timeout_s, wrapper=wrapper)
+        found += drawn
+        logs.append(log)
+    log = "\n".join(logs)
     (out / "golden.log").write_text(log + "\n")
     cut = out / "cutaway"
     shutil.rmtree(cut, ignore_errors=True)  # a reused --out must not judge an earlier run's frames
     cut.mkdir()
-    cut_found, cut_log = draw(
-        godot, project, CUTAWAY_SCENE, [f"--out={cut}"], home=home, timeout_s=timeout_s, wrapper=wrapper
-    )
-    (out / "cutaway.log").write_text(cut_log + "\n")
+    for k in range(4):  # one call per yaw step: a quarter of the frames each, well inside the timeout
+        cut_found, cut_log = draw(
+            godot, project, CUTAWAY_SCENE, [f"--out={cut}", f"--yaw={k}"], home=home, timeout_s=timeout_s,
+            wrapper=wrapper,
+        )  # fmt: skip
+        (out / f"cutaway-k{k}.log").write_text(cut_log + "\n")
+        found += cut_found
     print(log)
-    found += cut_found
     found += [f"draw: no frame at {out / name}" for name, *_ in SHOTS if not found and not (out / name).is_file()]
     return found, log
 

@@ -72,10 +72,12 @@ Layout names the new files.
    later feature, not scheduled.
 3. **AO at 8 taps:** accepted; §5.5 says so.
 4. **Crack polygons at least 12 px:** accepted (in a 0.1-octave hold, down to about 11.2 px); §5.4 says so.
-5. **Ember gain:** pending the owner's look at a sweep (gains 4, 7, 10); unchanged at 4 until then.
+5. **Ember gain:** the owner chose 7 from a sweep of 4, 7 and 10; §5.3 and the goldens follow.
 6. **Black night:** accepted; B30. A two-line Godot issue drafted for the owner to file or not.
 7. **Crack severity by shape:** scheduled as its own branch after this one: severity drives polygon density, every
    cracked cell is guaranteed an edge, and a mild-against-severe edge-density check holds it. B7 names it.
+8. **Stump height (delta 3):** 0.2 m, not §2's 0.3 m: two stumps in a dead-end corner hid 6.5% of the body
+   (93.5% measured, failing the gate); at 0.2 m the corner measures 98.7% and a wall 99.3%.
 
 ## Delta 1 (at the staged fold over ce06d7b)
 
@@ -131,3 +133,21 @@ over 200 random grids.
 
 Not folded: EW S1's remainder (texture contents are unreadable headless; the golden job covers them); the round-one
 performance NITs; CP N5, N6, N8.
+
+## Delta 3 (at 9215696 and 1358725)
+
+Report: `delta3_all.md`. No BLOCKER; the sightline rule modelled over 12,000 placements leaves no wall standing that
+hides more than 5%.
+
+| Finding | Change | Proof |
+|---|---|---|
+| S1 (stumps alone fail in a corner) | Two corner samples added; measured 93.5% at both. The owner chose a 0.2 m stump (decision 8). | Corners 98.7%, walls 99.3% (Mac). |
+| S2 (the hold has no caller; a default hides that) | `held` is required; the stateless check stage passes an empty array and says why (a hold only adds cuts, so the stateless frame is a lower bound). Wiring the hold into play is B30 (1). | A call without it fails to compile. |
+| S3 (nothing checks the reference frame) | A ratio above 1 + 1/without is a finding; `cut_all` reports more flagged walls than the shader can cut. | Tested on a reference that kept a wall. |
+| N1, N5 | The docstring counts 5 (9) sightlines; the reference stump is −1.0 m, not −inf. | — |
+| N4 (§10 overstated while the gain was pending) | The gain is decided; §10 now holds. | — |
+| EWA N5 residue, N2 | The octave test's comment; B7 names the speckle check. | — |
+
+Not folded: N2 (walls cut on a 0.05 m margin band that hide nothing: scenery only), N3 (the hold widens sideways,
+not in reach: latent in the alley), N6 (runtime: ci9's 80.6 s came from a loaded machine; remeasured in the final
+run below), CP N10's fresh-volume test, delta-1 EW S1.

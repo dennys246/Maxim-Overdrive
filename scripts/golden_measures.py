@@ -53,7 +53,7 @@ CUT_FRAME = re.compile(r"^cut-(?P<sample>.+)-k(?P<k>[0-3])-with\.png$")
 CUTAWAY_SAMPLES = (
     "south-2", "south-4", "south-7.5", "south-10.5", "north-2", "north-4", "north-7.5", "north-10.5", "end",
     "crate-kindle", "crate-south", "crate-east", "pavement-spawn", "pavement-south", "pavement-north",
-    "pavement-strip-south", "pavement-strip-north",
+    "pavement-strip-south", "pavement-strip-north", "corner-south", "corner-north",
 )  # fmt: skip
 TIERS = ("laptop", "rig", "max")
 
@@ -100,6 +100,10 @@ def _pair_finding(with_path: Path) -> str | None:
     if without == 0:
         return f"cutaway: {with_path.name}: the body draws no pixels even with the volume hidden"
     ratio = body_pixels(load_rgb(with_path)) / without
+    if ratio > 1.0 + 1.0 / without:
+        # The reference removes every flagged wall, so nothing can show more of the body than it does: a ratio above 1
+        # means the reference kept a wall the chosen cut removed, and the gate would be measuring nothing.
+        return f"cutaway: {with_path.name}: {ratio:.1%} of the body visible, more than the all-walls-cut reference"
     if ratio < CUTAWAY_MIN:
         return f"cutaway: {with_path.name}: {ratio:.1%} of the body visible, below {CUTAWAY_MIN:.0%}"
     return None

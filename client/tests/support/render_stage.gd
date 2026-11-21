@@ -83,7 +83,9 @@ func _update_pixel_metres() -> void:
 ## Cut the flagged walls for a player whose feet are at ``feet_world_m``, the camera turning to ``yaw``.
 func cut_for(feet_world_m: Vector3, yaw: float, walls: CutawayRegions) -> void:
 	var flagged: Dictionary[int, AABB] = Cutaway.flagged_boxes(_snapshot, _bounds, walls.regions)
-	var ids: PackedInt32Array = Cutaway.cut_regions(flagged, feet_world_m, yaw)
+	# Nothing held: each check frame is drawn alone, with no previous frame to hold a cut from. A hold only adds cuts,
+	# and a stump sits inside its wall, so a stateless frame shows at most as much wall as the game would.
+	var ids: PackedInt32Array = Cutaway.cut_regions(flagged, feet_world_m, yaw, PackedInt32Array())
 	volume.use_cut(ids, Cutaway.stump_top_m(feet_world_m.z))
 
 
@@ -100,9 +102,12 @@ func volume_bounds_m(region_name: String) -> AABB:
 ## sides of the ratio (§2; owner decision 2026-11-21).
 func cut_all(walls: CutawayRegions) -> void:
 	var flagged: Dictionary[int, AABB] = Cutaway.flagged_boxes(_snapshot, _bounds, walls.regions)
+	if flagged.size() > Cutaway.MAX_CUT:
+		push_error("RenderStage: %d flagged walls; the shader cuts at most %d, so the reference would keep some" % [flagged.size(), Cutaway.MAX_CUT])
 	var ids: Array[int] = []
 	ids.assign(flagged.keys())
-	volume.use_cut(PackedInt32Array(ids), -INF)
+	# A stump top below every cell, as a finite number: GLSL ES 3.00 doesn't promise infinities in a uniform.
+	volume.use_cut(PackedInt32Array(ids), -1.0)
 
 
 ## One capsule per body, feet at each position (world metres).

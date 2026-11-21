@@ -19,7 +19,9 @@ uniform float glow_scale_c = 0.0;
 // 0 in goldens (animation off, §6.1); 1 in play.
 uniform float flicker_amount = 0.0;
 
-const float GLOW_GAIN = 4.0;
+// 7, not §5.3's first 4: at 4 the ember envelope near 920 °C stayed below the bloom threshold and read dull; at 7 it
+// blooms without flattening the hottest faces to white (owner, from a 4 / 7 / 10 sweep, 2026-11-21).
+const float GLOW_GAIN = 7.0;
 const float GLOW_REFERENCE_K = 1773.0;
 const vec3 GLOW_DULL = vec3(0.55, 0.04, 0.0);
 const vec3 GLOW_ORANGE = vec3(1.0, 0.38, 0.04);
@@ -39,7 +41,7 @@ float glow_count(ivec3 cell, vec3 p_cell, vec3 n_cell) {
 #endif
 }
 
-// The emission for a skin at count ``g``: 4 (T_K / 1773)^4 in HDR, a stylisation (T^4 is total radiance, not
+// The emission for a skin at count ``g``: GLOW_GAIN (T_K / 1773)^4 in HDR, a stylisation (T^4 is total radiance, not
 // visible radiance; PH-N2, CR-N4), less its value at the offset, so a count of 0 (at or below 525 °C) emits nothing
 // and the first count emits almost nothing. Hue runs dull red, orange, yellow-white.
 vec3 glow_emission(float g) {

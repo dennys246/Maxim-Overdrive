@@ -6,8 +6,8 @@ extends RefCounted
 ##
 ## The rule is the occlusion itself, in plan view: a flagged region is cut when a sightline from the player's body
 ## towards the camera, at the **target** yaw, meets the region's box before it has risen above the box's top. Along
-## the ground that is within (box top - feet) / tan(40 degrees) of the body: 4.8 m for the alley's walls. Three
-## sightlines spread across the body's width cover it. So a wall is cut exactly when it
+## the ground that is within (box top - feet) / tan(40 degrees) of the body: 4.8 m for the alley's walls. Sightlines
+## at most 0.15 m apart across the body's width (5 of them; 9 while held) cover it. So a wall is cut exactly when it
 ## stands between the body and the camera: at a rotation's start, and wherever the walk takes the body into or out of
 ## a wall's shadow, near its ends. A wall already cut stays cut until the body is HOLD_M clear of it, so standing on
 ## that edge never makes the wall flicker (hysteresis, as for any threshold a moving value sits on).
@@ -18,7 +18,9 @@ extends RefCounted
 ## right only where the walls are long and the player is inside them. Cut cells keep a stump: those whose top is at
 ## most the feet plus STUMP_M.
 
-const STUMP_M: float = 0.3
+## Two cells of the 0.1 m grid: enough to show a cut wall's footprint. 0.3 m (§2 as frozen) hid 6.5% of a body in
+## a dead-end corner, where two stumps meet (93.5% visible, measured); 0.2 m leaves 98.7% there (owner, 2026-11-21).
+const STUMP_M: float = 0.2
 ## The shader's uniform array holds this many cut region ids (cell_volume: cut_ids).
 const MAX_CUT: int = 8
 ## Half the width the sightlines cover: the body's 0.25 m radius and a margin for its silhouette's edge.
@@ -29,9 +31,11 @@ const HOLD_M: float = 0.25
 
 ## The ids, among ``flagged`` (region id -> its box in world metres), to cut for a player whose feet are at
 ## ``feet_m`` with the camera turning to ``target_yaw``; ``held`` are the ids cut last time, which keep their cut
-## within the HOLD_M band. In id order, at most MAX_CUT.
+## within the HOLD_M band. Required, not defaulted, so a caller that forgets it fails to compile instead of quietly
+## flickering: a stateless caller (each check frame stands alone) passes an empty array and says why. In id order,
+## at most MAX_CUT.
 static func cut_regions(
-	flagged: Dictionary[int, AABB], feet_m: Vector3, target_yaw: float, held: PackedInt32Array = PackedInt32Array()
+	flagged: Dictionary[int, AABB], feet_m: Vector3, target_yaw: float, held: PackedInt32Array
 ) -> PackedInt32Array:
 	var towards_camera: Vector2 = -IsoCamera.horizontal_forward(target_yaw)
 	var feet: Vector2 = Vector2(feet_m.x, feet_m.y)
