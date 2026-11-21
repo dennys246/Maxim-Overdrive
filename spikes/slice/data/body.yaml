@@ -15,5 +15,23 @@ body:
   step_clearance_m: 0.05
 kindle:
   reach_m: 1.5
-  power_w: 60000.0
-  radius_m: 0.3
+heat:
+  # The cyberware's lumped thermal node (heat_debt.py). Gamey, tuned to a ladder (tests/test_heat_debt.py): Overdrive
+  # trips after about 2.8 minutes in still air, 65 s standing 1 m from a burning crate, 31 s doing both, and never in
+  # the puddle.
+  capacity_j_k: 1500.0
+  start_c: 37.0
+  overdrive_w: 1200.0
+  h_a_w_k: 4.5
+  radiant_area_m2: 0.3        # the cyberware's share of the body's area facing a fire
+  coolant_kg: 0.03
+  coolant_refill_kg_s: 0.0001
+  puddle_refill_kg_s: 0.01
+  boil_c: 45.0
+  evap_max_kg_s: 0.0006
+  latent_j_kg: 2260000.0      # water's latent heat of vaporisation
+  warn_c: 70.0
+  trip_c: 85.0
+  trip_s: 10.0
+  tripped_speed_factor: 0.5
+  sense_radius_m: 1.0         # T_air is the mean air temperature in this sphere around the body

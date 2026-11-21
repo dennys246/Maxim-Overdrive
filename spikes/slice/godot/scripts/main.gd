@@ -31,6 +31,9 @@ var _keys_down: Dictionary = {}  # Key -> bool, for edge detection
 var _status: String = "connecting"
 var _state_kb: float = 0.0
 var _work_j: float = 0.0
+var _vitals: Label = Label.new()  # core temperature, coolant, Overdrive: words and bars, never colour alone
+var _fire_lines: PackedStringArray = PackedStringArray()
+var _puddle: MeshInstance3D = null
 var _speed: float = 0.0
 var _events: PackedStringArray = PackedStringArray()
 var _args: Dictionary = {}
@@ -94,6 +97,9 @@ func _build_scene() -> void:
 	_hud.add_theme_font_size_override("font_size", 15)
 	var layer: CanvasLayer = CanvasLayer.new()
 	layer.add_child(_hud)
+	_vitals.position = Vector2(12, 560)
+	_vitals.add_theme_font_size_override("font_size", 20)
+	layer.add_child(_vitals)
 	add_child(layer)
 
 
@@ -152,7 +158,68 @@ func _on_state(message: Dictionary) -> void:
 	_have_state = true
 	var burning: Array = message["burning"]
 	_show_flames(burning)
+	var heat: Dictionary = message["heat"]
+	_show_vitals(heat)
+	var fires: Array = message["fires"]
+	_show_fires(fires)
+	if _puddle == null:
+		_puddle = _make_puddle(message["puddle"], now.y)
 	_state_kb = JSON.stringify(message).length() / 1024.0
+
+
+## A text bar: grey-box and readable without colour.
+static func _bar(fraction: float, width: int) -> String:
+	var filled: int = clampi(roundi(fraction * width), 0, width)
+	return "#".repeat(filled) + "-".repeat(width - filled)
+
+
+func _show_vitals(heat: Dictionary) -> void:
+	var core: float = SliceNet.num(heat["core_c"])
+	var warn: float = SliceNet.num(heat["warn_c"])
+	var trip: float = SliceNet.num(heat["trip_c"])
+	var coolant: float = SliceNet.num(heat["coolant"])
+	var tripped: bool = heat["tripped"]
+	var overdrive: bool = heat["overdrive"]
+	var in_puddle: bool = heat["in_puddle"]
+	var state: String = "TRIPPED: cooling down" if tripped else ("WARN: overheating" if core >= warn else "ok")
+	_vitals.text = "core  %5.1f C  [%s]  %s\ncoolant      [%s] %3.0f%%%s\nOverdrive %s   radiant %.1f kW/m2" % [
+		core, _bar((core - 37.0) / (trip - 37.0), 24), state,
+		_bar(coolant, 24), coolant * 100.0, "   (in the puddle: refilling)" if in_puddle else "",
+		"ON" if overdrive else "off", SliceNet.num(heat["flux_w_m2"]) / 1000.0,
+	]
+	# Colour adds to the words, never replaces them.
+	_vitals.modulate = Color(1.0, 0.45, 0.35) if tripped or core >= warn else Color.WHITE
+
+
+func _show_fires(fires: Array) -> void:
+	_fire_lines.clear()
+	for entry: Dictionary in fires:
+		var name_: String = entry["region"]
+		var burning: bool = entry["burning"]
+		var burnt_out: bool = entry["burnt_out"]
+		var what: String = "burnt out" if burnt_out else ("BURNING" if burning else "skin %.0f C" % SliceNet.num(entry["skin_c"]))
+		var _added: bool = _fire_lines.append("%-9s fuel [%s] %s" % [name_, _bar(SliceNet.num(entry["fuel"]), 12), what])
+
+
+## The puddle: a flat, glossy patch on the floor. Visual only; the server decides who stands in it.
+func _make_puddle(xy: Variant, floor_y: float) -> MeshInstance3D:
+	var r: Array = xy
+	var x0: float = SliceNet.num(r[0])
+	var y0: float = SliceNet.num(r[1])
+	var x1: float = SliceNet.num(r[2])
+	var y1: float = SliceNet.num(r[3])
+	var plane: PlaneMesh = PlaneMesh.new()
+	plane.size = Vector2(x1 - x0, y1 - y0)
+	var water: StandardMaterial3D = StandardMaterial3D.new()
+	water.albedo_color = Color(0.12, 0.22, 0.4)
+	water.roughness = 0.05
+	water.metallic = 0.4
+	plane.material = water
+	var puddle: MeshInstance3D = MeshInstance3D.new()
+	puddle.mesh = plane
+	puddle.position = SliceVoxels.to_godot((x0 + x1) / 2.0, (y0 + y1) / 2.0, 0.0) + Vector3(0.0, floor_y + 0.01, 0.0)
+	add_child(puddle)
+	return puddle
 
 
 func _show_flames(burning: Array) -> void:
@@ -280,6 +347,7 @@ func _hud_text() -> String:
 		"burning: %s   heat view (H): %s" % [", ".join(PackedStringArray(_flames.keys())), "on" if _heat_view else "off"],
 		"WASD move   Shift Overdrive   F kindle   Q/E orbit",
 	])
+	lines.append_array(_fire_lines)
 	lines.append_array(_events)
 	return "\n".join(lines)
 
