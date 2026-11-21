@@ -22,7 +22,7 @@ from simcore.core.schema import Field, Format, MapOf, Nested, Real, Rgb, Schema,
 # The material's one schema (boundaries §5.1, TB-B2): the file's reader, Material's constructor and the table's lookup
 # arrays all read it. Heat capacity divides, so a zero density or specific heat would make the first heat step divide
 # by zero; a negative conductivity would run heat uphill. The bounds are validity bounds, not tunables, each past any
-# real material on both sides (hydrogen gas 0.084 to osmium 22,590 kg/m³; lead 129 to hydrogen 14,300 J/kg K;
+# real material on both sides (hydrogen gas 0.084 to osmium 22,590 kg/m³; thorium 113 to hydrogen 14,300 J/kg K;
 # graphene about 5,000 W/m K), so no product a law forms overflows or underflows: 1e200 times 1e200 made rho_cp
 # infinite and the first step NaN (step 3b(b) review, T1-S7), and 1e-3 times 1e-3 with k = 1e4 made the stable step
 # 6e-13 s, 10^13 substeps a turn (delta review, D1). The diffusivity bound is the one the substep count reads.
@@ -40,7 +40,8 @@ MATERIAL = Schema(
     )
 )
 # Pyrolytic graphite, the most diffusive real solid, is about 1.2e-3 m²/s; air 2.2e-5. At 1e-2 the 0.05 m grid's
-# stable step stays above 0.04 s.
+# stable step is 0.0375 s for a uniform grid and at least about 0.019 s beside a high-conductivity neighbour (the
+# harmonic face mean is at most twice the smaller k): about 320 substeps a 6 s turn, at worst (delta round 2, N-1).
 MAX_DIFFUSIVITY_M2_S = 1e-2
 MATERIAL_NAME = Text()  # the file's key and Material.name: one rule whoever builds the material
 MAX_MATERIALS = 256  # one per uint8 id

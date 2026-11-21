@@ -272,3 +272,36 @@ def test_a_names_limit_is_exact_and_pinned():
     )  # so tests/fixtures/formats/schemas.txt pins it
     with pytest.raises(TypeError, match="at most 64"):
         Identity(max_chars=65)
+
+
+# -- step 3b(b) delta round 2 folds ------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("name", ["Player", "cr\u034fate", "crate\U000e0100", "crate\u2800", "cafe\u0301", "a+b"])
+def test_name_region_itself_keeps_the_region_name_rule(name):
+    """Delta 2, SF-3 and N5: deleting the rule from name_region left every test green, since both shipped callers
+    check first. It is the backstop for step 5a's imagine intent."""
+    import numpy as np  # noqa: PLC0415
+
+    from simcore.core.grid import Footprint  # noqa: PLC0415
+
+    grid = Scene((2.0, 2.0, 2.0)).build(MATERIALS, dx_m=0.2)
+    mask = np.zeros(grid.shape, dtype=np.bool_)
+    mask[0, 0, 0] = True
+    with pytest.raises(Refused) as caught, grid.writing():
+        grid.name_region(name, mask, Footprint(((0, 0, 0), (0.2, 0.2, 0.2)), (0.1, 0.1, 0.1)), solid=True)
+    assert caught.value.code is RefusalCode.BAD_NAME
+
+
+def test_a_names_reserved_words_are_held_under_maxims_name_rule():
+    """Delta 2, N9 and N-4: Text(reserved=("Self",)) compared nothing, since convert compares entity keys."""
+    from simcore.core.schema import Text  # noqa: PLC0415
+
+    assert _code(Text(reserved=("Self",)).convert, "self", "n") is RefusalCode.BAD_NAME
+
+
+@pytest.mark.parametrize("name", ["Zoë", "café", "crate_far", "wall-2", "O'Neil", "guard captain", "x1"])
+def test_a_name_from_any_script_s_letters_and_digits_is_kept(name):
+    from simcore.core.schema import Text  # noqa: PLC0415
+
+    assert Text().convert(name, "n") == name

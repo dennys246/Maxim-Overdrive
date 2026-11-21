@@ -271,7 +271,7 @@ def test_the_game_data_is_a_place_only_the_file_gates_open():
         Path(where)  # type: ignore[arg-type]  # no __fspath__: the point
     assert load_materials(where).by_name.keys() == load_materials(DATA / "materials" / "core.yaml").by_name.keys()
     again = data.data_dir() / "materials" / "core.yaml"
-    assert where == again
+    assert str(where) == str(again)  # handles compare by identity; their text names the place
     assert where != str(where)
     assert repr(where).startswith("DataPath(")
 
@@ -1011,3 +1011,67 @@ def test_a_data_file_over_its_byte_budget_is_refused_before_it_is_read(tmp_path,
     assert caught.value.code is RefusalCode.OVER_BUDGET
     monkeypatch.setattr(loaders, "MAX_FILE_BYTES", 13)
     assert read_yaml(path) == {"a": [1, 2, 3]}
+
+
+# -- step 3b(b) delta round 2 folds ------------------------------------------------------------------------------
+
+
+def test_a_data_path_holds_no_path_to_reach_past_the_gate():
+    """Delta 2, N1: ``(data_dir() / 'core.yaml')._path.open()`` read a data file past the strict YAML gate."""
+    where = data.data_dir() / "materials" / "core.yaml"
+    with pytest.raises(AttributeError):
+        where._path  # type: ignore[attr-defined]  # noqa: B018 - the point: there is no such attribute
+    assert not hasattr(where, "__dict__")
+
+
+def test_an_unreadable_data_file_is_a_coded_refusal(tmp_path):
+    """Delta 2, N4's neighbour: a mode-000 file raised an uncoded PermissionError."""
+    path = tmp_path / "locked.yaml"
+    path.write_text("a: 1\n")
+    path.chmod(0)
+    try:
+        with pytest.raises(Refused, match="can't be read") as caught:
+            read_yaml(path)
+        assert caught.value.code is RefusalCode.BAD_SHAPE
+    finally:
+        path.chmod(0o600)
+
+
+def test_a_data_file_is_read_no_further_than_its_budget(tmp_path, monkeypatch):
+    """Delta 2, N7: the refusal alone could not tell a bounded read from an unbounded one; the read's size can."""
+    import os  # noqa: PLC0415
+
+    from simcore.adapters import loaders  # noqa: PLC0415
+
+    asked: list[int] = []
+    real_fdopen = os.fdopen
+
+    class Spy:
+        def __init__(self, handle):
+            self._handle = handle
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self._handle.close()
+
+        def read(self, n=-1):
+            asked.append(n)
+            return self._handle.read(n)
+
+    monkeypatch.setattr(loaders.os, "fdopen", lambda fd, mode: Spy(real_fdopen(fd, mode)))
+    monkeypatch.setattr(loaders, "MAX_FILE_BYTES", 12)
+    path = tmp_path / "big.yaml"
+    path.write_text("a: " + "1" * 100 + "\n")
+    with pytest.raises(Refused, match="larger than 12 bytes"):
+        read_yaml(path)
+    assert asked == [13]
+
+
+def test_a_data_directory_candidate_is_relative_to_the_package():
+    """Delta 2, N8: an absolute candidate replaced the base."""
+    from simcore.adapters.loaders import existing_directory  # noqa: PLC0415
+
+    with pytest.raises(TypeError, match="relative to the package"):
+        existing_directory(DATA, ["/etc"], "x")

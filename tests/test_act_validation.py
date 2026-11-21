@@ -888,3 +888,9 @@ def test_an_outcome_carries_a_code_exactly_when_it_is_refused():
     with pytest.raises(TypeError, match="exactly when"):
         Outcome("ignite", {}, True, code=RefusalCode.OUT_OF_RANGE)
     assert Outcome("ignite", {}, True).agent_text is None
+
+
+def test_an_affordance_that_is_not_a_string_is_refused_not_crashed_on():
+    """Delta 2, D-N1: a numpy array as the affordance raised "truth value is ambiguous" before the try."""
+    res = _structure(_world()).execute(np.array(["strike", "x"]), {})  # type: ignore[arg-type]
+    assert (res.success, res.affordance, res.error) == (False, "unknown", "unknown_kind")

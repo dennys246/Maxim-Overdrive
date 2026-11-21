@@ -61,17 +61,18 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
     (`pyproject.toml` `skip-layer`, proven by a planted import in `tests/test_tooling_config.py`);
   - done: §3's writer non-vacuity test: every function assigning into a cell array, `regions` or `sources` is in the
     core (`tests/test_ownership.py`);
-  - done: B-4's input-primitive allowlist and banned unsafe calls (`tests/test_input_allowlist.py`, `scripts/lint_inputs.py`);
-    B-10's `Observation` protocol and frame tests (`simcore/core/frames.py`, `tests/test_frames.py`); B-13's import
-    half (`membrane-reads-frames`; the field registry joins its allowed list in step 5a).
+  - done: B-4's input-primitive allowlist and banned unsafe calls (`tests/test_input_allowlist.py`,
+    `scripts/lint_inputs.py`); B-10's `Observation` protocol and frame tests (`simcore/core/frames.py`,
+    `tests/test_frames.py`); B-13's import half (`membrane-reads-frames`; the field registry joins its allowed list in
+    step 5a).
 - Part (b), on `phase1/formats`:
   - done, no shipped caller until step 5b (spawns) and step 8 (the shipped scene, with a scene file loader in
     `loaders.py`): scene v1, F13 plus a required `spawns`; scene v0 is refused by version, not migrated (scenes are
-    repo-only); golden v0 and v1 fixtures (WT-S8); zones, vents and gaps refused by path; every extent a whole
-    number of 0.2 m cells, judged in whole micrometres, so a scene builds at every verification grid or none (world_model WT-5,
-    WT-11); spawn names unique under Maxim's name rule, never a region's name nor one of Maxim's target aliases
-    (`self`, `aut`, `player`) (`simcore/core/scene.py`, `grid.py`; `tests/fixtures/formats/v0/scene.yaml`,
-    `v1/scene.yaml`, `tests/fixtures/scenes/alley_box.yaml`; `tests/test_scene_v1.py`).
+    repo-only); golden v0 and v1 fixtures (WT-S8); zones, vents and gaps refused by path; every extent a whole number of
+    0.2 m cells, judged in whole micrometres, so a scene builds at every verification grid or none (world_model WT-5,
+    WT-11); spawn names unique under Maxim's name rule, never a region's name nor one of Maxim's target aliases (`self`,
+    `aut`, `player`) (`simcore/core/scene.py`, `grid.py`; `tests/fixtures/formats/v0/scene.yaml`, `v1/scene.yaml`,
+    `tests/fixtures/scenes/alley_box.yaml`; `tests/test_scene_v1.py`).
   - done: one schema and one reader per data format; `MaterialTable`'s lookup arrays and every rejection test
     generated from it (`simcore/core/schema.py`; `tests/test_formats.py` finds every `Format`, fail closed, walks
     every tagged kind, and pins each schema in `tests/fixtures/formats/schemas.txt`). Not built: units and provenance
@@ -91,7 +92,8 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
     names get theirs with their loaders (`phase1/agents`), save v0's `body_key` at step 9 (`npcs_and_sem.md` §3.4).
   - done: B29 (`loaders.DataPath`; `scripts/lint_inputs.py`'s routes through a value; the four corpus rows).
   - not built: loader types for body archetypes (the body contract is being redesigned, `sem_stimuli.md` v4 on
-    `phase1/sem-stimulus`; owner, 2026-11-21) and for items, which travel with them (owner, 2026-11-21: skipped for now).
+    `phase1/sem-stimulus`; owner, 2026-11-21) and for items, which travel with them (owner, 2026-11-21: skipped for
+    now).
   - superseded: fuel-bed fields (φ, σ) on primitives. `fire_solid.md` (accepted 2026-11-20) makes a fuel an object,
     never a cell field, and dropped `bed:` from tile §1.3.
 

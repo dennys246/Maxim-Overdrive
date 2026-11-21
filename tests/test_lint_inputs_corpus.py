@@ -245,21 +245,21 @@ CASES: list[tuple[str, str, str, bool, str]] = [
     (
         "input",
         GAME,
-        "from simcore.adapters.loaders import real_path\nt = getattr(real_path('x'), 'read_text')()",
+        "def f(p):\n    return getattr(p, 'read_text')()",  # was real_path('x'), gone since delta 1 (D1)
         True,
         "3b(b) round 1: real_path",
     ),
     (
         "input",
         GAME,
-        "from simcore.adapters.loaders import real_path\nt = real_path('x').rename('y')",
+        "def f(p):\n    return p.rename('y')",
         True,
         "3b(b) round 1",
     ),
     (
         "input",
         GAME,
-        "from simcore.adapters.loaders import real_path\nt = real_path('x').with_name('y').symlink_to('/etc')",
+        "def f(p):\n    return p.with_name('y').symlink_to('/etc')",
         True,
         "3b(b) round 1",
     ),
@@ -288,6 +288,12 @@ CASES: list[tuple[str, str, str, bool, str]] = [
         "3b(b) delta 1: a frame field",
     ),
     ("input", SRC, "def f(p):\n    return p.touch()", True, "3b(b) delta 1: touch writes, and nothing here touches"),
+    # -- input, step 3b(b) delta round 2 (N3): getattr however it is reached, in every src/ module ----------------
+    ("input", CORE, "def f(g):\n    return getattr(*(g, '__globals__'))['os']", True, "3b(b) delta 2: star args"),
+    ("input", GAME, "g2 = getattr\ndef f(g):\n    return g2(g, '__globals__')", True, "3b(b) delta 2: an alias"),
+    ("input", GAME, "def f(p):\n    return getattr(p, 'read_' + 'text')()", True, "3b(b) delta 2: the game package"),
+    ("input", GAME, "def f(g):\n    return getattr(g, '__glo' + 'bals__')", True, "3b(b) delta 2: the game package"),
+    ("input", GAME, "def f(n):\n    return getattr(n, 'lineno', 0)", False, "3b(b) delta 2: a plain getattr"),
     ("input", CORE, "def f(body):\n    return body.walk(1)", False, "3b(b) round 1: a body walks (Architecture A6)"),
     ("input", CORE, "def f(door):\n    return door.open()", False, "3b(b) round 1: a door opens (Architecture A6)"),
     ("input", CORE, "def f(t):\n    return t.resolve('crate')", False, "3b(b) round 1: a target resolves"),
@@ -400,6 +406,12 @@ CASES: list[tuple[str, str, str, bool, str]] = [
 NOT_COVERED: list[tuple[str, str, str, str]] = [
     ("input", "v = getenv('X')", "build", "getenv unbound is a NameError; importing it is a contract finding"),
     ("input", "h = path.open()", "3b(b) round 1", "open is also a door's; the capability (DataPath) is the guard"),
+    (
+        "input",
+        "from maxim_overdrive.data import data_dir\nt = (data_dir() / 'x.yaml')._path.open()",
+        "3b(b) delta 2",
+        "a DataPath has no _path since delta 2 (N1): this raises AttributeError, so the type is the guard",
+    ),
     ("input", "async def f(r):\n    return await r.read(100)", "3b(b) round 1", "read is also Format.read"),
     ("input", "def f(p):\n    return p.replace('q')", "3b(b) round 1", "replace is also str.replace"),
     ("input", "def f(p):\n    return p.copy('q')", "3b(b) round 1", "copy is also dict.copy"),
@@ -480,6 +492,6 @@ def test_a_spelling_the_design_leaves_out_is_still_left_out(contract_hits, index
 def test_the_corpus_holds_every_round_and_both_verdicts():
     origins = {c[4].split(":")[0] for c in CASES}
     rounds = {"build", "round 1", "delta 1", "delta 2", "delta 3", "delta 4", "delta 5", "delta 6", "delta 7"}
-    assert rounds | {"3b(b) round 1", "3b(b) delta 1"} <= origins
+    assert rounds | {"3b(b) round 1", "3b(b) delta 1", "3b(b) delta 2"} <= origins
     assert {c[3] for c in CASES if c[0] == "input"} == {True, False}
     assert {c[3] for c in CASES if c[0] == "unsafe"} == {True, False}

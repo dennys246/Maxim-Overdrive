@@ -240,16 +240,22 @@ def unsafe_findings(rel: str, source: str) -> list[str]:
 
 
 def _computed_getattr(rel: str, source: str) -> list[str]:
+    """``getattr`` used any way but a plain call with a literal name: a computed name, star arguments, or the builtin
+    taken as a value (``g2 = getattr``), in every ``src/`` module (delta review 2, N3: an alias or ``*(g, name)``
+    walked past the literal-name rule, and the game package was out of scope)."""
     tree = ast.parse(source)
     names = _Names(tree)
-    return [
-        f"{rel}:{node.lineno}: calls getattr with a computed name (boundaries §5.2)"
-        for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and names.of(node.func) == "builtins.getattr"
-        and len(node.args) > 1
-        and not isinstance(_literal(node.args[1]), str)
-    ]
+    called = {id(n.func) for n in ast.walk(tree) if isinstance(n, ast.Call)}
+    out = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and names.of(node) == "builtins.getattr" and id(node) not in called:
+            out.append(f"{rel}:{node.lineno}: takes getattr as a value (boundaries §5.2)")
+        if not (isinstance(node, ast.Call) and names.of(node.func) == "builtins.getattr"):
+            continue
+        starred = any(isinstance(a, ast.Starred) for a in node.args) or any(k.arg is None for k in node.keywords)
+        if starred or len(node.args) < 2 or not isinstance(_literal(node.args[1]), str):
+            out.append(f"{rel}:{node.lineno}: calls getattr with a computed name (boundaries §5.2)")
+    return out
 
 
 def _attribute_named(node: ast.AST) -> str | None:
@@ -301,7 +307,7 @@ def input_findings(rel: str, source: str) -> list[str]:
     routes = _value_routes(rel, source, gate=rel in INPUT_GATES)
     if rel in INPUT_GATES:
         return routes
-    computed = _computed_getattr(rel, source) if rel.startswith("src/simcore/") else []
+    computed = _computed_getattr(rel, source)
     return _findings(rel, source, IN_SRC, calls=False) + computed + routes
 
 

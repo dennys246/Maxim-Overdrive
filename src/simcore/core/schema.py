@@ -16,6 +16,7 @@ declared, since the tick (step 5a) is derived from seconds at load, never author
 from __future__ import annotations
 
 import math
+import unicodedata
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
@@ -42,14 +43,27 @@ _NOT_NUMBERS: Bad = (
 )
 
 
-# Default_Ignorable code points that str.isprintable passes: fillers that render blank (Hangul U+115F, U+1160, U+3164,
-# U+FFA0), variation selectors (U+180B-F, U+FE00-F) and the Khmer inherent vowels (U+17B4-5). With them a region could
-# be named blank, or "crate" plus a selector beside "crate" (delta review, D4). Look-alikes from other scripts
-# ("\u0441rate") stay a known gap, recorded in docs/standards_backlog.md B30.
-_INVISIBLE = frozenset(
-    "\u115f\u1160\u3164\uffa0\u17b4\u17b5\u180b\u180c\u180d\u180e\u180f"
-    + "".join(chr(c) for c in range(0xFE00, 0xFE10))
-)
+# A name's characters, allowlisted by Unicode category rather than refused from a hand list (two review rounds found
+# invisible characters a list missed: U+034F, U+E0100-E01EF, U+2800; delta review 2, N2, SF-2): letters (L*) and
+# digits (Nd), plus space and _ - . ' between them, in NFC form, so "cafe" with a combining accent is not a second
+# "café". Combining marks, variation selectors, joiners, symbols such as the braille blank and every control or
+# format character fail by rule. The four Hangul fillers are letters that render blank (Lo, Default_Ignorable), so
+# they are named. The rule follows the running Python's Unicode database. Look-alikes from other scripts
+# ("\u0441rate") remain docs/standards_backlog.md B30.
+_NAME_PUNCTUATION = frozenset(" _-.'")
+_FILLERS = frozenset("\u115f\u1160\u3164\uffa0")
+
+
+def _visible_name(value: str) -> bool:
+    letters = [ch for ch in value if ch not in _NAME_PUNCTUATION]
+    return (
+        bool(letters)
+        and unicodedata.is_normalized("NFC", value)
+        and all(unicodedata.category(ch)[0] == "L" or unicodedata.category(ch) == "Nd" for ch in letters)
+        and not _FILLERS.intersection(value)
+    )
+
+
 TEXT_CHARS = 128  # a name's budget (boundaries §5.4): imagined names are held tighter by Budget.max_name_chars
 
 
@@ -168,7 +182,8 @@ class Text:
     reserved: tuple[str, ...] = ()  # sorted, so its repr (and the schema snapshot) never depends on the hash seed
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "reserved", tuple(sorted(set(self.reserved))))
+        # under Maxim's name rule, as convert compares them, so Text(reserved=("Self",)) can't silently match nothing
+        object.__setattr__(self, "reserved", tuple(sorted({entity_key(r) for r in self.reserved})))
 
     def convert(self, value: object, what: str) -> str:
         ok = (
@@ -176,8 +191,7 @@ class Text:
             and 0 < len(value) <= self.max_chars
             and value.isprintable()
             and value == value.strip()
-            and not _INVISIBLE.intersection(value)
-            and any(ch.isalnum() for ch in value)  # a name an agent can see: never only fillers or blanks
+            and _visible_name(value)  # a name an agent can see and tell apart
         )
         if not ok:
             rule = f"a printable string of 1 to {self.max_chars} characters with no outer spaces"
@@ -192,7 +206,8 @@ class Text:
         long = "x" * (self.max_chars + 1)
         names = (
             *(7, "", " x", "x ", long, "a\nb", "a\u202eb", "cr\u200bate", "a\x00b", "\ud800", "\u3164", "\u2800"),
-            *("crate\ufe0f", "a\u17b4b", "-", *self.reserved),
+            *("crate\ufe0f", "a\u17b4b", "-", "cr\u034fate", "crate\U000e0100", "crate\u2800", "cafe\u0301"),
+            *(type("_NameLike", (str,), {})("crate"), *self.reserved),  # a str subclass, whose __str__ may differ
         )
         return tuple((n, RefusalCode.BAD_NAME) for n in names)
 

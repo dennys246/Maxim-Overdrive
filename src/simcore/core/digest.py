@@ -6,7 +6,7 @@ canonical serialisation (world_model §8). The log header (step 5a) records each
 
 **c14n-1**, the canonical serialisation of a loaded value: JSON text with no whitespace, mapping keys (strings only)
 sorted by code point, sequences as arrays, ``None``, ``True`` and ``False`` as ``null``, ``true`` and ``false``, an
-int in decimal (below 600 digits), a float by ``repr`` (the shortest text that reads back as the same float; -0.0 as
+int in decimal (at most 600 digits), a float by ``repr`` (the shortest text that reads back as the same float; -0.0 as
 0.0; non-finite floats are refused, as JSON has none), and strings UTF-8 with only ``"``, ``\\`` and the C0 controls
 escaped (a lone surrogate is refused). Types are exact: a numpy scalar, a bool posing as an int, or a str subclass is
 refused, so a value's text never depends on which library computed it. It is canonical per type, not per value:

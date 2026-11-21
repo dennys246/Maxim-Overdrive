@@ -6,7 +6,10 @@ explicit path: where a game keeps its data is the game's business (``maxim_overd
 
 from __future__ import annotations
 
+import os
 import re
+import stat
+import weakref
 from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
@@ -38,30 +41,33 @@ class DataPath:
     """A place in a game's bundled data that only these gates open (B29; step 3b delta round 7, D7-N2).
 
     The game's data locator hands out one of these, never a ``pathlib.Path``: it joins bare names with ``/`` and
-    prints itself, and nothing else, so game code can't read a data file past the strict YAML gate. It has no
-    ``__fspath__``, so ``open`` and ``Path`` refuse it; a loader here takes it.
+    prints itself, and nothing else, so game code can't read a data file past the strict YAML gate. It holds no path
+    at all: the gate keeps each handle's real path in ``_REAL``, which nothing outside this module can import (a gate
+    exports only its ``__all__``), so there is no ``_path`` to reach past it (delta review 2, N1). It has no
+    ``__fspath__``, so ``open`` and ``Path`` refuse it. Handles compare and hash by identity; compare their text.
     """
 
-    __slots__ = ("_path",)
-
-    def __init__(self, path: Path) -> None:
-        self._path = path
+    __slots__ = ("__weakref__",)
 
     def __truediv__(self, name: object) -> DataPath:
         if not isinstance(name, str) or not _BARE_NAME.fullmatch(name) or name in (".", ".."):
             raise Refused(f"a data path joins bare names only, got {shown(name)}", code=RefusalCode.BAD_NAME)
-        return DataPath(self._path / name)
-
-    __hash__ = None  # type: ignore[assignment]  # compared, never hashed: the simulation bans builtin hash()
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, DataPath) and other._path == self._path
+        return _data_path(_REAL[self] / name)
 
     def __str__(self) -> str:
-        return str(self._path)
+        return str(_REAL[self])
 
     def __repr__(self) -> str:
-        return f"DataPath({str(self._path)!r})"
+        return f"DataPath({str(_REAL[self])!r})"
+
+
+_REAL: weakref.WeakKeyDictionary[DataPath, Path] = weakref.WeakKeyDictionary()
+
+
+def _data_path(path: Path) -> DataPath:
+    handle = DataPath()
+    _REAL[handle] = path
+    return handle
 
 
 _BARE_NAME = re.compile(r"[A-Za-z0-9_.-]+")
@@ -70,7 +76,7 @@ FilePath = str | Path | DataPath
 
 
 def _path(path: FilePath) -> Path:
-    return path._path if isinstance(path, DataPath) else Path(path)
+    return _REAL[path] if isinstance(path, DataPath) else Path(path)
 
 
 class _StrictLoader(yaml.SafeLoader):
@@ -101,11 +107,13 @@ def existing_directory(base: str | Path, candidates: Sequence[str], what: str) -
     ``base`` is resolved before any arithmetic, so data beside a package reached through a symlink is found beside
     the real package (delta round 6, Executor N-h). Only a ``DataPath`` leaves: the game's data locator never holds a
     ``pathlib.Path`` it could open past the strict YAML gate (B29; step 3b(b) delta review, D1)."""
+    if any(Path(c).is_absolute() for c in candidates):  # a programming error: candidates are written in code
+        raise TypeError(f"{what}: candidates are relative to the package, got {list(candidates)}")
     real = Path(base).resolve()  # realpath reads the filesystem, so it happens here, in the gate
     tried = [(real / c).resolve() for c in candidates]
     for candidate in tried:
         if candidate.is_dir():
-            return DataPath(candidate)
+            return _data_path(candidate)
     raise FileNotFoundError(f"{what}: none of {', '.join(str(c) for c in tried)} is a directory")
 
 
@@ -114,14 +122,21 @@ MAX_FILE_BYTES = 16 * 2**20  # a data file's budget, checked before it is read (
 
 def _text_of(path: FilePath) -> str:
     """The file's text as UTF-8 (never the machine's locale), or a Refused: a data file is a regular file (a FIFO or
-    /dev/zero reports 0 bytes and never ends) of at most ``MAX_FILE_BYTES``, counted on the bytes read, so a file that
-    grows after it is checked is still bounded (step 3b(b) delta review, D3)."""
-    where = _path(path)
-    if not where.exists():  # an operator's missing file, which the registry documents (delta round 5, D5-N1)
-        raise FileNotFoundError(f"{path}: no such file")
-    if not where.is_file():  # follows symlinks: a link to a FIFO or a device is not a regular file either
+    /dev/zero reports 0 bytes and never ends) of at most ``MAX_FILE_BYTES``.
+
+    Opened once, non-blocking, and judged on the open descriptor, so a symlink swapped for a FIFO between a check and
+    the open can't hang the read (delta review 2, N4). At most ``MAX_FILE_BYTES + 1`` bytes are read, so a file that
+    grows is still bounded. A missing file is the documented FileNotFoundError (delta round 5, D5-N1)."""
+    try:
+        fd = os.open(_path(path), os.O_RDONLY | os.O_NONBLOCK)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"{path}: no such file") from None
+    except OSError as exc:  # unreadable, a symlink loop: reported, with the file, as the refusal
+        raise Refused(f"{path}: can't be read ({exc.strerror})", code=RefusalCode.BAD_SHAPE) from None
+    if not stat.S_ISREG(os.fstat(fd).st_mode):  # judged on the descriptor, before anything reads from it
+        os.close(fd)
         raise Refused(f"{path}: not a regular file", code=RefusalCode.BAD_SHAPE)
-    with where.open("rb") as handle:
+    with os.fdopen(fd, "rb") as handle:
         data = handle.read(MAX_FILE_BYTES + 1)
     if len(data) > MAX_FILE_BYTES:
         raise Refused(f"{path}: larger than {MAX_FILE_BYTES} bytes, no data file is", code=RefusalCode.OVER_BUDGET)

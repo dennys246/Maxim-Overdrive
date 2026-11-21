@@ -77,5 +77,5 @@ class Refused(ValueError):
 
 
 def agent_text(code: RefusalCode, field: str | None = None) -> str:
-    """What an agent is told of a refusal: its code, and the schema field at fault when there is one."""
+    """What an agent is told of a refusal: its code, and the name we wrote (a schema field, a call key) at fault."""
     return code.value if field is None else f"{code.value} ({field})"
