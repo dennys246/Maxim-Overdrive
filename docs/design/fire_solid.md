@@ -367,7 +367,7 @@ did.
 ### 5.2 Scene and spec (6.0b)
 
 - **Scene:** `SCENE_VERSION` is 0. Tile §1.3's planned v1 (step 3b part b, not coded) makes the crate `material:
-  wood, bed: {...}` cells, which §1.3 forbids. The 3b part b branch drops `bed:` from tile §1.3 before shipping v1.
+  wood, bed: {...}` cells, which §1.3 forbids. Tile §1.3 drops `bed:` (done with the acceptance, 2026-11-20); 3b part b ships v1 without it.
 - **`fuel:` entries** enter the scene version after the one on `main` when 6.0b lands: a recipe by name, an admitted
   `kind` (`rod` with a finite non-zero axis, or `slab`), metric geometry, a new region. Scenes are repo-only, so the
   older version gets a bump and a refusal test, not a migration (`checklists.md` 3b).
