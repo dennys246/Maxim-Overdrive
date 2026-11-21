@@ -1,427 +1,546 @@
-# Inference placement: where an NPC's model calls run (design, v1 draft, 2026-11-21)
+# Inference placement: where an NPC's model calls run (design, v2, 2026-11-21)
 
-**Status:** DRAFT v1, not reviewed. It changes the architecture (a new process kind, a new data format, a change to
-the response cache's key), so it gets a design review before code: Executor, Architecture, Wire integrity, Trust
-boundary, Concurrency and lanes, Determinism and replay, Performance and Bio-faithful integration
-(`docs/code_review.md`, "Design reviews").
+**Status:** DRAFT v2. It folds round 1 (`reviews/inference_placement/`, eight lenses on v1 at 04ab810), and the fold
+table, with the author's claimed location for each finding, is `reviews/inference_placement/fold_round1.md`. A delta
+round sets the statuses (O25). After that round the paper rounds stop: mechanism findings move to `phase1/agents`'
+checklist, and contract blockers still fold (CLAUDE.md, "Review finds; it doesn't design").
 
-**What it covers.** The host's thinking lane already executes every model request an NPC makes (`npcs_and_sem.md`
-O6a, §4.4, §6.2; `boundaries.md` §7.1). This part says **where** each request runs: a model on this machine, a model
-on another of the player's machines, or a cloud API such as Claude. It covers the contract for choosing a placement,
-the process that makes the calls, what each reply records, consent and credentials, and what placement may and may
-not change in the world. It builds no remote agents (§7).
+**What it covers.** The host's thinking lane executes every model request an NPC makes (`npcs_and_sem.md` O6a, §4.4,
+§6.2; `boundaries.md` §7.1). This part says **where** each request runs: on this machine, on another of the player's
+machines, or on a cloud API such as Claude. It covers the selection contract, the processes that make the calls, the
+outcome vocabulary and where each outcome goes, what each reply records, consent and credentials, and what placement
+may change in the world. It builds no remote agents (§7).
 
-**Sources:** Maxim `origin/main` at **043eab8f**, read with `git show`, never its working tree; the locked release is
-pymaxim **1.3.3** (`constraints/py3.12.txt`). Line numbers are at 043eab8f. The LLM spike
-(`research/llm_spike.md`). *Verified* means the author read the cited line at that revision.
+**Sources:** Maxim `origin/main` at **043eab8f**, read with `git show`; line numbers are at that revision. Facts the
+round-1 readers or the author checked against it are marked *verified*. The locked release is pymaxim 1.3.3. The LLM
+spike (`research/llm_spike.md`).
 
-**Tags:** **[now]** is built in `phase1/agents` against the scripted test double and a scripted transport. **[Phase 4]**
-lands with the first real NPCs. **[later]** is named so the contract leaves room for it, and is not built.
+**Tags:** **[now]** is built in `phase1/agents` against the scripted test double and a scripted transport.
+**[Phase 4]** lands with real NPCs. **[later]** is named so the contract leaves room for it, and is not built.
 
-## 0. Decisions
+## 0. Decisions (owner, 2026-11-21)
 
 | # | Decision | Where |
 |---|---|---|
-| **O46** | **The host's thinking lane owns placement (owner, 2026-11-21).** The lane decides which model serves each request: by role, consent, health, capacity and budget. Maxim's `LLMRouter` is not on the NPC path. Its failover, cooldowns, drain state and cost downgrades would be a second scheduler under the lane's, and each would override the other without either seeing it (§1). Maxim's **backends** are the transports. | §1, §2 |
-| O47 | **The calls run in a host-owned inference gateway process, not in the world server (owner, 2026-11-21; was P1).** O13's "the LLM gateway stays in the host" reads as host-side: the host decides, and a host-owned gateway calls. | §3 |
-| O48 | **Each role is pinned to its first eligible placement by default; spilling under load is an opt-in per role (owner, 2026-11-21; was P2).** | §2.4 |
-| O49 | **A model on another of the player's machines counts as remote under O18, so a guest's words reach it only after a disclosure (owner, 2026-11-21; was P3).** | §5.1 |
+| O46 | **The host's thinking lane owns placement.** It decides which model serves each request, by function, consent, health, capacity and budget. Maxim's `LLMRouter` is not built on the NPC path, and Maxim's backends are the transports. This argues against Maxim's recorded rule that placement "rides on `LLMRouter`" (§1.2), and the pushback is OD-A24 (§9). | §1, §2 |
+| O47 | **The calls run in host-owned inference gateway processes, not in the world server.** O13's "the LLM gateway stays in the host" reads as host-side: the host decides, and its gateways call. | §3 |
+| O48 | **Each function is pinned to its first eligible placement by default; `spill` is an opt-in per function.** | §2.4 |
+| O49 | **A model on another of the player's machines counts as remote under O18.** | §5.1 |
+| O50 | **No streaming until Maxim's backends can stream to their caller.** The gateway calls with `stream=False`, and the `chunk` kind stays reserved. The first word of a reply arrives with the whole reply, which is a Known gap with its number (§6.3). The ask is OD-A25 (§9). | §3.3, §6.3 |
+| O51 | **Consent is per speaker and outlives the session.** An NPC holding words from a speaker who has not accepted a class is ineligible for that class until those words are purged from it (§5.1). | §5.1 |
+| O52 | **O46 goes to Maxim as a pushback, with this design's evidence.** | §9 |
+| O53 | **One gateway process per placement**, so each placement is its own fault boundary and a process the host can kill at a hard time limit. | §3 |
 
-## 1. What Maxim offers, and why its router is not the scheduler
+## 1. What Maxim offers, and what this pushes against
 
-Maxim's distributed infrastructure moves **inference**, not agents:
-- **`maxim/peer/`** sends a machine's model calls to a "leader". A leader is llama.cpp behind an auth proxy with one
-  shared cluster key. The configuration lives in `~/.config/maxim/peer.yml` and `mesh.yml` (`peer/config.py`,
-  `peer/mesh_config.py`).
-- **The router** gives each lane an ordered list of providers, each `LOCAL`, `CLOUD` or `PEER`
-  (`runtime/worker_pool.py:72`).
-- **`maxim/mesh/`** runs inside one process only. Its networked modules were deleted as dead code on 2026-04-12
-  (`mesh/__init__.py` docstring, *verified*). Spreading calls across several peers is a deferred plan, revived on
-  2026-10-18 and not built (`docs/plans/deferred/llm_path_multi_peer_dispatch.md`, *verified*).
-- **Hivemind** exchanges learned substrate as offline bundles. Overdrive's Phase 5 rumour uses it (`roadmap.md`
-  Phase 5), and nothing here changes that.
+### 1.1 The infrastructure
 
-**The router serves one agent loop well, but not a world that schedules many:**
-- **It serialises.** Every call on one `LLMRouter` takes `_inference_lock` (`router.py:192`, *verified*: "llama-cpp
-  not thread-safe"). Maxim's own architecture document calls this "the concurrency wall"
-  (`docs/architecture/llm_routing.md`, *verified*).
-- **It fails over silently.** The router catches a failure, notes it, and tries the next provider in the same call
-  (`llm_routing.md`, `_try_provider`, *verified*). A reply could then come from a model the lane never chose, and the
-  lane's deadline and capacity accounting would be wrong without anything showing it.
-- **It reads process-global state:** an environment variable for its lock timeout (`router.py:77`), its own
-  `CostTracker` (`:201`), and drain state in `~/.maxim/util/drained_nodes.{role}.txt` (`peer/drain_state.py:10`,
-  `:145`), all *verified*. The world server's isolation rules forbid that.
+Maxim moves inference, not agents. `maxim/peer/` sends a machine's model calls to a "leader" (llama.cpp behind an
+auth proxy with one shared cluster key). The router gives each lane an ordered list of providers, each `LOCAL`,
+`CLOUD` or `PEER` (`runtime/worker_pool.py:72`). `maxim/mesh/` is in-process only: its networked modules were deleted
+on 2026-04-12 (`mesh/__init__.py`). Hivemind bundles (Phase 5's rumour) are unchanged here. *Verified.*
 
-**The backends are what the lane needs.** `models/language/backend_protocol.py::LLMBackend` is a structural protocol.
-`complete_with_usage(...)` returns `LLMResponse`, which carries `content`, `model`, `provider`, token counts and
-`stop_reason` (`types.py:25-53`, *verified*). There are three transports a placement can name:
-- `_AnthropicBackend`. Its retries are configurable to zero (`max_retries` and `capacity_max_retries`,
-  `anthropic_backend.py:172-190`, *verified*).
-- `_OpenAIBackend`, for any OpenAI-compatible endpoint, which includes local servers.
-- `_MaximPeerBackend`. It makes "ONE HTTP call", with no retry, and raises a typed `BackendError`
-  (`maxim_peer_backend.py:537-552`, *verified*).
+### 1.2 Maxim's placement rule, and why O46 departs from it
 
-**Three facts about those backends shape the contract:**
-1. **A cloud backend can fail with an empty reply instead of an error.** `_AnthropicBackend` returns
-   `LLMResponse(content="")` when the client can't be built, for example a missing key (`:223-241`, `:333-335`,
-   *verified*). `_OpenAIBackend` does the same, and also on a final call failure (`openai_backend.py:358-360`, `:505`,
-   *verified*). Maxim's router treats empty content as failure (`llm_routing.md`, `_try_provider`). The lane
-   therefore maps empty content to the outcome `empty`, a failure (§2.6). That is Maxim's documented contract, not a
-   special case of ours. Making the backends raise is OD-I9 (§9).
-2. **Not every retry can be switched off.** `_OpenAIBackend` retries gateway errors up to a hard-coded
-   `max_gateway_retries = 4` (`:391`, *verified*), up to about 50 s by its own comment (`:396-398`). So that transport
-   can't promise one call, one outcome. This is OD-I9 (§9).
-3. **No backend takes a per-call deadline or a seed.** `complete_with_usage` has neither parameter on the cloud or
-   peer backend (`anthropic_backend.py:318-329`, `maxim_peer_backend.py:537-549`, *verified*). The timeout belongs to
-   the backend instance (`timeout_s`, `anthropic_backend.py:165-170`), and the peer backend checks for cancellation
-   only before it makes the call (`:555-566`, *verified*). Two consequences follow. A cancelled or overdue call holds
-   its slot until it returns (§2.5), which is OD-A23 (§9). And live replies can't be reproduced, so the response
-   cache stays the only way to reproduce them (§4).
+Maxim has already split capability from placement:
+- `docs/plans/archive/lane_capability_placement_split.md`, shipped, makes the capability tier (`large`, `medium`,
+  `small`) a property of the task, assigned by `FunctionRouter`, and makes placement a separate ordered axis
+  (`ProviderPlacement`).
+- Its recorded rule (`docs/agents/llm-routing.md`, the "Lane = capability tier" invariant): "Placement rides on
+  `LLMRouter`'s existing `provider_priority`/`_try_provider` failover — NOT a new resolver (a second resolver
+  re-introduces the multi-call hazard the one-HTTP-call invariant kills)." *Verified.*
+
+Overdrive keeps Maxim's split and its vocabulary where it fits: a request names a **function**, `FunctionRouter`'s
+term (§2.1). It departs on who resolves placement, for these reasons:
+- **The router fails over inside one call.** It records which provider served (`router.py` `last_served_*`,
+  `call_accounting.ServedCall`), but the caller didn't choose that provider and isn't told unless it asks. A host that
+  books deadlines, slots, consent and spend per placement needs the choice to be its own.
+- **The router reads process state:** an environment variable (`router.py:77`), its own `CostTracker` (`:201`), and
+  an injected drain constraint.
+- **A host can bound a call only by killing a process (§2.5),** and the router's failover loop runs inside the call.
+
+The "multi-call hazard" Maxim names is what the lane avoids by construction: one dispatch is one backend call, and
+retries are the lane's decision, made in the open (§2.6).
+
+### 1.3 Backend facts the contract rests on
+
+| # | Fact (043eab8f, *verified*) | Consequence here |
+|---|---|---|
+| F1 | No backend can stream to its caller. With `stream=True` each one collects the text and returns one `LLMResponse` (`anthropic_backend.py:473-480`, `openai_backend.py:547-559`, `maxim_peer_backend.py:987`), and `LLMBackend` has no callback or iterator. | O50 |
+| F2 | The cloud backends return `LLMResponse(content="")` on a missing client, on shutdown, and after their retries are exhausted, for any exception (`anthropic_backend.py:223-241`, `:377`, `:384-409`; `openai_backend.py:358-360`, `:505`). Maxim's router treats empty content as failure (`llm_routing.md`, `_try_provider`). | `empty`, §2.6 |
+| F3 | Streamed OpenAI calls return partial text as success when the stream breaks (`llm_routing.md:686`), leaving `stop_reason` empty (`openai_backend.py:559`). | `stream=False` (O50); `truncated`, §2.6 |
+| F4 | Timeouts bound each socket read, not the whole call (`utils/http.py::TimeoutPolicy`). The cloud backends retry (`max_retries` 2, `capacity_max_retries` 6, about 90 s), `_OpenAIBackend` adds 4 hard-coded gateway retries (`:391`), and neither passes `max_retries` to its SDK client (`anthropic_backend.py:237`, `openai_backend.py:276-305`). That the SDKs retry by default is *unverified*. | the kill ceiling, §2.5 |
+| F5 | The peer backend checks a per-context cancellation event before the call, after a non-streamed call returns, and between chunks (`maxim_peer_backend.py:566`, `:937`, `:1093`), and raises `BackendDown`. | cancel semantics, §2.5 |
+| F6 | No backend takes a seed, top-p, top-k or per-call deadline (`backend_protocol.py:72-84`). | the cache is the only reproduction path (§4) |
+| F7 | `BackendError` has seven subclasses (`types.py:146-270`). | §2.6's table |
+| F8 | The Anthropic backend logs the tokens it writes to the prompt cache but leaves them out of `LLMResponse`, and its `uncached_input_tokens` subtracts cached tokens from a count that already excludes them (`anthropic_backend.py:546-571`). | spend, §5.5; OD-I9 |
+| F9 | `utils/http.py` mounts proxies from `httpx`'s environment lookup (`:839-843`), and a proxied request "bypass[es] the connect-time address check (#921)" (owner decision 2026-09-28). On macOS that lookup falls back to System Settings' proxies when the environment is empty. | §5.3 |
 
 ## 2. The contract
 
-### 2.1 Roles and envelopes **[now]**
+### 2.1 Functions and envelopes **[now]**
 
-- **A request names a role, never a model.** The request value carries a model **role** (OD-A14; `npcs_and_sem.md`
-  §6.1). The agent never learns which placement serves it, and nothing about placement crosses `AgentPort`.
-- **Each role has an envelope:** `context_tokens` (the prompt budget the agent renders to), `max_output_tokens`, and a
-  named `token_counter`. The host gives the worker each role's envelope at spawn. Today §6.1 says the bound model's
-  context size and tokenizer feed Maxim's `PromptBudgeter`. That becomes **the role's envelope**, so a prompt is
-  rendered once and fits every placement in its role. Moving a request to another placement in the same role, after
-  a failure or under spill, then needs no new render.
-- **Every placement in a role must fit the envelope.** Its declared `context_tokens` must be at least the envelope's
-  `context_tokens + max_output_tokens`, or the loader refuses the table. If a placement overflows anyway (its
-  tokenizer counts more than the role's counter), the outcome is `context_overflow`. It is metered, and the lane never
-  retries it with a shorter prompt.
-- **The role vocabulary is closed.** It is the set of roles B1's request value ships, measured at OD-A14. The table
-  must cover every role. Until that set exists, the test double's roles stand in, and the loader refuses an uncovered
-  role.
-- **[later]** The table's key may widen from the role alone to role plus an NPC tier. That would be level of detail
-  for thought: the NPC in a conversation with the player gets the larger model. The request doesn't change, and the
-  tier comes from the roster, never from load.
+- **A request names a function, never a model or a tier.** The function is the caller's *declared* need (Maxim's
+  `FunctionSpec` name, such as `agent_inference`). It is never `FunctionRouter.resolve`'s result, because which tiers
+  exist depends on the machine's hardware (`runtime/lane_models.py:412`, `detect_tiers`). Falling back to a smaller
+  model is the lane's decision, made through the table. Asked of B1 as part of OD-A14 (§9).
+- **The function vocabulary is closed,** and is whatever B1's request value ships, measured at OD-A14. Until then, the
+  test double's functions stand in. The table must cover every function, and the loader refuses one it doesn't.
+- **Each function has an envelope,** in Maxim's own terms:
+  - `total_budget`;
+  - `response_reserve`;
+  - `token_counter`;
+  - `thinking` (whether a reasoning budget is requested).
 
-### 2.2 Placements **[now: format and loader; Phase 4: real transports]**
+  These go to `PromptBudgeter(total_budget, response_reserve, token_counter, …)` (`agents/prompt_budgeter.py:73`,
+  *verified*). A request's `max_tokens` is the smaller of `response_reserve` and `thought_budget.yaml`'s tokens per
+  call. The loader refuses a thought budget above the reserve.
+- **The envelope's identity is the digest of its canonical value** (`boundaries.md` §6.3's canonicalizer), never a
+  number bumped by hand.
+- **Token counters are a closed vocabulary.** Each is pure, runs in the worker with no model loaded and no network,
+  and carries its implementation version in the envelope's identity. Maxim's lazy counter, which upgrades after a
+  background load, is not one of them (`token_counter.py::_LazyTokenCounter`).
+- **Every placement in a function must fit its envelope:** its context per slot must be at least `total_budget`, and
+  it must honour `thinking`. Otherwise the loader refuses the table. A prompt rendered once therefore fits every
+  placement, and moving a request to another placement needs no new render.
+- **Envelopes reach the worker in its `load` frame** (`npcs_and_sem.md` §6.6), as a versioned field. They never go
+  through the environment.
+- **[later]** The table's key may widen from the function to function plus NPC tier, which is level of detail for
+  thought. The tier comes from the roster, never from load.
 
-A placement is one model endpoint the lane may dispatch to:
+### 2.2 Files and placements **[now: formats and loaders; Phase 4: real transports]**
+
+Three files, each a registered gate (§3.5), each versioned and refuse-on-unknown:
+
+| File | Read by | Holds | On a rerun |
+|---|---|---|---|
+| `data/agents/functions.yaml` (shipped) | host | functions, envelopes, each function's policy (`pinned` or `spill`) | in `data/agents/`, so a mismatch refuses (`boundaries.md` §6.3) |
+| `placements.yaml` (shipped default in `data/placements/`, the player's in their config directory) | host | placements, each function's placement order | never read; recorded only (§4.3) |
+| `endpoints.yaml` (shipped default beside it, the player's in their config directory) | **gateway only** | each placement's endpoint and credential reference | never read |
+
+- **Who may change what.** The player's `placements.yaml` replaces the shipped one whole: there is no merge, so no
+  precedence rule is needed. It may set `spill` on a function the shipped file marks `pinned`. Placement ids must be
+  unique within the file, or the loader refuses it.
+- **The per-user directory** is resolved by `maxim_overdrive.data` and injected. The engine has no default path, and
+  tests pass `tmp_path`.
+- **A placement:**
 
 | Field | Meaning |
 |---|---|
-| `id` | A stable name. It is the only form in which a placement appears in logs, meters, manifests and the cache. |
-| `transport` | `openai_compatible`, `anthropic` or `maxim_peer`: which Maxim backend the gateway builds (§3). |
-| `egress` | `loopback` (this machine), `owner_lan` (another of the player's machines) or `third_party` (a cloud provider) (§5). |
-| `model` | The declared model id. For `loopback` and `owner_lan`, also a declared weights digest. The host can't verify a remote server's weights, so the digest is declared, not checked. |
-| `context_tokens` | The model's context length, checked against each role's envelope (§2.1). |
-| `max_in_flight` | Whole number ≥ 1: concurrent calls this placement accepts (§2.5). |
-| `timeout_s` | The wall ceiling per call, host-only (`npcs_and_sem.md` §1, "Where wall time remains"). |
-| `price` | USD per million input and output tokens; required for `third_party`. |
-| `endpoint_ref`, `credential_ref` | Names resolved only in the gateway (§5.2). |
+| `id` | `[a-z0-9_-]{1,32}`. The only form in which a placement appears in logs, meters, manifests and the cache. Players are told it is shared in bug reports. |
+| `transport` | `openai_compatible`, `anthropic` or `maxim_peer`. |
+| `egress` | `loopback`, `owner_lan` or `third_party`: a consent class (§5.1), not Maxim's `Origin` (a build path). |
+| `model` | The declared model id, plus a declared weights digest for `loopback` and `owner_lan`. The digest is declared, not checked. |
+| `context_per_slot` | Context length per server slot. For example, `llama-server -c 8192 -np 4` gives 2,048 tokens per slot. |
+| `max_in_flight` | 1 to 16, no more than the server's real parallelism; at most 10 for `maxim_peer`, its HTTP pool (`utils/http.py:67`). |
+| `server` | Optional group name. Placements sharing a `server` share its `max_in_flight`. |
+| `call_ceiling_s` | The whole-call wall bound (§2.5). Host-only. |
+| `price` | USD per million tokens of uncached input, cache reads, cache writes and output. Required for `third_party`. |
+| `cleartext` | `owner_lan` only. Must be `true` to allow `http://` (§5.4). |
 
-- **Local models are loopback servers,** such as llama.cpp's server or Ollama, reached through `openai_compatible`.
-  The spike measured exactly this (Ollama at 127.0.0.1, `research/llm_spike.md`). In-process llama.cpp is not a
-  placement:
-  - it isn't thread-safe (`router.py:192`);
-  - its weights would sit in the gateway's memory;
-  - a server batches the requests in flight.
-
-  Whether the host starts the server is the Phase 4 build step's decision, and that is a new spawn site.
-- **Two files, both loaded through gates:**
-  - **`data/agents/placement.yaml`** (shipped and versioned) holds the roles, their envelopes, each role's policy
-    (§2.4) and the default `loopback` placement.
-  - **`placement.local.yaml`**, in the game's per-user config directory, never in the repository, holds the player's
-    own placements, their order per role, opt-ins and the session spending cap.
-
-  The merged table, without endpoints or credential references, is one canonical value. Its digest goes in the rerun
-  manifest (§4.3).
+- **Local models are loopback servers** (llama.cpp's server, Ollama) via `openai_compatible`; in-process llama.cpp
+  isn't thread-safe (`router.py:192`). The spike measured Ollama's native API, so this path is measured at §8.
 
 ### 2.3 Eligibility **[now]**
 
-A placement is eligible for a request when all four hold:
-1. **Consent:** its `egress` is allowed in this session (§5.1).
-2. **Health:** it isn't cooling down after a failure (§2.6).
-3. **Budget:** for `third_party`, the session's spend is below its cap (§5.3).
-4. **Fit:** it meets the role's envelope. This is checked at load, so it can't fail at dispatch.
+A placement is eligible for a request when all of these hold:
+1. **Consent:** the session's present speakers allow its class, and so do the words the NPC holds (§5.1).
+2. **Health:** it is not cooling down and its gateway is up (§2.7).
+3. **Budget:** for `third_party`, the session's spend is below its cap (§5.5).
+4. **Proxy:** a proxied gateway is treated as `third_party` (§5.3).
 
-### 2.4 Selection, the default law **[now]**
+Fit is checked at load, so it is not part of this list.
 
-- **The order is unchanged:** dispatch goes by deadline (`npcs_and_sem.md` §4.4).
-- **Choosing a placement for the request at the head of the queue:**
-  - **`pinned`** (the default, O48): the first eligible placement in the role's list. If its slots are full, the
-    request waits for one.
-  - **`spill`** (opt-in per role): the first eligible placement with a free slot. If none has one, the request waits.
-- **Placement is chosen when a slot is granted, not when the request is queued.** The law is simple on purpose, and
-  can be replaced behind this contract.
-- **Why `pinned` is the default.** Under `spill`, which model answers depends on how busy the host is. The NPC's
-  capability would then rise and fall with load, which §4.1 forbids for the thought's *kind* and which is no better
-  for its content. A role pinned to one placement changes model only when that placement fails, and a failure is
-  metered (§2.6).
+### 2.4 Queues and selection **[now]; the law is swappable**
 
-### 2.5 Capacity **[now]**
+- **Each placement has its own queue, in deadline order.** When a slot frees, it goes to the earliest-due request
+  that may use it:
+  - **under `pinned` (O48)**, a request may use only the first eligible placement in its function's list;
+  - **under `spill`**, it may use any eligible placement in the list, in list order.
 
-- **A slot is held from dispatch until the backend call returns.** Cancelling or abandoning a request stops the
-  lane waiting at once, but the slot stays held until the call returns, because no backend takes a per-call deadline
-  (§1, fact 3).
-- **The no-deadlock invariant still holds** (`npcs_and_sem.md` §4.4): a slot is held only by a call in flight, never
-  by an agent.
-- **The liveness ceiling still ends the thought** as `thought_failed(reason=timeout)`. The ceiling is the lane's, not
-  the slot's.
-- **A placement whose slots are all held by calls already abandoned is effectively down until one returns.** It is
-  metered as such, and selection treats it as full.
+  A full placement therefore never blocks a request whose placement has a free slot. That keeps the intent of
+  `npcs_and_sem.md` §4.4 (dispatch by deadline) without making one queue head wait on another placement.
+- **Placement is chosen when the slot is granted**, so health and consent are read at dispatch.
+- **What `pinned` costs:** in a reviewer's queueing model on §4.5's numbers, about 1.03× effective dial pinned to
+  one 2-slot placement against 1.34× spilling over two (`reviews/inference_placement/performance.md` S-4). It buys a
+  warm prompt cache per NPC and capability that doesn't follow load; §8 meters the wait it adds.
 
-### 2.6 Outcomes, failure and health **[now]**
+### 2.5 Slots, bounds and cancel **[now]**
 
-- **Every attempt ends in one closed outcome:**
-  - `ok`;
-  - `empty` (§1, fact 1);
-  - `transport_down`;
-  - `timeout`;
-  - `refused(auth | quota | policy)`;
-  - `context_overflow`;
-  - `cancelled`.
+- **A slot is held from dispatch until its gateway replies, or until the host kills that gateway.** The host owns the
+  slot count, and a reply frees exactly one slot (§3.4).
+- **The whole-call bound is `call_ceiling_s`.** No transport bounds a whole call (F4), so the host kills a
+  placement's gateway when any of its calls passes this ceiling. Every attempt on it then ends `failed(unreachable,
+  host-killed)`, and its slots free. The gateway sets every retry count it can to zero (F4). Retries it can't switch
+  off, such as `_OpenAIBackend`'s gateway retries, run inside the ceiling.
+- **Cancel.** The host stops waiting at once and sends `cancel`.
+  - On `maxim_peer`, the gateway sets the call's cancellation event (F5), and the call ends at its next check.
+  - On the cloud transports, the call runs until it returns or the ceiling kills it.
 
-  `BackendError` subtypes and the empty-content signal each map to exactly one of these. An unmapped exception is a
-  gateway protocol error (§3), never a silent failure.
-- **A failure starts that placement's cooldown,** a wall-time constant per outcome class in `placement.yaml`,
-  host-only.
-- **Retries follow the existing policy.** Under dilate, a failed attempt is dispatched again, and selection may
-  choose the next eligible placement in the role. Past the host ceiling the thought ends as `thought_failed`
-  (`npcs_and_sem.md` §1, §4.4). Each attempt is metered.
-- **Only the final outcome becomes the thought's reply.** Machine-decided failures stay first-class responses in the
-  cache (§4.4 there).
-- **A role with no eligible placement** ends the thought as `thought_failed(reason=unavailable)`: logged, and the run
-  is tier 3. With guests present, a request never falls through to a remote placement (O18; the gate test in
-  `checklists.md`).
+  Either way the outcome is `cancelled`, never `unreachable` (§2.6). Abandoned output tokens are metered per
+  placement.
+- **The liveness ceiling starts when the request is enqueued,** not when it is dispatched. So a request waiting for a
+  slot is bounded too, and past the ceiling it ends as `thought_failed(reason=timeout)` (`npcs_and_sem.md` §4.4).
+- **The no-deadlock invariant is unchanged:** a slot is held only by a call in flight, never by an agent.
 
-## 3. The inference gateway (O47) **[now: the process with a scripted transport; Phase 4: Maxim's backends]**
+### 2.6 Outcomes, and where each goes **[now]**
 
-**What it is.** A second kind of host-owned child process, beside the agent workers. The lane in the host **decides**
-(the queue, deadlines, selection, slots, health, the cache). The gateway **does**: it holds the transports and makes
-the calls. It is the only process with credentials and outbound access to model endpoints.
+**Classification is the gateway's** (it does): it turns each transport result into one outcome. **Decisions are the
+lane's** (it decides): what each outcome does. Each outcome has an attribution:
+- **placement:** it starts the placement's cooldown;
+- **request:** it says nothing about the placement;
+- **host:** our own fault, such as a gateway crash or our kill.
 
-- **Spawned like a worker** (`npcs_and_sem.md` §6.6):
-  - `spawn`, `-I`, an allowlisted environment and a working directory at its own home under the session;
-  - no `HOME`, no `MAXIM_*`, no `*_API_KEY`;
-  - not latched, since it needs the network.
-- **Its imports are an allowlist:** `maxim.models.language` and the backend modules its transports name. A test
-  holds the list, as the worker's import ban does.
-- **The channel uses the worker codec's rules:** length-prefixed, versioned, closed-schema JSON, budgets before
-  allocation, nothing pickled. Message kinds are closed per direction:
-  - **host to gateway:** `open(table)`, `dispatch(attempt_id, placement_id, request)`, `cancel(attempt_id)`,
-    `shutdown`;
-  - **gateway to host:** `chunk(attempt_id, seq, text)`, `reply(attempt_id, outcome, text, provenance)`,
-    `error(code)`.
+| Outcome | Produced from | Attr. | Retried? | Reaches `think` / the log | Cache entry |
+|---|---|---|---|---|---|
+| `ok` | content with a non-empty `stop_reason` other than a length stop, or empty content with a non-empty `stop_reason` (the model chose silence) | — | no | `complete(text)` | text |
+| `truncated(length)` | `stop_reason` a length stop | request | no | `truncated(text, reason=length)` | text and reason |
+| `truncated(stream_broken)` | content with an empty `stop_reason` (F3) | placement | no | `truncated(text, reason=stream_broken)` | text and reason |
+| `cancelled` | host cancel, F5's `BackendDown` after our cancel | — | no | `cancelled(prefix)` | none (§4.2) |
+| `failed(context_overflow)` | `BackendContextOverflow` | request | no | `thought_failed(reason=context_overflow)` | failure |
+| `failed(refused)` | a provider refusal reported as such | request | no | `thought_failed(reason=refused)` | failure |
+| `failed(empty)` | empty content and empty `stop_reason` (F2): **a stand-in until OD-I9**, marked in code when built | placement | yes | after retries: `thought_failed(reason=model_error)` | failure |
+| `failed(unreachable)` | `BackendDown` not caused by our cancel, our kill, or a dead gateway | placement, or host after a kill or crash | yes | same | failure |
+| `failed(overloaded)` | `BackendOverloaded` | placement | yes (§2.7) | same | failure |
+| `failed(call_timeout)` | `BackendTimeout` | placement | yes (§2.7) | same | failure |
+| `failed(auth)` | `BackendAuthFailed`, or an unresolved credential at `open` | placement | yes | same | failure |
+| `failed(model_missing)` | `BackendModelMissing` | placement | yes | same | failure |
+| `failed(inference_broken)` | `BackendInferenceBroken` | placement | yes | same | failure |
 
-  A `reply` frees its slot. After a `cancel`, the gateway stops relaying chunks and sends `reply(outcome=cancelled)`
-  when the call returns.
-- **Everything from the gateway is untrusted input.** The host's stream validation (`npcs_and_sem.md` §5.3) and
-  stage 1 run on what it relays, exactly as they would on direct output.
-- **A hung or dead gateway never freezes the world.** Past its wall ceiling it is killed. Every attempt in flight
-  ends as `transport_down`, and the lane starts a new gateway; the thoughts then follow §2.6.
+- **Retries** run under every latency policy, bounded by the liveness ceiling. A retry is a new attempt chosen by
+  §2.4. This is a change from `npcs_and_sem.md` §1's "a timeout retries": it now covers every retried outcome in the
+  table. Request-attributed outcomes are never retried.
+- **Once speech has reached the world, a failure is never retried.** It ends the reply as `truncated(prefix,
+  reason=transport)`. Under O50 nothing is delivered before a reply completes, so this can't happen yet. It is
+  contract for when OD-A25 lands.
+- **One closed list of `thought_failed` reasons**, which replaces `boundaries.md` §6.1's "budget, timeout, model
+  error": `budget`, `timeout` (the liveness ceiling), `parse`, `reloaded`, `unavailable` (no eligible placement),
+  `model_error`, `refused`, `context_overflow`. The attempt-level `call_timeout` is a different word on purpose.
+- **Under `pinned`, which failures move a request to the next placement.** `overloaded` and `call_timeout` don't: the
+  request waits for the same placement until the liveness ceiling, because those are load symptoms and moving would
+  make capability follow load. Every other placement-attributed failure does move it.
 
-**Why a process and not imports in the host:**
-1. **The host imports `maxim` nowhere.** §6.6 there says the host imports Maxim's types only through
-   `simcore/adapters/sem/_compat.py`, and `maxim` itself only in workers. Calling the backends from the host would
-   reverse that.
-2. **The world server never holds keys.** The world server accepts client connections, and it never holds an API key
-   or opens a socket to a model provider.
-3. **A blocked call blocks a gateway thread, not the host.** A call that can't be aborted (§1, fact 3) holds a
-   gateway thread, never one of the host's.
-4. **It is the seam for later.** A gateway on another machine would be a new transport for this same channel. That
-   is **[later]**, and not designed.
+### 2.7 Health **[now]; the law is swappable**
 
-**Its cost.** One process, plus one local hop per call: microseconds to a millisecond, against the 0.32–1.40 s median
-time to first token the spike measured. The hop is measured as a B5 row before Phase 4 commits to it.
+- **A placement-attributed outcome starts that placement's cooldown,** from `functions.yaml`'s table per outcome.
+  Request-attributed and host-attributed outcomes don't.
+- **After a cooldown, one probe dispatch goes first,** and full traffic resumes only when the probe succeeds.
+- **A gateway that keeps failing to start** (§3.4) marks its placement down for the session, and the client is told
+  (§5.6).
 
-**The alternatives the owner declined (O47):**
-- **(a) Import Maxim's backends in the host, from an allowlist.** One process fewer, but it reverses §6.6's rule and
-  puts keys in the world server.
-- **(c) Write our own HTTP clients.** That duplicates transports Maxim maintains (prompt caching, request-id headers,
-  peer probing, the address policy on `base_url`, `openai_backend.py:288`), and loses their fixes. Where those
-  transports are wrong, the push-back rule says to fix them in Maxim (§9).
+## 3. The inference gateways (O47, O53)
 
-## 4. Provenance, the cache and the manifest
+### 3.1 Where the code lives **[now]**
 
-### 4.1 The provenance record **[now]**
+- **Package:** `engine.adapters.inference`, a new adapter in `boundaries.md` §2.2's adapters layer, beside
+  `engine.adapters.agents`.
+  - It is the only engine package besides `simcore.adapters.sem` (and, at Phase 4, the agent adapter's worker entry)
+    that may import `maxim`.
+  - The import contract `maxim-through-adapters` gains it by name.
+  - Its Maxim surface is `maxim.models.language`'s backends and types, never `LLMRouter`'s methods.
+  - Its row joins `boundaries.md` §8.1.
+- **The host never imports it;** it spawns its entry module. The lane lives in `engine.host`, which imports no `maxim`.
+
+### 3.2 Spawning **[now]**
+
+- **One gateway per placement (O53),** spawned like a worker (`npcs_and_sem.md` §6.6): `spawn`, `-I`, an allowlisted
+  environment, and a working directory at its home under the session. It is not latched, because it needs the network.
+- **`HOME` and `XDG_*` are set to the gateway's home, never left unset.** An unset `HOME` falls back to the real one
+  through the password database, which a round-1 reader ran and *verified*.
+- **No `MAXIM_*`, `*_API_KEY`, `*_BASE_URL` or proxy variable passes.**
+- **`LLMConfig` is built directly** from the gateway's own two files, never through `load_llm_config` or profiles.
+- **Imports:**
+  - Importing a backend loads more than it names: `maxim.models.language`'s package imports `LLMRouter`, and through
+    it `llama_backend`, `cost_tracker`, `cloud_audit` and `cloud_redaction`. The peer backend imports
+    `maxim.agents.llm_worker` at call time.
+  - The allowlist is therefore the **transitive** module set, recorded at the build step against the locked pymaxim,
+    and a test holds it.
+  - A **no-effect test** holds what those modules may do: no file reads or writes outside the gateway's home, and no
+    socket except to its placement's endpoint. A planted `~/.maxim/config/llm.json` under a test `HOME` must never
+    be read.
+- **It sends no NPC, actor or session ids:** `request_context=None`, and no context variable is set. A header test
+  holds that.
+- **Its stdout and stderr go to a gateway log under the session,** which is never bundled into bug reports.
+
+### 3.3 The channel **[now]**
+
+The worker codec's rules apply (`npcs_and_sem.md` §6.6): length-prefixed, versioned, closed-schema JSON, budgets
+before allocation, nothing pickled. The kinds:
+
+| Direction | Kinds |
+|---|---|
+| host → gateway | `open(placement)` (its transport settings only, with no function data), `dispatch(attempt_id, request)`, `cancel(attempt_id)`, `ping(n)`, `shutdown` |
+| gateway → host | `ready` or `error(code)` (once, after `open`), `reply(attempt_id, outcome, text, reported)`, `pong(n)`, `chunk(attempt_id, seq, text)` (**reserved**, never sent under O50) |
+
+**Rules (the binding contract):**
+- `attempt_id` is `(gateway generation, sequence)`, so a reply from a dead gateway can never match a new attempt.
+- Each accepted attempt gets **exactly one** `reply`.
+- `cancel` of an attempt that is already finished is a no-op, not an error.
+- A `reply` for an unknown, finished or foreign attempt, a second `reply`, or a malformed frame is a protocol error:
+  that gateway is killed (§3.4).
+- **The host stamps provenance** (§4.1): the placement id, transport, egress and declared model come from the host.
+  The gateway supplies only the `reported` fields, and the host bounds them.
+- **Each side reads on its own thread, which never blocks on a write,** and writes through a bounded outbox. The
+  largest frame is bounded by the largest envelope.
+
+### 3.4 Lifecycle **[now]**
+
+- **Hung** means either of two things:
+  - a call past `call_ceiling_s`;
+  - no `pong` within `ping_ceiling_s` while an attempt is in flight.
+
+  Either one kills that placement's gateway, and no other placement's.
+- **Its attempts end** `failed(unreachable)`, attributed to the host. The old channel is closed before they are
+  declared, so no late frame can be read.
+- **Restarts** back off exponentially up to a cap, each one metered. After `max_restarts` in a window, the placement is
+  down for the session (§2.7).
+- **`shutdown`** is a bounded wait, then a kill. A gateway exits on EOF from the host (with `os._exit`), so an orphan
+  never keeps spending cloud tokens.
+
+### 3.5 Gates **[now]**
+
+New rows for `boundaries.md` §5.3's registry, each with golden rejection files:
+- the gateway channel, in both directions;
+- `functions.yaml`;
+- both `placements.yaml` files;
+- both `endpoints.yaml` files (read in the gateway);
+- the credential store (read in the gateway; Phase 4 chooses the OS keychain or a file, but either one is a gate).
+
+Every refusal that names a placement carries its id, never an endpoint.
+
+## 4. Provenance, the cache, the manifest and saves
+
+### 4.1 Provenance **[now]**
 
 Every reply carries a frozen, versioned provenance value with golden fixtures:
-- the placement `id`, `transport` and `egress`;
-- the declared model and digest;
-- the **reported** model and provider (`LLMResponse.model`, `.provider`);
-- the token counts, the outcome and the attempt count.
+- **host-stamped:** placement id, transport, egress, declared model and digest, outcome, attempt count;
+- **gateway-reported, bounded:** the model and provider as reported (null where a transport only echoes the request,
+  as `_OpenAIBackend` does), and token counts for uncached input, cache reads, cache writes and output, each a whole
+  number from 0 to 10⁷. Strings are at most 128 characters, with no control or format characters.
 
-It holds no wall time, cost, endpoint or credential. Wall latency and spend are host meters (§6.3).
+Provenance holds no wall time, cost, endpoint or credential, and it never reaches cognition.
 
-### 4.2 The cache key changes **[now; the format lands with the cache]**
+Maxim's hybrid line asks for the same record (`hybrid_arbitration.md:97-98`).
 
-`npcs_and_sem.md` §4.8 puts the model id and a weights digest in the canonical request. Under placement, that would
-make the key depend on host load and health, which are not the agent's. So:
-- **The canonical request drops the model id and the digest,** and carries the role and its envelope's version
-  instead.
-- **An entry holds the raw output, the canonical request and the provenance.**
-- **Live play writes the cache and never reads it. A rerun reads it and never dispatches,** and a miss is a loud
-  error (§4.8). A key without a model therefore can't reuse an answer across a change of placement in live play.
-  *(The Executor should confirm that the existing text means live play never reads the cache. §4.8 says "per save"
-  and "misses on a rerun are loud errors", but doesn't say it outright.)*
+### 4.2 The cache **[now; the format lands with the cache]**
+
+- **The canonical request drops the model and its digest.** It carries the function and its envelope's identity
+  (§2.1). Placement depends on load and health, which aren't the agent's, so it can't be in the key.
+- **One entry per request occurrence,** and only for the final outcome (§2.6). An entry holds the raw output (the
+  `reply` text), the canonical request and its provenance. Attempts and placements live only in provenance.
+  `cancelled` writes nothing, because the cancel itself is a logged world event.
+- **Three modes, and no fourth.**
+  - **Live play writes and never reads.** Test: a live session with a poisoned entry for its first request dispatches
+    anyway.
+  - **A rerun reads and never dispatches,** and a miss is a loud error.
+  - **Replay never opens the cache.**
+
+  There is no read-through mode, so paired experiments whose arms differ in placement or model can't be paired
+  through the cache. They pair only on substrate-only arms (`npcs_and_sem.md` §4.8).
+- **The write point** is when the reply arrives.
+- **A reply that has arrived but not yet landed** is held in the host-owned header with its text, and saved with it.
+  A load resumes from the held text and never dispatches again (`npcs_and_sem.md` §6.6, resume equivalence).
+- **Branches.** Each log segment (O45) owns its cache. A load opens a new segment whose cache starts as a copy of its
+  parent's, so two branches from one save never write each other's entries.
 
 ### 4.3 The rerun manifest **[with the cache]**
 
-`boundaries.md` §6.3 lists "the model ids, weights or quantisation digests and context lengths (the model profile)".
-That becomes:
-- the merged placement table's digest (§2.2);
-- the role envelopes;
-- the set of provenance records the cache holds, summarised per placement.
+- **`functions.yaml`'s digest and the envelopes refuse on mismatch,** like the rest of `data/agents/`. A rerun spawns
+  its workers with the recorded envelopes, and never loads or reads placements or endpoints.
+- **The placement table's digest is recorded per log segment and reported, never refused,** because a rerun never
+  dispatches.
+- **The ledger record pins** the functions digest, the placement digest per segment, and the fact that experiment
+  functions are single-placement with failover off (`boundaries.md` §8.4). Any arm that mixes models is a declared
+  arm, never an accident.
 
-**A rerun never dispatches, so a table that differs on the rerun machine is reported, not refused.** Every other
-manifest item keeps refuse-on-mismatch. The model profile is now **per placement and recorded per reply**, and the
-Known gap stands as before: the outcome class is not promised across model profiles (`npcs_and_sem.md` §4.1).
+## 5. Consent, egress and credentials
 
-## 5. Consent, credentials and privacy
+### 5.1 Consent, per speaker (O18, O49, O51) **[now: the rule; Phase 4: the disclosure UI]**
 
-### 5.1 Consent, by egress class **[now: the check; Phase 4: the disclosure UI]**
+- **Consent is recorded per speaker and per class,** saved with the save. With guests present:
+  - only `loopback` is eligible unless every present guest has accepted the class (and, for `third_party`, the named
+    provider);
+  - `owner_lan` counts as remote (O49).
+- **Words outlive sessions.** Speech is a world input the host delivers, so the host knows who heard it. An NPC that
+  has perceived words from a speaker who has not accepted a class is ineligible for that class until O17's purge has
+  removed that speaker's words from it.
+  - **Taint passes through speech:** an NPC that hears an NPC holding such words holds them too.
+  - The rule is host-computed and conservative. It never relies on the worker's own account of a prompt.
+- **Single-player, with no foreign words held:**
+  - `owner_lan` is eligible once the player configures it;
+  - `third_party` needs both an explicit opt-in and a spending cap.
 
-- **With guests present (O18):**
-  - only `loopback` is eligible, unless each guest has accepted a disclosure naming the class (and, for
-    `third_party`, the provider);
-  - `owner_lan` counts as remote, because a guest's words leave this machine (O49);
-  - a guest who hasn't accepted makes the class ineligible for the whole session, since one prompt may hold several
-    speakers' words.
-- **Single-player:**
-  - `owner_lan` is eligible once the player has configured it;
-  - `third_party` needs both an explicit opt-in in `placement.local.yaml` and a session spending cap, and with no cap
-    it is ineligible.
-- **The loopback check.** A `loopback` endpoint must be a literal 127.0.0.1 or ::1, so the check involves no DNS. The
-  gateway checks it again before connecting.
+### 5.2 What each class can promise **[now: checks; Known gaps stated]**
 
-### 5.2 Credentials **[now: references; Phase 4: resolution]**
+- **`loopback`:** the endpoint is a literal 127.0.0.1 or ::1. The gateway checks this, because the host never sees
+  endpoints (§2.2).
+  - It promises only the first hop. A local server that forwards elsewhere, such as a cloud-backed proxy or a cloud
+    model tag, is out of our sight.
+  - The disclosure text says so, and so does a Known gap.
+- **`owner_lan`:** the gateway refuses an endpoint whose dialled address is not private, link-local or CGNAT
+  (100.64.0.0/10). A rented cloud machine can't be labelled as the player's own.
+- **`third_party`:** the provider is the one named in the file. Provenance can attest it only where the transport
+  reports it (§4.1).
 
-- **The host handles credential references, never key material.** The gateway resolves each reference, from the OS
-  keychain or a user secrets file (the Phase 4 build step chooses).
-- **It hands the key to Maxim's backend as an already-resolved entry** (`types.py::resolved_entry_key`;
-  `anthropic_backend.py:145-163`, *verified*). That way Maxim's env-first key lookup never reads an environment
-  variable, and the gateway's environment holds no keys anyway.
-- **Credentials, and the endpoints of `owner_lan` placements, never appear** in `data/`, the intent log, a manifest,
-  the cache, meters or bug reports. Only placement ids do. An `owner_lan` endpoint names a private host.
-- **The host's text gates are the redaction.** Guest text passes `engine.text.player_text` before it reaches any
-  prompt. Nothing here relies on Maxim's cloud redaction, which has an open private advisory (OD-I5).
+### 5.3 Proxies (F9) **[now]**
 
-### 5.3 Spend **[now: the meter and the cap; Phase 4: prices]**
+- **The problem.** Maxim's transports honour proxies, including macOS System Settings proxies when the environment is
+  empty, and a proxy dials on the gateway's behalf.
+- **The check.** At start, each gateway reads `urllib.request.getproxies()` in its own environment and reports it in
+  `ready`.
+- **What a proxy changes.** A proxied gateway's placement is treated as `third_party` for consent: refused with
+  guests, and disclosed in single-player.
+- **The real fix** is a way to switch proxies off per backend, which is OD-I10 (§9).
 
-- **Spend is the host's arithmetic:** the tokens in the provenance times the placement's `price`.
-- **Reaching the cap** makes every `third_party` placement ineligible for the rest of the session. The client is told
-  through a host status message.
-- **Spend never reaches cognition.** This is the same rule as `LLMEnergyTracker` (`npcs_and_sem.md` §4.6), since an
-  NPC must not tire faster on a pricier model.
+### 5.4 Credentials, endpoints and transport security **[now: references; Phase 4: resolution]**
 
-## 6. Time: what placement may change
+- **The host holds neither endpoints nor key material.** Both live in `endpoints.yaml` and the credential store,
+  which only the gateway reads.
+- **Keys go to Maxim's backends as already-resolved entries**, so no environment variable is consulted:
+  - for `anthropic` and `openai_compatible`, through `types.py::resolved_entry_key`;
+  - for `maxim_peer`, as the entry's literal `api_key` (`maxim_peer_backend.py:791-802`).
+- **An unresolved reference** fails at `open` as `failed(auth)`.
+- **`owner_lan` over `http://` needs `cleartext: true`.** The guest disclosure then says the traffic is readable on
+  the network, and that the cluster key crosses it in the clear (a Known gap).
+- **No redaction is applied.** Consent is the control. Guest text still passes `engine.text.player_text`, which
+  refuses controls and format characters but removes no names.
 
-### 6.1 Placement changes wall time, never world time
+### 5.5 Spend **[now: the meter and cap; Phase 4: prices]**
+
+- **Spend is the provenance's four token counts times `price`'s four rates.** Until OD-I9, the Anthropic counts are
+  wrong (F8): cache writes are missing. So spend on cache-heavy Anthropic calls is undercounted. The cap is a Known
+  gap until then, with that number stated by the build step's fake-server test.
+- **Abandoned and killed calls count** at their dispatched input plus `response_reserve`, the worst case, because
+  their real counts never arrive.
+- **The cap is soft** by at most each placement's `max_in_flight` calls in flight. Reaching it makes `third_party`
+  ineligible.
+- **Spend never reaches cognition** (`npcs_and_sem.md` §4.6).
+
+### 5.6 What the client is told
+
+One host status kind, `inference_status`, carries:
+- the spend cap reached;
+- a placement down for the session;
+- a proxy found;
+- the guest disclosure state.
+
+It joins the protocol's host-status vocabulary beside dilation by cause (`npcs_and_sem.md` §5.4), and is added to
+`tile_and_client.md` §3's message list at `phase1/protocol`. A missing local model with guests present refuses the
+session at start (`checklists.md`); later, an unavailable function ends its thoughts as `unavailable`.
+
+## 6. Time and capability: what placement may change
+
+### 6.1 Placement changes wall time only
 
 - **A placement changes wall latency.** That changes only dilation, or lateness under floor-holding (O4, O11, O16).
 - **It never changes a thought's modelled time, its kind or its landing tick.** `think` resumes at the modelled
   landing tick whichever model answered (`npcs_and_sem.md` §6.6).
 
-### 6.2 The dial-invisibility test widens **[now]**
+### 6.2 What may differ by placement, as OPEN divergences **[stated]**
 
-The same scene, with the test double, run with different placement mixes and seeded per-placement wall latencies,
-gives the same kinds, receipts and percepts (`boundaries.md` §7.3). Under `pinned` the transcript is the same too,
-since the double answers by request.
+- **Model capability.** The outcome class is not promised across model profiles (`npcs_and_sem.md` §4.1), and under
+  placement the profile can change **within one NPC's life**:
+  - on health, through failover;
+  - on budget, when the spend cap is reached;
+  - on consent, when a guest joins or a foreign speaker's words are held.
 
-### 6.3 Meters (B5 rows) **[now]**
+  `pinned` bounds this to failure, budget and consent: load alone never moves a pinned function (§2.6). A per-NPC
+  meter counts changes of placement within a function.
+- **Fatigue.** A weaker model can need more PFC cycles, and their modelled cost loads mental fatigue
+  (`npcs_and_sem.md` §4.2, §4.6). So a change of placement can change how fast an NPC tires. This is OPEN.
+- **Observed latency** in `learned_hold_window.md`'s waiting cost now varies per reply (`npcs_and_sem.md` §5.1).
 
-Per placement:
-- calls in flight, and how long requests wait for a slot;
-- time to first token and to the whole reply;
-- failures by outcome;
-- slots held by abandoned calls;
-- spend, spills and failovers.
+### 6.3 The cost of O50
 
-Per role: the placement that served each reply. These join §4.5's meters there.
+**The first word arrives with the whole reply.** On the spike's numbers that is a median of about 1.29 s at one
+call in flight (0.32 s if streamed), and 1.46 s at two. Both are past O11a's account (600–700 ms) and its yield
+(about 1 s). §4.5's lever 3 is unavailable until OD-A25. Under dilate, P2 speech pays L(full), not L(first token).
 
-## 7. Agents stay on this machine; the channel stays transport-neutral
+### 6.4 The invariant tests **[now]**, written in the checklist
 
-**Remote agents are not designed, and this part argues against them:**
-- **The barrier.** The barrier parks every agent each tick (`npcs_and_sem.md` §6.3). §6.6's cost line, 20 NPCs at
-  200 ticks per wall second (20×), costs 0.2–0.8 wall seconds per second at 50–200 µs per local round trip. At a LAN
-  round trip of about 1 ms (*to measure*), the barrier alone would be about 4 wall seconds per second at 20×, and
-  about 0.2 at 1×.
-- **The heavy compute is already movable.** It is inference (0.3–1.4 s to first token), and placement moves it.
-- **Moving agents wouldn't help the scaling cost we've measured.** The host's sensing costs about 2.5–2.9 wall
-  seconds per world second for 100 stationary NPCs (`checklists.md`, cost table), and remote agents wouldn't reduce
-  it.
+- **Under `dilate`, the canonical requests are byte-identical** across placement mixes, seeded latencies and a
+  scripted failure schedule (failovers, cooldowns, a spend cap crossed). The double echoes a digest of its whole
+  input.
+- **A schema test:** no provenance field crosses `AgentPort` or the worker codec.
+- **A negative control:** a plant that passes the placement id to the agent turns the test red.
+- **One injected host wall clock,** the named host-only timeout module (`npcs_and_sem.md` §1), drives the lane,
+  cooldowns, ceilings and gateway supervision. The scripted transport is advanced by test messages, never by sleeping.
 
-**The one cheap step kept for later: the codec's contract names no property of its transport.**
-- The frames, message kinds and size budgets are the contract.
-- Each transport checks its own properties at start: the socket-buffer bound on a delivery (`sem_stimuli.md` §4.3)
-  and fd passing belong to the local socketpair, not to the codec.
-- The same codec serves the gateway channel (§3).
-- A networked transport would need its own trust design: authentication, TLS, and what a remote agent home means for
-  saves. It is not started.
+## 7. Agents stay on this machine; the codec stays transport-neutral
 
-## 8. What is built when
+- **The barrier's cost.** The barrier parks every agent each tick (`npcs_and_sem.md` §6.3). Its round trips cost
+  0.2–0.8 wall seconds per second for 20 NPCs at 200 ticks per wall second (20×), locally (§6.6 there).
+- **What a LAN would cost.** At a LAN round trip of about 1 ms (*to measure*), the barrier would cost about 4 s per
+  second with parks sent one after another, or about 0.2 s per second if all parks are sent at once and awaited
+  together.
+- **The heavy compute already moves:** inference, at 0.3–1.4 s to first token. The derived host sensing cost, about
+  2.5–2.9 wall seconds per world second for 100 NPCs (`checklists.md`, derived), would not move.
+- **So remote agents are not designed.** The codec's contract names no transport property, and each transport checks
+  its own at start (the socket-buffer bound in `sem_stimuli.md` §4.3 is the socketpair's). A networked transport would
+  need its own trust design.
+
+## 8. What is built when, and what it is measured by
 
 - **[now], `phase1/agents`:**
-  - the placement table's format and both loaders, as registered gates with golden rejection files;
-  - selection, slots, health and the outcome mapping in the lane;
-  - the gateway process and its channel, with a **scripted transport** (canned replies, delays and failures, chosen
-    by the test);
-  - the provenance type;
-  - the cache key and entry changes, in the cache's format;
-  - the consent check and the guest gate test;
+  - the three file formats and their gates;
+  - per-placement queues, slots, selection, health and the injected clock;
+  - `engine.adapters.inference` with a scripted transport;
+  - the channel and its rules;
+  - kill and restart;
+  - the outcome table;
+  - provenance;
+  - the cache changes;
+  - per-speaker consent and taint;
+  - the proxy check;
   - the meters.
 
-  No test makes a network call (CLAUDE.md, "Tests are deterministic and fast").
+  No test makes a network call.
 - **[Phase 4]:**
-  - Maxim's three backends in the gateway, each tested against a fake server on loopback that reproduces their
-    failure modes, the empty reply among them;
+  - Maxim's three backends behind the gateway, each tested against a loopback fake server that reproduces F2–F5 and
+    F8, and N concurrent calls with an injected auth failure. The instance model (one backend per slot, or one call
+    per process where a transport can't take concurrent calls) is chosen by that test;
   - credential resolution;
   - prices;
   - the disclosure UI;
-  - whether the host starts the local model server.
-- **The tests to write** go to `checklists.md` under the lane's model (moved there from this part, per the
-  contract rule).
+  - whether the host starts the local server.
+- **B5 rows** (added to `docs/standards_backlog.md` in this branch):
+  - per placement: time to first token and to the whole reply, slot wait, wait while another eligible placement was
+    free, failures by outcome, abandoned tokens, spend, prompt-cache hit ratio and prefill tokens per call;
+  - gateways: start time, restarts and memory;
+  - the shared machine: the channel round trip, host CPU per reply, and turn time and time to first token with a
+    loopback model under physics load at the max profile, with one memory budget for weights, KV cache and pinned
+    frames.
+- **The tests go to `checklists.md`** under the lane's model.
 
 ## 9. Upstream (roadmap Phase 3)
 
-I searched Maxim `origin/main` 043eab8f for the terms "empty content", `content=""`, "deadline", "gateway retries",
-"async router" and "multi-peer". I read `docs/architecture/llm_routing.md`, `docs/plans/archive/llm_path_fast_failover.md`,
-`docs/plans/deferred/llm_path_multi_peer_dispatch.md`, `docs/plans/overdrive_refactor_candidates.md` (B3) and
-`docs/plans/http_deadline_1715.md` (which is about `fetch_url` only).
+Searched at 043eab8f: "placement", `FunctionRouter`, "capability tier", `ProviderPlacement`, "empty content",
+"deadline", "gateway retries", "stream", "callback", "proxy", "async router", "multi-peer". Read: both routing
+documents, `lane_capability_placement_split.md`, `llm_path_fast_failover.md`, the deferred multi-peer, async-router and
+pecking-order plans, the candidates' B1 and B3, `hybrid_arbitration.md`, `http_deadline_1715.md`.
 
-- **OD-I9 (an issue):**
-  - the cloud backends return an empty `LLMResponse` instead of raising a typed `BackendError` (§1, fact 1);
-  - `_OpenAIBackend`'s gateway retries are hard-coded at 4 (§1, fact 2).
+| Id | Kind | Ask |
+|---|---|---|
+| OD-A24 | pushback against `llm-routing.md`'s rule that placement "rides on `LLMRouter`" (O52) | An embedder that owns scheduling resolves placement outside `LLMRouter`, and calls one backend per dispatch. The evidence is §1.2 and §2.5. The ask is that the invariant allow it, with the one-call-per-dispatch property kept. |
+| OD-I9 | pushback against `llm_path_fast_failover.md:43` and `:769` (cloud retries by design) and `llm_routing.md`'s empty-content legacy path | Typed `BackendError`s from the cloud backends. Configurable retry budgets, including the SDK clients' and the gateway retries, with defaults unchanged. Complete usage counts, including cache writes (F8). |
+| OD-A25 | new ask | A streaming surface on `LLMBackend`, such as a chunk sink on `complete_with_usage`. Searched: none exists (F1). It lifts O50. |
+| OD-I10 | pushback against the 2026-09-28 "the proxy wins for operator paths" decision, for embedders | A per-backend way to switch proxies off, and an `http_client` the Anthropic backend accepts (F9). |
+| OD-A23 | question to cand. B1's cancel clause ("ride on `utils/cancellation`") | Does the abandonable path free the transport, or only the caller? This is not a backend capability (OD-A14 says so). |
+| OD-A14 | amended | The request value carries the declared function name and the envelope. It is cut at `_complete_text` without building an `LLMRouter` in the worker. Hardware tier detection is kept out of the embedded worker. |
 
-  Maxim's own lesson asks for typed errors ("Backend failures raise typed exceptions, not return empty content",
-  `llm_path_fast_failover.md:771`, *verified*), while `llm_routing.md` keeps the empty signal as the legacy path. The
-  ask: typed errors on the cloud backends, and a configurable gateway retry budget, so a host can get one call, one
-  outcome. Not in O29's subset.
-- **OD-A23 (a question to cand. B3):**
-  - B3 makes priority and a deadline fields of the request value, "which the host schedules";
-  - the ask is whether the backends honour that deadline per call (`complete_with_usage` takes none, §1, fact 3), so
-    that an overdue or cancelled call frees its slot.
-
-  Not in O29's subset: until it lands, the gateway holds the slot until the call returns (§2.5).
-- **No ask on the router.** Overdrive doesn't use it, so Maxim's deferred async router and multi-peer dispatch are
-  not needed by Overdrive. That is worth telling Maxim when it ranks those plans.
-- **OD-A14's wording changes:** the `PromptBudgeter` gets the role's envelope (§2.1), not the bound model's context
-  size and tokenizer.
+Overdrive needs neither Maxim's async router nor multi-peer dispatch; Maxim should hear that when ranking them.
 
 ## 10. What this changes elsewhere (in this branch)
 
-- `npcs_and_sem.md`:
-  - §4.1: the model profile is per placement;
-  - §4.8: the canonical request's model fields;
-  - §6.1: the budgeter's envelope;
-  - §6.2: the router sentence now points here.
-  - O13's "the LLM gateway stays in the host" reads as "host-side" under O47; its text is unchanged.
-- `boundaries.md`:
-  - §5.3's response-cache row (the entry holds the provenance);
-  - §6.3's rerun manifest;
-  - §7.1's thinking lane (placement and the gateway).
-- `checklists.md`: the lane's model block.
-- `roadmap.md`: OD-I9, OD-A23, and OD-A14's wording.
-- `architecture.md`: the diagram's "AgentPool" and the stale "neither the world nor an NPC waits for a thought".
-- `lessons_maxim_in_games.md`: entry 29.
+`npcs_and_sem.md` §4.1, §4.8, §6.1, §6.2, §6.3, §6.6, §12.2; `boundaries.md` §5.3, §6.1, §6.3, §7.1, §8.1, §8.4;
+`embeddable_agent_DRAFT.md`; `checklists.md`; `standards_backlog.md` B5; `roadmap.md` (OD-A14, OD-A23–A25, OD-I9,
+OD-I10); `architecture.md`; lessons entry 29. Later: `pyproject.toml`'s import contract gains the package
+(`phase1/agents`), and `tile_and_client.md` §3 gains `inference_status` (`phase1/protocol`).
 
 ## 11. Open questions for the owner
 
-None. P1–P3 were accepted as recommended on 2026-11-21 and are O47–O49 (§0).
+None. O46–O53 are decided. The author chose two defaults in this fold, and both are contract, for the owner to
+overrule:
+- `owner_lan` must be a private, link-local or CGNAT address, and `http://` needs `cleartext: true` (§5.2, §5.4);
+- under `pinned`, load failures (`overloaded`, `call_timeout`) wait on the same placement instead of failing over
+  (§2.6).

@@ -81,10 +81,11 @@ refusal) and `consolidate(agent, budget)` (below).
   high-water seq is saved in the NPC's agent home, so a loaded save continues the sequence. O44's floor stays only as
   a host-side test that no new pid equals a logged one. Your §5.5 scopes determinism to single-threaded loop paths: our one worker per
   agent, stepped by one thread, is inside it, and we never pool agents on a worker thread.
-- **Unchanged from v5:** the request is a value (rendered text, sampling, a model **role**,
-  the template version, `tools is None`) produced at the `LLMRouter._complete_text` cut
-  (`models/language/router.py:958`), the host stamping priority and deadline (B3) outside any cache key and supplying
-  the bound model's `n_ctx` and tokenizer (`token_counter`) to the `PromptBudgeter`
+- **Changed since v5 (Overdrive `inference_placement.md`, O46):** the request is a value (rendered text, sampling,
+  the caller's declared **function** name, never the tier `FunctionRouter.resolve` picks from hardware, the template
+  version, `tools is None`) produced at the `LLMRouter._complete_text` cut (`models/language/router.py:958`) without
+  building an `LLMRouter` in the embedded agent, the host stamping priority and deadline (B3) outside any cache key and
+  supplying the function's envelope (`total_budget`, `response_reserve`, a pure `token_counter`) to the `PromptBudgeter`
   (`agents/prompt_budgeter.py:65`), required at construction; the reply is `complete(text)`, with reserved
   `cancelled(prefix)` and `truncated(prefix, reason)` carrying the host-delivered speech, a top-level field emitted
   first; the robot keeps `_complete_text_abandonable` (`router.py:998`), and B1 fixes the shape after 1.4.0; replay

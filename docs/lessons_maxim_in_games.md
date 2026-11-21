@@ -328,17 +328,19 @@ contract, set by a marked ANALOG stand-in until Maxim drives them (M20). For any
 physiology the controller acts on, and leave the set point and the effector choice to the agent; a world that
 regulates on the agent's behalf hides the very signal the agent is supposed to learn from.
 
-### 29. A router built for one agent's loop is the wrong scheduler for a world of agents (2026-11-21)
+### 29. A host that schedules many agents must own placement, and that argues with a recorded Maxim rule (2026-11-21)
 
 **Maxim's distributed infrastructure moves inference, not agents, and its router is a scheduler of its own.**
 *Evidence:* at `origin/main` 043eab8f the networked mesh was deleted as dead code (`mesh/__init__.py`), and the peer
-system sends a machine's model calls to a leader. Every call on one `LLMRouter` takes `_inference_lock`
-(`router.py:192`). The router fails over between providers inside one call (`llm_routing.md`, `_try_provider`). It
-reads process-global state (`router.py:77`, `:201`; `~/.maxim/util/drained_nodes.*`). The cloud backends signal
-failure with an empty reply (`anthropic_backend.py:333-335`, `openai_backend.py:505`) and take no per-call deadline.
-A host that owns deadlines, capacity, consent and a reproducible cache would have the router override it without
-either seeing the other. *Consequence:* the host's thinking lane owns placement (O46): each request names a role, the
-lane picks the model, and Maxim's backends are only transports, in a host-owned gateway process
-(`docs/design/inference_placement.md`). The cache key names the role, never the model, and each reply records which
-placement served it. For any game hosting Maxim: let the agent ask for a kind of model, and let the host decide
-which one answers and record that it did.
+system sends a machine's model calls to a leader. Maxim already splits capability (a function's tier) from placement,
+and records that placement "rides on `LLMRouter`'s existing … failover — NOT a new resolver" (`docs/agents/llm-routing.md`).
+The router fails over inside one call: it records who served (`last_served_*`), but the caller didn't choose. It reads
+process state (`router.py:77`, `:201`). Underneath, no backend streams to its caller, the cloud backends turn most
+failures into an empty reply, retries run inside the call, and no timeout bounds a whole call. A host that books
+deadlines, slots, consent and spend per placement, and must kill a stuck call, can't let a second scheduler run inside
+its dispatch. *Consequence:* O46–O53 (`docs/design/inference_placement.md`): a request names a function, the lane
+picks the placement, one gateway process per placement makes one backend call per dispatch, and the cache key never
+names the model. The rule we argue against is OD-A24, with this evidence; the backend gaps are OD-I9, OD-I10 and
+OD-A25. A first draft missed Maxim's placement rule because its search never used the word "placement": search for
+the design's own nouns first. For any game hosting Maxim: let the agent ask for a kind of model, let the host decide
+which one answers and record that it did, and take the disagreement to Maxim rather than around it.

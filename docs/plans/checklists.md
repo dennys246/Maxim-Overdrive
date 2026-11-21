@@ -299,15 +299,24 @@ contradicts (TB-S5). Before the codec's fixtures freeze, each of these is a test
 - Windows NPCs before Phase 8 need a Phase 3 item; the owner decides whether they are wanted. Until then, a Known
   gap: real NPCs on macOS and Linux only.
 
-**The lane's model (MS-S8, O18; `docs/design/inference_placement.md`, O46).**
-- The lane dispatches through the inference gateway (§3 there) with a scripted transport; Maxim's router is never
-  built on this path. Local models are loopback servers, provisioned before play.
-- A gate test: with guests present and no accepted disclosure, only `loopback` placements are eligible, and a missing
-  local model refuses (typed, and shown in the client). It never falls through to a remote placement.
-- Tests (§8 there): every placement-table rejection, an uncovered role and an envelope a placement can't fit among
-  them; `pinned` against `spill` with a full slot; a cancelled call holding its slot until its scripted return; each
-  outcome mapped once, `empty` included; provenance golden fixtures; dial invisibility across placement mixes; a
-  planted credential and `owner_lan` endpoint found in no log, manifest, cache entry or meter.
+**The lane's model (MS-S8, O18; `docs/design/inference_placement.md`, O46–O53).**
+- The lane dispatches through one inference gateway per placement (`engine.adapters.inference`, §3 there) with a
+  scripted transport; Maxim's router is never built on this path. Local models are loopback servers, provisioned
+  before play. A missing local model with guests present refuses the session at start (typed, shown in the client);
+  it never falls through to a remote placement.
+- Tests (§2–§6 there): every rejection of `functions.yaml`, both `placements.yaml` and both `endpoints.yaml`
+  (an uncovered function, a placement that can't fit an envelope, a thought budget above `response_reserve`, a
+  duplicate id); per-placement queues, so a full placement never blocks another's request; `pinned` waiting on
+  `overloaded` and `call_timeout` but moving on other failures; `spill`; the liveness ceiling counted from enqueue;
+  a call past `call_ceiling_s` killing only its placement's gateway; cancel ending as `cancelled`, never
+  `unreachable`; each row of the outcome table, `empty` and `truncated(stream_broken)` included; one `reply` per
+  attempt, a second or foreign `reply` killing the gateway, generation-scoped attempt ids; restart backoff and
+  down-for-session; one cache entry per occurrence after a failover; a poisoned cache entry ignored in live play;
+  a held reply surviving save and load without a new dispatch; per-segment caches; per-speaker consent and taint
+  through speech; a proxied gateway treated as `third_party`; the dial-invisibility test of §6.4 with its echo
+  double, failure schedule and negative control, on one injected host clock; provenance bounds and golden
+  fixtures; the gateway's transitive import set, its no-effect test under a test `HOME`, and no `X-Maxim-*` ids; a
+  planted credential and endpoint found in no log, gateway log, manifest, cache entry or meter.
 
 **Coverage of the worker (ST-S2).** Coverage follows the child: `patch = ["subprocess"]`, or
 `COVERAGE_PROCESS_START` with `parallel` and `combine`. Admit coverage's variables through test 2's allowlist, by

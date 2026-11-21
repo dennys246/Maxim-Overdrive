@@ -17,7 +17,7 @@ Godot client (render, input, UI)  ──intents──▶  World server (Python, 
 - The world server owns all state and all physics. The client never simulates anything that feeds back into the
   world. It may add purely visual effects (particles, debris, interpolation between frames).
 - Cradles and experiments run the same server headless. The physics an NPC grows up in is the game's physics.
-- Real time with pause; a late thought dilates the world or holds the floor (`docs/design/npcs_and_sem.md` §4).
+- Real time with pause; late thoughts dilate, hold the floor or land late (`npcs_and_sem.md` §4.4).
 
 ## The world is material cells
 
