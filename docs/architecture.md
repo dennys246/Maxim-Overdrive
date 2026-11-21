@@ -53,7 +53,8 @@ How the rule is kept, so far:
 
 **Known gaps (tracked, not gated yet):**
 - Late in a burn the coarsest rig lags (crate integrity 0.55 at 0.2 m vs 0.37–0.38 at 0.1 and 0.05 m after 150
-  turns): a coarse cell degrades as one block. Onset agrees to within 5%.
+  turns): a coarse cell degrades as one block. Onset agrees to within 5%. It falls below 0.7 at turn 138 at 0.2 m
+  against 104 at 0.1 m. Red gate: `tests/test_cross_tier.py::test_the_crate_is_badly_burned_at_the_same_turn_at_every_rig`.
 - No convection or radiation: air only conducts, so rooms heat too slowly and fires must sit on a material.
 - Destroying a cell removes its heat with it (the cell becomes air at the air's heat capacity).
 - **Fires don't consume fuel: once nothing solid is left under a fire, it heats air.** `World._power_field` spreads a

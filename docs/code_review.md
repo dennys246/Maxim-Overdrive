@@ -13,7 +13,8 @@ the Maxim repo), where the record shows that the catches came from a *different*
    **not** get the author's explanation of why the change is right: an agent handed a hypothesis tends to confirm
    it. Commit messages are part of the diff and are fair game, as claims to check.
 3. **Each finding is** a severity, a location (`file::symbol`, not a line number, which drifts), and a concrete
-   failure scenario: the input or state, and the wrong output or crash.
+   failure scenario: the input or state, and the wrong output or crash. A fix the reader proposes is marked
+   *verified*, with what it ran, or *unverified*; the author verifies it before folding.
    - **BLOCKER:** wrong on the shipped path, breaks a standing rule, or a test that cannot fail.
    - **SHOULD-FIX:** a real defect or gap with a narrower trigger, or a rule kept by luck rather than by a check.
    - **NIT:** clarity, naming, small simplifications.
@@ -91,12 +92,12 @@ until it is folded or overruled by the owner with a recorded reason. Each lens's
 `docs/design/reviews/<design>/<lens>.md`, because they explain why the design is what it is. The author then folds
 them into the design and presents one plan to the owner before building.
 
-- **A reader finds; it doesn't design** (owner, 2026-11-21). A fix it proposes is marked *verified*, with the script
-  it ran, or *unverified*. The author verifies every fix before folding it, and the fold table says how.
-- **A delta round on a design reviews the fold's diff,** not the whole document.
-- **The design holds the contract** (CLAUDE.md). A finding about a mechanism only running can check becomes a test in
-  its build step's checklist. When a second paper round finds new blockers in text the folds added, the rounds stop
-  and the author proposes moving the rest into the build steps.
+- **A delta round on a design reviews the fold's diff,** and Wire integrity also reads every section that uses a
+  contract the diff changes. The fold table says how the author verified each fix (step 3).
+- **When the rounds stop** (CLAUDE.md, "Review finds; it doesn't design"): the author proposes the move and the owner
+  accepts it, which is the recorded overrule this section requires. Only findings about mechanisms move, each
+  recorded `deferred` by a reviewer with its build step as the trigger. A contract BLOCKER still folds, or the owner
+  overrules it with a recorded reason.
 
 ## When the reviewers are agents
 
