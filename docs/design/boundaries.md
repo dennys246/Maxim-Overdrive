@@ -122,8 +122,8 @@ below it. Siblings on one line are independent of each other.
 | 5a | `engine.imagination` &#124; `engine.scene` | imagined-object specs; the scene type. Both take primitives from `engine.geometry` |
 | 5b | `engine.intents` | the action vocabulary, typed intents (the `imagine` intent carries a spec, so intents sit above imagination), `ActionLimits` (the type only), stage-1 parsing, the intent record, receipts, `StepOutput`, `Pending`, `Reply` and thought requests (S3; foundations Arch B3, S1; the v3 host service protocol is deleted, `npcs_and_sem.md` O6a) |
 | 6 | `engine.sim` | `World`, `Simulation`, the integer clock, the intent applier, construction (`Simulation.from_scene`, which builds scenes and loads saves from decoded data), the frame publisher, the `AgentPort` protocol |
-| 7a | `engine.loaders` &#124; `engine.tiers` | file gates (including `ActionLimits.load` and the save's decoding half); `RigProfile` as a rendering tier |
-| 7b | `engine.encoding` &#124; `engine.adapters.sem` | display quantization (B-6, uses tiers); the Maxim membrane |
+| 7a | `engine.loaders` &#124; `engine.tiers` &#124; `engine.inference_wire` | file gates (including `ActionLimits.load` and the save's decoding half); `RigProfile` as a rendering tier |
+| 7b | `engine.encoding` &#124; `engine.adapters.sem` &#124; `engine.adapters.inference` | display quantization (B-6, uses tiers); the Maxim membrane; inference gateways (`inference_gateway.md` §1) |
 | 7c | `engine.protocol` &#124; `engine.adapters.agents` | wire decode and encode (uses encoding); the agent adapter (uses the membrane's types) |
 | 8 | `engine.host` &#124; `engine.verify` | pacing loop, lanes, sessions, `TimeAuthority`, the thought gate and the thinking lane that executes model requests, dilation measurement, log writer; the verification harness (S12) |
 
@@ -328,9 +328,9 @@ below it. Siblings on one line are independent of each other.
 | Imagined objects | LLM via Maxim | the bound actor | the actor's budget | `imagine` intent: spec constructors at stage 1, `place` as stage 2 (TB-S6) | `phase1/boundaries` (kind), sim-clock (log) |
 | **The worker channel** (`npcs_and_sem.md` §6.6; Exec B1, TB3-B1) | a real agent's worker process | one actor per channel, bound at spawn | — | the strictest contract: length-prefixed, versioned, closed-schema JSON through the strict decoder, closed message kinds per direction, size budgets before allocation, pickle-free (`multiprocessing`, `pickle`, `marshal`, `shelve` banned in `engine.host` and `engine.adapters`); golden rejection frames and a planted pickle frame; a refused frame, a hang past the per-park ceiling or a crash ends the agent as a logged `agent_failed` | `phase1/agents` (with the test double behind it) |
 | Thought results: intents, speech and **memory writes** | the agent's `StepOutput` and `ThoughtOutput`, decoded from the worker channel | the bound actor | an NPC's own memory only, with provenance by source actor (§6.6) | everything re-validated **in the host**: intents and speech through stage 1, memory writes through the host's gate before the host passes them to `settle` (canonical order; O39); a **gate-to-be** until generate vs apply (OD-A18) gives the game a value to check, an OPEN divergence with a strict red gate (foundations TB2-S3) | `phase1/agents` (types); OD-A18 (memory) |
-| **Thought budgets** (foundations TB2-B3) | the host's thinking lane | — | — | PFC cycles, `parallel_actions`, `next_actions` and follow-up chains per triggering input, tokens per call (a generation limit and a stream cut-off before buffering), held-buffer bytes, memory writes, `cancel_on` length, `D` ceilings, from `data/agents/thought_budget.yaml` | `phase1/agents` |
+| **Thought budgets** (foundations TB2-B3) | the host's thinking lane | — | — | PFC cycles, `parallel_actions`, `next_actions` and follow-up chains per triggering input, tokens per call (a generation limit and a frame budget before buffering), held-buffer bytes, memory writes, `cancel_on` length, `D` ceilings, from `data/agents/thought_budget.yaml` | `phase1/agents` |
 | **Player speech and all guest text** (foundations TB2-S1; TB3-S3, TB3-S4, TB3-N4) | network lane | session token | per-session rate limit | one gate, `engine.text.player_text`, for `speak` and every guest string that can reach a prompt: length cap, NFC, then on the **decoded** text, per chunk and whole, refuse controls, bidi overrides, every line separator `str.splitlines` splits on (U+2028, U+2029, U+0085, `\v`, `\f`, U+001C–U+001E) and every format (Cf) character, zero-width and tag characters included | `phase1/protocol` |
-| **The response cache** (foundations DR-B3, TB2-S4, Wire S9) | disk, per save | — | — | `inference_placement.md` §4.2, which also lists the inference gates (§3.5); the gate recomputes the hash and refuses a mismatch | after tier A |
+| **The response cache** (foundations DR-B3, TB2-S4, Wire S9) | disk, per save | — | — | `inference_placement.md` §4.2; the inference gates: `inference_gateway.md` §9; the gate recomputes the hash and refuses a mismatch | after tier A |
 | Scene files, saves, intent logs, bug reports | disk, **strangers' machines** | — | — | the strictest gate (world_model F14): no pickle, budget before allocation, all-or-nothing | scene v1, save v0, sim-clock |
 | Rigs, materials, limits, vocabulary, presets, rosters, arcs | `data/`, `content/`, later mods | — | — | a loader each under the gate contract (§5.4) | today and as each lands |
 | Handshake, per-launch token, `Origin` | network lane | `hmac.compare_digest`, `Origin` refused, loopback bind (lanes §5) | — | the protocol decoder | `phase1/protocol` |
@@ -453,8 +453,8 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
   make a red test green.
 - **A rerun manifest beside the header (foundations DR-S7, Wire S8),** with the same refuse-on-mismatch rule, for
   tier-2 reruns that re-run agents: the digests of `data/agents/` (timing, speech, fatigue, thought budget), the
-  roster and each agent home's initial state; the pymaxim version and config digest; the placement table's digest
-  and role envelopes (reported, never refused: `inference_placement.md` §4.3); the response cache's digest;
+  roster and each agent home's initial state; the pymaxim version and config digest; the inference items
+  of `inference_placement.md` §4.3;
   the agent seed namespace; the syllabifier version. A run with any machine-decided thought failure, or under
   `abandon`, is flagged tier 3 in it.
 
@@ -508,9 +508,9 @@ contract Maxim must offer is in `npcs_and_sem.md` §6.1.
   7084f561); a tool call is an intent, and its result comes back as the next tick's follow-up.
 - **The membrane factory** takes a frame source and returns intents in `StepOutput`, never `World` (foundations Arch
   S3, Wire B2).
-- **The host's thinking lane** in `engine.host` executes request values, by deadline, with the response cache and
-  cancel as a reply. It is the only path to a model and owns placement; a host-owned gateway makes the calls through
-  Maxim's backends, never its router (`inference_placement.md`).
+- **The host's thinking lane** in `engine.host` executes request values, by deadline, writing the response cache, with
+  cancel as a reply. It is the only path to a model and owns placement; host-owned gateways make the calls through
+  Maxim's backends, never its router (`inference_placement.md`, `inference_gateway.md`).
 
 **The agent lane (supersedes `realtime_lanes_coop.md` §4.1's "the simulation lane owns … agents" and "agents step
 inside the simulation lane's tick"):**
@@ -589,8 +589,8 @@ Fields and tests laid now (detail and test designs in `npcs_and_sem.md` §2–§
 
 - **A thought request** carries `kind` (from the closed vocabulary of `data/agents/timing.yaml`, chosen before the
   call and never changed by a result), the modelled times, `cancel_on`, and its budget.
-- **A thought result** arrives as `Reply` values: the host streams the model call itself, reads the speech field
-  first, validates it per chunk, and stamps syllables in integer world microseconds below the tick, interruptible. Segment times are computed by the host from the cost model, never parsed from model output
+- **A thought result** arrives as `Reply` values: the host reads the reply's speech field
+  first, validates it (per chunk once streaming lands, OD-A25), and stamps syllables in integer world microseconds below the tick, interruptible. Segment times are computed by the host from the cost model, never parsed from model output
   (foundations TB2-S5).
 - **The host's `latency_policy`** is a host-only control: live play holds the floor once Maxim's turn-taking
   substrate exists (`npcs_and_sem.md` O11, O11a); until then, O16: it dilates in single-player and lands late and
@@ -610,7 +610,7 @@ Fields and tests laid now (detail and test designs in `npcs_and_sem.md` §2–§
 |---|---|---|
 | SEM membrane | `engine.adapters.sem` | bodies, percepts, acts (`Entity`, `Modulator`, `SensorReading`, `ModulatorResult`, `AffordanceSchema`) |
 | Agent stepping | `engine.adapters.agents` | host-called `step`, `think` and `settle`, the request/reply values (model calls run by the host, never injected into Maxim), the worker process, the tool-roster check, the per-agent home, clock and RNG injection, the experience driver, agent-state save (foundations Arch B3, DR-B2) |
-| Inference gateways | `engine.adapters.inference` | backends and types of `maxim.models.language`, never `LLMRouter` (`inference_placement.md` §3) |
+| Inference gateways | `engine.adapters.inference` | backends and types of `maxim.models.language`, never `LLMRouter` (`inference_gateway.md` §1) |
 | NPC authoring | game, when it exists | `AgentFactory`, seed memory, the arc loader |
 | Experiment harness | `maxim_experiments` | the experiment and ledger tooling |
 

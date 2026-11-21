@@ -334,7 +334,7 @@ regulates on the agent's behalf hides the very signal the agent is supposed to l
 *Evidence:* at `origin/main` 043eab8f the networked mesh was deleted as dead code (`mesh/__init__.py`), and the peer
 system sends a machine's model calls to a leader. Maxim already splits capability (a function's tier) from placement,
 and records that placement "rides on `LLMRouter`'s existing … failover — NOT a new resolver" (`docs/agents/llm-routing.md`).
-The router fails over inside one call: it records who served (`last_served_*`), but the caller didn't choose. It reads
+The router fails over inside one call: it records who served (`last_used_*`, `router.py:285-316`), but the caller didn't choose. It reads
 process state (`router.py:77`, `:201`). Underneath, no backend streams to its caller, the cloud backends turn most
 failures into an empty reply, retries run inside the call, and no timeout bounds a whole call. A host that books
 deadlines, slots, consent and spend per placement, and must kill a stuck call, can't let a second scheduler run inside

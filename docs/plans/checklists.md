@@ -299,24 +299,30 @@ contradicts (TB-S5). Before the codec's fixtures freeze, each of these is a test
 - Windows NPCs before Phase 8 need a Phase 3 item; the owner decides whether they are wanted. Until then, a Known
   gap: real NPCs on macOS and Linux only.
 
-**The lane's model (MS-S8, O18; `docs/design/inference_placement.md`, O46–O53).**
-- The lane dispatches through one inference gateway per placement (`engine.adapters.inference`, §3 there) with a
-  scripted transport; Maxim's router is never built on this path. Local models are loopback servers, provisioned
-  before play. A missing local model with guests present refuses the session at start (typed, shown in the client);
-  it never falls through to a remote placement.
-- Tests (§2–§6 there): every rejection of `functions.yaml`, both `placements.yaml` and both `endpoints.yaml`
-  (an uncovered function, a placement that can't fit an envelope, a thought budget above `response_reserve`, a
-  duplicate id); per-placement queues, so a full placement never blocks another's request; `pinned` waiting on
-  `overloaded` and `call_timeout` but moving on other failures; `spill`; the liveness ceiling counted from enqueue;
-  a call past `call_ceiling_s` killing only its placement's gateway; cancel ending as `cancelled`, never
-  `unreachable`; each row of the outcome table, `empty` and `truncated(stream_broken)` included; one `reply` per
-  attempt, a second or foreign `reply` killing the gateway, generation-scoped attempt ids; restart backoff and
-  down-for-session; one cache entry per occurrence after a failover; a poisoned cache entry ignored in live play;
-  a held reply surviving save and load without a new dispatch; per-segment caches; per-speaker consent and taint
-  through speech; a proxied gateway treated as `third_party`; the dial-invisibility test of §6.4 with its echo
-  double, failure schedule and negative control, on one injected host clock; provenance bounds and golden
-  fixtures; the gateway's transitive import set, its no-effect test under a test `HOME`, and no `X-Maxim-*` ids; a
-  planted credential and endpoint found in no log, gateway log, manifest, cache entry or meter.
+**The lane's model (MS-S8, O18; `docs/design/inference_placement.md` and `inference_gateway.md`, O46–O54).**
+- The lane dispatches through one inference gateway per placement on a scripted transport; Maxim's router is never
+  built on this path. A missing local model with guests present refuses the session at start (typed, shown in the
+  client); it never falls through to a remote placement.
+- Tests (IP §2–§6, IG §1–§9): every rejection of the three files (an uncovered function, an unfitting envelope, a
+  tier a no-degrade function forbids, an uncovered tokenizer family, `call_ceiling_s` not below the liveness ceiling,
+  a `server` member declaring `max_in_flight`, mismatched endpoint ids); per-placement and per-group queues; `single`,
+  `pinned` and `spill`; a load delay never moving a pinned function; cooldown, probe re-issue and down-for-session on
+  failed starts only; the ceiling kill's trigger and collateral; each classification row (IG §5) and each outcome
+  row (IP §2.6), with no reason or outcome crossing `AgentPort`; one `reply` per attempt and late replies after a
+  cancel; one cache entry per occurrence; a poisoned entry ignored live; a rerun that never looks up a request
+  cancelled before landing; a branch cache cut at the save point; a held reply across save and load; taint from
+  every guest-string channel and its clearing by `purge`; `NO_PROXY=*` in the gateway's environment; provenance
+  bounds; the transitive import set and the no-effect allowed set; the gateway log as the only place an endpoint may
+  appear, and no credential anywhere; the dial-invisibility test of IP §6.4.
+- **Deferred from the delta round (mechanism; trigger: writing that test in this step, unless Phase 4 is named):**
+  probe outcomes that are neither success nor fault (delta concurrency D8); a start ceiling (D9); outbox overflow per
+  kind (D11); the gateway's own sleeps on the injected clock (D12, Phase 4); disconnect behaviour of a non-streamed
+  call (D6, Phase 4); collateral cost per kill and a ceiling rule from the reply tail (performance D-5); the instance
+  model under concurrency (C7, Phase 4); per-transport stop reasons, refusal values and `allow_local_endpoints`
+  (wire S-4, executor E-N6, Phase 4); the HTTPS `owner_lan` address check (executor D-S6b, Phase 4); the proxy re-read
+  at each client build (trust D-S3); the no-effect allowed set (trust D-S5); call-time import capture (E-S9); slot
+  reservation per function (C12, on the slot-wait meter); a dial-test failure schedule that stays recoverable and
+  waits per reply (determinism N1).
 
 **Coverage of the worker (ST-S2).** Coverage follows the child: `patch = ["subprocess"]`, or
 `COVERAGE_PROCESS_START` with `parallel` and `combine`. Admit coverage's variables through test 2's allowlist, by

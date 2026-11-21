@@ -10,7 +10,7 @@ hints that drift. Where this draft and your candidates doc (`docs/plans/overdriv
 `phase1/agent-v7`.
 
 **For a new reader:** Overdrive is a game world server whose NPCs are Maxim agents, each in a spawned worker
-(pickle-free framed JSON, no keys, the offline latch engaged), with the model gateway in the host. It runs on an
+(pickle-free framed JSON, no keys, the offline latch engaged), with model calls in host-owned inference gateways (Overdrive `inference_gateway.md`). It runs on an
 integer tick and replays bit for bit from an intent log; a *frame* is the snapshot a step reads. Context:
 `docs/design/npcs_and_sem.md` §6.
 
