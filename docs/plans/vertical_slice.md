@@ -44,7 +44,6 @@ the verdict note ≤ 1,000. No other documents.
 The server runs a fixed simulation tick of 0.1 s, `world.advance(0.1)` on a 0.2 m grid, paced to the wall clock. It
 sends snapshots at 10 Hz. The client renders at its own frame rate and interpolates between snapshots.
 
-- **Why fixed:** a variable step makes physics depend on frame rate, and it breaks replay.
 - **Budget:** 100 ms per tick. The tile spec measures the heat substep at 0.59 ms at 0.2 m and 4.5 ms at 0.1 m
   (`tile_and_client.md` §1), so there is headroom.
 - **Week 1 measures** tick CPU (min of N), snapshot bytes and encode time.
@@ -93,9 +92,15 @@ slice's burning crate is a gamey stand-in for play, not Phase 1's exit, which is
 
 ### 3.4 The body and Overdrive as heat debt
 
-- **Movement:** a kinematic capsule (radius 0.3 m, height 1.8 m), moved by `move` intents at 1.5 m/s, 3 m/s in
-  Overdrive. Collision is against solid cells with the tile spec's slide rule: full step, else the x part, else the
-  y part, else stay.
+- **Movement: dynamic motion, kinematic collision.** A capsule (radius 0.3 m, height 1.8 m, mass 80 kg) with a
+  velocity.
+  - `move` carries a desired direction and effort, never a step, so either body model reads the same intent.
+  - Drive force and friction are integrated by semi-implicit Euler: velocity first, then position. Top speed is
+    1.5 m/s, or 3 m/s in Overdrive.
+  - Each 0.1 s tick runs four substeps, so no substep moves farther than a 0.2 m cell and nothing tunnels.
+  - Collision uses the tile spec's slide rule, and the blocked axis's velocity drops to zero.
+  - An Overdrive strike or a blast near a body applies an impulse (knockback). Drive work, ½mv², is logged against
+    Phase 5's action energy.
 - **Heat:** each body is one lumped thermal node for its cyberware: core temperature `T` and capacity `C`.
   - Heat in: `P_od` while Overdrive is held, plus radiation from fires by §3.3's point-source law.
   - Heat out:
@@ -117,9 +122,7 @@ slice's burning crate is a gamey stand-in for play, not Phase 1's exit, which is
 
 One NPC, a street vendor at a stall near the alley mouth.
 
-**How it decides:** a behaviour tree. That is a tree of conditions and actions evaluated each tick, where the first
-branch that succeeds runs. The tree reads only volume reductions from the frame (heat and glow within 4 m) and the
-player's body state. In priority order:
+**How it decides:** a behaviour tree, evaluated each tick, in priority order:
 1. **flee** when the air near it passes 60 °C;
 2. **put the fire out** when a fire is small and within 2 m of its fire extinguisher, through the applier;
 3. **warn** when a fire burns farther away;
@@ -136,8 +139,8 @@ player's body state. In priority order:
 **Talking to it:** the player's `say` text goes into the next prompt as words. It can change what the NPC says, never
 what it does.
 
-**It senses by oracle, on purpose.** Its reads of air temperature 4 m away and of the player's core temperature are
-exactly what lesson 24 rules out for real NPCs. They stay in `spikes/` and set no precedent for SEM sensors.
+**It senses by oracle, on purpose.** It reads heat and glow within 4 m and the player's core temperature straight
+from the frame, exactly what lesson 24 rules out for real NPCs. They stay in `spikes/` and set no precedent for SEM sensors.
 
 **Not here:** Maxim. This NPC is the comparison baseline. If the verdict says "the vendor felt alive enough", that is
 a number the NPC line has to beat.
@@ -150,8 +153,7 @@ a number the NPC line has to beat.
   instances in one draw call, which suits grey-box voxels.
 - **Per-cell state:** material sets each cube's base shade; glow raises emission and brightness; crack shrinks the
   cube and darkens it. State is never shown by colour alone.
-- **Reuse, don't fork:** if `phase1/client-shader` has landed, crack and glow copy its
-  `client/addons/engine/render/*.gdshaderinc` instead of new shading.
+- **Reuse:** once `phase1/client-shader` lands, crack and glow copy its `render/*.gdshaderinc`.
 - **Black background:** 4.7.2 Compatibility maps a non-black clear colour differently with glow on, glow off and at
   render scale 0.5 (measured on `phase1/client-shader`).
 - **Flames:** a `GPUParticles3D` per burning object, purely visual.
@@ -225,6 +227,8 @@ week 3, the verdict is about why not.
 
 - **The roadmap:** this branch edits neither `docs/roadmap.md` nor `foundations_plan.md`. Once
   `phase1/solid-spike` has merged, a follow-up moves step 10's row and scopes Phase 2's fire from §7's answer 2.
+- **Step 5b's body model:** whether players used momentum and knockback decides kinematic against dynamic before
+  5b's code (`tile_and_client.md` §2.3 is kinematic today).
 - **`docs/lessons_maxim_in_games.md`:** one entry from §7's answer 3, with its numbers.
 - **The real steps:** each core need the slice found becomes a row against its step (bodies in 5b, the wire in 7,
   fuel in 6.0a).
@@ -237,7 +241,5 @@ week 3, the verdict is about why not.
 - **Gamey fire teaches false lessons** about what real fire allows. *Answer:* §7 judges noticed behaviours, not
   numbers. The fire ladder still owns truth.
 - **The slice becomes a design project.** *Answer:* one plan, one verdict note, one review round, the cut list.
-- **Python tick cost.** Low at 0.2 m by the tile spec's measurements. *Answer:* week 1 measures it, and time dilation
-  plus logging covers an overrun.
 - **The LLM voice dominates the impression.** *Answer:* the cut list makes it the first to go, and one playtest runs
   with canned lines.
