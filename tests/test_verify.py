@@ -7,7 +7,7 @@ import math
 
 import pytest
 
-from simcore.verify import Band, Run, Work, band_gate, converges, same_class_under_refinement
+from simcore.verify import Band, Run, Work, agrees, band_gate, converges, same_class, same_class_under_refinement
 
 W = Work(substeps=1, cell_substeps=1)
 
@@ -210,3 +210,48 @@ def test_a_run_refuses_a_meaningless_discretisation(dx_m, dt_s, steps, field):
 def test_the_harness_is_deterministic():
     first = converges(_power_law(2), _space(0.4, 0.2, 0.1, 0.05), order_tol=1e-6)
     assert converges(_power_law(2), _space(0.4, 0.2, 0.1, 0.05), order_tol=1e-6) == first
+
+
+# --- agrees and same_class (the verification rule) ---
+
+
+def _grids(*dxs):
+    return [Run(dx, 6.0, 30) for dx in dxs]
+
+
+def test_agreement_reports_the_spread_and_each_grids_error_against_the_finest():
+    found = agrees(lambda run: {0.2: 110.0, 0.1: 104.0, 0.05: 100.0}[run.dx_m], _grids(0.2, 0.1, 0.05))
+    assert found.values == (110.0, 104.0, 100.0)
+    assert found.errors == (10.0, 4.0, 0.0)
+    assert found.spread == 10.0
+    assert found.converging is True
+
+
+def test_a_truth_grid_further_from_the_reference_than_the_coarse_grid_isnt_converging():
+    found = agrees(lambda run: {0.2: 102.0, 0.1: 106.0, 0.05: 100.0}[run.dx_m], _grids(0.2, 0.1, 0.05))
+    assert found.converging is False
+
+
+def test_two_grids_have_no_truth_between_them_to_judge():
+    assert agrees(lambda run: run.dx_m, _grids(0.2, 0.1)).converging is None
+
+
+def test_one_class_at_every_grid_is_the_same_class_and_a_flip_is_caught():
+    assert same_class(lambda run: True, _grids(0.2, 0.1, 0.05)) is True
+    assert same_class(lambda run: run.dx_m < 0.15, _grids(0.2, 0.1, 0.05)) is False
+
+
+@pytest.mark.parametrize(
+    ("runs", "match"),
+    [
+        ([Run(0.2, 6.0, 30)], "at least two grids"),
+        ([Run(0.2, 6.0, 30), Run(0.1, 3.0, 60)], "only the spacing"),
+        ([Run(0.2, 6.0, 30), Run(0.1, 6.0, 31)], "only the spacing"),
+        ([Run(0.1, 6.0, 30), Run(0.2, 6.0, 30)], "coarse to fine"),
+    ],
+)
+def test_an_agreement_study_refuses_runs_that_arent_one_space_study(runs, match):
+    with pytest.raises(ValueError, match=match):
+        agrees(lambda run: 1.0, runs)
+    with pytest.raises(ValueError, match=match):
+        same_class(lambda run: 1, runs)

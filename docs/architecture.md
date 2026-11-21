@@ -31,15 +31,16 @@ always **per unit volume** (`fracture_energy_j_m3`, `degrade_*`), so they mean t
 
 ## The resolution rule
 
-> **A rig profile may change precision, never the outcome class.**
+> **The truth grid (0.1 m) agrees with the reference (0.05 m) within a gated tolerance, and converges from the
+> coarse grid (0.2 m)** (world_model §1.1).
 
-The same scene at two profiles must agree on every gameplay outcome: did the wall breach, did the crate burn, did the
-room get hot enough. Each physics module ships two kinds of test:
+Did the wall breach, did the crate burn: outcomes agree. Each physics module ships two tests, through
+`simcore.verify` (`docs/design/verify_harness.md`):
 
-1. **Against a closed form.** Heat: a Gaussian pulse in a steel bar against the 1-D heat equation (error 1% / 0.1% /
-   0.01% at 0.2 / 0.1 / 0.05 m cells, second-order convergence). Damage: crater volume against
-   `analytic_crater_radius_m` (within 5%).
-2. **Across tiers.** The same scenario at every profile, gated on the outcome (`tests/test_cross_tier.py`).
+1. **Against a closed form,** space and time refined apart (E2). Heat: a steel bar's Gaussian pulse, second
+   order in space (errors 1.28% / 0.34% / 0.08% at 0.2 / 0.1 / 0.05 m) and first in time. Damage: crater volume
+   against `analytic_crater_radius_m` (within 5%).
+2. **Across grids,** gated on agreement and convergence (`tests/test_cross_tier.py`).
 
 How the rule is kept, so far:
 - Energy lands by **exact cell average** (a strike's Gaussian integrated over each cell) or by **volume overlap**

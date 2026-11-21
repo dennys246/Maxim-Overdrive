@@ -82,10 +82,12 @@ result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` dr
 
 ## Rules that matter here
 
-- **The resolution rule:** a grid spacing may change precision, never the outcome class. Every machine simulates one
-  truth; rig profiles are rendering tiers only, with no physics (world_model D20). Any new physics ships with a
-  closed-form test and a cross-tier test (`tests/test_heat.py` and `tests/test_cross_tier.py` are the patterns). If
-  a cross-tier test fails, fix the physics; never loosen the test to pass.
+- **The verification rule** (world_model §1.1): the truth grid's (0.1 m) outcomes agree with the reference grid's
+  (0.05 m) within a gated tolerance, and converge from the coarse grid (0.2 m); a spacing may change precision, never
+  the outcome class. Every machine simulates one truth; rig profiles are rendering tiers only, with no physics
+  (world_model D20). Any new physics ships with a closed-form test and a cross-grid test, measured through
+  `simcore.verify` with space and time refined apart (`tests/test_heat.py` and `tests/test_cross_tier.py` are the
+  patterns). If a cross-grid test fails, fix the physics; never loosen the test to pass.
 - Author scenes in metres. Keep physics parameters per unit volume. Deposit energy by exact cell average or volume
   overlap, never by whether the cell centre is inside.
 - **Reconstruct, decide at the point, integrate upward.** Never apply a threshold or a non-linear law to a cell's

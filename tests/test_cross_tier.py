@@ -1,4 +1,8 @@
-"""The resolution rule on a full turn loop: a fire on a crate, and on a concrete wall, at every rig."""
+"""The verification rule on a full turn loop: a fire on a crate, and on a concrete wall, at every grid.
+
+The truth grid (0.1 m) agrees with the reference (0.05 m, under MAXIM_OVERDRIVE_ALL_TIERS=1) and converges from the
+coarse grid (0.2 m) (world_model §1.1), measured through ``simcore.verify`` (docs/design/verify_harness.md).
+"""
 
 import numpy as np
 import pytest
@@ -8,9 +12,17 @@ from simcore.adapters.sem.bridge import region_parts
 from simcore.core.applier import Applier
 from simcore.core.scene import Box, Scene
 from simcore.core.world import World
+from simcore.verify import Run, agrees
 from tests.conftest import FAST_SPACINGS
 
 LIMITS = data.action_limits()
+TURN_S = 6.0  # World's turn
+
+
+def _grids(spacings, turns):
+    """A space study over ``spacings``: one turn length and turn count, coarse to fine."""
+    return [Run(dx_m, TURN_S, turns) for dx_m in sorted(spacings, reverse=True)]
+
 
 SCENE = Scene(
     (3.0, 3.0, 2.0),
@@ -34,10 +46,13 @@ def _burn(dx_m, materials, turns=150, power_w=60_000.0):
 
 
 def test_fire_outcomes_agree_across_rigs(spacings, materials):
-    runs = {dx_m: _burn(dx_m, materials) for dx_m in spacings}
-    onsets = [r[0] for r in runs.values()]
-    assert all(o is not None for o in onsets), runs  # the crate catches at every rig
-    assert max(onsets) - min(onsets) <= 0.1 * min(onsets), runs  # and at about the same turn
+    grids = _grids(spacings, 150)
+    runs = {run.dx_m: _burn(run.dx_m, materials) for run in grids}
+    assert all(r[0] is not None for r in runs.values()), runs  # the crate catches at every grid
+    onset = agrees(lambda run: runs[run.dx_m][0], grids)
+    assert onset.spread <= 0.1 * min(onset.values), onset  # at about the same turn (the bar is unchanged)
+    # Converges from coarse (all grids only). Measured 2026-11-21: onset 94, 92, 90 at 0.2, 0.1, 0.05 m.
+    assert onset.converging is not False, onset
     assert all(r[1] < 0.7 for r in runs.values()), runs  # it is badly burned everywhere
     assert all(r[2] > 0.99 for r in runs.values()), runs  # the concrete wall survives everywhere
     # Known gap (docs/architecture.md): the coarsest rig lags in the burn; gated below.
@@ -72,8 +87,8 @@ def _turn_below(dx_m, materials, level, turns=300, power_w=60_000.0):
     ),
 )
 def test_the_crate_is_badly_burned_at_the_same_turn_at_every_rig(materials):
-    coarse, fine = (_turn_below(dx_m, materials, BADLY_BURNED) for dx_m in FAST_SPACINGS)
-    assert abs(coarse - fine) <= TIME_TOL * fine, (coarse, fine)
+    turn = agrees(lambda run: _turn_below(run.dx_m, materials, BADLY_BURNED), _grids(FAST_SPACINGS, 300))
+    assert turn.errors[0] <= TIME_TOL * turn.values[-1], turn
 
 
 def test_a_small_fire_changes_nothing_at_any_rig(spacings, materials):

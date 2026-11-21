@@ -15,8 +15,9 @@ in one vocabulary, for every law.
 
 ## 2. Where it lives
 
-- **`simcore.verify`**, `boundaries.md`'s layer 8 (`engine.verify`). It imports only `simcore.core` and numpy. A
-  layers entry puts it under `maxim_overdrive` and above `simcore.protocol`, and a forbidden contract keeps it off
+- **`simcore.verify`**, `boundaries.md`'s layer 8 (`engine.verify`). It imports nothing from the engine: only
+  `math`, `dataclasses`, `itertools` and `collections.abc`. A layers entry puts it under `maxim_overdrive` and above
+  `simcore.protocol`, and a forbidden contract (`verify-measures-only`) keeps it off `simcore.core`,
   `simcore.adapters`, `simcore.protocol` and `maxim`. Nothing in `src/` imports it; tests do.
 - **It never builds a `World`.** It receives observables as callables and never constructs state itself. A test
   supplies the state: a law on a grid, or, until step 5a's `Simulation` exists, a `World` scenario. When 5a lands,
@@ -30,6 +31,7 @@ in one vocabulary, for every law.
 | `Work` | `substeps`, `cell_substeps` | exact counters for one run, deterministic, never wall time (`world_v2.md`'s "exact performance counters") |
 | `Convergence` | `runs`, `values`, `errors`, `orders`, `reference_converged`, `work` | what `converges` measured |
 | `Band` | `edges` (per run), `low`, `high` | where a binary outcome flips, per grid |
+| `Agreement` | `runs`, `values`, `errors`, `spread`, `converging` | one scenario outcome across grids |
 
 ## 4. The functions
 
@@ -43,9 +45,18 @@ in one vocabulary, for every law.
     refinement ratio.
   - Space and time are refined separately (E2): a space study holds `dt_s` fixed across runs, and a time study holds
     `dx_m` fixed. A `runs` list that changes both raises `ValueError`.
+  - A space study's shared step must be small enough that time error doesn't enter: the test shows it by passing
+    again at a quarter of the step. Stability at the finest grid isn't enough; at heat's 86 s it gave orders of 3.23
+    and -0.33.
 - **`band_gate(outcome, xs, runs)` → `Band`.** `outcome(run, x)` is a binary outcome at control value `x`. The harness
   finds each run's flip point by bisection over `xs` and reports the band across grids. The test then asserts its
   operating point clears the band by its margin (`tile_and_client.md` §6.3 item 7).
+- **`agrees(observable, runs)` → `Agreement`,** for a scenario outcome that isn't smooth in the spacing, so has no
+  order: the spread across grids, each grid's error against the finest, and `converging`, which holds when each
+  coarser grid's error is no smaller than the next finer one's (the rule's "converges from the coarse grid"; None with
+  two grids). The test keeps its own bar on the spread: "each grid within tol of the reference" would let two grids
+  sit 2 × tol apart.
+- **`same_class(outcome, runs)` → `bool`:** one outcome class at every grid.
 - **`same_class_under_refinement(outcome, run, factors=(1, 10))` → `bool`.** The splitting test at fixed `dx_m`: the
   same outcome class at `steps` and `10 × steps` with `dt_s` divided to match (`splitting.md` §6.4). The
   reversed-order half needs a law list, so it lands with step 5a, stated as an item in 5a's checklist.
@@ -57,8 +68,9 @@ in one vocabulary, for every law.
     within the next truncation term's relative size at that spacing.
   - **Time order:** at fixed `dx_m`, it is 1 (explicit Euler).
   - These replace `test_error_falls_with_resolution`, whose "fine < coarse / 4" mixed both errors.
-- **The cross-tier tests**, `tests/test_cross_tier.py` and the cross-grid tests in `tests/test_act_validation.py`,
-  are restated through `converges`, `band_gate` and `same_class_under_refinement`:
+- **The cross-grid comparisons** in `tests/test_cross_tier.py` and `tests/test_act_validation.py` are restated
+  through `agrees` and `same_class`. Tests that check an invariant at each grid in turn (a centroid, a refusal, a
+  crater's closed form) already verify at every grid and stay as they are:
   - **The full tier (`MAXIM_OVERDRIVE_ALL_TIERS=1`):** 0.1 m within the gate's tolerance of 0.05 m, converging from
     0.2 m.
   - **The fast tier:** 0.2 m against 0.1 m, which is the same check one level coarser.
