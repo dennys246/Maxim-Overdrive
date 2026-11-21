@@ -122,7 +122,7 @@ def test_a_step_replans_at_the_shorter_step_when_a_change_tightens_stability(mat
         g.paint(np.ones(g.shape, dtype=bool), "wood")
         g.temperature[:] = np.random.default_rng(1).uniform(0, 100, g.shape)
     seconds = 2 * heat.stable_dt(g)  # two planned substeps at wood's step
-    turned = []
+    turned: list[float] = []
 
     def to_steel(grid, dt):
         if turned:
