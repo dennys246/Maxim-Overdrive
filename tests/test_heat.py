@@ -4,6 +4,8 @@ The laws write the cells only inside the grid's write window (boundaries §4.1),
 ``World.advance`` does on the shipped path.
 """
 
+import math
+
 import numpy as np
 import pytest
 
@@ -11,6 +13,7 @@ from simcore.core import heat
 from simcore.core.grid import MaterialGrid
 from simcore.core.materials import AIR_ID
 from simcore.core.scene import Box, Scene
+from simcore.verify import Run, Work, converges
 
 SIGMA0, T_S = 0.3, 3600.0
 
@@ -36,9 +39,79 @@ def test_gaussian_spreads_as_the_heat_equation_says(dx_m, materials):
     assert _error(dx_m, materials) < 0.02
 
 
-def test_error_falls_with_resolution(materials):
-    coarse, fine = (_error(dx_m, materials) for dx_m in (0.2, 0.1))
-    assert fine < coarse / 4  # second order in space: halving the cell should cut error about 4x
+def _gaussian(dx_m, materials, substeps):
+    """The bar after T_S seconds in exactly ``substeps`` steps: its closed-form error, its peak, and the work."""
+    g, x = _bar(dx_m, materials)
+    with g.writing():
+        taken = heat.step(g, T_S, substeps)
+    assert taken == substeps  # the study's step, not stability's or the floor's, set the count
+    s2 = SIGMA0**2 + 2 * materials["steel"].diffusivity_m2_s * T_S
+    exact = 20 + 100 * SIGMA0 / np.sqrt(s2) * np.exp(-((x - 2) ** 2) / (2 * s2))
+    error = float(np.abs(g.temperature - exact).max() / (exact.max() - 20))
+    return error, float(g.temperature.max()), Work(taken, taken * g.temperature.size)
+
+
+def _sigma_t(materials):
+    return float(np.sqrt(SIGMA0**2 + 2 * materials["steel"].diffusivity_m2_s * T_S))
+
+
+def _space_study(materials, substeps):
+    runs = [Run(dx_m, T_S / substeps, substeps) for dx_m in (0.2, 0.1, 0.05)]
+
+    def error(run):
+        e, _, work = _gaussian(run.dx_m, materials, run.steps)
+        return e, work
+
+    return converges(error, runs, exact=0.0)
+
+
+def test_heat_is_second_order_in_space(materials):
+    """Finite volumes with harmonic-mean faces are second order in space (world_model E2: space refined alone).
+
+    The bar, set before measuring (verify_harness §5): each observed order is 2 within the next truncation term's
+    relative size, (dx_coarse / sigma_t)**2, sigma_t the Gaussian's width at T_S. The step is shared by every grid and
+    small enough that time error doesn't enter, which the study shows by passing again at a quarter of the step.
+    Measured 2026-11-21: orders 1.93 and 2.03. At the old test's step (stability at 0.05 m, 86 s) they were 3.23 and
+    -0.33: time error swamped the fine grids, and the old "fine < coarse / 4" passed by cancellation.
+    """
+    finest = _bar(0.05, materials)[0]
+    base = 64 * math.ceil(T_S / heat.stable_dt(finest))
+    for substeps in (base, 4 * base):
+        study = _space_study(materials, substeps)
+        for p, run in zip(study.orders, study.runs, strict=False):
+            assert abs(p - 2) <= (run.dx_m / _sigma_t(materials)) ** 2, (substeps, study.orders)
+
+
+def test_heat_is_first_order_in_time(materials):
+    """Explicit Euler is first order in time (world_model E2: time refined alone, at 0.2 m).
+
+    The bar (owner ruling (a), 2026-11-21): each Richardson order is 1 within lambda * dt_coarse, lambda =
+    alpha / sigma0**2, the initial Gaussian's decay rate, which generates most of the time error. Disclosed: this
+    decay rate was chosen after measuring. The bar written first used sigma_t, the width at T_S, and both orders
+    (1.116, 1.060) missed it (tolerances 0.085, 0.042); the owner ruled the sigma0 derivation correct.
+    """
+    dx_m = 0.2
+    base = math.ceil(T_S / heat.stable_dt(_bar(dx_m, materials)[0]))
+    runs = [Run(dx_m, T_S / (base * k), base * k) for k in (1, 2, 4, 8)]
+    decay_rate = materials["steel"].diffusivity_m2_s / SIGMA0**2
+
+    def peak(run):
+        _, value, work = _gaussian(run.dx_m, materials, run.steps)
+        return value, work
+
+    study = converges(peak, runs, order_tol=decay_rate * runs[-2].dt_s)
+    assert len(study.orders) == 2
+    for p, run in zip(study.orders, study.runs, strict=False):
+        assert abs(p - 1) <= decay_rate * run.dt_s, study.orders
+
+
+def test_a_step_takes_exactly_the_substeps_it_plans_however_many(materials):
+    """Red first: an end test of elapsed < seconds - 1e-12 on a running float sum took 8,001 substeps when asked for
+    8,000 of 0.45 s, a sliver from rounding that grows with the count (found by step 4's space study)."""
+    g, _ = _bar(0.2, materials)
+    for substeps in (4, 8_000, 20_000):
+        with g.writing():
+            assert heat.step(g, T_S, substeps) == substeps
 
 
 def test_insulated_world_conserves_heat(dx_m, materials):
