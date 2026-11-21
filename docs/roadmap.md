@@ -67,8 +67,8 @@ Each new field ships with a closed-form test and a cross-grid test, under the ve
 - **Structural support:** cells left unsupported fall as debris.
 - **Scale:** move the hot loops to numba or C if profiling says so (never coarser far cells: world_model D21).
 - **Close the known gap:** the coarsest rig's late-burn lag (`docs/architecture.md`).
-- **Moved from Phase 1 by the fire fallback (2026-11-20):** the crate, and fire's rungs 6.2–6.4 (flame object, two
-  bodies, crib).
+- **Moved from Phase 1 by the fire fallback (2026-11-20; after VS5):** crate and rungs 6.2–6.4 (flame object,
+  two bodies, crib).
 - **Moved from Phase 1 by D26:** zones and vents, combustion per zone and its products, fuel recession and pyrolysis,
   phase change, the CSG footprints, and the lab as Phase 2's benchmark tile.
 - **Plasma, slowly, aiming at plasma as a state of matter** (owner, 2026-11-19). The reason is what Maxim's NPCs can

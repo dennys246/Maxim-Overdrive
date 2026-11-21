@@ -33,7 +33,7 @@ fuel-mass law, the same apart from detail at each rendering tier.
 | 7 | `phase1/protocol` v0: versioned `welcome`, `intent_result`, `regions`; WebSocket on 127.0.0.1 with the token and `Origin` refusal; golden fixtures read by Python and Godot; the guest-join red gate | 5b, 2, 0d | this line | `tests/fixtures/wire/` | both readers pass the fixtures | Wire, Trust, Concurrency, Determinism | B3, B14 |
 | 8 | The tile: the alley, movement, the client drawing snapshots, one crack-and-glow shader (never colour alone), golden screenshots per tier | 6, 7, 0d | this line | the alley scene | the exit scenario passes automatically, then a playtest | Client and rendering, Physics | B7 |
 | 9 | Save v0: grid, scene, actor and pilots tables | 8 | this line | save fixture | round trip, golden save | Wire, Determinism | B4 |
-| 10 | Grey-box heat-debt prototype (D28), then the clinic (D27) | 8 | this line | a one-page design note | a playtest verdict: fun or not, and why | Client and rendering | |
+| 10 | Heat-debt prototype (D28): the slice (VS5), before 8; then clinic (D27) | 2 | this line | `spikes/slice/` | verdict by 2026-12-18: fun or not, and why | Client and rendering | |
 
 **In parallel, off the path:**
 - **The LLM spike (O20):** a throwaway `spikes/llm/` script, no Maxim: latency, tokens, cost, NPCs per local

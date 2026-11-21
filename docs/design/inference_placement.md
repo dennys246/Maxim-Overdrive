@@ -354,8 +354,7 @@ Owned here, and listed in `docs/architecture.md`'s Known gaps:
   more than on the model:
   - the spike measured a median of 1.29 s on a quiet M2 (`research/llm_spike.md`);
   - the vertical slice measured 0.23 s warm on a quiet Mac mini, and 8 s warm (48 s cold) with other processes loading the machine
-    to 125–142 (`lessons_maxim_in_games.md`, "A local model's latency is the machine's", `phase1/vertical-slice` at 7eed0bc,
-    until PR #25 merges).
+    to 125–142 (`lessons_maxim_in_games.md` 30, "A local model's latency is the machine's").
 
   On the loaded figures, a reply passes O11a's account (600–700 ms) and its yield (about 1 s). §4.5's lever 3 is
   unavailable until OD-A25.
