@@ -149,10 +149,19 @@ def test_the_import_graph_is_built_from_this_worktrees_src():
         assert package in graph.modules
 
 
-def test_the_layers_contract_orders_game_protocol_adapters_core():
+def test_the_layers_contract_orders_game_verify_protocol_adapters_core():
     layers = _contracts()["layers"]
     assert layers["type"] == "layers"
-    assert layers["layers"] == ["maxim_overdrive", "simcore.protocol", "simcore.adapters", "simcore.core"]
+    assert layers["layers"] == [
+        "maxim_overdrive", "simcore.verify", "simcore.protocol", "simcore.adapters", "simcore.core"
+    ]  # fmt: skip
+
+
+def test_the_verification_harness_imports_nothing_from_the_engine():
+    # Its layer sits above the protocol, so the layers contract alone would let it reach a World (verify_harness §2).
+    contract = _contracts()["verify-measures-only"]
+    assert (contract["type"], contract["source_modules"]) == ("forbidden", ["simcore.verify"])
+    assert set(contract["forbidden_modules"]) == {"simcore.core", "simcore.adapters", "simcore.protocol", "maxim"}
 
 
 def test_the_sealed_core_contract_bans_exactly_the_shared_list():

@@ -94,9 +94,9 @@ include_external_packages = true
 
 [[tool.importlinter.contracts]]
 id = "layers"
-name = "game > protocol > adapters > core"
+name = "game > verify > protocol > adapters > core"
 type = "layers"
-layers = ["maxim_overdrive", "simcore.protocol", "simcore.adapters", "simcore.core"]
+layers = ["maxim_overdrive", "simcore.verify", "simcore.protocol", "simcore.adapters", "simcore.core"]
 
 # The layers contract checks only modules inside a layer, so the engine-never-imports-the-game rule (B-1) is its own
 # contract, covering simcore's root module and any child not yet in a layer.
@@ -160,6 +160,15 @@ allow_indirect_imports = true
 # Input primitives by source (boundaries §5.2, B-4) are not a contract here: a denylist of modules can't be completed
 # (each review round found more routes), so tests/test_input_allowlist.py holds every layer's external imports to an
 # allowlist over the same grimp graph, fail closed, and scripts/lint_inputs.py covers what an import can't show.
+
+# The verification harness measures; it never builds state (docs/design/verify_harness.md §2, boundaries layer 8).
+# Its layer would let it import everything below, so this keeps it off the engine entirely: tests hand it callables.
+[[tool.importlinter.contracts]]
+id = "verify-measures-only"
+name = "the verification harness imports nothing from the engine or Maxim (verify_harness §2)"
+type = "forbidden"
+source_modules = ["simcore.verify"]
+forbidden_modules = ["simcore.core", "simcore.adapters", "simcore.protocol", "maxim"]
 
 [[tool.importlinter.contracts]]
 id = "maxim-through-adapters"
