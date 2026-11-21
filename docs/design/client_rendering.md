@@ -40,19 +40,18 @@ T3–T7 are world decisions (world §0).
 ## 2. The cut-away (T11; CR-S3, CR-N2)
 
 - **Which regions:** walls, as named in client data (`client/game/cutaway.tres`, keyed by region name; DC-N4).
-- **When:** a flagged region is cut when its point nearest the player across its short side lies on the camera's
-  side: dot(q − p, f) < 0, f the horizontal forward at the **target** yaw (step 8: centres cut walls behind).
+- **When:** a flagged region is cut when a sightline from the body towards the camera, at the **target** yaw, meets
+  its box before climbing over it: within (top − feet)/tan 40° in plan (owner, 2026-11-21).
 - **Stumps:** cut regions keep a 0.3 m stump, the cells whose top is ≤ feet + 0.3 m. With the body's axis 0.25 m from
   a wall face, the sightline at 40° rises 0.30 m by the face (0.25/sin 45° × tan 40°, derived). So the stump hides at
   most the feet's edge.
 - **Hatching:** cut faces are hatched, a shape rather than a colour, so a cut wall never reads as burned away.
 - **Never cut:** the crate and other non-wall regions, so the fire stays visible from anywhere.
-- **No pops:** the flag flips only at tween start, except stepping round a wall's end, level with its thickness
-  (0.15 m of pavement). The end wall's face is out of reach.
+- **No pops:** the flag changes at tween start, or where the body enters a wall's shadow; a cut wall holds 0.25 m
+  longer.
 - **Visual only:** uniforms, never fed back.
-- **Test (step 8):** the player's ID-mask pixels with world geometry drawn, divided by the same with the cell volume
-  hidden, must be **≥ 95%** (v1's and CR-S3's threshold; `fold.md` Check 2b), at positions along both walls, the
-  pavement and the crate, all four yaws. The crate hides 13% at four pairs: reported, the owner's call.
+- **Test (step 8):** the player's ID-mask pixels as cut, divided by the same with every flagged wall removed, must be
+  **≥ 95%** (CR-S3; `fold.md` Check 2b), along walls, pavement and crate, all yaws. Proved by deletion: no cut fails.
 
 ## 3. Input to intents (T2; world §3.3 has the messages)
 
@@ -172,7 +171,7 @@ T3–T7 are world decisions (world §0).
   has a capsule half inside a wall (CR-S1).
 - **Lighting** (`render_mode unshaded`): a fixed key light, three-tone face shading, neighbour AO, a fixed night
   ambient. No dynamic shadows.
-- **Glow:** T = offset + scale·g, both from the catalogue. Emission = 4.0 × ((T_K/1773)⁴ − (T₀/1773)⁴), T₀ the offset, a
+- **Glow:** T = offset + scale·g, both from the catalogue. Emission = 4.0 × ((T_K/1773)⁴ − (T₀/1773)⁴) `[engineering]`, T₀ the offset, a
   **stylisation**: T⁴ is total radiance, not visible radiance (PH-N2, CR-N4). Hue goes dull red → orange →
   yellow-white. Ember envelopes near 920 °C (world §5.3) read orange-red, below bloom. Output above 1.0 drives glow
   [ran].
@@ -371,7 +370,7 @@ Results: `research/godot_probes.md`; an upgrade reruns `tools/godot_probes/`. Th
 
 ## 10. Open questions for the owner
 
-Six, from step 8's build: `reviews/step8_shader/fold.md`, "Owner decisions".
+None: step 8's seven were decided 2026-11-21 (`reviews/step8_shader/fold.md`).
 
 ## 11. What this does not settle
 

@@ -4,19 +4,19 @@ Unlike a golden, none of these depends on the build that drew the frames: a rati
 difference over a mask, comes out the same on any correct renderer. So they run wherever the frames are drawn, and
 fail on the owner's Mac as they would in CI.
 
-- **The cut-away** (§2): the player's ID-colour pixels with the cell volume drawn, divided by the same with it
-  hidden, must be at least 95% at every sample position and yaw, and every expected (sample, yaw) pair must be there.
-  Four pairs are reported, not gated: a body pressed against the crate's south or east face is hidden by the crate
-  itself at two yaws each (86.7% measured), and §2 never cuts the crate. The conflict is the owner's to settle, and
-  every run prints the numbers.
+- **The cut-away** (§2): the player's ID-colour pixels with the walls the rule left standing, divided by the same with
+  every flagged wall cut away (the crate and floor still drawn), must be at least 95% at every sample position and
+  yaw, and every expected (sample, yaw) pair must be there. The reference keeps the never-cut crate, so its honest
+  occlusion counts on both sides and the ratio measures only what the walls hide (owner decision, 2026-11-21).
 - **Never colour alone** (§6.4, CLAUDE.md), at every tier: measured in CIE L*, lightness, which is what a viewer with
   no colour vision still sees. Over the cells a crack mask marks, the cracked frame must differ from the cold one by a
   mean of at least 8 L* and have at least twice its Sobel edge density (crack changes *shape*). Over the glow mask,
   the glowing frame must be at least 15 L* brighter (glow changes *brightness*). The masks come from the shader's own
   debug passes, so they mark exactly the pixels whose first drawn cell is cracked or glowing.
-- **No speckle:** on the cold frames at the full-resolution tiers, no pixel may differ sharply from eight neighbours
-  that agree with each other. A cold frame has no cracks, so such a pixel is a traversal defect (a missed or
-  mis-shaded cell); the walk's brick handling put 47 of them in each rig frame once, and nothing else saw them.
+- **No speckle:** on the cold frames (laptop's averaged 2 x 2, since it draws at half scale), no pixel may differ
+  sharply from eight neighbours that agree with each other. A cold frame has no cracks, so such a pixel is a
+  traversal defect (a missed or mis-shaded cell): the walk's brick jump once put 52 in each cold rig frame (47 in its
+  fire golden), and the golden ΔE judge passed them.
 - **Same apart from detail** (§6.3): each tier's frame, box-filtered to 160 x 90, against the rig tier's: mean ΔE at
   most 3 and the 99th percentile at most 10. (§6.3's ID-mask areas are not measured yet.)
 
@@ -46,15 +46,15 @@ EDGE_L = 5.0
 # Speckle: a pixel whose RGB sum is this far from its neighbours' median, where the neighbours span at most FLAT_SPAN.
 SPECKLE_DIFF = 30
 FLAT_SPAN = 6
-SPECKLE_TIERS = ("rig", "max")  # laptop draws at half scale, so a defect is a 2 x 2 block, not one pixel
+# laptop draws at half scale, so a defect there is a 2 x 2 block: it is judged on the frame averaged down 2 x 2.
+SPECKLE_TIERS = {"laptop": 2, "rig": 1, "max": 1}
 CUT_FRAME = re.compile(r"^cut-(?P<sample>.+)-k(?P<k>[0-3])-with\.png$")
 # client/tests/cutaway_check.gd::SAMPLES, which tests/test_golden_measures.py holds to this list.
 CUTAWAY_SAMPLES = (
     "south-2", "south-4", "south-7.5", "south-10.5", "north-2", "north-4", "north-7.5", "north-10.5", "end",
     "crate-kindle", "crate-south", "crate-east", "pavement-spawn", "pavement-south", "pavement-north",
+    "pavement-strip-south", "pavement-strip-north",
 )  # fmt: skip
-# The (sample, yaw step) pairs where the never-cut crate stands between camera and body (§2): reported only.
-CUTAWAY_ADVISORY = frozenset({("crate-south", 1), ("crate-south", 2), ("crate-east", 2), ("crate-east", 3)})
 TIERS = ("laptop", "rig", "max")
 
 Mask = NDArray[np.bool_]
@@ -77,11 +77,10 @@ def mask_of(rgb: Rgb) -> Mask:
     return out
 
 
-def cutaway_report(frames: Path) -> tuple[list[str], list[str]]:
-    """(findings, notes) for the cut-<sample>-k<k>-with.png / -without.png pairs in ``frames``: a missing or extra pair
-    is a finding, as is a gated pair below CUTAWAY_MIN; an advisory pair below it is a note."""
+def cutaway_findings(frames: Path) -> list[str]:
+    """Findings for the cut-<sample>-k<k>-with.png / -without.png pairs in ``frames``: a missing, extra or half pair,
+    and a pair below CUTAWAY_MIN."""
     found: list[str] = []
-    notes: list[str] = []
     seen = {(m["sample"], int(m["k"])): p for p in frames.iterdir() if (m := CUT_FRAME.match(p.name))}
     expected = {(sample, k) for sample in CUTAWAY_SAMPLES for k in range(4)}
     found += [f"cutaway: no frames for {s} at step {k}" for s, k in sorted(expected - seen.keys())]
@@ -89,8 +88,8 @@ def cutaway_report(frames: Path) -> tuple[list[str], list[str]]:
     for pair in sorted(expected & seen.keys()):
         line = _pair_finding(seen[pair])
         if line is not None:
-            (notes if pair in CUTAWAY_ADVISORY else found).append(line)
-    return found, notes
+            found.append(line)
+    return found
 
 
 def _pair_finding(with_path: Path) -> str | None:
@@ -175,8 +174,10 @@ def speckle(rgb: Rgb) -> list[tuple[int, int]]:
 
 def speckle_findings(frames: Path) -> list[str]:
     found = []
-    for tier in SPECKLE_TIERS:
-        dots = speckle(load_rgb(frames / f"cold-{tier}.png"))
+    for tier, block in SPECKLE_TIERS.items():
+        rgb = load_rgb(frames / f"cold-{tier}.png")
+        h, w = rgb.shape[:2]
+        dots = speckle(box_filter(rgb, (w // block, h // block)) if block > 1 else rgb)
         if dots:
             found.append(f"{tier}: speckle: {len(dots)} isolated pixel(s) on flat faces, first at {dots[:3]}")
     return found

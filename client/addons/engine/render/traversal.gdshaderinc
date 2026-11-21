@@ -98,7 +98,9 @@ float boundary_t(Ray r, ivec3 cell, int axis) {
 Walk walk_at(Ray r, float t, int axis) {
 	Walk w;
 	vec3 p = r.o + r.d * t;
-	w.cell = clamp(ivec3(floor(p)), ivec3(0), cells - ivec3(1));
+	// On an axis the ray steps down, a point exactly on a boundary belongs to the cell below it: ceil - 1, not floor.
+	vec3 down = vec3(lessThan(r.d, vec3(0.0)));
+	w.cell = clamp(ivec3(mix(floor(p), ceil(p) - 1.0, down)), ivec3(0), cells - ivec3(1));
 	int s = pick_i(r.stp, axis);
 	int crossed = int(round(pick(p, axis))) - (s < 0 ? 1 : 0);
 	w.cell = axis == 0 ? ivec3(crossed, w.cell.y, w.cell.z) : (axis == 1 ? ivec3(w.cell.x, crossed, w.cell.z) : ivec3(w.cell.x, w.cell.y, crossed));

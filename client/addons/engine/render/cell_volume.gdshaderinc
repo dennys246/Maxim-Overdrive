@@ -83,7 +83,7 @@ bool find_hit(Ray r, int first_axis, out Hit h) {
 		}
 		float c = crack_at(w.cell);
 		begin_hit(w, c, h);
-		if (h.cracked && debug_carves()) {
+		if (h.cracked && debug_carves() && carves()) {
 			Carve cv = carve(r, w, c);
 			float floor_t = groove_start(groove_t0, w) + GROOVE_MAX_DEPTH_M / cell_m;
 			if (!cv.solid && cell_exit_t(w) < floor_t) {

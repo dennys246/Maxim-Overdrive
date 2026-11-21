@@ -83,10 +83,8 @@ def golden_findings(log: str, out: Path) -> list[str]:
 
 
 def measured_findings(out: Path, cut: Path) -> list[str]:
-    """The checks that hold on any renderer: cut-away, never colour alone, tier agreement. Notes are printed."""
-    found, notes = gm.cutaway_report(cut)
-    for note in notes:
-        print(f"golden_run: advisory: {note}")
+    """The checks that hold on any renderer: cut-away, never colour alone, speckle, tier agreement."""
+    found = gm.cutaway_findings(cut)
     for tier in TIERS:
         found += gm.colour_alone_findings(out, tier)
     found += gm.speckle_findings(out)

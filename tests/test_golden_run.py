@@ -164,15 +164,20 @@ def test_a_frame_that_differs_from_its_golden_fails_per_tier_and_its_difference_
         assert (tmp_path / "out" / f"fire-{tier}.diff.png").is_file()
 
 
-def test_a_measured_finding_fails_the_job_and_an_advisory_note_does_not(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(gm, "cutaway_report", lambda cut: ([], ["cutaway: crate note"]))
+def test_every_measured_finding_fails_the_job(tmp_path, monkeypatch):
+    monkeypatch.setattr(gm, "cutaway_findings", lambda cut: ["cutaway: hidden"])
     monkeypatch.setattr(gm, "colour_alone_findings", lambda out, tier: [f"{tier}: glow: dim"] if tier == "max" else [])
     monkeypatch.setattr(gm, "agreement_findings", lambda name, tier, rig: [f"tiers: {name}"])
     monkeypatch.setattr(gm, "speckle_findings", lambda out: ["rig: speckle"])
     for tier in gr.TIERS:
         Image.fromarray(np.zeros((90, 160, 3), dtype=np.uint8)).save(tmp_path / f"fire-{tier}.png")
-    assert gr.measured_findings(tmp_path, tmp_path) == ["max: glow: dim", "rig: speckle", "tiers: laptop", "tiers: max"]
-    assert "golden_run: advisory: cutaway: crate note" in capsys.readouterr().out
+    assert gr.measured_findings(tmp_path, tmp_path) == [
+        "cutaway: hidden",
+        "max: glow: dim",
+        "rig: speckle",
+        "tiers: laptop",
+        "tiers: max",
+    ]
 
 
 def test_a_failed_import_draws_nothing(setup, tmp_path, monkeypatch, capsys):

@@ -59,35 +59,30 @@ def _all_pairs(d: Path) -> None:
 def test_every_expected_pair_with_the_body_visible_passes(tmp_path):
     _all_pairs(tmp_path)
     _pair(tmp_path, "south-2", 1, slice(21, 60))  # 39/40 = 97.5%
-    assert gm.cutaway_report(tmp_path) == ([], [])
+    assert gm.cutaway_findings(tmp_path) == []
 
 
 def test_a_body_a_wall_hides_fails(tmp_path):
     _all_pairs(tmp_path)
     _pair(tmp_path, "north-4", 2, slice(20, 50))  # 30/40 = 75%: a wall left standing
-    assert gm.cutaway_report(tmp_path) == (
-        ["cutaway: cut-north-4-k2-with.png: 75.0% of the body visible, below 95%"],
-        [],
-    )
+    assert gm.cutaway_findings(tmp_path) == ["cutaway: cut-north-4-k2-with.png: 75.0% of the body visible, below 95%"]
 
 
-def test_only_the_measured_crate_pairs_are_advisory(tmp_path):
+def test_every_sample_is_gated_the_crate_ones_included(tmp_path):
     _all_pairs(tmp_path)
-    _pair(tmp_path, "crate-east", 2, slice(20, 54))  # the crate in front: reported
-    _pair(tmp_path, "crate-east", 0, slice(20, 54))  # the same sample at a yaw the crate doesn't block: gated
-    found, notes = gm.cutaway_report(tmp_path)
-    assert found == ["cutaway: cut-crate-east-k0-with.png: 85.0% of the body visible, below 95%"]
-    assert notes == ["cutaway: cut-crate-east-k2-with.png: 85.0% of the body visible, below 95%"]
-    assert all(sample != "crate-kindle" for sample, _ in gm.CUTAWAY_ADVISORY)  # §2's own crate spot stays gated
+    _pair(tmp_path, "crate-east", 2, slice(20, 54))
+    assert gm.cutaway_findings(tmp_path) == [
+        "cutaway: cut-crate-east-k2-with.png: 85.0% of the body visible, below 95%"
+    ]
 
 
 def test_a_missing_extra_or_half_pair_fails(tmp_path):
-    assert len(gm.cutaway_report(tmp_path)[0]) == 4 * len(gm.CUTAWAY_SAMPLES)
+    assert len(gm.cutaway_findings(tmp_path)) == 4 * len(gm.CUTAWAY_SAMPLES)
     _all_pairs(tmp_path)
     (tmp_path / "cut-end-k3-with.png").unlink()
     (tmp_path / "cut-end-k0-without.png").unlink()
     _pair(tmp_path, "stray", 1)
-    found, _ = gm.cutaway_report(tmp_path)
+    found = gm.cutaway_findings(tmp_path)
     assert found == [
         "cutaway: no frames for end at step 3",
         "cutaway: frames for stray at step 1, which is not a sample",
@@ -99,7 +94,7 @@ def test_a_body_that_never_draws_fails(tmp_path):
     _all_pairs(tmp_path)
     _save(tmp_path / "cut-end-k0-with.png", _frame())
     _save(tmp_path / "cut-end-k0-without.png", _frame())
-    assert gm.cutaway_report(tmp_path)[0] == [
+    assert gm.cutaway_findings(tmp_path) == [
         "cutaway: cut-end-k0-with.png: the body draws no pixels even with the volume hidden"
     ]
 
@@ -183,6 +178,9 @@ def test_an_isolated_pixel_on_a_flat_face_is_speckle_and_texture_is_not():
     for k in range(0, W, 8):
         textured[:, k : k + 3] = (40, 40, 40)  # hatching-like stripes: the neighbours disagree, nothing is flagged
     assert gm.speckle(textured) == []
+    line = _frame((93, 90, 80))
+    line[40, :] = (20, 20, 20)  # a one-pixel line (a groove's floor, an edge): its neighbours disagree, not speckle
+    assert gm.speckle(line) == []
     edge = _frame((93, 90, 80))
     edge[:, 80:] = (20, 20, 20)  # a silhouette is not speckle
     assert gm.speckle(edge) == []

@@ -53,7 +53,8 @@ func show_snapshot(snap: CellSnapshot, palette: MaterialPalette) -> void:
 		_bounds = snap.region_cell_bounds()
 	_snapshot = snap
 	volume.show_snapshot(snap)
-	volume.use_palette(snap.material_ids, palette.by_id(snap.material_ids))
+	for problem: String in volume.use_palette(snap.material_ids, palette.by_id(snap.material_ids)):
+		push_error("RenderStage: " + problem)
 	volume.use_flicker(0.0)
 
 
@@ -74,13 +75,15 @@ func aim(target_world_m: Vector3, yaw: float, size_m: float) -> void:
 ## The crack's pixel floor depends on the zoom and the render scale, so both aim and use_tier recompute it, in
 ## whichever order they are called.
 func _update_pixel_metres() -> void:
-	volume.use_pixel_metres(IsoCamera.pixel_metres(_size_m, size.y, scaling_3d_scale))
+	var problem: String = volume.use_pixel_metres(IsoCamera.pixel_metres(_size_m, size.y, scaling_3d_scale))
+	if not problem.is_empty():
+		push_error("RenderStage: " + problem)
 
 
 ## Cut the flagged walls for a player whose feet are at ``feet_world_m``, the camera turning to ``yaw``.
 func cut_for(feet_world_m: Vector3, yaw: float, walls: CutawayRegions) -> void:
-	var flagged: Dictionary[int, Rect2] = Cutaway.flagged_boxes(_snapshot, _bounds, walls.regions)
-	var ids: PackedInt32Array = Cutaway.cut_regions(flagged, Vector2(feet_world_m.x, feet_world_m.y), yaw)
+	var flagged: Dictionary[int, AABB] = Cutaway.flagged_boxes(_snapshot, _bounds, walls.regions)
+	var ids: PackedInt32Array = Cutaway.cut_regions(flagged, feet_world_m, yaw)
 	volume.use_cut(ids, Cutaway.stump_top_m(feet_world_m.z))
 
 
@@ -90,6 +93,16 @@ func volume_bounds_m(region_name: String) -> AABB:
 	if not _bounds.has(id):
 		return AABB()
 	return AABB(_bounds[id].position * _snapshot.cell_m, _bounds[id].size * _snapshot.cell_m)
+
+
+## Cut every flagged wall away entirely, stumps too: the cut-away check's reference frame, which shows the body as
+## the walls would leave it if none of them were drawn, so the never-cut crate's honest occlusion counts on both
+## sides of the ratio (§2; owner decision 2026-11-21).
+func cut_all(walls: CutawayRegions) -> void:
+	var flagged: Dictionary[int, AABB] = Cutaway.flagged_boxes(_snapshot, _bounds, walls.regions)
+	var ids: Array[int] = []
+	ids.assign(flagged.keys())
+	volume.use_cut(PackedInt32Array(ids), -INF)
 
 
 ## One capsule per body, feet at each position (world metres).

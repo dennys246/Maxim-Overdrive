@@ -60,17 +60,22 @@ channel and `glow`'s different quantity. B5, B7 and a new B30 (the composition i
 constraint, unbuilt flame particles, unmeasured hatching, no ANGLE compile, the untested perspective path). CLAUDE.md's
 Layout names the new files.
 
-## Owner decisions this round leaves open
+## Owner decisions (decided 2026-11-21: "go with your recommendations"; outcomes set by the author)
 
-1. §2's cut rule, now the short-side rule.
-2. The crate hiding 13% of a body pressed against it at two yaws: §2's ≥ 95% at the crate against "never cut the
-   crate". Today those four pairs are reported, not gated.
-3. AO at 8 taps where §5.5 said 6.
-4. The crack's polygon floor (12 px), which makes the pattern coarser than one cell at the golden zoom.
-5. The emission level: embers near 920 °C read orange-red, below bloom.
-6. The night must stay black on Godot 4.7.2 Compatibility.
-7. Crack severity by shape (delta 1): at the 1.5 px floor, c = 0.25–0.96 draw the same grooves on rig walls and an
-   isolated cracked cell may draw none, so severity, and an isolated crack, show by darkening alone (B7).
+1. **The cut-away rule:** the owner accepted the short-side rule, which delta 2 then showed wrong off a wall's end
+   (wall_south uncut while hiding half the body at (0.9, 0.3)). Built instead: the occlusion test itself, sightlines
+   in plan from across the body's width towards the camera, cut when one meets the box before climbing over it,
+   with a 0.25 m hold against flicker. §2 amended. This is the recommendation's own fallback ("line of sight
+   later"), brought forward because its premise failed.
+2. **The crate and the 95%:** the test's reference frame now removes only the flagged walls, so the never-cut crate
+   counts on both sides; the advisory pairs are gone and every pair is gated. A see-through body silhouette is a
+   later feature, not scheduled.
+3. **AO at 8 taps:** accepted; §5.5 says so.
+4. **Crack polygons at least 12 px:** accepted (in a 0.1-octave hold, down to about 11.2 px); §5.4 says so.
+5. **Ember gain:** pending the owner's look at a sweep (gains 4, 7, 10); unchanged at 4 until then.
+6. **Black night:** accepted; B30. A two-line Godot issue drafted for the owner to file or not.
+7. **Crack severity by shape:** scheduled as its own branch after this one: severity drives polygon density, every
+   cracked cell is guaranteed an edge, and a mild-against-severe edge-density check holds it. B7 names it.
 
 ## Delta 1 (at the staged fold over ce06d7b)
 
@@ -104,3 +109,25 @@ two readers independently.
   EW N5 (`rmtree` then `mkdir`), CP N5 (the fissure floor's axis), CP N6 (depth-bound gaps at silhouettes), CP N8
   (hatch phase moves with zoom), P NITs (carve hoisting, redundant reads): NITs, left open, named here.
 - Step 7's checklist line for shipping the brick mask: B5 carries the trigger. The checklist is the owner's plan.
+
+## Delta 2 (at 37b24be and d934e6d)
+
+Reports: `delta2_executor_wire_architecture.md`, `delta2_client_performance.md`. No BLOCKER. The client lens
+emulated the new walk against an exact reference: no skipped cell, no wrong axis, no loop, at the golden camera and
+over 200 random grids.
+
+| Finding | Change | Proof |
+|---|---|---|
+| EWA S1 (the short-side rule hides half the body off a wall's end) | Replaced by the sightline rule (decision 1), with hysteresis; two pavement-strip samples join the rendered check. | All 68 pairs pass on the Mac, the lowest 96.4% (the stump); with the rule cutting nothing, 56 fail. Unit: the strip, the pavement, a walk out of a wall's shadow changing once. |
+| (decision 2) | The reference frame removes every flagged wall, keeping the crate; `cutaway_findings` gates all pairs. | As above: the crate samples pass. |
+| EWA S2 (speckle's flat guard untested) | A one-pixel line test. | — |
+| CP N11, EWA NIT (speckle skips laptop) | Laptop judged on its frame averaged 2 × 2. | It finds 6 in delta 1's defective laptop frame, 0 now. |
+| EWA N2 (palette errors untested) | `use_palette` and `use_pixel_metres` return their problems; `RenderStage` reports them. Both palette branches and the pixel refusals (0, negative, inf, NaN) are tested. | — |
+| EWA NITs (octave survives a cell_m change; "≥ 12 px") | The hold resets on a new spacing; the docstring states the 11.2 px band. | — |
+| CP N9 (entry cell on a negatively stepping axis) | `ceil − 1` there. | — |
+| CP N10 (unset spacing carves a recess; `pixel_m` default plausible) | No carving until the spacing is set; `pixel_m` defaults to 0. | — |
+| CP N12, EWA (§10 "Six"; §5.3 tag; §2's deletion sentence) | §10 records the decisions; the tag and the sentence are back. `client_rendering.md` is 3,769 words. | — |
+| EWA (fold.md overstatements) | The goldens commit now exists (d934e6d); speckle counts are given per source: 52 per cold rig/max frame in the defective run, 47 in its fire golden (a stricter flatness test). | — |
+
+Not folded: EW S1's remainder (texture contents are unreadable headless; the golden job covers them); the round-one
+performance NITs; CP N5, N6, N8.

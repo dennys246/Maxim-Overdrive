@@ -9,7 +9,8 @@
 
 uniform sampler3D crack_tex : filter_nearest, repeat_disable;
 // Metres one rendered pixel spans at the current zoom and render scale (IsoCamera.pixel_metres).
-uniform float pixel_m = 0.01;
+// 0 until set: with the crack spacing also 0 until set, no carving happens (see carves()).
+uniform float pixel_m = 0.0;
 uniform int crack_substeps = 4;
 
 const float CRACK_MAX_HALF_WIDTH_M = 0.02;
@@ -17,8 +18,13 @@ const float CRACK_MIN_HALF_WIDTH_PX = 0.75;
 // The Voronoi feature spacing in metres: one cell, or a power-of-two multiple of it so a polygon spans at least
 // CellVolume.CRACK_MIN_POLYGON_PX pixels. Chosen in GDScript with hysteresis (CellVolume.crack_octave), not here:
 // at the default zoom the ratio sits exactly on an octave boundary, where a GPU's log2 rounds either way.
-// 0 until set, which draws no crack pattern.
+// 0 until set, which draws no crack pattern (carves() is false).
 uniform float crack_spacing_m = 0.0;
+
+// Whether cracked cells are carved: only once the spacing has been set, so an unset volume never draws a pattern.
+bool carves() {
+	return crack_spacing_m > 0.0;
+}
 // The deepest a ray goes through grooves before it meets the fissure floor: without a bound, a ray along a Voronoi
 // sheet passed right through a cracked wall and showed a hole the server never reported.
 const float GROOVE_MAX_DEPTH_M = 0.05;
