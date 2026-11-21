@@ -170,14 +170,16 @@ only review holds.
   a Known gap with its numbers. **Perception and learning:** an NPC senses and learns the regularity; it may be a
   future bar. No band ever loosens. A bar written from now on is derived from its source's error (a closed form's
   from the scheme's error at the spacing, an oracle's spread, an experiment's scatter), never a round number, and is
-  written before the measurement; older round-number bars are listed in B30. Guard: B30, B10
+  written before the measurement; older round-number bars are listed in B30, and re-deriving one never widens it
+  without the owner's ruling. Guard: B30, B10
 - **A future bar is tracked, never dropped** (owner, 2026-11-21). A perception or learning bar that Maxim can't meet
   yet becomes a strict red gate whose reason names the Phase 3 item (and its issue once filed), a Phase 3 row in
   `docs/roadmap.md` with the trigger that flips it, and evidence that isolates the cause: a separate, passing test
   that what our membrane hands Maxim (the values the bridge emits, on the clock it uses) carries the stimulus, and a
-  note that Maxim is driven as its brief says. Without both it is our bug. When the fix lands the gate flips and the
-  test reruns at the original bar. Verification, determinism and a test's ability to fail are never future bars.
-  Guard: `tests/test_tooling_config.py::test_red_gates_are_strict_and_warnings_are_errors` (strict), B31, B34
+  note in the Phase 3 row citing the Maxim plan or brief that path is driven by. Without both it is our bug. When the
+  fix lands the gate flips and the test reruns at the original bar. Verification, determinism and a test's ability to
+  fail are never future bars. Guard: `tests/test_tooling_config.py::test_red_gates_are_strict_and_warnings_are_errors`
+  (strict), B31, B34
 - **Property tests for invariants over input spaces** (Hypothesis): physics conservation, protocol round trips,
   validators that never crash on any input. Guard: B9
 - **Tests are deterministic and fast.** No sleeps, wall clock, real network beyond localhost, or LLM calls in tests.

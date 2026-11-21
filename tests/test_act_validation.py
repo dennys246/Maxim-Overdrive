@@ -266,7 +266,9 @@ WOOD_FLAME_C = 2000.0  # wood's adiabatic flame temperature: no fire on wood may
 def _burn_every_turn(dx_m, turns):
     w = World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
     s, m = region_parts(Applier(w), w.frames, "crate")
-    assert m["structure"].execute("ignite", {"power_w": LIMITS.max_power_w, "radius_m": LIMITS.min_radius_m}).success
+    # Preconditions raise RuntimeError, not the red gates' raises= type, so a refused action can't count as the miss.
+    if not m["structure"].execute("ignite", {"power_w": LIMITS.max_power_w, "radius_m": LIMITS.min_radius_m}).success:
+        raise RuntimeError("ignite refused: the gate can't reach its bar")
     history = []
     for _ in range(turns):
         w.advance()
@@ -299,7 +301,8 @@ def _block_strike(dx_m, energy_j, thickness_m=1.8, x0=0.6):
     sensors, mods = region_parts(Applier(w), w.frames, "block")
     point = [x0 + thickness_m / 2, 1.5, 0.9]
     res = mods["structure"].execute("strike", {"energy_j": energy_j, "sigma_m": 0.2, "point_m": point})
-    assert res.success
+    if not res.success:
+        raise RuntimeError("strike refused: the gate can't reach its bar")
     return res.metadata["destroyed_volume_m3"], sensors["breached"].value()
 
 
