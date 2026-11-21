@@ -343,7 +343,7 @@ Each is first shown red on its plant (checklist); T2 merged into T1 in v2.
 | T14 | no row in `QUANTITIES`; every row has receptors |
 | T15 | per hazard, cue onset at the receptor precedes the damage integral's onset; lead recorded (L6 R1) |
 | T16 | §4.6: T16a delivery and T16b the world half (verification); T16c between-pass keying (future bar) |
-| T17 | future bar (M20, OD-C11): the NPC regulates its own temperature; world half: the plant's closed forms |
+| T17 | future bar (M20, OD-C12): the NPC regulates its own temperature; world half: the plant's closed forms |
 
 Until §4.6's pain-path test passes, a build check refuses a mean on `noci_heat`. Host load leaks through the wall
 clock until D3.
@@ -476,7 +476,7 @@ Each is a Phase 3 item through Maxim's process. **Question:** a plan owns it. **
 | M17 | a world-caused burn through `apply_damage` (`spec.py:1025`; only `src/` caller `simulation/tools.py:665`) | **Question** to GL2b, TR22 |
 | M18 | the modulator-backend path in the embedded build (`bootstrap.py:538-561`) | **Question** to OD-A10 |
 | M19 | withholding every LLM rendering of world-modality sensors (read tools, `sense` and auto-sense, `body_state`); whether the embedded build registers `sense` | **Question** to OD-A11 |
-| M20 | thermoregulation's controller: effector outputs and §3.3's two-sided need (R-2). Searched for thermoreg, shiver, sweat, vasoconstrict, vasomotor, perfusion: only the `core_temperature` drive | **Question** to `autonomic_layer.md` §3.3; OD-C11 |
+| M20 | thermoregulation's controller: effector outputs and §3.3's two-sided need (R-2). Searched for thermoreg, shiver, sweat, vasoconstrict, vasomotor, perfusion: only the `core_temperature` drive | **Question** to `autonomic_layer.md` §3.3; OD-C12 |
 
 M2 stays withdrawn. **The wall-clock gap is the largest unmet assumption** (L2 §8).
 

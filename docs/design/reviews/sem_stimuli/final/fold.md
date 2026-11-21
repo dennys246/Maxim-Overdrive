@@ -122,7 +122,7 @@ PH2-S3 remains deferred, with Physics' trigger.
 | B-F-B1 | Design §4.6, §6.3: T16 splits into T16a (red under D14), T16b (the world half, green whatever D14 says) and T16c (the future bar). T16c runs under D5 (c) on real pymaxim and asserts that the between-pass publish joins its crossing tick, so lifting D14 can't flip it; only G9's producer can. Roadmap OD-A22, with its trigger | open (for the reviewer, on the code PR) |
 | B-F-S1 | Design §9 M4; `embeddable_agent_DRAFT.md` §7; lesson 27: routed to `autonomic_layer.md` §3.1.4 (G9) and #1176, with GL3.B0 as evidence | open (for the reviewer, on the code PR) |
 | B-F-S2 | Design §4.6: the lead is at least a cited withdrawal latency plus one cognition interval, at the dial's maximum over every phase, under D5 (c), recorded in ticks; checklist | open (for the reviewer, on the code PR) |
-| B-F-S3 | Resolved by (c); §9 adds M20, a question to `autonomic_layer.md` §3.3 and R-2; roadmap OD-C11; T17 is a future bar; lesson 28 | open (for the reviewer, on the code PR) |
+| B-F-S3 | Resolved by (c); §9 adds M20, a question to `autonomic_layer.md` §3.3 and R-2; roadmap OD-C12; T17 is a future bar; lesson 28 | open (for the reviewer, on the code PR) |
 | B-F-N1 | Design §4.6 defines the test, and §6.3's conditional sentence is gone | open (for the reviewer, on the code PR) |
 | B-F-N2 | Design §4.6: the stamp is the host tick of the `evaluate_failures` call whose subscriber saw it, and the fixture has one entry because of the wall-clock refractory | open (for the reviewer, on the code PR) |
 | B-F-N3 | The checklist's core item rewritten | open (for the reviewer, on the code PR) |

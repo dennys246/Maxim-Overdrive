@@ -471,7 +471,7 @@ measured in the research (L3) or the reviews, **M** are from memory and must be 
   the between-pass publish joins its crossing tick. **The pain-path test** (§4.6; B-F-S2, B-F-N1): fingertip on 70 °C
   steel at the dial's maximum divisor over every cognition phase, a PainBus publish seen by a subscriber, a lead over
   Ω = 1 of at least a cited withdrawal latency (**M**) plus one cognition interval, the lead recorded in ticks.
-- **T17** (§6.3), the thermoregulation future bar, strict red naming M20 and OD-C11; its world half is the core
+- **T17** (§6.3), the thermoregulation future bar, strict red naming M20 and OD-C12; its world half is the core
   item's closed forms.
 - **Plants for §6.3's gates** (S-F1): T1 a world module writing a drive or a PainBus publish; T4 a march that ignores
   the wall; T5 a model reading the combustion constant; T6 a model leaking a constant into a pre-event frame, which
