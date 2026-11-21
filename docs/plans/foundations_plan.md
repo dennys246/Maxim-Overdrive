@@ -30,7 +30,7 @@ fuel-mass law, the same apart from detail at each rendering tier.
 | 4 | `phase1/verify`, slim: refine space and time separately; heat retrofitted; the resolution rule becomes the verification rule (D20) | 3b | this line | the harness | heat's order-of-accuracy test passes for the right reason | Physics and resolution | |
 | 5a | `phase1/sim-clock` (O34): `Simulation`, tick (T3), 0.1 m truth, law list, field registry, intent log | 4, 3b | this line | a composition note | bit-identical replay; CPU time measured | Physics, Determinism, Performance | B2, B5 |
 | 5b | `phase1/bodies`: bodies, `move`/`move_to`, vocabulary v1 | 5a | this line | the actor table | replay of a movement script | Determinism, Wire | |
-| 6 | Fire as the ladder (2026-11-20; D30, T13, T17 superseded by `fire_model.md`, `fire_solid.md`): 6.0a data files on step 5a's line, 6.0b fuel objects, 6.1 the solid (R0, R1), 6.2–6.4 each designed from the last; fits within cited ranges, graded held out | 5a (6.0a), 5b | this line | flip `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating` red-first (6.4) | each rung's gates at three grids (tile §6.3); R0–R2.5 time-boxed, else the fallback | Physics, Determinism, Bio-faithful | fire burnout gap |
+| 6 | Fire as the ladder (2026-11-20; D30, T13, T17 superseded by `fire_model.md`, `fire_solid.md`): 6.0a data files on step 5a's line, 6.0b fuel objects, 6.1 the solid (R0, R1), 6.2–6.4 long term (fallback, 2026-11-20); fits within cited ranges, graded held out | 5a (6.0a), 5b | this line | flip `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating` red-first (6.4) | each rung's gates at three grids (tile §6.3); R0–R2.5 time-boxed, else the fallback | Physics, Determinism, Bio-faithful | fire burnout gap |
 | 7 | `phase1/protocol` v0: versioned `welcome`, `intent_result`, `regions`; WebSocket on 127.0.0.1 with the token and `Origin` refusal; golden fixtures read by Python and Godot; the guest-join red gate | 5b, 2, 0d | this line | `tests/fixtures/wire/` | both readers pass the fixtures | Wire, Trust, Concurrency, Determinism | B3, B14 |
 | 8 | The tile: the alley, movement, the client drawing snapshots, one crack-and-glow shader (never colour alone), golden screenshots per tier | 6, 7, 0d | this line | the alley scene | the exit scenario passes automatically, then a playtest | Client and rendering, Physics | B7 |
 | 9 | Save v0: grid, scene, actor and pilots tables | 8 | this line | save fixture | round trip, golden save | Wire, Determinism | B4 |
@@ -57,10 +57,10 @@ fuel-mass law, the same apart from detail at each rendering tier.
 
 **Done there:** the candidates doc (#1688); #1684 (OD-I1), #1685
 (OD-I3, absorbing OD-A13), #1686 (OD-I4); OD-I5 a private advisory; #1687 closed (NPCs on POSIX only); #1396 (O18's guards). OD-I2
-stays a nit; OD-I6 is new.
+a nit; OD-I6, OD-I7, OD-I8 new.
 
 **Exchanged:** `erratum_1.md` sent 2026-11-18 (OD-A20, OD-A21; OD-A19 withdrawn). Maxim's answer
-(`response_4.md`): 1.4.0 planned March–May 2027; the world-seam front gate accepted. Its reviews of O35's draft: v4 to v6 fold them.
+(`response_4.md`): 1.4.0 planned March–May 2027; the world-seam front gate accepted. Its reviews of O35's draft: v4–v6 fold them.
 
 **Phase 3 ids, by where Maxim put them** (detail: `docs/plans/reviews/maxim_side.md` §1):
 - Tier A: OD-A1 (#1361), OD-A20 (declined), OD-A21 (#1361 Q1), OD-A2, OD-A3, OD-A4, OD-A8 (A3); OD-A5 (split with #1361); OD-A7 (A2, a gate item after 1.4.0); OD-A12 (A1,
@@ -69,7 +69,7 @@ stays a nit; OD-I6 is new.
 - Tier C: OD-H2 (C2), OD-H4 and OD-H5 (C5), OD-H6 (C3, disagreeing), OD-H1, OD-HX1, OD-HX5 (cautions).
 - Not in it yet: OD-C11 (proposed, tile §9), OD-A6, OD-A9, OD-H3, OD-X1, OD-X2; OD-B1, OD-B2, OD-B3, OD-B4, OD-B5, OD-B6, OD-B7 (Exp 64a's
   prerequisites), OD-B8, OD-B9, OD-B10, OD-B11, OD-B12, OD-B13; OD-C1, OD-C2, OD-C3, OD-C4, OD-C5, OD-C6, OD-C7,
-  OD-C8, OD-C9, OD-C10.
+  OD-C8, OD-C9, OD-C10, OD-C12; OD-A22.
 - Exit tests: OD-WC1, OD-EA4, OD-EA5, OD-EA6, OD-EA7, OD-EA9, OD-EA10, OD-EA11, OD-EA12, OD-EA14, OD-EA15, OD-EA16.
 
 ## 4. Decisions

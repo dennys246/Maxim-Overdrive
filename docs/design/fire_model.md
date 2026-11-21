@@ -202,8 +202,8 @@ conduction and damage are physics of the body's matter (Bio S4).
 
 | Quantity | World | Maxim |
 |---|---|---|
-| Heat on skin | incident flux per body region (W/m²); skin and basal-layer (~0.1 mm) temperature from a skin conduction model; contact temperature from effusivity | warm and cool receptors (adapting); nociceptors (sensitising) |
-| Tissue damage | a Henriques integral into the part's `integrity` | `drive:health` pain, which already conditions fear (it is in the fear set) |
+| Heat on skin | tissue temperature at each receptor depth the body declares; incident flux and contact stay internal (`sem_stimuli.md`) | warm and cool receptors (adapting); nociceptors (sensitising) |
+| Tissue damage | a Henriques integral into the part's `integrity` | Maxim's `apply_damage`; humanoids lack `drive:health`, so no fear yet |
 | Airway, smell, sound | concentrations and transients at the receptor (Phase 2) | chemical, olfactory and auditory receptors |
 | Sight | luminance, angular size and flicker of **whatever is in view**, after line of sight: a lamp excites it too | the percept |
 

@@ -1,0 +1,5741 @@
+{
+ "gasification": {
+  "ranges": {
+   "q25_Temp": {
+    "t_back_100C": {
+     "hi": 148.0,
+     "lo": 130.0,
+     "max": 145.0,
+     "min": 133.0,
+     "n": 3,
+     "of_repeats": 3
+    },
+    "t_back_200C": {
+     "hi": 348.0,
+     "lo": 341.0,
+     "max": 345.0,
+     "min": 344.0,
+     "n": 2,
+     "of_repeats": 3
+    },
+    "t_back_300C": {
+     "hi": 752.0,
+     "lo": 740.0,
+     "max": 749.0,
+     "min": 743.0,
+     "n": 2,
+     "of_repeats": 3
+    }
+   },
+   "q50_Mass": {
+    "peak_mlr": {
+     "hi": 30.6293,
+     "lo": 27.1083,
+     "max": 29.8822,
+     "min": 27.8034,
+     "n": 3,
+     "of_repeats": 3
+    },
+    "t_half_mass": {
+     "hi": 242.0,
+     "lo": 220.0,
+     "max": 239.0,
+     "min": 223.0,
+     "n": 3,
+     "of_repeats": 3
+    },
+    "t_half_peak": {
+     "hi": 68.0,
+     "lo": 57.0,
+     "max": 65.0,
+     "min": 60.0,
+     "n": 3,
+     "of_repeats": 3
+    },
+    "t_mlr_1": {
+     "hi": 38.0,
+     "lo": 28.0,
+     "max": 35.0,
+     "min": 31.0,
+     "n": 3,
+     "of_repeats": 3
+    },
+    "t_mlr_2.7": {
+     "hi": 44.0,
+     "lo": 34.0,
+     "max": 41.0,
+     "min": 37.0,
+     "n": 3,
+     "of_repeats": 3
+    },
+    "t_peak": {
+     "hi": 354.0,
+     "lo": 318.0,
+     "max": 346.0,
+     "min": 326.0,
+     "n": 3,
+     "of_repeats": 3
+    }
+   },
+   "q50_Temp": {
+    "t_back_100C": {
+     "hi": 117.0,
+     "lo": 109.0,
+     "max": 114.0,
+     "min": 112.0,
+     "n": 2,
+     "of_repeats": 5
+    }
+   }
+  },
+  "repeats": {
+   "q25_Temp_R1": {
+    "back_T_end_C": 300.35,
+    "t_back_100C": 145.0,
+    "t_back_200C": 345.0,
+    "t_back_300C": 749.0,
+    "t_end": 750.0
+   },
+   "q25_Temp_R2": {
+    "back_T_end_C": 301.55,
+    "t_back_100C": 145.0,
+    "t_back_200C": 344.0,
+    "t_back_300C": 743.0,
+    "t_end": 750.0
+   },
+   "q25_Temp_R3": {
+    "back_T_end_C": 127.85,
+    "t_back_100C": 133.0,
+    "t_back_200C": null,
+    "t_back_300C": null,
+    "t_end": 175.0
+   },
+   "q50_Mass_R3": {
+    "m0": 26.69,
+    "peak_mlr": 29.8822,
+    "t_half_mass": 226.0,
+    "t_half_peak": 65.0,
+    "t_mlr_1": 33.0,
+    "t_mlr_2.7": 38.0,
+    "t_peak": 346.0
+   },
+   "q50_Mass_R4": {
+    "m0": 25.64,
+    "peak_mlr": 28.0633,
+    "t_half_mass": 223.0,
+    "t_half_peak": 65.0,
+    "t_mlr_1": 35.0,
+    "t_mlr_2.7": 41.0,
+    "t_peak": 326.0
+   },
+   "q50_Mass_R5": {
+    "m0": 28.11,
+    "peak_mlr": 27.8034,
+    "t_half_mass": 239.0,
+    "t_half_peak": 60.0,
+    "t_mlr_1": 31.0,
+    "t_mlr_2.7": 37.0,
+    "t_peak": 337.0
+   },
+   "q50_Temp_R1": {
+    "back_T_end_C": 86.0833,
+    "t_back_100C": null,
+    "t_back_200C": null,
+    "t_back_300C": null,
+    "t_end": 82.0
+   },
+   "q50_Temp_R2": {
+    "back_T_end_C": 83.9167,
+    "t_back_100C": null,
+    "t_back_200C": null,
+    "t_back_300C": null,
+    "t_end": 83.0
+   },
+   "q50_Temp_R3": {
+    "back_T_end_C": 181.55,
+    "t_back_100C": 114.0,
+    "t_back_200C": null,
+    "t_back_300C": null,
+    "t_end": 208.0
+   },
+   "q50_Temp_R4": {
+    "back_T_end_C": 178.75,
+    "t_back_100C": 112.0,
+    "t_back_200C": null,
+    "t_back_300C": null,
+    "t_end": 210.0
+   },
+   "q50_Temp_R5": {
+    "back_T_end_C": 81.2518,
+    "t_back_100C": null,
+    "t_back_200C": null,
+    "t_back_300C": null,
+    "t_end": 96.0
+   }
+  }
+ },
+ "pine": {
+  "dhc_eff": {
+   "30": {
+    "mean": 13.7495,
+    "n": 12,
+    "tests": {
+     "Aalto_Wood_Cone_30kW_hor_parallel_R1": 14.9101,
+     "Aalto_Wood_Cone_30kW_hor_parallel_R2": 12.2307,
+     "Aalto_Wood_Cone_30kW_hor_parallel_R3": 14.8085,
+     "FZJ_Wood_Cone_30kW_hor_parallel_R1": 14.6221,
+     "FZJ_Wood_Cone_30kW_hor_parallel_R2": 12.6625,
+     "FZJ_Wood_Cone_30kW_hor_parallel_R3": 13.2405,
+     "TUBS_Wood_Cone_30kW_hor_R1": 10.1425,
+     "TUBS_Wood_Cone_30kW_hor_R2": 11.4891,
+     "TUBS_Wood_Cone_30kW_hor_R3": 9.75886,
+     "UDRI_Wood_Cone_30kW_hor_R1": 17.4796,
+     "UDRI_Wood_Cone_30kW_hor_R2": 16.8968,
+     "UDRI_Wood_Cone_30kW_hor_R3": 16.7523
+    }
+   },
+   "60": {
+    "mean": 14.3653,
+    "n": 14,
+    "tests": {
+     "Aalto_Wood_Cone_60kW_hor_parallel_R1": 13.4675,
+     "Aalto_Wood_Cone_60kW_hor_parallel_R2": 11.9969,
+     "Aalto_Wood_Cone_60kW_hor_parallel_R3": 13.1376,
+     "FZJ_Wood_Cone_60kW_hor_parallel_R1": 14.7313,
+     "FZJ_Wood_Cone_60kW_hor_parallel_R2": 14.3939,
+     "FZJ_Wood_Cone_60kW_hor_parallel_R3": 14.3631,
+     "FZJ_Wood_Cone_60kW_hor_parallel_R4": 13.3587,
+     "UDRI_Wood_Cone_60kW_hor_R1": 14.9725,
+     "UDRI_Wood_Cone_60kW_hor_R2": 15.5687,
+     "UDRI_Wood_Cone_60kW_hor_R3": 18.7389,
+     "UDRI_Wood_Cone_60kW_hor_R4": 18.1944,
+     "UQ_Wood_Cone_60kW_hor_Parallel_R1": 12.5702,
+     "UQ_Wood_Cone_60kW_hor_Parallel_R2": 13.1798,
+     "UQ_Wood_Cone_60kW_hor_Parallel_R3": 12.4404
+    }
+   },
+   "pooled_fit_tests": {
+    "mean": 14.0811,
+    "n": 26,
+    "tests": {
+     "Aalto_Wood_Cone_30kW_hor_parallel_R1": 14.9101,
+     "Aalto_Wood_Cone_30kW_hor_parallel_R2": 12.2307,
+     "Aalto_Wood_Cone_30kW_hor_parallel_R3": 14.8085,
+     "Aalto_Wood_Cone_60kW_hor_parallel_R1": 13.4675,
+     "Aalto_Wood_Cone_60kW_hor_parallel_R2": 11.9969,
+     "Aalto_Wood_Cone_60kW_hor_parallel_R3": 13.1376,
+     "FZJ_Wood_Cone_30kW_hor_parallel_R1": 14.6221,
+     "FZJ_Wood_Cone_30kW_hor_parallel_R2": 12.6625,
+     "FZJ_Wood_Cone_30kW_hor_parallel_R3": 13.2405,
+     "FZJ_Wood_Cone_60kW_hor_parallel_R1": 14.7313,
+     "FZJ_Wood_Cone_60kW_hor_parallel_R2": 14.3939,
+     "FZJ_Wood_Cone_60kW_hor_parallel_R3": 14.3631,
+     "FZJ_Wood_Cone_60kW_hor_parallel_R4": 13.3587,
+     "TUBS_Wood_Cone_30kW_hor_R1": 10.1425,
+     "TUBS_Wood_Cone_30kW_hor_R2": 11.4891,
+     "TUBS_Wood_Cone_30kW_hor_R3": 9.75886,
+     "UDRI_Wood_Cone_30kW_hor_R1": 17.4796,
+     "UDRI_Wood_Cone_30kW_hor_R2": 16.8968,
+     "UDRI_Wood_Cone_30kW_hor_R3": 16.7523,
+     "UDRI_Wood_Cone_60kW_hor_R1": 14.9725,
+     "UDRI_Wood_Cone_60kW_hor_R2": 15.5687,
+     "UDRI_Wood_Cone_60kW_hor_R3": 18.7389,
+     "UDRI_Wood_Cone_60kW_hor_R4": 18.1944,
+     "UQ_Wood_Cone_60kW_hor_Parallel_R1": 12.5702,
+     "UQ_Wood_Cone_60kW_hor_Parallel_R2": 13.1798,
+     "UQ_Wood_Cone_60kW_hor_Parallel_R3": 12.4404
+    }
+   }
+  },
+  "envelope": {
+   "25": {
+    "first_peak": {
+     "hi": 11.0153,
+     "labs": {
+      "FSRI": {
+       "mean": 9.88636,
+       "n": 3,
+       "tests": [
+        "FSRI_Wood_Cone_25kW_hor_Parallel_R1",
+        "FSRI_Wood_Cone_25kW_hor_Parallel_R2",
+        "FSRI_Wood_Cone_25kW_hor_Parallel_R3"
+       ]
+      },
+      "IMT": {
+       "mean": 10.7466,
+       "n": 3,
+       "tests": [
+        "IMT_Wood_Cone_25kW_hor_R1",
+        "IMT_Wood_Cone_25kW_hor_R3",
+        "IMT_Wood_Cone_25kW_hor_R4"
+       ]
+      }
+     },
+     "lo": 9.6392,
+     "max": 10.7466,
+     "min": 9.88636,
+     "n_labs": 2
+    },
+    "plateau": {
+     "hi": 4.02369,
+     "labs": {
+      "FSRI": {
+       "mean": 3.78966,
+       "n": 3,
+       "tests": [
+        "FSRI_Wood_Cone_25kW_hor_Parallel_R1",
+        "FSRI_Wood_Cone_25kW_hor_Parallel_R2",
+        "FSRI_Wood_Cone_25kW_hor_Parallel_R3"
+       ]
+      },
+      "IMT": {
+       "mean": 3.92555,
+       "n": 3,
+       "tests": [
+        "IMT_Wood_Cone_25kW_hor_R1",
+        "IMT_Wood_Cone_25kW_hor_R3",
+        "IMT_Wood_Cone_25kW_hor_R4"
+       ]
+      }
+     },
+     "lo": 3.69492,
+     "max": 3.92555,
+     "min": 3.78966,
+     "n_labs": 2
+    },
+    "role": "graded",
+    "t_ig": {
+     "hi": 121.333,
+     "labs": {
+      "FSRI": {
+       "mean": 70.3333,
+       "n": 3,
+       "tests": [
+        "FSRI_Wood_Cone_25kW_hor_Parallel_R1",
+        "FSRI_Wood_Cone_25kW_hor_Parallel_R2",
+        "FSRI_Wood_Cone_25kW_hor_Parallel_R3"
+       ]
+      },
+      "IMT": {
+       "mean": 118.333,
+       "n": 3,
+       "tests": [
+        "IMT_Wood_Cone_25kW_hor_R1",
+        "IMT_Wood_Cone_25kW_hor_R3",
+        "IMT_Wood_Cone_25kW_hor_R4"
+       ]
+      }
+     },
+     "lo": 67.3333,
+     "max": 118.333,
+     "min": 70.3333,
+     "n_labs": 2
+    }
+   },
+   "30": {
+    "first_peak": {
+     "hi": 14.9479,
+     "labs": {
+      "Aalto": {
+       "mean": 11.15,
+       "n": 3,
+       "tests": [
+        "Aalto_Wood_Cone_30kW_hor_parallel_R1",
+        "Aalto_Wood_Cone_30kW_hor_parallel_R2",
+        "Aalto_Wood_Cone_30kW_hor_parallel_R3"
+       ]
+      },
+      "FZJ": {
+       "mean": 14.5833,
+       "n": 3,
+       "tests": [
+        "FZJ_Wood_Cone_30kW_hor_parallel_R1",
+        "FZJ_Wood_Cone_30kW_hor_parallel_R2",
+        "FZJ_Wood_Cone_30kW_hor_parallel_R3"
+       ]
+      },
+      "TUBS": {
+       "mean": 12.2035,
+       "n": 3,
+       "tests": [
+        "TUBS_Wood_Cone_30kW_hor_R1",
+        "TUBS_Wood_Cone_30kW_hor_R2",
+        "TUBS_Wood_Cone_30kW_hor_R3"
+       ]
+      },
+      "UDRI": {
+       "mean": 10.75,
+       "n": 3,
+       "tests": [
+        "UDRI_Wood_Cone_30kW_hor_R1",
+        "UDRI_Wood_Cone_30kW_hor_R2",
+        "UDRI_Wood_Cone_30kW_hor_R3"
+       ]
+      }
+     },
+     "lo": 10.4812,
+     "max": 14.5833,
+     "min": 10.75,
+     "n_labs": 4
+    },
+    "plateau": {
+     "hi": 5.01569,
+     "labs": {
+      "Aalto": {
+       "mean": 4.89336,
+       "n": 3,
+       "tests": [
+        "Aalto_Wood_Cone_30kW_hor_parallel_R1",
+        "Aalto_Wood_Cone_30kW_hor_parallel_R2",
+        "Aalto_Wood_Cone_30kW_hor_parallel_R3"
+       ]
+      },
+      "FZJ": {
+       "mean": 4.56147,
+       "n": 3,
+       "tests": [
+        "FZJ_Wood_Cone_30kW_hor_parallel_R1",
+        "FZJ_Wood_Cone_30kW_hor_parallel_R2",
+        "FZJ_Wood_Cone_30kW_hor_parallel_R3"
+       ]
+      },
+      "TUBS": {
+       "mean": 4.70242,
+       "n": 3,
+       "tests": [
+        "TUBS_Wood_Cone_30kW_hor_R1",
+        "TUBS_Wood_Cone_30kW_hor_R2",
+        "TUBS_Wood_Cone_30kW_hor_R3"
+       ]
+      },
+      "UDRI": {
+       "mean": 4.31726,
+       "n": 3,
+       "tests": [
+        "UDRI_Wood_Cone_30kW_hor_R1",
+        "UDRI_Wood_Cone_30kW_hor_R2",
+        "UDRI_Wood_Cone_30kW_hor_R3"
+       ]
+      }
+     },
+     "lo": 4.20932,
+     "max": 4.89336,
+     "min": 4.31726,
+     "n_labs": 4
+    },
+    "role": "fit",
+    "t_ig": {
+     "hi": 54.6667,
+     "labs": {
+      "Aalto": {
+       "mean": 51.6667,
+       "n": 3,
+       "tests": [
+        "Aalto_Wood_Cone_30kW_hor_parallel_R1",
+        "Aalto_Wood_Cone_30kW_hor_parallel_R2",
+        "Aalto_Wood_Cone_30kW_hor_parallel_R3"
+       ]
+      },
+      "FZJ": {
+       "mean": 34.3333,
+       "n": 3,
+       "tests": [
+        "FZJ_Wood_Cone_30kW_hor_parallel_R1",
+        "FZJ_Wood_Cone_30kW_hor_parallel_R2",
+        "FZJ_Wood_Cone_30kW_hor_parallel_R3"
+       ]
+      },
+      "TUBS": {
+       "mean": 31.0,
+       "n": 3,
+       "tests": [
+        "TUBS_Wood_Cone_30kW_hor_R1",
+        "TUBS_Wood_Cone_30kW_hor_R2",
+        "TUBS_Wood_Cone_30kW_hor_R3"
+       ]
+      },
+      "UDRI": {
+       "mean": 36.3333,
+       "n": 3,
+       "tests": [
+        "UDRI_Wood_Cone_30kW_hor_R1",
+        "UDRI_Wood_Cone_30kW_hor_R2",
+        "UDRI_Wood_Cone_30kW_hor_R3"
+       ]
+      }
+     },
+     "lo": 28.0,
+     "max": 51.6667,
+     "min": 31.0,
+     "n_labs": 4
+    }
+   },
+   "45": {
+    "first_peak": {
+     "hi": 13.8887,
+     "labs": {
+      "Aalto": {
+       "mean": 13.55,
+       "n": 3,
+       "tests": [
+        "Aalto_Wood_Cone_45kW_hor_parallel_R1",
+        "Aalto_Wood_Cone_45kW_hor_parallel_R2",
+        "Aalto_Wood_Cone_45kW_hor_parallel_R3"
+       ]
+      }
+     },
+     "lo": 13.2112,
+     "max": 13.55,
+     "min": 13.55,
+     "n_labs": 1
+    },
+    "plateau": {
+     "hi": 6.04931,
+     "labs": {
+      "Aalto": {
+       "mean": 5.90176,
+       "n": 3,
+       "tests": [
+        "Aalto_Wood_Cone_45kW_hor_parallel_R1",
+        "Aalto_Wood_Cone_45kW_hor_parallel_R2",
+        "Aalto_Wood_Cone_45kW_hor_parallel_R3"
+       ]
+      }
+     },
+     "lo": 5.75422,
+     "max": 5.90176,
+     "min": 5.90176,
+     "n_labs": 1
+    },
+    "role": "cross-check",
+    "t_ig": {
+     "hi": 31.3333,
+     "labs": {
+      "Aalto": {
+       "mean": 28.3333,
+       "n": 3,
+       "tests": [
+        "Aalto_Wood_Cone_45kW_hor_parallel_R1",
+        "Aalto_Wood_Cone_45kW_hor_parallel_R2",
+        "Aalto_Wood_Cone_45kW_hor_parallel_R3"
+       ]
+      }
+     },
+     "lo": 25.3333,
+     "max": 28.3333,
+     "min": 28.3333,
+     "n_labs": 1
+    }
+   },
+   "50": {
+    "first_peak": {
+     "hi": 14.1053,
+     "labs": {
+      "FPL": {
+       "mean": 13.7613,
+       "n": 5,
+       "tests": [
+        "FPL_Wood_Cone_50kW_hor_R1",
+        "FPL_Wood_Cone_50kW_hor_R2",
+        "FPL_Wood_Cone_50kW_hor_R3",
+        "FPL_Wood_Cone_50kW_hor_R5",
+        "FPL_Wood_Cone_50kW_hor_R6"
+       ]
+      },
+      "FSRI": {
+       "mean": 13.7121,
+       "n": 3,
+       "tests": [
+        "FSRI_Wood_Cone_50kW_hor_Parallel_R1",
+        "FSRI_Wood_Cone_50kW_hor_Parallel_R2",
+        "FSRI_Wood_Cone_50kW_hor_Parallel_R3"
+       ]
+      },
+      "IMT": {
+       "mean": 12.3963,
+       "n": 4,
+       "tests": [
+        "IMT_Wood_Cone_50kW_hor_R1",
+        "IMT_Wood_Cone_50kW_hor_R2",
+        "IMT_Wood_Cone_50kW_hor_R3",
+        "IMT_Wood_Cone_50kW_hor_R4"
+       ]
+      }
+     },
+     "lo": 12.0864,
+     "max": 13.7613,
+     "min": 12.3963,
+     "n_labs": 3
+    },
+    "plateau": {
+     "hi": 6.38669,
+     "labs": {
+      "FPL": {
+       "mean": 5.95064,
+       "n": 5,
+       "tests": [
+        "FPL_Wood_Cone_50kW_hor_R1",
+        "FPL_Wood_Cone_50kW_hor_R2",
+        "FPL_Wood_Cone_50kW_hor_R3",
+        "FPL_Wood_Cone_50kW_hor_R5",
+        "FPL_Wood_Cone_50kW_hor_R6"
+       ]
+      },
+      "FSRI": {
+       "mean": 5.75486,
+       "n": 3,
+       "tests": [
+        "FSRI_Wood_Cone_50kW_hor_Parallel_R1",
+        "FSRI_Wood_Cone_50kW_hor_Parallel_R2",
+        "FSRI_Wood_Cone_50kW_hor_Parallel_R3"
+       ]
+      },
+      "IMT": {
+       "mean": 6.23092,
+       "n": 4,
+       "tests": [
+        "IMT_Wood_Cone_50kW_hor_R1",
+        "IMT_Wood_Cone_50kW_hor_R2",
+        "IMT_Wood_Cone_50kW_hor_R3",
+        "IMT_Wood_Cone_50kW_hor_R4"
+       ]
+      }
+     },
+     "lo": 5.61099,
+     "max": 6.23092,
+     "min": 5.75486,
+     "n_labs": 3
+    },
+    "role": "graded",
+    "t_ig": {
+     "hi": 26.3333,
+     "labs": {
+      "FPL": {
+       "mean": 13.8,
+       "n": 5,
+       "tests": [
+        "FPL_Wood_Cone_50kW_hor_R1",
+        "FPL_Wood_Cone_50kW_hor_R2",
+        "FPL_Wood_Cone_50kW_hor_R3",
+        "FPL_Wood_Cone_50kW_hor_R5",
+        "FPL_Wood_Cone_50kW_hor_R6"
+       ]
+      },
+      "FSRI": {
+       "mean": 23.3333,
+       "n": 3,
+       "tests": [
+        "FSRI_Wood_Cone_50kW_hor_Parallel_R1",
+        "FSRI_Wood_Cone_50kW_hor_Parallel_R2",
+        "FSRI_Wood_Cone_50kW_hor_Parallel_R3"
+       ]
+      },
+      "IMT": {
+       "mean": 15.0,
+       "n": 4,
+       "tests": [
+        "IMT_Wood_Cone_50kW_hor_R1",
+        "IMT_Wood_Cone_50kW_hor_R2",
+        "IMT_Wood_Cone_50kW_hor_R3",
+        "IMT_Wood_Cone_50kW_hor_R4"
+       ]
+      }
+     },
+     "lo": 10.8,
+     "max": 23.3333,
+     "min": 13.8,
+     "n_labs": 3
+    }
+   },
+   "60": {
+    "first_peak": {
+     "hi": 18.8693,
+     "labs": {
+      "Aalto": {
+       "mean": 15.9667,
+       "n": 3,
+       "tests": [
+        "Aalto_Wood_Cone_60kW_hor_parallel_R1",
+        "Aalto_Wood_Cone_60kW_hor_parallel_R2",
+        "Aalto_Wood_Cone_60kW_hor_parallel_R3"
+       ]
+      },
+      "FZJ": {
+       "mean": 18.0625,
+       "n": 4,
+       "tests": [
+        "FZJ_Wood_Cone_60kW_hor_parallel_R1",
+        "FZJ_Wood_Cone_60kW_hor_parallel_R2",
+        "FZJ_Wood_Cone_60kW_hor_parallel_R3",
+        "FZJ_Wood_Cone_60kW_hor_parallel_R4"
+       ]
+      },
+      "UDRI": {
+       "mean": 14.3852,
+       "n": 4,
+       "tests": [
+        "UDRI_Wood_Cone_60kW_hor_R1",
+        "UDRI_Wood_Cone_60kW_hor_R2",
+        "UDRI_Wood_Cone_60kW_hor_R3",
+        "UDRI_Wood_Cone_60kW_hor_R4"
+       ]
+      },
+      "UQ": {
+       "mean": 18.4091,
+       "n": 3,
+       "tests": [
+        "UQ_Wood_Cone_60kW_hor_Parallel_R1",
+        "UQ_Wood_Cone_60kW_hor_Parallel_R2",
+        "UQ_Wood_Cone_60kW_hor_Parallel_R3"
+       ]
+      }
+     },
+     "lo": 14.0256,
+     "max": 18.4091,
+     "min": 14.3852,
+     "n_labs": 4
+    },
+    "plateau": {
+     "hi": 7.3266,
+     "labs": {
+      "Aalto": {
+       "mean": 7.10298,
+       "n": 3,
+       "tests": [
+        "Aalto_Wood_Cone_60kW_hor_parallel_R1",
+        "Aalto_Wood_Cone_60kW_hor_parallel_R2",
+        "Aalto_Wood_Cone_60kW_hor_parallel_R3"
+       ]
+      },
+      "FZJ": {
+       "mean": 5.97255,
+       "n": 4,
+       "tests": [
+        "FZJ_Wood_Cone_60kW_hor_parallel_R1",
+        "FZJ_Wood_Cone_60kW_hor_parallel_R2",
+        "FZJ_Wood_Cone_60kW_hor_parallel_R3",
+        "FZJ_Wood_Cone_60kW_hor_parallel_R4"
+       ]
+      },
+      "UDRI": {
+       "mean": 7.1479,
+       "n": 4,
+       "tests": [
+        "UDRI_Wood_Cone_60kW_hor_R1",
+        "UDRI_Wood_Cone_60kW_hor_R2",
+        "UDRI_Wood_Cone_60kW_hor_R3",
+        "UDRI_Wood_Cone_60kW_hor_R4"
+       ]
+      },
+      "UQ": {
+       "mean": 6.28693,
+       "n": 2,
+       "tests": [
+        "UQ_Wood_Cone_60kW_hor_Parallel_R1",
+        "UQ_Wood_Cone_60kW_hor_Parallel_R2"
+       ]
+      }
+     },
+     "lo": 5.82324,
+     "max": 7.1479,
+     "min": 5.97255,
+     "n_labs": 4
+    },
+    "role": "fit",
+    "t_ig": {
+     "hi": 23.0,
+     "labs": {
+      "Aalto": {
+       "mean": 20.0,
+       "n": 3,
+       "tests": [
+        "Aalto_Wood_Cone_60kW_hor_parallel_R1",
+        "Aalto_Wood_Cone_60kW_hor_parallel_R2",
+        "Aalto_Wood_Cone_60kW_hor_parallel_R3"
+       ]
+      },
+      "FZJ": {
+       "mean": 8.75,
+       "n": 4,
+       "tests": [
+        "FZJ_Wood_Cone_60kW_hor_parallel_R1",
+        "FZJ_Wood_Cone_60kW_hor_parallel_R2",
+        "FZJ_Wood_Cone_60kW_hor_parallel_R3",
+        "FZJ_Wood_Cone_60kW_hor_parallel_R4"
+       ]
+      },
+      "UDRI": {
+       "mean": 11.0,
+       "n": 4,
+       "tests": [
+        "UDRI_Wood_Cone_60kW_hor_R1",
+        "UDRI_Wood_Cone_60kW_hor_R2",
+        "UDRI_Wood_Cone_60kW_hor_R3",
+        "UDRI_Wood_Cone_60kW_hor_R4"
+       ]
+      },
+      "UQ": {
+       "mean": 13.3333,
+       "n": 3,
+       "tests": [
+        "UQ_Wood_Cone_60kW_hor_Parallel_R1",
+        "UQ_Wood_Cone_60kW_hor_Parallel_R2",
+        "UQ_Wood_Cone_60kW_hor_Parallel_R3"
+       ]
+      }
+     },
+     "lo": 5.75,
+     "max": 20.0,
+     "min": 8.75,
+     "n_labs": 4
+    }
+   },
+   "75": {
+    "first_peak": {
+     "hi": 21.525,
+     "labs": {
+      "FSRI": {
+       "mean": 17.9621,
+       "n": 3,
+       "tests": [
+        "FSRI_Wood_Cone_75kW_hor_Parallel_R1",
+        "FSRI_Wood_Cone_75kW_hor_Parallel_R2",
+        "FSRI_Wood_Cone_75kW_hor_Parallel_R3"
+       ]
+      },
+      "FZJ": {
+       "mean": 21.0,
+       "n": 2,
+       "tests": [
+        "FZJ_Wood_Cone_75kW_hor_parallel_R2",
+        "FZJ_Wood_Cone_75kW_hor_parallel_R3"
+       ]
+      },
+      "IMT": {
+       "mean": 17.0312,
+       "n": 3,
+       "tests": [
+        "IMT_Wood_Cone_75kW_hor_R1",
+        "IMT_Wood_Cone_75kW_hor_R2",
+        "IMT_Wood_Cone_75kW_hor_R3"
+       ]
+      }
+     },
+     "lo": 16.6054,
+     "max": 21.0,
+     "min": 17.0312,
+     "n_labs": 3
+    },
+    "plateau": {
+     "hi": 7.65931,
+     "labs": {
+      "FSRI": {
+       "mean": 6.85312,
+       "n": 3,
+       "tests": [
+        "FSRI_Wood_Cone_75kW_hor_Parallel_R1",
+        "FSRI_Wood_Cone_75kW_hor_Parallel_R2",
+        "FSRI_Wood_Cone_75kW_hor_Parallel_R3"
+       ]
+      },
+      "FZJ": {
+       "mean": 6.49216,
+       "n": 2,
+       "tests": [
+        "FZJ_Wood_Cone_75kW_hor_parallel_R2",
+        "FZJ_Wood_Cone_75kW_hor_parallel_R3"
+       ]
+      },
+      "IMT": {
+       "mean": 7.4725,
+       "n": 3,
+       "tests": [
+        "IMT_Wood_Cone_75kW_hor_R1",
+        "IMT_Wood_Cone_75kW_hor_R2",
+        "IMT_Wood_Cone_75kW_hor_R3"
+       ]
+      }
+     },
+     "lo": 6.32986,
+     "max": 7.4725,
+     "min": 6.49216,
+     "n_labs": 3
+    },
+    "role": "graded",
+    "t_ig": {
+     "hi": 10.6667,
+     "labs": {
+      "FSRI": {
+       "mean": 7.66667,
+       "n": 3,
+       "tests": [
+        "FSRI_Wood_Cone_75kW_hor_Parallel_R1",
+        "FSRI_Wood_Cone_75kW_hor_Parallel_R2",
+        "FSRI_Wood_Cone_75kW_hor_Parallel_R3"
+       ]
+      },
+      "FZJ": {
+       "mean": 3.66667,
+       "n": 3,
+       "tests": [
+        "FZJ_Wood_Cone_75kW_hor_parallel_R1",
+        "FZJ_Wood_Cone_75kW_hor_parallel_R2",
+        "FZJ_Wood_Cone_75kW_hor_parallel_R3"
+       ]
+      },
+      "IMT": {
+       "mean": 5.0,
+       "n": 3,
+       "tests": [
+        "IMT_Wood_Cone_75kW_hor_R1",
+        "IMT_Wood_Cone_75kW_hor_R2",
+        "IMT_Wood_Cone_75kW_hor_R3"
+       ]
+      }
+     },
+     "lo": 0.666667,
+     "max": 7.66667,
+     "min": 3.66667,
+     "n_labs": 3
+    }
+   }
+  },
+  "m_ext": {
+   "n": 0,
+   "source": "fallback (leak: 25 kW/m² median, fire_solid §4.4)",
+   "tests": {
+    "Aalto_Wood_Cone_30kW_hor_parallel_R1": {
+     "m60": null,
+     "m60_at_record_end_minus_30s_reported_only": 1.25,
+     "t_flameout": 1854.0,
+     "t_record_end": 1870.0
+    },
+    "Aalto_Wood_Cone_30kW_hor_parallel_R2": {
+     "m60": null,
+     "m60_at_record_end_minus_30s_reported_only": 1.68333,
+     "t_flameout": 1326.0,
+     "t_record_end": 1320.0
+    },
+    "Aalto_Wood_Cone_30kW_hor_parallel_R3": {
+     "m60": null,
+     "m60_at_record_end_minus_30s_reported_only": 1.38333,
+     "t_flameout": 2156.0,
+     "t_record_end": 2160.0
+    },
+    "Aalto_Wood_Cone_60kW_hor_parallel_R1": {
+     "m60": null,
+     "m60_at_record_end_minus_30s_reported_only": 1.38333,
+     "t_flameout": 1492.0,
+     "t_record_end": 1495.0
+    },
+    "Aalto_Wood_Cone_60kW_hor_parallel_R2": {
+     "m60": null,
+     "m60_at_record_end_minus_30s_reported_only": 1.08333,
+     "t_flameout": 1090.0,
+     "t_record_end": 1095.0
+    },
+    "Aalto_Wood_Cone_60kW_hor_parallel_R3": {
+     "m60": null,
+     "m60_at_record_end_minus_30s_reported_only": 1.16667,
+     "t_flameout": 1231.0,
+     "t_record_end": 1230.0
+    },
+    "UQ_Wood_Cone_60kW_hor_Parallel_R1": {
+     "m60": null,
+     "m60_at_record_end_minus_30s_reported_only": 6.33333,
+     "t_flameout": 908.0,
+     "t_record_end": 908.0
+    },
+    "UQ_Wood_Cone_60kW_hor_Parallel_R2": {
+     "m60": null,
+     "m60_at_record_end_minus_30s_reported_only": 5.5,
+     "t_flameout": 920.0,
+     "t_record_end": 920.0
+    },
+    "UQ_Wood_Cone_60kW_hor_Parallel_R3": {
+     "m60": null,
+     "m60_at_record_end_minus_30s_reported_only": 2.33333,
+     "t_flameout": 918.0,
+     "t_record_end": 918.0
+    }
+   },
+   "value": 1.17
+  },
+  "per_lab": {
+   "25": {
+    "FSRI": {
+     "first_peak": {
+      "hi": 10.9489,
+      "lo": 9.04091,
+      "max": 10.6818,
+      "mean": 9.88636,
+      "min": 9.27273,
+      "n": 3,
+      "tests": {
+       "FSRI_Wood_Cone_25kW_hor_Parallel_R1": 9.27273,
+       "FSRI_Wood_Cone_25kW_hor_Parallel_R2": 10.6818,
+       "FSRI_Wood_Cone_25kW_hor_Parallel_R3": 9.70455
+      }
+     },
+     "plateau": {
+      "hi": 4.16153,
+      "lo": 3.52496,
+      "max": 4.06003,
+      "mean": 3.78966,
+      "min": 3.61534,
+      "n": 3,
+      "tests": {
+       "FSRI_Wood_Cone_25kW_hor_Parallel_R1": 3.61534,
+       "FSRI_Wood_Cone_25kW_hor_Parallel_R2": 3.69362,
+       "FSRI_Wood_Cone_25kW_hor_Parallel_R3": 4.06003
+      }
+     },
+     "t_ig": {
+      "hi": 99.0,
+      "lo": 24.0,
+      "max": 96.0,
+      "mean": 70.3333,
+      "min": 27.0,
+      "n": 3,
+      "tests": {
+       "FSRI_Wood_Cone_25kW_hor_Parallel_R1": 88.0,
+       "FSRI_Wood_Cone_25kW_hor_Parallel_R2": 96.0,
+       "FSRI_Wood_Cone_25kW_hor_Parallel_R3": 27.0
+      }
+     }
+    },
+    "IMT": {
+     "first_peak": {
+      "hi": 11.4018,
+      "lo": 10.1103,
+      "max": 11.1237,
+      "mean": 10.7466,
+      "min": 10.3695,
+      "n": 3,
+      "tests": {
+       "IMT_Wood_Cone_25kW_hor_R1": 10.3695,
+       "IMT_Wood_Cone_25kW_hor_R3": 10.7466,
+       "IMT_Wood_Cone_25kW_hor_R4": 11.1237
+      }
+     },
+     "plateau": {
+      "hi": 4.21851,
+      "lo": 3.70337,
+      "max": 4.11562,
+      "mean": 3.92555,
+      "min": 3.79833,
+      "n": 3,
+      "tests": {
+       "IMT_Wood_Cone_25kW_hor_R1": 3.86271,
+       "IMT_Wood_Cone_25kW_hor_R3": 3.79833,
+       "IMT_Wood_Cone_25kW_hor_R4": 4.11562
+      }
+     },
+     "t_ig": {
+      "hi": 133.0,
+      "lo": 102.0,
+      "max": 130.0,
+      "mean": 118.333,
+      "min": 105.0,
+      "n": 3,
+      "tests": {
+       "IMT_Wood_Cone_25kW_hor_R1": 130.0,
+       "IMT_Wood_Cone_25kW_hor_R3": 120.0,
+       "IMT_Wood_Cone_25kW_hor_R4": 105.0
+      }
+     }
+    }
+   },
+   "30": {
+    "Aalto": {
+     "first_peak": {
+      "hi": 11.685,
+      "lo": 10.7087,
+      "max": 11.4,
+      "mean": 11.15,
+      "min": 10.9833,
+      "n": 3,
+      "tests": {
+       "Aalto_Wood_Cone_30kW_hor_parallel_R1": 10.9833,
+       "Aalto_Wood_Cone_30kW_hor_parallel_R2": 11.0667,
+       "Aalto_Wood_Cone_30kW_hor_parallel_R3": 11.4
+      }
+     },
+     "plateau": {
+      "hi": 5.58375,
+      "lo": 4.40613,
+      "max": 5.44756,
+      "mean": 4.89336,
+      "min": 4.51911,
+      "n": 3,
+      "tests": {
+       "Aalto_Wood_Cone_30kW_hor_parallel_R1": 5.44756,
+       "Aalto_Wood_Cone_30kW_hor_parallel_R2": 4.51911,
+       "Aalto_Wood_Cone_30kW_hor_parallel_R3": 4.71341
+      }
+     },
+     "t_ig": {
+      "hi": 63.0,
+      "lo": 42.0,
+      "max": 60.0,
+      "mean": 51.6667,
+      "min": 45.0,
+      "n": 3,
+      "tests": {
+       "Aalto_Wood_Cone_30kW_hor_parallel_R1": 45.0,
+       "Aalto_Wood_Cone_30kW_hor_parallel_R2": 60.0,
+       "Aalto_Wood_Cone_30kW_hor_parallel_R3": 50.0
+      }
+     }
+    },
+    "FZJ": {
+     "first_peak": {
+      "hi": 17.1222,
+      "lo": 13.0739,
+      "max": 16.7045,
+      "mean": 14.5833,
+      "min": 13.4091,
+      "n": 3,
+      "tests": {
+       "FZJ_Wood_Cone_30kW_hor_parallel_R1": 13.6364,
+       "FZJ_Wood_Cone_30kW_hor_parallel_R2": 13.4091,
+       "FZJ_Wood_Cone_30kW_hor_parallel_R3": 16.7045
+      }
+     },
+     "plateau": {
+      "hi": 4.77568,
+      "lo": 4.38475,
+      "max": 4.6592,
+      "mean": 4.56147,
+      "min": 4.49718,
+      "n": 3,
+      "tests": {
+       "FZJ_Wood_Cone_30kW_hor_parallel_R1": 4.6592,
+       "FZJ_Wood_Cone_30kW_hor_parallel_R2": 4.49718,
+       "FZJ_Wood_Cone_30kW_hor_parallel_R3": 4.52803
+      }
+     },
+     "t_ig": {
+      "hi": 50.0,
+      "lo": 18.0,
+      "max": 47.0,
+      "mean": 34.3333,
+      "min": 21.0,
+      "n": 3,
+      "tests": {
+       "FZJ_Wood_Cone_30kW_hor_parallel_R1": 21.0,
+       "FZJ_Wood_Cone_30kW_hor_parallel_R2": 35.0,
+       "FZJ_Wood_Cone_30kW_hor_parallel_R3": 47.0
+      }
+     }
+    },
+    "TUBS": {
+     "first_peak": {
+      "hi": 13.466,
+      "lo": 11.4305,
+      "max": 13.1376,
+      "mean": 12.2035,
+      "min": 11.7236,
+      "n": 3,
+      "tests": {
+       "TUBS_Wood_Cone_30kW_hor_R1": 11.7236,
+       "TUBS_Wood_Cone_30kW_hor_R2": 13.1376,
+       "TUBS_Wood_Cone_30kW_hor_R3": 11.7493
+      }
+     },
+     "plateau": {
+      "hi": 5.08835,
+      "lo": 4.29114,
+      "max": 4.96424,
+      "mean": 4.70242,
+      "min": 4.40117,
+      "n": 3,
+      "tests": {
+       "TUBS_Wood_Cone_30kW_hor_R1": 4.74185,
+       "TUBS_Wood_Cone_30kW_hor_R2": 4.96424,
+       "TUBS_Wood_Cone_30kW_hor_R3": 4.40117
+      }
+     },
+     "t_ig": {
+      "hi": 35.0,
+      "lo": 27.0,
+      "max": 32.0,
+      "mean": 31.0,
+      "min": 30.0,
+      "n": 3,
+      "tests": {
+       "TUBS_Wood_Cone_30kW_hor_R1": 31.0,
+       "TUBS_Wood_Cone_30kW_hor_R2": 32.0,
+       "TUBS_Wood_Cone_30kW_hor_R3": 30.0
+      }
+     }
+    },
+    "UDRI": {
+     "first_peak": {
+      "hi": 13.0455,
+      "lo": 9.32898,
+      "max": 12.7273,
+      "mean": 10.75,
+      "min": 9.56818,
+      "n": 3,
+      "tests": {
+       "UDRI_Wood_Cone_30kW_hor_R1": 9.56818,
+       "UDRI_Wood_Cone_30kW_hor_R2": 9.95455,
+       "UDRI_Wood_Cone_30kW_hor_R3": 12.7273
+      }
+     },
+     "plateau": {
+      "hi": 4.56281,
+      "lo": 3.9866,
+      "max": 4.45153,
+      "mean": 4.31726,
+      "min": 4.08882,
+      "n": 3,
+      "tests": {
+       "UDRI_Wood_Cone_30kW_hor_R1": 4.08882,
+       "UDRI_Wood_Cone_30kW_hor_R2": 4.41142,
+       "UDRI_Wood_Cone_30kW_hor_R3": 4.45153
+      }
+     },
+     "t_ig": {
+      "hi": 61.0,
+      "lo": 20.0,
+      "max": 58.0,
+      "mean": 36.3333,
+      "min": 23.0,
+      "n": 3,
+      "tests": {
+       "UDRI_Wood_Cone_30kW_hor_R1": 23.0,
+       "UDRI_Wood_Cone_30kW_hor_R2": 28.0,
+       "UDRI_Wood_Cone_30kW_hor_R3": 58.0
+      }
+     }
+    }
+   },
+   "45": {
+    "Aalto": {
+     "first_peak": {
+      "hi": 14.5892,
+      "lo": 12.2687,
+      "max": 14.2333,
+      "mean": 13.55,
+      "min": 12.5833,
+      "n": 3,
+      "tests": {
+       "Aalto_Wood_Cone_45kW_hor_parallel_R1": 13.8333,
+       "Aalto_Wood_Cone_45kW_hor_parallel_R2": 14.2333,
+       "Aalto_Wood_Cone_45kW_hor_parallel_R3": 12.5833
+      }
+     },
+     "plateau": {
+      "hi": 6.53917,
+      "lo": 5.22774,
+      "max": 6.37967,
+      "mean": 5.90176,
+      "min": 5.36179,
+      "n": 3,
+      "tests": {
+       "Aalto_Wood_Cone_45kW_hor_parallel_R1": 6.37967,
+       "Aalto_Wood_Cone_45kW_hor_parallel_R2": 5.96382,
+       "Aalto_Wood_Cone_45kW_hor_parallel_R3": 5.36179
+      }
+     },
+     "t_ig": {
+      "hi": 43.0,
+      "lo": 17.0,
+      "max": 40.0,
+      "mean": 28.3333,
+      "min": 20.0,
+      "n": 3,
+      "tests": {
+       "Aalto_Wood_Cone_45kW_hor_parallel_R1": 20.0,
+       "Aalto_Wood_Cone_45kW_hor_parallel_R2": 40.0,
+       "Aalto_Wood_Cone_45kW_hor_parallel_R3": 25.0
+      }
+     }
+    }
+   },
+   "50": {
+    "FPL": {
+     "first_peak": {
+      "hi": 15.4902,
+      "lo": 11.2874,
+      "max": 15.1124,
+      "mean": 13.7613,
+      "min": 11.5769,
+      "n": 5,
+      "tests": {
+       "FPL_Wood_Cone_50kW_hor_R1": 11.5769,
+       "FPL_Wood_Cone_50kW_hor_R2": 13.6091,
+       "FPL_Wood_Cone_50kW_hor_R3": 13.4102,
+       "FPL_Wood_Cone_50kW_hor_R5": 15.1124,
+       "FPL_Wood_Cone_50kW_hor_R6": 15.0979
+      }
+     },
+     "plateau": {
+      "hi": 6.45504,
+      "lo": 5.52227,
+      "max": 6.2976,
+      "mean": 5.95064,
+      "min": 5.66387,
+      "n": 5,
+      "tests": {
+       "FPL_Wood_Cone_50kW_hor_R1": 5.71598,
+       "FPL_Wood_Cone_50kW_hor_R2": 6.20597,
+       "FPL_Wood_Cone_50kW_hor_R3": 5.8698,
+       "FPL_Wood_Cone_50kW_hor_R5": 5.66387,
+       "FPL_Wood_Cone_50kW_hor_R6": 6.2976
+      }
+     },
+     "t_ig": {
+      "hi": 19.0,
+      "lo": 9.0,
+      "max": 16.0,
+      "mean": 13.8,
+      "min": 12.0,
+      "n": 5,
+      "tests": {
+       "FPL_Wood_Cone_50kW_hor_R1": 13.0,
+       "FPL_Wood_Cone_50kW_hor_R2": 12.0,
+       "FPL_Wood_Cone_50kW_hor_R3": 15.0,
+       "FPL_Wood_Cone_50kW_hor_R5": 16.0,
+       "FPL_Wood_Cone_50kW_hor_R6": 13.0
+      }
+     }
+    },
+    "FSRI": {
+     "first_peak": {
+      "hi": 15.6313,
+      "lo": 12.2318,
+      "max": 15.25,
+      "mean": 13.7121,
+      "min": 12.5455,
+      "n": 3,
+      "tests": {
+       "FSRI_Wood_Cone_50kW_hor_Parallel_R1": 12.5455,
+       "FSRI_Wood_Cone_50kW_hor_Parallel_R2": 13.3409,
+       "FSRI_Wood_Cone_50kW_hor_Parallel_R3": 15.25
+      }
+     },
+     "plateau": {
+      "hi": 6.18332,
+      "lo": 5.37317,
+      "max": 6.0325,
+      "mean": 5.75486,
+      "min": 5.51095,
+      "n": 3,
+      "tests": {
+       "FSRI_Wood_Cone_50kW_hor_Parallel_R1": 5.51095,
+       "FSRI_Wood_Cone_50kW_hor_Parallel_R2": 6.0325,
+       "FSRI_Wood_Cone_50kW_hor_Parallel_R3": 5.72114
+      }
+     },
+     "t_ig": {
+      "hi": 45.0,
+      "lo": 10.0,
+      "max": 42.0,
+      "mean": 23.3333,
+      "min": 13.0,
+      "n": 3,
+      "tests": {
+       "FSRI_Wood_Cone_50kW_hor_Parallel_R1": 13.0,
+       "FSRI_Wood_Cone_50kW_hor_Parallel_R2": 15.0,
+       "FSRI_Wood_Cone_50kW_hor_Parallel_R3": 42.0
+      }
+     }
+    },
+    "IMT": {
+     "first_peak": {
+      "hi": 14.1073,
+      "lo": 11.0294,
+      "max": 13.7632,
+      "mean": 12.3963,
+      "min": 11.3122,
+      "n": 4,
+      "tests": {
+       "IMT_Wood_Cone_50kW_hor_R1": 13.7632,
+       "IMT_Wood_Cone_50kW_hor_R2": 12.2549,
+       "IMT_Wood_Cone_50kW_hor_R3": 11.3122,
+       "IMT_Wood_Cone_50kW_hor_R4": 12.2549
+      }
+     },
+     "plateau": {
+      "hi": 7.24925,
+      "lo": 5.43849,
+      "max": 7.07243,
+      "mean": 6.23092,
+      "min": 5.57793,
+      "n": 4,
+      "tests": {
+       "IMT_Wood_Cone_50kW_hor_R1": 7.07243,
+       "IMT_Wood_Cone_50kW_hor_R2": 6.05158,
+       "IMT_Wood_Cone_50kW_hor_R3": 5.57793,
+       "IMT_Wood_Cone_50kW_hor_R4": 6.22172
+      }
+     },
+     "t_ig": {
+      "hi": 23.0,
+      "lo": 7.0,
+      "max": 20.0,
+      "mean": 15.0,
+      "min": 10.0,
+      "n": 4,
+      "tests": {
+       "IMT_Wood_Cone_50kW_hor_R1": 20.0,
+       "IMT_Wood_Cone_50kW_hor_R2": 15.0,
+       "IMT_Wood_Cone_50kW_hor_R3": 10.0,
+       "IMT_Wood_Cone_50kW_hor_R4": 15.0
+      }
+     }
+    }
+   },
+   "60": {
+    "Aalto": {
+     "first_peak": {
+      "hi": 17.1858,
+      "lo": 14.6088,
+      "max": 16.7667,
+      "mean": 15.9667,
+      "min": 14.9833,
+      "n": 3,
+      "tests": {
+       "Aalto_Wood_Cone_60kW_hor_parallel_R1": 14.9833,
+       "Aalto_Wood_Cone_60kW_hor_parallel_R2": 16.7667,
+       "Aalto_Wood_Cone_60kW_hor_parallel_R3": 16.15
+      }
+     },
+     "plateau": {
+      "hi": 7.89125,
+      "lo": 6.22454,
+      "max": 7.69878,
+      "mean": 7.10298,
+      "min": 6.38415,
+      "n": 3,
+      "tests": {
+       "Aalto_Wood_Cone_60kW_hor_parallel_R1": 6.38415,
+       "Aalto_Wood_Cone_60kW_hor_parallel_R2": 7.69878,
+       "Aalto_Wood_Cone_60kW_hor_parallel_R3": 7.22602
+      }
+     },
+     "t_ig": {
+      "hi": 28.0,
+      "lo": 12.0,
+      "max": 25.0,
+      "mean": 20.0,
+      "min": 15.0,
+      "n": 3,
+      "tests": {
+       "Aalto_Wood_Cone_60kW_hor_parallel_R1": 15.0,
+       "Aalto_Wood_Cone_60kW_hor_parallel_R2": 25.0,
+       "Aalto_Wood_Cone_60kW_hor_parallel_R3": 20.0
+      }
+     }
+    },
+    "FZJ": {
+     "first_peak": {
+      "hi": 19.1955,
+      "lo": 16.8409,
+      "max": 18.7273,
+      "mean": 18.0625,
+      "min": 17.2727,
+      "n": 4,
+      "tests": {
+       "FZJ_Wood_Cone_60kW_hor_parallel_R1": 17.5227,
+       "FZJ_Wood_Cone_60kW_hor_parallel_R2": 18.7273,
+       "FZJ_Wood_Cone_60kW_hor_parallel_R3": 18.7273,
+       "FZJ_Wood_Cone_60kW_hor_parallel_R4": 17.2727
+      }
+     },
+     "plateau": {
+      "hi": 7.32748,
+      "lo": 5.10929,
+      "max": 7.14876,
+      "mean": 5.97255,
+      "min": 5.2403,
+      "n": 4,
+      "tests": {
+       "FZJ_Wood_Cone_60kW_hor_parallel_R1": 5.27388,
+       "FZJ_Wood_Cone_60kW_hor_parallel_R2": 7.14876,
+       "FZJ_Wood_Cone_60kW_hor_parallel_R3": 6.22728,
+       "FZJ_Wood_Cone_60kW_hor_parallel_R4": 5.2403
+      }
+     },
+     "t_ig": {
+      "hi": 14.0,
+      "lo": 3.0,
+      "max": 11.0,
+      "mean": 8.75,
+      "min": 6.0,
+      "n": 4,
+      "tests": {
+       "FZJ_Wood_Cone_60kW_hor_parallel_R1": 10.0,
+       "FZJ_Wood_Cone_60kW_hor_parallel_R2": 11.0,
+       "FZJ_Wood_Cone_60kW_hor_parallel_R3": 6.0,
+       "FZJ_Wood_Cone_60kW_hor_parallel_R4": 8.0
+      }
+     }
+    },
+    "UDRI": {
+     "first_peak": {
+      "hi": 16.1298,
+      "lo": 12.3869,
+      "max": 15.7364,
+      "mean": 14.3852,
+      "min": 12.7045,
+      "n": 4,
+      "tests": {
+       "UDRI_Wood_Cone_60kW_hor_R1": 12.7045,
+       "UDRI_Wood_Cone_60kW_hor_R2": 13.6591,
+       "UDRI_Wood_Cone_60kW_hor_R3": 15.7364,
+       "UDRI_Wood_Cone_60kW_hor_R4": 15.4409
+      }
+     },
+     "plateau": {
+      "hi": 8.08094,
+      "lo": 6.27561,
+      "max": 7.88384,
+      "mean": 7.1479,
+      "min": 6.43653,
+      "n": 4,
+      "tests": {
+       "UDRI_Wood_Cone_60kW_hor_R1": 6.43653,
+       "UDRI_Wood_Cone_60kW_hor_R2": 6.85165,
+       "UDRI_Wood_Cone_60kW_hor_R3": 7.41959,
+       "UDRI_Wood_Cone_60kW_hor_R4": 7.88384
+      }
+     },
+     "t_ig": {
+      "hi": 19.0,
+      "lo": 5.0,
+      "max": 16.0,
+      "mean": 11.0,
+      "min": 8.0,
+      "n": 4,
+      "tests": {
+       "UDRI_Wood_Cone_60kW_hor_R1": 12.0,
+       "UDRI_Wood_Cone_60kW_hor_R2": 16.0,
+       "UDRI_Wood_Cone_60kW_hor_R3": 8.0,
+       "UDRI_Wood_Cone_60kW_hor_R4": 8.0
+      }
+     }
+    },
+    "UQ": {
+     "first_peak": {
+      "hi": 21.8977,
+      "lo": 13.9602,
+      "max": 21.3636,
+      "mean": 18.4091,
+      "min": 14.3182,
+      "n": 3,
+      "tests": {
+       "UQ_Wood_Cone_60kW_hor_Parallel_R1": 14.3182,
+       "UQ_Wood_Cone_60kW_hor_Parallel_R2": 21.3636,
+       "UQ_Wood_Cone_60kW_hor_Parallel_R3": 19.5455
+      }
+     },
+     "plateau": {
+      "hi": 7.81088,
+      "lo": 4.82965,
+      "max": 7.62037,
+      "mean": 6.28693,
+      "min": 4.95349,
+      "n": 2,
+      "tests": {
+       "UQ_Wood_Cone_60kW_hor_Parallel_R1": 7.62037,
+       "UQ_Wood_Cone_60kW_hor_Parallel_R2": 4.95349
+      }
+     },
+     "t_ig": {
+      "hi": 18.0,
+      "lo": 9.0,
+      "max": 15.0,
+      "mean": 13.3333,
+      "min": 12.0,
+      "n": 3,
+      "tests": {
+       "UQ_Wood_Cone_60kW_hor_Parallel_R1": 15.0,
+       "UQ_Wood_Cone_60kW_hor_Parallel_R2": 12.0,
+       "UQ_Wood_Cone_60kW_hor_Parallel_R3": 13.0
+      }
+     }
+    }
+   },
+   "75": {
+    "FSRI": {
+     "first_peak": {
+      "hi": 18.8693,
+      "lo": 17.1733,
+      "max": 18.4091,
+      "mean": 17.9621,
+      "min": 17.6136,
+      "n": 3,
+      "tests": {
+       "FSRI_Wood_Cone_75kW_hor_Parallel_R1": 18.4091,
+       "FSRI_Wood_Cone_75kW_hor_Parallel_R2": 17.6136,
+       "FSRI_Wood_Cone_75kW_hor_Parallel_R3": 17.8636
+      }
+     },
+     "plateau": {
+      "hi": 7.32365,
+      "lo": 6.50331,
+      "max": 7.14502,
+      "mean": 6.85312,
+      "min": 6.67007,
+      "n": 3,
+      "tests": {
+       "FSRI_Wood_Cone_75kW_hor_Parallel_R1": 6.67007,
+       "FSRI_Wood_Cone_75kW_hor_Parallel_R2": 7.14502,
+       "FSRI_Wood_Cone_75kW_hor_Parallel_R3": 6.74428
+      }
+     },
+     "t_ig": {
+      "hi": 11.0,
+      "lo": 4.0,
+      "max": 8.0,
+      "mean": 7.66667,
+      "min": 7.0,
+      "n": 3,
+      "tests": {
+       "FSRI_Wood_Cone_75kW_hor_Parallel_R1": 8.0,
+       "FSRI_Wood_Cone_75kW_hor_Parallel_R2": 7.0,
+       "FSRI_Wood_Cone_75kW_hor_Parallel_R3": 8.0
+      }
+     }
+    },
+    "FZJ": {
+     "first_peak": {
+      "hi": 21.5716,
+      "lo": 20.4307,
+      "max": 21.0455,
+      "mean": 21.0,
+      "min": 20.9545,
+      "n": 2,
+      "tests": {
+       "FZJ_Wood_Cone_75kW_hor_parallel_R2": 20.9545,
+       "FZJ_Wood_Cone_75kW_hor_parallel_R3": 21.0455
+      }
+     },
+     "plateau": {
+      "hi": 6.91017,
+      "lo": 6.08664,
+      "max": 6.74163,
+      "mean": 6.49216,
+      "min": 6.2427,
+      "n": 2,
+      "tests": {
+       "FZJ_Wood_Cone_75kW_hor_parallel_R2": 6.2427,
+       "FZJ_Wood_Cone_75kW_hor_parallel_R3": 6.74163
+      }
+     },
+     "t_ig": {
+      "hi": 7.0,
+      "lo": 0.0,
+      "max": 4.0,
+      "mean": 3.66667,
+      "min": 3.0,
+      "n": 3,
+      "tests": {
+       "FZJ_Wood_Cone_75kW_hor_parallel_R1": 3.0,
+       "FZJ_Wood_Cone_75kW_hor_parallel_R2": 4.0,
+       "FZJ_Wood_Cone_75kW_hor_parallel_R3": 4.0
+      }
+     }
+    },
+    "IMT": {
+     "first_peak": {
+      "hi": 19.1318,
+      "lo": 14.3382,
+      "max": 18.6652,
+      "mean": 17.0312,
+      "min": 14.7059,
+      "n": 3,
+      "tests": {
+       "IMT_Wood_Cone_75kW_hor_R1": 18.6652,
+       "IMT_Wood_Cone_75kW_hor_R2": 17.7225,
+       "IMT_Wood_Cone_75kW_hor_R3": 14.7059
+      }
+     },
+     "plateau": {
+      "hi": 8.78582,
+      "lo": 6.74767,
+      "max": 8.57153,
+      "mean": 7.4725,
+      "min": 6.92069,
+      "n": 3,
+      "tests": {
+       "IMT_Wood_Cone_75kW_hor_R1": 6.92069,
+       "IMT_Wood_Cone_75kW_hor_R2": 8.57153,
+       "IMT_Wood_Cone_75kW_hor_R3": 6.92528
+      }
+     },
+     "t_ig": {
+      "hi": 8.0,
+      "lo": 2.0,
+      "max": 5.0,
+      "mean": 5.0,
+      "min": 5.0,
+      "n": 3,
+      "tests": {
+       "IMT_Wood_Cone_75kW_hor_R1": 5.0,
+       "IMT_Wood_Cone_75kW_hor_R2": 5.0,
+       "IMT_Wood_Cone_75kW_hor_R3": 5.0
+      }
+     }
+    }
+   }
+  },
+  "t_ig_envelope_artefact_rule_off_reported_only": {
+   "50": {
+    "hi": 26.3333,
+    "labs": {
+     "FPL": {
+      "mean": 13.6667,
+      "n": 6,
+      "tests": [
+       "FPL_Wood_Cone_50kW_hor_R1",
+       "FPL_Wood_Cone_50kW_hor_R2",
+       "FPL_Wood_Cone_50kW_hor_R3",
+       "FPL_Wood_Cone_50kW_hor_R4",
+       "FPL_Wood_Cone_50kW_hor_R5",
+       "FPL_Wood_Cone_50kW_hor_R6"
+      ]
+     },
+     "FSRI": {
+      "mean": 23.3333,
+      "n": 3,
+      "tests": [
+       "FSRI_Wood_Cone_50kW_hor_Parallel_R1",
+       "FSRI_Wood_Cone_50kW_hor_Parallel_R2",
+       "FSRI_Wood_Cone_50kW_hor_Parallel_R3"
+      ]
+     },
+     "IMT": {
+      "mean": 15.0,
+      "n": 4,
+      "tests": [
+       "IMT_Wood_Cone_50kW_hor_R1",
+       "IMT_Wood_Cone_50kW_hor_R2",
+       "IMT_Wood_Cone_50kW_hor_R3",
+       "IMT_Wood_Cone_50kW_hor_R4"
+      ]
+     }
+    },
+    "lo": 10.6667,
+    "max": 23.3333,
+    "min": 13.6667,
+    "n_labs": 3
+   }
+  },
+  "tests": {
+   "Aalto_Wood_Cone_30kW_hor_parallel_R1": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 14.9101,
+     "first_peak": 10.9833,
+     "plateau": 5.44756,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 5.44756,
+     "t_first_peak": 70.0,
+     "t_ig": 45.0,
+     "window_end": 1665.0
+    },
+    "flux": 30,
+    "lab": "Aalto",
+    "path": "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_30kW_hor_parallel_R1.csv"
+   },
+   "Aalto_Wood_Cone_30kW_hor_parallel_R2": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 12.2307,
+     "first_peak": 11.0667,
+     "plateau": 4.51911,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 4.51911,
+     "t_first_peak": 70.0,
+     "t_ig": 60.0,
+     "window_end": 1245.0
+    },
+    "flux": 30,
+    "lab": "Aalto",
+    "path": "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_30kW_hor_parallel_R2.csv"
+   },
+   "Aalto_Wood_Cone_30kW_hor_parallel_R3": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 14.8085,
+     "first_peak": 11.4,
+     "plateau": 4.71341,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 4.71341,
+     "t_first_peak": 60.0,
+     "t_ig": 50.0,
+     "window_end": 1910.0
+    },
+    "flux": 30,
+    "lab": "Aalto",
+    "path": "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_30kW_hor_parallel_R3.csv"
+   },
+   "Aalto_Wood_Cone_45kW_hor_parallel_R1": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 15.3119,
+     "first_peak": 13.8333,
+     "plateau": 6.37967,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 6.37967,
+     "t_first_peak": 45.0,
+     "t_ig": 20.0,
+     "window_end": 1380.0
+    },
+    "flux": 45,
+    "lab": "Aalto",
+    "path": "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_45kW_hor_parallel_R1.csv"
+   },
+   "Aalto_Wood_Cone_45kW_hor_parallel_R2": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 12.53,
+     "first_peak": 14.2333,
+     "plateau": 5.96382,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 5.96382,
+     "t_first_peak": 55.0,
+     "t_ig": 40.0,
+     "window_end": 1130.0
+    },
+    "flux": 45,
+    "lab": "Aalto",
+    "path": "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_45kW_hor_parallel_R2.csv"
+   },
+   "Aalto_Wood_Cone_45kW_hor_parallel_R3": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 13.86,
+     "first_peak": 12.5833,
+     "plateau": 5.36179,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 5.36179,
+     "t_first_peak": 35.0,
+     "t_ig": 25.0,
+     "window_end": 1680.0
+    },
+    "flux": 45,
+    "lab": "Aalto",
+    "path": "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_45kW_hor_parallel_R3.csv"
+   },
+   "Aalto_Wood_Cone_60kW_hor_parallel_R1": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 13.4675,
+     "first_peak": 14.9833,
+     "plateau": 6.38415,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 6.38415,
+     "t_first_peak": 20.0,
+     "t_ig": 15.0,
+     "window_end": 1325.0
+    },
+    "flux": 60,
+    "lab": "Aalto",
+    "path": "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_60kW_hor_parallel_R1.csv"
+   },
+   "Aalto_Wood_Cone_60kW_hor_parallel_R2": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 11.9969,
+     "first_peak": 16.7667,
+     "plateau": 7.69878,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 7.69878,
+     "t_first_peak": 35.0,
+     "t_ig": 25.0,
+     "window_end": 930.0
+    },
+    "flux": 60,
+    "lab": "Aalto",
+    "path": "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_60kW_hor_parallel_R2.csv"
+   },
+   "Aalto_Wood_Cone_60kW_hor_parallel_R3": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 13.1376,
+     "first_peak": 16.15,
+     "plateau": 7.22602,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 7.22602,
+     "t_first_peak": 35.0,
+     "t_ig": 20.0,
+     "window_end": 1065.0
+    },
+    "flux": 60,
+    "lab": "Aalto",
+    "path": "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_60kW_hor_parallel_R3.csv"
+   },
+   "BUWfd_Wood_Cone_30kW_hor_R1": {
+    "area_m2": null,
+    "excluded": {
+     "all": [
+      "MaCFP-4 has no area for it; L1 §1.3 flagged its 2-4 s ignitions"
+     ]
+    },
+    "features": {},
+    "flux": 30,
+    "lab": "BUWfd",
+    "path": "Wood/Calibration_Data/BUWfd/BUWfd_Wood_Cone_30kW_hor_R1.csv"
+   },
+   "BUWfd_Wood_Cone_30kW_hor_R2": {
+    "area_m2": null,
+    "excluded": {
+     "all": [
+      "MaCFP-4 has no area for it; L1 §1.3 flagged its 2-4 s ignitions"
+     ]
+    },
+    "features": {},
+    "flux": 30,
+    "lab": "BUWfd",
+    "path": "Wood/Calibration_Data/BUWfd/BUWfd_Wood_Cone_30kW_hor_R2.csv"
+   },
+   "BUWfd_Wood_Cone_50kW_hor_R1": {
+    "area_m2": null,
+    "excluded": {
+     "all": [
+      "MaCFP-4 has no area for it; L1 §1.3 flagged its 2-4 s ignitions",
+      "MaCFP-4: non-physical mass signal"
+     ]
+    },
+    "features": {},
+    "flux": 50,
+    "lab": "BUWfd",
+    "path": "Wood/Calibration_Data/BUWfd/BUWfd_Wood_Cone_50kW_hor_R1.csv"
+   },
+   "BUWfd_Wood_Cone_50kW_hor_R2": {
+    "area_m2": null,
+    "excluded": {
+     "all": [
+      "MaCFP-4 has no area for it; L1 §1.3 flagged its 2-4 s ignitions"
+     ]
+    },
+    "features": {},
+    "flux": 50,
+    "lab": "BUWfd",
+    "path": "Wood/Calibration_Data/BUWfd/BUWfd_Wood_Cone_50kW_hor_R2.csv"
+   },
+   "BUWfd_Wood_Cone_60kW_hor_R1": {
+    "area_m2": null,
+    "excluded": {
+     "all": [
+      "MaCFP-4 has no area for it; L1 §1.3 flagged its 2-4 s ignitions"
+     ]
+    },
+    "features": {},
+    "flux": 60,
+    "lab": "BUWfd",
+    "path": "Wood/Calibration_Data/BUWfd/BUWfd_Wood_Cone_60kW_hor_R1.csv"
+   },
+   "BUWfd_Wood_Cone_60kW_hor_R2": {
+    "area_m2": null,
+    "excluded": {
+     "all": [
+      "MaCFP-4 has no area for it; L1 §1.3 flagged its 2-4 s ignitions"
+     ]
+    },
+    "features": {},
+    "flux": 60,
+    "lab": "BUWfd",
+    "path": "Wood/Calibration_Data/BUWfd/BUWfd_Wood_Cone_60kW_hor_R2.csv"
+   },
+   "FPL_Wood_Cone_50kW_hor_R1": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 14.0051,
+     "first_peak": 11.5769,
+     "plateau": 5.71598,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 5.71598,
+     "t_first_peak": 13.0,
+     "t_ig": 13.0,
+     "window_end": 1545.0
+    },
+    "flux": 50,
+    "lab": "FPL",
+    "path": "Wood/Calibration_Data/FPL/FPL_Wood_Cone_50kW_hor_R1.csv"
+   },
+   "FPL_Wood_Cone_50kW_hor_R2": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 13.9232,
+     "first_peak": 13.6091,
+     "plateau": 6.20597,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 6.20597,
+     "t_first_peak": 20.0,
+     "t_ig": 12.0,
+     "window_end": null
+    },
+    "flux": 50,
+    "lab": "FPL",
+    "path": "Wood/Calibration_Data/FPL/FPL_Wood_Cone_50kW_hor_R2.csv"
+   },
+   "FPL_Wood_Cone_50kW_hor_R3": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 13.7509,
+     "first_peak": 13.4102,
+     "plateau": 5.8698,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 5.8698,
+     "t_first_peak": 22.0,
+     "t_ig": 15.0,
+     "window_end": 1427.0
+    },
+    "flux": 50,
+    "lab": "FPL",
+    "path": "Wood/Calibration_Data/FPL/FPL_Wood_Cone_50kW_hor_R3.csv"
+   },
+   "FPL_Wood_Cone_50kW_hor_R4": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "envelope": [
+      "artefact rule: first_peak 71.6 > 2 x lab median 14.4"
+     ]
+    },
+    "features": {
+     "dhc": 13.8282,
+     "first_peak": 71.6377,
+     "plateau": 5.91485,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 5.91485,
+     "t_first_peak": 14.0,
+     "t_ig": 13.0,
+     "window_end": 1349.0
+    },
+    "flux": 50,
+    "lab": "FPL",
+    "path": "Wood/Calibration_Data/FPL/FPL_Wood_Cone_50kW_hor_R4.csv"
+   },
+   "FPL_Wood_Cone_50kW_hor_R5": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 13.8424,
+     "first_peak": 15.1124,
+     "plateau": 5.66387,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 5.66387,
+     "t_first_peak": 22.0,
+     "t_ig": 16.0,
+     "window_end": 1427.0
+    },
+    "flux": 50,
+    "lab": "FPL",
+    "path": "Wood/Calibration_Data/FPL/FPL_Wood_Cone_50kW_hor_R5.csv"
+   },
+   "FPL_Wood_Cone_50kW_hor_R6": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 13.5864,
+     "first_peak": 15.0979,
+     "plateau": 6.2976,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 6.2976,
+     "t_first_peak": 14.0,
+     "t_ig": 13.0,
+     "window_end": 1388.0
+    },
+    "flux": 50,
+    "lab": "FPL",
+    "path": "Wood/Calibration_Data/FPL/FPL_Wood_Cone_50kW_hor_R6.csv"
+   },
+   "FSRI_Wood_Cone_25kW_hor_Parallel_R1": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 16.7965,
+     "first_peak": 9.27273,
+     "plateau": 3.61534,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 3.61534,
+     "t_first_peak": 91.0,
+     "t_ig": 88.0,
+     "window_end": 1727.0
+    },
+    "flux": 25,
+    "lab": "FSRI",
+    "path": "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_25kW_hor_Parallel_R1.csv"
+   },
+   "FSRI_Wood_Cone_25kW_hor_Parallel_R2": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 16.6346,
+     "first_peak": 10.6818,
+     "plateau": 3.69362,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 3.69362,
+     "t_first_peak": 96.0,
+     "t_ig": 96.0,
+     "window_end": 1828.0
+    },
+    "flux": 25,
+    "lab": "FSRI",
+    "path": "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_25kW_hor_Parallel_R2.csv"
+   },
+   "FSRI_Wood_Cone_25kW_hor_Parallel_R3": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 16.8999,
+     "first_peak": 9.70455,
+     "plateau": 4.06003,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 4.06003,
+     "t_first_peak": 57.0,
+     "t_ig": 27.0,
+     "window_end": 1872.0
+    },
+    "flux": 25,
+    "lab": "FSRI",
+    "path": "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_25kW_hor_Parallel_R3.csv"
+   },
+   "FSRI_Wood_Cone_50kW_hor_Parallel_R1": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 16.9668,
+     "first_peak": 12.5455,
+     "plateau": 5.51095,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 5.51095,
+     "t_first_peak": 13.0,
+     "t_ig": 13.0,
+     "window_end": 1380.0
+    },
+    "flux": 50,
+    "lab": "FSRI",
+    "path": "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_50kW_hor_Parallel_R1.csv"
+   },
+   "FSRI_Wood_Cone_50kW_hor_Parallel_R2": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 17.0608,
+     "first_peak": 13.3409,
+     "plateau": 6.0325,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 6.0325,
+     "t_first_peak": 15.0,
+     "t_ig": 15.0,
+     "window_end": 1313.0
+    },
+    "flux": 50,
+    "lab": "FSRI",
+    "path": "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_50kW_hor_Parallel_R2.csv"
+   },
+   "FSRI_Wood_Cone_50kW_hor_Parallel_R3": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 17.6565,
+     "first_peak": 15.25,
+     "plateau": 5.72114,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 5.72114,
+     "t_first_peak": 42.0,
+     "t_ig": 42.0,
+     "window_end": 1313.0
+    },
+    "flux": 50,
+    "lab": "FSRI",
+    "path": "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_50kW_hor_Parallel_R3.csv"
+   },
+   "FSRI_Wood_Cone_75kW_hor_Parallel_R1": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 16.5548,
+     "first_peak": 18.4091,
+     "plateau": 6.67007,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 6.67007,
+     "t_first_peak": 8.0,
+     "t_ig": 8.0,
+     "window_end": 1143.0
+    },
+    "flux": 75,
+    "lab": "FSRI",
+    "path": "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_75kW_hor_Parallel_R1.csv"
+   },
+   "FSRI_Wood_Cone_75kW_hor_Parallel_R2": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 16.8582,
+     "first_peak": 17.6136,
+     "plateau": 7.14502,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 7.14502,
+     "t_first_peak": 7.0,
+     "t_ig": 7.0,
+     "window_end": 1146.0
+    },
+    "flux": 75,
+    "lab": "FSRI",
+    "path": "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_75kW_hor_Parallel_R2.csv"
+   },
+   "FSRI_Wood_Cone_75kW_hor_Parallel_R3": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 16.089,
+     "first_peak": 17.8636,
+     "plateau": 6.74428,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 6.74428,
+     "t_first_peak": 9.0,
+     "t_ig": 8.0,
+     "window_end": 1148.0
+    },
+    "flux": 75,
+    "lab": "FSRI",
+    "path": "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_75kW_hor_Parallel_R3.csv"
+   },
+   "FZJ_Wood_Cone_30kW_hor_parallel_R1": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 14.6221,
+     "first_peak": 13.6364,
+     "plateau": 4.6592,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 4.6592,
+     "t_first_peak": 33.0,
+     "t_ig": 21.0,
+     "window_end": 1379.0
+    },
+    "flux": 30,
+    "lab": "FZJ",
+    "path": "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_30kW_hor_parallel_R1.csv"
+   },
+   "FZJ_Wood_Cone_30kW_hor_parallel_R2": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 12.6625,
+     "first_peak": 13.4091,
+     "plateau": 4.49718,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 4.49718,
+     "t_first_peak": 43.0,
+     "t_ig": 35.0,
+     "window_end": 1347.0
+    },
+    "flux": 30,
+    "lab": "FZJ",
+    "path": "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_30kW_hor_parallel_R2.csv"
+   },
+   "FZJ_Wood_Cone_30kW_hor_parallel_R3": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 13.2405,
+     "first_peak": 16.7045,
+     "plateau": 4.52803,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 4.52803,
+     "t_first_peak": 55.0,
+     "t_ig": 47.0,
+     "window_end": 1454.0
+    },
+    "flux": 30,
+    "lab": "FZJ",
+    "path": "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_30kW_hor_parallel_R3.csv"
+   },
+   "FZJ_Wood_Cone_60kW_hor_parallel_R1": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 14.7313,
+     "first_peak": 17.5227,
+     "plateau": 5.27388,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 5.27388,
+     "t_first_peak": 16.0,
+     "t_ig": 10.0,
+     "window_end": 1190.0
+    },
+    "flux": 60,
+    "lab": "FZJ",
+    "path": "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_60kW_hor_parallel_R1.csv"
+   },
+   "FZJ_Wood_Cone_60kW_hor_parallel_R2": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 14.3939,
+     "first_peak": 18.7273,
+     "plateau": 7.14876,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 7.14876,
+     "t_first_peak": 19.0,
+     "t_ig": 11.0,
+     "window_end": 1402.0
+    },
+    "flux": 60,
+    "lab": "FZJ",
+    "path": "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_60kW_hor_parallel_R2.csv"
+   },
+   "FZJ_Wood_Cone_60kW_hor_parallel_R3": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 14.3631,
+     "first_peak": 18.7273,
+     "plateau": 6.22728,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 6.22728,
+     "t_first_peak": 17.0,
+     "t_ig": 6.0,
+     "window_end": 1121.0
+    },
+    "flux": 60,
+    "lab": "FZJ",
+    "path": "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_60kW_hor_parallel_R3.csv"
+   },
+   "FZJ_Wood_Cone_60kW_hor_parallel_R4": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 13.3587,
+     "first_peak": 17.2727,
+     "plateau": 5.2403,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 5.2403,
+     "t_first_peak": 17.0,
+     "t_ig": 8.0,
+     "window_end": 1385.0
+    },
+    "flux": 60,
+    "lab": "FZJ",
+    "path": "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_60kW_hor_parallel_R4.csv"
+   },
+   "FZJ_Wood_Cone_75kW_hor_parallel_R1": {
+    "area_m2": 0.01,
+    "excluded": {
+     "mass": [
+      "no mass signal: excluded from mass features only"
+     ]
+    },
+    "features": {
+     "t_ig": 3.0
+    },
+    "flux": 75,
+    "lab": "FZJ",
+    "path": "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_75kW_hor_parallel_R1.csv"
+   },
+   "FZJ_Wood_Cone_75kW_hor_parallel_R2": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 12.6622,
+     "first_peak": 20.9545,
+     "plateau": 6.2427,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 6.2427,
+     "t_first_peak": 14.0,
+     "t_ig": 4.0,
+     "window_end": 1243.0
+    },
+    "flux": 75,
+    "lab": "FZJ",
+    "path": "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_75kW_hor_parallel_R2.csv"
+   },
+   "FZJ_Wood_Cone_75kW_hor_parallel_R3": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 12.9273,
+     "first_peak": 21.0455,
+     "plateau": 6.74163,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 6.74163,
+     "t_first_peak": 14.0,
+     "t_ig": 4.0,
+     "window_end": 1049.0
+    },
+    "flux": 75,
+    "lab": "FZJ",
+    "path": "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_75kW_hor_parallel_R3.csv"
+   },
+   "IMT_Wood_Cone_25kW_hor_R1": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 14.1789,
+     "first_peak": 10.3695,
+     "plateau": 3.86271,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 3.86271,
+     "t_first_peak": 140.0,
+     "t_ig": 130.0,
+     "window_end": 2090.0
+    },
+    "flux": 25,
+    "lab": "IMT",
+    "path": "Wood/Calibration_Data/IMT/IMT_Wood_Cone_25kW_hor_R1.csv"
+   },
+   "IMT_Wood_Cone_25kW_hor_R2": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "all": [
+      "MaCFP-4: ignition time far from the others"
+     ]
+    },
+    "features": {},
+    "flux": 25,
+    "lab": "IMT",
+    "path": "Wood/Calibration_Data/IMT/IMT_Wood_Cone_25kW_hor_R2.csv"
+   },
+   "IMT_Wood_Cone_25kW_hor_R3": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 13.0756,
+     "first_peak": 10.7466,
+     "plateau": 3.79833,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 3.79833,
+     "t_first_peak": 135.0,
+     "t_ig": 120.0,
+     "window_end": 2020.0
+    },
+    "flux": 25,
+    "lab": "IMT",
+    "path": "Wood/Calibration_Data/IMT/IMT_Wood_Cone_25kW_hor_R3.csv"
+   },
+   "IMT_Wood_Cone_25kW_hor_R4": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 13.6525,
+     "first_peak": 11.1237,
+     "plateau": 4.11562,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 4.11562,
+     "t_first_peak": 115.0,
+     "t_ig": 105.0,
+     "window_end": 1605.0
+    },
+    "flux": 25,
+    "lab": "IMT",
+    "path": "Wood/Calibration_Data/IMT/IMT_Wood_Cone_25kW_hor_R4.csv"
+   },
+   "IMT_Wood_Cone_25kW_hor_R5": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "all": [
+      "MaCFP-4: ignition time far from the others"
+     ]
+    },
+    "features": {},
+    "flux": 25,
+    "lab": "IMT",
+    "path": "Wood/Calibration_Data/IMT/IMT_Wood_Cone_25kW_hor_R5.csv"
+   },
+   "IMT_Wood_Cone_50kW_hor_R1": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 15.1864,
+     "first_peak": 13.7632,
+     "plateau": 7.07243,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 7.07243,
+     "t_first_peak": 35.0,
+     "t_ig": 20.0,
+     "window_end": 1415.0
+    },
+    "flux": 50,
+    "lab": "IMT",
+    "path": "Wood/Calibration_Data/IMT/IMT_Wood_Cone_50kW_hor_R1.csv"
+   },
+   "IMT_Wood_Cone_50kW_hor_R2": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 14.0924,
+     "first_peak": 12.2549,
+     "plateau": 6.05158,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 6.05158,
+     "t_first_peak": 30.0,
+     "t_ig": 15.0,
+     "window_end": 1410.0
+    },
+    "flux": 50,
+    "lab": "IMT",
+    "path": "Wood/Calibration_Data/IMT/IMT_Wood_Cone_50kW_hor_R2.csv"
+   },
+   "IMT_Wood_Cone_50kW_hor_R3": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 15.5276,
+     "first_peak": 11.3122,
+     "plateau": 5.57793,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 5.57793,
+     "t_first_peak": 25.0,
+     "t_ig": 10.0,
+     "window_end": 1510.0
+    },
+    "flux": 50,
+    "lab": "IMT",
+    "path": "Wood/Calibration_Data/IMT/IMT_Wood_Cone_50kW_hor_R3.csv"
+   },
+   "IMT_Wood_Cone_50kW_hor_R4": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 14.2987,
+     "first_peak": 12.2549,
+     "plateau": 6.22172,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 6.22172,
+     "t_first_peak": 30.0,
+     "t_ig": 15.0,
+     "window_end": 1285.0
+    },
+    "flux": 50,
+    "lab": "IMT",
+    "path": "Wood/Calibration_Data/IMT/IMT_Wood_Cone_50kW_hor_R4.csv"
+   },
+   "IMT_Wood_Cone_75kW_hor_R1": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 13.633,
+     "first_peak": 18.6652,
+     "plateau": 6.92069,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 6.92069,
+     "t_first_peak": 5.0,
+     "t_ig": 5.0,
+     "window_end": 1155.0
+    },
+    "flux": 75,
+    "lab": "IMT",
+    "path": "Wood/Calibration_Data/IMT/IMT_Wood_Cone_75kW_hor_R1.csv"
+   },
+   "IMT_Wood_Cone_75kW_hor_R2": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 14.355,
+     "first_peak": 17.7225,
+     "plateau": 8.57153,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 8.57153,
+     "t_first_peak": 20.0,
+     "t_ig": 5.0,
+     "window_end": 1110.0
+    },
+    "flux": 75,
+    "lab": "IMT",
+    "path": "Wood/Calibration_Data/IMT/IMT_Wood_Cone_75kW_hor_R2.csv"
+   },
+   "IMT_Wood_Cone_75kW_hor_R3": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 14.0224,
+     "first_peak": 14.7059,
+     "plateau": 6.92528,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 6.92528,
+     "t_first_peak": 20.0,
+     "t_ig": 5.0,
+     "window_end": 1060.0
+    },
+    "flux": 75,
+    "lab": "IMT",
+    "path": "Wood/Calibration_Data/IMT/IMT_Wood_Cone_75kW_hor_R3.csv"
+   },
+   "TUBS_Wood_Cone_30kW_hor_R1": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 10.1425,
+     "first_peak": 11.7236,
+     "plateau": 4.74185,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 4.74185,
+     "t_first_peak": 34.0,
+     "t_ig": 31.0,
+     "window_end": 1671.0
+    },
+    "flux": 30,
+    "lab": "TUBS",
+    "path": "Wood/Calibration_Data/TUBS/TUBS_Wood_Cone_30kW_hor_R1.csv"
+   },
+   "TUBS_Wood_Cone_30kW_hor_R2": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 11.4891,
+     "first_peak": 13.1376,
+     "plateau": 4.96424,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 4.96424,
+     "t_first_peak": 34.0,
+     "t_ig": 32.0,
+     "window_end": 1574.0
+    },
+    "flux": 30,
+    "lab": "TUBS",
+    "path": "Wood/Calibration_Data/TUBS/TUBS_Wood_Cone_30kW_hor_R2.csv"
+   },
+   "TUBS_Wood_Cone_30kW_hor_R3": {
+    "area_m2": 0.00884,
+    "excluded": {},
+    "features": {
+     "dhc": 9.75886,
+     "first_peak": 11.7493,
+     "plateau": 4.40117,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 4.40117,
+     "t_first_peak": 34.0,
+     "t_ig": 30.0,
+     "window_end": 1523.0
+    },
+    "flux": 30,
+    "lab": "TUBS",
+    "path": "Wood/Calibration_Data/TUBS/TUBS_Wood_Cone_30kW_hor_R3.csv"
+   },
+   "UDRI_Wood_Cone_30kW_hor_R1": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 17.4796,
+     "first_peak": 9.56818,
+     "plateau": 4.08882,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 4.08882,
+     "t_first_peak": 25.0,
+     "t_ig": 23.0,
+     "window_end": 1952.0
+    },
+    "flux": 30,
+    "lab": "UDRI",
+    "path": "Wood/Calibration_Data/UDRI/UDRI_Wood_Cone_30kW_hor_R1.csv"
+   },
+   "UDRI_Wood_Cone_30kW_hor_R2": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 16.8968,
+     "first_peak": 9.95455,
+     "plateau": 4.41142,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 4.41142,
+     "t_first_peak": 34.0,
+     "t_ig": 28.0,
+     "window_end": 1753.0
+    },
+    "flux": 30,
+    "lab": "UDRI",
+    "path": "Wood/Calibration_Data/UDRI/UDRI_Wood_Cone_30kW_hor_R2.csv"
+   },
+   "UDRI_Wood_Cone_30kW_hor_R3": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 16.7523,
+     "first_peak": 12.7273,
+     "plateau": 4.45153,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 4.45153,
+     "t_first_peak": 59.0,
+     "t_ig": 58.0,
+     "window_end": 1771.0
+    },
+    "flux": 30,
+    "lab": "UDRI",
+    "path": "Wood/Calibration_Data/UDRI/UDRI_Wood_Cone_30kW_hor_R3.csv"
+   },
+   "UDRI_Wood_Cone_60kW_hor_R1": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 14.9725,
+     "first_peak": 12.7045,
+     "plateau": 6.43653,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 6.43653,
+     "t_first_peak": 17.0,
+     "t_ig": 12.0,
+     "window_end": 1365.0
+    },
+    "flux": 60,
+    "lab": "UDRI",
+    "path": "Wood/Calibration_Data/UDRI/UDRI_Wood_Cone_60kW_hor_R1.csv"
+   },
+   "UDRI_Wood_Cone_60kW_hor_R2": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 15.5687,
+     "first_peak": 13.6591,
+     "plateau": 6.85165,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 6.85165,
+     "t_first_peak": 19.0,
+     "t_ig": 16.0,
+     "window_end": 1375.0
+    },
+    "flux": 60,
+    "lab": "UDRI",
+    "path": "Wood/Calibration_Data/UDRI/UDRI_Wood_Cone_60kW_hor_R2.csv"
+   },
+   "UDRI_Wood_Cone_60kW_hor_R3": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 18.7389,
+     "first_peak": 15.7364,
+     "plateau": 7.41959,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 7.41959,
+     "t_first_peak": 25.0,
+     "t_ig": 8.0,
+     "window_end": 1287.0
+    },
+    "flux": 60,
+    "lab": "UDRI",
+    "path": "Wood/Calibration_Data/UDRI/UDRI_Wood_Cone_60kW_hor_R3.csv"
+   },
+   "UDRI_Wood_Cone_60kW_hor_R4": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 18.1944,
+     "first_peak": 15.4409,
+     "plateau": 7.88384,
+     "plateau_cut_by_window": false,
+     "plateau_uncut_reported_only": 7.88384,
+     "t_first_peak": 21.0,
+     "t_ig": 8.0,
+     "window_end": 1267.0
+    },
+    "flux": 60,
+    "lab": "UDRI",
+    "path": "Wood/Calibration_Data/UDRI/UDRI_Wood_Cone_60kW_hor_R4.csv"
+   },
+   "UMET_Wood_Cone_30kW_hor_R1": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "all": [
+      "MaCFP-4: HRR from a mass-loss cone, not oxygen consumption"
+     ]
+    },
+    "features": {},
+    "flux": 30,
+    "lab": "UMET",
+    "path": "Wood/Calibration_Data/UMET/UMET_Wood_Cone_30kW_hor_R1.csv"
+   },
+   "UMET_Wood_Cone_30kW_hor_R2": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "all": [
+      "MaCFP-4: HRR from a mass-loss cone, not oxygen consumption"
+     ]
+    },
+    "features": {},
+    "flux": 30,
+    "lab": "UMET",
+    "path": "Wood/Calibration_Data/UMET/UMET_Wood_Cone_30kW_hor_R2.csv"
+   },
+   "UMET_Wood_Cone_30kW_hor_R3": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "all": [
+      "MaCFP-4: HRR from a mass-loss cone, not oxygen consumption"
+     ]
+    },
+    "features": {},
+    "flux": 30,
+    "lab": "UMET",
+    "path": "Wood/Calibration_Data/UMET/UMET_Wood_Cone_30kW_hor_R3.csv"
+   },
+   "UMET_Wood_Cone_60kW_hor_R1": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "all": [
+      "MaCFP-4: HRR from a mass-loss cone, not oxygen consumption"
+     ]
+    },
+    "features": {},
+    "flux": 60,
+    "lab": "UMET",
+    "path": "Wood/Calibration_Data/UMET/UMET_Wood_Cone_60kW_hor_R1.csv"
+   },
+   "UMET_Wood_Cone_60kW_hor_R2": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "all": [
+      "MaCFP-4: HRR from a mass-loss cone, not oxygen consumption"
+     ]
+    },
+    "features": {},
+    "flux": 60,
+    "lab": "UMET",
+    "path": "Wood/Calibration_Data/UMET/UMET_Wood_Cone_60kW_hor_R2.csv"
+   },
+   "UMET_Wood_Cone_60kW_hor_R3": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "all": [
+      "MaCFP-4: HRR from a mass-loss cone, not oxygen consumption"
+     ]
+    },
+    "features": {},
+    "flux": 60,
+    "lab": "UMET",
+    "path": "Wood/Calibration_Data/UMET/UMET_Wood_Cone_60kW_hor_R3.csv"
+   },
+   "UQ_Wood_Cone_60kW_hor_Parallel_R1": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 12.5702,
+     "first_peak": 14.3182,
+     "plateau": 7.62037,
+     "plateau_cut_by_window": true,
+     "plateau_uncut_reported_only": 4.69569,
+     "t_first_peak": 32.0,
+     "t_ig": 15.0,
+     "window_end": 390.0
+    },
+    "flux": 60,
+    "lab": "UQ",
+    "path": "Wood/Calibration_Data/UQ/UQ_Wood_Cone_60kW_hor_Parallel_R1.CSV"
+   },
+   "UQ_Wood_Cone_60kW_hor_Parallel_R2": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 13.1798,
+     "first_peak": 21.3636,
+     "plateau": 4.95349,
+     "plateau_cut_by_window": true,
+     "plateau_uncut_reported_only": 2.84494,
+     "t_first_peak": 21.0,
+     "t_ig": 12.0,
+     "window_end": 304.0
+    },
+    "flux": 60,
+    "lab": "UQ",
+    "path": "Wood/Calibration_Data/UQ/UQ_Wood_Cone_60kW_hor_Parallel_R2.CSV"
+   },
+   "UQ_Wood_Cone_60kW_hor_Parallel_R3": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 12.4404,
+     "first_peak": 19.5455,
+     "plateau": null,
+     "plateau_cut_by_window": true,
+     "plateau_uncut_reported_only": 4.00995,
+     "t_first_peak": 20.0,
+     "t_ig": 13.0,
+     "window_end": 190.0
+    },
+    "flux": 60,
+    "lab": "UQ",
+    "path": "Wood/Calibration_Data/UQ/UQ_Wood_Cone_60kW_hor_Parallel_R3.CSV"
+   }
+  }
+ },
+ "pmma": {
+  "dhc_eff_dbi": {
+   "25": {
+    "mean": 24.6953,
+    "n": 3,
+    "tests": {
+     "DBI_Lund_Cone_25kW_1": 24.7023,
+     "DBI_Lund_Cone_25kW_2": 24.6253,
+     "DBI_Lund_Cone_25kW_3": 24.7584
+    }
+   },
+   "50": {
+    "mean": 24.5626,
+    "n": 3,
+    "tests": {
+     "DBI_Lund_Cone_50kW_1": 24.3853,
+     "DBI_Lund_Cone_50kW_2": 24.5212,
+     "DBI_Lund_Cone_50kW_3": 24.7812
+    }
+   },
+   "65": {
+    "mean": 24.634,
+    "n": 3,
+    "tests": {
+     "DBI_Lund_Cone_65kW_1": 24.789,
+     "DBI_Lund_Cone_65kW_2": 24.431,
+     "DBI_Lund_Cone_65kW_3": 24.682
+    }
+   }
+  },
+  "envelope": {
+   "25": {
+    "mass_lost": {
+     "hi": 6925.97,
+     "labs": {
+      "DBI_Lund": {
+       "mean": 5756.95,
+       "n": 6,
+       "tests": [
+        "DBI_Lund_Cone_25kW_1",
+        "DBI_Lund_Cone_25kW_2",
+        "DBI_Lund_Cone_25kW_3",
+        "DBI_Lund_Cone_25kW_4",
+        "DBI_Lund_Cone_25kW_5",
+        "DBI_Lund_Cone_25kW_6"
+       ]
+      },
+      "Edinburgh": {
+       "mean": 4020.39,
+       "n": 5,
+       "tests": [
+        "Edinburgh_Cone_25kW_2",
+        "Edinburgh_Cone_25kW_3",
+        "Edinburgh_Cone_25kW_4",
+        "Edinburgh_Cone_25kW_5",
+        "Edinburgh_Cone_25kW_6"
+       ]
+      },
+      "GIDAZE+": {
+       "mean": 3562.47,
+       "n": 2,
+       "tests": [
+        "GIDAZE+_Cone_25kW_1",
+        "GIDAZE+_Cone_25kW_2"
+       ]
+      },
+      "NIST": {
+       "mean": 5470.86,
+       "n": 3,
+       "tests": [
+        "NIST_Cone_25kW_1",
+        "NIST_Cone_25kW_2",
+        "NIST_Cone_25kW_3"
+       ]
+      },
+      "TIFP": {
+       "mean": 5642.09,
+       "n": 3,
+       "tests": [
+        "TIFP_Cone_25kW_1",
+        "TIFP_Cone_25kW_2",
+        "TIFP_Cone_25kW_3"
+       ]
+      },
+      "UDRI": {
+       "mean": 6757.05,
+       "n": 3,
+       "tests": [
+        "UDRI_Cone_25kW_1",
+        "UDRI_Cone_25kW_2",
+        "UDRI_Cone_25kW_3"
+       ]
+      }
+     },
+     "lo": 3473.41,
+     "max": 6757.05,
+     "min": 3562.47,
+     "n_labs": 6
+    },
+    "peak": {
+     "hi": 30.7962,
+     "labs": {
+      "DBI_Lund": {
+       "mean": 26.7514,
+       "n": 6,
+       "tests": [
+        "DBI_Lund_Cone_25kW_1",
+        "DBI_Lund_Cone_25kW_2",
+        "DBI_Lund_Cone_25kW_3",
+        "DBI_Lund_Cone_25kW_4",
+        "DBI_Lund_Cone_25kW_5",
+        "DBI_Lund_Cone_25kW_6"
+       ]
+      },
+      "Edinburgh": {
+       "mean": 21.0179,
+       "n": 5,
+       "tests": [
+        "Edinburgh_Cone_25kW_2",
+        "Edinburgh_Cone_25kW_3",
+        "Edinburgh_Cone_25kW_4",
+        "Edinburgh_Cone_25kW_5",
+        "Edinburgh_Cone_25kW_6"
+       ]
+      },
+      "GIDAZE+": {
+       "mean": 25.5712,
+       "n": 2,
+       "tests": [
+        "GIDAZE+_Cone_25kW_1",
+        "GIDAZE+_Cone_25kW_2"
+       ]
+      },
+      "NIST": {
+       "mean": 29.8526,
+       "n": 3,
+       "tests": [
+        "NIST_Cone_25kW_1",
+        "NIST_Cone_25kW_2",
+        "NIST_Cone_25kW_3"
+       ]
+      },
+      "TIFP": {
+       "mean": 24.0128,
+       "n": 3,
+       "tests": [
+        "TIFP_Cone_25kW_1",
+        "TIFP_Cone_25kW_2",
+        "TIFP_Cone_25kW_3"
+       ]
+      },
+      "UDRI": {
+       "mean": 30.0451,
+       "n": 3,
+       "tests": [
+        "UDRI_Cone_25kW_1",
+        "UDRI_Cone_25kW_2",
+        "UDRI_Cone_25kW_3"
+       ]
+      }
+     },
+     "lo": 20.4924,
+     "max": 30.0451,
+     "min": 21.0179,
+     "n_labs": 6
+    },
+    "t_ig": {
+     "hi": 126.5,
+     "labs": {
+      "DBI_Lund": {
+       "mean": 106.5,
+       "n": 6,
+       "tests": [
+        "DBI_Lund_Cone_25kW_1",
+        "DBI_Lund_Cone_25kW_2",
+        "DBI_Lund_Cone_25kW_3",
+        "DBI_Lund_Cone_25kW_4",
+        "DBI_Lund_Cone_25kW_5",
+        "DBI_Lund_Cone_25kW_6"
+       ]
+      },
+      "Edinburgh": {
+       "mean": 105.478,
+       "n": 5,
+       "tests": [
+        "Edinburgh_Cone_25kW_2",
+        "Edinburgh_Cone_25kW_3",
+        "Edinburgh_Cone_25kW_4",
+        "Edinburgh_Cone_25kW_5",
+        "Edinburgh_Cone_25kW_6"
+       ]
+      },
+      "GIDAZE+": {
+       "mean": 123.5,
+       "n": 2,
+       "tests": [
+        "GIDAZE+_Cone_25kW_1",
+        "GIDAZE+_Cone_25kW_2"
+       ]
+      },
+      "NIST": {
+       "mean": 111.667,
+       "n": 3,
+       "tests": [
+        "NIST_Cone_25kW_1",
+        "NIST_Cone_25kW_2",
+        "NIST_Cone_25kW_3"
+       ]
+      },
+      "TIFP": {
+       "mean": 98.6667,
+       "n": 3,
+       "tests": [
+        "TIFP_Cone_25kW_1",
+        "TIFP_Cone_25kW_2",
+        "TIFP_Cone_25kW_3"
+       ]
+      },
+      "UDRI": {
+       "mean": 114.333,
+       "n": 3,
+       "tests": [
+        "UDRI_Cone_25kW_1",
+        "UDRI_Cone_25kW_2",
+        "UDRI_Cone_25kW_3"
+       ]
+      }
+     },
+     "lo": 95.6667,
+     "max": 123.5,
+     "min": 98.6667,
+     "n_labs": 6
+    },
+    "t_peak": {
+     "hi": 423.667,
+     "labs": {
+      "DBI_Lund": {
+       "mean": 396.5,
+       "n": 6,
+       "tests": [
+        "DBI_Lund_Cone_25kW_1",
+        "DBI_Lund_Cone_25kW_2",
+        "DBI_Lund_Cone_25kW_3",
+        "DBI_Lund_Cone_25kW_4",
+        "DBI_Lund_Cone_25kW_5",
+        "DBI_Lund_Cone_25kW_6"
+       ]
+      },
+      "Edinburgh": {
+       "mean": 345.472,
+       "n": 5,
+       "tests": [
+        "Edinburgh_Cone_25kW_2",
+        "Edinburgh_Cone_25kW_3",
+        "Edinburgh_Cone_25kW_4",
+        "Edinburgh_Cone_25kW_5",
+        "Edinburgh_Cone_25kW_6"
+       ]
+      },
+      "GIDAZE+": {
+       "mean": 337.5,
+       "n": 2,
+       "tests": [
+        "GIDAZE+_Cone_25kW_1",
+        "GIDAZE+_Cone_25kW_2"
+       ]
+      },
+      "NIST": {
+       "mean": 366.333,
+       "n": 3,
+       "tests": [
+        "NIST_Cone_25kW_1",
+        "NIST_Cone_25kW_2",
+        "NIST_Cone_25kW_3"
+       ]
+      },
+      "TIFP": {
+       "mean": 411.667,
+       "n": 3,
+       "tests": [
+        "TIFP_Cone_25kW_1",
+        "TIFP_Cone_25kW_2",
+        "TIFP_Cone_25kW_3"
+       ]
+      },
+      "UDRI": {
+       "mean": 420.667,
+       "n": 3,
+       "tests": [
+        "UDRI_Cone_25kW_1",
+        "UDRI_Cone_25kW_2",
+        "UDRI_Cone_25kW_3"
+       ]
+      }
+     },
+     "lo": 334.5,
+     "max": 420.667,
+     "min": 337.5,
+     "n_labs": 6
+    }
+   },
+   "50": {
+    "mass_lost": {
+     "hi": 6622.19,
+     "labs": {
+      "DBI_Lund": {
+       "mean": 6460.67,
+       "n": 3,
+       "tests": [
+        "DBI_Lund_Cone_50kW_1",
+        "DBI_Lund_Cone_50kW_2",
+        "DBI_Lund_Cone_50kW_3"
+       ]
+      }
+     },
+     "lo": 6299.15,
+     "max": 6460.67,
+     "min": 6460.67,
+     "n_labs": 1
+    },
+    "peak": {
+     "hi": 46.9656,
+     "labs": {
+      "DBI_Lund": {
+       "mean": 45.8201,
+       "n": 3,
+       "tests": [
+        "DBI_Lund_Cone_50kW_1",
+        "DBI_Lund_Cone_50kW_2",
+        "DBI_Lund_Cone_50kW_3"
+       ]
+      }
+     },
+     "lo": 44.6746,
+     "max": 45.8201,
+     "min": 45.8201,
+     "n_labs": 1
+    },
+    "t_ig": {
+     "hi": 28.6667,
+     "labs": {
+      "DBI_Lund": {
+       "mean": 25.6667,
+       "n": 3,
+       "tests": [
+        "DBI_Lund_Cone_50kW_1",
+        "DBI_Lund_Cone_50kW_2",
+        "DBI_Lund_Cone_50kW_3"
+       ]
+      }
+     },
+     "lo": 22.6667,
+     "max": 25.6667,
+     "min": 25.6667,
+     "n_labs": 1
+    },
+    "t_peak": {
+     "hi": 235.333,
+     "labs": {
+      "DBI_Lund": {
+       "mean": 232.333,
+       "n": 3,
+       "tests": [
+        "DBI_Lund_Cone_50kW_1",
+        "DBI_Lund_Cone_50kW_2",
+        "DBI_Lund_Cone_50kW_3"
+       ]
+      }
+     },
+     "lo": 229.333,
+     "max": 232.333,
+     "min": 232.333,
+     "n_labs": 1
+    }
+   },
+   "65": {
+    "mass_lost": {
+     "hi": 7393.3,
+     "labs": {
+      "Aalto": {
+       "mean": 6227.67,
+       "n": 3,
+       "tests": [
+        "Aalto_Cone_65kW_1",
+        "Aalto_Cone_65kW_2",
+        "Aalto_Cone_65kW_3"
+       ]
+      },
+      "DBI_Lund": {
+       "mean": 6519.56,
+       "n": 3,
+       "tests": [
+        "DBI_Lund_Cone_65kW_1",
+        "DBI_Lund_Cone_65kW_2",
+        "DBI_Lund_Cone_65kW_3"
+       ]
+      },
+      "Edinburgh": {
+       "mean": 5016.51,
+       "n": 5,
+       "tests": [
+        "Edinburgh_Cone_65kW_1",
+        "Edinburgh_Cone_65kW_2",
+        "Edinburgh_Cone_65kW_3",
+        "Edinburgh_Cone_65kW_5",
+        "Edinburgh_Cone_65kW_6"
+       ]
+      },
+      "GIDAZE+": {
+       "mean": 5144.55,
+       "n": 2,
+       "tests": [
+        "GIDAZE+_Cone_65kW_1",
+        "GIDAZE+_Cone_65kW_2"
+       ]
+      },
+      "TIFP": {
+       "mean": 6149.25,
+       "n": 3,
+       "tests": [
+        "TIFP_Cone_65kW_1",
+        "TIFP_Cone_65kW_2",
+        "TIFP_Cone_65kW_3"
+       ]
+      },
+      "UClan": {
+       "mean": 4177.2,
+       "n": 1,
+       "tests": [
+        "UClan_Cone_65kW"
+       ]
+      },
+      "UDRI": {
+       "mean": 7212.98,
+       "n": 4,
+       "tests": [
+        "UDRI_Cone_65kW_1",
+        "UDRI_Cone_65kW_2",
+        "UDRI_Cone_65kW_3",
+        "UDRI_Cone_65kW_4"
+       ]
+      }
+     },
+     "lo": 4072.77,
+     "max": 7212.98,
+     "min": 4177.2,
+     "n_labs": 7
+    },
+    "peak": {
+     "hi": 134.757,
+     "labs": {
+      "Aalto": {
+       "mean": 51.5833,
+       "n": 3,
+       "tests": [
+        "Aalto_Cone_65kW_1",
+        "Aalto_Cone_65kW_2",
+        "Aalto_Cone_65kW_3"
+       ]
+      },
+      "DBI_Lund": {
+       "mean": 54.8307,
+       "n": 3,
+       "tests": [
+        "DBI_Lund_Cone_65kW_1",
+        "DBI_Lund_Cone_65kW_2",
+        "DBI_Lund_Cone_65kW_3"
+       ]
+      },
+      "Edinburgh": {
+       "mean": 45.2483,
+       "n": 5,
+       "tests": [
+        "Edinburgh_Cone_65kW_1",
+        "Edinburgh_Cone_65kW_2",
+        "Edinburgh_Cone_65kW_3",
+        "Edinburgh_Cone_65kW_5",
+        "Edinburgh_Cone_65kW_6"
+       ]
+      },
+      "GIDAZE+": {
+       "mean": 48.2693,
+       "n": 2,
+       "tests": [
+        "GIDAZE+_Cone_65kW_1",
+        "GIDAZE+_Cone_65kW_2"
+       ]
+      },
+      "TIFP": {
+       "mean": 51.2315,
+       "n": 3,
+       "tests": [
+        "TIFP_Cone_65kW_1",
+        "TIFP_Cone_65kW_2",
+        "TIFP_Cone_65kW_3"
+       ]
+      },
+      "UClan": {
+       "mean": 131.47,
+       "n": 1,
+       "tests": [
+        "UClan_Cone_65kW"
+       ]
+      },
+      "UDRI": {
+       "mean": 58.1677,
+       "n": 4,
+       "tests": [
+        "UDRI_Cone_65kW_1",
+        "UDRI_Cone_65kW_2",
+        "UDRI_Cone_65kW_3",
+        "UDRI_Cone_65kW_4"
+       ]
+      }
+     },
+     "lo": 44.1171,
+     "max": 131.47,
+     "min": 45.2483,
+     "n_labs": 7
+    },
+    "t_ig": {
+     "hi": 28.8836,
+     "labs": {
+      "Aalto": {
+       "mean": 12.0,
+       "n": 3,
+       "tests": [
+        "Aalto_Cone_65kW_1",
+        "Aalto_Cone_65kW_2",
+        "Aalto_Cone_65kW_3"
+       ]
+      },
+      "DBI_Lund": {
+       "mean": 16.3333,
+       "n": 3,
+       "tests": [
+        "DBI_Lund_Cone_65kW_1",
+        "DBI_Lund_Cone_65kW_2",
+        "DBI_Lund_Cone_65kW_3"
+       ]
+      },
+      "Edinburgh": {
+       "mean": 25.8836,
+       "n": 5,
+       "tests": [
+        "Edinburgh_Cone_65kW_1",
+        "Edinburgh_Cone_65kW_2",
+        "Edinburgh_Cone_65kW_3",
+        "Edinburgh_Cone_65kW_5",
+        "Edinburgh_Cone_65kW_6"
+       ]
+      },
+      "GIDAZE+": {
+       "mean": 20.0,
+       "n": 2,
+       "tests": [
+        "GIDAZE+_Cone_65kW_1",
+        "GIDAZE+_Cone_65kW_2"
+       ]
+      },
+      "TIFP": {
+       "mean": 13.6667,
+       "n": 3,
+       "tests": [
+        "TIFP_Cone_65kW_1",
+        "TIFP_Cone_65kW_2",
+        "TIFP_Cone_65kW_3"
+       ]
+      },
+      "UClan": {
+       "mean": 14.0,
+       "n": 1,
+       "tests": [
+        "UClan_Cone_65kW"
+       ]
+      },
+      "UDRI": {
+       "mean": 23.5,
+       "n": 4,
+       "tests": [
+        "UDRI_Cone_65kW_1",
+        "UDRI_Cone_65kW_2",
+        "UDRI_Cone_65kW_3",
+        "UDRI_Cone_65kW_4"
+       ]
+      }
+     },
+     "lo": 9.0,
+     "max": 25.8836,
+     "min": 12.0,
+     "n_labs": 7
+    },
+    "t_peak": {
+     "hi": 208.0,
+     "labs": {
+      "Aalto": {
+       "mean": 191.667,
+       "n": 3,
+       "tests": [
+        "Aalto_Cone_65kW_1",
+        "Aalto_Cone_65kW_2",
+        "Aalto_Cone_65kW_3"
+       ]
+      },
+      "DBI_Lund": {
+       "mean": 194.333,
+       "n": 3,
+       "tests": [
+        "DBI_Lund_Cone_65kW_1",
+        "DBI_Lund_Cone_65kW_2",
+        "DBI_Lund_Cone_65kW_3"
+       ]
+      },
+      "Edinburgh": {
+       "mean": 172.145,
+       "n": 5,
+       "tests": [
+        "Edinburgh_Cone_65kW_1",
+        "Edinburgh_Cone_65kW_2",
+        "Edinburgh_Cone_65kW_3",
+        "Edinburgh_Cone_65kW_5",
+        "Edinburgh_Cone_65kW_6"
+       ]
+      },
+      "GIDAZE+": {
+       "mean": 182.0,
+       "n": 2,
+       "tests": [
+        "GIDAZE+_Cone_65kW_1",
+        "GIDAZE+_Cone_65kW_2"
+       ]
+      },
+      "TIFP": {
+       "mean": 185.0,
+       "n": 3,
+       "tests": [
+        "TIFP_Cone_65kW_1",
+        "TIFP_Cone_65kW_2",
+        "TIFP_Cone_65kW_3"
+       ]
+      },
+      "UClan": {
+       "mean": 151.0,
+       "n": 1,
+       "tests": [
+        "UClan_Cone_65kW"
+       ]
+      },
+      "UDRI": {
+       "mean": 205.0,
+       "n": 4,
+       "tests": [
+        "UDRI_Cone_65kW_1",
+        "UDRI_Cone_65kW_2",
+        "UDRI_Cone_65kW_3",
+        "UDRI_Cone_65kW_4"
+       ]
+      }
+     },
+     "lo": 148.0,
+     "max": 205.0,
+     "min": 151.0,
+     "n_labs": 7
+    }
+   }
+  },
+  "per_lab": {
+   "DBI_Lund": {
+    "25": {
+     "mass_lost": {
+      "hi": 6310.01,
+      "lo": 5627.9,
+      "max": 6156.1,
+      "mean": 5952.3,
+      "min": 5772.21,
+      "n": 3,
+      "tests": {
+       "DBI_Lund_Cone_25kW_1": 5772.21,
+       "DBI_Lund_Cone_25kW_2": 6156.1,
+       "DBI_Lund_Cone_25kW_3": 5928.6
+      }
+     },
+     "peak": {
+      "hi": 29.6708,
+      "lo": 26.2846,
+      "max": 28.9471,
+      "mean": 28.2665,
+      "min": 26.9585,
+      "n": 3,
+      "tests": {
+       "DBI_Lund_Cone_25kW_1": 26.9585,
+       "DBI_Lund_Cone_25kW_2": 28.8939,
+       "DBI_Lund_Cone_25kW_3": 28.9471
+      }
+     },
+     "t_ig": {
+      "hi": 109.0,
+      "lo": 97.0,
+      "max": 106.0,
+      "mean": 102.0,
+      "min": 100.0,
+      "n": 3,
+      "tests": {
+       "DBI_Lund_Cone_25kW_1": 100.0,
+       "DBI_Lund_Cone_25kW_2": 106.0,
+       "DBI_Lund_Cone_25kW_3": 100.0
+      }
+     },
+     "t_peak": {
+      "hi": 406.0,
+      "lo": 379.0,
+      "max": 403.0,
+      "mean": 391.667,
+      "min": 382.0,
+      "n": 3,
+      "tests": {
+       "DBI_Lund_Cone_25kW_1": 390.0,
+       "DBI_Lund_Cone_25kW_2": 403.0,
+       "DBI_Lund_Cone_25kW_3": 382.0
+      }
+     }
+    },
+    "50": {
+     "mass_lost": {
+      "hi": 6802.81,
+      "lo": 6192.71,
+      "max": 6636.89,
+      "mean": 6460.67,
+      "min": 6351.49,
+      "n": 3,
+      "tests": {
+       "DBI_Lund_Cone_50kW_1": 6636.89,
+       "DBI_Lund_Cone_50kW_2": 6351.49,
+       "DBI_Lund_Cone_50kW_3": 6393.63
+      }
+     },
+     "peak": {
+      "hi": 49.3806,
+      "lo": 41.9823,
+      "max": 48.1762,
+      "mean": 45.8201,
+      "min": 43.0588,
+      "n": 3,
+      "tests": {
+       "DBI_Lund_Cone_50kW_1": 48.1762,
+       "DBI_Lund_Cone_50kW_2": 43.0588,
+       "DBI_Lund_Cone_50kW_3": 46.2254
+      }
+     },
+     "t_ig": {
+      "hi": 30.0,
+      "lo": 21.0,
+      "max": 27.0,
+      "mean": 25.6667,
+      "min": 24.0,
+      "n": 3,
+      "tests": {
+       "DBI_Lund_Cone_50kW_1": 27.0,
+       "DBI_Lund_Cone_50kW_2": 24.0,
+       "DBI_Lund_Cone_50kW_3": 26.0
+      }
+     },
+     "t_peak": {
+      "hi": 240.0,
+      "lo": 226.0,
+      "max": 237.0,
+      "mean": 232.333,
+      "min": 229.0,
+      "n": 3,
+      "tests": {
+       "DBI_Lund_Cone_50kW_1": 237.0,
+       "DBI_Lund_Cone_50kW_2": 231.0,
+       "DBI_Lund_Cone_50kW_3": 229.0
+      }
+     }
+    },
+    "65": {
+     "mass_lost": {
+      "hi": 6729.89,
+      "lo": 6326.71,
+      "max": 6565.74,
+      "mean": 6519.56,
+      "min": 6488.94,
+      "n": 3,
+      "tests": {
+       "DBI_Lund_Cone_65kW_1": 6488.94,
+       "DBI_Lund_Cone_65kW_2": 6565.74,
+       "DBI_Lund_Cone_65kW_3": 6504.01
+      }
+     },
+     "peak": {
+      "hi": 57.5299,
+      "lo": 52.5673,
+      "max": 56.1267,
+      "mean": 54.8307,
+      "min": 53.9152,
+      "n": 3,
+      "tests": {
+       "DBI_Lund_Cone_65kW_1": 53.9152,
+       "DBI_Lund_Cone_65kW_2": 56.1267,
+       "DBI_Lund_Cone_65kW_3": 54.4501
+      }
+     },
+     "t_ig": {
+      "hi": 20.0,
+      "lo": 13.0,
+      "max": 17.0,
+      "mean": 16.3333,
+      "min": 16.0,
+      "n": 3,
+      "tests": {
+       "DBI_Lund_Cone_65kW_1": 16.0,
+       "DBI_Lund_Cone_65kW_2": 17.0,
+       "DBI_Lund_Cone_65kW_3": 16.0
+      }
+     },
+     "t_peak": {
+      "hi": 200.0,
+      "lo": 189.0,
+      "max": 197.0,
+      "mean": 194.333,
+      "min": 192.0,
+      "n": 3,
+      "tests": {
+       "DBI_Lund_Cone_65kW_1": 192.0,
+       "DBI_Lund_Cone_65kW_2": 197.0,
+       "DBI_Lund_Cone_65kW_3": 194.0
+      }
+     }
+    }
+   }
+  },
+  "t_ig_envelope_artefact_rule_off_reported_only": {},
+  "tests": {
+   "Aalto_Cone_65kW_1": {
+    "area_m2": 0.01,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 24.4347,
+     "mass_lost": 6048.0,
+     "peak": 51.5455,
+     "t_flame_end": 250.0,
+     "t_ig": 12.0,
+     "t_peak": 190.0
+    },
+    "flux": 65,
+    "lab": "Aalto",
+    "path": "PMMA/Calibration_Data/Aalto/Aalto_Cone_65kW_1.csv"
+   },
+   "Aalto_Cone_65kW_2": {
+    "area_m2": 0.01,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 22.9125,
+     "mass_lost": 6203.0,
+     "peak": 51.8182,
+     "t_flame_end": 253.0,
+     "t_ig": 12.0,
+     "t_peak": 188.0
+    },
+    "flux": 65,
+    "lab": "Aalto",
+    "path": "PMMA/Calibration_Data/Aalto/Aalto_Cone_65kW_2.csv"
+   },
+   "Aalto_Cone_65kW_3": {
+    "area_m2": 0.01,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 23.6817,
+     "mass_lost": 6432.0,
+     "peak": 51.3864,
+     "t_flame_end": 270.0,
+     "t_ig": 12.0,
+     "t_peak": 197.0
+    },
+    "flux": 65,
+    "lab": "Aalto",
+    "path": "PMMA/Calibration_Data/Aalto/Aalto_Cone_65kW_3.csv"
+   },
+   "DBI_Lund_Cone_25kW_1": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 24.7023,
+     "mass_lost": 5772.21,
+     "peak": 26.9585,
+     "t_flame_end": 511.0,
+     "t_ig": 100.0,
+     "t_peak": 390.0
+    },
+    "flux": 25,
+    "lab": "DBI_Lund",
+    "path": "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_25kW_1.csv"
+   },
+   "DBI_Lund_Cone_25kW_2": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 24.6253,
+     "mass_lost": 6156.1,
+     "peak": 28.8939,
+     "t_flame_end": 468.0,
+     "t_ig": 106.0,
+     "t_peak": 403.0
+    },
+    "flux": 25,
+    "lab": "DBI_Lund",
+    "path": "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_25kW_2.csv"
+   },
+   "DBI_Lund_Cone_25kW_3": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 24.7584,
+     "mass_lost": 5928.6,
+     "peak": 28.9471,
+     "t_flame_end": 450.0,
+     "t_ig": 100.0,
+     "t_peak": 382.0
+    },
+    "flux": 25,
+    "lab": "DBI_Lund",
+    "path": "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_25kW_3.csv"
+   },
+   "DBI_Lund_Cone_25kW_4": {
+    "area_m2": 0.00387,
+    "excluded": {
+     "per_lab": [
+      "round sample: another holder and area (§2, P1 per lab)"
+     ]
+    },
+    "features": {
+     "dhc": 23.6948,
+     "mass_lost": 5022.19,
+     "peak": 25.3828,
+     "t_flame_end": 528.0,
+     "t_ig": 112.0,
+     "t_peak": 389.0
+    },
+    "flux": 25,
+    "lab": "DBI_Lund",
+    "path": "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_25kW_4.csv"
+   },
+   "DBI_Lund_Cone_25kW_5": {
+    "area_m2": 0.00387,
+    "excluded": {
+     "per_lab": [
+      "round sample: another holder and area (§2, P1 per lab)"
+     ]
+    },
+    "features": {
+     "dhc": 24.6106,
+     "mass_lost": 6629.32,
+     "peak": 25.3596,
+     "t_flame_end": 488.0,
+     "t_ig": 112.0,
+     "t_peak": 442.0
+    },
+    "flux": 25,
+    "lab": "DBI_Lund",
+    "path": "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_25kW_5.csv"
+   },
+   "DBI_Lund_Cone_25kW_6": {
+    "area_m2": 0.00387,
+    "excluded": {
+     "per_lab": [
+      "round sample: another holder and area (§2, P1 per lab)"
+     ]
+    },
+    "features": {
+     "dhc": 24.5595,
+     "mass_lost": 5033.27,
+     "peak": 24.9665,
+     "t_flame_end": 503.0,
+     "t_ig": 109.0,
+     "t_peak": 373.0
+    },
+    "flux": 25,
+    "lab": "DBI_Lund",
+    "path": "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_25kW_6.csv"
+   },
+   "DBI_Lund_Cone_50kW_1": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 24.3853,
+     "mass_lost": 6636.89,
+     "peak": 48.1762,
+     "t_flame_end": 291.0,
+     "t_ig": 27.0,
+     "t_peak": 237.0
+    },
+    "flux": 50,
+    "lab": "DBI_Lund",
+    "path": "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_50kW_1.csv"
+   },
+   "DBI_Lund_Cone_50kW_2": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 24.5212,
+     "mass_lost": 6351.49,
+     "peak": 43.0588,
+     "t_flame_end": 280.0,
+     "t_ig": 24.0,
+     "t_peak": 231.0
+    },
+    "flux": 50,
+    "lab": "DBI_Lund",
+    "path": "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_50kW_2.csv"
+   },
+   "DBI_Lund_Cone_50kW_3": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 24.7812,
+     "mass_lost": 6393.63,
+     "peak": 46.2254,
+     "t_flame_end": 271.0,
+     "t_ig": 26.0,
+     "t_peak": 229.0
+    },
+    "flux": 50,
+    "lab": "DBI_Lund",
+    "path": "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_50kW_3.csv"
+   },
+   "DBI_Lund_Cone_65kW_1": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 24.789,
+     "mass_lost": 6488.94,
+     "peak": 53.9152,
+     "t_flame_end": 228.0,
+     "t_ig": 16.0,
+     "t_peak": 192.0
+    },
+    "flux": 65,
+    "lab": "DBI_Lund",
+    "path": "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_65kW_1.csv"
+   },
+   "DBI_Lund_Cone_65kW_2": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 24.431,
+     "mass_lost": 6565.74,
+     "peak": 56.1267,
+     "t_flame_end": 233.0,
+     "t_ig": 17.0,
+     "t_peak": 197.0
+    },
+    "flux": 65,
+    "lab": "DBI_Lund",
+    "path": "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_65kW_2.csv"
+   },
+   "DBI_Lund_Cone_65kW_3": {
+    "area_m2": 0.01,
+    "excluded": {},
+    "features": {
+     "dhc": 24.682,
+     "mass_lost": 6504.01,
+     "peak": 54.4501,
+     "t_flame_end": 229.0,
+     "t_ig": 16.0,
+     "t_peak": 194.0
+    },
+    "flux": 65,
+    "lab": "DBI_Lund",
+    "path": "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_65kW_3.csv"
+   },
+   "Edinburgh_Cone_25kW_1": {
+    "area_m2": 0.009025,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 26.27 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 26.2678,
+     "mass_lost": 3397.23,
+     "peak": 18.8163,
+     "t_flame_end": 953.17,
+     "t_ig": 120.68,
+     "t_peak": 343.76
+    },
+    "flux": 25,
+    "lab": "Edinburgh",
+    "path": "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_25kW_1.csv"
+   },
+   "Edinburgh_Cone_25kW_2": {
+    "area_m2": 0.009025,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 21.9476,
+     "mass_lost": 3242.11,
+     "peak": 17.2819,
+     "t_flame_end": 863.9,
+     "t_ig": 124.7,
+     "t_peak": 343.7
+    },
+    "flux": 25,
+    "lab": "Edinburgh",
+    "path": "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_25kW_2.csv"
+   },
+   "Edinburgh_Cone_25kW_3": {
+    "area_m2": 0.009025,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 21.7771,
+     "mass_lost": 3677.56,
+     "peak": 19.1001,
+     "t_flame_end": 1015.0,
+     "t_ig": 118.6,
+     "t_peak": 357.9
+    },
+    "flux": 25,
+    "lab": "Edinburgh",
+    "path": "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_25kW_3.csv"
+   },
+   "Edinburgh_Cone_25kW_4": {
+    "area_m2": 0.009025,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 24.7213,
+     "mass_lost": 4068.7,
+     "peak": 22.2955,
+     "t_flame_end": 799.77,
+     "t_ig": 95.37,
+     "t_peak": 325.02
+    },
+    "flux": 25,
+    "lab": "Edinburgh",
+    "path": "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_25kW_4.csv"
+   },
+   "Edinburgh_Cone_25kW_5": {
+    "area_m2": 0.009025,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 24.3683,
+     "mass_lost": 4216.07,
+     "peak": 23.4794,
+     "t_flame_end": 779.69,
+     "t_ig": 95.38,
+     "t_peak": 332.25
+    },
+    "flux": 25,
+    "lab": "Edinburgh",
+    "path": "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_25kW_5.csv"
+   },
+   "Edinburgh_Cone_25kW_6": {
+    "area_m2": 0.009025,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 24.7557,
+     "mass_lost": 4897.51,
+     "peak": 22.9324,
+     "t_flame_end": 897.27,
+     "t_ig": 93.34,
+     "t_peak": 368.49
+    },
+    "flux": 25,
+    "lab": "Edinburgh",
+    "path": "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_25kW_6.csv"
+   },
+   "Edinburgh_Cone_65kW_1": {
+    "area_m2": 0.009025,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 23.7993,
+     "mass_lost": 5402.77,
+     "peak": 40.252,
+     "t_flame_end": 388.4,
+     "t_ig": 20.3,
+     "t_peak": 192.7
+    },
+    "flux": 65,
+    "lab": "Edinburgh",
+    "path": "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_65kW_1.csv"
+   },
+   "Edinburgh_Cone_65kW_2": {
+    "area_m2": 0.009025,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 24.4574,
+     "mass_lost": 5126.87,
+     "peak": 40.5297,
+     "t_flame_end": 459.3,
+     "t_ig": 33.5,
+     "t_peak": 191.6
+    },
+    "flux": 65,
+    "lab": "Edinburgh",
+    "path": "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_65kW_2.csv"
+   },
+   "Edinburgh_Cone_65kW_3": {
+    "area_m2": 0.009025,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 23.1634,
+     "mass_lost": 4660.39,
+     "peak": 41.76,
+     "t_flame_end": 423.9,
+     "t_ig": 33.5,
+     "t_peak": 176.4
+    },
+    "flux": 65,
+    "lab": "Edinburgh",
+    "path": "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_65kW_3.csv"
+   },
+   "Edinburgh_Cone_65kW_4": {
+    "area_m2": 0.009025,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c not computable"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": null,
+     "mass_lost": -7098.06,
+     "peak": -0.634165,
+     "t_flame_end": 381.85,
+     "t_ig": 21.13,
+     "t_peak": 362.76
+    },
+    "flux": 65,
+    "lab": "Edinburgh",
+    "path": "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_65kW_4.csv"
+   },
+   "Edinburgh_Cone_65kW_5": {
+    "area_m2": 0.009025,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 25.6515,
+     "mass_lost": 5022.71,
+     "peak": 52.4024,
+     "t_flame_end": 382.02,
+     "t_ig": 21.05,
+     "t_peak": 150.48
+    },
+    "flux": 65,
+    "lab": "Edinburgh",
+    "path": "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_65kW_5.csv"
+   },
+   "Edinburgh_Cone_65kW_6": {
+    "area_m2": 0.009025,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 25.6131,
+     "mass_lost": 4869.81,
+     "peak": 51.2972,
+     "t_flame_end": 402.492,
+     "t_ig": 21.068,
+     "t_peak": 149.546
+    },
+    "flux": 65,
+    "lab": "Edinburgh",
+    "path": "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_65kW_6.csv"
+   },
+   "GIDAZE+_Cone_25kW_1": {
+    "area_m2": 0.01,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 24.4009,
+     "mass_lost": 4379.64,
+     "peak": 26.8,
+     "t_flame_end": 620.0,
+     "t_ig": 132.0,
+     "t_peak": 390.0
+    },
+    "flux": 25,
+    "lab": "GIDAZE+",
+    "path": "PMMA/Calibration_Data/GIDAZE+/GIDAZE+_Cone_25kW_1.csv"
+   },
+   "GIDAZE+_Cone_25kW_2": {
+    "area_m2": 0.01,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 24.5029,
+     "mass_lost": 2745.3,
+     "peak": 24.3424,
+     "t_flame_end": 555.0,
+     "t_ig": 115.0,
+     "t_peak": 285.0
+    },
+    "flux": 25,
+    "lab": "GIDAZE+",
+    "path": "PMMA/Calibration_Data/GIDAZE+/GIDAZE+_Cone_25kW_2.csv"
+   },
+   "GIDAZE+_Cone_65kW_1": {
+    "area_m2": 0.01,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 24.6029,
+     "mass_lost": 4601.65,
+     "peak": 47.3821,
+     "t_flame_end": 272.0,
+     "t_ig": 20.0,
+     "t_peak": 169.0
+    },
+    "flux": 65,
+    "lab": "GIDAZE+",
+    "path": "PMMA/Calibration_Data/GIDAZE+/GIDAZE+_Cone_65kW_1.csv"
+   },
+   "GIDAZE+_Cone_65kW_2": {
+    "area_m2": 0.01,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 24.6154,
+     "mass_lost": 5687.46,
+     "peak": 49.1565,
+     "t_flame_end": 277.0,
+     "t_ig": 20.0,
+     "t_peak": 195.0
+    },
+    "flux": 65,
+    "lab": "GIDAZE+",
+    "path": "PMMA/Calibration_Data/GIDAZE+/GIDAZE+_Cone_65kW_2.csv"
+   },
+   "HKPolyU_Cone_25kW_1": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 42.56 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 42.5555,
+     "mass_lost": 3719.0,
+     "peak": 24.0909,
+     "t_flame_end": 506.0,
+     "t_ig": 85.0,
+     "t_peak": 265.0
+    },
+    "flux": 25,
+    "lab": "HKPolyU",
+    "path": "PMMA/Calibration_Data/HKPoly/HKPolyU_Cone_25kW_1.CSV"
+   },
+   "HKPolyU_Cone_25kW_2": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 42.93 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 42.9287,
+     "mass_lost": 4778.0,
+     "peak": 22.75,
+     "t_flame_end": 486.0,
+     "t_ig": 69.0,
+     "t_peak": 313.0
+    },
+    "flux": 25,
+    "lab": "HKPolyU",
+    "path": "PMMA/Calibration_Data/HKPoly/HKPolyU_Cone_25kW_2.CSV"
+   },
+   "HKPolyU_Cone_65kW_1": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 55.33 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 55.3337,
+     "mass_lost": 5109.0,
+     "peak": 45.25,
+     "t_flame_end": 248.0,
+     "t_ig": 30.0,
+     "t_peak": 159.0
+    },
+    "flux": 65,
+    "lab": "HKPolyU",
+    "path": "PMMA/Calibration_Data/HKPoly/HKPolyU_Cone_65kW_1.CSV"
+   },
+   "HKPolyU_Cone_65kW_2": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 56.68 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 56.6842,
+     "mass_lost": 5391.0,
+     "peak": 45.5,
+     "t_flame_end": 243.0,
+     "t_ig": 29.0,
+     "t_peak": 163.0
+    },
+    "flux": 65,
+    "lab": "HKPolyU",
+    "path": "PMMA/Calibration_Data/HKPoly/HKPolyU_Cone_65kW_2.CSV"
+   },
+   "LCPP_Cone_25kW_1": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 0.00 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 0.0,
+     "mass_lost": 4533.32,
+     "peak": 29.695,
+     "t_flame_end": 440.0,
+     "t_ig": 115.0,
+     "t_peak": 345.0
+    },
+    "flux": 25,
+    "lab": "LCPP",
+    "path": "PMMA/Calibration_Data/LCPP/LCPP_Cone_25kW_1.csv"
+   },
+   "LCPP_Cone_25kW_2": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c not computable"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "t_flame_end": 465.0,
+     "t_ig": 115.0
+    },
+    "flux": 25,
+    "lab": "LCPP",
+    "path": "PMMA/Calibration_Data/LCPP/LCPP_Cone_25kW_2.csv"
+   },
+   "LCPP_Cone_25kW_3": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c not computable"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "t_flame_end": 465.0,
+     "t_ig": 100.0
+    },
+    "flux": 25,
+    "lab": "LCPP",
+    "path": "PMMA/Calibration_Data/LCPP/LCPP_Cone_25kW_3.csv"
+   },
+   "LCPP_Cone_25kW_4": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c not computable"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "t_flame_end": 490.0,
+     "t_ig": 115.0
+    },
+    "flux": 25,
+    "lab": "LCPP",
+    "path": "PMMA/Calibration_Data/LCPP/LCPP_Cone_25kW_4.csv"
+   },
+   "LCPP_Cone_65kW_1": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 0.00 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 0.0,
+     "mass_lost": 6147.7,
+     "peak": 60.1152,
+     "t_flame_end": 225.0,
+     "t_ig": 30.0,
+     "t_peak": 195.0
+    },
+    "flux": 65,
+    "lab": "LCPP",
+    "path": "PMMA/Calibration_Data/LCPP/LCPP_Cone_65kW_1.csv"
+   },
+   "LCPP_Cone_65kW_2": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c not computable"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "t_flame_end": 465.0,
+     "t_ig": 115.0
+    },
+    "flux": 65,
+    "lab": "LCPP",
+    "path": "PMMA/Calibration_Data/LCPP/LCPP_Cone_65kW_2.csv"
+   },
+   "LCPP_Cone_65kW_3": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c not computable"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "t_flame_end": 465.0,
+     "t_ig": 100.0
+    },
+    "flux": 65,
+    "lab": "LCPP",
+    "path": "PMMA/Calibration_Data/LCPP/LCPP_Cone_65kW_3.csv"
+   },
+   "LCPP_Cone_65kW_4": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c not computable"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "t_flame_end": 220.0,
+     "t_ig": 30.0
+    },
+    "flux": 65,
+    "lab": "LCPP",
+    "path": "PMMA/Calibration_Data/LCPP/LCPP_Cone_65kW_4.csv"
+   },
+   "NIST_Cone_25kW_1": {
+    "area_m2": 0.01,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 24.4339,
+     "mass_lost": 5100.0,
+     "peak": 29.5401,
+     "t_flame_end": 436.0,
+     "t_ig": 114.0,
+     "t_peak": 353.0
+    },
+    "flux": 25,
+    "lab": "NIST",
+    "path": "PMMA/Calibration_Data/NIST/NIST_Cone_25kW_1.csv"
+   },
+   "NIST_Cone_25kW_2": {
+    "area_m2": 0.01,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 24.4283,
+     "mass_lost": 5434.91,
+     "peak": 29.7,
+     "t_flame_end": 438.0,
+     "t_ig": 111.0,
+     "t_peak": 363.0
+    },
+    "flux": 25,
+    "lab": "NIST",
+    "path": "PMMA/Calibration_Data/NIST/NIST_Cone_25kW_2.csv"
+   },
+   "NIST_Cone_25kW_3": {
+    "area_m2": 0.01,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 24.2112,
+     "mass_lost": 5877.67,
+     "peak": 30.3177,
+     "t_flame_end": 458.0,
+     "t_ig": 110.0,
+     "t_peak": 383.0
+    },
+    "flux": 25,
+    "lab": "NIST",
+    "path": "PMMA/Calibration_Data/NIST/NIST_Cone_25kW_3.csv"
+   },
+   "TIFP_Cone_25kW_1": {
+    "area_m2": 0.0084,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 23.9509,
+     "mass_lost": 5836.41,
+     "peak": 23.8457,
+     "t_flame_end": 1000.0,
+     "t_ig": 103.0,
+     "t_peak": 425.0
+    },
+    "flux": 25,
+    "lab": "TIFP",
+    "path": "PMMA/Calibration_Data/TIFP/TIFP_Cone_25kW_1.csv"
+   },
+   "TIFP_Cone_25kW_2": {
+    "area_m2": 0.0084,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 24.6455,
+     "mass_lost": 5585.87,
+     "peak": 24.6496,
+     "t_flame_end": 904.0,
+     "t_ig": 93.0,
+     "t_peak": 405.0
+    },
+    "flux": 25,
+    "lab": "TIFP",
+    "path": "PMMA/Calibration_Data/TIFP/TIFP_Cone_25kW_2.csv"
+   },
+   "TIFP_Cone_25kW_3": {
+    "area_m2": 0.0084,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 24.4495,
+     "mass_lost": 5503.98,
+     "peak": 23.543,
+     "t_flame_end": 815.0,
+     "t_ig": 100.0,
+     "t_peak": 405.0
+    },
+    "flux": 25,
+    "lab": "TIFP",
+    "path": "PMMA/Calibration_Data/TIFP/TIFP_Cone_25kW_3.csv"
+   },
+   "TIFP_Cone_65kW_1": {
+    "area_m2": 0.0084,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 23.4995,
+     "mass_lost": 6287.87,
+     "peak": 50.8417,
+     "t_flame_end": 424.0,
+     "t_ig": 15.0,
+     "t_peak": 187.0
+    },
+    "flux": 65,
+    "lab": "TIFP",
+    "path": "PMMA/Calibration_Data/TIFP/TIFP_Cone_65kW_1.csv"
+   },
+   "TIFP_Cone_65kW_2": {
+    "area_m2": 0.0084,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 24.3528,
+     "mass_lost": 6338.52,
+     "peak": 52.1043,
+     "t_flame_end": 418.0,
+     "t_ig": 14.0,
+     "t_peak": 192.0
+    },
+    "flux": 65,
+    "lab": "TIFP",
+    "path": "PMMA/Calibration_Data/TIFP/TIFP_Cone_65kW_2.csv"
+   },
+   "TIFP_Cone_65kW_3": {
+    "area_m2": 0.0084,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 24.2277,
+     "mass_lost": 5821.37,
+     "peak": 50.7486,
+     "t_flame_end": 354.0,
+     "t_ig": 12.0,
+     "t_peak": 176.0
+    },
+    "flux": 65,
+    "lab": "TIFP",
+    "path": "PMMA/Calibration_Data/TIFP/TIFP_Cone_65kW_3.csv"
+   },
+   "UClan_Cone_25kW": {
+    "area_m2": 0.0088,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 26.87 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 26.869,
+     "mass_lost": 5178.04,
+     "peak": 34.5457,
+     "t_flame_end": 1122.0,
+     "t_ig": 123.0,
+     "t_peak": 439.0
+    },
+    "flux": 25,
+    "lab": "UClan",
+    "path": "PMMA/Calibration_Data/UClan/UClan_Cone_25kW.csv"
+   },
+   "UClan_Cone_65kW": {
+    "area_m2": 0.0088,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 25.5648,
+     "mass_lost": 4177.2,
+     "peak": 131.47,
+     "t_flame_end": 489.0,
+     "t_ig": 14.0,
+     "t_peak": 151.0
+    },
+    "flux": 65,
+    "lab": "UClan",
+    "path": "PMMA/Calibration_Data/UClan/UClan_Cone_65kW.csv"
+   },
+   "UDRI_Cone_25kW_1": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 22.1262,
+     "mass_lost": 6927.58,
+     "peak": 29.9353,
+     "t_flame_end": 506.0,
+     "t_ig": 110.0,
+     "t_peak": 436.0
+    },
+    "flux": 25,
+    "lab": "UDRI",
+    "path": "PMMA/Calibration_Data/UDRI/UDRI_Cone_25kW_1.csv"
+   },
+   "UDRI_Cone_25kW_2": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 21.8227,
+     "mass_lost": 7029.36,
+     "peak": 30.7211,
+     "t_flame_end": 509.0,
+     "t_ig": 116.0,
+     "t_peak": 425.0
+    },
+    "flux": 25,
+    "lab": "UDRI",
+    "path": "PMMA/Calibration_Data/UDRI/UDRI_Cone_25kW_2.csv"
+   },
+   "UDRI_Cone_25kW_3": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 21.8551,
+     "mass_lost": 6314.2,
+     "peak": 29.4789,
+     "t_flame_end": 494.0,
+     "t_ig": 117.0,
+     "t_peak": 401.0
+    },
+    "flux": 25,
+    "lab": "UDRI",
+    "path": "PMMA/Calibration_Data/UDRI/UDRI_Cone_25kW_3.csv"
+   },
+   "UDRI_Cone_65kW_1": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 22.4119,
+     "mass_lost": 7153.58,
+     "peak": 57.6664,
+     "t_flame_end": 273.0,
+     "t_ig": 23.0,
+     "t_peak": 204.0
+    },
+    "flux": 65,
+    "lab": "UDRI",
+    "path": "PMMA/Calibration_Data/UDRI/UDRI_Cone_65kW_1.csv"
+   },
+   "UDRI_Cone_65kW_2": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 22.1396,
+     "mass_lost": 6888.77,
+     "peak": 59.0269,
+     "t_flame_end": 243.0,
+     "t_ig": 22.0,
+     "t_peak": 194.0
+    },
+    "flux": 65,
+    "lab": "UDRI",
+    "path": "PMMA/Calibration_Data/UDRI/UDRI_Cone_65kW_2.csv"
+   },
+   "UDRI_Cone_65kW_3": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 22.3107,
+     "mass_lost": 7389.76,
+     "peak": 56.7916,
+     "t_flame_end": 264.0,
+     "t_ig": 25.0,
+     "t_peak": 210.0
+    },
+    "flux": 65,
+    "lab": "UDRI",
+    "path": "PMMA/Calibration_Data/UDRI/UDRI_Cone_65kW_3.csv"
+   },
+   "UDRI_Cone_65kW_4": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 22.1705,
+     "mass_lost": 7419.8,
+     "peak": 59.186,
+     "t_flame_end": 261.0,
+     "t_ig": 24.0,
+     "t_peak": 212.0
+    },
+    "flux": 65,
+    "lab": "UDRI",
+    "path": "PMMA/Calibration_Data/UDRI/UDRI_Cone_65kW_4.csv"
+   },
+   "ULSTER_Cone_25kW_1": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 32.09 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 32.0905,
+     "mass_lost": 3530.4,
+     "peak": 17.5318,
+     "t_flame_end": 841.0,
+     "t_ig": 124.0,
+     "t_peak": 370.0
+    },
+    "flux": 25,
+    "lab": "ULSTER",
+    "path": "PMMA/Calibration_Data/ULSTER/ULSTER_Cone_25kW_1.csv"
+   },
+   "ULSTER_Cone_25kW_2": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 32.41 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 32.4109,
+     "mass_lost": 3836.5,
+     "peak": 18.7932,
+     "t_flame_end": 888.0,
+     "t_ig": 129.0,
+     "t_peak": 399.0
+    },
+    "flux": 25,
+    "lab": "ULSTER",
+    "path": "PMMA/Calibration_Data/ULSTER/ULSTER_Cone_25kW_2.csv"
+   },
+   "ULSTER_Cone_25kW_3": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 31.81 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 31.8116,
+     "mass_lost": 3844.3,
+     "peak": 18.4909,
+     "t_flame_end": 779.0,
+     "t_ig": 108.0,
+     "t_peak": 369.0
+    },
+    "flux": 25,
+    "lab": "ULSTER",
+    "path": "PMMA/Calibration_Data/ULSTER/ULSTER_Cone_25kW_3.csv"
+   },
+   "ULSTER_Cone_50kW_1": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 33.15 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 33.1469,
+     "mass_lost": 3787.8,
+     "peak": 28.225,
+     "t_flame_end": 551.0,
+     "t_ig": 36.0,
+     "t_peak": 206.0
+    },
+    "flux": 50,
+    "lab": "ULSTER",
+    "path": "PMMA/Calibration_Data/ULSTER/ULSTER_Cone_50kW_1.csv"
+   },
+   "ULSTER_Cone_50kW_2": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 32.78 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 32.7839,
+     "mass_lost": 3748.1,
+     "peak": 29.0591,
+     "t_flame_end": 539.0,
+     "t_ig": 35.0,
+     "t_peak": 205.0
+    },
+    "flux": 50,
+    "lab": "ULSTER",
+    "path": "PMMA/Calibration_Data/ULSTER/ULSTER_Cone_50kW_2.csv"
+   },
+   "ULSTER_Cone_50kW_3": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 32.84 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 32.8352,
+     "mass_lost": 3552.8,
+     "peak": 27.4705,
+     "t_flame_end": 522.0,
+     "t_ig": 33.0,
+     "t_peak": 200.0
+    },
+    "flux": 50,
+    "lab": "ULSTER",
+    "path": "PMMA/Calibration_Data/ULSTER/ULSTER_Cone_50kW_3.csv"
+   },
+   "ULSTER_Cone_50kW_4": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 32.75 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 32.7487,
+     "mass_lost": 4636.7,
+     "peak": 29.9568,
+     "t_flame_end": 479.0,
+     "t_ig": 38.0,
+     "t_peak": 237.0
+    },
+    "flux": 50,
+    "lab": "ULSTER",
+    "path": "PMMA/Calibration_Data/ULSTER/ULSTER_Cone_50kW_4.csv"
+   },
+   "ULSTER_Cone_50kW_5": {
+    "area_m2": 0.01,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 31.69 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 31.689,
+     "mass_lost": 3929.4,
+     "peak": 30.4432,
+     "t_flame_end": 562.0,
+     "t_ig": 36.0,
+     "t_peak": 208.0
+    },
+    "flux": 50,
+    "lab": "ULSTER",
+    "path": "PMMA/Calibration_Data/ULSTER/ULSTER_Cone_50kW_5.csv"
+   },
+   "UQ_Cone_25kW_1": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 26.49 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 26.4894,
+     "mass_lost": 2908.37,
+     "peak": 18.3824,
+     "t_flame_end": 1000.0,
+     "t_ig": 145.0,
+     "t_peak": 368.0
+    },
+    "flux": 25,
+    "lab": "UQ",
+    "path": "PMMA/Calibration_Data/UQ/UQ_Cone_25kW_1.csv"
+   },
+   "UQ_Cone_25kW_2": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 27.74 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 27.7436,
+     "mass_lost": 5243.56,
+     "peak": 18.8738,
+     "t_flame_end": 1000.0,
+     "t_ig": 150.0,
+     "t_peak": 510.0
+    },
+    "flux": 25,
+    "lab": "UQ",
+    "path": "PMMA/Calibration_Data/UQ/UQ_Cone_25kW_2.csv"
+   },
+   "UQ_Cone_65kW_1": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 27.49 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 27.4898,
+     "mass_lost": 5304.43,
+     "peak": 36.407,
+     "t_flame_end": 552.0,
+     "t_ig": 26.0,
+     "t_peak": 219.0
+    },
+    "flux": 65,
+    "lab": "UQ",
+    "path": "PMMA/Calibration_Data/UQ/UQ_Cone_65kW_1.csv"
+   },
+   "UQ_Cone_65kW_2": {
+    "area_m2": 0.00884,
+    "excluded": {
+     "envelope": [
+      "MaCFP-2 outlier rule: ΔH_c 28.33 kJ/g outside 23.5 ± 2.5"
+     ],
+     "per_lab": [
+      "not the per-lab band's lab"
+     ]
+    },
+    "features": {
+     "dhc": 28.3324,
+     "mass_lost": 4035.8,
+     "peak": 38.6164,
+     "t_flame_end": 494.0,
+     "t_ig": 23.0,
+     "t_peak": 189.0
+    },
+    "flux": 65,
+    "lab": "UQ",
+    "path": "PMMA/Calibration_Data/UQ/UQ_Cone_65kW_2.csv"
+   }
+  }
+ },
+ "reference_checks": [
+  {
+   "check": "pmma t_ig envelope at 25 kW/m² (s)",
+   "computed": [
+    98.6667,
+    123.5
+   ],
+   "difference": [
+    -0.0333,
+    0.0
+   ],
+   "match": true,
+   "note": null,
+   "preregistered": [
+    98.7,
+    123.5
+   ]
+  },
+  {
+   "check": "pmma t_ig envelope at 25 kW/m²: labs",
+   "computed": 6,
+   "difference": null,
+   "match": true,
+   "note": null,
+   "preregistered": 6
+  },
+  {
+   "check": "pmma t_ig envelope at 65 kW/m² (s)",
+   "computed": [
+    12.0,
+    25.8836
+   ],
+   "difference": [
+    0.0,
+    -0.0164
+   ],
+   "match": true,
+   "note": null,
+   "preregistered": [
+    12.0,
+    25.9
+   ]
+  },
+  {
+   "check": "pmma t_ig envelope at 65 kW/m²: labs",
+   "computed": 7,
+   "difference": null,
+   "match": true,
+   "note": null,
+   "preregistered": 7
+  },
+  {
+   "check": "pine t_ig envelope at 25 kW/m² (s)",
+   "computed": [
+    70.3333,
+    118.333
+   ],
+   "difference": [
+    0.0333,
+    0.033
+   ],
+   "match": true,
+   "note": null,
+   "preregistered": [
+    70.3,
+    118.3
+   ]
+  },
+  {
+   "check": "pine t_ig envelope at 30 kW/m² (s)",
+   "computed": [
+    31.0,
+    51.6667
+   ],
+   "difference": [
+    0.0,
+    -0.0333
+   ],
+   "match": true,
+   "note": null,
+   "preregistered": [
+    31.0,
+    51.7
+   ]
+  },
+  {
+   "check": "pine t_ig envelope at 50 kW/m² (s)",
+   "computed": [
+    13.8,
+    23.3333
+   ],
+   "difference": [
+    0.1,
+    0.0333
+   ],
+   "match": false,
+   "note": "§2.1's artefact rule, written after this table, removes FPL R4 from every feature. FPL's t_ig mean is 13.80 s without R4 and 13.67 s with it, so the recorded 13.7 predates the rule; with the rule lifted stage 0 gives the recorded envelope (`t_ig_envelope_artefact_rule_off_reported_only`). The band follows the rule as written.",
+   "preregistered": [
+    13.7,
+    23.3
+   ]
+  },
+  {
+   "check": "pine t_ig envelope at 60 kW/m² (s)",
+   "computed": [
+    8.75,
+    20.0
+   ],
+   "difference": [
+    -0.05,
+    0.0
+   ],
+   "match": true,
+   "note": null,
+   "preregistered": [
+    8.8,
+    20.0
+   ]
+  },
+  {
+   "check": "pine t_ig envelope at 75 kW/m² (s)",
+   "computed": [
+    3.66667,
+    7.66667
+   ],
+   "difference": [
+    -0.03333,
+    -0.03333
+   ],
+   "match": true,
+   "note": null,
+   "preregistered": [
+    3.7,
+    7.7
+   ]
+  },
+  {
+   "check": "pmma t_ig envelope at 50 kW/m²: labs",
+   "computed": [
+    "DBI_Lund"
+   ],
+   "difference": null,
+   "match": true,
+   "note": null,
+   "preregistered": [
+    "DBI_Lund"
+   ]
+  },
+  {
+   "check": "pmma t_ig at 50 kW/m²: DBI test range (s)",
+   "computed": [
+    24,
+    27
+   ],
+   "difference": null,
+   "match": true,
+   "note": null,
+   "preregistered": [
+    24,
+    27
+   ]
+  },
+  {
+   "check": "ΔH_c rule removes every HKPolyU test",
+   "computed": 4,
+   "difference": null,
+   "match": true,
+   "note": null,
+   "preregistered": 4
+  },
+  {
+   "check": "ΔH_c rule removes every LCPP test",
+   "computed": 8,
+   "difference": null,
+   "match": true,
+   "note": null,
+   "preregistered": 8
+  },
+  {
+   "check": "ΔH_c rule removes every ULSTER test",
+   "computed": 8,
+   "difference": null,
+   "match": true,
+   "note": null,
+   "preregistered": 8
+  },
+  {
+   "check": "ΔH_c rule removes every UQ test",
+   "computed": 4,
+   "difference": null,
+   "match": true,
+   "note": null,
+   "preregistered": 4
+  },
+  {
+   "check": "ΔH_c rule removes UClan at 25 only",
+   "computed": [
+    "UClan_Cone_25kW"
+   ],
+   "difference": null,
+   "match": true,
+   "note": null,
+   "preregistered": [
+    "UClan_Cone_25kW"
+   ]
+  },
+  {
+   "check": "ΔH_c rule removes one Edinburgh test",
+   "computed": [
+    "Edinburgh_Cone_25kW_1",
+    "Edinburgh_Cone_65kW_4"
+   ],
+   "difference": 1,
+   "match": false,
+   "note": "Edinburgh_Cone_25kW_1's ΔH_c over its flaming window is 26.27 kJ/g, outside 21-26 (the derivation script behind the pre-registration printed the same 26.27); 65kW_4 has no usable mass signal (peak m''_10 -0.63). Dropping 25kW_1 moves Edinburgh's 25 kW/m² t_ig mean from 108.0 to 105.5 s; neither is an end of the envelope (TIFP 98.7, GIDAZE+ 123.5), so the graded band is the same either way.",
+   "preregistered": 1
+  },
+  {
+   "check": "ΔH_c rule removes no other lab",
+   "computed": [],
+   "difference": null,
+   "match": true,
+   "note": null,
+   "preregistered": []
+  },
+  {
+   "check": "pmma ΔH_c,eff, DBI fit tests at 25 (kJ/g)",
+   "computed": 24.6953,
+   "difference": -0.0047,
+   "match": true,
+   "note": null,
+   "preregistered": 24.7
+  },
+  {
+   "check": "pmma ΔH_c,eff, DBI fit tests at 65 (kJ/g)",
+   "computed": 24.634,
+   "difference": 0.034,
+   "match": true,
+   "note": null,
+   "preregistered": 24.6
+  },
+  {
+   "check": "FPL 50 kW/m² R4 first peak (g/m²s)",
+   "computed": 71.6377,
+   "difference": 0.0377,
+   "match": true,
+   "note": null,
+   "preregistered": 71.6
+  },
+  {
+   "check": "FPL 50 kW/m² lab median first peak (g/m²s)",
+   "computed": 14.3535,
+   "difference": 0.8535,
+   "match": false,
+   "note": "FPL's six first peaks are 11.58, 13.41, 13.61, 15.10, 15.11 and 71.64 g/m²s: median 14.35, or 13.61 without R4. 13.5 is neither. R4 is excluded either way (71.6 > 2 x 14.35).",
+   "preregistered": 13.5
+  },
+  {
+   "check": "ULSTER ΔH_c at 50 (kJ/g)",
+   "computed": [
+    31.689,
+    33.1469
+   ],
+   "difference": [
+    -0.011,
+    -0.0531
+   ],
+   "match": false,
+   "note": "The maximum is 33.147 (ULSTER_Cone_50kW_1), which rounds to 33.1; the derivation script printed 33.15, and 33.2 is that rounded again. ULSTER is outside 21-26 and removed either way.",
+   "preregistered": [
+    31.7,
+    33.2
+   ]
+  },
+  {
+   "check": "NIST q50_Mass_R3 peak_mlr",
+   "computed": 29.8822,
+   "difference": 0.0022,
+   "match": true,
+   "note": null,
+   "preregistered": 29.88
+  },
+  {
+   "check": "NIST q50_Mass_R3 t_peak",
+   "computed": 346.0,
+   "difference": 0.0,
+   "match": true,
+   "note": null,
+   "preregistered": 346
+  },
+  {
+   "check": "NIST q50_Mass_R3 t_half_mass",
+   "computed": 226.0,
+   "difference": 0.0,
+   "match": true,
+   "note": null,
+   "preregistered": 226
+  },
+  {
+   "check": "NIST q50_Mass_R3 t_half_peak",
+   "computed": 65.0,
+   "difference": 0.0,
+   "match": true,
+   "note": null,
+   "preregistered": 65
+  },
+  {
+   "check": "NIST q50_Mass_R4 peak_mlr",
+   "computed": 28.0633,
+   "difference": 0.0033,
+   "match": true,
+   "note": null,
+   "preregistered": 28.06
+  },
+  {
+   "check": "NIST q50_Mass_R4 t_peak",
+   "computed": 326.0,
+   "difference": 0.0,
+   "match": true,
+   "note": null,
+   "preregistered": 326
+  },
+  {
+   "check": "NIST q50_Mass_R4 t_half_mass",
+   "computed": 223.0,
+   "difference": 0.0,
+   "match": true,
+   "note": null,
+   "preregistered": 223
+  },
+  {
+   "check": "NIST q50_Mass_R4 t_half_peak",
+   "computed": 65.0,
+   "difference": 0.0,
+   "match": true,
+   "note": null,
+   "preregistered": 65
+  },
+  {
+   "check": "NIST q50_Mass_R5 peak_mlr",
+   "computed": 27.8034,
+   "difference": 0.0034,
+   "match": true,
+   "note": null,
+   "preregistered": 27.8
+  },
+  {
+   "check": "NIST q50_Mass_R5 t_peak",
+   "computed": 337.0,
+   "difference": 0.0,
+   "match": true,
+   "note": null,
+   "preregistered": 337
+  },
+  {
+   "check": "NIST q50_Mass_R5 t_half_mass",
+   "computed": 239.0,
+   "difference": 0.0,
+   "match": true,
+   "note": null,
+   "preregistered": 239
+  },
+  {
+   "check": "NIST q50_Mass_R5 t_half_peak",
+   "computed": 60.0,
+   "difference": 0.0,
+   "match": true,
+   "note": null,
+   "preregistered": 60
+  },
+  {
+   "check": "NIST q25_Temp_R1 t_back_100C",
+   "computed": 145.0,
+   "difference": 0.0,
+   "match": true,
+   "note": null,
+   "preregistered": 145
+  },
+  {
+   "check": "NIST q25_Temp_R1 t_back_200C",
+   "computed": 345.0,
+   "difference": 0.0,
+   "match": true,
+   "note": null,
+   "preregistered": 345
+  },
+  {
+   "check": "NIST q25_Temp_R1 t_back_300C",
+   "computed": 749.0,
+   "difference": 0.0,
+   "match": true,
+   "note": null,
+   "preregistered": 749
+  },
+  {
+   "check": "NIST q50_Temp_R3 t_back_100C",
+   "computed": 114.0,
+   "difference": 0.0,
+   "match": true,
+   "note": null,
+   "preregistered": 114
+  },
+  {
+   "check": "NIST q50_Temp_R4 t_back_100C",
+   "computed": 112.0,
+   "difference": 0.0,
+   "match": true,
+   "note": null,
+   "preregistered": 112
+  }
+ ],
+ "rules": {
+  "artefact_factor": 2.0,
+  "dhc_rule_kj_g": [
+   23.5,
+   2.5
+  ],
+  "interpretations": [
+   "m''_10: raw[i] = (m[i-2] - m[i+2]) / (t[i+2] - t[i-2]) / A (MaCFP-4's `Calculate_dm_dt`), then the mean of the finite raw values with |t_j - t_i| <= 5 s.",
+   "m''_60: mass linearly interpolated at t - 30 and t + 30 s between finite samples; undefined within 30 s of either end of the record.",
+   "PMMA mass lost: raw mass at the t_ig sample minus raw mass at the peak sample, over the area (g/m²).",
+   "ΔH_c (PMMA, and MaCFP-2's outlier rule): trapezoidal ∫Q'' dt over [t_ig, last Q'' >= 24] over the raw mass lost between those samples. A test whose ΔH_c can't be computed (no mass signal) fails the rule.",
+   "Pine window: from t_ig to the first sample after the first peak with m''_60 < 2.7 g/m²s; the plateau's [t_ig + 250, t_ig + 450 s] is cut at the window's end. With no such sample the window runs to the record's end.",
+   "PMMA envelopes take every PMMA cone file at 25, 50 and 65 (DBI's round samples included, at their README area 0.00387 m²), minus MaCFP-2's outliers and §2.1's artefacts. Only t_ig's is graded (P1); the others are reported for §6 outcome 4.",
+   "The artefact rule's lab median is over the lab's tests still in the set at that flux, the test itself included.",
+   "Pine per-lab bands use the same tests as the envelopes. Pine ΔH_c,eff is the mean over the fit tests at 30 and 60 pooled (also given per flux).",
+   "m''_ext: m''_60 at each README flame-out time, for the fit-flux tests of the labs that record one (Aalto 30 and 60, UQ 60); a flame-out within 30 s of the record's end has no m''_60 and is listed as such.",
+   "P0: back T is the mean of the thermocouples reading at each sample; half the sample mass is half the mass file's first reading. Widening uses each feature's V tolerance (peak 2.5%, peak time 8 s, the other times 3 s); the half-mass time and back-T crossings have no V row, so they take §2.2's 3 s on times."
+  ],
+  "q_ign_kw_m2": 24.0,
+  "tol_rel": 0.025,
+  "tol_time_s": 3.0,
+  "unit_errata": {
+   "Edinburgh_Cone_65kW_6 column 2": "its five siblings label Q'' kW/m2, and its values match theirs (peak 1,351 against 65kW_5's 1,383; an absolute kW over 0.009 m² would be about 0.01 of that), so the label is a typo"
+  }
+ },
+ "schema": "solid-spike-stage0/1",
+ "source": {
+  "commit": "9986be8d285c70b51d59262468199a3e63e41fe0",
+  "files": {
+   "PMMA/Calibration_Data/Aalto/Aalto_Cone_65kW_1.csv": "b48347966929e20b4f8aa7813340e98e68fb4684b0e6ecd2167f1b58c250ddf7",
+   "PMMA/Calibration_Data/Aalto/Aalto_Cone_65kW_2.csv": "1ec4ec41113048320627e563a4675c8265bcb349fb51f72c0d6141a6fdbafb38",
+   "PMMA/Calibration_Data/Aalto/Aalto_Cone_65kW_3.csv": "21ecc6118ba89a2f247cb45cbb8766e085964a1e1a5ee0f40e3d052e86fe0460",
+   "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_25kW_1.csv": "e3a6399bbdf924478a3ef3e85becffecc3d940e0d7d8c0c98992ca6cd255c9c6",
+   "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_25kW_2.csv": "f5377ee0f867c632abf7f14ae8bb44b59edfe5f4fc68bd7e785dc46853ff3e1a",
+   "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_25kW_3.csv": "19c2fc65c1ca467925b4d837c7f692b642781c0e8c83712a449742b9c3414754",
+   "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_25kW_4.csv": "cdac304f1cf9240e38c92b657fd4ff399fdd1fb1d4c2a97246bf26d199b177d2",
+   "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_25kW_5.csv": "888f1f713d0ed3ad6591f5a0fcf7a5a070354dd968cf4b0c6ee6032ae733dfee",
+   "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_25kW_6.csv": "01c31c7d9d0803fb552eab62124aee72073e7df4e02cdda623230bd34c0ea101",
+   "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_50kW_1.csv": "508326daec78acc64c9710dcd46b4cbcd575c6c38defa0e0400746ff92f627dd",
+   "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_50kW_2.csv": "2f5718084b925d3244a0cff7c94a366d4622365c3b586d4a4aef2c6379eeeb32",
+   "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_50kW_3.csv": "e56df93a90f3997e2f0c8eccf034de7b5dcb5abaf491dc9bf0c44092d3934535",
+   "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_65kW_1.csv": "df67fdcb3cb990d81075b93e924b2f83a8476e8416e8ed2f72e8a17458ca54f7",
+   "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_65kW_2.csv": "cf305ba42112963a673820e2846f2df162150a5975ae68aa6d41a44b6bef4be8",
+   "PMMA/Calibration_Data/DBI_Lund/DBI_Lund_Cone_65kW_3.csv": "47c99297bdac19b4439d2a1e48b8ca91c46b75e7988479c9821d0f3cdc090712",
+   "PMMA/Calibration_Data/DBI_Lund/README.md": "5155bf56940887cc3612e8659675a6896c64a24ef3f477fe7b720e80da102e10",
+   "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_25kW_1.csv": "cfb25bf4992eed42604f728d11d3f108635090ebd8bf25f23818bcffe2f355a5",
+   "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_25kW_2.csv": "898a8c7ef2e9661cd5162a3e5156ca6ca441759c45ccc19c406a6f778bdbabec",
+   "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_25kW_3.csv": "a45f40e77558eb3623a7498c3e7218ba8e4c4e12689835d6a32098b37b0de6c0",
+   "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_25kW_4.csv": "7357e813e27fd20a7e7cab7941212754cb0ef4617c5ab1a4c77ddb5b2909df16",
+   "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_25kW_5.csv": "87619c3d78225ad8b4b06b917686a87a11e5356d132ee2443ff68ea13b3d334e",
+   "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_25kW_6.csv": "318bd600b080fcb90d81da5f526b90bf8b677e173a4cad7e2450d17647176fb0",
+   "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_65kW_1.csv": "93bc8ef065c9ba5744549abcac49c43728ea2cb378171622083c3895516a4660",
+   "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_65kW_2.csv": "cd27f7e71ac3a1878b5e7f87c86ca0851169a15309225ad4e3a42f65453277d4",
+   "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_65kW_3.csv": "ef6b72aa11e435fd8c757f8069935935e1b5d346414c1ea80d7e64ab8c73f238",
+   "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_65kW_4.csv": "69a317dec734e33e7504a13a499f8a5f8de0988a62dd79c1fa02c1f4ed3550d5",
+   "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_65kW_5.csv": "156e6360bbbae0dfd56e8817eeb2ce527506674da9d679bd56e6c5b47995b2ad",
+   "PMMA/Calibration_Data/Edinburgh/Edinburgh_Cone_65kW_6.csv": "1068ee222a6b04d3c0c1abbe0138eaddb65b42d7d8a80b5c0392c1f1f1891e69",
+   "PMMA/Calibration_Data/GIDAZE+/GIDAZE+_Cone_25kW_1.csv": "21524abe7324023f0fd3d07a9ce7a2f5d5fe10914424b78289b6f1cf1a187ac1",
+   "PMMA/Calibration_Data/GIDAZE+/GIDAZE+_Cone_25kW_2.csv": "5cf35c7b622331b3d619b7e3e43702e1e750f00e4efc0317af436c838e5f4067",
+   "PMMA/Calibration_Data/GIDAZE+/GIDAZE+_Cone_65kW_1.csv": "bb412a843e2fe29dbe48053fc0ee0eb2c97ccdc3d7e9b55cf0bad35b6a6fb3a8",
+   "PMMA/Calibration_Data/GIDAZE+/GIDAZE+_Cone_65kW_2.csv": "e0c65614c8454fec561d92ee54df621d459c5231481dcb11dfc7213a778efebf",
+   "PMMA/Calibration_Data/HKPoly/HKPolyU_Cone_25kW_1.CSV": "a23ba4bc5095f33b7fd781c3da7c23934b1c08a33aa9da18bf33f21c4279b665",
+   "PMMA/Calibration_Data/HKPoly/HKPolyU_Cone_25kW_2.CSV": "974e71244ae911696a29a440d6cec6b9fe9fed2bdb6fe18f388f3bfd414f2e9f",
+   "PMMA/Calibration_Data/HKPoly/HKPolyU_Cone_65kW_1.CSV": "2a5ce5aa139c0fcc863306d59406643d8e856945314b769b0e9ae79b211f2689",
+   "PMMA/Calibration_Data/HKPoly/HKPolyU_Cone_65kW_2.CSV": "7d69a070dfb5360139f37f2a615bbdaf9ab72ff684310042ecdc5a3e9da8ae58",
+   "PMMA/Calibration_Data/LCPP/LCPP_Cone_25kW_1.csv": "2c7ce78a7808ce43526e17fa4ded3d9bb211d21d5ac305d4541c0c3987b2ca30",
+   "PMMA/Calibration_Data/LCPP/LCPP_Cone_25kW_2.csv": "9217c4fbc3d259fd5140845c3979779e9a233514eab3d937aefbdd3d4d957c1e",
+   "PMMA/Calibration_Data/LCPP/LCPP_Cone_25kW_3.csv": "e0f1e84b22826f80505ea906a9d5f272c65675e466efccf53dac9bb5814be31f",
+   "PMMA/Calibration_Data/LCPP/LCPP_Cone_25kW_4.csv": "78827163309d325031419d83ae1bb36ac7693a5253645942137db902dfe3a738",
+   "PMMA/Calibration_Data/LCPP/LCPP_Cone_65kW_1.csv": "0af366e9081df22a2ef9c5fd97127577f1344a0d94e7d133ca12b0ca0d2cc38d",
+   "PMMA/Calibration_Data/LCPP/LCPP_Cone_65kW_2.csv": "9217c4fbc3d259fd5140845c3979779e9a233514eab3d937aefbdd3d4d957c1e",
+   "PMMA/Calibration_Data/LCPP/LCPP_Cone_65kW_3.csv": "e0f1e84b22826f80505ea906a9d5f272c65675e466efccf53dac9bb5814be31f",
+   "PMMA/Calibration_Data/LCPP/LCPP_Cone_65kW_4.csv": "7216a67b216e35c4f2a5438fd707380b46b75192e9949ebbe146d69674395fb0",
+   "PMMA/Calibration_Data/NIST/NIST_Cone_25kW_1.csv": "73d6a6df8ea19349b47f6d617c34266272a3953885af9698a2c6c36bb3e52230",
+   "PMMA/Calibration_Data/NIST/NIST_Cone_25kW_2.csv": "af8a218cfa799c377107d74b45365e12963fb2516a1283ff77ad450eb09657bb",
+   "PMMA/Calibration_Data/NIST/NIST_Cone_25kW_3.csv": "72d0b1a9e6ee1acad8b6f8e4bfbc46af3068bcdb768a84cb441c0fdc26d67ca1",
+   "PMMA/Calibration_Data/README.md": "181c8e82ac1bf4bba3d04c7feb1e022d83403fe46d63e7f296ce7d9eb4a1bb03",
+   "PMMA/Calibration_Data/TIFP/TIFP_Cone_25kW_1.csv": "693c3a0609fd400fcbf7e660e7c3a090a18faf688c70a661d6201f4feba57a8e",
+   "PMMA/Calibration_Data/TIFP/TIFP_Cone_25kW_2.csv": "5c88a1867c7b52467c62675762970b0d611a8f356d2017a7ab429ba7faa7d230",
+   "PMMA/Calibration_Data/TIFP/TIFP_Cone_25kW_3.csv": "3d7ad6a25c3158ecf9902ea383c19dacebd5a6b5c329daadb61c8f43b290f720",
+   "PMMA/Calibration_Data/TIFP/TIFP_Cone_65kW_1.csv": "9091fd8d234781abd9d2f74270843a91de4fd560fd1fdb85f6faa4dcf4e12473",
+   "PMMA/Calibration_Data/TIFP/TIFP_Cone_65kW_2.csv": "5d08e0b2331a6eaeb3a2995b7fa11d3f5243110d887bcb047d298d037e2cc12f",
+   "PMMA/Calibration_Data/TIFP/TIFP_Cone_65kW_3.csv": "9a95bd4cb54ee769d8a689c8acd5efa23cecb1197bc3f5280bcffee37082fe33",
+   "PMMA/Calibration_Data/UClan/UClan_Cone_25kW.csv": "a4da9298d55625975dacb893e0cd8bc015fee8c0af66aa53dfebe80cd48bd8c2",
+   "PMMA/Calibration_Data/UClan/UClan_Cone_65kW.csv": "12a16bbd8a77fd5fb3a1778ae8e58fd9bb37861f465be5985b1784f758ee540f",
+   "PMMA/Calibration_Data/UDRI/UDRI_Cone_25kW_1.csv": "030d10c036c671b5f1b7d9210f1cba3b952f7367856fb7baefaac87f1ffd5a98",
+   "PMMA/Calibration_Data/UDRI/UDRI_Cone_25kW_2.csv": "334e90f269d93811371bc5253e24c992a43fecc3bf167c24a71059766aab6a81",
+   "PMMA/Calibration_Data/UDRI/UDRI_Cone_25kW_3.csv": "45e40f2bda8e7d800a491a367cda8bb39ee19c28d395a1dc2cda8d2522eb9bff",
+   "PMMA/Calibration_Data/UDRI/UDRI_Cone_65kW_1.csv": "698bee6669c7bad0b5794a5e54b58425d79474d8aff394024a52026442db8c02",
+   "PMMA/Calibration_Data/UDRI/UDRI_Cone_65kW_2.csv": "7c5cb40b4fd3bcf43607536906d7f75f648d5a7a7c69f9dcafb5220fdfe4c199",
+   "PMMA/Calibration_Data/UDRI/UDRI_Cone_65kW_3.csv": "b42eb4703d0f2084555bac5106a30489135ff7b0ca9d25b6c217d906d42f6347",
+   "PMMA/Calibration_Data/UDRI/UDRI_Cone_65kW_4.csv": "b74197d4c76841385869138585abcf5c6f75f0decd113239ca896e705941084a",
+   "PMMA/Calibration_Data/ULSTER/ULSTER_Cone_25kW_1.csv": "a3fc3c31fc498f7093b07e1acb1d744753e2db940742f73c2b4ac7e758004963",
+   "PMMA/Calibration_Data/ULSTER/ULSTER_Cone_25kW_2.csv": "09419fdbe82250ada2ef89d098fbe595dec588d30cad1867111896beee5c4d3e",
+   "PMMA/Calibration_Data/ULSTER/ULSTER_Cone_25kW_3.csv": "6ac4f7c3df3c321f61559abc7a0682d50975f48f258d2e496838dbcab0e76eae",
+   "PMMA/Calibration_Data/ULSTER/ULSTER_Cone_50kW_1.csv": "d8bf12c837cb17f7cd1ea018bb69e13ce3283a1a22464d5fa9ff1effb47062e0",
+   "PMMA/Calibration_Data/ULSTER/ULSTER_Cone_50kW_2.csv": "ff58e7706d58254ed62c708c84e160855b9319d6a7db341675d31aa5fe88a903",
+   "PMMA/Calibration_Data/ULSTER/ULSTER_Cone_50kW_3.csv": "b50b8b2b130319b9c1d948399a47ecdcf7701ac031bb3ee83abcb7752d4adc50",
+   "PMMA/Calibration_Data/ULSTER/ULSTER_Cone_50kW_4.csv": "0ec1cc98c27a967942caefe471fd1abab18819a9921cae5c3c9a64264857e773",
+   "PMMA/Calibration_Data/ULSTER/ULSTER_Cone_50kW_5.csv": "241985c03e2e9fe3aa2ef8c2d083bd40421ffd2058b3f66f7468ec9c66f9fc24",
+   "PMMA/Calibration_Data/UQ/UQ_Cone_25kW_1.csv": "b3eb0fa27082f4910653b8d66c146118cb26ff87b2223bac6e51c6c902e412b0",
+   "PMMA/Calibration_Data/UQ/UQ_Cone_25kW_2.csv": "d33c97f048bdddc4f639d563d4e544fe21c4e280cc079cda4c42f429c3d441ca",
+   "PMMA/Calibration_Data/UQ/UQ_Cone_65kW_1.csv": "7e74fd1388592a999fd3b90fdb5b58c319426334faab62258c2d3088c507fd98",
+   "PMMA/Calibration_Data/UQ/UQ_Cone_65kW_2.csv": "f5720a880921526768ed8cdfaca624dbaad076ab1797062508bec2e59bcc08a8",
+   "PMMA/Validation_Data/NIST_Gasification_Apparatus/MaCFP-PMMA_Gasification_q25_Temp_R1.csv": "50e048aa6e6709afc838c298e2034d712625a45f7706d32294850a9a70aa8ba5",
+   "PMMA/Validation_Data/NIST_Gasification_Apparatus/MaCFP-PMMA_Gasification_q25_Temp_R2.csv": "337ebdc8eda542fd52bd970af792d1fec4091b047a3efa2383d4ad8a1f543c95",
+   "PMMA/Validation_Data/NIST_Gasification_Apparatus/MaCFP-PMMA_Gasification_q25_Temp_R3.csv": "0c4622e5eb27d58f2eef3b6996dbbe740953fc5a8d4ce73c074419876aa303d3",
+   "PMMA/Validation_Data/NIST_Gasification_Apparatus/MaCFP-PMMA_Gasification_q50_MLR_R3.csv": "a37df9039fef469c39770737c3de6ebe1344ce65ca5bea89b5d10ede32c7b573",
+   "PMMA/Validation_Data/NIST_Gasification_Apparatus/MaCFP-PMMA_Gasification_q50_MLR_R4.csv": "e1ae6ecd5317f9ad5f0a0c3c2694aae20d227bf5a2a2c022eb0ee3e1c77b3db0",
+   "PMMA/Validation_Data/NIST_Gasification_Apparatus/MaCFP-PMMA_Gasification_q50_MLR_R5.csv": "73be4e4591abd752f6c7563b8b4c0a89dc31b8388b4539f6912182045c425f8c",
+   "PMMA/Validation_Data/NIST_Gasification_Apparatus/MaCFP-PMMA_Gasification_q50_Mass_R3.csv": "69d0bda84b3330ed9e237ced42593d359150126db04dcd05bff476cebeecd74d",
+   "PMMA/Validation_Data/NIST_Gasification_Apparatus/MaCFP-PMMA_Gasification_q50_Mass_R4.csv": "03dc59a8a02c0023e726d4c81f1eb2e3879c12a36c6e5fbb71a2a5754339b15e",
+   "PMMA/Validation_Data/NIST_Gasification_Apparatus/MaCFP-PMMA_Gasification_q50_Mass_R5.csv": "3d44b4b67458d06fb85e45b900fd512aec74465cb2d511d205edc2f9ab6bdca8",
+   "PMMA/Validation_Data/NIST_Gasification_Apparatus/MaCFP-PMMA_Gasification_q50_Temp_R1.csv": "cec2d7e9794fb361fc765ac22588c0f66d36dea3ffcb057656c8210bdaf2a45e",
+   "PMMA/Validation_Data/NIST_Gasification_Apparatus/MaCFP-PMMA_Gasification_q50_Temp_R2.csv": "65d65841271ff1ceb049037a6e5e778f5fb56fccc53262fd1a1196a5ae8c5665",
+   "PMMA/Validation_Data/NIST_Gasification_Apparatus/MaCFP-PMMA_Gasification_q50_Temp_R3.csv": "44945b0b78de026f9b9dcaa10a3efabbdc682b568e6fbe67874187769d7e43bf",
+   "PMMA/Validation_Data/NIST_Gasification_Apparatus/MaCFP-PMMA_Gasification_q50_Temp_R4.csv": "e3d2fcc34ea1f0e6fa1dadf6996387a18435918d05cc55b32f28a99c9e24dff4",
+   "PMMA/Validation_Data/NIST_Gasification_Apparatus/MaCFP-PMMA_Gasification_q50_Temp_R5.csv": "e6badce4e05d7e756ab35abe3b092cf356db43370684a58b7122aeae40f6937e",
+   "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_30kW_hor_parallel_R1.csv": "f2bce4a4cd6d0b852f29e4ad7cfa6889c0e41eecbc0eb20cf25c573827183346",
+   "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_30kW_hor_parallel_R2.csv": "f9635486a8391229336627b14cb3569c5bef05425c712bc725b405dc4c2bfb39",
+   "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_30kW_hor_parallel_R3.csv": "a1519bd886b44248630905713598e986e8def34aa975b5b1b2467562faf53853",
+   "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_45kW_hor_parallel_R1.csv": "7c2a70a2b4ae9bbd9831bed2a66d5b0eb0d7b76ee83b8ad29fd7940e62ec14f0",
+   "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_45kW_hor_parallel_R2.csv": "af54836f753939687d58188f4a62bceefb9d2c3789213e2671b93b95000d57f8",
+   "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_45kW_hor_parallel_R3.csv": "ebbfec91e27ea0221d531754805154361fb9268730fff8e1e272a8ab42694cf6",
+   "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_60kW_hor_parallel_R1.csv": "76c6f8fcc77471aa2ec137d4dd5c2b5255778a6593bd7ffeda800cbe1ede96e7",
+   "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_60kW_hor_parallel_R2.csv": "c05c12fef38b8f5fa89a1e44364f66b119fecd9c33033b6b81ed82c86744da5d",
+   "Wood/Calibration_Data/Aalto/Aalto_Wood_Cone_60kW_hor_parallel_R3.csv": "8088f61c02f27ebc189a5eacfcfdcc8c7b78a0daad291bc47381362e07d0c667",
+   "Wood/Calibration_Data/Aalto/README.md": "5c204203ac541b7f720d981d74f72bd5cfe107e369de970dd2a65072e78e080d",
+   "Wood/Calibration_Data/BUWfd/BUWfd_Wood_Cone_30kW_hor_R1.csv": "b83cf5d62f0fbfb11bac221837f13f518cd47cf6034537c2b099b6a347a7fb75",
+   "Wood/Calibration_Data/BUWfd/BUWfd_Wood_Cone_30kW_hor_R2.csv": "be1ec417aa5fe47cabfa52706872efa359f6868ceeafbf06ae664e86af0b7768",
+   "Wood/Calibration_Data/BUWfd/BUWfd_Wood_Cone_50kW_hor_R1.csv": "37bf9321bacc67f5c49ebd1b888fb80672d7a7efb53aa4bcba09cb31db760ea3",
+   "Wood/Calibration_Data/BUWfd/BUWfd_Wood_Cone_50kW_hor_R2.csv": "1a7d3f9c60c315a232a82c13763195683161d42deb2ec16e84f21f08726db9b9",
+   "Wood/Calibration_Data/BUWfd/BUWfd_Wood_Cone_60kW_hor_R1.csv": "dcfa1414aa7548afeaa5fa8b6efb5d40b642e4d5199df9e67a5d36c205941a99",
+   "Wood/Calibration_Data/BUWfd/BUWfd_Wood_Cone_60kW_hor_R2.csv": "d86e5335f08e8075690247ff18e08c28b0d99dcaccc4cc61cb72f19e51baced8",
+   "Wood/Calibration_Data/FPL/FPL_Wood_Cone_50kW_hor_R1.csv": "724cf1cc98a0a320fcaf4f9fd3613d2cb98e9275fe5f2158ee6771d4f361f467",
+   "Wood/Calibration_Data/FPL/FPL_Wood_Cone_50kW_hor_R2.csv": "fef7ed74b3bac42c9e0d4b00280d0d1fed2237d02d2e36525dd1dfb878bcafe8",
+   "Wood/Calibration_Data/FPL/FPL_Wood_Cone_50kW_hor_R3.csv": "ec5aa6113a085a1e0d0b265536c09ba3531df7102004528826eda1bc5b613854",
+   "Wood/Calibration_Data/FPL/FPL_Wood_Cone_50kW_hor_R4.csv": "3792254cc53181819825e357eea64fc2027c3851fac27e17ee5a4bfdd1375ca8",
+   "Wood/Calibration_Data/FPL/FPL_Wood_Cone_50kW_hor_R5.csv": "ff4cea99ede6de87b79e14249839e6466c3742c8197b9dd87dd0c664974e91ca",
+   "Wood/Calibration_Data/FPL/FPL_Wood_Cone_50kW_hor_R6.csv": "f5a21058e983e1dd05a6ce8ceb7dc6e3794f5fec1f43473bdd8bb2afc03d466d",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_25kW_hor_Parallel_R1.csv": "3c6b24d7847bb233aa8bdd3ceeec711e4dea2e67f3c4077493b68941c0b0d065",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_25kW_hor_Parallel_R2.csv": "d5908e4fccca87af10301a585e89bb856bc7565a76e9a6f04caa534b22092ca4",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_25kW_hor_Parallel_R3.csv": "9c2db76cd50827b758bdefd1a1a75997591395d5d681b61c34220ec9416235c9",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_25kW_hor_Perpendicular_R1.csv": "992a7cb4232b29ca5ba1e6f381493e635437912ad2fa43255d5fb10d1f6cbdf5",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_25kW_hor_Perpendicular_R2.csv": "cb574ccf3291cf3bed06e32298a0fd52e485f397e57e7fd58ff38be6fab41134",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_25kW_hor_Perpendicular_R3.csv": "6b2c510078af51daf4b24d42a764925fe39a46aa645df0d26538375c81a4e27a",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_50kW_hor_Parallel_R1.csv": "77e2ac7884a9678a8b1283acdaba4ad8bcaeaa4ca8156762cb23aba9c22761c6",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_50kW_hor_Parallel_R2.csv": "3929d69cab8fa5abdffa960c08b4d68cb742569cba7cdc83866532065f9d7753",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_50kW_hor_Parallel_R3.csv": "54ae4775231e438ed45fc294ec606728ed42a8e4f622b490de7dd16221874ee8",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_50kW_hor_Perpendicular_R1.csv": "995b921da31f6faa99213f71cd5ac55422f02975f658ae4f4a5c424c361abbb8",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_50kW_hor_Perpendicular_R2.csv": "264e863bb0a3b2ad3f2c3d91e9571c399ddf39d9c3a7442304fb88f21d1d23d5",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_50kW_hor_Perpendicular_R3.csv": "c921fb51957fcbdbc0b5a2ee173d452fccda43faae4690b38c5a43bbc38948a7",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_75kW_hor_Parallel_R1.csv": "5e55ae67478bc08315e4c42eeaba56224075927c7a07321992b45a6ed53521ae",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_75kW_hor_Parallel_R2.csv": "cfd04b1c22ae6e39bac6be003de610057770c35ce89d9bcb549b4536e1a76169",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_75kW_hor_Parallel_R3.csv": "3bee94fa3c0db64d4d8a9254cddb146a4dcc4f6a89a693555bd9a6273df2a733",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_75kW_hor_Perpendicular_R1.csv": "8254f1b94227dd89c5563782726285208825c64d39e197708916577474306eca",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_75kW_hor_Perpendicular_R2.csv": "2a8949e1e7a68eb4173481babe80e02a0e25ba73a3fb030ca5acca3523a1165d",
+   "Wood/Calibration_Data/FSRI/FSRI_Wood_Cone_75kW_hor_Perpendicular_R3.csv": "5a26636d4989a6cc8511ba2729d8aa0c2a3c4f963c5d9e78d48bd7da7bb9544c",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_30kW_hor_parallel_R1.csv": "ce68aa7a58c271f2c4fa4726f007f71ecf4f1786e01e2748e935f055e4a01236",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_30kW_hor_parallel_R2.csv": "6eb37169bceaa4672714e5e20683df1c1e26486869ca441e1dc63e564805f60b",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_30kW_hor_parallel_R3.csv": "0272e370f57a33c6c3ff2b6ae9eb8e11898ce45041f257d35c50733c891174e5",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_30kW_hor_perpendicular_R1.csv": "2c7095cd357dfd58dfde4fd0cee24a19f12cff8bbc7fd98160c92adc980a7bf8",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_30kW_hor_perpendicular_R3.csv": "3ae862b9270a54f389c7abdff8e45c261d77ed4cbcc97200089882ea42c2f982",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_30kW_hor_perpendicular_R4.csv": "3c94597cd253da78a3b33d5460d1088fd844d9ac55415b989c4865d62d594635",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_60kW_hor_parallel_R1.csv": "01a70d209707caf027fdbafedde9edf89cd196a966e3e51b8b459fbe47d1a310",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_60kW_hor_parallel_R2.csv": "8a1f8b49aaccb0e75affaddd473b2c38ea00a52e8562b12c38a40312beae8791",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_60kW_hor_parallel_R3.csv": "b5cfcc3c67a267b03f72f45bc3517d4ec627b7562b7c181acdfb9a00c61996a4",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_60kW_hor_parallel_R4.csv": "9199d9e1d74c167b686452e2828cfb05b3e9bc3ac476ff2496497e3874bddf91",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_60kW_hor_perpendicular_R1.csv": "2f459e8d2af92d7fb9a87dd00318dab4c2a1e80cd8f5b08b24eeb2af0d586cab",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_60kW_hor_perpendicular_R2.csv": "0e605ab7ceebb342870e1c306cc8f201dd9464ebc91ef16c39dc9f79de1cf3be",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_60kW_hor_perpendicular_R3.csv": "d167136e0e803308c33240983c823496bcfeb696e2891c6c0b9692957ada2f3c",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_60kW_hor_perpendicular_R4.csv": "1d952ce93f5a1cf0cf5345c49194b9832b557d212505d2d38b0f90b9d3dd0c37",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_60kW_hor_perpendicular_R5.csv": "c5672e19fa9b193aa259b388ab8db80e8c32b29c4686c41ff7eb645070455c66",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_75kW_hor_parallel_R1.csv": "525b0b02db4f7b70c8c6daa48460b931c11b5ebcd16166d23561004c9d4dc04f",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_75kW_hor_parallel_R2.csv": "6c46b0e992b69091d4d0ba968cf066f7f027d0256fe7d4f627a656d5752d4894",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_75kW_hor_parallel_R3.csv": "7b523c347871b17f0f3400c2eac1bc8b28552de934197598f29e368d0abdee2d",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_75kW_hor_perpendicular_R1.csv": "98eb3310ba00c5044ddc219263ab58ab2e5efd77ff4d519318944bc6d8fd2e35",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_75kW_hor_perpendicular_R2.csv": "6ab9e2959a6d0041f0558045fc4674240e1c7e8a7907d43f896deece31c96e77",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_75kW_hor_perpendicular_R3.csv": "fd000d0c361043786137b09c702db93d304743fd5caa0dc8b76cafe0d2f46032",
+   "Wood/Calibration_Data/FZJ/FZJ_Wood_Cone_75kW_hor_perpendicular_R4.csv": "a5cb304a6eedff5f918cc54e6791374e0afc2327bfe5cbca6f3d366fbdba5e5e",
+   "Wood/Calibration_Data/IMT/IMT_Wood_Cone_25kW_hor_R1.csv": "18d71acf4f7aabbf0a1a153cc7ad953a8578aeb7e4490155d67abd5c627838a8",
+   "Wood/Calibration_Data/IMT/IMT_Wood_Cone_25kW_hor_R2.csv": "1d6944f3712400cf755da5ecc9a26ca484f5688431a5d33d1f24a9dd6726d036",
+   "Wood/Calibration_Data/IMT/IMT_Wood_Cone_25kW_hor_R3.csv": "9cc0ad137f370ac5d9110740600866ac41629fa2758584f5a70ebcc5c105f321",
+   "Wood/Calibration_Data/IMT/IMT_Wood_Cone_25kW_hor_R4.csv": "1e42c73c3a2a1409dd226f21a1738481a7d1bdaaa2195b4d9fe2d9376e617e92",
+   "Wood/Calibration_Data/IMT/IMT_Wood_Cone_25kW_hor_R5.csv": "342ba58e36016ac22abfd8562f8166538ad5c7960ca1b48710fb6f1451d175cc",
+   "Wood/Calibration_Data/IMT/IMT_Wood_Cone_50kW_hor_R1.csv": "642d2080f04b516c8efd21a317ca3d8263c330810e508457dedc71c7027f60bc",
+   "Wood/Calibration_Data/IMT/IMT_Wood_Cone_50kW_hor_R2.csv": "0087447af6f56e7a918a509934f05b364b0d5990faea3352748e26140205e1a4",
+   "Wood/Calibration_Data/IMT/IMT_Wood_Cone_50kW_hor_R3.csv": "0d3342bd12c0e7787669c41498b1e5c783e1cf905d89a9251ceb62f8cfcccdf0",
+   "Wood/Calibration_Data/IMT/IMT_Wood_Cone_50kW_hor_R4.csv": "3983c9608290aea61d76bd69d8b50db0ebec7f205e9100c94d4a1823b9d2d79b",
+   "Wood/Calibration_Data/IMT/IMT_Wood_Cone_75kW_hor_R1.csv": "34e3cd89bd7b628ad8c760dfc43e20607e1a19e670553f6c8ce71a3eb4700af9",
+   "Wood/Calibration_Data/IMT/IMT_Wood_Cone_75kW_hor_R2.csv": "8ac1c66ace3f7d08338a99a9a5e12d7ea67f6ffbbe09041582f67199993db42f",
+   "Wood/Calibration_Data/IMT/IMT_Wood_Cone_75kW_hor_R3.csv": "cde2ac1db6052ab1e382ec78376819c9b6516fd995f35cc4c884107c2c590d7a",
+   "Wood/Calibration_Data/TUBS/TUBS_Wood_Cone_30kW_hor_R1.csv": "13c63c785d16db12a70e30510a2c0ad2afc86747e7e9dcec16dabd07fe30b021",
+   "Wood/Calibration_Data/TUBS/TUBS_Wood_Cone_30kW_hor_R2.csv": "d6b99532c2f63adef1494503300d6f54cc82fa44ef15c4f37bcc4642d528f70c",
+   "Wood/Calibration_Data/TUBS/TUBS_Wood_Cone_30kW_hor_R3.csv": "c4074bd25d674511073774c8a08212da727d07aaf233ac9094c6b10d11436221",
+   "Wood/Calibration_Data/UDRI/UDRI_Wood_Cone_30kW_hor_R1.csv": "3425d8376d0043b7519716b5a1d322394235f5bda880b0285ba03c6b81ed7e9a",
+   "Wood/Calibration_Data/UDRI/UDRI_Wood_Cone_30kW_hor_R2.csv": "50e3e53648453d7cd8f21201318fe9af8ed9e68e42cc8e178e58b2ba0a547cd4",
+   "Wood/Calibration_Data/UDRI/UDRI_Wood_Cone_30kW_hor_R3.csv": "a1e7b67175cee76098c68007c2f1d59bc1970a2955ee59a32a5db3e5abbaf949",
+   "Wood/Calibration_Data/UDRI/UDRI_Wood_Cone_60kW_hor_R1.csv": "186a35bdb0f4a400569db0b36dee9811bfbe5a1297f3a0965bc7c93d012246c5",
+   "Wood/Calibration_Data/UDRI/UDRI_Wood_Cone_60kW_hor_R2.csv": "c61ef5c598f5ddb6b413148375eb7d548f5c835fb79121eb1e7881ff14de3630",
+   "Wood/Calibration_Data/UDRI/UDRI_Wood_Cone_60kW_hor_R3.csv": "bc2629f4a17afb55dc6922dbcbe5af277d9151b8a8b20f4782958e2d391a1b9a",
+   "Wood/Calibration_Data/UDRI/UDRI_Wood_Cone_60kW_hor_R4.csv": "daeee82364016ef4d4d6047e765b6d6a566475743bec043c54fac6a59913c25f",
+   "Wood/Calibration_Data/UMET/UMET_Wood_Cone_30kW_hor_R1.csv": "b5a0a4f8015f748053d5eafeb3ce93824188b62c2cc371b1042d65f7ffe9481e",
+   "Wood/Calibration_Data/UMET/UMET_Wood_Cone_30kW_hor_R2.csv": "a95f3275c2cb4048924ffd8884b8c0c296b78150717bbcdb9f22a3588f6d42a6",
+   "Wood/Calibration_Data/UMET/UMET_Wood_Cone_30kW_hor_R3.csv": "e139e74438fea295761bee1d3c0a2084618611a4cd6acca8ccec25cea3ee9447",
+   "Wood/Calibration_Data/UMET/UMET_Wood_Cone_60kW_hor_R1.csv": "29f8aaafdf1379e47ff7ced2acae6911a4a3549ccf76347fb6c030959355ea53",
+   "Wood/Calibration_Data/UMET/UMET_Wood_Cone_60kW_hor_R2.csv": "4f5a7a5ffc0ffd79666a1e6a8292d3ae3da4066f9ae4d3ab30455e7d1e728795",
+   "Wood/Calibration_Data/UMET/UMET_Wood_Cone_60kW_hor_R3.csv": "d2939f04c093a70242d66ca069d7d9a96d9c697a78fc72f48e2b3a624de3ca1b",
+   "Wood/Calibration_Data/UQ/README.md": "072567b71aaf0ab755117c6cf9d1a76e5cfcea4273ed3350caae06e984ae7d64",
+   "Wood/Calibration_Data/UQ/UQ_Wood_Cone_60kW_hor_Parallel_R1.CSV": "65049090181b0ffd31ed192dd4bf860a38a8110239eb6e3efd92ff1e8f804d2f",
+   "Wood/Calibration_Data/UQ/UQ_Wood_Cone_60kW_hor_Parallel_R2.CSV": "e802855ad96ba1652e994bee803a037c0a5d44b8a050d9589d6587ebb9775c16",
+   "Wood/Calibration_Data/UQ/UQ_Wood_Cone_60kW_hor_Parallel_R3.CSV": "31b550f3246272d763447504cc6afdf6c1365e3dc6fc0b5939020ed822f1395b"
+  },
+  "repo": "MaCFP/matl-db"
+ }
+}
