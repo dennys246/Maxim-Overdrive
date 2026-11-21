@@ -539,8 +539,7 @@ OD-I10); `architecture.md`; lessons entry 29. Later: `pyproject.toml`'s import c
 
 ## 11. Open questions for the owner
 
-None. O46–O53 are decided. The author chose two defaults in this fold, and both are contract, for the owner to
-overrule:
+None. O46–O53 are decided, and the owner kept this fold's two defaults (2026-11-21):
 - `owner_lan` must be a private, link-local or CGNAT address, and `http://` needs `cleartext: true` (§5.2, §5.4);
 - under `pinned`, load failures (`overloaded`, `call_timeout`) wait on the same placement instead of failing over
   (§2.6).
