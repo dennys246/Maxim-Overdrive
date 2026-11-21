@@ -52,8 +52,9 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
 - The SEM membrane applies synchronously with no log, a marked band-aid in `src/simcore/adapters/sem/bridge.py`
   (`docs/design/boundaries.md` §6.4): `phase1/agents` makes `execute` only parse, check the bound actor and append
   the intent to the stepping agent's outbox.
-- **Exit:** walk into the alley, set a crate on fire, and watch it crack, glow and burn away. It must look the same,
-  apart from detail, at the laptop and rig profiles.
+- **Exit (the fire fallback, owner, 2026-11-20):** walk into the alley, light a slab with the torch, and watch it
+  char, burn and flame out. It must look the same, apart from detail, at the laptop and rig profiles. The crate moves
+  to Phase 2 (`docs/design/research/solid_spike/results_rerun1.md` §7).
 
 ## Phase 2: Physics breadth (later; in parallel with Phase 3)
 
@@ -66,6 +67,8 @@ Each new field ships with a closed-form test and a cross-tier test, under the re
 - **Structural support:** cells left unsupported fall as debris.
 - **Scale:** move the hot loops to numba or C if profiling says so (never coarser far cells: world_model D21).
 - **Close the known gap:** the coarsest rig's late-burn lag (`docs/architecture.md`).
+- **Moved from Phase 1 by the fire fallback (2026-11-20):** the crate, and fire's rungs 6.2–6.4 (flame object, two
+  bodies, crib).
 - **Moved from Phase 1 by D26:** zones and vents, combustion per zone and its products, fuel recession and pyrolysis,
   phase change, the CSG footprints, and the lab as Phase 2's benchmark tile.
 - **Plasma, slowly, aiming at plasma as a state of matter** (owner, 2026-11-19). The reason is what Maxim's NPCs can
