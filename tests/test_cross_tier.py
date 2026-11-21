@@ -71,6 +71,7 @@ def test_a_fierce_fire_never_heats_any_cell_past_the_flame_temperature(spacings,
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "Known gap (docs/architecture.md): fires don't consume fuel. Once no solid is left under a fire, "
         "World._power_field deposits its power into air (207,350 C at 0.2 m by turn 50). Fix before the Phase 1 "

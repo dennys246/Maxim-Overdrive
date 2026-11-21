@@ -156,9 +156,10 @@ only review holds.
 - **Prove a guard by deleting what it guards.** Before claiming a test protects something, break the mechanism and
   watch the test go red, and say so in the commit message. A test that cannot fail is a BLOCKER.
   Guard: `docs/code_review.md` (Executor lens), B10
-- **Known-broken behaviour gets a strict red gate,** `pytest.mark.xfail(strict=True)` with a reason, never `skip`.
-  When the fix lands the gate flips and must be removed. Warnings are errors.
-  Guard: `tests/test_tooling_config.py::test_red_gates_are_strict_and_warnings_are_errors`
+- **Known-broken behaviour gets a strict red gate,** `pytest.mark.xfail(strict=True)` with a reason and the
+  narrowest `raises=`, never `skip`: without `raises=`, a gate whose module doesn't exist yet passes on the
+  `ImportError` and stays green after the fix. When the fix lands the gate flips and must be removed. Warnings are
+  errors. Guard: `tests/test_tooling_config.py::test_red_gates_are_strict_and_warnings_are_errors`, B34
 - **Every bar is one of three kinds** (owner, 2026-11-21). **Verification:** the code solves the equations we
   wrote, against a closed form, an oracle (FDS) or another grid; required now, never deferred. **Validation:** the
   equations describe reality, against cited data; a miss ships as a Known gap with its numbers, and the band never
