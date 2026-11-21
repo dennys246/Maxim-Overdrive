@@ -7,13 +7,16 @@
 - **Pine:** `Wood_UMD_FSRI-DM.json`, the 5-step chain, per-component c(T), one k(T) for all components but char
   (k_c, free), ε per component interpolated linearly in heater flux and held at the table's ends outside it (char ε
   free), κ 5e4 for every component as published. Ash (0.4%) inert.
-- Node counts follow FDS's rule (spec.CELL_SIZE_FACTOR); `refine` multiplies them (N2).
+- Node counts follow FDS's rule (spec.CELL_SIZE_FACTOR); `refine` multiplies them (N2; rerun 1 §1 B's r).
+- **Rerun 1** (spec.NUMERICS == "rerun1"; `preregistration_rerun1.md`): §1 A, a part uses surface absorption unless
+  one of its materials has κ < spec.FDS_OPAQUE_KAPPA, as FDS decides per wall (`fds_internal_radiation`); §1 C, each
+  reaction's cutoff is raised to its TGA onset (`onset_temperature`, `with_onsets`). In "run1" both are off.
 """
 
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 import inputs
@@ -27,6 +30,53 @@ class Build:
     comps: list[Component]
     reactions: list[Reaction]
     layers: list[Layer]
+    surface_absorption: bool = False  # rerun 1 §1 A: True when FDS would treat the wall as opaque
+
+
+def fds_internal_radiation(comps: list[Component]) -> bool:
+    """FDS 6.11.1 init.f90 line 4265: in-depth radiation is on for a wall if any of its materials has κ < 4.9e4."""
+    return any(c.kappa < spec.FDS_OPAQUE_KAPPA for c in comps)
+
+
+def finish(comps: list[Component], reactions: list[Reaction], layers: list[Layer], kinetics_rate_k_min: float) -> Build:
+    """The Build under the active numerics: rerun 1 applies §1 A (opacity by FDS's rule) and §1 C (onset cutoffs)."""
+    if spec.NUMERICS == "run1":
+        return Build(comps, reactions, layers)
+    if spec.NUMERICS != "rerun1":
+        raise ValueError(f"unknown numerics {spec.NUMERICS!r}")
+    return Build(comps, with_onsets(reactions, kinetics_rate_k_min), layers, not fds_internal_radiation(comps))
+
+
+def onset_temperature(a: float, e: float, n: float, rate_k_min: float) -> float:
+    """Rerun 1 §1 C: the T at which the reaction alone, from spec.T_ON_START heated at rate_k_min, reaches
+    spec.ONSET_CONVERSION. Conversion solves y^(1-n) = 1 - (1-n)·∫k dt (n = 1: y = exp(-∫k dt)) with
+    ∫k dt = ∫A·exp(-E/RT) dT / β, by the trapezoid rule on a spec.T_ON_DT grid, linear inside the crossing interval."""
+    beta = rate_k_min / 60.0
+    c = spec.ONSET_CONVERSION
+    target = -math.log1p(-c) if n == 1.0 else (1.0 - (1.0 - c) ** (1.0 - n)) / (1.0 - n)
+    temps = spec.T_ON_START + spec.T_ON_DT * np.arange(int(round(2000.0 / spec.T_ON_DT)) + 1)
+    k = a * np.exp(-e / (spec.R_GAS * temps))
+    cum = np.concatenate(([0.0], np.cumsum(0.5 * (k[1:] + k[:-1]) * spec.T_ON_DT))) / beta
+    i = int(np.searchsorted(cum, target))
+    if i == 0 or i >= cum.size:
+        raise ValueError("onset not reached below T_ON_START + 2000 K")
+    return float(temps[i - 1] + (target - cum[i - 1]) / (cum[i] - cum[i - 1]) * spec.T_ON_DT)
+
+
+def with_onsets(reactions: list[Reaction], rate_k_min: float) -> list[Reaction]:
+    return [replace(r, t_on=onset_temperature(r.a, r.e, r.n, rate_k_min)) for r in reactions]
+
+
+def kinetics_rate(j: dict[str, Any]) -> float:
+    """The slowest TGA heating rate (K/min) of the set's `Calibration` entry whose Scope is "Kinetics"."""
+    blocks = [b for b in j["Calibration"] if b.get("Scope") == "Kinetics"]
+    if len(blocks) != 1:
+        raise ValueError("expected exactly one Kinetics calibration block")
+    data = blocks[0]["Data"]
+    rates = [float(d["Heating Rate"]) for d in (data if isinstance(data, list) else [data]) if d["Type"] == "TGA"]
+    if not rates:
+        raise ValueError("the Kinetics calibration names no TGA rate")
+    return min(rates)
 
 
 def fds_cells(thickness: float, diffusivity: float, refine: int = 1) -> int:
@@ -109,7 +159,7 @@ def pmma_from_fds(case: dict[str, Any], *, refine: int = 1, fds_h_r: bool) -> Bu
         Layer(tp, fds_cells(tp, diffusivity_at(comps[0], t_a), refine), comps[0].rho, (f[0], f[1], f[2], 0.0), True),
         Layer(tk, fds_cells(tk, diffusivity_at(comps[3], t_a), refine), comps[3].rho, (0.0, 0.0, 0.0, 1.0), False),
     ]
-    return Build(comps, reactions, layers)
+    return finish(comps, reactions, layers, kinetics_rate(pmma_json()))  # the inputs are NIST-StMU (check_pmma_sets_agree)
 
 
 # FDS's temperature-dependent heat of reaction (ADJUST_H, default on; read.f90 lines 7700-7820). FDS fits each
@@ -220,7 +270,7 @@ def pmma_cone(
     nb = fds_cells(spec.SUPERWOOL_LAYER_M, diffusivity_at(bk, t_a), refine)
     for _ in range(spec.SUPERWOOL_LAYERS):
         layers.append(Layer(spec.SUPERWOOL_LAYER_M, nb, bk.rho, (0.0, 0.0, 0.0, 1.0), False))
-    return Build(comps, reactions, layers)
+    return finish(comps, reactions, layers, kinetics_rate(j))
 
 
 PINE_NAMES = ("Virgin", "Int1", "Int2", "Int3", "Int4", "Char", "Ash")
@@ -288,4 +338,4 @@ def pine_cone(
         layers.append(
             Layer(spec.PINE_THICKNESS, fds_cells(spec.PINE_THICKNESS, diffusivity_at(kp, t_a), refine), kp.rho, (0.0,) * 7 + (1.0,), False)
         )
-    return Build(comps, reactions, layers)
+    return finish(comps, reactions, layers, kinetics_rate(j))

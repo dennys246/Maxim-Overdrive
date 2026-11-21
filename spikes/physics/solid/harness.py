@@ -75,7 +75,7 @@ def _finish(s: Series, solid: Solid) -> Series:
 
 def gasification(build: Build, *, flux: float, h: float, t_amb: float, dt: float, t_end: float) -> Series:
     """Anaerobic gasification: constant incident flux, convection h to gas at ambient, surroundings at ambient."""
-    solid = Solid(build.comps, build.reactions, build.layers, t_amb)
+    solid = Solid(build.comps, build.reactions, build.layers, t_amb, surface_absorption=build.surface_absorption)
     s = Series(initial_g=solid.layer_mass(0) * 1000.0)
     _record(s, solid, 0.0, 0.0, 0.0, False)
     n = round(t_end / dt)
@@ -101,7 +101,7 @@ def cone(
 ) -> Series:
     """A cone test. Stops at t_end, at `stop_at` seconds after the first flash (if given), or, for a non-charring
     sample, once its reactive mass is gone (nothing further can be released)."""
-    solid = Solid(build.comps, build.reactions, build.layers, t_amb)
+    solid = Solid(build.comps, build.reactions, build.layers, t_amb, surface_absorption=build.surface_absorption)
     s = Series(initial_g=solid.layer_mass(0) * 1000.0)
     _record(s, solid, 0.0, 0.0, 0.0, False)
     flaming = False

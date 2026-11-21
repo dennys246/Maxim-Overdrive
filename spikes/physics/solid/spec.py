@@ -83,3 +83,25 @@ PMMA_T_CAP = {25: 1200.0, 50: 700.0, 65: 600.0}
 PINE_FIT_AFTER_TIG = 480.0
 PINE_T_CAP = 3000.0
 PINE_FIT_T_CAP = 1000.0  # CHOICE: a pine fit run that has not flashed by 1,000 s ends (its features score the penalty)
+
+# ----- Rerun 1 (`preregistration_rerun1.md`, de2290d): the numerics fixes, nothing else -----
+# Which numerics the builders apply. "rerun1" (the default from de2290d on) applies §1 A and C; "run1" is the first
+# run as registered (65ee7d6) and recorded (9575a44): `run.py` sets it, so the first run's pipeline still rebuilds the
+# model it graded. §1 B's node multiplier is not a mode: callers pass `refine`.
+NUMERICS = "rerun1"
+# §1 A: FDS 6.11.1 turns on in-depth (two-flux) radiation for a wall only if one of its materials has κ below this
+# (init.f90 line 4265, `IF (MATERIAL(ONE_D%MATL_INDEX(NN))%KAPPA_S<4.9E4_EB) ONE_D%INTERNAL_RADIATION = .TRUE.`, read
+# at tag FDS-6.11.1); otherwise the wall absorbs and emits at its face (wall.f90 2867-2876, 2922).
+FDS_OPAQUE_KAPPA = 4.9e4  # 1/m
+# §1 C: T_cut,i = max(T at K_CUT, T_on,i); T_on,i is where reaction i alone, from T_ON_START, heated at its source
+# TGA's slowest calibration rate (the JSON's `Calibration` block with Scope "Kinetics", K/min), reaches
+# ONSET_CONVERSION. [engineering], fixed by the rerun's pre-registration before any run.
+ONSET_CONVERSION = 1e-3
+T_ON_START = 293.15  # K
+T_ON_DT = 1e-3  # K: the quadrature step for T_on (trapezoid; T_on converges to < 1e-4 K at this step)
+# §1 B: the convergence probe's multipliers of FDS's node rule, and the largest r* allowed.
+PROBE_REFINE = (1, 2, 4, 8, 16, 32)
+R_STAR_MAX = 8
+# Rerun 1's registered T_on estimates (preregistration_rerun1.md §1 C table, K); a code value more than 1 K away is
+# disclosed, never substituted.
+T_ON_REGISTERED = {"pmma": (349.0, 532.0), "pine": (372.0, 459.0, 517.0, 425.0, 311.0)}

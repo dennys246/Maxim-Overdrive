@@ -74,13 +74,19 @@ class Reaction:
     h: float
     h_slope: float = 0.0  # J/kgK: dH/dT (FDS ADJUST_H, read.f90 7790-7820), 0 = constant H
     t_ref: float = 0.0  # K: where H holds
+    t_on: float = 0.0  # K: rerun 1 §1 C's TGA onset (materials.onset_temperature); 0 = the registered cutoff alone
 
     @property
-    def t_cut(self) -> float:
-        """Where A·exp(-E/RT) = K_CUT; 0 K if A itself is at or below K_CUT (never active then)."""
+    def t_cut_k(self) -> float:
+        """Where A·exp(-E/RT) = K_CUT; inf if A itself is at or below K_CUT (never active then)."""
         if self.a <= spec.K_CUT:
             return math.inf
         return self.e / (spec.R_GAS * math.log(self.a / spec.K_CUT))
+
+    @property
+    def t_cut(self) -> float:
+        """The rate is exactly 0 below this: max(T at K_CUT, t_on) (rerun 1 §1 C; t_on = 0 gives the first run's)."""
+        return max(self.t_cut_k, self.t_on)
 
 
 @dataclass(frozen=True)

@@ -2,7 +2,9 @@
 
 1. Thick and thin t_ig, losses off (surface absorption, no emission, no convection), within 2%:
    thick t = (π kρc / 4)(ΔT/q)², thin t = ρcLΔT/q. The erfc profile at 60 s within 1% of the surface rise.
-2. κ = 1e9 1/m (two-flux) against the surface-absorption mode, within 1e-6 (relative, surface T rise and node T).
+2. κ = 1e9 1/m against the surface-absorption mode, within 1e-6 (relative, surface T rise and node T). In rerun 1
+   (§1 A) the κ = 1e9 part goes through FDS's opacity rule like every other part, so the row tests the rule, not the
+   two-flux limit (disclosed); `kappa_48e3_reported` measures the two-flux gap just below the rule's threshold.
 3. 200 steps at ambient change no bit (inert slab and backing, two-flux, h = 13): every node T and mass identical.
 4. Ambient rates exactly 0 for the published sets at 20 °C; an n = 0.5 node depletes to exactly 0.
 """
@@ -15,7 +17,7 @@ from typing import Any
 import numpy as np
 import spec
 from kernel import Component, Layer, Reaction, Solid
-from materials import fds_cells, pine_cone, pmma_cone
+from materials import fds_cells, fds_internal_radiation, pine_cone, pmma_cone
 
 DT = spec.DT_SHIPPED
 T0 = 293.15
@@ -78,12 +80,17 @@ def thick_and_thin() -> dict[str, Any]:
     }
 
 
+def _dispatched(kappa: float) -> bool:
+    """The part's mode under the active numerics: run1 always two-flux; rerun1 FDS's opacity rule (§1 A)."""
+    return spec.NUMERICS == "rerun1" and not fds_internal_radiation([_inert(kappa, 0.963)])
+
+
 def kappa_limit() -> dict[str, Any]:
-    """Inert NIST-StMU-like slab (ε 0.963, h 13), 50 kW/m² for 120 s: κ = 1e9 two-flux against surface absorption."""
+    """Inert NIST-StMU-like slab (ε 0.963, h 13), 50 kW/m² for 120 s: κ = 1e9 against surface absorption."""
     L = 0.00659
     n = fds_cells(L, PM["k"] / (PM["rho"] * PM["c"]))
     res = {}
-    for name, sa, kap in (("surface", True, spec.KAPPA_DEFAULT), ("kappa_1e9", False, 1e9), ("kappa_2620", False, 2620.0)):
+    for name, sa, kap in (("surface", True, spec.KAPPA_DEFAULT), ("kappa_1e9", _dispatched(1e9), 1e9), ("kappa_2620", _dispatched(2620.0), 2620.0)):
         s = Solid([_inert(kap, 0.963)], [], [Layer(L, n, PM["rho"], (1.0,), False)], T0, surface_absorption=sa)
         hist = _run(s, 50e3, 120.0, h=13.0)
         res[name] = {"face_T_120": hist[-1][1], "node_T": s.T.copy()}
@@ -95,8 +102,30 @@ def kappa_limit() -> dict[str, Any]:
         "face_T_120_K": {k: v["face_T_120"] for k, v in res.items()},
         "face_rel_err": face_err,
         "node_max_rel_err": node_err,
+        "modes": {"kappa_1e9": "surface" if _dispatched(1e9) else "two-flux", "kappa_2620": "surface" if _dispatched(2620.0) else "two-flux"},
         "pass": abs(face_err) <= 1e-6 and node_err <= 1e-6,
     }
+
+
+def kappa_48e3_reported() -> dict[str, Any]:
+    """Rerun 1 §1 A, ungraded: two-flux at κ = 4.8e4 (just below FDS's threshold) against surface absorption, on
+    kappa_limit's slab, at 1, 2, 4 and 8 times FDS's node count (results D6's gap, measured)."""
+    L = 0.00659
+    n0 = fds_cells(L, PM["k"] / (PM["rho"] * PM["c"]))
+    rows = {}
+    for r in (1, 2, 4, 8):
+        got = {}
+        for name, sa, kap in (("surface", True, spec.KAPPA_DEFAULT), ("two_flux_48e3", False, 4.8e4)):
+            s = Solid([_inert(kap, 0.963)], [], [Layer(L, n0 * r, PM["rho"], (1.0,), False)], T0, surface_absorption=sa)
+            got[name] = (_run(s, 50e3, 120.0, h=13.0)[-1][1], s.T.copy())
+        rise = got["surface"][0] - T0
+        rows[f"refine_{r}"] = {
+            "nodes": n0 * r,
+            "face_T_120_K": {k: v[0] for k, v in got.items()},
+            "face_rel_err": (got["two_flux_48e3"][0] - got["surface"][0]) / rise,
+            "node_max_rel_err": float(np.max(np.abs(got["two_flux_48e3"][1] - got["surface"][1])) / rise),
+        }
+    return {"rows": rows, "graded": False}
 
 
 def ambient_bits() -> dict[str, Any]:
@@ -104,13 +133,13 @@ def ambient_bits() -> dict[str, Any]:
     kinetics on, reported: their ambient rates are not zero (see `ambient_rates`)."""
     out: dict[str, Any] = {}
     b = pmma_cone(25, fds_h_r=True)
-    inert = Solid(b.comps, [], b.layers, T0)
+    inert = Solid(b.comps, [], b.layers, T0, surface_absorption=b.surface_absorption)
     t_before, m_before = inert.T.tobytes(), inert.m.tobytes()
     for _ in range(200):
         inert.step(DT, 0.0, 13.0, T0, T0)
     out["inert_unchanged"] = inert.T.tobytes() == t_before and inert.m.tobytes() == m_before
     for name, bb in (("pmma_set", b), ("pine_set", pine_cone(25, k_c=0.1, eps_char=0.75))):
-        s = Solid(bb.comps, bb.reactions, bb.layers, T0)
+        s = Solid(bb.comps, bb.reactions, bb.layers, T0, surface_absorption=bb.surface_absorption)
         tb, mb = s.T.tobytes(), s.m.tobytes()
         for _ in range(200):
             s.step(DT, 0.0, 13.0, T0, T0)
@@ -126,7 +155,8 @@ def ambient_rates() -> dict[str, Any]:
     for name, bb in (("pmma", pmma_cone(25, fds_h_r=True)), ("pine", pine_cone(25, k_c=0.1, eps_char=0.75))):
         for i, r in enumerate(bb.reactions):
             k = r.a * math.exp(-r.e / (spec.R_GAS * T0)) if T0 >= r.t_cut else 0.0
-            rows.append({"set": name, "reaction": i + 1, "t_cut_K": r.t_cut, "rate_at_20C_per_s": k})
+            rows.append({"set": name, "reaction": i + 1, "t_cut_K": r.t_cut, "t_cut_at_K_CUT_K": r.t_cut_k, "t_on_K": r.t_on,
+                         "rate_at_t_cut_per_s": r.a * math.exp(-r.e / (spec.R_GAS * r.t_cut)), "rate_at_20C_per_s": k})
     return {"rows": rows, "pass": all(r["rate_at_20C_per_s"] == 0.0 for r in rows)}
 
 

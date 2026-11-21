@@ -82,8 +82,9 @@ def apparent_lg(peaks: dict[int, float]) -> float:
     return float(1.0 / np.polyfit(q, m, 1)[0])
 
 
-def extras(pm: dict[str, Any], pi: dict[str, Any]) -> dict[str, Any]:
-    """Ungraded (§5 "also reported"): sustained flaming, the heater removed, apparent L_g, the Aalto + FZJ fit."""
+def extras(pm: dict[str, Any], pi: dict[str, Any], refine_pmma: int = 1, refine_pine: int = 1) -> dict[str, Any]:
+    """Ungraded (§5 "also reported"): sustained flaming, the heater removed, apparent L_g, the Aalto + FZJ fit. Rerun 1
+    passes its r* per material for the heater-removed runs."""
     out: dict[str, Any] = {}
     x_pm = pm["pmma_forward"]["fit"]["x"]
     peaks = {25: pm["pmma_forward"]["fit_flux_features"]["peak"]} | {
@@ -93,14 +94,14 @@ def extras(pm: dict[str, Any], pi: dict[str, Any]) -> dict[str, Any]:
     out["apparent_L_g_kJ_g"] = {"model_forward": apparent_lg(peaks), "DBI_data": apparent_lg(data), "model_peaks": peaks, "data_peaks": data}
     removed: dict[str, Any] = {}
     for after in (60.0, 300.0):
-        b = materials.pmma_cone(50, fds_h_r=True)
+        b = materials.pmma_cone(50, fds_h_r=True, refine=refine_pmma)
         p = fit.pmma_params(x_pm)
         import harness
 
         s = harness.cone(b, flux=50e3, flame=harness.Flame(p.q_fl, p.m_flash, None, cone.PMMA_DHC[25]), dt=spec.DT_SHIPPED,
                          t_end=spec.PMMA_T_CAP[50], stop_after_burnout=True, heater_off_after_flash=after)
         removed[f"pmma_fwd_50_off_{after:.0f}s_after_flash"] = {"note": "PMMA has no m''_ext (unset): it cannot go out", "flashes": s.flashes}
-        bp = materials.pine_cone(50, k_c=pi["fit"]["x"][2], eps_char=pi["fit"]["x"][3])
+        bp = materials.pine_cone(50, k_c=pi["fit"]["x"][2], eps_char=pi["fit"]["x"][3], refine=refine_pine)
         q = fit.pine_params(pi["fit"]["x"])
         sp = harness.cone(bp, flux=50e3, flame=harness.Flame(q.q_fl, q.m_flash, cone.PINE_M_EXT, cone.PINE_DHC), dt=spec.DT_SHIPPED,
                           t_end=after + 900.0, stop_after_burnout=False, heater_off_after_flash=after)
@@ -182,6 +183,7 @@ def to_json(doc: dict[str, Any]) -> str:
 
 
 def main(argv: list[str]) -> int:
+    spec.NUMERICS = "run1"  # the first run's model (65ee7d6, 9575a44); rerun 1 is rerun1.py
     doc, timings = build()
     text = to_json(doc)
     if "--check" in argv:

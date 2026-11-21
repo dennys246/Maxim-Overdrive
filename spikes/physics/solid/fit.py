@@ -8,6 +8,9 @@ in kW/m², g/m²s, W/mK and ε (the units only matter to the polish step's finit
     <python> fit.py pmma_reverse 3
     <python> fit.py pine 0
     <python> fit.py pine_aalto_fzj 0   # reported only: the envelope from Aalto and FZJ alone
+    <python> fit.py pine 0 4           # rerun 1 §1 B: at r = 4 times FDS's node rule (default 1)
+
+Numerics are spec.NUMERICS's (rerun 1's by default; recorded in the output). SOLID_FIT_OUT names the output directory.
 """
 
 from __future__ import annotations
@@ -87,21 +90,23 @@ def pine_params(x: npt.ArrayLike) -> cone.PineParams:
 
 
 class PmmaObjective:
-    def __init__(self, fit_flux: int, fds_h_r: bool = True) -> None:
+    def __init__(self, fit_flux: int, fds_h_r: bool = True, refine: int = 1) -> None:
         self.fit_flux = fit_flux
         self.fds_h_r = fds_h_r
+        self.refine = refine
         self.targets = pmma_targets(fit_flux)
         self.calls = 0
 
     def __call__(self, x: npt.ArrayLike) -> float:
         self.calls += 1
-        _, f = cone.pmma_run(self.fit_flux, pmma_params(x), fit_flux=self.fit_flux, fds_h_r=self.fds_h_r)
+        _, f = cone.pmma_run(self.fit_flux, pmma_params(x), fit_flux=self.fit_flux, fds_h_r=self.fds_h_r, refine=self.refine)
         return sum(score(f.get(k), t) for k, t in self.targets.items())
 
 
 class PineObjective:
-    def __init__(self, labs: tuple[str, ...] | None = None) -> None:
+    def __init__(self, labs: tuple[str, ...] | None = None, refine: int = 1) -> None:
         self.targets = pine_targets(labs)
+        self.refine = refine
         self.calls = 0
 
     def __call__(self, x: npt.ArrayLike) -> float:
@@ -109,7 +114,7 @@ class PineObjective:
         p = pine_params(x)
         total = 0.0
         for flux in spec.PINE_FIT_FLUXES:
-            _, f = cone.pine_run(flux, p, t_end=spec.PINE_FIT_T_CAP)
+            _, f = cone.pine_run(flux, p, t_end=spec.PINE_FIT_T_CAP, refine=self.refine)
             total += sum(score(f.get(k), t) for (fl, k), t in self.targets.items() if fl == flux)
         return total
 
@@ -130,22 +135,22 @@ def flags(x: npt.ArrayLike, bounds: list[tuple[float, float]]) -> list[dict[str,
     return out
 
 
-def run_fit(name: str, seed: int) -> dict[str, Any]:
+def run_fit(name: str, seed: int, refine: int = 1) -> dict[str, Any]:
     if name == "pmma_forward":
-        obj: Any = PmmaObjective(25)
+        obj: Any = PmmaObjective(25, refine=refine)
         bounds = pmma_bounds(25)
         names = ["q_fl_kW_m2", "m_flash_g_m2s"]
     elif name == "pmma_reverse":
-        obj = PmmaObjective(65)
+        obj = PmmaObjective(65, refine=refine)
         bounds = pmma_bounds(65)
         names = ["q_fl_kW_m2", "m_flash_g_m2s"]
     elif name in ("pmma_forward_constH", "pmma_reverse_constH"):  # reported only: the model before V's fix
         ff = 25 if name.startswith("pmma_forward") else 65
-        obj = PmmaObjective(ff, fds_h_r=False)
+        obj = PmmaObjective(ff, fds_h_r=False, refine=refine)
         bounds = pmma_bounds(ff)
         names = ["q_fl_kW_m2", "m_flash_g_m2s"]
     elif name in ("pine", "pine_aalto_fzj"):
-        obj = PineObjective(("Aalto", "FZJ") if name == "pine_aalto_fzj" else None)
+        obj = PineObjective(("Aalto", "FZJ") if name == "pine_aalto_fzj" else None, refine=refine)
         bounds = pine_bounds()
         names = ["q_fl_kW_m2", "m_flash_g_m2s", "k_c_W_mK", "eps_char"]
     else:
@@ -176,15 +181,20 @@ def run_fit(name: str, seed: int) -> dict[str, Any]:
         "flags": flags(res.x, bounds),
         "n_features": len(obj.targets),
         "n_params": len(bounds),
+        "numerics": spec.NUMERICS,
+        "refine": refine,
         "timing_reported_only": {"cpu_s": cpu, "load_avg_start": list(load0), "load_avg_end": list(os.getloadavg())},
     }
 
 
 def main(argv: list[str]) -> int:
     name, seed = argv[0], int(argv[1])
+    refine = int(argv[2]) if len(argv) > 2 else 1
+    if spec.NUMERICS != "run1" and OUT.resolve() == (HERE / "out" / "fit").resolve():
+        raise SystemExit("refused: out/fit holds the first run's fits; set SOLID_FIT_OUT (launch_fits_rerun1.sh does)")
     OUT.mkdir(parents=True, exist_ok=True)
-    print(f"fit {name} seed {seed}: start (load {os.getloadavg()[0]:.2f})", flush=True)
-    r = run_fit(name, seed)
+    print(f"fit {name} seed {seed} refine {refine} numerics {spec.NUMERICS}: start (load {os.getloadavg()[0]:.2f})", flush=True)
+    r = run_fit(name, seed, refine)
     (OUT / f"{name}_s{seed}.json").write_text(json.dumps(r, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     print(f"fit {name} seed {seed}: done x={r['x']} f={r['objective']:.4g} nfev={r['nfev']} cpu={r['timing_reported_only']['cpu_s']:.0f}s", flush=True)
     return 0

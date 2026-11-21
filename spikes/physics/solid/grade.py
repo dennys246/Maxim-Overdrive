@@ -17,7 +17,10 @@ import harness
 import spec
 
 HERE = Path(__file__).resolve().parent
-FIT_DIR = HERE / "out" / "fit"
+FIT_DIR = HERE / "out" / "fit"  # rerun 1 points this at out_rerun1/fit (rerun1.py)
+# Rerun 1 §1 B: each material's node multiplier r* for every run here that doesn't name its own `refine`. The first
+# run's value is 1 (FDS's rule); rerun1.py sets r* from the convergence probe before any graded run.
+REFINE = {"pmma": 1, "pine": 1}
 PMMA_GRADED = {"pmma_forward": (25, (50, 65)), "pmma_reverse": (65, (25,))}
 TIME_FEATURES = {"t_ig", "t_peak"}
 
@@ -74,6 +77,7 @@ LEDGER = Ledger()
 # ----- PMMA -----
 def pmma_eval(name: str, x: list[float], flux: int, *, record: bool = True, **kw: Any) -> tuple[harness.Series, dict[str, Any]]:
     fit_flux = PMMA_GRADED[name][0]
+    kw.setdefault("refine", REFINE["pmma"])
     s, f = cone.pmma_run(flux, fit.pmma_params(x), fit_flux=fit_flux, **kw)
     if record:
         LEDGER.add(s)
@@ -169,6 +173,7 @@ def pmma_section(seed: int, *, numerics: bool) -> dict[str, Any]:
 
 # ----- pine -----
 def pine_eval(x: list[float], flux: int, *, record: bool = True, **kw: Any) -> tuple[harness.Series, dict[str, Any]]:
+    kw.setdefault("refine", REFINE["pine"])
     s, f = cone.pine_run(flux, fit.pine_params(x), **kw)
     if record:
         LEDGER.add(s)
@@ -261,15 +266,21 @@ def pine_section(seed: int, *, numerics: bool, name: str = "pine") -> dict[str, 
 # ----- N4 and N9 -----
 def n4(pmma_x: list[float], pine_x: list[float]) -> dict[str, Any]:
     """m''_ext set to 1.5 x the fitted m''_flash (the loader would refuse it): N1 or N3 must go red."""
-    out: dict[str, Any] = {}
-    mf = pmma_x[1] * 1e-3
-    runs = {dt: pmma_eval("pmma_forward", pmma_x, 50, dt=dt, m_ext=1.5 * mf, allow_inverted=True, record=False) for dt in spec.N1_STEPS[:2]}
-    out["pmma_forward_50"] = _n4_row(runs)
-    mf = pine_x[1] * 1e-3
-    runs = {dt: pine_graded_run(pine_x, 50, dt=dt, m_ext=1.5 * mf, allow_inverted=True, record=False) for dt in spec.N1_STEPS[:2]}
-    out["pine_50"] = _n4_row(runs)
+    out: dict[str, Any] = {"pmma_forward_50": n4_pmma(pmma_x), "pine_50": n4_pine(pine_x)}
     out["pass"] = all(v["red"] for v in out.values() if isinstance(v, dict))
     return out
+
+
+def n4_pmma(pmma_x: list[float]) -> dict[str, Any]:
+    mf = pmma_x[1] * 1e-3
+    runs = {dt: pmma_eval("pmma_forward", pmma_x, 50, dt=dt, m_ext=1.5 * mf, allow_inverted=True, record=False) for dt in spec.N1_STEPS[:2]}
+    return _n4_row(runs)
+
+
+def n4_pine(pine_x: list[float]) -> dict[str, Any]:
+    mf = pine_x[1] * 1e-3
+    runs = {dt: pine_graded_run(pine_x, 50, dt=dt, m_ext=1.5 * mf, allow_inverted=True, record=False) for dt in spec.N1_STEPS[:2]}
+    return _n4_row(runs)
 
 
 def _n4_row(runs: dict[float, tuple[harness.Series, dict[str, Any]]]) -> dict[str, Any]:
@@ -281,21 +292,29 @@ def _n4_row(runs: dict[float, tuple[harness.Series, dict[str, Any]]]) -> dict[st
     return {"flashes": flashes, "classes": c, "t_ig": t, "N3_red": n3_red, "N1_class_red": n1_red, "red": n3_red or n1_red}
 
 
+N9_VARIANTS: dict[str, dict[str, Any]] = {
+    "k_0.041": {"backing_k": spec.N9_BACKING_K_CONST},
+    "k_kaowool_ramp": {"backing_k_ramp": "kaowool"},
+    "c_800": {"backing_c": spec.N9_BACKING_C[0]},
+    "c_1200": {"backing_c": spec.N9_BACKING_C[1]},
+}
+
+
 def n9(pmma_fwd: list[float], pmma_rev: list[float], pine_x: list[float], base: dict[str, Any]) -> dict[str, Any]:
     """Range ends, fitted parameters held: PMMA backing k 0.041 / Kaowool PM's k ramp / c 800 / c 1,200; pine on 25.4 mm
     Kaowool PM. A graded feature changing in/out of its band, or the run class changing, is a class flip (outcome 9)."""
-    variants: dict[str, dict[str, Any]] = {
-        "k_0.041": {"backing_k": spec.N9_BACKING_K_CONST},
-        "k_kaowool_ramp": {"backing_k_ramp": "kaowool"},
-        "c_800": {"backing_c": spec.N9_BACKING_C[0]},
-        "c_1200": {"backing_c": spec.N9_BACKING_C[1]},
-    }
+    a, b = n9_pmma(pmma_fwd, pmma_rev, base), n9_pine(pine_x, base)
+    flips = a["flips"] + b["flips"]
+    return {"rows": a["rows"] | b["rows"], "flips": flips, "outcome_9": bool(flips)}
+
+
+def n9_pmma(pmma_fwd: list[float], pmma_rev: list[float], base: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {}
     flips = []
     for name, x in (("pmma_forward", pmma_fwd), ("pmma_reverse", pmma_rev)):
         for fl in PMMA_GRADED[name][1]:
             ref = base[name]["graded"][str(fl)]
-            for vn, kw in variants.items():
+            for vn, kw in N9_VARIANTS.items():
                 s, f = pmma_eval(name, x, fl, **kw)
                 per_lab = cone.BANDS["pmma"]["per_lab"]["DBI_Lund"][str(fl)]
                 ins = {k: in_band(f.get(k), per_lab[k]) for k in cone.PMMA_FEATURES}
@@ -303,6 +322,12 @@ def n9(pmma_fwd: list[float], pmma_rev: list[float], pine_x: list[float], base: 
                 out[f"{name}:{fl}:{vn}"] = {"features": {k: _num(f.get(k)) for k in cone.PMMA_FEATURES}, "in_band": ins, "flip": flip}
                 if flip:
                     flips.append(f"{name}:{fl}:{vn}")
+    return {"rows": out, "flips": flips, "outcome_9": bool(flips)}
+
+
+def n9_pine(pine_x: list[float], base: dict[str, Any]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    flips = []
     for fl in spec.PINE_GRADED_FLUXES:
         ref = base["pine"]["graded"][str(fl)]
         s, f = pine_graded_run(pine_x, fl, backing="kaowool")
