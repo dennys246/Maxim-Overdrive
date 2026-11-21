@@ -1,395 +1,512 @@
-# Fire model v1: design for review (2026-11-20, draft)
+# Fire model: design v2 for review (2026-11-20)
 
-**Status:** a design that changes the architecture, so it is reviewed before any code (CLAUDE.md, "Review before
-push"), with the Bio-faithful integration lens among its readers. Nothing here is decided until the owner rules on
-§11. It replaces step 6's laws 6b–6d (world_model D29, D30) and keeps 6a (open-air loss).
+**Status.** The fold of v1 (54358fd)'s six-lens review (`reviews/fire_model/`: 18 BLOCKER, 58 SHOULD-FIX; per
+finding in `fold.md`). The owner ruled §11 items 1–3; the rest is open. Reviewed before code, Bio-faithful included.
 
-**Sources.** Seven research reports in `research/fire_ladder/` (L1–L6b, one per lens), an independent check of their
-load-bearing claims (`research/fire_ladder/7_verification.md`), and the three fire spikes. Claims carry the report's
-tag: **V** read in the primary source, **S** secondhand, **M** memory, **D** derived. A citation like [L2 §1.2] points
-to the report section that holds the source. **Where the check corrected a report, this note follows the
-check** (marked [V7 n] for its claim n); the reports themselves are kept as written.
+**Sources:** `docs/design/research/fire_ladder/` (L1–L6b; V7 wins where it corrects them). Tags: **V** primary,
+**S** secondhand, **M** memory, **D** derived.
 
-## 0. The answer in one page
+## 0. The answer
 
-1. **Three spikes failed for one reason: our flames had no body.** In the porous-bed law (6c) a burning surface
-   heats only itself; unburnt fuel sees only a radiative leak χ_r·q''_f. Real fire spreads mostly by the flame
-   *touching* fuel ahead of it: fine fuels "will not ignite solely from radiation" below about 80 kW/m² (Finney
-   2015, V), and in stick arrays upward spread is by contact and sideways spread by radiation (Jiang 2019, V)
-   [L2 §0]. No shipped game spreads fire this way either; all of them use a fire object with a rule [L4 §0].
-2. **The flames are too small for any grid we can afford.** A 1–2 kW flame has D* = 0.06–0.08 m (D), 0.3–1.6 cells
-   across on our grids. FDS's validation cases span D*/dx of about 1 to 118, and its guide warns against reading a
-   minimum off that table [V7 9]; resolving flames this small would still need millimetre gas cells, which would
-   make Phase 1 a CFD project. Rate convergence is hard even for FDS: its 2021 runs of NIST's single crib peaked at
-   ~800, 440 and 330 kW at 8, 4 and 2 cm (FDS 6.7.6), though current FDS gives 485, 392 and 389 kW against
-   396 ± 18 kW measured [V7 3]; its PMMA spread cases still differ by grid [L2 §0, not re-checked].
-3. **So both the fuel and the flame become sub-grid objects sized in metres**, beside the grid, not cells:
-   - **fuel elements** (a stick, a slat, cardboard, a wax starter) carry component inventories and a 1D in-depth
-     solid model per exposed surface, as FDS, Gpyro and ThermaKin do [L1 §1.2, L3 §1];
-   - **flame objects** carry a height and a heat-flux footprint from cited correlations (wall flames: Delichatsios
-     and Hasemi; free flames: Heskestad), heating fuel by contact inside the flame and by view-factor radiation
-     outside it, deposited by overlap [L2 §1.2, §2.1, §5].
-   Both are grid-independent by construction. Spread stays an outcome of heat transfer (T18), and correlations
-   measured in fire labs are physics, not label rules [L4 §4].
-4. **The crate going out in the hot-surface spike may be correct.** A lone timber surface self-extinguishes below
-   an external flux of 24–57 kW/m² depending on species (45 ± 1 for radiata pine CLT; Emberley et al. 2017, FSJ
-   91:327, and its companion species study) [V7 1], and a 550 °C char surface re-radiates ~23 kW/m², nearly all of one
-   flame's 25 kW/m² (D) [L1 §2.3]. A crib keeps burning because its surfaces heat each other, which is exactly what
-   flame objects inside a bed supply.
-5. **We validate from the bottom up**, one mechanism per rung, against multi-lab data where it exists (§6). The
-   pass bands are the literature's own spread between labs, and grids are graded on outcome class, never rate.
-6. **NPCs sense physical stimuli at their receptors, never verdicts** (§5). This revises part of T18 and retires
-   `ignite`/`extinguish` as NPC verbs.
-7. **The Phase 1 exit becomes "build a fire against a crate"**: a fire starter, kindling, then the crate (§7). It is
-   the order real fires are built in, and every beat is a graded rung.
+1. **Three spikes failed for one reason: the flame had no body.** Under law 6c a burning surface heats only itself;
+   unburnt fuel sees only a radiative leak. For fine fuels, hot-gas contact rather than radiation ignites (Finney 2015,
+   particles ≲ 1 mm; Jiang 2019, thin dowels; scoped by V7 4–5). The case rests on our spikes; the literature is
+   consistent with it, not proof of it at 20 mm.
+2. **Our flames are smaller than the cells.** A 1–2 kW flame has D* of 0.06–0.08 m (D), 0.3–1.6 cells across our
+   grids. Resolving it would need millimetre gas cells: a CFD project (L2 §4, L4 §4).
+3. **So fuel and flames become sub-grid objects with geometry in metres**, coupled to the cells by overlap (§2–§4).
+   Their representation never depends on the grid; what does depend on dx is the coupling, which the cross-grid
+   tests exercise (§6.1).
+4. **Lone surfaces go out; cribs don't.** One timber surface self-extinguishes below an external flux of 24–57 kW/m²
+   depending on species (V7 1). NIST's crib burns at its peak at an area-mean 2.3–3.1 g/m²s (D, physics review S1),
+   below the lone-surface value, because its surfaces heat each other and its flames are anchored elsewhere. So
+   extinction belongs to the flame, and surfaces exchange radiation (§3.3, §4.3). The hot-surface crate F going out
+   was most likely an artefact of the per-patch law, not physics.
+5. **We validate bottom up**, one mechanism per rung, fitted on some data and graded on held-out data (§6).
+6. **NPCs sense physical stimuli at their receptors, never verdicts** (§5); nothing here is an NPC lesson until Phase 4
+   measures one against the LLM's prior.
+7. **The Phase 1 exit becomes "light a built fire"** (§7): an authored fire starter, kindling and a crate with
+   cardboard; the player kindles the starter.
 
 ## 1. What the evidence established
 
 | Finding | Evidence | Consequence |
 |---|---|---|
-| A torch lights only the slat faces it heats; the bed never spreads | physics spike Q1 (all grids, all range ends) | 6c can't be the burning law |
-| Kerosene in the pores doesn't spread it either | accelerant spike, λ_max 0.0129 | the fuel's distribution isn't the missing piece; T18's "spreads because its fuel is distributed" was wrong in that model |
-| Hotter surfaces and an uncapped gas don't spread it | hot-surface spike, outcome 5 | the pins weren't the cause |
-| A char layer with only its own flame's flux goes out | hot-surface C_F; Emberley et al. 2017 [V7 1]; closed form (D) | probably correct single-surface physics; R1 decides |
-| Char handed over at 550–900 °C glows | `char_oxidation.md` | the glow question is a hand-over temperature question |
-| Flames heat fuel ahead by contact; radiation alone rarely ignites fine fuel | Finney 2015, Jiang 2019 (V) [L2 §2.3] | the flame needs a body |
-| Flames here are smaller than a cell | D* (D), FDS guidance (V) [L2 §0] | sub-grid flame objects, not resolved flames |
-| Rates converge poorly across grids even in FDS (its 2021 crib runs; PMMA spread), though current FDS's crib peak converges at 4 and 2 cm | FDS Validation Guide [L2 §0, V7 3] | grade class across grids, as the resolution rule says; report rates with their observed order |
-| K2_005's stall was a sliver area divided into a power, not the char layer | probe log (D) [L5 §0]; code read by the session | area hygiene and capped substeps (§4) |
-| Sub-cell models sized in metres converged; cell-sized ones didn't | bed.md (diverged), hot-surface F (p = 1.87) [L5 §3] | the rule world_model §3 already states, confirmed |
+| A torch lights only the slat faces it heats | physics spike Q1, every grid and range end | law 6c can't carry the exit |
+| Kerosene in the pores doesn't spread it | accelerant spike, λ_max 0.0129 | T18's "spreads because its fuel is distributed" was wrong in that model |
+| Hotter surfaces and an uncapped gas don't spread it | hot-surface spike, outcome 5 | the temperature pins weren't the cause |
+| A lone char surface with only its own flame's flux goes out | closed form: 0.9σ(823⁴ − 293⁴) = 23 kW/m² against 25 (D); V7 1 | correct for one isolated surface only |
+| NIST's crib sustains below the lone-surface extinction flux | TN 2102 Test 13 (V), area-mean 2.3–3.1 g/m²s (D) | extinction per flame; surface-to-surface exchange |
+| K2_005's stall: a 10⁻¹⁹ m² sliver divided into a power | probe log (D), code read | area hygiene and local substeps (§8) |
 
-## 2. Fuel: elements, inventories and transitions
+The sliver bug is in the accelerant spike's `WetBed`, so every accelerant run carries it (≤ ~9 W of 2 kW; completed
+runs unchecked for slivers).
+
+## 2. Fuel: objects, segments and inventories
 
 ### 2.1 Containers
 
-Every ladder fuel is thinner than 0.1 m, so none can be cells under the thin-features rule (≥ 0.4 m) [L3 §0].
-The model adds two sparse tables beside the dense grid [L3 §2.1]:
-
-| Container | Holds | Status |
+| Container | Key and rows | Holds |
 |---|---|---|
-| **Cell** (dense) | structural owner material, region id, temperature, integrity | as today |
-| **Element** (sparse, key (cell, slot), K = 2 slots, reserved in the format) | recipe id, region id, geometry in metres (`slab`, `cylinder`, `bed`), thickness or σ and β, **component inventories** (kg/m³ of cell), loadings | new; D30's bed is one element per cell |
-| **Surface patch** (sparse, key (cell, slot, patch)) | the 1D solid state (§3), ignited-area fraction, flame-cover latch | replaces world_model §8's (cell, face) table |
-| Zone, pool, fines | as world_model §2 and §7 | unchanged |
+| **Cell** (dense) | as today | structural owner material, region, temperature, integrity |
+| **Fuel object** | persisted object id (u32), sorted | recipe (by name), region id, geometry in metres (`rod`: a cylinder with any axis; `slab`; `bed`: an authored porous box with φ and σ), component inventories in kg |
+| **Segment** | (object id, segment index), sorted | a piece of the object's surface of fixed size in metres per recipe class (along the object's length or area, never by cell). It holds two **parts**, ignited and unignited, each with its own 1D in-depth profile, plus the front position between them (§3.2) |
+| **Coupling row** | (cell index, object id, segment), sorted, CSR | the overlap weights of a segment in the cells it touches, recomputed in the topology batch |
 
-An object that straddles cells is one element per cell it occupies, each carrying its share of the inventories.
-Element rows sort by integer key (cell index, slot); reductions are `bincount` by region, as today.
+- **Any number of objects per cell.** A 0.2 m cell can hold the crate's bed, its cardboard, a stick and the starter.
+  Capacity never depends on dx.
+- **A bed is a bed on every grid, and a stick is a stick.** The representation is authored, never chosen by dx. R3's
+  dowels and R4's crib sticks are discrete rods at every spacing (about 100 for TN 2102's crib).
+- **Inventories are kg per object and segment**, never kg/m³ of a cell.
 
-### 2.2 Every transition is an inventory move
+### 2.2 Occupancy, regions and coupling
 
-| Transition | As an inventory move | Notes |
+- **Occupancy** becomes `solid | holds_fuel` (from the coupling rows). Each consumer switches, with a test:
+  `applier._check_region`, `StructureModulator.__init__`, `region_parts`, `snapshot`'s `× solid` masks,
+  `imagination`'s overlap rule and `kindle`'s target derivation (§5.4).
+- **Region membership** is cells ∪ objects (each object carries its region id).
+- **Heat between an object and the grid** happens only through the coupling rows:
+  - convection h(T_s − T_cell) with each overlapped cell, by overlap weight;
+  - contact conduction into any solid cell the object touches (the crate on the concrete floor), which keeps the
+    floor-damage control V_floor meaningful;
+  - radiation to the surroundings, at the overlapped cells' temperature for an exposed segment, or by exchange with
+    other segments (§3.3).
+
+  This is where dx enters, so the cross-grid tests are aimed at it (§6.1). A segment's convective and contact power
+  is deposited into cells by overlap weight, and the ledger books it on both sides.
+- **Cells keep one temperature.** An air cell holding a burning stick reads the air; the stick's temperature lives
+  on its segments, which glow, SEM and the client read (§9.2).
+
+### 2.3 Transitions are inventory moves
+
+| Transition | Move | Note |
 |---|---|---|
-| virgin wood → char + volatiles | reaction on `virgin`: residue `char` at χ, the rest to gas species | char *thickness* is derived from char mass, never stored separately |
-| char → CO/CO₂ + ash | heterogeneous reaction consuming O₂ (Phase 1: the outside reservoir) | glow and burnout; ash stays as an inert inventory until the element goes to fines |
-| PMMA → MMA vapour | one reaction, no residue; the element's thickness shrinks | **PMMA doesn't melt or drip** in this sense: it is amorphous and gasifies first [L3 §0, Joseph 2015 V]. It is the non-charring, regressing reference |
-| moisture → water vapour | evaporation on `water_l` at T_b | the accelerant spike's verified kernel |
-| wax solid ↔ liquid | latent move `paraffin_s` ↔ `paraffin_l` at T_m with L_f | T18's loading, split by phase; the cap stays void fraction × ρ_L |
-| liquid wax or kerosene → vapour | evaporation, then flames on the vapour | the accelerant spike's law |
-| element burnt out | combustible inventories below a per-volume ε | the residue goes to fines through a transfer, never through `MaterialGrid.destroy` as written |
+| virgin → char + volatiles | reaction on `virgin`: residue char at yield χ, the rest to the pyrolysate | char thickness is derived from char mass |
+| char → CO/CO₂ + ash | heterogeneous reaction, **off under flame cover** (`char_oxidation.md` §0.5) | glow, embers and burnout; ash stays as an inert inventory |
+| PMMA → MMA vapour | no residue; the segment's thickness shrinks | PMMA is amorphous and gasifies; it doesn't drip (Joseph 2015, V) |
+| moisture → vapour | evaporation at T_b | |
+| paraffin solid ↔ liquid | latent move at T_m with L_f (Hamins 2005, V) | the T18 loading, split by phase; cap = void fraction × ρ_L, joint across all loadings |
+| liquid → vapour | evaporation, then flames on vapour | the accelerant law |
+| burnt out | combustible inventories below a per-object ε in kg | the residue goes to fines through a transfer, never through `MaterialGrid.destroy` |
 
-This makes the per-cell `latent` scalar redundant: one scalar can't carry moisture, wax and wood at once, and
-phase-split inventories carry the progress exactly [L3 §2.3].
+**Dripping is deferred** as a known gap. Pools have no position (world_model §2), and drips can either extinguish or
+spread a fire (Joseph 2015, V). A recipe whose melt would exceed its retention cap is refused at authoring.
 
-**Dripping is deferred** and recorded as a known gap. Pools have no position (world_model §2), so a drip can't make
-a pool fire under its object, and real drips can either put a fire out or spread it [L3 §2.2, Joseph 2015 V]. Until
-positioned puddles exist, a recipe whose melt exceeds its retention cap is refused at authoring. If a real dripper
-is wanted, it is polypropylene or polyethylene, later.
+**Phase 1 gas products** go to the outside reservoir as one ledger line per species name. Per-species zone state
+stays in Phase 2 (D26); the loader's atom and energy closure checks run anyway (§9.1).
 
-### 2.3 Invariants
+## 3. The solid
 
-1. Mass per component and species changes only by boundary flux; a transfer is limited by the donor *before* it is
-   applied, never clamped after.
-2. Element balance (C, H, O) closes for every species with a formula, checked when the table loads.
-3. The energy ledger closes per substep, **and** every law has a closed form: the ledger once booked a 1,000× units
-   bug consistently on both sides.
-4. Latches (ignited, flame-cover, burnt out) are in the state digest.
+### 3.1 One 1D profile per part
 
-## 3. The solid: a 1D model per surface patch (R0, R1)
+Each segment's ignited and unignited parts carry a 1D profile in depth, with nodes sized in millimetres per recipe
+and allocated from authoring, so preheating before ignition is kept (DP-S7). Each profile has:
+- finite-slab conduction with the object's own back boundary (a rod's centre line; a slab's far face);
+- pyrolysis at an intrinsic L_g, leaving char at χ;
+- a char layer with ρ_c, c_c and k_c(T);
+- a surface balance: absorbed flux = εσ(T_s⁴ − T_env⁴) + h(T_s − T_env) + conduction inward (+ char oxidation when
+  not under flame).
 
-Each burning surface patch carries a 1D in-depth grid normal to the surface, sized in millimetres per material,
-never by the world cell [L1 §1.2, L5 §1]:
+**The rate law is R0's choice, graded on fit and cost.** The choice is between a threshold (pyrolysis at T_p with
+L_g, exactly zero below T_p) and one-step Arrhenius with a written cutoff below which the rate is exactly zero.
+Without that cutoff, Arrhenius removes 18 ulp per step even at 20 °C, so no fuel could ever sleep (DP-S1). FDS's
+`REFERENCE_TEMPERATURE` derives Arrhenius A and E; it is not precedent for a threshold law (Executor S12, M).
 
-1. finite-slab conduction with a specified back boundary (an element's far side, or its neighbour);
-2. pyrolysis at an intrinsic heat of gasification L_g, leaving char at yield χ;
-3. a char layer with ρ_c, c_c and k_c(T);
-4. a surface balance: incident flux (external + flame) = εσ(T_s⁴ − T∞⁴) + h(T_s − T∞) + conduction inward (+ char
-   oxidation);
-5. ignition and extinction by a critical mass flux m''_cr, so R0 and R1 share one law [L1 §1.2].
+### 3.2 Ignition, the front and the pilot
 
-**The rate law is R0's first question, not a default.** L1 recommends one-step Arrhenius kinetics; L3 recommends a
-threshold (T_p, L_g) by default, as FDS allows through `REFERENCE_TEMPERATURE` (V). Both give a mass flux, so the
-m''_cr criterion works under either. R0 fits both to the MaCFP data and keeps the simpler one that passes. Fitted
-parameters (kinetics, L_g, k_c, char ε) are **re-fitted by our model to R1's data, never copied**: MaCFP lists more
-than 13 property sets for one PMMA [L1 §4].
+- **Two events, with hysteresis.**
+  - **Flash** (flame attachment): the unignited part's mass flux reaches m''_flash, defined as the data define t_ig
+    (MaCFP: Q'' ≥ 24 kW/m², about 1.0 g/m²s for PMMA and 1.6 for pine, D).
+  - **Extinction** is decided per flame (§4.3), not per part.
+- **A pilot is required.** A part ignites only inside a flame object's volume, within a cited distance of one, or in
+  gas above an autoignition temperature. Autoignition isn't cited yet, so unpiloted ignition is refused and recorded
+  as a gap.
+- **The front moves by a law, never by a patch mean.** The ignited/unignited boundary in each segment advances at a
+  speed set by the heat delivered just ahead of it, evaluated at the front in metres: the flame's footprint (§4.2)
+  for concurrent spread. For opposed spread (downward, lateral), de Ris and Fernandez-Pello's form
+  V = Φ/[kρc(T_ig − T_s)²] applies (V, NBSIR 84-2943 eq. 14), with Φ a cited material parameter. Because the front is
+  a position, it doesn't jump by dx; a segment's size changes only the profiles' bookkeeping.
 
-**Two checks on the solid model that are tests in themselves:**
-- Wood's *apparent* heat of gasification from cone data is ~15 kJ/g (D: 14.6 and 15.7 from two independent fits to
-  MaCFP-4; no published value found) [L1 §2.2, V7 11], against an intrinsic 1.6–2.6. A correct char model must
-  *produce* the apparent value.
-- With the cone heater stepped down, the slab must go out inside the species band (24–57 kW/m², at 2.7–8.3 g/m²s)
-  [V7 1]; R1 pins the band for the species it grades.
+### 3.3 Surface-to-surface radiation
 
-**Inputs from the spikes to revisit:** the scene's wood is 600 kg/m³ against the graded pine's ~380, so the scene's
-species must match the data it is graded against [L1 §4]. The spikes' k_c of 0.10 W/m·K is inside the fitted range
-(about 0.08–0.30) [V7 11], not below it as L1 says; R1 re-fits it anyway.
+Segments exchange radiation with the segments they see (view factors in metres, from geometry). Interior char facing
+char at 700–900 °C loses almost nothing net, which is how a crib's embers stay hot (`char_oxidation.md` §0.3). Law
+6c's in-bed P1 is dropped, but for an authored `bed` object (not R3 or R4) it stays the bed's internal exchange. The
+cost is in §8.3.
 
-## 4. Flames: sub-grid objects in metres (R2–R4)
+**Oxygen and the draught.** In-bed O₂ limits and Ergun draught are dropped with 6c. That is the gap R4 leans on
+hardest: TN 2102's crib is probably porosity-limited (Heskestad factor 0.32–0.87, D, physics S6), which could put
+our peak up to ~1.8× high. Before R4 is pre-registered, its porosity regime is computed from the crib's real stick
+layout. If it is oxidiser-limited, an O₂ supply term per bed volume comes first.
 
-### 4.1 The object
+## 4. Flames
 
-A **flame object** is a burning cluster's flame, with its geometry and flux set by cited correlations [L2 §1.2,
-§2.1, §5]:
+### 4.1 One flame per cluster, recomputed each physics step
 
-- **Clustering.** Burning patches group by connected burning area in metres, never by cell. Merging is a cited
-  gap: no merging model was opened [L2 §5.2].
-- **Heat release.** Q from the cluster's pyrolysis mass flux × ΔH_c,eff. The flame is fed by the fuel; nothing
-  else sets its size.
-- **Geometry.**
-  - Against a surface: a sheet of height x_f = (4.65–6.1)·[Q'/(ρc_pT√g)]^(2/3), Delichatsios and Hasemi (V, tested
-    for x_f of 0.3–1.4 m, with considerable scatter).
-  - Free: a solid cylinder of height L = 0.235·Q^(2/5) − 1.02·D, Heskestad (V as applied; fitted on pool and burner
-    fires, so kilowatt stick flames are an extrapolation, flagged).
-  - Tilted by the draught.
-- **Flux onto surfaces.**
-  - Inside the flame (contact): 10–30 kW/m², with "no universal maximum" (V); Leventon's form ties the peak to
-    burning rate (V, abstract) [L2 §1.2].
-  - Above the flame tip: falls as ~x^-2.4 (V).
-  - Outside the flame: radiation by analytic view factor from the solid flame, with surface emissive power set so
-    the total radiated power is χ_r·Q exactly [L5 §3].
-- **Deposit.** Incident flux is evaluated at quadrature points fixed in metres on each receiving patch and
-  integrated over the patch; contact is a geometric overlap fraction. Nothing is decided at a cell centre [L5 §3].
-- **Into the gas.** The convective part (1 − χ_r)·Q heats the zone (the outside reservoir in Phase 1) on the
+- **Clustering.** Burning segments group into clusters by distance in metres between their geometry, with a smooth
+  merge weight across a distance band instead of a yes/no threshold. No cited merging model has been read (Thomas;
+  Delichatsios: still to read), so the band is pre-registered and R3's gap sweep gates it (§6.2).
+- **A cluster's id is its minimum member key.** Flames are **stateless**: recomputed from segments each physics step,
+  so no flame state is saved and there is no identity to renumber.
+- **Heat release.** Q = Σ pyrolysis mass flux × ΔH_c,eff over the cluster. The flame is fed only by its fuel.
+- **Geometry.** Height and width are continuous functions of the cluster's Q and its geometry: a wall flame
+  (Delichatsios and Hasemi, tested for x_f of 0.3–1.4 m) blending into a free flame (Heskestad, 7 < Q^(2/5)/D < 700,
+  S) by the cluster's aspect, never by a switch. Kindling and starter flames (0.1–0.3 m) sit below the wall
+  correlation's tested range, so every run on them is reported as an **extrapolation**. Phase 1 air is still: no
+  tilt.
+
+### 4.2 One heat budget per flame
+
+Each cluster's Q is partitioned. No term is added on top:
+
+Q = Q_contact,conv + Q_contact,rad + Q_rad,view + Q_rad,escape + Q_gas
+
+- **Radiation:** Q_contact,rad + Q_rad,view + Q_rad,escape = χ_r·Q, with χ_r cited per fuel and flame scale (still
+  to cite: L2 §5 leaves it open).
+- **Gas:** Q_gas = (1 − χ_r)·Q − Q_contact,conv, which goes to the overlapped cells' gas by overlap. Phase 1 has no
+  gas in cells (world_model §2), so it reaches the outside reservoir through those cells' open-air loss (6a), on the
   ledger.
+- **Contact:** a segment inside the flame volume gets contact flux only, with no view-factor term on top. On thin
+  elements contact is h(d, u)·(T_f − T_s), sized by diameter (h rising roughly as d^(−1/2), physics S8), plus the
+  flame's radiation. The wall value of 10–30 kW/m² is used only for wall geometry.
+- **A burning segment's own flame flux is its cluster's contact flux**: not a second source, as v1's q''_f was.
 
-Inside a bed (the crate), surfaces within a flame get the in-flame flux. That is the crib heat feedback the char
-layer needs (§0.4). **No cited value for the flux inside a burning crib was found** [L2 §5.2]. That is R4's open
-question, and it is graded against a measured crib rather than assumed.
+### 4.3 Extinction belongs to the flame
 
-### 4.2 What this model is not
+A cluster's flame persists while its fuel's mass flux, averaged over its burning area, stays above m''_ext,flame.
+That value is cited per setup, since m''_cr changes with sample size (Plathner: 19.2 against 2.0 g/m²s, S). A
+segment below the lone-surface value inside a sustained cluster keeps feeding it. A lone surface whose cluster is
+just itself reduces to the cone case, and R1 grades that case. There is no cited per-cluster extinction model; R4's
+check that "a fully involved TN 2102 crib doesn't flame out at about 2.5 g/m²s" is what grades it.
 
-- **Not a crib correlation as the burning law.** Heskestad's crib rate and NIST's crib tests are R4's oracle, never
-  its mechanism: a correlation as the mechanism would make spread a property of the object, not of heat transfer
-  (T18) [L2 §5.1].
-- **Not resolved CFD.** The gas grid carries the plume's energy, not the flame's shape.
-- **Not a rule.** No flame object ignites anything; it puts watts on surfaces, and each surface's 1D model decides.
+### 4.4 Radiation to receivers
 
-### 4.3 The main risk: the feedback loop near threshold
+Receivers are segments, solid cell faces and body regions. This revises T14, which had bodies only, by point source,
+in Phase 1.
 
-Flux → pyrolysis → Q → flame height → flux. Near the spread threshold a small grid-dependent error flips the
-outcome class; Jiang's race (burnout 13.6 s against neighbour ignition 19.8 s at a 1.5 cm gap, V) shows how thin
-the margin is [L2 §5.2]. So binary outcomes keep CLAUDE.md's band and outcome margin, scenarios sit away from the
-threshold, and the band's width across grids is itself gated [L5 §3]. The 13.6 s and 19.8 s are unverified (the
-paper's full text wasn't reachable); its gap result is confirmed [V7 5].
+- **Emission.** Each flame is one emitter: an analytic solid-cylinder (or sheet) view factor to each receiver's
+  quadrature points, which are fixed in metres.
+- **Occlusion** is per (flame, receiving object or face group), sampled coarsely in metres. It is a pure function of
+  the current geometry.
+- **Multi-rate** (owner ruling 1). The radiation field is recomputed every N physics steps on a fixed schedule (N
+  pre-registered, measured at R2.5). Between recomputes, the held field is **state**, in the save and the digest, so
+  save/load at any step reproduces a continuous run.
+- **A distance cutoff, if any, is a law in metres** in every mode, its dropped power booked; never a sleep shortcut.
 
 ## 5. What NPCs perceive and do
 
 ### 5.1 The split
 
-The world computes the **physical stimulus at the receptor's location**. Maxim computes **transduction**:
-thresholds, adaptation, pain kind, timing and learning [L6b §3.1].
+The world computes the stimulus at the receptor. Maxim transduces it (L6b §3). The world also owns tissue: skin
+conduction and damage are physics of the body's matter (Bio S4).
 
 | Quantity | World | Maxim |
 |---|---|---|
-| Heat on skin | incident flux per body region (W/m²) from flame objects and gas; skin and basal-layer (~0.1 mm) temperature from a skin conduction model; contact temperature from effusivity | warm and cool receptors (adapting), nociceptors (sensitising) |
-| Tissue damage | a Henriques integral into the region's integrity or `health` | `drive:health` pain |
-| Airway | irritant and soot concentration at the mouth (Phase 2, with buoyant smoke) | chemical nociceptor |
-| Smell | vapour concentration per species at the nose (Phase 2) | olfactory receptor, adapting, gated by sleep |
-| Sight | luminous flame volumes in view: luminance, angular size, flicker (~1.5 D^−1/2 Hz, S) | percept, salience |
-| Sound | onset transients at the ear (Phase 2) | features |
+| Heat on skin | incident flux per body region (W/m²); skin and basal-layer (~0.1 mm) temperature from a skin conduction model; contact temperature from effusivity | warm and cool receptors (adapting); nociceptors (sensitising) |
+| Tissue damage | a Henriques integral into the part's `integrity` | `drive:health` pain, which already conditions fear (it is in the fear set) |
+| Airway, smell, sound | concentrations and transients at the receptor (Phase 2) | chemical, olfactory and auditory receptors |
+| Sight | luminance, angular size and flicker of **whatever is in view**, after line of sight: a lamp excites it too | the percept |
 
-Two leak tests a reviewer can apply [L6b §3.1]:
-1. Could an instrument at that spot measure the value with no knowledge of the nervous system? Then it's the
-   world's.
-2. Does the parameter have a value in a physiology paper (a threshold in °C, an adaptation time)? Then it's the
-   receptor's, and it lives in Maxim.
+Two leak tests:
+1. Could an instrument at that spot measure it with no nervous system? Then it is the world's.
+2. Is it transduction (a threshold, gain, adaptation, latency)? Then it is the receptor's.
+
+Tissue properties (skin k, ρc, Henriques constants) are world physics. Core temperature has one owner: world-written
+with `drift_rate: 0`, or Maxim-drifted.
+
+**Body shape.** On Maxim's humanoid bodies `health` is derived: `world_set_axis` can't write it, and a direct
+`health` sensor is refused (Bio S1, `base_humanoid.yaml`, `spec.py` C5). So per-part burns need `world_set_axis` for
+sub-sensors (OD-C10, world_v2 P4), or a flat body with that divergence named. Until GL2b, an NPC learns fire only
+from injury, never from the pain that comes first.
+
+**Divergences (Maxim's intents):**
+- the root-sensor skin stopgap: **ANALOG**;
+- generic in-view luminance: **ANALOG**, a stand-in for vision until OD-C8;
+- credit for `kindle`'s delayed ignition: **OPEN** until OD-A16;
+- the fractions (burning, charred, soaked, melting) stay **lab instruments** until a percept channel exists
+  (OD-C8). They never reach an NPC through a region instrument.
 
 ### 5.2 Why radiation matters to the agents
 
-Radiant heat warns before it harms. On bare skin: at 2 kW/m², pain at ~45 s and a second-degree burn at ~187 s; at
-10 kW/m², 5 s and 14 s (NOAA ALOHA from FEMA 1988, V) [L6 §1.1]. Pain leads damage by 3–6×. **Without flame
-radiation the learn-before-harm window is zero**, and every fire lesson is contact-only. This is the agents' case
-for this design over relaxing the exit.
+On bare skin, severe pain comes at about 45 s and a second-degree burn at 187 s at 2 kW/m²; at 10 kW/m², 5 s and
+14 s (NOAA ALOHA from FEMA, V7 8). Pain leads damage by 2.8–5.8×. Without flame radiation that warning window is
+zero.
 
 ### 5.3 What changes from T18
 
-- **"Flammable" and "porous" are not sensors.** No receptor senses them, so as NPC inputs they are oracles that teach
-  Maxim our table. Material *identity* (wood, cardboard, wax) is a noun through vision; "wood burns" is learned or
-  told [L6 §1.3].
-- **Booleans become fractions.** "Burning", "smouldering", "charred", "melting", "soaked" are continuous fractions in
-  [0, 1], read only through a percept channel. A yes/no label thresholds a whole entity's mean: the D25 hazard T18
-  itself cites. `states_of_matter/sem.md` N2 ("fractions, never labels") already said this; T18 contradicted it, and
-  N2 is right.
-- **Kept from T18:** physics owns the mechanism, the bridge reads it, and nothing spreads by an SEM rule.
+- **"Flammable" and "porous" are not sensors.** No receptor delivers them. T18 specified them on paper only, and none
+  exists in `src/`. Material identity reaches an NPC as a noun through sight.
+- **Fractions, not booleans** (`states_of_matter/sem.md` N2 over T18).
+- **Kept from T18:** physics owns the mechanism; nothing spreads by an SEM rule.
 
 ### 5.4 Acts
 
-The player's `kindle` already takes its power from a held item (tile spec T4). NPC acts follow the same rule: body
-acts with held things, each driving physics [L6 §2].
-
-| Act | What the world does | When |
-|---|---|---|
-| `light` a held starter | the starter's own cited flame | with R3 |
-| `apply` a held flame to a target | its flame object touches the target; ignition is the physics' verdict | with R3 |
-| `carry` / `drop` / `place` | moves an item; a burning stick's flame moves with it | needs item entities |
-| `step_back` / `move` | flux falls with distance | needs bodies |
-| `pour`, `cover`, `fan` | liquid, O₂ and airflow | Phase 2 |
-
-- **A fruitless act succeeds as an act.** A flame applied to steel happens; the world shows no ignition. Refusing it
-  would leak the rule into error text, and under Maxim's tool-failure credit (TF2) book a failure on the tool
-  [L6 §2].
-- **`requires` states only physical possibility at the actor** (holding a starter, in reach), never a predicted
-  outcome.
-- **`structure.ignite(power_w, radius_m)` and `structure.extinguish()` leave the NPC surface.** No NPC emits a
-  chosen wattage, and `extinguish` deletes a heat source with no water, lid or oxygen. They stay as lab and test
-  instruments, never NPC inputs.
+- **One fire act for everyone: `kindle`** (tile T4, which already retired `ignite`; F7 retired `extinguish`). It
+  applies a held item's flame at a point.
+  - **Target derivation:** the fuel object or solid whose surface is nearest the point within 50 mm, with a tie
+    within 1 mm refused as `ambiguous_point` (R3's sticks at 0.75–1.5 cm separate by more than that).
+  - **The torch's pilot is a flame object** with a prescribed Q at the point, heating by §4 like any flame. That
+    replaces the sphere deposit and the 0.2 m minimum radius.
+  - The vocabulary is v1 amended before step 5 ships it.
+- **No NPC fire acts in Phase 1**, since there are no NPCs. `light`, `apply`, `carry`, `drop` and `place` come with
+  item entities and NPC bodies (Phase 4), as the same `kindle` intent from a body, sharing its validators and log.
+- **The bridge gets two builders.**
+  - The **NPC builder** exposes no `ignite`, `extinguish`, `strike(energy_j)` or `RegionInstrument`. A golden test
+    pins its tool surface, and `strike` becomes a body act with a held thing.
+  - The **lab builder** lives in tests only.
+  - `ignite` and `extinguish` leave `parse_action`, and a test refuses both through `execute`.
+- **A fruitless act succeeds as an act.** `requires` names only sensors the body exposes (holding, reach), never an
+  outcome. Fire acts carry no `target_effect` or `self_effect`, and a test refuses one that does.
 
 ### 5.5 What the bridge must never do
 
-- decide an outcome from a label, or in the bridge;
-- expose flammability, flash point, heat of combustion or φ as a sensor;
-- threshold a whole entity's mean into a boolean an agent learns from;
-- refuse an act because physics would make it fruitless, or put the outcome in a description or error;
-- give an NPC an omniscient region instrument;
-- write a second heat path into the body.
+Decide an outcome; expose flammability, flash point, ΔH_c or φ; threshold an entity mean into a learned boolean;
+refuse a fruitless act or describe its outcome (today's `ignite` description, "it burns until extinguished",
+breaks this); give an NPC an omniscient region instrument (today's `temperature_*` and `breached`); write a second
+heat path into the body.
 
 ## 6. The validation ladder
 
-Each rung adds one mechanism, is pre-registered, and is graded against measurements. **Across grids, only outcome
-classes are graded; rates and times are reported with their observed order.** Within the data, the pass band is
-the envelope of lab means, graded on curve features, not pointwise [L1 §5]. Each rung also gets a legibility check:
-a short clip judged on "does this look like what fire does?"; a physical pass that looks wrong is a finding [L4 §5].
+### 6.1 Grading rules
 
-| Rung | Setup | Isolates | Graded against | Pass (class across grids; features within the data's envelope) |
-|---|---|---|---|---|
-| **R0 ignition** | one slab under a fixed radiant flux | heating and ignition | MaCFP-2 black PMMA (lab means 76–148 s at 25 kW/m², the 76 s lab a flagged outlier) [V7 2]; MaCFP-4 white pine (25–75 kW/m²) [L1 §1.3] | t_ig inside the envelope at every flux; the thick and thin closed forms; no surface cooling under constant heating |
-| **R1 burning** | that slab, burning, then the heater stepped down | burning, char, extinction | MaCFP-4 pine curves at 30, 50, 60 kW/m² (first peak 161–235 kW/m² at 50, over only 4 labs) [V7 2]; Emberley et al. 2017 and its species study | first peak, plateau and second peak in the envelope (backing specified); apparent L_g ≈ 15 kJ/g produced, not input; extinction in the cited band |
-| **R2 spread on one surface** | (a) a slab lit at one edge, cold and preheated; (b) a base-lit vertical slab | the flame sheet heating fuel ahead | Quintiere & Harkleroad, NBSIR 84-2943 Table 2 [V7 6]: no opposed spread on cold plywood or PMMA; 1.2 and 3.0 mm/s on plywood preheated to 250 and 300 °C, *derived* from its parameters, not measured; wall-flame height and flux | (a) no spread cold, spread preheated within ×2; (b) upward spread that accelerates, flame height in the correlation band, wall flux peaking at 10–30 kW/m² |
-| **R2.5 the flame object alone** | prescribed Q over a burner; target patches at distances; the base offset by dx/3 and 2dx/3 | the flame's geometry and radiation, decoupled | analytic view factors; χ_r·Q conservation | absorbed power within a gated error on every grid; radiated power = χ_r·Q to round-off [L5 §3] |
-| **R3 two bodies** | (a) Jiang's dowel array; (b) a wax starter beside a stick; (c) stick beside stick at several gaps | flame contact and radiation across a gap | (a) Jiang 2019 (V): sideways spread at 0.75 cm, none at 1.5 cm, upward at both; (b), (c): **no dataset exists** | (a) Jiang's class; (b), (c) reported as predictions, class only |
-| **R4 crib** | NIST TN 2102's crib with its own pilot, then the alley's crate | everything together | TN 2102 Test 13: 396 ± 18 kW peak, ~5% residue [L2 §3.3, V7 3] | ≤ 10% residue (class); peak within ×1.5 and time to peak within ±40% on every grid; the crate reported, not graded |
+- **Across grids (owner ruling 2): the tile spec's rule stands.** Classes agree on every grid, and graded times and
+  rates at 0.1 m lie within tile §6.3's tolerances (10–15%) of the 0.05 m reference, converging from 0.2 m. Nothing
+  is loosened.
+- **Against data:** curve features within the envelope of lab means, fitted on some fluxes and graded on held-out
+  ones.
+- **Every cross-grid gate names the dx path it exercises:**
+  - segment–cell coupling;
+  - flame-to-cell deposit;
+  - the straddle test: an object placed across cell boundaries, offset by dx/3 and 2dx/3.
 
-**Materials.** PMMA first: fire science's reference, non-charring, best data. Then white pine. Cardboard joins at R3
-as the exit's kindling (McKinnon 2012's layered board, V; no single-sheet dataset was found). The **fire starter**
-has no published burning data at all [L1 §3]; paraffin itself is well characterised (Hamins 2005, V), so the starter
-is modelled as the accelerant law plus fusion plus retention, and its first numbers come from a pre-registered bench
-measurement (mass against time on a scale) or stay a prediction.
+  A gate that no grid-dependent path touches is a unit test, not a cross-grid test.
+- **Moisture is pinned per rung**, its effect on t_ig graded at R0. **Legibility checks** start when the client draws
+  fire (step 8); passed rungs are rerun then.
 
-**Each rung's tests** follow L5 §5: closed forms, the identity pattern (a new term at zero reproduces the old digests
-bit for bit), an n-cap test that feeds a sliver area and requires a bounded n and a finite T, subset independence
-(a surface solved alone gives the same bits as in the batch), and a cost-regression gate from R4.
+### 6.2 Rungs
+
+| Rung | Setup | Graded against | Pass |
+|---|---|---|---|
+| **R0 ignition** | one slab under fixed flux; PMMA, then white pine | MaCFP-2 PMMA (t_ig lab means 76–148 s at 25 kW/m², the 76 s lab flagged; 12–29 s at 65); MaCFP-4 pine (25–75 kW/m²) | fit at 30 and 60 kW/m², grade t_ig at 25, 50 and 75 inside the envelope; PMMA fitted at 25, graded at 65, and the reverse; thick and thin closed forms; the rate-law choice (§3.1) |
+| **R1 burning** | that slab burning, then the heater removed | MaCFP-4 pine at 30–60 kW/m² (first peak 161–235 kW/m² at 50, 4 labs), backing specified | first peak, plateau and second peak in the envelope on held-out fluxes; sustained at 25 kW/m², as MaCFP-4 measures (about 3.8 g/m²s); no sustained flaming once the heater is removed. The apparent L_g (about 15 kJ/g, D) is reported, not graded |
+| **R2a opposed spread** | PMMA lit at one edge, downward | a measured downward-spread dataset for cold PMMA, to find (Fernandez-Pello and Williams, of order 0.05 mm/s, M) | the front advances at the measured rate within its scatter; same class and time tolerance across grids |
+| **R2b upward spread** | a base-lit vertical PMMA slab | a measured upward-spread dataset (FDS-validated PMMA panels, or Leventon), to name before pre-registration | pyrolysis-front position against time and its acceleration, which the correlations don't fix |
+| **R2.5 flame object** (verification) | prescribed Q; receivers at distances; the base offset by dx/3 and 2dx/3 | analytic view factors | a closed shell of receivers absorbs χ_r·Q to round-off, with reciprocity per patch, and goes red when one cylinder face is deleted; absorbed power within a gated error on every grid; counted as a unit test, not physics |
+| **R3a dowels** | Jiang's birch dowel arrays | Jiang 2019 (V7 5) | sideways spread at 0.75 cm, none at 1.5 cm, upward at both; a gap sweep whose band of disagreement between grids is gated |
+| **R3b, R3c** | the starter beside a stick; stick beside stick | **no dataset** | class only, reported as predictions |
+| **R4 crib** | TN 2102 Test 13, pilot as a prescribed Q from Test 13's early curve, stick layout from TN 2102 | 396 ± 18 kW peak; residue 5.3 ± 3.4% after raking at about 48 min (V7 3) | not flamed out at about 2.5 g/m²s; peak within ×1.5; residue graded at 48 min; ember tail ≥ 18 min; time to peak graded only once verified from the source |
+
+LIFT's plywood speeds (V7 6) and Jiang's unverified timings (V7 5) are not used as criteria.
+
+**Tests at every rung:**
+- the identity pattern: a new term at zero reproduces the old digests bit for bit;
+- sleep on against sleep off, with identical bits;
+- save and load at every step of a fire run, matching one continuous run;
+- the hygiene test (§8.2);
+- a closed-shell ledger test for one cluster over known receivers;
+- deterministic work counters (§8.3).
 
 ## 7. The Phase 1 exit
 
-**Proposed:** the player builds a fire against a crate. They light a fire starter under kindling leaned on a crate
-packed with cardboard; it catches, grows, and the crate cracks, glows and burns down [L4 §5].
+**The player lights a built fire.** The scene authors a wax-and-sawdust starter under three or four sticks leaned
+on a crate packed with cardboard; the player kindles the starter with the torch.
 
-- Every beat is a rung: the starter (R3b), the kindling (R3c), the crate (R4).
-- It is how real fires are built: nobody lights a crate with a torch.
-- It is legible: every player knows the sequence.
-- It gives NPCs the lesson they need later, that small fires grow only with fuel arranged for them.
+- **R3b, R3c and R4 cover the beats.** Two of them have no oracle, so the exit is a prediction that passes its class
+  and cross-grid gates plus the human playtest.
+- **The starter has no published burning data** (L1 §3). It is modelled from paraffin's cited properties (Hamins
+  2005) plus retention, and checked by a pre-registered bench measurement (mass against time), or stays a
+  prediction.
+- **Fallback** (owner ruling 3): if R0–R2.5 overrun their time-box (§10.2), or R3 fails, the exit is the highest rung
+  that passes honestly, such as a burning slab that flames out and glows, and the crate moves to Phase 2. The owner
+  decides when that trigger fires.
+- **Not claimed:** any NPC lesson. Phase 1 has no NPCs, and a Phase 4 NPC that avoids fire may only be showing the
+  LLM's prior. Fire learning is measured substrate-side or with a counter-prior (Maxim's Exp 38), under game-native
+  pressure (L6 §5).
 
-**What still decides it:** R3 and R4 have no oracle for 20 mm sticks or for this crate. The exit is therefore
-graded as a *prediction that passes its class gates on every grid*, plus the human playtest, not as a match to data.
-
-**The fallback, named now:** if R3 fails, the exit is whichever rung passes honestly (a burning slab with flame-out
-and glow), and the crate moves to Phase 2. That is a decision for the owner when R3 lands, not a default.
+**Scene v2** carries fuel objects:
+- a recipe by name;
+- `rod` with any axis, `slab` and `bed`;
+- placement inside an owner's footprint, which the overlap rule now allows for fuel objects only;
+- a registered migration from v1, with tests.
 
 ## 8. Numerics and cost
 
-### 8.1 Integrators
+### 8.1 Integrators and caps
 
-- **In-depth conduction:** backward Euler, or θ ≈ 0.55. At dt 0.5 s with nodes sized in metres, Crank–Nicolson
-  rang (the surface cooled on 10 of 19 steps under constant heating, D) [L5 §2]. One linearisation of εσT⁴ at the
-  front, as FDS does (V). A hand-written Thomas solve, vectorised over surfaces, with no BLAS.
-- **Pyrolysis and char oxidation:** an exponential update per node at frozen temperature, with the energy sink
-  computed from the mass consumed, so the ledger closes exactly. Patankar's form where sinks compete.
-- **Every remaining explicit law has a hard cap on substeps** (e.g. 16). In tests, exceeding it fails loudly with
-  the cell; in play, world time dilates (D21) and the dilation is reported. **No uncapped loop anywhere.**
+- **Stiff laws are implicit.**
+  - In-depth conduction uses backward Euler in **delta form** (solve for ΔT with the explicit residual on the right).
+    At exact equilibrium the full form changed bits on 200 of 200 steps and the delta form on 0 (DP-S1).
+  - The front linearises εσT⁴ once, as FDS does.
+  - A hand-written Thomas solve, no BLAS.
+  - Pyrolysis and oxidation: exponential update at frozen T, sink from the mass consumed.
+- **Any law left explicit substeps locally, per part.** One sliver can't set n for the grid.
+- **Cap events.** A part that would exceed its local cap (per law) steps implicitly instead. This is a **cap event**,
+  counted in the digest and the tick status, and identical in play and test. Graded scenarios require zero cap
+  events, and one test forces one and checks rerun and replay bits.
+- **World time never shortens.** Dilation is the host's business, measured outside `World` (boundaries).
+- **Coupling frequency.** The solids couple to the grid once per physics step, not every heat substep (which would
+  cost ~16× at 0.1 m and ~64× at 0.05 m). The lag is checked against a run that couples every substep, at R0 and R1.
 
-### 8.2 Area hygiene (the K2_005 lesson)
+### 8.2 Hygiene and determinism
 
-- Route an absolute power by area share (W × A_part/ΣA), never W/A_part.
-- A part below a minimum size in metres (e.g. (1 mm)²) is retired and its energy merged.
-- Stability estimates count only parts above that size.
+- **Power is routed by area share, never divided by a part's area.**
+- **Retiring a part below its floor merges it** into its sibling, conserving area, every inventory, energy and the
+  latch, by a written rule. An ignited part folds into the segment's front position and never vanishes.
+- **The hygiene test** feeds slivers below and just above the floor, asserts the cap isn't hit and that energy is
+  conserved, and goes red when area-share routing is deleted. A floor sweep at ×0.1 and ×10 keeps the class.
+- **All tables are sorted by integer keys.** Rows are inserted and removed only in the per-step topology batch.
+- **Reductions** are `bincount` or fixed-order sums over full tables, never `np.sum` over a subset (56 of 200 differed).
+- **Sleep:** compact-support laws only, at bitwise equilibrium with zero forcing.
+- **Randomness**, if any, is counter-based by (cluster id, tick).
 
-### 8.3 Cost (D, single-threaded numpy, load ~2.6) [L5 §4]
+### 8.3 Cost (D, measured by L5 and the review)
 
-| Kernel | Measured | At the tile (16×10×4 m, ~20,000 surfaces assumed) |
+| Kernel | Measured | At 20,000 segment parts |
 |---|---|---|
-| 1D implicit solve | ~8 ns per node | ~3.3 ms per solve: about one heat substep |
-| Flame → face radiation, all pairs | ~23 ns per pair; 59 ms for 256 points × 10,000 faces | too slow every step |
-| With analytic cylinder view factors, receiver patches of ~0.2 m and a visibility cache | ~5 ms for 10 flames × 20,000 faces (D, estimate) | affordable |
+| Full 1D step (k(T), c(T), kinetics, sink, front, Thomas) | 21–23 ns per node | 9.3 ms per physics step at 20 nodes; 22 ms at 52,000 parts |
+| Flame → receiver view factor, analytic cylinder | ~40 ns per (flame, quadrature point) | 31 ms for 10 flames at 4 points |
+| Occlusion by voxel march | ~9 ns per sample | 243 ms uncoarsened (800,000 rays × 32 samples) |
+| Clustering | | 10 ms |
 
-The 20,000-surface count is an assumption, not a scene measurement. The server is already over real time
-(`advance(0.5)` ≈ 0.7 s at 1.92 × 10⁶ cells, `docs/architecture.md` Known gaps), so every rung carries a
-cost-regression gate, and exact sleep plus a fire bounding box is the first optimisation to measure [L4 §5].
-Results were bit-identical on repeat, and a surface solved alone gave the same bits as in the batch [L5 §4].
+- **What owner ruling 1 buys.** One emitter per cluster, coarse occlusion per object or face group, and recomputing
+  every N steps divide the radiation cost by roughly N × (the coarsening factor).
+- **Flame count is the crux:** TN 2102's cluster count is computed before R2.5.
+- **A fire budget is written before R2.5**, for example "fire kernels ≤ X ms per physics step at the 1.92 × 10⁶-cell
+  tile with the crate at peak". It is recorded in Known gaps. The server is already at about 0.7 s per 0.5 s step on
+  that tile (gates `docs/architecture.md`, a 40×8×6 m tile).
+- **The primary gate is deterministic work counters:** node solves, view-factor pairs, ray samples, cluster edges
+  and cap events per step. B5's `process_time` gate is secondary.
 
-## 9. The material table v1
+## 9. Formats
 
-Shaped like FDS's MATL and REAC split, held to the strict loader [L3 §3]:
+### 9.1 The material data, split by owner
 
-- **species** (ordered, with formulas and molar masses; a lumped pyrolysate's formula is solved, never typed);
-- **components** (condensed: virgin softwood, char, ash, water, paraffin solid and liquid, PMMA);
-- **transitions** (phase changes, no chemistry);
-- **reactions** (reactant, rate law, yields to components and species, heat of reaction);
-- **recipes** (what a scene or an imagined object may name: components, void fraction, bulk density);
-- **variants** (the only knobs an imagined object may set, each bounded and cited, e.g. moisture fraction).
-
-**The loader refuses**, each refusal tested:
-- yields that don't sum to exactly 1 (stricter than FDS, which warns below 1);
-- an atom balance that doesn't close;
-- a Hess cycle that doesn't close, with reference enthalpies solved per component as FDS App. P.2 does;
-- unordered transition bands, or a threshold without its cited range;
-- a loading over its cap.
-
-Everything is per unit mass or volume; no cell size appears in data. **Imagined objects** name a recipe, geometry in
-metres and variants within cited ranges only: no component, reaction or free number. Out of range is refused,
-never clamped, because a clamp makes the LLM's number partly authoritative [L3 §3].
-
-## 10. Decisions this revises
-
-| Decision | Revision | Why |
+| Part | Owner, file | Holds |
 |---|---|---|
-| world_model §5, one material per cell; T18's "no general solid mixtures" | one structural owner per cell plus K element slots | R3's starter touching a stick; every sub-cell fuel |
-| CLAUDE.md's thin-features rule | scoped to resolved cells; sub-cell elements are exempt because their geometry is in metres | no ladder fuel can satisfy it; breaking it quietly would be worse |
-| world_model §0 and §4, temperature plus latent progress per cell | phase-split inventories | one scalar can't carry several transitions; cheap before save v0 |
-| world_model §8, the (cell, face) table | surface patches keyed (cell, slot, patch) | a bed's surfaces are interior |
-| D29/D30's laws 6b–6d | replaced by §2–§4; 6a kept | the spikes |
-| D26's deferral of pyrolysis and phase change to Phase 2 | pyrolysis and fusion enter with the ladder | R1 on PMMA *is* pyrolysis |
-| T18's derived labels | fractions through percepts; no flammable or porous sensor | §5.3 |
-| The bridge's `ignite` and `extinguish` | lab instruments only, not NPC verbs | §5.4 |
-| `CellStore`'s four hand-named channels (`grid.py`, `frames.py`) | a channel registry, with the element and patch tables inside the write window, landing with material table v1 | the first rework this would otherwise force [L3 §2.3] |
-| world_model §2, positionless pools | holds while dripping is deferred | §2.2 |
+| Structural materials | engine, `data/materials/core.yaml` v1 | today's concrete, steel, glass, drywall and wood cells with their fields; u8 ids stable |
+| Chemistry | engine, `data/materials/chemistry.yaml` | species and components keyed **by name** with stable integer ids (world_model F8); every reacting component has a formula or elemental mass fractions; reactions; transitions |
+| Recipes | game content | components, void fraction, bulk density, admitted geometry kinds and ranges |
+| Variants | read by `imagination` | the only knobs an imagined object may set, per recipe, bounded and cited |
 
-## 11. Decisions for the owner
+- **Validation materials** (PMMA, birch, TN 2102's pine) are test fixtures.
+- **v0 fixtures** migrate through a registered `materials_v0_to_v1`.
+- **Landing order.** Material data v1 and the object tables land before step 5's first log writer, so no replay
+  golden is recorded on v0.
 
-1. **Adopt the model:** sub-grid fuel elements (§2), a 1D solid per patch (§3), and flame objects from cited
-   correlations (§4), replacing laws 6b–6d. *Recommended.*
-2. **Revise world_model §5 and the thin-features rule** as in §10. *Recommended; the alternative is ladder fuels at
-   least 0.4 m thick, which aren't the ladder.*
-3. **Replace "temperature plus latent progress" with phase-split inventories** before save v0. *Recommended.*
-4. **Revise T18's labels and retire `ignite`/`extinguish` as NPC verbs** (§5.3, §5.4). *Recommended.*
-5. **Adopt the ladder** (§6), with outcome classes graded across grids and rates reported. *Recommended.*
-6. **Change the Phase 1 exit to "build a fire against a crate"** (§7), with the named fallback. *Recommended.*
-7. **Defer dripping** as a known gap (§2.2). *Recommended.*
-8. **Ask Maxim now** (Phase 3): MP-2 (nociceptors in physical units, a question to GL2b) and MP-1 (burn pain may
-   condition situation fear, an amendment to the autonomic plan's recorded decision, with an experiment in a
-   Maxim-owned harness), because both are on Maxim's clock and no rung where an NPC touches fire can be claimed as
-   learning without them. MP-3 to MP-6 follow as L6b §5 orders them. *Recommended.* R3 with an NPC *watching* needs
-   no Maxim change.
+**The loader refuses**, each with a test, and every refusal raises the gate's one exception type (a `LinAlgError`
+from the Hess solve is caught and re-raised):
+- **yields** that don't sum to 1 within 1e-12 by `math.fsum` in key-sorted order, tested in both orders;
+- **recipe fractions** that don't sum to 1;
+- **dangling references** (reactant, yield, `consumes`, a variant's recipe or key), and one name in two namespaces;
+- **bad kinetics:** A ≤ 0, E < 0, or n < 0;
+- **bad densities:** void outside [0, 1), a density ≤ 0, or a bulk density inconsistent with the components;
+- **loadings** whose joint volume exceeds the void;
+- **atom balance** that doesn't close, a solved formula with a negative count, or two unknown formulas in one
+  reaction;
+- **a Hess cycle** that doesn't close, or is ill-conditioned beyond a stated bound;
+- **a reaction or transition cycle** with net heat;
+- **a threshold** without its closed provenance key.
+
+### 9.2 Wire, save, digest and ledger
+
+- **Snapshot.** Fuel objects and segments travel as a table (world_model F2–F4: column-major, integer keys, no
+  strings), and so do flames (the client sizes its flame mesh from the server's height). Channels whose meaning
+  changes get new names (F1):
+  - `segment_glow`, the segments' surface temperature;
+  - `burning`, the ignited area fraction.
+
+  Godot decoder fixtures accompany both. These enter the protocol v0 grammar before step 7 freezes it.
+- **Save and digest** carry everything that is state:
+  - object and segment rows with their profiles and node counts (budget checked before allocation, F14);
+  - inventories, front positions and latches;
+  - the held radiation field;
+  - cap and retirement counters;
+  - a recipe name map;
+  - the material-data hash in the header (refuse or migrate).
+
+  Flames are derived, with a `derivation_version` (F15).
+- **The imagined-object spec is versioned (v1).** It names a recipe, a geometry kind the recipe admits, metric
+  geometry within the recipe's ranges, and closed variant keys. Out of range is refused, never clamped.
+  - **Budgets before allocation:** objects, segments, nodes and surface area per spec.
+  - `imagination.place` creates fuel objects for sub-cell geometry, instead of refusing objects "smaller than one
+    cell".
+- **Ledger lines:** Δ(segment profiles);
+  Δ(object inventories) as chemical energy at reference enthalpies (no separate "combustion" input); fusion and
+  evaporation; the flame partition (§4.2), each term on both sides; the coupling exchange; open-air loss (6a); the
+  fines transfer; radiation dropped by any cutoff.
+
+  Tile §5.4's `Δ(skins)` and `flame_radiative.unreceived` are replaced.
+
+## 10. Scope and revisions
+
+### 10.1 Decisions and documents this revises
+
+| Revised | How |
+|---|---|
+| world_model §5 (one material per cell), §8 (the (cell, face) table, the save), §0/§4 (the planned per-cell latent state) | fuel objects and segments beside one structural owner per cell; phase-split inventories |
+| world_model D23, D26, D29, D30 | laws 6b–6d replaced; pyrolysis and fusion enter Phase 1; the lab returns as the ladder's rigs; 6a kept |
+| CLAUDE.md thin-features rule; `architecture.md` "How the rule is kept"; `code_review.md`'s Physics question; the imagination Known gap | the rule holds for resolved cells; fuel objects are exempt only as `rod`, `slab` or `bed` recipes of fuel, never structure (a plank wall stays cells) |
+| tile T4 (`kindle`'s deposit and 0.2 m radius), T5 (one lumped body), T13 (no more paper rounds), T14 (radiation by point source to bodies only), T17 (accelerant ignition) | §5.4, §5.1, this note, §4.4, §7 |
+| tile §5.1–§5.4 (q''_f, T_p, L_g, the ledger lines) | §3, §4.2, §9.2 |
+| tile §5.3's pre-registered failure path | it fired (the three spikes); this design and §11 are its ruling, not a rescue |
+| tile §6.3 item 8 | kept (owner ruling 2) |
+| tile §11; `foundations_plan` step 6 ("Done when", Phase 2 deferrals); the roadmap's Phase 1 exit and Phase 2 bullets; D28's timing | §10.2 |
+| T18 (labels), lesson 22, `states_of_matter/sem.md` N3's verb list | §5.3, §5.4, lesson 24 |
+| world_v2 §7 (burn pain and Wire-4 review deferred to Phase 4's body design) | MP-2a and MP-1(i) are asked earlier (§11) |
+| the bridge's NPC surface (`ignite`, `extinguish`, `strike`, region instruments) | §5.4 |
+| `imagination.place`, scene v1, the spec, snapshot channels, the protocol grammar, the material table format | §7, §9 |
+| O34's field registry (plan step 5a) | the object, segment and coupling tables join it: one registry, not a second one |
+
+### 10.2 The build plan
+
+| Sub-step | PR content | Before |
+|---|---|---|
+| 6.0 formats | material data v1 and migration; scene v2; the object, segment and coupling tables in the registry; snapshot and grammar entries | step 5's log writer and step 7's grammar freeze |
+| 6.1 solid | §3 with R0 and R1 | — |
+| 6.2 flame | §4 with R2.5, R2a and R2b; the fire budget | — |
+| 6.3 two bodies | R3a–c | — |
+| 6.4 crib and exit | R4 and §7's scene | step 8 |
+
+- **The time-box (owner ruling 3) covers 6.1 and 6.2.** Each gets at most two pre-registration reruns. Overrunning
+  triggers §7's fallback.
+- **Size:** unknown beyond five PRs and their delta rounds; D28's prototype waits for 6.4 or the fallback.
+
+## 11. Decisions
+
+**Ruled (owner, 2026-11-20):**
+1. **Cost model:** one flame per cluster with analytic view factors and coarse occlusion, plus multi-rate radiation
+   on a fixed schedule; honest dilation is the fallback.
+2. **Cross-grid grading keeps tile §6.3's tolerances.**
+3. **Step 6 becomes the ladder,** with a time-box on R0–R2.5 and the fallback exit.
+
+**Open, recommended as written:**
+
+4. Adopt §2–§4.
+5. Revise world_model §5 and the thin-features rule as in §10.1.
+6. Phase-split inventories before save v0.
+7. Revise T18's labels and the NPC surface (§5.3, §5.4).
+8. Defer dripping.
+9. The exit of §7.
+10. **The Maxim asks.** Each needs a roadmap row under Phase 3, a draft in `docs/maxim_upstream/`, and reuses
+    existing ids:
+
+| Ask | Kind |
+|---|---|
+| MP-2a: nociceptor thresholds in physical units on a variant body | a question to GL2b(ii)'s calibration |
+| MP-2b: two fibre classes, with the slow band (41–46 °C) feeding a learner | a pushback against GL1 review N4 ("one threshold for both fibre classes") and TR18 (`affective_slow` has no learner), with the skin model's time in 41–46 °C under the ladder's fluxes as evidence |
+| MP-1(i): local burn fear | a variant `NACConfig.cluster_fear_failure_modes`, no default change, citing Exp 60's `drive:oxygen` precedent |
+| MP-1(ii): fear carried by hivemind | edit the default and re-run T1-13 to T1-15; Phase 5's rumour mechanism |
+| MP-5 | is world_v2 P4 / OD-C10: `world_set_axis` for sub-sensors; a prerequisite of per-part burns |
+| MP-4 | is world_v2 P3 / OD-A16: delayed credit |
+| MP-3, MP-6 | the proximity plan's amendment and receptor adaptation, later (L6b §5) |
 
 ## 12. Open questions and risks
 
-- **The ignition threshold:** the two numbers attributed to Lyon & Quintiere 2007 don't conflict. About 24 kW/m² is
-  the heat release rate per area at flash (ignition onset), about 66 kW/m² the one for sustained burning [V7 12];
-  the ±17 rests on secondary citations, since the paper was unreachable. McKinnon used 15 for cardboard. R0 grades
-  t_ig directly and says which criterion it models.
-- **No in-crib flux and no merging model** were found (§4.1). R4 measures the first against TN 2102.
-- **No data for the starter, 20 mm sticks at gaps, or the crate** (§6).
-- **The feedback loop near threshold** (§4.3).
-- **Flame radiation is the cost risk**, not conduction (§8.3).
-- **Unpiloted ignition** of a neighbour (radiant autoignition) has no criterion yet; Babrauskas's *Ignition Handbook*
-  wasn't read [L1 §6].
-- **Maxim's GL2b and GL3 haven't started.** Until they land, burns reach an NPC only as `health`, which is real
-  damage, not pain, and must never be reported as fire learning [L6b §5].
+- Uncited: flame merging, per-flame extinction, autoignition (refused until cited).
+- Not in hand: R2a/R2b datasets, TN 2102's stick layout, its O₂ regime.
+- The flux → pyrolysis → Q → height loop near threshold: binary outcomes keep CLAUDE.md's band and margin.
+- Cost scales with flame count, unmeasured; x86 SIMD subset independence untested (CI offset test at 1 and N
+  threads).
+- The client may draw flourish (flicker, smoke) no NPC senses: a named asymmetry.
+- **Not yet designed** (`fold.md`): the per-layer placement of the new code; `strike` and breach on fuel objects; a
+  held flame's lifecycle; flipping the two fire red gates and retiring `actions.yaml`'s ceilings (proposed: in 6.4).

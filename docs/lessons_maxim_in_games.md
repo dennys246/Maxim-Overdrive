@@ -244,9 +244,12 @@ growing table of tag pairs. New sensors and modulators need no Maxim change; a n
 can't disagree with the world but still give every NPC knowledge no receptor delivers: they are material constants,
 so an agent reading them learns our table, not fire. The other labels (soaked, burning) were yes/no, which thresholds
 a whole entity's mean, the D25 hazard lesson 22 itself cites; `states_of_matter/sem.md` N2 ("fractions, never
-labels") had already said so. *Consequence (pending the owner's ruling on fire_model §11):* the world computes the
+labels") had already said so. *Consequence (pending the owner's ruling on fire_model §11 item 7):* the world computes the
 physical stimulus at the receptor (flux and skin temperature per body region, concentrations at the nose, luminous
 flame in view), Maxim's receptors transduce it, and state reaches an NPC only as continuous fractions through a
 percept. Two leak tests decide where a quantity lives: could an instrument at that spot measure it without a
-nervous system (the world's), and does it have a value in a physiology paper (the receptor's). For any engine
-embedding agents: "computed from the world" is necessary for a sensor, not sufficient; it must also be sensible.
+nervous system (the world's), and is it transduction, meaning a threshold, gain, adaptation or latency (the
+receptor's). Tissue is world physics even when its constants come from physiology papers: skin conduction and burn
+damage belong to the world, or the body gets a second heat path (design review, `reviews/fire_model/bio_faithful.md`
+S4). For any engine embedding agents: "computed from the world" is necessary for a sensor, not sufficient; it must
+also be sensible.
