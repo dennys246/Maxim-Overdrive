@@ -58,7 +58,7 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
 
 ## Phase 2: Physics breadth (later; in parallel with Phase 3)
 
-Each new field ships with a closed-form test and a cross-tier test, under the resolution rule.
+Each new field ships with a closed-form test and a cross-grid test, under the verification rule.
 
 - **Sound:** a propagation field feeding Maxim's audio localization (`world_set_axis`).
 - **Light and visibility:** what an agent can see, and the light the shaders draw.
@@ -357,7 +357,8 @@ The engineering standards (no band-aids, testing, the pre-push review, determini
 rules) live in `CLAUDE.md`, each with the check that enforces it; unenforced ones are rows in
 `docs/standards_backlog.md`. The rules below are the design rules.
 
-- **The resolution rule:** a rig changes precision, never the outcome class.
+- **The verification rule:** the truth grid agrees with the reference within a gated tolerance, and converges
+  from the coarse grid.
 - Physics parameters are per unit volume. Scenes are authored in metres, never in cells.
 - Energy lands by exact cell average or by volume overlap, never by whether the cell centre is inside.
 - The world server is authoritative. The client never simulates anything that feeds back into the world.

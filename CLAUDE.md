@@ -51,7 +51,7 @@ result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` dr
 ## Layout
 
 - `src/simcore/`: the engine, in layers that import only downward (`docs/design/boundaries.md` O24; the contracts are
-  `[tool.importlinter]` in `pyproject.toml`): game > protocol > adapters > core
+  `[tool.importlinter]` in `pyproject.toml`): game > verify > protocol > adapters > core
 - `src/simcore/core/` (the sealed core: no IO, no clock, no `maxim`): `checks.py` (every untrusted number becomes a
   finite float or a whole number there, and every mapping is held to its reader's keys, `known_keys`, or is
   refused; `shown`, the bounded echo; `entity_key`, Maxim's name rule), `materials.py` (the material table's types),
@@ -66,6 +66,8 @@ result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` dr
   through the applier; the only engine code that imports `maxim`)
 - `src/simcore/protocol/`: what the client receives: `tiers.py` (rig profiles as rendering tiers, no physics),
   `encoding.py` (`snapshot` of a published frame, display quantization)
+- `src/simcore/verify/`: the verification harness (`docs/design/verify_harness.md`): convergence studies, agreement
+  across grids, bands and splitting. It measures callables and imports nothing from the engine; only tests use it
 - `src/maxim_overdrive/`: the game. `data.py` says where its data lives (`data/rigs/`, `data/materials/`,
   `data/world/`) and loads it
 - `client/`: the Godot 4.7.2 client (`docs/design/client_rendering.md` §7): `addons/engine/` (the engine half),
@@ -82,10 +84,13 @@ result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` dr
 
 ## Rules that matter here
 
-- **The resolution rule:** a grid spacing may change precision, never the outcome class. Every machine simulates one
-  truth; rig profiles are rendering tiers only, with no physics (world_model D20). Any new physics ships with a
-  closed-form test and a cross-tier test (`tests/test_heat.py` and `tests/test_cross_tier.py` are the patterns). If
-  a cross-tier test fails, fix the physics; never loosen the test to pass.
+- **The verification rule** (world_model §1.1): the truth grid's (0.1 m) outcomes agree with the reference grid's
+  (0.05 m) within a gated tolerance, and converge from the coarse grid (0.2 m); a spacing may change precision, never
+  the outcome class. Every machine simulates one truth; rig profiles are rendering tiers only, with no physics
+  (world_model D20). Any new physics ships with a closed-form test, through `simcore.verify` with space and time
+  refined apart (`tests/test_heat.py` is the pattern), and a cross-grid test (`tests/test_cross_tier.py`), whose
+  scenarios refine both together until step 5a's fixed physics step. If a cross-grid test fails, fix the physics;
+  never loosen the test to pass.
 - Author scenes in metres. Keep physics parameters per unit volume. Deposit energy by exact cell average or volume
   overlap, never by whether the cell centre is inside.
 - **Reconstruct, decide at the point, integrate upward.** Never apply a threshold or a non-linear law to a cell's
@@ -141,7 +146,7 @@ only review holds.
 - **Every behaviour change ships with its tests in the same commit.** A bug fix starts with a test that reproduces the
   bug and fails. Guard: `scripts/prepush.sh::diff_cover` (changed lines must run under a test), B1 (same commit,
   red first)
-- **Critical functionality is tested exhaustively, by kind.** Physics: a closed-form test and a cross-tier test.
+- **Critical functionality is tested exhaustively, by kind.** Physics: a closed-form test and a cross-grid test.
   Trust boundaries (protocol, intents, `simcore.core.imagination`, every loader): every rejection path, aiming at
   100% branch coverage, and a row in the gate registry. Wire and save formats: a round trip plus committed golden
   fixtures. Determinism: a bit-identical rerun.
@@ -203,6 +208,12 @@ only review holds.
   and stays in the design, where a number may read "measured at step N". A mechanism nothing else depends on and
   only running can check (a test plant's size, a mesh's lifetime) goes to its build step's checklist as a test to
   write, citing the design section it serves. Laws stay simple and swappable behind the contract. Guard: B32
+- **One owner per contract** (owner, 2026-11-21). Each contract (a format, interface, closed vocabulary or rule that
+  another module depends on) is stated in exactly one section of one design document, its owner. Every other
+  document links to that section and never restates it, so an edit can't leave a stale copy behind. Decision tables
+  and fold tables are kept in `docs/design/reviews/` and indexes, not inside design documents, so design budgets go to
+  contract. When a change touches a contract stated in two places, move it to one owner in the same branch.
+  Guard: B36
 - **Review finds; it doesn't design** (owner, 2026-11-21). A finding is a defect and its failure scenario. A fix a
   reviewer proposes is marked verified, with what they ran, or unverified, and the author verifies it before folding.
   A delta round reviews the diff. When a second paper round on a design finds new blockers in text the folds added,
