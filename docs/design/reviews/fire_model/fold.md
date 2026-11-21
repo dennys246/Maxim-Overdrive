@@ -149,3 +149,27 @@ The owner's rulings of 2026-11-20 (fire_model §11 items 1–3) settle A-B2, A-B
 
 A-S2's red gates and `TEMPORARY` ceilings; A-S4's `strike` and breach on fuel objects; A-S6's per-layer placement
 table; WT-S5's held-flame lifecycle; DP-N3; Bio N3. The first four are design gaps v2 still carries.
+
+## Delta round 1 (v2 as staged, committed as 3fd998b)
+
+The reviewers set the statuses; the record is each report's status table, kept verbatim beside this file. Counts:
+
+| Lens | Report | Fixed | Deferred | Open | New BLOCKER / SHOULD-FIX / NIT |
+|---|---|---|---|---|---|
+| Executor | `delta1_executor.md` | 21 | 0 | 3 | 2 / 8 / 7 |
+| Architecture | `delta1_architecture.md` | 12 | 1 (A-S9, trigger: the owner's ruling on §11 item 10) | 5 | 2 / 11 / 5 |
+| Wire and trust | `delta1_wire_trust.md` | 16 | 0 | 5 | 2 / 7 / 4 |
+| Physics | `delta1_physics.md` | 9 | 0 | 10 | 2 / 7 / 3 |
+| Determinism and performance | `delta1_determinism_performance.md` | 10 | 0 | 3 | 2 / 9 / 3 |
+| Bio-faithful | `delta1_bio_faithful.md` | 11 | 0 | 3 | 2 / 5 / 4 |
+
+Three of the round-1 fixes rested on advice the round-1 readers later retracted (the delta reports name them): the
+Maxim fear-set facts and the "config only" route for MP-1 (Bio NB1, NB2), extinction "scaled by setup" (Physics
+P2-B2) and the bitwise-equilibrium sleep predicate (DP D1-S2). The author folded them without checking each against
+its source.
+
+**The owner's ruling (2026-11-20, "B plus C").** Paper rounds stop here. v2 is recorded as the *direction*. The
+build spec is a separate, small design for sub-steps 6.0 and 6.1 (fuel objects and segments, the 1D solid,
+occupancy, formats, and the cone tests R0 and R1, which need no flame objects). FDS 6.11.1 (NIST) runs the same
+cone cases as a reference implementation beside the MaCFP data. The flame design (6.2 on) is written after R0 and R1
+have run. The open findings above carry into whichever of those documents owns them; none is closed by this ruling.

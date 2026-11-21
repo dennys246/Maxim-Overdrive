@@ -1,9 +1,9 @@
 # Fire model: design v2 for review (2026-11-20)
 
-**Status.** The fold of v1 (54358fd)'s six-lens review (`reviews/fire_model/`: 18 BLOCKER, 58 SHOULD-FIX; per
-finding in `fold.md`). The owner ruled §11 items 1–3; the rest is open. Reviewed before code, Bio-faithful included.
+**Status: the direction, not the build spec** (owner, 2026-11-20, "B plus C", `reviews/fire_model/fold.md`). Delta
+round 1 left 12 new blockers; sub-steps 6.0–6.1 get their own design, and flames are designed after R0–R1 run.
 
-**Sources:** `docs/design/research/fire_ladder/` (L1–L6b; V7 wins where it corrects them). Tags: **V** primary,
+**Sources:** `docs/design/research/fire_ladder/` (L1–L6b; V7 wins over them). Tags: **V** primary,
 **S** secondhand, **M** memory, **D** derived.
 
 ## 0. The answer
