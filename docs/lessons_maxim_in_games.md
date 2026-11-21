@@ -334,7 +334,8 @@ regulates on the agent's behalf hides the very signal the agent is supposed to l
 timed qwen2.5:3b at about 0.3 s to the first token and 1–2 s for a short reply, at a load average near 7. The
 vertical slice's vendor asked the same model for its lines while the world, the client and other sessions shared
 the machine (load average 125–142): every line timed out at 2.5 s and fell back to a canned one, and direct calls
-took 48 s cold and 8 s warm. The vendor still walked to the fire and put it out on time, because a behaviour tree
+took 48 s cold and 8 s warm. On the owner's quiet Mac mini (load average about 2.5), the same voice code took
+1.37 s cold and 0.23 s warm (median; p95 0.27 s), with 0 fallbacks in 20. The vendor still walked to the fire and put it out on time, because a behaviour tree
 decided and the model only spoke (`spikes/slice/slice_server/npc.py`, `voice.py`). `npcs_and_sem.md` §4.5 bounds the
 world at `D / L` while a thought is pending and computes it with L = 3 s; at the measured 8 s the bound is 1/8 of
 real time, not 1/3. *Consequence:* for any game hosting Maxim in its LLM-harness mode, latency is set by everything

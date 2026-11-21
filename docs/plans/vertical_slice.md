@@ -202,8 +202,8 @@ week 3, the verdict is about why not.
 
 ## 7. The playtest and the verdict
 
-- **Sessions:** three, about 15 minutes each: the owner, and two people who have not read the design. Each session
-  is logged (§3.7), with the player thinking aloud.
+- **Sessions:** three of 15 minutes, on the Mac mini (owner, 2026-11-21): the owner and two people new to the design.
+  Each is logged (§3.7), the player thinking aloud.
 - **Questions:**
   - Did you change where you went or fought because of heat?
   - Did you use fire on purpose?
