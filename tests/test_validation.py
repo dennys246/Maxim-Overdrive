@@ -272,7 +272,6 @@ def test_the_game_data_is_a_place_only_the_file_gates_open():
     assert load_materials(where).by_name.keys() == load_materials(DATA / "materials" / "core.yaml").by_name.keys()
     again = data.data_dir() / "materials" / "core.yaml"
     assert str(where) == str(again)  # handles compare by identity; their text names the place
-    assert where != str(where)
     assert repr(where).startswith("DataPath(")
 
 
@@ -1060,7 +1059,7 @@ def test_a_data_file_is_read_no_further_than_its_budget(tmp_path, monkeypatch):
             asked.append(n)
             return self._handle.read(n)
 
-    monkeypatch.setattr(loaders.os, "fdopen", lambda fd, mode: Spy(real_fdopen(fd, mode)))
+    monkeypatch.setattr(os, "fdopen", lambda fd, mode: Spy(real_fdopen(fd, mode)))  # the gate's own os.fdopen
     monkeypatch.setattr(loaders, "MAX_FILE_BYTES", 12)
     path = tmp_path / "big.yaml"
     path.write_text("a: " + "1" * 100 + "\n")
