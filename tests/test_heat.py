@@ -114,6 +114,33 @@ def test_a_step_takes_exactly_the_substeps_it_plans_however_many(materials):
             assert heat.step(g, T_S, substeps) == substeps
 
 
+def test_a_step_replans_at_the_shorter_step_when_a_change_tightens_stability(materials):
+    """When on_substep changes cells so stability needs a shorter step (wood becoming steel, about 100x more
+    diffusive), the rest of the call is replanned at the new bound instead of overrunning it."""
+    g = MaterialGrid.empty((0.6, 0.6, 0.6), materials, dx_m=0.2)
+    with g.writing():
+        g.paint(np.ones(g.shape, dtype=bool), "wood")
+        g.temperature[:] = np.random.default_rng(1).uniform(0, 100, g.shape)
+    seconds = 2 * heat.stable_dt(g)  # two planned substeps at wood's step
+    turned = []
+
+    def to_steel(grid, dt):
+        if turned:
+            return 0
+        turned.append(dt)
+        grid.paint(np.ones(grid.shape, dtype=bool), "steel")
+        return 1
+
+    with g.writing():
+        taken = heat.step(g, seconds, 2, on_substep=to_steel)
+    steel_dt = heat.stable_dt(g)
+    assert steel_dt < turned[0]  # the change really tightened stability below the planned step
+    assert taken == 1 + math.ceil((seconds - turned[0]) / steel_dt)
+    assert np.isfinite(g.temperature).all()
+    assert g.temperature.min() >= 0.0  # stable: no overshoot past the initial bounds
+    assert g.temperature.max() <= 100.0
+
+
 def test_insulated_world_conserves_heat(dx_m, materials):
     g = Scene(
         (1.2, 1.2, 1.2), (Box((0, 0, 0), (1.2, 1.2, 0.6), "concrete"), Box((0, 0, 0.6), (1.2, 1.2, 1.2), "steel"))
