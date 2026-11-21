@@ -14,7 +14,7 @@ another grid". Cross-grid agreement is therefore verification. The tree carries 
 red gates plus Known gaps: `tests/test_act_validation.py::test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn`
 and `::test_a_strike_breaches_a_thin_wall_the_same_at_every_rig`, and architecture.md's "coarsest rig lags" gap. The
 standing rules "Known-broken behaviour gets a strict red gate", "Record known physics gaps ... with numbers" and the
-TEMPORARY(phaseN) exemption all permit exactly that deferral. The new rule also gives the Known-gap route to
+`TEMPORARY(phaseN)` exemption all permit exactly that deferral. The new rule also gives the Known-gap route to
 validation alone ("a miss ships as a Known gap").
 Failure scenario: step 6's fire lands and its 0.2 m vs 0.1 m cross-tier test misses by a band-gated outcome. One
 reader of the rule blocks the merge ("verification is never deferred"). Another applies the red-gate rule and ships an
