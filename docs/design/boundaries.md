@@ -221,9 +221,8 @@ below it. Siblings on one line are independent of each other.
   replaces. Cells change at physics steps and at intent apply, so a frame is published then, not per tick. Agents get
   reductions (per-region and per-NPC scalars from the bincount pass), not grids: a full-grid copy is 64–80 MB per tile
   at 0.1 m, about 13–16 GB/s of copying if published per tick at 20×. The copy and the publish are B5 rows.
-- **Cadence:** a frame is published after each physics step (0.5 s) and after each tick that applied an intent, so a
-  receipt's after-frame exists on its apply tick. The design never promises "one tick" of reafference for effects that
-  only show at the next physics step.
+- **Cadence** is `tile_and_client.md` §4's, so a receipt's after-frame exists on its apply tick. The design never
+  promises "one tick" of reafference for effects that only show at the next physics step.
 - **Sensors type against a `Frame`/`Observation` protocol** with no `advance`, `sources` or `grid`, so mypy refuses
   a peek (D-B4). `RegionSensor` stops holding `World`.
 - **Every intent records `observed_tick`,** the frame its decision used (D-S5). For a client intent the host
@@ -313,7 +312,7 @@ below it. Siblings on one line are independent of each other.
 | **The inference gates** | `inference_gateway.md` §9 | — | — | listed there | `phase1/agents` |
 | Scene files, saves, intent logs, bug reports | disk, **strangers' machines** | — | — | the strictest gate (world_model F14): no pickle, budget before allocation, all-or-nothing | scene v1, save v0, sim-clock |
 | Rigs, materials, limits, vocabulary, presets, rosters, arcs | `data/`, `content/`, later mods | — | — | a loader each under the gate contract (§5.4) | today and as each lands |
-| Handshake, per-launch token, `Origin` | network lane | `hmac.compare_digest`, `Origin` refused, loopback bind (lanes §5) | — | the protocol decoder | `phase1/protocol` |
+| Handshake, per-launch token, `Origin` | network lane | the handshake below | — | the protocol decoder | `phase1/protocol` |
 | Joins and leaves | network lane | session token | — | session to actor id allocation (lanes §4.2) | `phase1/protocol` |
 | Controls: dial, pause, presets | host session | session token | `TimeAuthority` / `HostOnly` (lanes §5) | the protocol decoder | `phase1/protocol` |
 | Client frames (intents) | network lane | session token | per kind | strict JSON decoder (§10), then stage 1; client-supplied `observed_tick`, `issued_tick`, `apply_tick`, `apply_us` and speech timing are refused, with golden rejection frames (foundations TB2-S6) | `phase1/protocol` |
@@ -321,8 +320,18 @@ below it. Siblings on one line are independent of each other.
 | Token delivery | env var or a 0600 file | — | — | a host config reader; never echoed or logged. The host owns `os` and `secrets` | `phase1/protocol` |
 | `MAXIM_OVERDRIVE_*` env vars, the rig CLI flag | operator | — | — | a host config reader; the rig name from a closed set | `phase1/boundaries` |
 
-**Two validation stages** (world_v2 §7): stage 1 is typed parsing in `engine.intents` (shape, finiteness, ceilings);
-stage 2 is the world check at apply, in the applier (target exists, not stale, budget).
+**The handshake** (copied from `realtime_lanes_coop.md` §5, TB-4 to TB-6):
+- **Two kinds of token, fresh each launch:** one host token and up to N guest tokens. The role is bound to the
+  token, compared with `hmac.compare_digest`. One live session per token, and no promotion. Tokens reach the client
+  by environment variable or a 0600 file, never argv, and never appear in a log or an error echo.
+- **The handshake:** `hello` comes first and only once, within a deadline; anything else closes the session. There's
+  a session cap. Client binary frames are refused. Any request carrying an `Origin` header is refused, including an
+  empty one or `null`. Plain HTTP to the port gets a 400. The server binds the literal `127.0.0.1`.
+
+**Two validation stages** (lanes §7, TB-13): stage 1 is typed parsing in `engine.intents` (shape, finiteness,
+ceilings, with caps from `data/world/`); stage 2 is the world check at apply, in the applier (target exists, not
+stale, budget). Both refusals are `error` or `intent_result` replies with a code from a listed vocabulary
+(`tile_and_client.md` §3.4), and the world is unchanged. NPCs, LLM results and clients pass one gate.
 
 ### 5.4 The gate contract (TB-S2, TB-S3, X S-3)
 
@@ -352,7 +361,7 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
 
 | Kind | Who may emit it |
 |---|---|
-| `intent` (strike, ignite, douse, …) | any actor |
+| `intent` (the kinds of `tile_and_client.md` §3.2) | any actor |
 | `imagine` | any actor, within its budget |
 | `speak` | any actor: an NPC only through a thought, a player only through a protocol message (foundations TB2-S1) |
 | `control` (dial, pause, presets, `latency_policy`, the thought-pace table) | host sessions only, through `TimeAuthority`. **NPCs can never emit it, and dilation is never a lever a guest can request** (foundations TB2-S7, DR-S11) |
@@ -404,9 +413,10 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
   - memory writes are not world-log records (§6.1).
 - **One ordering key, stated here and nowhere else (foundations DR-S3, Wire S4; supersedes `realtime_lanes_coop.md`
   §4.2's arrival-order `host_seq`):** `(apply_tick, kind_rank, apply_us, actor_id, seq)`. Controls and joins rank
-  before intents. The log is written in that order, so a replay never sorts. Float accumulations over named
-  collections (today `World._power_field` over `sources`) iterate in sorted-key order. Ordering keys are integers
-  (D-N2).
+  before intents: `kind_rank` `[engineering]` is join/leave 0, `time` 10, moves 20, `kindle`, `strike`, `douse`,
+  `imagine` 30, leaving room. The log is written in that order, so a replay never sorts. Float accumulations over
+  named collections (today `World._power_field` over `sources`) iterate in sorted-key order. Ordering keys are
+  integers (D-N2).
 - **Replay calls nothing live:** no model, no Maxim, no clock, and **never the response cache**. Tested by replaying
   with `maxim` blocked from import, and with the cache deleted or poisoned (foundations TB2-S4).
 - **Replay reproduces the world, never the agents (foundations DR-S7).** Under O3 and O6 replay never runs Maxim, so

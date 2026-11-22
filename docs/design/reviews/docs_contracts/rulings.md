@@ -50,5 +50,14 @@ Where a later design supersedes by name, its text becomes the owner text, and th
 
 ## Not decided
 
+- **Rows 6 and 7 (receipts).** The ruled split can't be applied as written. OD-A16 (roadmap; the upstream draft
+  `docs/maxim_upstream/propose_settle_amendment_DRAFT.md` §3.3) makes `stale` an agent-facing receipt outcome at
+  settle, and boundaries §7.2 credits "zero times when `stale`", but `sem_stimuli.md` §6.2's agent kinds are only
+  `malformed`, `limit` and `accepted`. This goes back to the owner.
+- **Rows 10 and 79 (channel names, `crack`'s bed meaning).** #31 reads `surface_glow` and `burning` live; its
+  session has taken the conflict with `fire_solid.md` §5.6 to the owner.
+- **The `data/server/` client cap** in `client_rendering.md` §4.3 names a directory that doesn't exist. Ruling 18
+  covers only stage-1 caps.
+
 - **CLAUDE.md's handshake line.** The author offered to make it a link only if the owner says so explicitly; that
   has not happened, so CLAUDE.md is untouched.

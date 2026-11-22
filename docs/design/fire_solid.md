@@ -378,7 +378,7 @@ did.
 
 ### 5.3 Refusal codes
 
-Appended to 5a's list, each tested at its gate:
+In tile §3.4's enum, each tested at its gate:
 - **Acts and readings:** `fuel_only_region`.
 - **Spec and scene:** `unknown_recipe`, `kind_not_admitted`, `geometry_out_of_range`, `bad_axis`,
   `unknown_variant`, `variant_out_of_range`, `joint_loading`, `overlaps_fuel`, and 3b's `space_taken`,

@@ -168,29 +168,29 @@ The client and server talk over one WebSocket. Snapshots go as binary messages (
 arrays), and intents go as JSON text messages. The protocol is defined apart from the transport, so swapping the
 transport later means replacing one adapter on each side, not the message format or its tests.
 
-**Why not a raw TCP socket.** At 5 bytes per cell, a 16×10×4 m tile is about 0.4 MB at 0.2 m cells, 3.2 MB at
-0.1 m and 26 MB at 0.05 m. On localhost either transport moves that in tens of milliseconds, far less than a turn of
-physics. WebSocket frames each message for us (raw TCP means hand-written length-prefix reassembly in GDScript),
-is inspectable with `websocat`, is built into Godot 4 (`WebSocketPeer`), and alone suits a web export or `wss://`.
+**Why not a raw TCP socket.** A frame's size is `docs/design/client_rendering.md` §4.2's (bytes per cell × cells).
+On localhost either transport moves it in tens of milliseconds, far less than a turn of physics. WebSocket frames
+each message for us (raw TCP means hand-written length-prefix reassembly in GDScript), is inspectable with
+`websocat`, is built into Godot 4 (`WebSocketPeer`), and alone suits a web export or `wss://`.
 
 **What it costs, and what we do about it:**
 - *Any web page can open `ws://localhost`.* Browsers allow cross-origin WebSockets, which a raw socket would not.
-  The server binds to `127.0.0.1` only, refuses any handshake that carries an `Origin` header (browsers always send
-  one; Godot's native `WebSocketPeer` sends none unless told to, to be confirmed in step 2), and requires a
-  per-launch token. Each refusal has a test (`docs/standards_backlog.md` B14). A web export would send its page's
-  `Origin`, so supporting one would mean an Origin allow-list, which is a protocol change made deliberately, not a
-  relaxed check.
+  The handshake (`docs/design/boundaries.md` §5.3) refuses what a browser sends: browsers always send an `Origin`
+  header, and Godot's native `WebSocketPeer` sends none unless told to (to be confirmed in step 2). Each refusal has
+  a test (`docs/standards_backlog.md` B14). A web export would send its page's `Origin`, so supporting one would
+  mean an Origin allow-list, which is a protocol change made deliberately, not a relaxed check.
 - *Head-of-line blocking.* WebSocket runs over TCP, so a large snapshot delays any small message queued behind it.
-  That is harmless for a turn-based game. Continuous streaming would need delta snapshots or chunking.
-- *Whole messages are buffered.* Both ends must raise their default caps (Godot's `inbound_buffer_size` is 64 KiB;
-  Python `websockets`' `max_size` is 1 MiB). Multi-tile worlds at 0.05 m would need deltas, as any transport would.
+  `docs/design/client_rendering.md` §4.3 bounds the wait. Continuous streaming would need delta snapshots or
+  chunking.
+- *Whole messages are buffered.* Each end's cap is `docs/design/client_rendering.md` §4.3's. Multi-tile worlds at
+  0.05 m would need deltas, as any transport would.
 - *Not for real-time internet play.* Fast multiplayer would want UDP (Godot's ENet). Out of scope.
 - *The faster local option is shared memory, not raw TCP.* Godot needs a GDExtension for it. A Phase 2 "Scale"
   item only if profiling asks for it.
 
-The snapshot header reserves a compression field from v0, plus each array's uncompressed byte size, which Godot's
-`PackedByteArray.decompress(buffer_size, FileAccess.COMPRESSION_ZSTD)` needs. Most cells are air, so zstd should
-shrink snapshots by 10× or more.
+The frame header (`docs/design/client_rendering.md` §4.1) reserves compression and gives each array's uncompressed
+size, which Godot's `PackedByteArray.decompress(buffer_size, FileAccess.COMPRESSION_ZSTD)` needs. Most cells are air,
+so zstd should shrink snapshots by 10× or more.
 
 ## Imagination: specs, not assets
 

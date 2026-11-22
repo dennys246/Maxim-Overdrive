@@ -131,7 +131,7 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
   memory budget and the save all read. Step 6's fields join it, and step 7's catalogue is generated from it.
 - Each law split into `prepare` and an array-only kernel, with a bit-identity parity test (the numba seam; no
   numba until a profile asks).
-- Intent kinds ranked 0/10/20/30, leaving room; a `retired:` list of verbs, and refusal codes append-only, tested.
+- Intent kinds ranked as `boundaries.md` §6.2 says; a `retired:` list of verbs, and refusal codes append-only, tested.
 - Replay goldens keyed by an environment digest; the log header's field list as merged in step 1.
 - The u16 region-id array (world_model §10 row 4), which `fire_solid.md` §0 leans on.
 - **6.0a rides this line** (`fire_solid.md` §0, §5): the split material data, its loaders and versions, and the
@@ -214,12 +214,13 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 
 ## Step 7, `phase1/protocol`
 
-- The frame grammar's extension rule restored (world_v2 §8): a `required` flag per channel, `compression: none`,
-  `axis_order`; fixtures for an unknown optional channel (ignored) and an unknown required channel (refused).
-- `welcome` and the version `error` carry the engine `build`.
+- The frame grammar's extension rule (`client_rendering.md` §4.1); fixtures for an unknown optional channel
+  (ignored) and an unknown required channel (refused).
+- The engine `build` in `welcome` (`client_rendering.md` §4.1) and the version `error`.
 - A refusal for exhausted u16 region ids.
-- JSON reads floats (`client_rendering.md` §4.1): decoder fixtures with an integer at 2^53 and at 2^53 + 1 (refused);
-  stage 1 refuses `5500.0` and `true` where an integer is expected (Python reads a float, and `bool` is an `int`).
+- JSON reads floats (`client_rendering.md` §4.1; the pin is `boundaries.md` §9.1's): decoder fixtures with an integer
+  at 2^53 and at 2^53 + 1 (refused); stage 1 refuses `5500.0` and `true` where an integer is expected (Python reads a
+  float, and `bool` is an `int`).
 - B25's engine/game check, with the second engine file.
 
 - The strict red gate that refuses guest joins while real-Maxim NPCs are live, as the roadmap's Phase 4 assigns

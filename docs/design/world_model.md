@@ -160,14 +160,14 @@ Laid now, so that Phase 2 adds behaviour without changing a format or a saved fi
 
 ## 8. Formats and trust
 
-v2 §8 stands (self-describing frames; one grammar for wire and save), with these rules from the Wire and Trust
-review.
+v2 §8 stands (self-describing frames, whose grammar is now `client_rendering.md` §4.1's; one grammar for wire and
+save), with these rules from the Wire and Trust review.
 
 - **A name is an identity** (F1). A channel's or sensor's name, units, grid and meaning are fixed for the life of the
   format. A new meaning gets a new name:
   - `crack` stays 1 − integrity, and mean strength gets its own channel.
   - Air cells' `temperature_c` stays cell temperature, and the zone temperature is a zone column.
-  - `extinguish` is retired, and `douse` (water as a heat and O₂ sink, with caps) is added (F7).
+  - `extinguish` is retired for `douse` (F7; the vocabulary is `tile_and_client.md` §3.2's).
   
   Units are part of a channel's identity, from a closed vocabulary, and a lint checks them against the fixtures.
 - **A save has no optional fields** (F5). The code's registry and loaders are authoritative. Embedded copies of the
@@ -179,13 +179,8 @@ review.
   - embedded scene and specs go back through `Scene.from_dict` and `imagination.spec.place`, and logged intents
     through the first-stage validator;
   - loading is all-or-nothing.
-- **Frame rules** (F2, F3, F4, F6):
-  - a decoder refuses a frame missing a channel it requires;
-  - unknown tables and grids follow the same required/optional rule as channels;
-  - tables are column-major, with a per-column offset, an integer key column and no strings;
-  - a frame whose catalogue hash differs from `welcome`'s is refused.
-  
-  Fixtures include a non-default linear scale, so a decoder that hard-codes 1/255 fails.
+- **Frame rules** (F2, F3, F4, F6) are `client_rendering.md` §4.1's; its fixtures (§4.2) include a non-default
+  linear scale, so a decoder that hard-codes 1/255 fails.
 - **Material table v1 uses the strict loader** that `ActionLimits.load` has: versioned, closed keys, repeated keys
   refused, species keyed by name, never by position (F8). Its reactions close their mass and atom balances. The
   research's example `wood_flaming` doesn't (2.15 in, 2.40 out), and the loader would rightly refuse it (E-NIT).
@@ -228,7 +223,7 @@ On the 16×10×4 m synthetic tile (DLP, measured):
 | 3 | `phase1/verify` | The verification harness. Heat retrofitted, with its order-of-accuracy test fixed by refining space and time separately (E2). The resolution rule becomes the verification rule (§1.1). |
 | 4 | `phase1/sim-clock` | The `Simulation` and its integer clock; the truth resolution; cached conductances and preallocated buffers; the fire's bounding-box overlap; `set_material`, `topology_version` and the region id array; memory budget with transients. |
 | 5 | | Material table v1, strict. |
-| 6 | `phase1/protocol` | Frames with the generic grammar from the first fixture. Versioned, extensible `welcome`, `act_result` and `error` (A-SF-11). The lane skeleton. A minimal Godot fixture reader, so the grammar has a second reader before it freezes. |
+| 6 | `phase1/protocol` | Frames with the generic grammar from the first fixture. Versioned, extensible messages (`client_rendering.md` §4.1, `tile_and_client.md` §3.3; A-SF-11). The lane skeleton. A minimal Godot fixture reader, so the grammar has a second reader before it freezes. |
 | 7 | `phase1/zones` | Scene v1 with zones, gaps and vents. The gas interface. Surface skins for heat exchange on exposed faces. |
 | 8a | `phase1/fuel-surface` | Fuel by volume overlap; area-overlap deposit and ignited fractions; sub-box recession; reconstructed pyrolysis. |
 | 8b | `phase1/fuel-combustion` | Combustion per zone, products, extinction, flame feedback debited. Fines from destroyed mass. The CSG footprints (§5). |

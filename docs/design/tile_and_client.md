@@ -171,8 +171,8 @@ Frozen per tick, replaced by `Simulation.step`; column-major, integer keys, no s
 ### 3.1 The pipeline (AR-B2, WT-B1)
 
 Decode → stage 1 (`simcore` core intents) → log → stage 2 against the world at apply → one receipt. The record is boundaries §6.2's: `schema_version`, `kind`, `actor_id` (from the session token),
-`seq`, `observed_tick`, `issued_tick`, `apply_tick`, `apply_us`, canonical `params`, `target`. Ordering key
-`(apply_tick, kind_rank, apply_us, actor_id, seq)`.
+`seq`, `observed_tick`, `issued_tick`, `apply_tick`, `apply_us`, canonical `params`, `target`. The ordering key and
+`kind_rank` are boundaries §6.2's.
 - **Cause (the efference copy, npcs §6.6).** Receipts carry the intent's id, `(actor_id, seq)`; each bodies-part
   event and pilots row also carries it as `cause`. An agent's intent logs Maxim's invocation pid as opaque
   `invocation` (null for players), which its adapter maps `cause` to. The host copies it and never mints one; it is null, never a
@@ -182,7 +182,6 @@ Decode → stage 1 (`simcore` core intents) → log → stage 2 against the worl
   `tick` message. Phase 1 has no stale rule, so it has no caller; it is logged for Phase 4 (DC-N8).
 - **Authority** (boundaries §6.1): `move`, `move_to`, `kindle` are "any actor"; a body or an igniter is capability,
   checked at stage 2 (DC-N1).
-- **`kind_rank`** `[engineering]`: join/leave 0, `time` 1, moves 2, `kindle`, `strike`, `douse`, `imagine` 3.
 - **A held direction applies every tick until replaced.**
 - **Walking is a body affordance NPCs will share** (T6, OD-C11). Maxim's bodies (6fee7377, `fold.md` Check 1):
   `base_humanoid.yaml`'s `legs.move {direction: str, speed: str}` takes any string, `minecraft_player.yaml`'s
@@ -191,10 +190,11 @@ Decode → stage 1 (`simcore` core intents) → log → stage 2 against the worl
 
 ### 3.2 `kindle` (T4; WT-B2, BF-S4, BF-S5, PH-S4, DC-S5–S7)
 
-- **Action vocabulary v1** adds `kindle` (a bounded pilot) and retires `ignite`, as F7 retired `extinguish`. It ships
-  with the first log writer (step 5), so no v0 intent log ever exists and the v0-log refusal test is moot (DC-S5).
-  Until step 6's skin exists, step 5's `kindle` deposits by sphere volume overlap at the point with the item's radius,
-  a marked, scheduled band-aid that step 6 removes. The red gate
+- **Action vocabulary v1** is `move`, `move_to`, `kindle`, `strike`, `douse`, `imagine`. It adds `kindle` (a bounded
+  pilot) and retires `ignite`, as F7 retired `extinguish` for `douse` (water as a heat and O₂ sink, with caps). It
+  ships with the first log writer (step 5), so no v0 intent log ever exists and the v0-log refusal test is moot
+  (DC-S5). Until step 6's skin exists, step 5's `kindle` deposits by sphere volume overlap at the point with the
+  item's radius, a marked, scheduled band-aid that step 6 removes. The red gate
   `test_a_fire_that_has_burned_its_fuel_stops_heating` is rewritten to use `kindle` when step 6 flips it.
 - **`data/world/actions.yaml` v1** carries `kindle`'s physics-safety ceiling (`max_power_w`, `max_duration_s`,
   `min_radius_m` = 0.2) and drops `ignite`. It is repo-only, so v0 is refused by version with a test, never migrated (step
@@ -234,8 +234,7 @@ Decode → stage 1 (`simcore` core intents) → log → stage 2 against the worl
 - **One receipt shape for every intent** (boundaries §7.2): `(actor_id, seq)`, outcome (`applied`, `refused`, `stale`,
   `cancelled`; the last two have no Phase 1 producer), refusal code, measured effect, before and after frame ids.
   `intent_result` wraps it with wire-only `apply_tick` and `path_mm`. Agent-facing receipts carry no tick.
-- **Server → client** messages (`welcome`, `regions`, `tick`, cell frames, `error`) are specified in
-  `client_rendering.md` §4.
+- **Server → client** messages are `client_rendering.md` §4.1's.
 
 ### 3.4 Refusals (WT-S1, EX-S8), in check order
 
@@ -261,9 +260,10 @@ versions, and the navigation constants (WT-S3). Rate limits are pre-log and stay
 
 ## 4. The simulation `Frame` (BF-B1, AR-S2, DC-S2–S4)
 
-- **Two parts, one tick stamp; frame ids are ticks.** The cells part is a copy published when cells' version changes,
-  shared by reference otherwise. The bodies part holds the actor table, the pilots table and that tick's events
-  (`arrived`, `path_blocked`, `pilot_ended`, each with its new state).
+- **Two parts, one tick stamp; frame ids are ticks.** The cells part is a copy published when cells' version changes
+  (cells change at physics steps, every 0.5 s, and at intent apply), shared by reference otherwise. The bodies part
+  holds the actor table, the pilots table and that tick's events (`arrived`, `path_blocked`, `pilot_ended`, each with
+  its new state).
 - **A `Frame` is published every tick on which any intent was applied or refused, or any actor or pilot changed**
   (DC-S2; O23), usually the bodies part plus a reference to the unchanged cells. So a receipt's after-frame
   always exists.

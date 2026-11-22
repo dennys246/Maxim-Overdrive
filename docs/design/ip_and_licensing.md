@@ -129,9 +129,9 @@ than edited into them here.
 3. **The spec reader refuses unknown keys,** as every loader does: closed key sets at every level through
    `checks.known_keys` (PR #2, the owner's choice of 2026-11-17), with `imagination.spec.SPEC_KEYS` as the accepted
    set this item names.
-4. **Region identity crosses the wire.** The `welcome` region list carries each region's spec id. The intent log
-   header digests the *initial* spec store, as it digests the scene, the material files, the action limits and the
-   imagination budgets (`boundaries.md` §6.3). Specs imagined mid-session arrive later as logged thought
+4. **Region identity crosses the wire,** as each region's spec id in `welcome` (`client_rendering.md` §4.1). The
+   intent log header digests the *initial* spec store, as it digests the scene, the material files, the action limits
+   and the imagination budgets (`boundaries.md` §6.3). Specs imagined mid-session arrive later as logged thought
    results, so their content is in the records, not the header.
 5. **Material ids are not a creator namespace.** `data/materials/core.yaml` ids are permanent `uint8` values (at most
    255). Third-party materials, if they come, get string ids mapped to per-world compact indices at load, recorded

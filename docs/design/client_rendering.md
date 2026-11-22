@@ -78,24 +78,33 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
 
 | Message | Carries |
 |---|---|
-| `welcome` | `session`, `role`, the world config, `shape`, the channel catalogue, the region map, 1-based archetype and item lists, `regions_version`, the time state |
+| `welcome` | `session`, `role`, its own `actor` id (the body the camera follows), the world config, `shape`, the channel catalogue, the region map with each region's spec id, the zone list, material table v1 (ids to names and colours), the recipe name↔id map, 1-based archetype and item lists, `regions_version`, the time state, `bindings_digest`, the engine `build` |
 | `regions` | new region-map entries and the new `regions_version`, sent before the first frame that uses them (DC-B1) |
 | `tick` | JSON with integer columns only (DC-S9): `tick`, scales, paused; the actor and pilots tables (world §2.2); events since the last delivery; `path_mm` for each actor whose `path_version` changed |
-| cell frame (binary) | `[u32 header length][JSON header][arrays]`, little-endian; the header has `protocol`, `kind`, `tick`, `shape: [nz, ny, nx]`, `regions_version`, the catalogue hash, and per array name, dtype, offset and size |
+| cell frame (binary) | `[u32 header length][JSON header][arrays]`, little-endian; the header has `protocol`, `kind`, `tick`, `shape: [nz, ny, nx]`, its grids (each with shape, cell size and origin), `regions_version`, the catalogue hash, `compression` (off in v0), and per array name, dtype, offset, size and uncompressed size |
 | `intent_result`, `time_decision`, `error` | world §3.3, §3.4 |
 
-- **The catalogue** gives each channel's `unit` (from the closed vocabulary), `dtype`, and `scale` and `offset` as
-  integer rationals (`scale_num` / `scale_den`), so 975/255 needs no float format (DC-N5).
+- **The catalogue** gives each channel's `unit` (from the closed vocabulary), `dtype`, an encoding from a closed list,
+  `required`, and `scale` and `offset` as integer rationals (`scale_num` / `scale_den`), so 975/255 needs no float
+  format (DC-N5). Tables have typed columns: column-major, a per-column offset, an integer key column, no strings.
+- **Extension and bumps** (F2–F4, F6, W-F6): readers refuse, loudly, an unknown protocol version, `kind`, dtype or
+  compression, a missing required channel, and an unknown required channel, table or grid; they ignore unknown
+  optional ones. An optional channel bumps the registry version, not the protocol; a new encoding, dtype, `kind` or
+  compression bumps the protocol. `kind: delta` is reserved, not built.
+- **Axis order is Godot's** (W-F4): z, y, x, x fastest, one `Image` per z-slice; only the shader maps the server's
+  z-up to Godot's y-up.
 - **The catalogue hash** uses boundaries §6.3's one canonicaliser, in the core's checks. The region map is outside the
   hash, so `imagine` doesn't churn it.
 - **The decoder refuses** a frame whose `regions_version` is ahead of its map, or whose hash differs from `welcome`'s.
-- **JSON numbers read back as floats** [ran]: integers from `tick` or a frame header are cast with `int()`; one over
-  2^53 is refused.
+- **JSON numbers read back as floats** [ran]: integers from `tick` or a frame header are cast with `int()`, within
+  boundaries §9.1's 2⁵³ pin.
 - **Events accumulate per session** until delivered, bounded at 256 `[engineering]`. An overflow forces a resync: the
   server sends a full `tick` state and the client requests `snapshot`. State tables carry everything an event
   announces, so a skipped tick at 20× loses nothing (DC-S4).
-- **Cell frames** go only on cells' version change, at most `snapshot_hz`, plus a `snapshot` reply after `welcome`
-  and after a reconnect (WT-S6).
+- **Cell frames** go only on cells' version change, at most `snapshot_hz` (2 Hz during any fire), plus a `snapshot`
+  reply after `welcome` and after a reconnect (WT-S6). A `snapshot` request is served from the last published frame,
+  coalesced and rate-limited per session; each frame is encoded once per published tick, shared across sessions,
+  arrays read-only.
 
 ### 4.2 Channels
 
@@ -322,11 +331,13 @@ deletion. Godot's exit status is never trusted alone.
 
 ### 7.5 Connecting
 
-- **The token** arrives by environment variable (`OS.get_environment`) or a 0600 file, never argv (realtime §5).
+- **The token** (boundaries §5.3) is read with `OS.get_environment` or from its file.
 - **The connection** is `WebSocketPeer.connect_to_url("ws://127.0.0.1:<port>")` [ran], polled each `_process`.
   `was_string_packet()` separates JSON from frames [ran].
-- **No `Origin` header:** `handshake_headers` is never set. A Python listener test fails if the header appears.
-- **The order** is `hello`, then `welcome`, then `snapshot`. Anything unknown is refused loudly, with the reason shown.
+- **No `Origin` header** (boundaries §5.3): `handshake_headers` is never set. A Python listener test fails if one
+  appears.
+- **The order** is the handshake (boundaries §5.3), then `snapshot`. Anything unknown is refused loudly, with the
+  reason shown.
 
 ## 8. Client budgets (EX-S12, CR-S5)
 

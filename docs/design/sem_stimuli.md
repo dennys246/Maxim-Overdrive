@@ -119,8 +119,8 @@ beside a 33 °C palm reads 46 °C); it belongs in Maxim's receptor registry, **E
 when `join` is applied:** the row exists; sites lie in its site set and the body; `single` has one site; no mean spans
 depths; pooling is the class's. An invalid table refuses the join as a logged `agent_failed(build)`; replay reads
 `join` through the same gate. **The worker checks only what it alone sees:** Maxim sensor names, equal unit strings
-(`celsius` can't bind `celsius_norm`), ranges, no mean on a pain path. A **`bindings_digest`** goes in `welcome` and
-every `BoundFrame`; the worker refuses a mismatch with its own table.
+(`celsius` can't bind `celsius_norm`), ranges, no mean on a pain path. A **`bindings_digest`** goes in `welcome`
+(`client_rendering.md` §4.1) and every `BoundFrame`; the worker refuses a mismatch with its own table.
 
 ### 3.3 Phase 4's first body
 

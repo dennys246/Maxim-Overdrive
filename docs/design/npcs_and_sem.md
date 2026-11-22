@@ -978,10 +978,9 @@ decision to refine SEM is recorded in Maxim's `DECISIONS.md` by the plan PR, not
   converted to ticks at load.
 - **The apply rule:** `apply_tick = ceil((observed_tick·tick_us + L_us) / tick_us)`, in integers; a stamp exactly on a
   boundary applies at that tick.
-- **One ordering key, stated once in `boundaries.md` §6.2:** `(apply_tick, kind_rank, apply_us, actor_id, seq)`.
-  Controls and joins rank before intents. **Player intents are stamped by the host:** `observed_tick` is the last frame
-  sent to that session, and `apply_us` is 0. Client-supplied tick, sub-tick and speech-timing fields are refused
-  (TB2-S6, DR-S3).
+- **The ordering key is `boundaries.md` §6.2's.** **Player intents are stamped by the host:** `observed_tick` is the
+  last frame sent to that session, and `apply_us` is 0. Client-supplied tick, sub-tick and speech-timing fields are
+  refused (TB2-S6, DR-S3).
 - **If reflexes need to act below a tick,** the substrate steps k times within a tick on the same frame, for reflexes
   only; the alternative is a smaller tick. Under k substeps, the injected clock advances exactly by the stepped dts,
   so drift and stamps read one time (Wire S1).
