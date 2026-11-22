@@ -19,18 +19,8 @@ uniform float glow_scale_c = 0.0;
 // 0 in goldens (animation off, §6.1); 1 in play.
 uniform float flicker_amount = 0.0;
 
-// 7, not §5.3's first 4: at 4 the ember envelope near 920 °C stayed below the bloom threshold and read dull; at 7 it
-// blooms from about 910 °C. The cost: from about 1,230 °C every channel passes 1.0, so the linear tonemap draws the
-// top fifth of the range flat white, and the bloom halo, which keeps growing with the HDR value, carries the heat
-// beyond it (on the laptop tier, with bloom off, that band is plain white: B7). A soft knee and the Reinhard and AgX
-// tonemappers were measured as alternatives and rejected: the knee washed the crate grey and killed the bloom, the
-// tonemappers barely narrowed the band and dimmed the frame (owner, 2026-11-21).
-const float GLOW_GAIN = 7.0;
-const float GLOW_REFERENCE_K = 1773.0;
-const vec3 GLOW_DULL = vec3(0.55, 0.04, 0.0);
-const vec3 GLOW_ORANGE = vec3(1.0, 0.38, 0.04);
-const vec3 GLOW_WHITE = vec3(1.0, 0.88, 0.62);
-const vec3 FLAME_COLOUR = vec3(1.0, 0.42, 0.08);
+#include "res://addons/engine/render/flame_colour.gdshaderinc"
+
 const float FLAME_GAIN = 1.6;
 
 // surface_glow in counts (0-255) for the face with outward normal ``n_cell`` at ``p_cell``. Linear filtering
@@ -52,13 +42,7 @@ vec3 glow_emission(float g) {
 	if (g <= 0.0) {
 		return vec3(0.0);
 	}
-	float t_c = glow_offset_c + glow_scale_c * g;
-	float k = (t_c + 273.15) / GLOW_REFERENCE_K;
-	float k0 = (glow_offset_c + 273.15) / GLOW_REFERENCE_K;
-	float level = GLOW_GAIN * (k * k * k * k - k0 * k0 * k0 * k0);
-	float span = clamp(g / 255.0, 0.0, 1.0);
-	vec3 hue = span < 0.5 ? mix(GLOW_DULL, GLOW_ORANGE, span * 2.0) : mix(GLOW_ORANGE, GLOW_WHITE, span * 2.0 - 1.0);
-	return hue * level;
+	return glow_curve(glow_offset_c + glow_scale_c * g, glow_offset_c, clamp(g / 255.0, 0.0, 1.0));
 }
 
 // Flames from ``burning``, the burning fraction of the cell's fuel surface: an emissive flicker. Particles (§5.3)

@@ -338,18 +338,36 @@ ignites a slab with no flame object.
 - The guest-text gate `engine.text.player_text`. Its Cf rule must let ZWNJ and ZWJ through for Persian, Indic
   spelling and emoji sequences, or say why not, and NFC runs before the length cap. This is an owner decision
   (TB-N5).
+- The fuel decoder's world-extent check (`client_objects.md` §3.2; owner, 2026-11-22, review TB2-S2): fuel geometry
+  outside the cell snapshot's extent is refused, as fire_solid §1.3 refuses it on the server; finite but huge
+  geometry passes the client's checks until then.
 
 ## Step 8, the tile (`tile_and_client.md` §6; `client_rendering.md` §4–§6)
 
 - The game package and its `content/` (AR-S6).
-- The fuel-object pass (`client_objects.md` §4–§7), about one more #31-sized PR: the per-instance row texture with
-  fixture rows past 2,048; the per-fragment segment lookup; the 2 px output floor and anti-aliasing (its owner
-  question 3); picking objects with no snap; Phase 1 flames; §7.2's checks, each proved by deletion; the fuel B5
-  rows; the structural-glow Known gap in `docs/architecture.md`; the fuel fixture's head-on row readout (C S7).
-- Deferred from D-B2's delta round (mechanism, `reviews/client_objects/`): the stability measure's bins, offsets and
-  statistic fixed before measuring (S7); the Burning check run with flames off (S5); the Phase 1 flame pass's
-  instancing path and bound (S8); partial thinning's mechanism and the per-fragment lookup's frame time (N3); the
-  MultiMesh's culling AABB with server-frame transforms (Wire N9); timings reported as median beside minimum (P-N3).
+- The fuel-object pass (`client_objects.md` §4–§7). Built on `phase1/client-fuel`: the per-instance row texture
+  with fixture rows past 2,048; the per-fragment segment lookup; the 2 px output floor; rod edge coverage in two
+  passes (owner ruling 3); Phase 1 flames, gated by burnout and burn-through; §7.2's fuel checks, each proved by
+  deletion. Remaining: picking objects with no snap; slab edge coverage (`research/fuel_antialiasing.md` item 2);
+  a stick resting on a slab, against the slab floor's growth (`reviews/client_fuel/`, C-S4; anchored at the top face,
+  the growth hides in whatever the slab rests on, D2); the rod edge at crossings, sorted per yaw or measured as a
+  crossing in the stability check (`research/fuel_antialiasing.md`, D1); rod ends' edge coverage; a guard on the
+  shader's temperature clamp, which no fixture reaches (E2-S3); a two-frame golden for
+  the in-place segment upload (E-N2); §7.2's Severity, Outlines, charred-face Crack and fuel Speckle checks, with the
+  groove view; whether fuel-ID coverage reads linear or sRGB on each tier, stated and tested (W-S5), before the
+  per-object area bar is relied on; the fuel B5 rows; the structural-glow Known gap in `docs/architecture.md`;
+  the fuel fixture's head-on row readout (C S7).
+- The stick-stability measure (`client_objects.md` §7.2; S7), fixed 2026-11-22 before any renderer was measured: a
+  20 mm rod 1 m long, at 72 and 30 px/m, on the rig (scale 1.0) and laptop (0.5) tiers, drawn in the fuel-coverage
+  pass; bins fixed in world space along the axis, each the length that projects to 4 output px, the two at each end
+  dropped; 8 camera offsets of k/8 output px along both screen axes (k = 0..7); per bin, the covered area's spread
+  (max - min) / mean over the offsets; the statistic, its 95th percentile over bins; the reference, an ideal line of
+  the drawn width rasterised in numpy at exact area coverage (16 x 16 per pixel) at the same geometry and offsets;
+  the bar, the renderer's statistic at most twice the reference's. Owner, 2026-11-22: a third zoom, 120 px/m, where
+  the floored 2 px stick no longer hides a hard edge on the rig tier (a survey of the hard-edged deletion at 30-120
+  px/m: 2.01-2.12x at the floor, 2.55x at 120; the shipped edge 1.07x there).
+- Deferred from D-B2's delta round (mechanism, `reviews/client_objects/`): partial thinning's mechanism and the
+  per-fragment lookup's frame time (N3); timings reported as median beside minimum (P-N3).
 - The exit script (Phase 1's exit is `docs/roadmap.md`'s, Phase 1, "Exit"), run stepped and unpaced; the controls,
   each proven by deletion (PH-S3); the stage-2 refusal scripts.
 - The shader, the cut-away test at ≥ 95%, five scenario goldens per tier, staleness digests, `update_goldens.sh`

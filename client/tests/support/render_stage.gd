@@ -19,6 +19,7 @@ const BODY_SHADED: Color = Color(0.85, 0.82, 0.74)
 const BODY_ID: Color = Color(1.0, 0.0, 0.0)
 
 var volume: CellVolume = CellVolume.new()
+var fuel: FuelPass = FuelPass.new()
 var camera: Camera3D = Camera3D.new()
 var _environment: Environment = Environment.new()
 var _bodies: Node3D = Node3D.new()
@@ -41,7 +42,9 @@ func _init() -> void:
 	var world_environment: WorldEnvironment = WorldEnvironment.new()
 	world_environment.environment = _environment
 	_body_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	for child: Node in [volume, camera, world_environment, _bodies]:
+	fuel.visible = false
+	fuel.use_flicker(0.0)
+	for child: Node in [volume, fuel, camera, world_environment, _bodies]:
 		add_child(child)
 	camera.current = true
 
@@ -56,6 +59,23 @@ func show_snapshot(snap: CellSnapshot, palette: MaterialPalette) -> void:
 	for problem: String in volume.use_palette(snap.material_ids, palette.by_id(snap.material_ids)):
 		push_error("RenderStage: " + problem)
 	volume.use_flicker(0.0)
+
+
+## Draw ``snap``'s fuel over the cells, coloured by recipe from ``recipes``, its regions named by ``region_names``;
+## null hides the fuel pass. Returns what the pass refused, so a shot can fail on it.
+func show_fuel(snap: FuelSnapshot, region_names: Dictionary[int, String], recipes: MaterialPalette) -> Array[String]:
+	fuel.visible = snap != null
+	if snap == null:
+		return []
+	var problems: Array[String] = fuel.use_palette(snap.recipe_ids, recipes.by_id(snap.recipe_ids))
+	problems.append_array(fuel.show_fuel(snap, region_names))
+	return problems
+
+
+## What the fuel pass draws and whether flames draw.
+func use_fuel_view(view: FuelPass.View, flames: bool) -> void:
+	fuel.use_view(view)
+	fuel.flames.visible = flames
 
 
 func use_tier(tier: RenderTier) -> void:
@@ -76,6 +96,9 @@ func aim(target_world_m: Vector3, yaw: float, size_m: float) -> void:
 ## whichever order they are called.
 func _update_pixel_metres() -> void:
 	var problem: String = volume.use_pixel_metres(IsoCamera.pixel_metres(_size_m, size.y, scaling_3d_scale))
+	if not problem.is_empty():
+		push_error("RenderStage: " + problem)
+	problem = fuel.use_pixel_metres(IsoCamera.pixel_metres(_size_m, size.y, 1.0), scaling_3d_scale)
 	if not problem.is_empty():
 		push_error("RenderStage: " + problem)
 

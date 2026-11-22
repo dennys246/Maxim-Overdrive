@@ -17,7 +17,7 @@ contract (§4), the display rules for glow, burning and flames (§5), and the cr
 
 **Numbers** are *measured* ([ran]: Godot 4.7.2.stable.official.ed1daf0bf, Compatibility, the owner's M2), *derived*,
 or `[engineering]`. The probe is `tools/godot_probes/probe_fuel_objects.gd`. The reviewers' variants of it are cited
-by report. Nothing has run under llvmpipe.
+by report. Under llvmpipe only the goldens and §7.2's checks ran.
 
 ## 0. The answers
 
@@ -59,12 +59,10 @@ by report. Nothing has run under llvmpipe.
 | A slab top face, to hold 12 px polygons at the golden view | ≥ 0.17 m across | derived |
 | MultiMesh custom data on Compatibility | **half float: whole numbers exact only to 2,048** | [ran], two reviewers independently (`reviews/client_objects/executor.md` E-B1, `client_rendering.md` B1) |
 | `texelFetch` of R8 and RH 2-D textures; RH 3-D linear filtering | works (0.502 at a 0/1000 midpoint) | [ran] |
-| The design's rebuild for 2,000 rods (decode, basis, write) | 3.6–3.8 ms, loaded machine | [ran], `performance.md` P-S2 |
 | The design's upload: one RH and three R8 textures, 2×10⁴ rows | 95–161 µs | [ran], `performance.md` P-N1, `executor.md` E-N2 |
-| A native byte compare of keys and geometry at the limits | 30 µs | [ran], `performance.md` P-S1 |
 | The object pass at 2,000 instances, 1 ring, golden view | +0.24 ms (+0.6 ms with 4× MSAA) | [ran], `performance.md` P-S3 |
 | A burnt segment drawn by a per-fragment lookup and discard | 0 px; live neighbours at full width, at any ring count | [ran], `client_rendering.md` S1 |
-| Not measured | llvmpipe; shimmer under camera motion | — |
+| Not measured | llvmpipe frame time | — |
 
 Three consequences:
 - **The raymarch can't draw fuel.** Objects sit in air cells, and the walk passes through them. Voxelising them into
@@ -119,13 +117,16 @@ span and the origin are fire_solid §1.1–§1.2's.
 Geometry gets a table per kind rather than one table of positional columns. That way each column has one meaning
 (F1), and a new kind is a new table and mesh, never a reinterpretation of old columns.
 
-**The decoder's checks** run only when the trigger bytes differ from the last frame's, compared natively: every
-`objects` column but `state`, the geometry tables and `segments`' keys. Geometry is immutable, so in a steady burn they
-run on insertions only. `state` is checked every frame (0 or 1). The decoder refuses the frame on any of these:
-- an unknown kind, recipe or region;
-- Σ `segment_count` ≠ the `segments` rows, or `segments`' key bytes ≠ the keys the objects imply;
+**The decoder's checks** run when the structure differs from the last frame drawn: every `objects` column but `state`,
+the geometry tables, `segments`' keys, the row counts, the vocabularies and the region map. In a steady burn: insertions
+only. Every frame, the other columns are held to their row counts and `state` to 0 or 1. A refused frame
+draws nothing new. The decoder refuses on any of these:
+- row counts past fire_solid §1.3's limits; a kind or recipe id shared or outside its dtype;
+- an unknown kind, recipe or region; `object_id`s not strictly rising;
+- a `segment_count` of 0, Σ `segment_count` ≠ the `segments` rows, or key bytes ≠ the keys the objects imply;
 - a geometry row missing, or present in another kind's table;
-- non-finite geometry, a non-positive length, an axis off unit by more than 10⁻⁶ `[engineering]`.
+- non-finite geometry, a non-positive size, an axis off unit or slab axes off square by more than 10⁻⁶ `[engineering]`;
+- from step 7, geometry outside the world: the cell snapshot's extent (fire_solid §1.3).
 
 The client never recounts segments from geometry. `segment_count` is the server's, its rule fire_solid §1.2's. A recount from f32 columns disagrees with any rule for some lengths: 42 of 1,981 at an absolute tolerance
 (`delta1_wire_integrity.md` N1). The key check catches a misdistributed count, and §4.1's clamp keeps every fragment on
@@ -175,17 +176,15 @@ The join cap counts the tables at the limits (`client_rendering.md` §4.3), whic
   low-poly unit cylinder or box, with its transform built from the object's geometry row.
   - Engine why: a MultiMesh draws every instance in one draw call. A node per object would be 2,000 nodes and 2,000
     draw calls.
-  - Transforms stay in the server's frame. The object shaders include the raymarch's own z-up to y-up mapping, so
-    there is still one mapping site (`client_rendering.md` §4.1).
+  - Transforms are built through `IsoCamera.to_godot`, the one mapping (`client_rendering.md` §4.1), so the
+    MultiMesh's culling box is in Godot's frame where the objects are.
 - **No index travels in custom data.** On Compatibility custom data is half float (§2), so an object's first segment
   row is read from a per-instance texture indexed by `INSTANCE_ID`.
-  - That texture holds three RGBA8 texels per instance: the row's three bytes and `state`; `segment_count`; and ℓ's f32
-    bits. All are exact.
-  - It is rebuilt with the instances.
-  - The step 8 fixtures put first rows above 2,048.
-- **The rebuild is rare.** Instances and the per-instance texture are rebuilt only when §3.2's trigger bytes
-  differ (3.6–3.8 ms per rebuild, §2), so on insertion only. `state` updates the RGBA8 texture's fourth byte and
-  never triggers a rebuild.
+  - That texture holds three RGBA8 texels per instance, all exact: the first row's three bytes and the recipe's palette
+    slot (slot 15 is magenta, never a recipe's); `segment_count` and the object's row; ℓ's f32 bits.
+  - `state` is its own R8 texture by object row, so a burnout never rebuilds.
+- **The rebuild is rare:** only when §3.2's structure changes, so on insertion only. At the limits (M2, headless,
+  `tools/fuel_aa/rebuild_time.gd`): an insertion, check included, 14.1–14.5 ms; a steady frame 0.08–0.09 ms.
 - **Segment state uploads on every cell-frame message (2 Hz), without a loop.** Each segment column becomes a 2-D
   texture 256 texels wide, with row i at (i mod 256, i div 256), padded by a resize: RH for `surface_temperature_c`,
   R8 for each u8 column.
@@ -197,8 +196,8 @@ The join cap counts the tables at the limits (`client_rendering.md` §4.3), whic
 - **Depth, cut-away and colour:**
   - Depth: an ordinary depth test against the raymarch's written `DEPTH`, as bodies already do.
   - Cut-away: objects are never cut, because fuel never sits in a wall (fire_solid §1.3).
-  - Colour: albedo comes from client data keyed by recipe name. An unknown recipe or kind is reported and drawn
-    magenta.
+  - Colour: albedo comes from client data keyed by recipe name. A recipe without a colour, or past the palette, is
+    reported and drawn magenta.
 
 ### 4.2 Shape: burn-away and the pixel floor
 
@@ -216,8 +215,10 @@ The join cap counts the tables at the limits (`client_rendering.md` §4.3), whic
 - **What the floor costs:** below it, apparent width carries no information. An edge or stick narrower than 2 px
   shows its state through brightness (§5), gaps (above) and darkening (§6.3).
 - **Anti-aliasing is part of the contract:** a stick's drawn coverage must be stable along its length and under
-  sub-pixel camera motion, by §7.2's measure. MSAA or analytic edge coverage is the build's choice (owner ruling 3).
-  4× MSAA works with the raymarch's `DEPTH` at scale 1.0 and 0.5 (`client_rendering.md` R4).
+  sub-pixel camera motion, by §7.2's measure. Rods use analytic edge coverage, one rendered pixel wide (owner ruling 3,
+  measured in `research/fuel_antialiasing.md`): it holds the bar on every tier, where MSAA fails the laptop tier.
+  Slab edges have none yet (that record's open item 2). Rods draw twice: depth alone over the silhouette (coverage
+  ≥ 0.5), then colour blended by coverage, so crossing sticks occlude by depth on every tier.
 
 ### 4.3 Picking and interaction
 
@@ -270,8 +271,9 @@ The join cap counts the tables at the limits (`client_rendering.md` §4.3), whic
   - Engine why: a flame is gas with no surface for either pass to hit, so it is drawn as an emissive volume over them.
 - **Phase 2:** the `flames` table (§3.4) sizes each flame, replacing the stylised height.
 - **Never by colour alone:** a flame adds pixels where nothing was drawn (shape), and brightness over them.
-- **Cost:** flames are bounded by flaming segments. The flame pass is a frame-time row (§7.4), and Phase 2's design
-  states a cluster bound against that budget (`performance.md` P-S6). Its instancing path is step 8's (checklist).
+- **Cost:** one quad per segment row, collapsed to zero area unless its segment flames, so only flaming segments
+  cost fill. A burnt-out object or a burnt-through segment raises none. The flame pass is a frame-time row
+  (§7.4); Phase 2's design states a cluster bound against it (`performance.md` P-S6).
 
 ### 5.4 What the player sees that no NPC senses
 
@@ -328,14 +330,15 @@ and decides more. B7 measured c = 0.25–0.96 drawing the same grooves on rig wa
   - rods of radius 10, 50 and 100 mm, and a slab with a top face ≥ 0.17 m;
   - segments with a temperature ramp to 1,500 °C;
   - ignited runs at 600 °C, below the laptop's white band;
-  - a run with `thickness_fraction` 0, a char ramp, and a burnt-out object.
+  - a run with `thickness_fraction` 0, a char ramp, a burnt-out object still hot and ignited, an ignited burnt-through
+    run, and a hot stick across a cold log.
 - **A crack-severity fixture:** one block per band of §6.1, plus isolated cracked cells in each.
 - **The fire fixture:**
   - its hand-placed `surface_glow` and `burning` give way to the fuel fixture's tables;
   - its structural glow is drawn from masked `temperature_c`;
   - its `crack` is written at a non-default scale, so a decoder that hard-codes 1/255 fails (world_model §8, F7).
 
-### 7.2 Measured checks (`scripts/golden_measures.py`, each proved by deletion)
+### 7.2 Measured checks (`scripts/golden_measures.py`, `golden_fuel.py`, `golden_stability.py`; each proved by deletion)
 
 | Check | Bar | Deletion that must fail it |
 |---|---|---|
@@ -345,21 +348,19 @@ and decides more. B7 measured c = 0.25–0.96 drawing the same grooves on rig wa
 | Crack (kept), cracked cells and charred faces ≥ 12 px | mean \|ΔL*\| ≥ 8 and ≥ 2× edge density | carving off, darkening kept |
 | **Severity** | edge density rises by at least one step per band, at every tier | one octave for every severity |
 | **Outlines** | every isolated cracked cell has groove pixels on each of its exposed edges | outlines removed |
-| **Burn-through** | zero fuel-ID pixels inside the burnt run's axial footprint, shrunk at each end by its projected radius; live segments at the floor or wider | thickness ignored |
+| **Burn-through** | zero fuel-ID pixels inside the burnt run's axial footprint, shrunk at each end by its projected radius; every live segment farther than that radius from the run's ends draws, each run of them at its drawn width less 1 px | thickness ignored; rods narrowed |
 | **Stick stability** | the per-bin coverage spread, under 8 sub-pixel camera offsets, within a margin of an ideal anti-aliased line drawn in the same fixture | anti-aliasing off |
 | **Flame shape** | flame-ID pixels above the flaming segments > 0, and ≥ 15 L* over them | flames off, emission kept |
-| Tier agreement | fuel ID mask per kind compared separately, within 15% | floor in rendered pixels |
+| **Burnout** | burnt out: < 15 L* above cold char, flames off; no flame-ID pixel near it or a burnt-through run | ignore `state`; ungate flames |
+| **Crossing** | a stick over a log drawn later ≥ 15 L* above the log | depth from the blended pass alone |
+| Tier agreement | each object's fuel-ID area, as summed coverage within one laptop pixel of the drawn edge, within 15% of rig's | floor in rendered pixels |
 | Speckle (kept) | extended to the fuel fixture's cold frame | an isolated-pixel defect planted in the fixture |
 
 - **The stability measure** integrates coverage over axial bins 4 px wide and compares each bin across sub-pixel
-  offsets of the camera. That makes it a test of crawl under motion. A per-row pixel sum aliases by itself: on an
-  ideal line it read 0.22–0.25, so it could not tell a correct renderer from a broken one (`executor.md` E-B2).
-- **Its margin** comes from the ideal line's own spread across the same offsets. The ideal is computed outside Godot
-  (numpy, exact area coverage), never by either candidate. Bins, offsets and the statistic are fixed in step 8's
-  checklist before the renderer is measured (`delta1_five_lenses.md` S7).
-- The masks come from the shaders' debug passes. The fuel pass gains a fuel-ID view, a flame-ID view and a groove
-  view.
-- Tier agreement on ID masks isn't built yet (B7). Fuel joins it as its own masks, per kind.
+  camera offsets: crawl under motion.
+- **Its margin** comes from an ideal line's spread over the same offsets, computed in numpy at exact coverage. The
+  parameters and zooms are step 8's checklist's, fixed before measuring.
+- The masks come from the shaders' debug passes: a fuel-ID view, a flame-ID view and a groove view.
 
 ### 7.3 Scenario goldens
 
@@ -370,21 +371,12 @@ whose trigger, "before 6.4", no longer fires in Phase 1 (owner ruling 4).
 
 ### 7.4 Budgets (`client_rendering.md` §8)
 
-- **Decode-and-upload** gains the segment textures (95–161 µs) and the native byte compares (30 µs).
-- **Rebuild:** a reported row, 3.6–3.8 ms per insertion.
-- **Frame time** at the golden view includes the object pass (+0.24 ms at the limits, M2), its anti-aliasing and the
-  flame pass.
+- **Decode-and-upload** gains a steady fuel frame, and the **rebuild** is a reported row: both measured in §4.1.
+- **Frame time** at the golden view includes the object pass, both rod passes and the flames
+  (`research/fuel_antialiasing.md`).
 - **Server side:** the fuel view's reductions get a B5 row: a stand-in measured 13.3 ms at the limits on a loaded
   machine (`performance.md` P-S5). Computed on the encoder's request and cached (fire_solid §5.6), they cost at most
   one reduction per frame sent, outside the solid's 25 ms step, and nothing in headless runs.
-- **If MSAA is chosen,** its llvmpipe cost is measured first, and the re-recorded goldens get a commit of their own.
-
-### 7.5 Size
-
-Step 8 gains a second render path, three data-texture sets, picking against objects, three fixtures and eight new
-checks with deletion proofs. The shader branch (#31: one pass, about four checks, five review rounds) is the nearest
-measure, so this is about one more PR of that size `[engineering]`. The foundations plan's step 8 row and the
-checklist say so.
 
 ## 8. What this pass changes elsewhere
 
@@ -393,7 +385,7 @@ checklist say so.
 | `client_rendering.md` | §4.1: the `welcome` row's kind vocabulary, the send rule's fuel version; §4.2: the channel rows and frame bytes; §4.3: the join cap counts the fuel tables; §3.1, §5.1, §5.3–§5.6, §6.1–§6.4, §8, §12: links here |
 | `fire_solid.md` | §5.6: the fuel view's quantities, site, cadence and leak rule; §7: the D-B2 row, D-S2's trigger, the view's placement |
 | `fire_model.md` §9.2; `tile_and_client.md` §5.5 | the superseded `segment_glow`, `burning` and bed `crack` meanings become links (docs-contracts row 79) |
-| `docs/plans/checklists.md` steps 6–8; `foundations_plan.md` rows 7–8 | the build items and fire_solid's questions; step 7 after 6.0b; step 8 sized (§7.5) |
+| `docs/plans/checklists.md` steps 6–8; `foundations_plan.md` rows 7–8 | the build items and fire_solid's questions; step 7 after 6.0b; step 8 sized |
 | `client/tests/fixtures/snapshots/FIELDS.md` | the retired rows and the glow calibration go; the fuel tables listed |
 | `docs/standards_backlog.md` | B42 stays open until step 7's decoder deletes the provisional reads; B7 names §6; B5 gains the fuel rows; B40 (2) names the flame pass |
 | `docs/architecture.md`, `docs/roadmap.md` | the `glow` channel's mentions link to the owners |

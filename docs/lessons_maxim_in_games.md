@@ -302,6 +302,12 @@ the fold itself: a delivery and digest that turned every new row into a replay b
 ruled on stationary bodies only (DP2-B1). *Consequence:* the v3 fold measured or traced each checkable fix before
 writing it, and recorded "unverified" where it couldn't. For any project folding reviews: a reviewer's fix gets the
 same check as a source's number, because a test that can't fail, adopted on a reviewer's word, guards nothing.
+*Again at step 8's fuel pass (2026-11-22, `docs/design/reviews/client_fuel/`):* the rendering lens's unverified fix
+for crossing sticks, an opaque core alpha-tested at coverage 0.5, did fix the occlusion, and it put a hard step in the
+edge's ramp that broke the stick-stability bar on the laptop tier (2.55–2.62× the ideal line against 2.0×). A depth-only
+core kept both. The fold's own new tests needed the same check: the headless renderer returns an identity transform and
+an empty box for any MultiMesh, which satisfied "a slab's local y is up" and "the culling box holds the rods", and
+three more mechanisms survived deleting them until their tests were rewritten.
 
 ### 27. A host that steps a Maxim body must not step it inside the agent's own tick (2026-11-21)
 
