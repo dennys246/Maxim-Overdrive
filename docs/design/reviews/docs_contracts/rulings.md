@@ -98,3 +98,8 @@ These answer the six questions left under "Not decided", on `phase1/b36-followup
    test that proves it is in `checklists.md`'s agent-line PR.
 6. **CLAUDE.md's restated rules name their owners:** "Reconstruct, decide at the point" names `world_model.md` §3,
    and the handshake line names `boundaries.md` §5.3.
+
+**Consequence of ruling 1, ruled (owner, 2026-11-22: "agreed, close it for v1").** Stale's OPEN divergence is closed
+for v1: no stale refusal reaches the agent and none is credited, so Maxim books nothing NEGATIVE for it. OD-A16 still
+gates Phase 4 (O30) for `call_error` and `wrong_target`, and for `stale` if it returns as a receipt kind. Edited:
+`boundaries.md` §7.2 and §13, `npcs_and_sem.md` §6.4, §11.1 and §12.2, the roadmap's Phase 3 exit, and lesson 9.

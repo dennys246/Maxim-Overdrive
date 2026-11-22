@@ -672,7 +672,8 @@ agents)" and "agents step inside the simulation lane's tick" (§11).
 - **Stale is context, never credit** (lesson 9). Maxim books every `success=False` as NEGATIVE. The refusal-kind key
   (OD-A16) must be **promoted** through the bridge, because `agents/tool_bridge.py:580-582` drops `result.metadata` on
   failure and `runtime/tool_dispatch.py:370` books NEGATIVE before any valence is read; the same holds for any settle key
-  (X-6). Until then, stale refusals are an OPEN divergence, to be held by a strict red gate once the agent PR lands it.
+  (X-6). v1 sends no stale refusal and withholds its credit (`sem_stimuli.md` §6.2), so stale's divergence is closed
+  for v1; the promotion is still needed for `call_error`, `wrong_target`, and a later `stale` kind.
 - **A malformed call is a cognitive error, not a tool failure** (lesson 7).
 
 ### 6.5 Per-actor binding and identity (TB2-S8, MP-S12, Arch S3)
@@ -1048,7 +1049,7 @@ floor thresholds, *h* and filler timing are per-world parameters on the listener
 | §4.3 "applies on the first tick after it arrives" | each segment lands at its modelled time; early results are held (§4.2) |
 | §4.3 thinking speed "depends on the dial … measured rather than hidden" | modelled and dial-independent; late thoughts dilate (§4.1, §4.4) |
 | §4.3 abandonment by `max_age_ticks` as the default | the policy by context is §4.4's; abandon is a logged host control |
-| §4.3 a stale refusal is "something it can learn from" | context, never credit, OPEN until OD-A16 (§6.4) |
+| §4.3 a stale refusal is "something it can learn from" | context, never credit; closed for v1 (§6.4) |
 | §4.3 "a thought result is a pure value" | holds under O6's contract, from tier A (§6.1) |
 | §4.4 tier 3 "live models aren't reproducible" | reruns reproduce after tier A and the barrier (§4.8); replays were always exact, and reproduce the world only (`boundaries.md` §6.2) |
 | §9 Q1 "don't hold the world for a late thought" | held in wall time, never in world time, with DLP-B2's fixes (§4.4) |
@@ -1119,7 +1120,7 @@ its cancellable backend with the request/reply cut (§6.1), tool-call caps with 
   host's `settle` (§6.6; TB2-S3).
 - Memory authority ("an NPC writes only its own memory") is OPEN until per-agent homes and pickle-free persistence
   land (TB2-B2).
-- Stale refusals book NEGATIVE; closes with OD-A16.
+- Stale refusals: closed for v1 (§6.4); OD-A16 still closes `call_error` and `wrong_target`.
 - Slow-effect credit; closes with OD-A16's settle horizon.
 - The NPC is a statue while a thought is in flight; closes with the hybrid line's substrate.
 - Real NPCs wait for the stepped `think` (O15a); until then every agent test runs on the test double.

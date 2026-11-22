@@ -593,8 +593,8 @@ inside the simulation lane's tick"):**
   drive deltas through `measured_drive_transitions`; absent a report, Maxim books mechanical success as POSITIVE.
 - **Credit reads declared sensors only,** the ones the affordance declares it affects, and never instruments.
   Slow-effect credit (ignite) is an OPEN divergence with a red gate until settle can carry a horizon (OD-A16).
-- **Stale is context, never credit** (lesson 9). Until Maxim promotes a refusal-kind key through the bridge's failure
-  path (OD-A16), stale refusals are an OPEN divergence with a strict red gate.
+- **Stale is context, never credit** (lesson 9). v1 neither refuses nor credits a stale intent
+  (`sem_stimuli.md` §6.2), so stale's divergence is closed for v1; OD-A16 reopens it if `stale` becomes a kind.
 - **Per-actor binding (BF-6; foundations TB2-S8):** each NPC gets its own entity and modulator, bound to its actor.
   `name` and `full_path` stay identical across actors (lesson 10). The adapter refuses a call whose bound actor isn't
   the agent it is stepping.
@@ -850,8 +850,7 @@ harness is born in `engine.verify`:
 
 - **Real NPCs wait for Maxim's embeddable agent contract** (O6). Until it ships, real Maxim behind the adapter is a
   strict red gate, and every agent test runs on the scripted test double.
-- **Stale refusals** stay an OPEN divergence until Maxim promotes a `stale` refusal kind (OD-A16)
-  (§7.2). Roadmap Phase 3's exit now requires OD-A16 before Phase 4 (`npcs_and_sem.md` §12.1 asks the owner to confirm).
+- **Stale refusals** are closed for v1 (§7.2); OD-A16 still carries `call_error` and `wrong_target`. Roadmap Phase 3's exit now requires OD-A16 before Phase 4 (`npcs_and_sem.md` §12.1 asks the owner to confirm).
 - **Slow-effect credit** stays OPEN until settle carries a horizon (OD-A16).
 - **Memory writes** are ungated until generate vs apply (OD-A18) and the host's `settle`; memory authority is OPEN until per-agent homes and
   pickle-free persistence land.

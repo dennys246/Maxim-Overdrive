@@ -282,7 +282,8 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
     arithmetic, not a run): `Hippocampus.sleep` scores retention on `time.time()`, so what an
     NPC forgets depends on wall time (`npcs_and_sem.md` §12.2). It stays with #1361 Q5 (Maxim, 2026-11-19); no
     workaround here, and Phase 4's replay exit carries it beside OD-A20.
-  - OD-A16 has closed the stale-refusal divergence before Phase 4.
+  - OD-A16 has landed before Phase 4: stale's divergence is closed for v1 (owner, 2026-11-22), and `call_error`
+    and `wrong_target` still need it.
   - Exp 64a's prerequisites (OD-B1 to OD-B7) are met, and its pre-registration is frozen.
   - The Exp 64 draft is in `docs/maxim_upstream/` and moves to Maxim's `docs/experiments/`.
 
