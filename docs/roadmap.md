@@ -15,8 +15,8 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
 
 ## Phase 1: The first visible tile (next)
 
-- A Godot 4 client that only draws and sends intents. It uploads snapshot arrays as 3-D textures, and a shader
-  reads `crack` and `glow`.
+- A Godot 4 client that only draws and sends intents. It uploads snapshot arrays as 3-D textures for a cell shader,
+  and draws fuel objects in a second pass (`docs/design/client_objects.md`).
 - A local transport between client and server: a WebSocket carrying JSON intents and binary snapshots (decided
   2026-11-15; `docs/architecture.md`, "Transport").
 - The first tile authored in metres: the alley. When the ripperdoc clinic is authored is D27's
@@ -43,12 +43,12 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   red gate `tests/test_act_validation.py::test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn`,
   and it removes the marked band-aid in `data/world/actions.yaml`, whose ceilings keep fires at the powers the
   current physics has been measured at.
-- The substep floor in `src/simcore/core/heat.py`, a marked band-aid kept for bit-identity when resolution left the
-  rig: plan step 5a's fixed physics step replaces it, with an accuracy floor only if one is measured necessary
-  (`docs/design/sim_core.md` §8).
 - The write window's two owners until `Simulation.step` owns it, marked band-aids (`docs/design/boundaries.md` §4.1,
   2c): `World.advance` in `src/simcore/core/world.py` and the intent applier in `src/simcore/core/applier.py` open the
-  window themselves; step 5a's PR 2 moves the laws' window into the step, and its PR 4 the applier's. The shell's
+  window themselves; step 5a's PR 4 moves both into the step (PR 2 moved the laws into the tuple, not the window), and
+  with it a strike becomes a `Load` the applier appends. `World._power_field` in the same `world.py` holds the
+  sources' deposit (sorted and cached since PR 3, `src/simcore/core/deposit.py`) until PR 4 hands the sources to
+  heat's `prepare` (`docs/design/sim_core.md` §7). The shell's
   interim `Simulation(world)` seam in `src/simcore/core/simulation.py` goes in PR 4, when `Simulation` carries the
   per-tick digest its strangler tests compare. A third, `place` in
   `src/simcore/core/imagination.py`, opens it because the `imagine` intent kind doesn't exist yet; step 5a's intent
@@ -147,7 +147,7 @@ be opt-in (from `boundaries.md` §9.3).
 | OD-I8 | `Embodiment.evaluate_failures` takes drive drift from `time.time()` (`embodiment/body.py`, about `:293` at `043eab8f`); `world_clock_release_DRAFT.md` names `last_fired` in the same function, not this read. A question to route to #1361's plans, not a fix | new; sent with OD-I7, 2026-11-21 |
 | OD-I9 | **Pushback** against `plans/archive/llm_path_fast_failover.md:43` and `:769` (cloud retries by design) and `docs/architecture/llm_routing.md`'s empty-content legacy path, which breaks Maxim's own rule at `:771` ("Backend failures raise typed exceptions, not return empty content"): the cloud backends turn almost every failure into `LLMResponse(content="")` (`anthropic_backend.py:377`, `:384-409`; `openai_backend.py:358-360`, `:505` at `043eab8f`), retry inside the call (`max_retries`, `capacity_max_retries`, 4 hard-coded gateway retries at `openai_backend.py:391`, and the SDK clients' own, `:450`), and drop cache-write tokens from `LLMResponse` (`anthropic_backend.py:416-422`). Ask: typed `BackendError`s, configurable retry budgets with defaults unchanged, complete usage counts, so a host gets one call, one outcome and can tell load from failure (`inference_placement.md` §1.3, §2.7, §9). Not in O29's subset | new (2026-11-21) |
 | OD-I10 | **Question** to Maxim's 2026-09-28 decision that "the proxy wins for operator paths" (`DECISIONS.md:1150-1192`, `utils/http.py:830`): Overdrive's gateways set `NO_PROXY=*`, which stops httpx's environment lookup from mounting any proxy and urllib's from consulting macOS System Settings (verified with httpx 0.28.1; `inference_gateway.md` §2). Ask: keep that honoured on the backends' path, since it rests on httpx's private `get_environment_proxies` (`DECISIONS.md:1188`), and expose `HTTPEndpoint.strict_address_check` (`utils/http.py:228`, `:875-881`) to backend callers. Not in O29's subset | new (2026-11-21) |
-| OD-I11 | A blocked `base_url` fails open to the cloud. `_OpenAIBackend._get_base_url` (`models/language/openai_backend.py` at `b98954f7`) warns "Blocked base_url … (SSRF protection)" and returns `None`; the OpenAI client then takes its default endpoint, so a local provider without `allow_local_endpoints` sends its prompt to api.openai.com. Run on pymaxim 1.3.4, 2026-11-22: a loopback llama-server provider's prompt reached OpenAI and was refused 401 (lesson 33). Searched Maxim's issues ("SSRF base_url fallback", "Blocked base_url"): nothing found. For a local-first game an NPC's prompt leaves the player's machine on one misconfiguration; the fix is to refuse, not fall back | new (2026-11-22) |
+| OD-I11 | A blocked `base_url` fails open to the cloud. `_OpenAIBackend._get_base_url` (`models/language/openai_backend.py` at `b98954f7`) warns "Blocked base_url … (SSRF protection)" and returns `None`; the OpenAI client then takes its default endpoint, so a local provider without `allow_local_endpoints` sends its prompt to api.openai.com. Run on pymaxim 1.3.4, 2026-11-22: a loopback llama-server provider's prompt reached OpenAI and was refused 401 (lesson 36). Searched Maxim's issues ("SSRF base_url fallback", "Blocked base_url"): nothing found. For a local-first game an NPC's prompt leaves the player's machine on one misconfiguration; the fix is to refuse, not fall back | new (2026-11-22) |
 | OD-I12 | **Question** to the deferred `plans/deferred/vllm_self_hosted_servers.md`, which leaves `chat_template_kwargs` out of scope and treats Qwen3's thinking as `<think>` text in `content`. Run on pymaxim 1.3.4, 2026-11-22: `_OpenAIBackend` against llama-server (`--jinja`, build 10621) serving Qwen3.5 4B returned empty content, 512 of 512 tokens, `stop_reason` `length`: the template's thinking went to `reasoning_content` and spent the whole budget. Nothing in the backend can switch it off (`enable_thinking`, or Ollama's `think`). Does a reasoning model on a self-hosted lane need a per-provider thinking switch, and does this meet the plan's revive trigger? Searched issues ("thinking reasoning local qwen"): nothing found | new (2026-11-22) |
 
 ### Tier A: an agent a host drives (Phase 4 waits on a named subset)
@@ -362,7 +362,7 @@ See `docs/book_to_world.md`. Extraction, timeline and the perspective split, the
 - **Steam:** the Steamworks SDK in a private module, a trademark search and filing for the name, and the WashU OTM
   question settled before any store page.
 - **A creator marketplace, decided, not assumed.** Once players exist, decide whether to run one, from the costs in
-  `docs/design/ip_and_licensing.md` §5 (copyright takedowns and the safe harbour a cut puts at risk, EU seller
+  `docs/design/ip_marketplace.md` §3 (copyright takedowns and the safe harbour a cut puts at risk, EU seller
   verification, payouts through a merchant of record, Steam's rules on purchases and trading, curation, unit
   economics). Nothing for a marketplace is built before that decision; content identity (Phase 1) and the IP gate
   (Phase 6) are needed with or without one.

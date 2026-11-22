@@ -26,9 +26,11 @@ both stay with review (B36). Marker lines don't count toward a design's word bud
 | `server.messages` | `design/client_rendering.md` §4.1 | vocabulary | 5 |
 | `client.messages` | `design/tile_and_client.md` §3.3 | vocabulary | 4 |
 | `agent_failed.reasons` | `design/npcs_and_sem.md` §6.6 | vocabulary | 3 |
+| `snapshot.channels` | `design/client_rendering.md` §4.2 | vocabulary | 3 |
+| `fuel.objects.columns` | `design/client_objects.md` §3.2 | vocabulary | 6 |
+| `fuel.segments.columns` | `design/client_objects.md` §3.3 | vocabulary | 4 |
 
 Not registered yet, and why:
-- The snapshot channels (`client_rendering.md` §4.2) wait on #31's ruling.
 - The log header and the tiers are prose and table text, not code-span vocabularies.
 
 The references that set the counts above three (2026-11-21):
@@ -46,3 +48,6 @@ The references that set the counts above three (2026-11-21):
   step 7's fixtures.
 - `client.messages` (3): tile §3.1–§3.2 and `checklists.md` step 5 name the move and kindle messages;
   `vertical_slice.md` §3.
+- `fuel.objects.columns` (5): `fire_solid.md` §1.1's `objects` table is the FuelStore's storage, a different
+  contract whose columns share five names with the wire's.
+- `fuel.segments.columns` (3): `client_objects.md` §5.2 gives one display rule per column.

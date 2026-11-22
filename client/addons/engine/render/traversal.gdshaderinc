@@ -33,16 +33,6 @@ struct Walk {
 	int axis;    // the axis of the boundary it crossed to enter
 };
 
-// The world (x, y, z) is Godot's (x, z, -y), so a Godot vector (x, y, z) is the world's (x, -z, y): the same map
-// as IsoCamera.to_godot and to_world.
-vec3 godot_to_world(vec3 g) {
-	return vec3(g.x, -g.z, g.y);
-}
-
-vec3 world_to_godot(vec3 w) {
-	return vec3(w.x, w.z, -w.y);
-}
-
 int material_at(ivec3 c) {
 	return int(round(texelFetch(material_tex, c, 0).r * 255.0));
 }

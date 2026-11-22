@@ -50,9 +50,12 @@ How the rule is kept, so far:
 
 **Known gaps (tracked, not gated yet):**
 - NPC inference (no streaming yet, load versus failure, first hops, spend): `docs/design/inference_placement.md` §6.3.
-- Late in a burn the coarsest rig lags (crate integrity 0.55 at 0.2 m vs 0.37–0.38 at 0.1 and 0.05 m after 150
-  turns): a coarse cell degrades as one block. Onset agrees to within 5%. It falls below 0.7 at turn 138 at 0.2 m
-  against 104 at 0.1 m. Red gate: `tests/test_cross_tier.py::test_the_crate_is_badly_burned_at_the_same_turn_at_every_rig`.
+- Late in a burn the coarsest rig lags (crate integrity 0.539 at 0.2 m vs 0.370 and 0.381 at 0.1 and 0.05 m after 150
+  turns): a coarse cell degrades as one block. Onset agrees to within 5%. It falls below 0.7 at turn 137 at 0.2 m
+  against 104 at 0.1 m (one substep per 6 s turn, 2026-11-22). Red gate: `tests/test_cross_tier.py::test_the_crate_is_badly_burned_at_the_same_turn_at_every_rig`.
+- Structural glow reads the cell-mean temperature, not the face's: a heated face glows late and dim, by up to
+  q·(dx/2)/k in steady state (29 K per kW/m² for concrete at 0.1 m). Face skins would fix it
+  (`docs/design/client_objects.md` §5.1; owner, 2026-11-22).
 - No convection or radiation: air only conducts, so rooms heat too slowly and fires must sit on a material.
 - Destroying a cell removes its heat (it becomes air at air's heat capacity). Measured: a 5.4-minute crate-and-pallet
   burn lost 42.2 of 84.0 MJ to 14 destroyed cells (commit 6e8f037).
@@ -83,7 +86,7 @@ How the rule is kept, so far:
   0.00 / 0.26 / 0.34. `temperature_max` diverges too (540 / 614 / 978 °C at turn 27). **The cause is measured:**
   the crate's mean temperature agrees between laptop and rig to within 1 °C through turn 22, so the crate's heat content agrees, but
   the degradation driver (the mean of the excess of each cell's temperature over the limit, in
-  `damage.thermal_degrade`) is 1.3–1.5× larger at rig. The law does converge, slowly (integrity at turn 22 is 0.703 /
+  `damage/thermal.py`) is 1.3–1.5× larger at rig. The law does converge, slowly (integrity at turn 22 is 0.703 /
   0.567 / 0.514, roughly first order), but the coarse rig sits far off, because a threshold is applied to cell means
   (CLAUDE.md, "Reconstruct, decide at the point, integrate upward"). Scaling the rate by cell size would make the gate pass and is a band-aid; the law itself is held by a
   closed-form test at every rig (`tests/test_validation.py::test_thermal_degradation_follows_its_closed_form_at_every_rig`). The fix is the Phase 1 fuel model, with burning as a
@@ -165,7 +168,7 @@ from authored footprints in metres so the answer is the same at every spacing). 
 footprint; named solids can't share space with a later solid, so a footprint never covers another object's cells.
 Parameters are a closed set per affordance, plus the keys Maxim adds itself (`target`). Every number is a finite real
 number: NaN, infinities, bools and numeric strings are refused, never guessed. A refusal names the parameter in plain
-words and changes nothing. The physics checks again underneath: `HeatSource` and `damage.strike` refuse non-finite
+words and changes nothing. The physics checks again underneath: `HeatSource` and `law.Load` refuse non-finite
 and negative values, whoever calls them. The limits are physics-safety ceilings, not what a body can do; an NPC's
 capability will come from its body and energy (`docs/roadmap.md`, Phase 5).
 
@@ -173,8 +176,8 @@ Actions change cells; only `World.advance` moves time.
 
 ## Fine-scale state drives graphics
 
-`encoding.snapshot` quantizes per-cell state into arrays a client uploads as 3-D textures: `material`, `crack`
-(1 − integrity), `glow` (from 525 °C, near the Draper point, to 1500 °C) and `temperature_c`. Shaders read them
+`encoding.snapshot` quantizes per-cell state into arrays a client uploads as 3-D textures, the channels
+`client_rendering.md` §4.2 lists; its interim `glow` channel retires at step 7 (`client_objects.md` §5.1). Shaders read them
 directly, so the finest physical state shows up as cracks, scorch and glowing metal without the renderer knowing
 any physics. The cell size sets the finest detail physics can drive; the client can add sub-cell detail (noise,
 decals) that is purely visual.

@@ -33,7 +33,7 @@ sampling:
   retry_seed: "100 * attempt + seed"  # attempt 1, 2 or 3 in A3: 100-107, 200-207, 300-307, apart from the base seeds
   max_output_tokens: 4096
   # Thinking off: chat_template_kwargs {enable_thinking: false}, through llama-server. Verified on the mini
-  # (2026-11-22, lesson 33): without it, S spends all 4,096 tokens reasoning and answers nothing; with it, none.
+  # (2026-11-22, lesson 36): without it, S spends all 4,096 tokens reasoning and answers nothing; with it, none.
   thinking: off
 
 protocol:

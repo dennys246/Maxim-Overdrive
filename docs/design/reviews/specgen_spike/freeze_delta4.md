@@ -55,3 +55,6 @@ NEW-D folds. NEW-E needs the owner. Nothing is a BLOCKER.
 - **NEW-E, the owner's ruling (2026-11-22):** accepted. Plan §6 reports L and H without the prompts tagged
   `template`, replacing "without furniture" in `freeze_delta2.md`'s rulings, because the tags isolate the examples'
   structure wherever it appears.
+
+**Renumbered at the merge of `origin/main` 2586ed7 (2026-11-22):** the lessons these records call 32 and 33 are now
+lessons 35 and 36, after `main`'s new lessons 32 to 34.

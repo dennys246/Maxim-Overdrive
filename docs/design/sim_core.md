@@ -3,8 +3,8 @@
 **Status:** step 5a's composition note (`foundations_plan.md` row 5a, O34), 2026-11-21, folded from its round-1
 review and its delta round (`reviews/sim_core/`). The owner then stopped the paper rounds (2026-11-21): what remains
 is checked on 5a's code. The note holds only what other modules and tests depend on. Mechanisms that only running can
-check are tests in `docs/plans/checklists.md` ("Step 5a"), each citing its section here. Where another document owns
-a contract, this one links to it. The owner's rulings and the fold tables live in `reviews/sim_core/`.
+check are tests in `docs/plans/checklists.md` ("Step 5a"), each citing its section here. The owner's rulings and the
+fold tables live in `reviews/sim_core/`.
 
 ## 1. What 5a builds, and what it doesn't
 
@@ -41,9 +41,10 @@ short list of named steps (§3).
   from a loaded state start alike.
 - **One owner of time,** `Simulation` (`boundaries.md` §7.3). `World.advance`, `World.turn`, `turn_seconds` and
   `grid.time_s` go.
-- **Where the new types live** (`boundaries.md` §2.2's layers): `FieldSpec`, `Changes`, `Topology` and its request
-  type with the cells, since laws (a layer above) emit requests; `Load` with the laws, so damage can read it and
-  `intents` imports it; `Clock`, `SimConfig`, `TickReport` and `WorkCounters` with the simulation.
+- **Where the new types live** (`boundaries.md` §2.2's layers): `FieldSpec`, `Topology` and its request type with
+  the cells, since laws (a layer above) emit requests; `Load` and `Changes` (with load effects) with
+  the laws (owner, 2026-11-22, `reviews/sim_laws/fold.md`); `Clock`, `SimConfig`, `TickReport` and `WorkCounters` with the
+  simulation.
 
 ## 3. The clock and the tick
 
@@ -97,11 +98,11 @@ Simulation.frames -> FrameView                                   # the latest pu
   registry field names, §6), and:
   - `stable_dt(views) -> float` over `bound_reads`, a declared subset of `reads`, so its cache keys on those fields'
     versions (§7);
-  - `prepare(views)` and a kernel: arrays and scalars in, preallocated outputs, every order-sensitive reduction in
-    `prepare`. That is the numba seam; numba waits for a profile.
-  - `step(views, handles, dt_s) -> Changes`. It receives read-only views of its `reads` and write handles for its
-    `writes` only, so an undeclared read or write is a type error, not a convention. A ledger handle joins when the
-    ledger lands (§2).
+  - later, `prepare(views)` and a kernel: arrays and scalars in, preallocated outputs, every order-sensitive
+    reduction in `prepare`. That is the numba seam; numba waits for a profile, and until then `step` gets the grid.
+  - `step(grid, dt_s, inputs) -> Changes`, run narrowed to the law's writer token: a read outside `reads` or a
+    write outside `writes` raises, and its writable arrays are revoked on return (owner, 2026-11-22,
+    `reviews/sim_laws/fold.md`). A ledger handle joins when the ledger lands (§2).
 - **`Changes`** holds the topology requests the law made (§5.1) and, per load, the effect it resolved.
 - **Cadence** is one of:
   - `per_record`: in the apply phase (D10 step 1), right after each record's stage 2;
@@ -115,7 +116,7 @@ Simulation.frames -> FrameView                                   # the latest pu
   rule 1. In 5a it is `(damage.loads, heat, damage.thermal)`: `damage.loads` per record, heat and thermal degradation
   per substep (owner, 2026-11-21). Damage stops being heat's `on_substep` callback.
 - **After any `Changes` with a topology request,** every law's `prepare` reruns (through the caches) before the next
-  substep. Today `heat.step` refreshes source power after every destroying substep, and that guard stays.
+  substep. Today the orchestrator refreshes source power after every editing substep, and that guard stays.
 - **The header records the tuple in order,** with each law's `name`, `version` and cadence (`sem_stimuli.md` §5's
   slot). A log recorded under another order is refused.
 
@@ -139,8 +140,9 @@ Simulation.frames -> FrameView                                   # the latest pu
   command), construction and destruction produce topology requests: `material`, `original_material`, `region_id`, a
   new cell's `integrity`, and keyed-table rows (`fire_solid.md` §1.4's `pending` and id counter, whose timing §1.4
   owns). A batch is one requester's one invocation: one record's apply (its stage 2 and its loads), one law's one
-  substep, or construction. `Topology` applies a batch's requests in key order and bumps `topology_version` once per
-  batch. It is the choke point `world_v2.md` §2.2 names.
+  substep, or construction. `Topology` applies a batch's requests in key order (an unkeyed request's key is its
+  emission index: where paints overlap, the later wins) and bumps `topology_version` once per
+  batch that changed a cell's value or the region table (owner, 2026-11-22, `reviews/sim_laws/fold.md`). It is `world_v2.md` §2.2's choke point.
 - **Laws couple only through fields.** No law imports or calls another, held by an import contract; an operator two
   laws share lives in a module that is not a law. Contact's exchange with the solid is the declared field
   `contact_exchange`: per coupling row, written by contact each tick it runs, read and reset by the solid law at its
@@ -164,7 +166,8 @@ Simulation.frames -> FrameView                                   # the latest pu
   - its writers, ordered: laws in cadence and tuple order, `Topology`, construction (and the save's loader), or an
     input appender (§5.1). This column is the writers' one owner.
 - **Inputs are declared beside fields:** `sources`, `source_exposure` (§3) and the tick's `loads`, each with its
-  appender (the applier) and its one resolving law: heat for heat sources, damage for loads.
+  appender (the applier; `Simulation` for `source_exposure`) and its one resolving law: heat for sources, damage for
+  loads.
 - **Every reader takes it from there:** storage, the snapshot, the per-tick digest, the save and sem_stimuli §5's
   producer closure, computed over every law in the tuple whatever its cadence.
 - **A generated artifact,** `docs/generated/fields.md`, is committed and compared byte for byte by a test.
@@ -173,7 +176,7 @@ Simulation.frames -> FrameView                                   # the latest pu
 
 - **Regions become one `region_id` u16 array** (`world_v2.md` §2.4). Id 0 is unowned. `Region` keeps its authored
   footprint.
-- **`topology_version: int`** increments once per topology batch (§5.1).
+- **`topology_version: int`** is Topology's version; §5.1 says when it moves.
 - **A cache's key is the values its result reads.** So:
   - face conductances, per `topology_version`;
   - each law's `stable_dt`, per the versions of its `bound_reads` (heat's are topology fields, so per
@@ -183,32 +186,31 @@ Simulation.frames -> FrameView                                   # the latest pu
     under the same id then misses the cache, as it must;
   - region reductions, per `topology_version` and the write tick of each field they read.
 - **A cache holds only what the current state needs:** entries for the current sources at the current
-  `topology_version`. Replacing, removing or bumping evicts, so a cache's contents are a function of state, and the
-  eager build reproduces them on load.
+  `topology_version`. Replacing, removing or bumping evicts, and so does a window's rollback, which restores the
+  version a later edit can reach again (owner, 2026-11-22, `reviews/sim_step/fold.md` S1). So a cache's
+  contents are a function of state, and the eager build reproduces them on load.
 - **The overlap is computed over the source's bounding box, padded by one cell.** That is bit-identical to the
   whole-grid computation while `sphere_overlap`'s values are multiples of 1/64, which its 4³ sub-sample guarantees:
   their sums are exact in any order (verified, `reviews/sim_core/fold.md`). An exact-overlap replacement would break
   that and must be recorded as a digest break (§12).
-- **The caches are 5a's precondition, not an optimisation.** Performance's re-measurement on the T3 tile
-  (`reviews/sim_core/delta1_perf.md`): today's `advance(6.0)` takes about 115 ms at 0.1 m; 5a at `P` = 0.5 s is
-  about 4.2× that without the caches and about 0.7× with them. At 0.2 m the fixed step runs 12 heat substeps per 6 s
-  against today's 4, so 5a costs 1.4–1.6× today there, an expected cost that bar 7 records.
+- **Cost, measured at PR 3 on the T3 tile** (`reviews/sim_step/round1_det_perf.md`), per 6 world seconds, against
+  PR 2's `advance(6.0)`, with only the deposit's cache: 0.88–0.96× at 0.1 m and 2.4× at 0.2 m. At 0.1 m a step is
+  42% `stable_dt` and 24% face conductances; with those caches, an estimate gives 0.35× and 0.75×.
 - **Accumulations over named collections iterate in sorted-key order** (`boundaries.md` §6.2; string keys by code
-  point). Today `World._power_field` iterates `sources` in insertion order; 5a moves source power into heat's
-  `prepare`, sorted.
+  point).
 
 ## 8. The fixed physics step, replacing the substep floor
 
 - **The rule** is `splitting.md` §6 rule 3's, with its safety factor: at the start of each physics step,
   `n = substep_refine · max(1, ceil(P_s / min over laws of stable_dt))`, `dt = P_s / n`. `substep_refine` is hashed
   config, 1 in shipped play; tests raise it to refine time on the shipped path (§11).
-- **Replan when a change tightens the bound** (owner, 2026-11-21): the rest of the step is split evenly at the new
-  bound. What remains is computed from counts, `(planned − taken) · dt`, never from a running float sum.
+- **Replan when a change tightens the bound** below `substep_refine · dt` (owner, 2026-11-21; the refined trigger
+  owner, 2026-11-22, `reviews/sim_step/fold.md` N3): the rest is split evenly by the same rule. What remains
+  is computed from counts, `(planned − taken) · dt`, never from a running float sum.
 - **On shipped data `n` is 1** at every verification grid (heat's bound is 240, 60 and 15 s at 0.2, 0.1 and 0.05 m,
   measured), so the new substep is coarser than today's at 0.1 and 0.05 m, and the replan is reachable only from a
   constructed material table.
-- **The substep floor goes:** `heat.min_substeps`, `FLOOR_AREA_M2`, its `TEMPORARY` marker and
-  `tests/test_determinism.py::TURN_SUBSTEPS`. Only if bar 1 fails does a measured accuracy floor join the rule, as a
+- **No substep floor** (PR 3 removed it). Only if bar 1 fails does a measured accuracy floor join the rule, as a
   truth constant (owner, 2026-11-21).
 
 ## 9. The per-tick digest

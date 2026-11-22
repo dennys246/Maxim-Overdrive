@@ -34,7 +34,7 @@ _NUMERIC = {
     "collections": "Mapping, Sequence and friends from collections.abc",
     "contextlib": "the write window's context manager",
     "dataclasses": "frozen value types",
-    "enum": "StrEnum, the refusal codes' closed vocabulary",
+    "enum": "StrEnum, the closed vocabularies: refusal codes and law cadences",
     "unicodedata": "a name's NFKC form and its letters' Unicode names (schema.Text); pure, no IO",
     "idna": "IDNA2008's code-point tables and contextual rules for a name's characters (schema.Text); pure, no IO",
     "hashlib": "sha256 for versioned content digests (simcore.core.digest); not the builtin hash()",
