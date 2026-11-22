@@ -67,6 +67,7 @@ SHOTS = tuple(
         (f"fuel-{tier}-noflame.png", FUEL_SCENE, tier, "shaded_noflame"),
         (f"fuel-{tier}-fuel_mask.png", FUEL_SCENE, tier, "fuel_mask"),
         (f"fuel-{tier}-flame_mask.png", FUEL_SCENE, tier, "flame_mask"),
+        (f"fuel-{tier}-update.png", FUEL_SCENE, tier, "shaded_update"),
     )
 )
 

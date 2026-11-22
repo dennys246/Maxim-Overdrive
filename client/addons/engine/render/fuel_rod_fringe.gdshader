@@ -1,15 +1,23 @@
-// The rod's colour pass (fuel_rod.gdshaderinc), drawn after every rod's depth pass as its next pass: the rod's colour,
-// blended by its coverage over the whole widened rod, depth-tested against every rod's silhouette, never writing depth.
-// Inside its own silhouette it meets its own depth and passes; behind another rod's silhouette it is hidden.
+// The rod's colour (fuel_rod.gdshaderinc), in two passes drawn after every rod's depth pass: the core (coverage 0.5 and
+// up, the silhouette the depth pass wrote) and then the fade outside it, each blended by its coverage, depth-tested
+// against every rod's silhouette, never writing depth. Every rod's core draws before any rod's fade, so a front rod's
+// fade always blends over a rod behind it, whatever their instance order (review D1, owner 2026-11-22): sorting by
+// centre got only crossings whose centres line up right. Rods that touch are the exception: their widened shells
+// interpenetrate, so near the contact the rear rod's depth hides part of the front fade (fuel_leftovers N-1).
+// One shader, two materials, so both halves compute the coverage the depth pass did with the same code: a fragment
+// falls in exactly one of them.
 shader_type spatial;
 render_mode unshaded, cull_back, blend_mix, depth_draw_never;
 
 #include "res://addons/engine/render/fuel_rod.gdshaderinc"
 
+// false: the core pass; true: the fade pass.
+uniform bool fade_half = false;
+
 void fragment() {
 	int row;
 	float coverage = rod_coverage(row);
-	if (coverage <= 0.0) {
+	if (coverage <= 0.0 || (coverage < 0.5) != fade_half) {
 		discard;
 	}
 	ALBEDO = rod_albedo(row);

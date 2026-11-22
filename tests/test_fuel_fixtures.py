@@ -8,6 +8,7 @@ import gzip
 import hashlib
 import importlib.util
 import json
+import math
 import re
 import sys
 from pathlib import Path
@@ -59,8 +60,9 @@ def test_segments_count_by_fire_solids_integer_rule(length_m, count):
     assert ff.segment_count(length_m) == count
 
 
-def test_every_table_carries_client_objects_columns_with_their_dtypes_and_encodings():
-    header, blob = ff.content()
+@pytest.mark.parametrize("name", list(ff.FIXTURES))
+def test_every_table_carries_client_objects_columns_with_their_dtypes_and_encodings(name):
+    header, blob = ff.content(name)
     assert set(header["tables"]) == set(ff.TABLES)
     for table, spec in ff.TABLES.items():
         got = header["tables"][table]
@@ -71,6 +73,15 @@ def test_every_table_carries_client_objects_columns_with_their_dtypes_and_encodi
             assert entry["size"] == got["rows"] * np.dtype(ff.NUMPY[dtype]).itemsize
             assert ("scale_den" in entry) == (encoding == ff.LINEAR)
     assert header["data_size"] == len(blob)
+
+
+def test_the_leaning_plank_faces_the_golden_camera():
+    # iso_camera.gd's yaw and elevation: if the camera moves, the plank stops facing it and the burial proof with it.
+    source = (ff.ROOT / "client" / "addons" / "engine" / "render" / "iso_camera.gd").read_text()
+    elevation = math.radians(float(re.search(r"const ELEVATION_DEG: float = ([\d.]+)", source)[1]))
+    yaw = math.radians(float(re.search(r"const BASE_YAW_DEG: float = ([\d.]+)", source)[1]))
+    back = (math.sin(yaw) * math.cos(elevation), -math.cos(yaw) * math.cos(elevation), math.sin(elevation))
+    assert pytest.approx(back, abs=1e-12) == ff.TOWARD_CAMERA
 
 
 def _column(header, blob, table, column):
@@ -131,6 +142,25 @@ def test_the_stick_fixture_is_the_stability_measures_stick():
     radius = np.frombuffer(blob[entry["offset"] : entry["offset"] + entry["size"]], dtype="<f4")
     assert radius.tolist() == [pytest.approx(0.01)]
     assert header["tables"]["segments"]["rows"] == 50
+
+
+@pytest.mark.parametrize("name", list(ff.FIXTURES))
+def test_every_fixture_temperature_is_inside_the_clip_and_the_clip_is_the_clients(name):
+    # Review AW-D1: §3.3's clip has three copies until step 7's encoder: this producer's, the decoder's refusal and the
+    # shader's clamp. An encoder clipping at -273.15 would send f16 -273.25, which the decoder refuses.
+    low, high = ff.TEMPERATURE_CLIP_C
+    header, blob = ff.content(name)
+    temperatures = _column(header, blob, "segments", "surface_temperature_c").astype(np.float64)
+    assert ((temperatures >= low) & (temperatures <= high)).all()
+    assert np.float16(low) == low  # exact in f16, so a clipped value stays inside
+    assert np.float16(high) == high
+    render = ROOT / "client" / "addons" / "engine" / "render"
+    snapshot = (render / "fuel_snapshot.gd").read_text()
+    shader = (render / "fuel_object.gdshaderinc").read_text()
+    assert f"const TEMPERATURE_MIN_C: float = {low}\n" in snapshot
+    assert f"const TEMPERATURE_MAX_C: float = {high}\n" in snapshot
+    assert f"const float FUEL_MIN_C = {low};" in shader
+    assert f"const float FUEL_MAX_C = {high};" in shader
 
 
 def test_the_recipe_palette_colours_every_recipe_the_fixture_names():

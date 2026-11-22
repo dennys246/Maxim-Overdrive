@@ -29,7 +29,8 @@ uniform float floor_half_m = 0.0;
 uniform int fuel_debug = 0;
 
 const int ROW_WIDTH = 256;
-// §3.3's clip of surface_temperature_c, applied here too: an f16 inf would otherwise drive the HDR glow to inf.
+// §3.3's clip of surface_temperature_c, applied here too; FuelSnapshot refuses a frame outside it (owner ruling 9).
+// Unseen in the goldens: +inf drew as 6,000 °C's white on llvmpipe with the linear tonemapper (ruling 6).
 const float FUEL_MIN_C = -273.0;
 const float FUEL_MAX_C = 6000.0;
 // §5.1: the glow's start and span are client constants now that the input is degrees C.
