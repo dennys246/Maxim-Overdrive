@@ -124,7 +124,25 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
   and `tests/test_determinism.py::TURN_SUBSTEPS` updated, and rework its other callers:
   `tests/test_heat.py::_error` and `::test_insulated_world_conserves_heat` pass it to 3,600 s calls, where it means
   nothing, and `::test_the_substep_floor_follows_the_grid_spacing_as_the_rig_profiles_did` pins it.
-- A short composition note first: cell state, body state, ledger, clock, intent log; no god object.
+- A short composition note first: cell state, body state, ledger, clock, intent log; no god object. **Written:**
+  `docs/design/sim_core.md` (2026-11-21); the tests it leaves here, by section:
+  - §4: `step` refuses a record for another tick and records out of key order; one frame is published per tick, and
+    `tests/test_sem_bridge.py`'s strike-then-read reads the next tick's frame;
+  - §5: the reversed law tuple gives the same outcome class (`same_class_under_refinement`); each law's `prepare` plus
+    kernel equals the unsplit law bit for bit; damage as the second law, and the split's digest effect recorded;
+  - §6: `docs/generated/fields.md` matches the registry byte for byte, and every reader (storage, snapshot, digest,
+    memory budget) takes its fields from the registry;
+  - §7: the conductance and overlap caches equal the uncached path bit for bit; the overlap is computed over the
+    source's bounding box and recomputed only on a new `topology_version` (counted, §9); sources accumulate in sorted
+    key order;
+  - §8: a mid-step change that tightens stability replans the rest of the step (the step-4 heat test, moved to the
+    law list); the floor, `FLOOR_AREA_M2` and `TURN_SUBSTEPS` are gone; bar 1 (time error below space error at
+    P = 0.5 s, 0.1 m) measured, and a truth-constant accuracy floor added only if it fails;
+  - §9: `WorkCounters` are identical on replay, and the cross-grid studies read them;
+  - §11: each digest break is named in the commit, and the first replay golden is recorded after 6.0a;
+  - §12: `tests/test_ownership.py`'s writer scan names `Simulation.step` and `from_scene`; the three
+    `TEMPORARY(phase1/sim-clock)` window markers and `heat.py`'s floor marker are gone, and the roadmap's Phase 1 list
+    with them.
 - The step as a fixed, ordered tuple of laws, each with `stable_dt(state)` and `step(state, dt, ledger)`;
   topology changes read from `topology_version`. No discovery.
 - **The field registry:** one list in code that the grid's storage, the snapshot, the determinism digest, the
