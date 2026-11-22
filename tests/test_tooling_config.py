@@ -274,6 +274,7 @@ def _core_modules() -> set[str]:
 # this set or the contract's forbidden list in the change that makes it.
 CORE_PUBLIC_SURFACE = {
     "simcore.core.world",
+    "simcore.core.simulation",  # step 5a: the world's one owner of time
     "simcore.core.applier",
     "simcore.core.frames",
     "simcore.core.intents",
@@ -289,6 +290,7 @@ CORE_PUBLIC_SURFACE = {
 MEMBRANE_SURFACE = CORE_PUBLIC_SURFACE - {
     "simcore.core.materials",
     "simcore.core.world",
+    "simcore.core.simulation",
     "simcore.core.schema",
     "simcore.core.digest",
 }

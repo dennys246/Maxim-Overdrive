@@ -36,7 +36,7 @@ from dataclasses import dataclass
 REGISTRY = "docs/design/contracts.md"
 KINDS = {"vocabulary", "signature"}
 MARKER = re.compile(r"^<!-- contract: ([a-z0-9_.-]+)(?:: ([^>]*?))? -->\s*$")
-SUPERSEDED = re.compile(r"^> \*\*Superseded", re.M)
+SUPERSEDED = re.compile(r"^> \*\*Superseded(?! in part)", re.M)  # a partial supersession leaves the design live
 SCOPE = re.compile(r"^docs/(design|plans)/[^/]+\.md$|^docs/(roadmap|architecture)\.md$")
 DESIGN = re.compile(r"^docs/design/[^/]+\.md$")
 SPAN = re.compile(r"`([^`\n]+)`")
@@ -45,8 +45,8 @@ ITEM = re.compile(r"^(?:[-*]|\d+\.) ")
 ROW = re.compile(r"^\| `([a-z0-9_.-]+)` \| `([^`]+)` §(\d+(?:\.\d+)*) \| (\w+) \| (\d+) \|\s*$")
 FOLD = re.compile(r"^#{1,6} Fold table", re.M)
 RULING = re.compile(
-    r"^(?:(?:[-*]|\d+\.) \*\*(?:O|OA|D|T|VS)\d+[a-z]?[.:*]|\*\*Ruled\b)", re.M
-)  # "- **D20.", "**Ruled 2026-…:**"
+    r"^(?:(?:[-*]|\d+\.) )?\*\*(?:(?:O|OA|D|T|VS)\d+[a-z]?[.:*]|Ruled\b)", re.M
+)  # "- **D20.", "**D20.", "1. **O3.", "**Ruled 2026-…:**", "- **Ruled …"
 
 
 @dataclass(frozen=True)
@@ -105,6 +105,9 @@ def registry(files: dict[str, str]) -> tuple[list[Contract], list[str]]:
         name, path, section, kind, at = m.groups()
         if kind not in KINDS:
             problems.append(f"{REGISTRY}:{n}: {name}'s kind is {kind!r}; it must be one of {sorted(KINDS)}")
+            continue
+        if int(at) < 1:
+            problems.append(f"{REGISTRY}:{n}: {name}'s restates at is {at}; it must be at least 1")
             continue
         if any(c.name == name for c in out):
             problems.append(f"{REGISTRY}:{n}: {name} is registered twice")
@@ -216,12 +219,26 @@ def restatements(scope: dict[str, str], c: Contract, defined: list[str], owner: 
     for rel, text in sorted(scope.items()):
         for b in blocks(text):
             kept = [ln for k, ln in enumerate(b.lines) if (rel, b.start + k) not in owner]
-            spans = set(SPAN.findall("\n".join(kept)))
-            hit = [m for m in defined if m in spans]
+            hit = max((([m for m in defined if m in spans]) for spans in counted_spans(kept)), key=len, default=[])
             if len(hit) >= need:
                 shown = ", ".join(f"`{m}`" for m in hit[:4])
                 out.append(f"{rel}:{b.start + 1}: restates {c.name} ({shown}); link to {c.path} §{c.section} instead")
     return out
+
+
+def counted_spans(lines: list[str]) -> list[set[str]]:
+    """The span sets a restatement is counted over. A paragraph or a table is one set. A list is each item on its own,
+    plus each item's first span (`- `a`: …`, `- **A** (`a`) …`), so a copy one member per bullet counts and mentions
+    deeper in a long list's items don't add up."""
+    if not lines or not ITEM.match(lines[0]):
+        return [set(SPAN.findall("\n".join(lines)))]
+    items: list[list[str]] = []
+    for ln in lines:
+        if ITEM.match(ln):
+            items.append([])
+        items[-1].append(ln)
+    heads = {spans[0] for it in items if (spans := SPAN.findall("\n".join(it)))}
+    return [heads] + [set(SPAN.findall("\n".join(it))) for it in items]
 
 
 def structural(files: dict[str, str]) -> list[str]:
@@ -273,6 +290,8 @@ def marker_problem(c: Contract, block: Block, marker: Marker, defined: list[str]
     positions = member_positions(block)
     if not defined:
         return f"{c.name}: its marker names no members"
+    if marker.keyword == "|":
+        return f"{c.name}: its marker has a '|' with nothing after it"
     if marker.keyword not in ("", "not:"):
         return f"{c.name}: its marker reads {marker.keyword!r} after '|'; only 'not:' may follow it"
     checks = [

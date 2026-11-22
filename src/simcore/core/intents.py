@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any
 
-from simcore.core.checks import finite_real, finite_vector, shown
+from simcore.core.checks import finite_real, finite_vector, identity_key, shown, whole_number
 from simcore.core.limits import ActionLimits
 from simcore.core.refusals import RefusalCode, Refused
 
@@ -138,3 +138,69 @@ def parse_action(affordance: object, params: object, limits: ActionLimits) -> Ac
         action = Extinguish()
     action.check(limits)
     return action
+
+
+# -- the log record (boundaries.md §6.2, the record's and the ordering key's owner) ------------------------------------
+
+# A record's kind for each typed action, in the log's v0 vocabulary (sim_core.md's 5a ruling: 5a's logs carry v0).
+# `Extinguish` is the action the affordance calls "extinguish"; the log's word is "douse".
+RECORD_KIND_OF: Mapping[type, str] = MappingProxyType({Ignite: "ignite", Strike: "strike", Extinguish: "douse"})
+
+# kind_rank, closed: boundaries.md §6.2 owns the values. Only the kinds a record can carry today are listed; a kind
+# joins with its payload type (moves at 20 with 5b, controls and host commands with the log), so a new kind can never
+# take a rank nobody wrote.
+KIND_RANK: Mapping[str, int] = MappingProxyType({"ignite": 30, "strike": 30, "douse": 30})
+
+_U32 = 2**32
+_I64 = 2**63
+
+
+def _bounded(value: object, what: str, below: int, *, minimum: int = 0) -> int:
+    n = whole_number(value, what)
+    if not minimum <= n < below:
+        raise Refused(f"{what} must be from {minimum} to {below - 1}, got {n}", code=RefusalCode.OUT_OF_RANGE)
+    return n
+
+
+@dataclass(frozen=True)
+class LogRecord:
+    """One input record, with boundaries.md §6.2's field names and its ordering key.
+
+    5a's first PR carries world actions only: ``params`` is the typed action, ``target`` the region it acts on. The
+    rest of §6.2's record (schema_version, the observed and issued ticks, the audit payload) and the log's file format
+    join in step 5a's PR 4, as fields with their own payload kinds, so this type widens rather than renames."""
+
+    apply_tick: int
+    apply_us: int
+    actor_id: int
+    seq: int
+    kind: str
+    target: str
+    params: Action
+
+    def __post_init__(self) -> None:
+        # Each is stored back as a plain int, so a numpy integer can't reach the key (it must serialise; PR 4's log).
+        object.__setattr__(
+            self, "apply_tick", _bounded(self.apply_tick, "apply_tick", _I64, minimum=1)
+        )  # tick 0 is construction (sim_core.md §3)
+        object.__setattr__(
+            self, "apply_us", _bounded(self.apply_us, "apply_us", _I64)
+        )  # a step also holds it below its tick's length
+        object.__setattr__(
+            self, "actor_id", _bounded(self.actor_id, "actor_id", _U32)
+        )  # ordering keys are integers (§6.2, D-N2)
+        object.__setattr__(self, "seq", _bounded(self.seq, "seq", _U32))
+        identity_key(self.target, "target")
+        if not isinstance(self.kind, str) or self.kind not in KIND_RANK:
+            raise Refused(f"unknown record kind {shown(self.kind)}", code=RefusalCode.UNKNOWN_KIND)
+        if RECORD_KIND_OF.get(type(self.params)) != self.kind:
+            raise Refused(f"a {self.kind} record's params must be its typed action", code=RefusalCode.BAD_SHAPE)
+
+    @property
+    def kind_rank(self) -> int:
+        return KIND_RANK[self.kind]
+
+    @property
+    def key(self) -> tuple[int, int, int, int, int]:
+        """The log's one ordering key (boundaries.md §6.2): (apply_tick, kind_rank, apply_us, actor_id, seq)."""
+        return (self.apply_tick, self.kind_rank, self.apply_us, self.actor_id, self.seq)

@@ -176,8 +176,8 @@ class World:
     def advance(self, seconds: float | None = None) -> int:
         """Run physics for one turn (or ``seconds``). Returns heat substeps taken."""
         seconds = self._turn_seconds if seconds is None else seconds
-        # TEMPORARY(phase1/sim-clock): World.advance owns the write window for the laws until Simulation.step exists
-        # (boundaries §4.1, 2c); there the window moves into the step, beside the applier's, and this method goes.
+        # TEMPORARY(phase1/sim-clock): World.advance owns the write window for the laws until Simulation.step owns it
+        # (boundaries §4.1, 2c; sim_core.md §12): step 5a's PR 2 moves it into the step's law list, and this goes.
         with self.writing():
             taken = heat.step(
                 self._grid,

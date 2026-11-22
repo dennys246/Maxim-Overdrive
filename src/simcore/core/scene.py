@@ -262,7 +262,7 @@ _V0_REFUSED = (
     "scene files are repo-only, so an old version is refused, never migrated (step 3b): add its spawns and set "
     "version 1"
 )
-_LATER = "zones, vents and gaps arrive with scene v2 in Phase 2 (world_model F13)"
+_LATER = "zones, vents and gaps arrive with a later scene version in Phase 2 (world_model F13)"
 SCENE = Format(
     "scene",
     1,
