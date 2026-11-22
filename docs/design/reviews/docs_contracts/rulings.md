@@ -48,12 +48,17 @@ Where a later design supersedes by name, its text becomes the owner text, and th
 | 72 | The thin-feature rule holds for cell geometry; fuel objects are exempt | 3 |
 | 79 | `crack` keeps one meaning; the bed's second meaning is dropped | F1 |
 
+## Rows 6 and 7, re-ruled (owner, 2026-11-21: "great!", in reply to the recommendation)
+
+OD-A16 asks Maxim for a vocabulary; `sem_stimuli.md` §6.2 is Overdrive's v1 choice to emit only the
+target-independent subset until a row defines "perceived". So the split stands: §6.2 owns the agent receipt, tile
+§3.3 owns the wire `intent_result`, boundaries §7.2 and npcs §6.4 link, and OD-A16 is unchanged.
+
 ## Not decided
 
-- **Rows 6 and 7 (receipts).** The ruled split can't be applied as written. OD-A16 (roadmap; the upstream draft
-  `docs/maxim_upstream/propose_settle_amendment_DRAFT.md` §3.3) makes `stale` an agent-facing receipt outcome at
-  settle, and boundaries §7.2 credits "zero times when `stale`", but `sem_stimuli.md` §6.2's agent kinds are only
-  `malformed`, `limit` and `accepted`. This goes back to the owner.
+- **The `stale` credit rules.** boundaries §7.2 ("zero times when `stale`", "Stale is context, never credit") and
+  npcs §6.4 assume the agent sees `stale`, which `sem_stimuli.md` §6.2's v1 receipt withholds. Not a receipt-shape
+  copy, so left; a finding for the owner.
 - **Rows 10 and 79 (channel names, `crack`'s bed meaning).** #31 reads `surface_glow` and `burning` live; its
   session has taken the conflict with `fire_solid.md` §5.6 to the owner.
 - **The `data/server/` client cap** in `client_rendering.md` §4.3 names a directory that doesn't exist. Ruling 18

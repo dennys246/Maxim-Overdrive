@@ -55,10 +55,14 @@ This document's decisions (18 rulings) are kept as records, with their dates, ow
 
 ### 1.3 Scene format and files
 
-- **Scene v1 = world_model F13's strict loader plus a required `spawns` list** (WT-S8), in step 3b; zones become v2
-  in Phase 2. v0 is refused by version (step 3b); `join` with no spawn for its archetype is refused.
+- **Scene v1 = a strict loader (F13) plus a required `spawns` list** (WT-S8), in step 3b: zones, vents and gaps
+  refused by path; grid alignment checked in integers (0.6 / 0.2 is 2.9999999999999996 in floats), every extent a
+  whole number of 0.2 m cells, judged in whole micrometres, so a scene builds at every verification grid or none.
+  Zones become v2 in Phase 2. v0 is refused by version, never migrated, since scenes are repo-only (step 3b); `join`
+  with no spawn for its archetype is refused.
 - **The format checks syntax and extent only;** clearance is checked at construction and `join` (AR-S9); spawns
-  convert to integer mm by F13's rule.
+  convert to integer mm by F13's rule. Spawn names are unique under Maxim's name rule, never a region's name nor one
+  of Maxim's target aliases (`self`, `aut`, `player`).
 - **Files:** `content/scenes/alley.yaml` (rights reserved, step 8); engine tests and step 5 use an Apache fixture
   with the same boxes, `tests/fixtures/scenes/alley_box.yaml`. Cut-away walls are client data (DC-N4).
 
@@ -145,8 +149,7 @@ Frozen per tick, replaced by `Simulation.step`; column-major, integer keys, no s
 
 ### 2.3 Movement in integers
 
-- **Tick order** (realtime §2.1): records, **move bodies**, agents, physics, outputs; stage 2 reads the body as of the
-  tick's start.
+- **Tick order** is `sem_stimuli.md` §4.1's; stage 2 reads the body as of the tick's start.
 - **Direction (T7; DC-S8):** stage 1 canonicalises `dir` = (dx, dy), integers, not both zero, to m = max(|dx|, |dy|)
   = 1000: d'_i = sign(d_i)·((2000·|d_i| + m) // (2m)). Only the canonical form is logged, so (1, 1) and (1000, 1000)
   are one record. The core's step: n = isqrt((dx'² + dy'²)·10⁶), step_i = sign·(140·|d'_i|·1000 // n); axis steps
@@ -170,14 +173,11 @@ Frozen per tick, replaced by `Simulation.step`; column-major, integer keys, no s
 
 ### 3.1 The pipeline (AR-B2, WT-B1)
 
-Decode → stage 1 (`simcore` core intents) → log → stage 2 against the world at apply → one receipt. The record is boundaries §6.2's: `schema_version`, `kind`, `actor_id` (from the session token),
-`seq`, `observed_tick`, `issued_tick`, `apply_tick`, `apply_us`, canonical `params`, `target`. The ordering key and
-`kind_rank` are boundaries §6.2's.
+Decode → stage 1 (`simcore` core intents) → log → stage 2 against the world at apply → one receipt. The record, its
+fields, the ordering key and `kind_rank` are boundaries §6.2's; `actor_id` comes from the session token.
 - **Cause (the efference copy, npcs §6.6).** Receipts carry the intent's id, `(actor_id, seq)`; each bodies-part
-  event and pilots row also carries it as `cause`. An agent's intent logs Maxim's invocation pid as opaque
-  `invocation` (null for players), which its adapter maps `cause` to. The host copies it and never mints one; it is null, never a
-  stand-in, until Maxim's G17 stage (npcs §6.6). Step 5b owns both; step 7
-  freezes `cause`.
+  event and pilots row also carries it as `cause`. An agent's intent logs its invocation pid as `invocation`
+  (boundaries §6.2), which its adapter maps `cause` to. Step 5b owns both; step 7 freezes `cause`.
 - **`observed_tick`** is the tick of the last cell frame sent to that session (DC-S1, boundaries §4.2), not the last
   `tick` message. Phase 1 has no stale rule, so it has no caller; it is logged for Phase 4 (DC-N8).
 - **Authority** (boundaries §6.1): `move`, `move_to`, `kindle` are "any actor"; a body or an igniter is capability,
@@ -231,9 +231,10 @@ Decode → stage 1 (`simcore` core intents) → log → stage 2 against the worl
 - **No client message names a region or actor.**
 - **`strike`, `douse` and `imagine` have no wire message in v0** (T16); they join as versioned additions when a
   client caller exists. NPCs reach them through the adapter.
-- **One receipt shape for every intent** (boundaries §7.2): `(actor_id, seq)`, outcome (`applied`, `refused`, `stale`,
-  `cancelled`; the last two have no Phase 1 producer), refusal code, measured effect, before and after frame ids.
-  `intent_result` wraps it with wire-only `apply_tick` and `path_mm`. Agent-facing receipts carry no tick.
+- **`intent_result`, one wire receipt for every intent:** `(actor_id, seq)`, outcome (`applied`, `refused`, `stale`,
+  `cancelled`; the last two have no Phase 1 producer), refusal code, measured effect, before and after frame ids,
+  and the wire-only `apply_tick` and `path_mm`. The agent-facing receipt is `sem_stimuli.md` §6.2's and carries no
+  tick.
 - **Server → client** messages are `client_rendering.md` §4.1's.
 
 ### 3.4 Refusals (WT-S1, EX-S8), in check order
@@ -255,8 +256,7 @@ Decode → stage 1 (`simcore` core intents) → log → stage 2 against the worl
 
 ### 3.5 The log header
 
-Its content digests (boundaries §6.3) gain the body archetypes, items, spawns, the vocabulary and `actions.yaml`
-versions, and the navigation constants (WT-S3). Rate limits are pre-log and stay out.
+Its fields are boundaries §6.3's (WT-S3).
 
 ## 4. The simulation `Frame` (BF-B1, AR-S2, DC-S2–S4)
 
@@ -443,8 +443,8 @@ wall, crack read as crack, glow as heat, burn-out as fuel running out, the dial.
 - **One world-owned body model.** Regions in metres are what Phase 4's surface percepts reduce over (world_model §9).
 - **Divergences named:** the actor table as a direct view (ANALOG); receptors under two coarse cells (Known gap);
   `kindle` credit (OPEN, OD-A16/OD-C5); allocentric locomotion (OD-C11); no metabolism (Maxim's drives).
-- **The world's day** is realtime §2.2's `epoch_us` and `day_length_ticks`. An SCN entrains on Phase 2 light at the
-  perceiver, never on a time-of-day number or the client's sky.
+- **The world's day** is the world config's `epoch_us` and `day_length_ticks` (`npcs_and_sem.md` §9). An SCN
+  entrains on Phase 2 light at the perceiver, never on a time-of-day number or the client's sky.
 
 ## 9. Open questions for the owner
 

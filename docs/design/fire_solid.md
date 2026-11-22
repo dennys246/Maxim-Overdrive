@@ -360,8 +360,7 @@ did.
 - **Recipes load in sorted path order,** and ids come from the files, never glob order. The game's recipes arrive
   with `content/` at step 8. Engine tests use Apache fixtures under `tests/fixtures/fire/`, beside the cone fixtures.
 - **The shipped-data test** keys readers by directory; 6.0a keys it by file, and an unowned file stays an error.
-- **The log header** records each file by logical name (no path), its version and the SHA-256 of its canonical loaded
-  value (boundaries §6.3), plus one digest over the sorted recipe set (Wire S7).
+- **The log header** records these files as boundaries §6.3 says (Wire S7).
 - **The FDS outputs and MaCFP data** committed as fixtures are listed with source and licence first (A-N6).
 
 ### 5.2 Scene and spec (6.0b)

@@ -280,20 +280,16 @@ missing law is an error (checked, **D**):
 - **Replay compares lanes whose key is unchanged,** refuses when a changed lane is one an NPC in the log bound, refuses
   an unknown format version by name, and reports skipped lanes. Adding a row, or an unbound row's law swap, keeps
   goldens green. Stored chains find the first bad *interval*; the first bad tick needs a reference run.
-- **The header:** `STIMULUS_SCHEMA_VERSION`, the `BoundFrame` and receipt versions, rows by sorted name with unit,
-  site set and version, each law's version, the lanes, id maps, truth constants (K tolerance and its Ω error, the
-  event byte budget, the largest cognition divisor, the maximum emitter count, refresh and clustering parameters,
-  cutoff floors). Bodies and bindings ride `join` records.
+- **The header's stimulus slots** are `boundaries.md` §6.3's.
 - **The save** holds all carried `core/body` and `core/stimuli` state as the registry and §7.1 declare it, contact
   sub-meshes and pending events included; a save anywhere reloads bit-identical.
 - **Tier 2 isn't bit-identical on real Maxim** until M6 and M8 land.
 
-**Version rules (F1, F15):** a new meaning gets a new name; a better estimate bumps `derivation_version` or the law's
-version, goldens regenerated in a commit saying so; adding a row is non-breaking; removing or renaming one bumps
+**Version rules:** F1 and F15 are `world_model.md` §8's; adding a row is non-breaking; removing or renaming one bumps
 `STIMULUS_SCHEMA_VERSION`; an agent home records its bound lane keys, refused on a change the load doesn't name (D13).
 **Each format has a version and a gate row:** body instance (5b); binding table, `BoundFrame`, receipt, `welcome`,
 `step_output` (`phase1/agents`); the save's body state (the first law). **`phase1/sim-clock` reserves** the lanes,
-header slots and `join`, `leave`, `agent_ready` and `agent_failed` records.
+header slots and the `join`, `leave` and agent lifecycle records (§4.5; `boundaries.md` §6.1).
 
 ## 6. Trust
 

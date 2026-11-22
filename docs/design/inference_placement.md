@@ -222,7 +222,8 @@ The gateway classifies each backend result (IG §5), and the lane decides what i
     `truncated(prefix, reason=transport)` and is never retried.
 - **Retries** run under every latency policy, bounded by the liveness ceiling, as new attempts. This replaces
   `npcs_and_sem.md` §1's "a timeout retries". Request-attributed outcomes never retry. Outcome names are
-  lane-internal; receipt kinds (`tile_and_client.md` §3.3) are a separate vocabulary.
+  lane-internal; receipt kinds (`sem_stimuli.md` §6.2 for agents, `tile_and_client.md` §3.3 on the wire) are a separate
+  vocabulary.
 
 ### 2.7 Health **[now]; the law is swappable**
 

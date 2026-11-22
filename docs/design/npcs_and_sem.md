@@ -251,8 +251,8 @@ roster), not through the SCN work (BF2-7, X-9).
   - `SeedSequence(root, spawn_key=(NS_AGENT, npc_key, stream_key))`, never `spawn()`, which numbers children by
     spawn order (Overdrive's own streams; Maxim's derive by O40);
   - `npc_key` is the persisted NPC identity from the roster (stable across saves and roster edits), not the actor
-    allocator's integer; it and every stream name contain no `:` (Maxim's owner: `make_agent_rng`'s
-    `f"{base_seed}:{agent_id}"` join stays, so a `:` would make it ambiguous), refused at load;
+    allocator's integer; it and every stream name contain no `:` (Maxim's owner: `make_agent_rng` keeps exactly
+    `sha256(f"{base_seed}:{agent_id}")`, so a `:` would make it ambiguous), refused at load;
   - `stream_key` from a registry of fixed integers in `data/` (or the first 8 bytes of SHA-256 of the name), never
     `hash()`;
   - the World's generator is `spawn_key=(NS_WORLD,)` from the same root, so the two trees can't overlap.
@@ -265,7 +265,9 @@ roster), not through the SCN work (BF2-7, X-9).
   is saved with the agent home (save v1).
 - **Two kinds of stream, and one accepted cost (DET-S8, BD-13).** Overdrive's own streams (percept noise, the speed
   trait) stay keyed Philox counters as above. Maxim's internal streams are a `random.Random`
-  per stream from `make_agent_rng`, keyed by `npc_key` and stream, `base_seed` from this tree's root (O40, §6.6). That fixes
+  per stream from `make_agent_rng` with a stream argument (until it exists, `agent_id` is `"npc_key:stream"`), keyed
+  by `npc_key` and stream, never Maxim's ordinal, `base_seed` from this tree's root (O40). Each stream's state is
+  saved pickle-free in the agent home. That fixes
   isolation across NPCs and streams, but **within** a stream Maxim's draws stay sequential, so a change in how often
   Maxim draws (a cadence change) shifts that stream's later draws. Accepted: §2.1's Δt test keeps bit identity only
   under fixed schedules for Maxim's streams, and paired substrate arms (§4.8) lose correlation within a stream from
@@ -574,7 +576,7 @@ What Maxim must offer for Overdrive to run real NPCs, all **[after A]** and draf
 | **`AgentHome`** | one per-agent object routing every store, over `AgentFactory`'s existing `persistence_dir` | the core stores are already per agent (`agents/agent_factory.py:1168-1172`); ten families are still global (embeddings, fear and escalation bridges, DN thresholds, focus and bounds learners, energy, cost, provenance, lane decisions), and the ConceptExtractor thread starts at construction (`runtime/bio_stack.py:654`) |
 | **No pickle on the load path** (issue OD-I3) | Maxim's persistence loads without executing code | `MemoryHub._restore_on_open` → `EmbeddingStore.load` → `np.load(allow_pickle=True)` (`integration/memory_hub.py:719-727`, `similarity/semantic.py:662`): dormant unless `enable_semantic`, on a global file; must land before `AgentHome` makes it reachable from saves (TBR-10) |
 | **The clock seam, split in two** | a **machinery clock** for decay, cadences and stamps, and a **perceived-time port**, the only time a prompt may contain, which the host supplies. Guarded by a planted-render test with its sentinel in the **machinery** clock plus an offset-and-scale test (§6.6) and a lint banning `datetime.now`, `strftime` and `localtime` in prompt-reaching modules (Maxim's answer: a no-`__str__` type can't be the guard) | the prompt renders the time (`prompt_builder.py:229`, `:1122-1124`; `context_pool.py:468`, `:493`); swapping in the host clock alone would hand cognition exact world time (BD-12) |
-| **Keyed substreams** (O40) | one derivation, Maxim's `make_agent_rng` (§6.6); `seed_all` never called on the embedded path | `seed_all` reseeds the process (BD-13); a host-side derivation beside Maxim's would be a second one (Maxim's plan review) |
+| **Keyed substreams** (O40) | one derivation, Maxim's `make_agent_rng` (§3.4); `seed_all` never called on the embedded path | `seed_all` reseeds the process (BD-13); a host-side derivation beside Maxim's would be a second one (Maxim's plan review) |
 | **The leak closure** (OD-A17) | prefetch off and the working directory at the empty agent home; the short-question shortcut deleted in Maxim for everyone (#1689, PR #1694); the parse-failure template never reached; no model backend in the worker, so second model doors fail closed; no `force=True` logging; paths under the home; side doors folded into dispatch; a static import ban plus the advisor's three closure tests | prefetch reads files under the working directory on every input (`agent_loop.py:1571`), past every tool rule (Executor N2; TBR-3, TBR-7) |
 | **World-time staleness** | every staleness and deadline on the machinery clock | the wall thresholds of §1 drop thoughts whatever the world says |
 | **Credit at settle** | dispatch tags, settle credits, through NAc's existing eligibility traces, one credit path; robots settle right after dispatch | the cerebellum trains on the sensors read during the call (`agents/tool_bridge.py:864-892`); dopamine's window after an action is 0.3–2 s (Yagishita et al. 2014, *verified* in BD-19); NAc's traces decay ×0.9 **per loop tick** (`decisions/nac.py:3707`), so this depends on step-size-invariant decay (OD-A19, §6.6), not on the clock seam alone |
@@ -642,8 +644,8 @@ agents)" and "agents step inside the simulation lane's tick" (§11).
 
 ### 6.4 Propose, receipt, settle (Wire S12, Arch S13, X-6)
 
-- **The engine's contract:** an intent produces one receipt: intent id, outcome kind (`applied`, `refused`, `stale`,
-  `cancelled`), `apply_tick`, the measured effect, and the before and after frame ids.
+- **The engine's contract:** an intent produces one receipt, `sem_stimuli.md` §6.2's for the agent and
+  `tile_and_client.md` §3.3's `intent_result` on the wire.
 - **Each receipt is credited exactly once,** through `settle`, and zero times when `stale`. A test asserts it. Under
   O6 there is no second path (`execute`'s return) to double-book, once Maxim folds its parallel and agent-fallback
   dispatch into the same split (`tool_dispatch.py:1290-1291`; TBR-6).
@@ -788,14 +790,12 @@ section pins them. Where it and an earlier section differ, this section wins, an
   from the perceived-time port, and only for the **modelled** part of a gap; lateness-caused extension is never
   written into another NPC's memory (DET-S6, BF3-4). Fatigue load counts modelled phase durations, never real or late
   time (DET-S7).
-- **One derivation for Maxim's agent randomness (Exec S3, DET-N4; O40):** `make_agent_rng` with a stream argument
-  (until it exists, `agent_id` is `"npc_key:stream"`), keyed by the persisted NPC key, never Maxim's ordinal, with
-  `base_seed` from the log header's root. Each stream's state is saved pickle-free in the agent home. Overdrive's own
-  streams stay §3.4's tree.
+- **One derivation for Maxim's agent randomness (Exec S3, DET-N4; O40)** is §3.4's, beside Overdrive's own tree.
 - **Replay ids and the step thread (O43, O45).** `session_id` comes from the log header (root id, NPC key and
-  segment number; each restore opens a segment); the sequencer's
-  high-water seq is saved in the agent home (save v1, Phase 4). Maxim
-  scopes determinism to single-threaded loop paths (`thalamic_relay.md` §5.5): one worker per agent, stepped by one
+  segment number; each restore opens a segment), never the wall clock or a uuid, so ids from different segments
+  can't collide whatever the seq; O44's floor stays only as a host-side test that no new pid equals a logged one. The
+  sequencer's high-water seq is saved in the agent home (save v1, Phase 4), so a loaded save continues the sequence.
+  Maxim scopes determinism to single-threaded loop paths (`thalamic_relay.md` §5.5): one worker per agent, stepped by one
   thread, is inside it, so never a pool of agents per worker thread.
 - **The machinery clock's zero (DET-N5):** world µs map onto Maxim's seconds with a fixed nonzero offset until
   OD-I1 lands, since 0.0 makes five `x or time.time()` sites swap in the wall clock.
@@ -988,6 +988,19 @@ decision to refine SEM is recorded in Maxim's `DECISIONS.md` by the plan PR, not
 - **Lane hand-off counts inside the modelled latency:** an intent's apply time is `observed_tick + L_bio`, and a
   configuration where `L_bio` is shorter than the lane's minimum is refused.
 
+**World config** (integers, frozen per run; from `realtime_lanes_coop.md` §2.2, whose values for the tick are
+`tile_and_client.md` §6.1's T3):
+
+| Field | Proposed | Meaning |
+|---|---|---|
+| `tick_us` | 100,000 | world time per tick (0.1 s) |
+| `physics_every_ticks` | 5 | physics runs every 5 ticks (0.5 s) |
+| `day_length_ticks` | 864,000 | 24 hours at 0.1 s per tick |
+| `epoch_us` | an integer, UTC, with no time zone | the world's date and time at tick 0 |
+
+- Time of day is `(epoch_us + tick × tick_us) mod (day_length_ticks × tick_us)`, in integers (realtime D7).
+- World config lives in `data/world/` and is hashed into the log header.
+
 ## 10. Experiments (Maxim cradles, off the game ledger)
 
 Pre-registered in Maxim's process, run as cradles with an engine-only fixture body. Game runs never go on Maxim's
@@ -1023,7 +1036,7 @@ floor thresholds, *h* and filler timing are per-world parameters on the listener
 |---|---|
 | §4.1 "the simulation lane owns Simulation (and through it World and agents)"; "agents step inside the simulation lane's tick" | agents are outside `Simulation`, one owner thread each, stepped by the host behind a barrier (§6.3) |
 | §4.2 `(tick, host_seq)` assigned on arrival | one canonical key in `boundaries.md` §6.2; arrival never orders (§9) |
-| §4.2 request ids "assigned by the simulation lane" | thought request ids come from the host's thought gate, `(tick, actor, n)` |
+| §4.2 request ids "assigned by the simulation lane" | thought request ids: `boundaries.md` §6.1 |
 | §4.3 "applies on the first tick after it arrives" | each segment lands at its modelled time; early results are held (§4.2) |
 | §4.3 thinking speed "depends on the dial … measured rather than hidden" | modelled and dial-independent; late thoughts dilate (§4.1, §4.4) |
 | §4.3 abandonment by `max_age_ticks` as the default | dilate is the default; abandon is a logged host control (§4.4) |

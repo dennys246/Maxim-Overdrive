@@ -67,12 +67,10 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
     step 5a).
 - Part (b), on `phase1/formats`:
   - done, no shipped caller until step 5b (spawns) and step 8 (the shipped scene, with a scene file loader in
-    `loaders.py`): scene v1, F13 plus a required `spawns`; scene v0 is refused by version, not migrated (scenes are
-    repo-only); golden v0 and v1 fixtures (WT-S8); zones, vents and gaps refused by path; every extent a whole number of
-    0.2 m cells, judged in whole micrometres, so a scene builds at every verification grid or none (world_model WT-5,
-    WT-11); spawn names unique under Maxim's name rule, never a region's name nor one of Maxim's target aliases (`self`,
-    `aut`, `player`) (`simcore/core/scene.py`, `grid.py`; `tests/fixtures/formats/v0/scene.yaml`, `v1/scene.yaml`,
-    `tests/fixtures/scenes/alley_box.yaml`; `tests/test_scene_v1.py`).
+    `loaders.py`): scene v1, v0's refusal, the extent rule (world_model WT-5, WT-11) and the spawn-name rule, as
+    `tile_and_client.md` §1.3 states them; golden v0 and v1 fixtures (WT-S8) (`simcore/core/scene.py`, `grid.py`;
+    `tests/fixtures/formats/v0/scene.yaml`, `v1/scene.yaml`, `tests/fixtures/scenes/alley_box.yaml`;
+    `tests/test_scene_v1.py`).
   - done: one schema and one reader per data format; `MaterialTable`'s lookup arrays and every rejection test
     generated from it (`simcore/core/schema.py`; `tests/test_formats.py` finds every `Format`, fail closed, walks
     every tagged kind, and pins each schema in `tests/fixtures/formats/schemas.txt`). Not built: units and provenance
@@ -80,16 +78,16 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
     stage-1 intent parsing (`intents.py`) stays its own idiom until step 7 moves the wire format onto the schema.
   - done: one small migration mechanism (`read_version` plus `Format.migrations`, keyed by format and version),
     refused for a repo-only format at declaration; no shipped format is held by others yet, so none migrates.
-  - done, no shipped caller until step 5a's log header: digests stored versioned, as `sha256/c14n-1:<hex>`
+  - done, no shipped caller until step 5a's log header: digests stored versioned, in `boundaries.md` §6.3's form
     (`simcore/core/digest.py`).
   - done: content stores time in world units, never ticks: a schema field named for ticks is refused where it is
-    declared. Ticks derived at load arrive with the tick (step 5a).
+    declared. When ticks are derived is `npcs_and_sem.md` §9's.
   - done: the refusal-code enum (WT-S1, `simcore/core/refusals.py`), append-only and pinned; every gate's refusal
     carries a code, and the SEM membrane answers an agent with the code alone.
-  - done: identity keys contain no `:` (Maxim's owner, 2026-11-19: `make_agent_rng` joins `f"{base_seed}:{agent_id}"`,
-    so a `:` would make streams ambiguous), refused as `bad_identity_key` (`checks.identity_key`). Today's one loader
-    of them, the scene's spawns (name, archetype, held item), has a rejection test per key; NPC keys and stream
-    names get theirs with their loaders (`phase1/agents`), save v0's `body_key` at step 9 (`npcs_and_sem.md` §3.4).
+  - done: identity keys contain no `:` (`npcs_and_sem.md` §3.4), refused as `bad_identity_key`
+    (`checks.identity_key`). Today's one loader of them, the scene's spawns (name, archetype, held item), has a
+    rejection test per key; NPC keys and stream names get theirs with their loaders (`phase1/agents`), save v0's
+    `body_key` at step 9 (`npcs_and_sem.md` §3.4).
   - done: B29 (`loaders.DataPath`; `scripts/lint_inputs.py`'s routes through a value; the four corpus rows).
   - not built: loader types for body archetypes (the body contract is being redesigned, `sem_stimuli.md` v4 on
     `phase1/sem-stimulus`; owner, 2026-11-21) and for items, which travel with them (owner, 2026-11-21: skipped for
@@ -139,9 +137,8 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 - **The SEM stimulus contract's 5a half** (`sem_stimuli.md` v5 §5, §7.1, §11.1; the composition note cites §11.1,
   A-S10): reserve lane chains (row lanes keyed `(name, derivation_version, producers)` with producers the transitive
   closure over every law's declared reads and writes, an events lane and a per-tick bound lane per NPC; A3-S5, W11,
-  DP3-N2, S-F3, N3), header slots (schema, `BoundFrame` and receipt versions, each law's version, truth constants
-  including the per-tick event budget, the largest cognition divisor and the maximum emitter count; DP3-N3, DP-F-S3) and
-  the `join`, `leave`, `agent_ready`, `agent_failed` records; the per-tick law slot, the two-rate contact exchange,
+  DP3-N2, S-F3, N3), the stimulus header slots (`boundaries.md` §6.3; DP3-N3, DP-F-S3) and the `join`, `leave` and
+  agent lifecycle records (`boundaries.md` §6.1); the per-tick law slot, the two-rate contact exchange,
   the `body_points` container (A3-S4) and `radiant_emitters` keyed `(writer law, source object id, primitive id)`
   (DP-F-N1); every `forbidden` list from `_core_modules()` with `as_packages = false`, asserted by its equality test
   (N-S3, verified on a toy).
@@ -165,13 +162,12 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
   and a fixed point source (DPH-S4).
 - `join` records carry `body_key`, the archetype name and the held item's name.
 - The efference-copy fields (`tile_and_client.md` §3.1): bodies-part events and pilots rows carry `cause = (actor_id,
-  seq)`; the intent record carries an optional, opaque `invocation`. A test: a `move_to`'s `arrived` and a
+  seq)`; the intent record carries `invocation` (`boundaries.md` §6.2). A test: a `move_to`'s `arrived` and a
   `kindle`'s pilot row name their intent.
-- `invocation` is reserved and unfilled until Maxim's G17 stage (autonomic plan, post-fence resume) builds
-  `PhysicalEventId` (Maxim's review of v5, SHOULD-FIX 1). A test: null is accepted, and a stand-in is refused with a
-  typed code: a uuid string, an executor-style `invocation_id` and any other non-null value. The host copies the
-  field and never mints or computes one. When the type exists, the refusal narrows to any non-null value that isn't
-  a pid, with its own test.
+- `invocation` stays unfilled as `boundaries.md` §6.2 says until Maxim's G17 stage (autonomic plan, post-fence
+  resume) (Maxim's review of v5, SHOULD-FIX 1). A test: null is accepted, and a stand-in is refused with a typed
+  code: a uuid string, an executor-style `invocation_id` and any other non-null value. When the type exists, the
+  refusal narrows, with its own test.
 - Action vocabulary v1 with `actions.yaml` v1, refused at v0 by version, not migrated (DC-S5), and an interim sphere-overlap
   `kindle` deposit: a marked band-aid, its file listed under Phase 1 in the roadmap, removed by step 6's skin.
 
@@ -252,9 +248,7 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 - The actor and pilots tables and `body_key` (BF-N3).
 - **Names, not positions:** every index column (`archetype`, `held_item`, `material`) carries a name list in the
   header, and loading remaps by name.
-- **The load rule:** a save is state, and loading never replays the log; it stores a region table, not the scene
-  file; a content change loads with a `content_changed` flag instead of refusing; every grid carries its cell size.
-  This supersedes world_model §8 F5's refuse-on-mismatch for saves (F5 and F14 contradict on embedded scenes).
+- **The load rule** is world_model §8's (F5, F14); loading never replays the log; every grid carries its cell size.
 - No zero-valued `energy` or `dose` columns: they arrive in Phase 4 with defaults.
 - No agent state: the `EventSequencer`'s high-water seq in each agent home is save v1, Phase 4 (O43).
 

@@ -70,8 +70,8 @@ changes.
   with a position are Phase 2, behind the same kind of interface (`liquid.at`, `liquid.over`).
 - **Mass is never silently deleted** (D22's foundation). A strike that destroys solid mass moves it to the zone's
   fines species, so the ledger is exact from day one and Phase 2's rubble only changes where that mass goes.
-- **Zones are authored in metres** in scene format v1. Their volumes and gap areas are computed from **integer cell
-  counts** at the truth resolution, never from running float sums (DLP-B1, §6).
+- **Zones are authored in metres** in the scene format (`tile_and_client.md` §1.3). Their volumes and gap areas are
+  computed from **integer cell counts** at the truth resolution, never from running float sums (DLP-B1, §6).
 
 ## 3. Every law reconstructs, decides at the point, and integrates
 
@@ -141,9 +141,7 @@ with a ramp from 15% to 10% (*from memory*; the sources conflict, so both are ci
   that's affordable once per physics step.
 - **Labels from `ndimage.label` are not identities** (DLP S-4). Anything that needs an identity (Phase 2 rubble
   clusters) gets a persisted id and an ordering key in metres.
-- **The tripwire uses a per-thread `sys.setprofile` hook,** not patching (DLP S-8). `datetime.datetime.now` can't be
-  patched, and 18 pymaxim modules bind `uuid4` or `datetime` at import. The hook catches all three in a test, and
-  numpy and stdlib RNG states are compared before and after each step.
+- **The tripwire** is `boundaries.md` §3's profile hook, not patching (DLP S-8).
 
 ## 7. Foundations for Phase 2 rubble and collapse
 
@@ -172,6 +170,8 @@ save), with these rules from the Wire and Trust review.
   Units are part of a channel's identity, from a closed vocabulary, and a lint checks them against the fixtures.
 - **A save has no optional fields** (F5). The code's registry and loaders are authoritative. Embedded copies of the
   registry, scene and specs are compared against them, never executed. A save from a newer build is refused, loudly.
+  A content change is refused too, and a save holds no in-flight thoughts, since agent state lives outside
+  `Simulation` (docs-contracts ruling 26, owner, 2026-11-21).
 - **Saves, scene files and replay logs are untrusted input** (F14):
   - the memory budget is checked before anything is allocated, from the header's declared shape;
   - shape, sizes and offsets are validated against the scene and rig;
@@ -184,19 +184,15 @@ save), with these rules from the Wire and Trust review.
 - **Material table v1 uses the strict loader** that `ActionLimits.load` has: versioned, closed keys, repeated keys
   refused, species keyed by name, never by position (F8). Its reactions close their mass and atom balances. The
   research's example `wood_flaming` doesn't (2.15 in, 2.40 out), and the loader would rightly refuse it (E-NIT).
-- **Scene format v1 is a strict loader** (F13): zones, vents and gaps refused by path, and grid alignment checked in
-  integers (0.6 / 0.2 is 2.9999999999999996 in floats). Zone counts are capped, and the zone channel's dtype is fixed
-  at u16 (F9).
+- **The scene format's strict loader** (F13) is `tile_and_client.md` §1.3's. Zone counts are capped, and the zone
+  channel's dtype is fixed at u16 (F9).
 - **Per-face state has a container before the grammar freezes** (DLP S-11). Surface skins (§3) are state per exposed
   face, not per cell. The registry declares a face table keyed by (cell index, face 0–5), and the frame grammar
   carries it as a table, so the fuel PRs add rows, not a format.
 - **Migration defaults are literals, `null` or the name of a migration function registered in code,** never an
-  expression to evaluate (F12). Derived fields carry a `derivation_version` (F15).
-- **The intent log header records:**
-  - every version: vocabulary, scene format, action limits, protocol, registry, materials;
-  - numpy, scipy and BLAS versions, the platform, and a dirty flag (F16, DLP S-7).
-  
-  "Hash" means SHA-256 over a canonical serialisation.
+  expression to evaluate (F12). Derived fields carry a `derivation_version` (F15); a better estimate bumps
+  `derivation_version` or the law's version, goldens regenerated in a commit saying so.
+- **The intent log header's fields** (F16, DLP S-7) and its one digest form are `boundaries.md` §6.3's.
 
 ## 9. Performance, measured
 
@@ -224,13 +220,13 @@ On the 16×10×4 m synthetic tile (DLP, measured):
 | 4 | `phase1/sim-clock` | The `Simulation` and its integer clock; the truth resolution; cached conductances and preallocated buffers; the fire's bounding-box overlap; `set_material`, `topology_version` and the region id array; memory budget with transients. |
 | 5 | | Material table v1, strict. |
 | 6 | `phase1/protocol` | Frames with the generic grammar from the first fixture. Versioned, extensible messages (`client_rendering.md` §4.1, `tile_and_client.md` §3.3; A-SF-11). The lane skeleton. A minimal Godot fixture reader, so the grammar has a second reader before it freezes. |
-| 7 | `phase1/zones` | Scene v1 with zones, gaps and vents. The gas interface. Surface skins for heat exchange on exposed faces. |
+| 7 | `phase1/zones` | Zones, gaps and vents in the scene (`tile_and_client.md` §1.3). The gas interface. Surface skins for heat exchange on exposed faces. |
 | 8a | `phase1/fuel-surface` | Fuel by volume overlap; area-overlap deposit and ignited fractions; sub-box recession; reconstructed pyrolysis. |
 | 8b | `phase1/fuel-combustion` | Combustion per zone, products, extinction, flame feedback debited. Fines from destroyed mass. The CSG footprints (§5). |
 | 9 | | Phase-change progress, with bound water as the first transition. |
 | 9b | `phase1/agents` | The agent foundations: one host-called `AgentPort` (`step`, resumable `think`, `settle`; O39), `StepOutput`, `Pending`, `Reply` and `ThoughtOutput`, the continuation's host-owned header, receipts and settle, `data/agents/`, per-NPC streams, the tool-roster and home checks, the worker channel and its codec (a registered gate), the scripted test double in a spawned worker behind that channel; real Maxim a strict red gate until its tier A (`boundaries.md` §11.1, `npcs_and_sem.md` §6.2, §6.6). |
 | 10 | `phase1/lanes` | The agent barrier over worker channels, `agent_failed` on a hung or dead worker, meters (the channel round trip per park), crash injection (`npcs_and_sem.md` §4.4, §6.3, §6.6). Thinking lane and gateways: `phase1/agents` (`inference_placement.md`). |
-| 11 | | **Save v0, after the lanes,** so in-flight thoughts are part of the saved `Simulation` state with a load rule (A-SF-12, DA-6). |
+| 11 | | **Save v0, after the lanes,** with §8's load rule (F5, F14; A-SF-12, DA-6). |
 | 12 | `phase1/lab` | The lab as a physics benchmark tile, and the Godot client (part 3). |
 
 **The fuel model's acceptance test is restated** (E1). PR 1's red gate ran on a scene with no vents, which becomes a

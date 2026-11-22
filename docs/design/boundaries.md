@@ -178,7 +178,8 @@ below it. Siblings on one line are independent of each other.
   `Random.seed(a=None)` detected from the frame, `SeedSequence()` with no entropy, `time.localtime`, `time.strftime`
   and `datetime.fromtimestamp` with host-zone rendering, `time_ns`, numpy's global `np.random`), each proven by one
   planted call, including a `default_factory` stamp, a from-import, and a timeout on another thread that must not
-  trip. It guards only what the corpus exercises, and it ships with sim-clock.
+  trip. 18 pymaxim modules bind `uuid4` or `datetime` at import, and numpy and stdlib RNG states are compared before
+  and after each step (world_model DLP S-8). It guards only what the corpus exercises, and it ships with sim-clock.
 - **Dilation is measured in the host** and enters the `Simulation` only as recorded data (Arch N7), so nobody
   exempts the core to measure it.
 - **This guards mistakes, not adversaries.** ctypes and buffer tricks stay possible (D-B4).
@@ -369,7 +370,11 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
 | `thought_failed` (reasons: `inference_placement.md` §2.6) | the host's thought gate (foundations TB2-B3, Wire S4) |
 | `join` / `leave` | the network lane |
 | host commands: advance (in ticks), rig selection, save, load, admin `set_material` | the host |
+| host records: `agent_ready`, `agent_failed` (`sem_stimuli.md` §4.5, `npcs_and_sem.md` §6.6), `floor_event`, `reply_landed` (`npcs_and_sem.md` §6.6), redaction records (below) | the host |
 
+- **Redaction records** (`npcs_and_sem.md` O26). Each purged span becomes a record (actor, tick, length) in the
+  log. A reply that quoted the purged words is redacted too, and replay is bit-identical only up to the first
+  redacted reply, which the log marks as a replay boundary.
 - **Thought requests** come from an agent's `StepOutput` only; percepts may trigger them, rate-limited per speaker.
 - **`memory_write` is not a world-log kind** (foundations Arch S6, Wire S4). Agent state lives outside `Simulation`,
   the core can't apply it, and replay never runs Maxim. Memory writes are agent-side values in `StepOutput`, recorded
@@ -398,7 +403,11 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
   - `params`: the **typed canonical** form after stage 1, so later gate tightening doesn't change old replays; the
     raw payload is an optional audit field only;
   - `target`: a **stable id** (a region name or persisted entity id), resolved at the door. Nothing identity-based
-    crosses into the log.
+    crosses into the log;
+  - `invocation`: optional and opaque, an agent's Maxim invocation pid (null for players). The host copies it and
+    never mints or computes one. It is null, never a stand-in (no uuid, no executor `invocation_id`), until Maxim's
+    G17 stage builds `PhysicalEventId`; until then any non-null value is refused with a typed code, and once the type
+    exists any non-null value that isn't a pid.
 - **Derived, never input:** receipts, refusal reasons, destroyed volume, `ModulatorResult`s. Replay recomputes them
   and checks them against a per-tick digest.
 - **What is logged, kind by kind (foundations TB2-S2, DR-S8):**
@@ -427,21 +436,37 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
 ### 6.3 The log header (D-B2, D-S4)
 
 - Content digests of the scene, the truth constants (including `tick_us`), both material files after the split (the
-  engine's and the content's), the action limits, the imagination budgets and the SEM vocabulary; the run seed; the
-  host's initial `latency_policy` and thought-pace table (later changes are control records, §6.2).
+  engine's and the content's), the action limits, the imagination budgets and the SEM vocabulary, and of the body
+  archetypes, items, spawns and the navigation constants (tile WT-S3); the run seed; the host's initial
+  `latency_policy` and thought-pace table (later changes are control records, §6.2). Rate limits are pre-log and
+  stay out.
+- **Each material data file** (`fire_solid.md` §5.1) by logical name (no path), its version and its digest, plus
+  one digest over the sorted recipe set (Wire S7).
+- **Every version:** vocabulary, scene format, action limits (`actions.yaml`), protocol, registry, materials
+  (world_model F16).
+- **The log's root id and the segment number** (each restore opens a segment), recorded so replay reproduces
+  `session_id` (O43, O45; `npcs_and_sem.md` §6.6).
+- **The SEM stimulus slots** (`sem_stimuli.md` §5): `STIMULUS_SCHEMA_VERSION`, the `BoundFrame` and receipt
+  versions, rows by sorted name with unit, site set and version, each law's version, the lanes, id maps, truth
+  constants (K tolerance and its Ω error, the event byte budget, the largest cognition divisor, the maximum emitter
+  count, refresh and clustering parameters, cutoff floors). Bodies and bindings ride `join` records.
 - **The rig** (while it still feeds anything until the truth constants absorb it), the **engine SHA** and the
   `derivation_version` (world_model F15) (foundations Wire S8).
 - **One digest form:** SHA-256 over a canonical serialisation of the loaded, typed value (sorted keys, fixed number
-  format), so a YAML comment change doesn't refuse a replay. One canonicalizer, in `engine.checks`.
+  format), so a YAML comment change doesn't refuse a replay. It is stored versioned, as `sha256/c14n-1:<hex>`, so a
+  change of hash or serialisation is a new prefix a reader refuses by name. One canonicalizer, in
+  `simcore/core/digest.py` (as built).
 - **Dilation by cause** is log metadata the `Simulation` never reads (foundations Wire S7); it reaches the client
   through a host status message (`npcs_and_sem.md` §5.4).
-- The environment: Python, numpy and scipy versions, `platform.machine()`, numpy's CPU dispatch features, the BLAS
-  thread count.
+- The environment: Python, numpy, scipy and BLAS versions, `platform.machine()`, numpy's CPU dispatch features, the
+  BLAS thread count, the worker's `PYTHONHASHSEED` (pinned per run, `npcs_and_sem.md` §6.6), and a dirty flag
+  (world_model F16, DLP S-7).
 - **A content mismatch is refused, loudly.** An environment mismatch downgrades the replay to an outcome-class check,
   and says so, like the rig rule.
 - **Goldens are regenerated only** on a recorded content or environment change, in a commit that says which; never to
   make a red test green.
-- **A rerun manifest beside the header (foundations DR-S7, Wire S8),** with the same refuse-on-mismatch rule, for
+- **A rerun manifest beside the header (foundations DR-S7, Wire S8),** with the same refuse-on-mismatch rule
+  (except the items `inference_placement.md` §4.3 records, reports and never refuses), for
   tier-2 reruns that re-run agents: the digests of `data/agents/` (timing, speech, fatigue, thought budget), the
   roster and each agent home's initial state; the pymaxim version and config digest; the inference items
   of `inference_placement.md` §4.3;
@@ -529,9 +554,8 @@ inside the simulation lane's tick"):**
 
 ### 7.2 The action contract: propose, receipt, settle (O6; BF-1, foundations BF2-3, Wire S12, Arch S13)
 
-- **The engine's contract is propose → receipt → settle.** An intent produces one receipt: the intent id
-  `(actor_id, seq)`, the outcome kind (`applied`, `refused`, `stale`, `cancelled`), `apply_tick`, the measured effect
-  (`destroyed_volume_m3`, `absorbed_j`, …), and the before and after frame ids.
+- **The engine's contract is propose → receipt → settle.** An intent produces one receipt. The agent-facing receipt
+  is `sem_stimuli.md` §6.2's; the wire `intent_result` and its outcome kinds are `tile_and_client.md` §3.3's.
 - **There is no blocking wait.** v2's mode (a) blocked Maxim's tool loop in `execute` until a world-time receipt. It
   deadlocked with the dilate policy on one worker (foundations Arch B2), raced the tick (DR-B1), had no route into the
   pipeline and no second lane to wait across (Wire B2), and credited only instant effects (Arch S13). Under O6 the
@@ -566,10 +590,9 @@ Fields and tests laid now (detail and test designs in `npcs_and_sem.md` §2–§
   bit-identical at 1× and 20×, and a negative control under `abandon` must differ (foundations DR-S6).
 - **Δt invariance,** with a relative 1e-9 tolerance and the planted Euler update in an exponential process
   (foundations X-11).
-- **Per-NPC seeded streams,** keyed by stable identity: `SeedSequence(root, spawn_key=(NS_AGENT, npc_key,
-  stream_key))`, never `spawn()`; the World's generator under `(NS_WORLD,)`. The host derives them from the log
-  header's root seed (foundations DR-S4, Wire S3).
-- **Integer microseconds** in `data/agents/`; rates are integer divisors of the tick with a per-actor phase.
+- **Per-NPC seeded streams,** keyed by stable identity, as `npcs_and_sem.md` §3.4 derives them (foundations DR-S4,
+  Wire S3).
+- **Timing units** are `npcs_and_sem.md` §9's; rates are integer divisors of the tick with a per-actor phase.
 - **The membrane is the clock translator (BF-11).** Today `RegionSensor` stamps world seconds and Maxim's sensors
   stamp epoch seconds. Until OD-C2 and OD-A2 land, each field's clock is documented, and the mismatch is an
   OPEN divergence with a red gate (foundations Wire S10: v2 named the wrong items). Under k reflex substeps, the

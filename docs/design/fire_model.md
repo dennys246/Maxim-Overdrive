@@ -416,15 +416,8 @@ from the Hess solve is caught and re-raised):
   - `burning`, the ignited area fraction.
 
   Godot decoder fixtures accompany both. These enter the protocol v0 grammar before step 7 freezes it.
-- **Save and digest** carry everything that is state:
-  - object and segment rows with their profiles and node counts (budget checked before allocation, F14);
-  - inventories, front positions and latches;
-  - the held radiation field;
-  - cap and retirement counters;
-  - a recipe name map;
-  - the material-data hash in the header (refuse or migrate).
-
-  Flames are derived, with a `derivation_version` (F15).
+- **Save and digest** are `fire_solid.md` §5.5's and §5.4's; where it is silent, they also carry latches, the held
+  radiation field and the cap and retirement counters. Flames are derived, with a `derivation_version` (F15).
 - **The imagined-object spec is versioned (v1).** It names a recipe, a geometry kind the recipe admits, metric
   geometry within the recipe's ranges, and closed variant keys. Out of range is refused, never clamped.
   - **Budgets before allocation:** objects, segments, nodes and surface area per spec.
