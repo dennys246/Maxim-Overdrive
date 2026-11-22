@@ -124,7 +124,7 @@ def parse_reply(text: str, arm: str) -> dict[str, Any] | None:
     if arm != "A0":
         try:
             obj = json.loads(text)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, RecursionError):  # deep nesting crashes 3.12's parser: still a parse failure
             return None
         return obj if isinstance(obj, dict) else None
     cleaned = _FENCE.sub("", text)
@@ -134,7 +134,7 @@ def parse_reply(text: str, arm: str) -> dict[str, Any] | None:
             continue
         try:
             obj, _ = decoder.raw_decode(cleaned, i)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, RecursionError):  # as above: never a crash, the class parse_failure
             continue
         if isinstance(obj, dict):
             return obj

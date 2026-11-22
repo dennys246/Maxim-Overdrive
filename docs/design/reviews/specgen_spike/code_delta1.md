@@ -55,3 +55,12 @@ A condensed record of one independent reader's hand-back on the fold of code rou
   - the n_ctx 32768 case was added, and weakening `!=` to `<` turns it red;
   - `caffeinate` isn't needed, because the mini's `pmset` reads `sleep 0`;
   - the others are left for after the run.
+
+## A late fold before the first run (2026-11-22, the author's)
+
+The generation-harness review's Trust reader verified that Python 3.12 (the mini's runtime) raises `RecursionError`
+on deeply nested JSON, which `protocol.parse_reply` didn't catch. On the mini it parses 8,000 levels and fails at
+16,000, a depth a degenerate 4,096-token A0 reply could approach. A crash would stop the run, and repeat every night
+it resumed. Both handlers now catch `RecursionError` too, so the reply is the frozen class `parse_failure`, which is
+what A0's rule already says for any reply that doesn't parse. A test forces the error on every Python. Removing the
+handler turns it red.

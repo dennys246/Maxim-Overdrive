@@ -705,3 +705,15 @@ def test_scores_output_is_pinned(tmp_path: Path) -> None:
     got = score.score(args_for(path, tmp_path / "o.json", "--allow-partial", "--m3"))
     digest_ = __import__("hashlib").sha256(json.dumps(got, sort_keys=True).encode()).hexdigest()
     assert digest_ == SCORE_DIGEST
+
+
+@pytest.mark.parametrize("arm", ["A0", "A1"])
+def test_a_reply_that_crashes_the_json_parser_is_a_parse_failure(monkeypatch: pytest.MonkeyPatch, arm: str) -> None:
+    # Python 3.12's parser raises RecursionError past about 8,000 nested brackets (measured on the mini); a reply
+    # must never crash the run, so the recursion is forced here, the same on every Python.
+    def deep(*args: Any, **kwargs: Any) -> Any:
+        raise RecursionError("maximum recursion depth exceeded")
+
+    monkeypatch.setattr(json, "loads", deep)
+    monkeypatch.setattr(json.JSONDecoder, "raw_decode", deep)
+    assert protocol.parse_reply('{"primitives": [[[[]]]]}', arm) is None
