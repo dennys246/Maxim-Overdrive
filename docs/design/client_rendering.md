@@ -63,7 +63,7 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
 |---|---|
 | Interpolate poses; animate from `facing` and motion | Move the drawn body by its own collision |
 | Tween the camera; cut-away; bloom; flames | Send positions, paths, waypoints, a region or an actor |
-| Cross-fade `surface_glow` between frames | Send intents at frame rate or on a timer |
+| Cross-fade glow between frames (`client_objects.md` §4.3) | Send intents at frame rate or on a timer |
 | Pick a point (the server re-validates it) | Put its own clock into anything it sends |
 
 - **Interpolation buffer:** 100 ms of wall time, keyed on world tick, one received sample behind (CR-N5, WT-N4).
@@ -77,7 +77,7 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
 <!-- contract: server.messages: welcome regions tick intent_result time_decision error -->
 | Message | Carries |
 |---|---|
-| `welcome` | `session`, `role`, its own `actor` id (the body the camera follows), the world config, `shape`, the channel catalogue, the region map with each region's spec id, the zone list, material table v1 (ids to names and colours), the recipe name↔id map, 1-based archetype and item lists, `regions_version`, the time state, `bindings_digest`, the engine `build` |
+| `welcome` | `session`, `role`, its own `actor` id (the body the camera follows), the world config, `shape`, the channel catalogue, the region map with each region's spec id, the zone list, material table v1 (ids to names and colours), the recipe name↔id map, the object-kind vocabulary, 1-based archetype and item lists, `regions_version`, the time state, `bindings_digest`, the engine `build` |
 | `regions` | new region-map entries and the new `regions_version`, sent before the first frame that uses them (DC-B1) |
 | `tick` | JSON with integer columns only (DC-S9): `tick`, scales, paused; the actor and pilots tables (world §2.2); events since the last delivery; `path_mm` for each actor whose `path_version` changed |
 | cell frame (binary) | `[u32 header length][JSON header][arrays]`, little-endian; the header has `protocol`, `kind`, `tick`, `shape: [nz, ny, nx]`, its grids (each with shape, cell size and origin), `regions_version`, the catalogue hash, `compression` (off in v0), and per array name, dtype, offset, size and uncompressed size |
@@ -100,23 +100,22 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
 - **Events accumulate per session** until delivered, bounded at 256 `[engineering]`. An overflow forces a resync: the
   server sends a full `tick` state and the client requests `snapshot`. State tables carry everything an event
   announces, so a skipped tick at 20× loses nothing (DC-S4).
-- **Cell frames** go only on cells' version change, at most `snapshot_hz` (2 Hz during any fire), plus a `snapshot`
+- **Cell frames** go only when the cells' version or `fuel_version` (`fire_solid.md` §5.6) changes, at most `snapshot_hz` (2 Hz during any fire), plus a `snapshot`
   reply after `welcome` and after a reconnect (WT-S6). A `snapshot` request is served from the last published frame,
   coalesced and rate-limited per session; each frame is encoded once per published tick, shared across sessions,
   arrays read-only.
 
 ### 4.2 Channels
 
+<!-- contract: snapshot.channels: material region crack temperature_c -->
 | Channel | dtype | Meaning (world §5) | Godot upload |
 |---|---|---|---|
 | `material` | u8 | material id | `FORMAT_R8` |
 | `region` | u16 | `region_id` itself, never reused (world_model §5, F10; DC-B1) | `FORMAT_RG8`; id = r + 256·g via `texelFetch` |
-| `crack` | u8 | 1 − integrity; a bed cell's charred-or-burned fraction | `FORMAT_R8` |
-| `surface_glow` | u8 | the envelope-layer skin temperature of the cell's exposed faces, offset 525 °C, scale 975/255 °C | `FORMAT_R8` |
-| `burning` | u8 | the burning fraction of the cell's fuel surface | `FORMAT_R8` |
-| `temperature_c` | f16 | cell-mean temperature, a debug view kept by choice (WT-N8) | `FORMAT_RH` |
+| `crack` | u8 | 1 − integrity | `FORMAT_R8` |
+| `temperature_c` | f16 | cell-mean temperature; on solid cells, structural glow's input (`client_objects.md` §5.1) | `FORMAT_RH` |
 
-- **Frame size (derived):** 230,400 × 8 B = **1,843,200 B** plus the header. The gate is Σ(dtype bytes) × cells plus
+- **Frame size (derived):** 230,400 × 6 B = **1,382,400 B** plus the fuel tables (`client_objects.md` §3.5) and the header. The gate is Σ(dtype bytes) × cells plus
   a header bound, taken from the registry.
 - **Fixtures** (step 7) cover non-default scales, a frame after an `imagine` (a new region), and an asymmetric
   fixture for the axes.
@@ -126,10 +125,10 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
 - **`inbound_buffer_size` = 4 MiB,** set before `connect_to_url` (the default is 65,535 [ran]).
 - **`max_queued_packets` = 64** (the default is 4,096 [ran]).
 - **The server's side:**
-  - it refuses at `join` a shape whose frame exceeds a `data/server/` client cap of 3.5 MiB;
+  - it refuses at `join` a shape whose frame, with the fuel tables at the world limits, exceeds a `data/server/` client cap of 3.5 MiB;
   - it sends a new frame only after the previous one has drained;
   - it keeps inbound `max_size` at 64 KiB, with a test for the 1009 close (TB-7, WT-S12).
-- **Head-of-line blocking:** a `tick` queued behind a 1.84 MB frame waits on the order of a millisecond on localhost
+- **Head-of-line blocking:** a `tick` queued behind a 1.74 MB frame waits on the order of a millisecond on localhost
   (*to measure*). The 100 ms buffer absorbs it.
 
 ## 5. The one shader
@@ -148,8 +147,7 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
   cell. The crossed face gives the normal. Cells are read with `texelFetch` at the integer index [ran].
 - **One concern per `.gdshaderinc` include** (AR-N2): traversal, cut-away, crack, lighting, emission, and the ID and
   cell-index debug passes.
-- **A fuel-bed cell** draws as solid while it has fuel left. Its burning is shown through `burning` and
-  `surface_glow`, not as a see-through slat pattern, a Phase 1 simplification.
+- **Fuel objects** are a second pass (`client_objects.md` §4).
 
 ### 5.2 Cost (CR-S2)
 
@@ -167,11 +165,11 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
   has a capsule half inside a wall (CR-S1).
 - **Lighting** (`render_mode unshaded`): a fixed key light, three-tone face shading, neighbour AO, a fixed night
   ambient. No dynamic shadows.
-- **Glow:** T = offset + scale·g, both from the catalogue. Emission = 7.0 × ((T_K/1773)⁴ − (T₀/1773)⁴) `[engineering]`, T₀ the offset, a
+- **Glow:** T is `client_objects.md` §5's input. Emission = 7.0 × ((T_K/1773)⁴ − (T₀/1773)⁴) `[engineering]`, T₀ = 525 °C, a
   **stylisation**: T⁴ is total radiance, not visible radiance (PH-N2, CR-N4). Hue goes dull red → orange →
   yellow-white; above ~1,230 °C it clips white and bloom carries the rest. Embers near 920 °C bloom. Output above 1.0 drives glow
   [ran].
-- **Flames from `burning`:** emissive flicker plus `GPUParticles3D` at burning cells. Visual only, and off in goldens.
+- **Burning and flames:** `client_objects.md` §5.2–§5.3. Visual only, and off in goldens.
 
 ### 5.4 Crack changes shape (EX-S10, CR-S4)
 
@@ -182,7 +180,7 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
 - **Worked numbers (derived):** at 72 px/m, c = 0.25 gives 0.72 px from the metre term, so the floor applies. At
   c = 1 the groove is 2.9 px.
 - **Testing:** char darkens the albedo too, so the tests (§6.4) measure luminance and edges over cracked cells only.
-  The deletion proof disables carving with the darkening kept.
+  The deletion proof disables carving with the darkening kept. Severity shows by edge density (`client_objects.md` §6).
 
 ### 5.5 Tiers (client data, AR-S7)
 
@@ -198,7 +196,7 @@ Filters are compile-time hints [ran], so the glow sampler is a `#define` variant
 
 ### 5.6 Picking (CR-S6)
 
-- `dda.gd` runs the same traversal on the CPU over `material` and `region`, with the same cut parameters, at most 208
+- `dda.gd` runs the same traversal on the CPU over `material` and `region`, and objects analytically (`client_objects.md` §4.3), with the same cut parameters, at most 208
   steps per click. Cracks are ignored.
 - It returns a point in mm on the hit face, which the server re-validates.
 - A unit test checks that the pick agrees with a shader-equivalent reference on a grid of screen points.
@@ -214,8 +212,8 @@ Filters are compile-time hints [ran], so the glow sampler is a `#define` variant
   - captures after the first `await RenderingServer.frame_post_draw` [ran] and asserts `get_image() != null`;
   - saves the PNG.
 - **Frame files are B3 wire fixtures** (WT-N6).
-- **Renderer goldens** are hand-built frames: an asymmetric fixture, a cracked block, a glowing block, and a capsule
-  half inside a wall.
+- **Renderer goldens** are hand-built frames: an asymmetric fixture, a cracked block, a glowing block, a capsule
+  half inside a wall, and `client_objects.md` §7.1's fuel and severity fixtures.
 - **Scenario goldens:**
   - G1 at tick 70, cold;
   - G2 when the charred area reaches 4× world §6.3's threshold;
@@ -223,7 +221,7 @@ Filters are compile-time hints [ran], so the glow sampler is a `#define` variant
   - G4 at `t_gone` + 10 s;
   - G5 at tick 70 from the south, with `wall_south` cut.
 
-  That is five per tier.
+  That is five per tier. G2–G4's beats await restating for the slab (`client_objects.md` §7.3).
 - **Staleness** (EX-S13): only `scripts/update_goldens.sh` (to be written) writes frame files. A `slow` test compares
   the regenerated digests with the committed ones.
 
@@ -247,6 +245,7 @@ Each tier's frame is box-filtered to 160 × 90, then laptop and max are each com
   cracked cells.
 - **G2 against G1,** in L* over cracked cells only: a mean difference ≥ 8, and ≥ 2× the Sobel edge density.
 - **G3 against G1:** the glowing pixels are ≥ 15 L* brighter `[engineering]`.
+- **Fuel's checks:** `client_objects.md` §7.2.
 
 ### 6.5 CI and machines (T12; CR-B3, EX-B3)
 
@@ -382,5 +381,5 @@ None: step 8's seven were decided 2026-11-21 (`reviews/step8_shader/fold.md`).
 | Requirement | Step |
 |---|---|
 | `client/` skeleton; `project.godot` (renderer, warnings, its test); `godot_check.py` and its fixtures; the CI golden job, its image and one renderer golden; §9's probes | 2 |
-| The decoder against wire fixtures (scales, hash, `regions`, a post-`imagine` frame, header refusals); `tick` encoding; event accumulation and resync; `net_client.gd`; JSON integer reads (§4.1); buffers and the server's caps; the `Origin` test | 7 |
-| The shader and its includes, bricks, depth golden, crack and glow, picking, cut-away and its 95% test, input mapping, HUD, tiers, the scenario goldens, staleness digests, `update_goldens.sh`, budgets | 8 |
+| The decoder against wire fixtures (scales, hash, `regions`, a post-`imagine` frame, header refusals); `tick` encoding; event accumulation and resync; `net_client.gd`; JSON integer reads (§4.1); buffers and the server's caps; the fuel tables; the `Origin` test | 7 |
+| The shader and its includes, bricks, depth golden, crack and glow, picking, cut-away and its 95% test, input mapping, HUD, tiers, the scenario goldens, staleness digests, `update_goldens.sh`, budgets; the fuel-object pass (`client_objects.md`) | 8 |

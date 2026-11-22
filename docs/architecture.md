@@ -157,8 +157,8 @@ Actions change cells; only `World.advance` moves time.
 
 ## Fine-scale state drives graphics
 
-`encoding.snapshot` quantizes per-cell state into arrays a client uploads as 3-D textures: `material`, `crack`
-(1 − integrity), `glow` (from 525 °C, near the Draper point, to 1500 °C) and `temperature_c`. Shaders read them
+`encoding.snapshot` quantizes per-cell state into arrays a client uploads as 3-D textures, the channels
+`client_rendering.md` §4.2 lists; its interim `glow` channel retires at step 7 (`client_objects.md` §5.1). Shaders read them
 directly, so the finest physical state shows up as cracks, scorch and glowing metal without the renderer knowing
 any physics. The cell size sets the finest detail physics can drive; the client can add sub-cell detail (noise,
 decals) that is purely visual.

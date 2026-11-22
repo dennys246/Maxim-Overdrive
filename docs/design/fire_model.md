@@ -390,13 +390,8 @@ from the Hess solve is caught and re-raised):
 
 ### 9.2 Wire, save, digest and ledger
 
-- **Snapshot.** Fuel objects and segments travel as a table (world_model F2–F4: column-major, integer keys, no
-  strings), and so do flames (the client sizes its flame mesh from the server's height). Channels whose meaning
-  changes get new names (F1):
-  - `segment_glow`, the segments' surface temperature;
-  - `burning`, the ignited area fraction.
-
-  Godot decoder fixtures accompany both. These enter the protocol v0 grammar before step 7 freezes it.
+- **Snapshot:** `fire_solid.md` §5.6 and `client_objects.md` §3, whose names supersede v2's `segment_glow` and
+  `burning`.
 - **Save and digest** are `fire_solid.md` §5.5's and §5.4's; where it is silent, they also carry latches, the held
   radiation field and the cap and retirement counters. Flames are derived, with a `derivation_version` (F15).
 - **The imagined-object spec is versioned (v1).** It names a recipe, a geometry kind the recipe admits, metric

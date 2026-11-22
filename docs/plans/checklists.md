@@ -295,7 +295,10 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
   this PR (TB-B2).
 - `intent_result`, `seq`, `observed_tick` and events' `cause`; the catalogue with non-default-scale fixtures and its hash check on
   every frame (WT-B3, WT-S13).
-- `region` as u16 `region_id`, the `regions` message and `regions_version` (DC-B1); `surface_glow` and `burning`;
+- `region` as u16 `region_id`, the `regions` message and `regions_version` (DC-B1); the fuel tables and fuel view (`client_objects.md` §3,
+  `fire_solid.md` §5.6) with u32 and f32 in v0's dtypes, `crack` fixtures at a non-default scale, the join cap
+  counting fuel, the fuel view's leak test (`Observation`'s members pinned; `adapters.sem` never imports it), and
+  `encoding`'s `glow` key retired with `docs/architecture.md`'s and the roadmap's mentions of it;
   `tick` as JSON with integer columns (DC-S9); events accumulated with a resync (DC-S4); `tile_and_client.md`
   §3.3's message table; `welcome`'s maps; a `snapshot` on join (WT-S6).
 - Decode and stage-1 rejection fixtures; `HostOnly` tested directly with a guest-role view (WT-S9).
@@ -307,6 +310,12 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 ## Step 8, the tile (`tile_and_client.md` §6; `client_rendering.md` §4–§6)
 
 - The game package and its `content/` (AR-S6).
+- The fuel-object pass (`client_objects.md` §4–§7), about one more #31-sized PR: the per-instance row texture with
+  fixture rows past 2,048; the per-fragment segment lookup; the 2 px output floor and anti-aliasing (its owner
+  question 3); picking objects with no snap; Phase 1 flames; §7.2's checks, each proved by deletion; the fuel B5
+  rows; the structural-glow Known gap in `docs/architecture.md`; then B42's provisional reads deleted.
+- Questions for fire_solid's owner, answered before the fuel tables freeze: does the last segment take the
+  remainder; which slab face carries the segments; is a rod's origin its axis's start.
 - The exit script (Phase 1's exit is `docs/roadmap.md`'s, Phase 1, "Exit"), run stepped and unpaced; the controls,
   each proven by deletion (PH-S3); the stage-2 refusal scripts.
 - The shader, the cut-away test at ≥ 95%, five scenario goldens per tier, staleness digests, `update_goldens.sh`

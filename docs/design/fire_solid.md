@@ -416,15 +416,17 @@ In tile §3.4's enum, each tested at its gate:
 
 Until then, §6 tests that **the digest after a rebuild from the tables equals the running digest.**
 
-### 5.6 Snapshot requirements, for the client pass and step 7
+### 5.6 The fuel view, for the client
 
-6.0–6.1 sends no objects. The client design pass (before step 8) and step 7's grammar take:
-- **`objects`:** `object_id` u32, `recipe_id` u16, `region_id` u16, `kind` u8, geometry per kind as f32 metres.
-- **`segments`:** (`object_id`, `seg`); `surface_temperature_c` **f16** clipped to [−273, 6000] like `temperature_c`
-  (a u8 clips every ignited surface at 255 °C); `ignited_fraction` u8 in 1/255.
-- **Column-extensible tables,** so D-B2's char column needs no bump. `welcome` carries the recipe name↔id map. The
-  budget per profile is B5's. `burning` stays reserved.
-- These names supersede fire_model §9.2's `segment_glow` and `burning` (Bio N2).
+6.0–6.1 sends none. Step 7 builds it with its caller, the encoder:
+- **It holds** each object's geometry and `state`, and per segment, in f64, by `bincount` (§5.4): the
+  radiance-equivalent surface temperature (Σ a_p T_p⁴ / Σ a_p)^¼ over parts with area (exact for glow while one part
+  has area); the ignited part's share of the area; Σ_p a_p·h_p ÷ (area × initial thickness); and residue
+  mass ÷ remaining solid mass, 0 when none remains.
+- **Cadence:** once per physics step and insertion, never per window; `fuel_version` bumps on change.
+- **Leak rule:** presentation only. It is not on `Observation`, not a registered or perceivable field, and
+  `adapters.sem` never reads it.
+- **Wire form:** `client_objects.md` §3, superseding fire_model §9.2's names (`burning` reserved).
 
 ## 6. Tests
 
@@ -465,7 +467,7 @@ This review's findings are in `reviews/fire_solid/fold.md`. Every delta-round-1 
 | 6.4, with `kindle`'s pilot | A-S2, NS8, D-S5 (red gates, `TEMPORARY` ceilings); N-S2, N-N2, NN5 |
 | fire_model's next revision, before the 6.2 design | D-N2, D-N3 (`douse` lands with 6.2's acts), D-N4, NN7 |
 | The tile §6 revision, before 6.4 | D-S2 |
-| The client design pass, before step 8 | D-B2 |
+| The client design pass, before step 8 (`client_objects.md`) | D-B2 |
 | A note to the step 5 plan, before vocabulary v1 | D-S7, WT-S5 |
 
 **The NPC fire note** owns Bio delta-1 S2, S7, N3, NB1, NB2, NS1–NS5 and NN1–NN4. **Trigger:** ruled before step 5
@@ -491,6 +493,4 @@ The core keeps its banned imports: no IO, no clock.
 
 ## 8. What 6.0–6.1 doesn't show
 
-Whether fire spreads, sustains in a crib or glows. A lone slab that flames out when the heater goes is the expected
-answer, and it passing says nothing about the crate. That question belongs to 6.2 onward, designed from what R0 and
-R1 measure.
+Whether fire spreads or sustains in a crib: 6.2's question, designed from what R0 and R1 measure.
