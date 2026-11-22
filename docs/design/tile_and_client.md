@@ -203,8 +203,7 @@ Decode → stage 1 (`simcore` core intents) → log → stage 2 against the worl
   `tick` message. Phase 1 has no stale rule, so it has no caller; it is logged for Phase 4 (DC-N8).
 - **Authority** (boundaries §6.1): `move`, `move_to`, `kindle` are "any actor"; a body or an igniter is capability,
   checked at stage 2 (DC-N1).
-- **`kind_rank`** `[engineering]`: join/leave 0, `time` 1, moves 2, `ignite` (v0), `kindle`, `strike`, `douse`,
-  `imagine` 3; host commands 4.
+- **`kind_rank`** `[engineering]`: join/leave 0, `time` 1, moves 2, `kindle`, `strike`, `douse`, `imagine` 3.
 - **A held direction applies every tick until replaced.**
 - **Walking is a body affordance NPCs will share** (T6, OD-C11). Maxim's bodies (6fee7377, `fold.md` Check 1):
   `base_humanoid.yaml`'s `legs.move {direction: str, speed: str}` takes any string, `minecraft_player.yaml`'s
