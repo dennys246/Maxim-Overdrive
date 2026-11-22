@@ -71,9 +71,18 @@ ALLOWED: dict[str, dict[str, str]] = {
     },
     "simcore.protocol": {
         "__future__": "postponed annotations",
-        "collections": "Mapping",
-        "dataclasses": "the rig profile's frozen type",
-        "numpy": "display quantization of a frame's arrays",
+        "collections": "Mapping and Sequence",
+        "dataclasses": "the rig profile's and the wire's frozen types",
+        "math": "a grid's cell count (prod)",
+        "numpy": "display quantization of a frame's arrays; a frame's arrays as bytes and back",
+        "types": "MappingProxyType, read-only mappings",
+    },
+    # the wire's one JSON parser (boundaries §9.1): no other protocol module may import json
+    "simcore.protocol.strict_json": {
+        "__future__": "postponed annotations",
+        "collections": "Sequence",
+        "json": "the strict decoder's parser, with every hook set, and the encoder",
+        "math": "isfinite, to refuse 1e400",
     },
     "simcore.verify": {
         "__future__": "postponed annotations",
@@ -128,8 +137,15 @@ _NAMES_SEM = frozenset({
 
 # display quantization and the rig profile's type
 _NAMES_PROTOCOL = frozenset({
-    "__future__.annotations", "collections.abc.Mapping", "dataclasses.dataclass", "numpy.clip", "numpy.float16",
-    "numpy.round", "numpy.uint8",
+    "__future__.annotations", "collections.abc.Mapping", "collections.abc.Sequence", "dataclasses.dataclass",
+    "math.prod", "numpy.ascontiguousarray", "numpy.clip", "numpy.dtype", "numpy.float16", "numpy.frombuffer",
+    "numpy.generic", "numpy.round", "numpy.typing.NDArray", "numpy.uint8", "types.MappingProxyType",
+})  # fmt: skip
+
+# the wire's strict JSON: its parser with every hook set, and finiteness
+_NAMES_STRICT_JSON = frozenset({
+    "__future__.annotations", "collections.abc.Sequence", "json.JSONDecodeError", "json.dumps", "json.loads",
+    "math.isfinite",
 })  # fmt: skip
 
 # the harness: frozen results, observed orders by logarithm
@@ -147,6 +163,7 @@ EXTERNAL_NAMES: dict[str, frozenset[str]] = {
     "simcore.adapters.loaders": _NAMES_LOADERS,
     "simcore.adapters.sem": _NAMES_SEM,
     "simcore.protocol": _NAMES_PROTOCOL,
+    "simcore.protocol.strict_json": _NAMES_STRICT_JSON,
     "simcore.verify": _NAMES_VERIFY,
     "maxim_overdrive.data": _NAMES_DATA,
 }

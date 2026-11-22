@@ -17,6 +17,9 @@ dependencies = [
     # IDNA2008's code-point tables and contextual rules decide which characters a name may hold (simcore.core.schema
     # .Text); already locked as pymaxim's transitive dependency, declared because the engine imports it directly
     "idna>=3.7,<4.0",
+    # The client transport (docs/architecture.md, "Transport"; boundaries §5.3): the host's WebSocket server, which
+    # enforces the frame-size cap (close 1009) and lets the handshake refuse an Origin header; BSD-3-Clause
+    "websockets>=15.0,<18.0",
 ]
 
 [project.optional-dependencies]
@@ -158,7 +161,8 @@ name = "the SEM membrane reads frames and writes through the applier only (bound
 type = "forbidden"
 source_modules = ["simcore.adapters.sem"]
 forbidden_modules = [
-    "simcore.core.damage", "simcore.core.deposit", "simcore.core.digest", "simcore.core.exposure",
+    "simcore.core.converters", "simcore.core.damage", "simcore.core.deposit", "simcore.core.digest",
+    "simcore.core.exposure", "simcore.core.text",
     "simcore.core.grid", "simcore.core.heat",
     "simcore.core.imagination", "simcore.core.law", "simcore.core.materials", "simcore.core.physics",
     "simcore.core.readonly", "simcore.core.reductions", "simcore.core.scene", "simcore.core.schema",

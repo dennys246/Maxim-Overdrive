@@ -714,7 +714,7 @@ The core is forbidden from importing it; `engine.adapters.sem` is too (§2.2).
 - **The schema is shape plus closed vocabulary,** not validation. Stage 1 stays the only server validator; limits
   reach the client in the handshake for its UI only.
 - **A strict JSON decoder** sits in front: `parse_constant` raises (no `NaN`/`Infinity`), `object_pairs_hook`
-  refuses repeated keys, `max_size` applies before decoding. Integers are pinned to at most 2⁵³ (Godot parses numbers
+  refuses repeated keys, `max_size` applies before decoding. Integers are pinned below 2⁵³ (Godot parses numbers
   as doubles).
 - **Golden rejection frames** (`NaN`, `1e400`, a repeated key, an oversized frame, an unknown field) sit beside the
   valid ones, decoded by both sides.

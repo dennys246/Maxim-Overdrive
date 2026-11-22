@@ -302,12 +302,16 @@ CORE_PUBLIC_SURFACE = {
     "simcore.core.checks",
     "simcore.core.refusals",  # the closed vocabulary every refusal answers in
     "simcore.core.schema",  # the format declarations and their one reader, which the file gates and tiers apply
+    "simcore.core.converters",  # the converters beyond schema's numbers and names: the wire's vectors, words, tokens
+    "simcore.core.text",  # which characters text may hold: names, and guest text (player_text)
     "simcore.core.digest",  # versioned content digests, which step 5a's log header records
     "simcore.core.fields",  # the field registry, which the membrane, the snapshot and the digest read (sim_core.md §6)
 }
 # What the membrane may import from the core (B-13): frames to read, the applier to write, the intents to parse. Not the
 # world: it is handed an applier and a frame view instead (step 3b review, Architecture S1).
 MEMBRANE_SURFACE = CORE_PUBLIC_SURFACE - {
+    "simcore.core.converters",
+    "simcore.core.text",
     "simcore.core.materials",
     "simcore.core.world",
     "simcore.core.simulation",

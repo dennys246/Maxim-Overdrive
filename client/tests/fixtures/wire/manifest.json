@@ -1,0 +1,675 @@
+{
+ "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+ "client": {
+  "fixtures": [
+   {
+    "code": "",
+    "file": "client/hello.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "client/hello_newer.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "client/move.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "client/move_stop.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "client/move_to.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "client/kindle.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "client/time_pause.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "client/time_set_scale.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "client/snapshot.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "client/seq_largest.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "not_int",
+    "file": "client/duration_float.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "not_int",
+    "file": "client/duration_true.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "not_int",
+    "file": "client/duration_1e3.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "not_int",
+    "file": "client/point_bool.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "out_of_range",
+    "file": "client/seq_below_2p53.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "client/seq_at_2p53.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "client/seq_past_2p53.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "out_of_range",
+    "file": "client/seq_2p31.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "out_of_range",
+    "file": "client/seq_negative.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_kind",
+    "file": "client/unknown_type.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_kind",
+    "file": "client/no_type.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_kind",
+    "file": "client/type_not_text.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_field",
+    "file": "client/client_actor.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_field",
+    "file": "client/client_tick.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_field",
+    "file": "client/client_observed_tick.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_field",
+    "file": "client/client_apply_us.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_field",
+    "file": "client/client_role.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "missing_field",
+    "file": "client/missing_seq.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_shape",
+    "file": "client/dir_short.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_shape",
+    "file": "client/dir_text.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_shape",
+    "file": "client/token_spaces.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_shape",
+    "file": "client/token_long.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_shape",
+    "file": "client/pause_with_scale.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_shape",
+    "file": "client/set_scale_without_scale.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_kind",
+    "file": "client/unknown_op.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_shape",
+    "file": "client/not_object.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "client/nan.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "client/overflow.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "client/repeated_key.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "client/oversized.json",
+    "outcome": "refused"
+   }
+  ],
+  "readers": [
+   "python"
+  ]
+ },
+ "format": "overdrive-wire-fixtures",
+ "frame_cap": 4194304,
+ "frames": {
+  "fixtures": [
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "",
+    "file": "frames/base.bin",
+    "outcome": "accepted",
+    "probes": [
+     {
+      "channel": "region",
+      "value": 1799,
+      "zyx": [
+       1,
+       1,
+       1
+      ]
+     }
+    ]
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "",
+    "file": "frames/asymmetric.bin",
+    "outcome": "accepted",
+    "probes": [
+     {
+      "channel": "material",
+      "value": 1,
+      "zyx": [
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "channel": "material",
+      "value": 2,
+      "zyx": [
+       0,
+       0,
+       3
+      ]
+     },
+     {
+      "channel": "material",
+      "value": 3,
+      "zyx": [
+       0,
+       2,
+       0
+      ]
+     },
+     {
+      "channel": "material",
+      "value": 4,
+      "zyx": [
+       0,
+       2,
+       3
+      ]
+     },
+     {
+      "channel": "material",
+      "value": 5,
+      "zyx": [
+       1,
+       0,
+       0
+      ]
+     },
+     {
+      "channel": "material",
+      "value": 6,
+      "zyx": [
+       1,
+       0,
+       3
+      ]
+     },
+     {
+      "channel": "material",
+      "value": 7,
+      "zyx": [
+       1,
+       2,
+       0
+      ]
+     },
+     {
+      "channel": "material",
+      "value": 8,
+      "zyx": [
+       1,
+       2,
+       3
+      ]
+     }
+    ],
+    "shape": [
+     2,
+     3,
+     4
+    ]
+   },
+   {
+    "catalogue": "sha256/c14n-1:d6b66591dc72d429ce2abf8fb157c3d6196e86cd25f43e46d06ea0e2ba93e812",
+    "code": "",
+    "file": "frames/unknown_optional_channel.bin",
+    "ignored": [
+     "channel:smoke_kg_m3"
+    ],
+    "outcome": "accepted"
+   },
+   {
+    "catalogue": "sha256/c14n-1:06cf6e17f06052c9283c5e8a3a82e0210f688f3d884ea76f0ba2ab881716a043",
+    "code": "",
+    "file": "frames/unknown_optional_grid_and_table.bin",
+    "ignored": [
+     "grid:zones",
+     "table:flames"
+    ],
+    "outcome": "accepted"
+   },
+   {
+    "catalogue": "sha256/c14n-1:962018c05fcacd4d5917a06ab6900303367b3da1586d483d6953e29a0da85f60",
+    "code": "unknown_field",
+    "file": "frames/unknown_required_channel.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_version",
+    "file": "frames/newer_protocol.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "",
+    "file": "frames/tick_below_2p53.bin",
+    "outcome": "accepted",
+    "tick": 9007199254740991
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/tick_at_2p53.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/tick_past_2p53.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "not_int",
+    "file": "frames/tick_float.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "not_int",
+    "file": "frames/tick_true.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "not_int",
+    "file": "frames/tick_1e3.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_not_json.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_nan.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_overflow.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_repeated_key.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_repeated_escaped_key.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_lone_surrogate.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/header_not_object.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_not_ascii.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/header_length_past_end.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/too_short.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/oversized.bin",
+    "max_bytes": 1079,
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_version",
+    "file": "frames/protocol_missing.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_version",
+    "file": "frames/protocol_float.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_field",
+    "file": "frames/unknown_header_key.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "missing_field",
+    "file": "frames/missing_header_key.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_kind",
+    "file": "frames/delta_kind.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_kind",
+    "file": "frames/zstd_compression.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:8fedaf6c8052381e2a9904c8b3f8b03596ade9ed9d4a636ea8d741222a71d776",
+    "code": "unknown_kind",
+    "file": "frames/unknown_dtype.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:c83504023124c52c471c23d9963329f2a819bf74ca1d0bf988763e9a3fa27263",
+    "code": "unknown_kind",
+    "file": "frames/unknown_encoding.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:7f16efd79f3c71230aa4c088c5faf9c65f15bfa9221e88aa342ecf300ae8071b",
+    "code": "bad_shape",
+    "file": "frames/required_not_bool.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:9b7840f79abfeb3947ab32e3173ecb79f04c56a99d8969685b01922010e482b6",
+    "code": "bad_shape",
+    "file": "frames/raw_with_scale.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:8fdb58427589c983539fc2f4257278a9a6ab9ab7ec31279cce2058e3b1da3d23",
+    "code": "bad_shape",
+    "file": "frames/zero_denominator.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/short_array.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/trailing_bytes.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/array_of_nowhere.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "missing_field",
+    "file": "frames/no_cells_grid.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/grid_shape_differs.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/two_grids_one_name.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:7062368045f661d47d455c77aecbf425611c0c07367ffefa5a7eca7f01fad892",
+    "code": "bad_shape",
+    "file": "frames/duplicate_channel.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:38023761d4ea8b928a4e7e0f4b23381d44bc39121ef5f938d732db797f68c79d",
+    "code": "missing_field",
+    "file": "frames/missing_required_channel.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:d44f1ce1da64ec6236f858c90f958fa68ba05ca859282cea5072f9ef4027aae5",
+    "code": "bad_shape",
+    "file": "frames/known_channel_other_unit.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:161988e8b22735aaba6a58273f22b6ff8075a7e9a1db7ff185626e8f60fccfb5",
+    "code": "unknown_field",
+    "file": "frames/unknown_required_grid.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_field",
+    "file": "frames/unknown_required_table.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_version",
+    "file": "frames/catalogue_mismatch.bin",
+    "outcome": "refused"
+   }
+  ],
+  "readers": [
+   "python",
+   "godot"
+  ]
+ },
+ "json": {
+  "fixtures": [
+   {
+    "code": "",
+    "file": "json/object.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/nan.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/infinity.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/minus_infinity.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/overflow.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/repeated_key.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/repeated_escaped_key.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/nested_repeated_key.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/lone_surrogate.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/deep_nesting.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/nesting_at_limit.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/nesting_past_limit.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/not_json.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/oversized.json",
+    "max_bytes": 64,
+    "outcome": "refused"
+   }
+  ],
+  "readers": [
+   "python",
+   "godot"
+  ]
+ },
+ "version": 0
+}

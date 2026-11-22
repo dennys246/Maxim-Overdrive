@@ -138,6 +138,7 @@ a nit; OD-I6, OD-I7, OD-I8 new.
 | OA1 | A thought's kind from the agent's policy, a closed vocabulary; a logged host table sets cost |
 | OA2 | Dilation shown on a three-handed clock |
 | OA3 | No conversational repertoire of our own; proposed to Maxim as OD-H5 |
+| O59, O60, O61, O62 | Step 7's wire: integers below 2⁵³, integers only; repeated keys refused; guest-text joiners |
 | OA4 | Speech stamped per syllable |
 | OA5 | One mental-fatigue drive feeding sleep pressure `[engineering]` |
 

@@ -60,6 +60,11 @@ class RefusalCode(StrEnum):
     SPACE_TAKEN = "space_taken"
     TOO_SMALL = "too_small"
     DUPLICATE_KEY = "duplicate_key"
+    # step 7: guest text (engine.text.player_text, O61), and the handshake and time authority (boundaries §5.3)
+    BAD_TEXT = "bad_text"
+    BAD_TOKEN = "bad_token"
+    TOKEN_IN_USE = "token_in_use"
+    HOST_ONLY = "host_only"
 
 
 class Refused(ValueError):
