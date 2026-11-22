@@ -123,9 +123,25 @@ How the rule is kept, so far:
   with authored geometry (design v2) removes it.
 - **Whether an imagined object fits in the world can depend on the rig.** `imagination.place` refuses an object
   "smaller than one cell at this resolution" when it covers no cell centre, which can happen at the coarse rig and
-  not at a finer one. Its size and mass budgets are rig-independent; this check
+  not at a finer one, and at the truth grid too. Measured at the offset (0.503, 0.503, 0.003) m, 2026-11-22: a wooden
+  footstool with 4 cm parts and a glass aquarium on a steel stand are refused at 0.1 m, and a steel locker of 1 cm
+  sheets at 0.05 m (D34). Its size and mass budgets are rig-independent; this check
   isn't. The thin-features rule (`docs/design/world_model.md` §1.1) as a minimum authored size
   would remove it.
+- **`place` accepts an object that loses most of its geometry, or lies partly outside the world.** A wooden table,
+  with a 1.2 × 0.8 × 0.04 m top and four 0.05 m legs (0.0455 m³), placed at (0.5, 0.5, 0) in an empty scene,
+  voxelizes to 0.032 m³ at 0.2 m and 0.007 m³ at 0.1 m: its top vanishes at both spacings. `place` refuses only an
+  object that covers no cell centre, and it never checks the placed bounds against the grid, so a part below z = 0
+  is clipped silently (spec generator spike review, 2026-11-22). The bounds refusal lands at step 5a, where `place`
+  becomes the `imagine` intent's stage 2; red gate:
+  `tests/test_imagination.py::test_an_object_partly_outside_the_world_is_refused`. Lost geometry waits on spec v1's
+  sub-cell geometry (`docs/design/fire_model.md`).
+- **`region_breached` picks its axis from cell extents, so the axis can change with the spacing.** It tests for a hole
+  along `argmin` of the region's index extents, with ties going to x. A 0.6 × 0.6 × 0.55 m box at (0.5, 0.5, 0) has
+  extents [2, 2, 2] at 0.2 m, so x, and [5, 5, 4] at 0.1 m, so z. For furniture whose thinnest axis is z, "breached"
+  means a burned path from the legs' slice to the top's. The fix is `world_model.md` §1's breach by remaining
+  thickness in metres, at step 8a (`phase1/fuel-surface`). Red gate:
+  `tests/test_damage.py::test_a_hole_through_the_thinnest_authored_axis_is_a_breach_at_every_rig`.
 - **A region's temperature reading can leave its declared range.** `RegionInstrument` declares
   `temperature_max` as [-273, 6000] °C, but the fuel gap lets legal fires drive cells far past that (about 4×10⁵ °C
   after 60 turns of a 500 kW fire, once the crate has burned away). The reading isn't clipped, because clipping

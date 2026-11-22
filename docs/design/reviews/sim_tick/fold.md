@@ -8,7 +8,8 @@ and resolution, Performance), `round1_arch_wire_trust.md` (Architecture, Wire in
 or need a design call, and the owner rules on each.
 
 **Correction first.** 336eee8's message says "the interim Simulation(world) seam is gone" (false: the constructor
-for a built world stayed public and checked nothing, Arch S5) and "Lesson 34" (it is 35 after the merge with main).
+for a built world stayed public and checked nothing, Arch S5) and "Lesson 34" (it is 37: 35 after the first merge with main, 37 after main added its own lessons 35 and
+36; "lesson 35" in the rows below and in the reviewers' reports is this lesson).
 `from_scene`'s docstring and `work.py` said the caches were built eagerly (false: they were lazy, Det SF-1, Arch S3).
 
 ## How the main fix works (Det SF-1, Arch S2, S3, Exec S1)

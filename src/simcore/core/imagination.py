@@ -1,9 +1,10 @@
 """Imagined objects enter the world as specs, never as free-form assets.
 
-An LLM (Maxim's ImaginationDesigner, later) proposes an object as primitives made of known materials, in metres,
-relative to the object's origin. Before anything exists, the spec must pass the world's rules: every material is in
-the table, the object fits its size limit and its mass budget, and the space it would occupy is free. A passed spec
-is voxelized into the grid like any authored primitive, so an imagined crate burns and breaks like a real one.
+A generator on the world's side (docs/design/boundaries.md section 5.3) proposes an object as primitives made of known
+materials, in metres, relative to the object's origin. Before anything exists, the spec must pass the world's rules:
+every material is in the table, the object fits its size limit and its mass budget, and the space it would occupy is
+free. A passed spec is voxelized into the grid like any authored primitive, so an imagined crate burns and breaks
+like a real one.
 
 Rendering assets (meshes, textures, sounds) are derived from the same spec and the material table, not generated
 separately; see docs/architecture.md.
