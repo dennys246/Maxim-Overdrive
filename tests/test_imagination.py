@@ -180,3 +180,19 @@ def test_a_space_an_unnamed_solid_fills_is_occupied_and_refusing_it_changes_noth
         place(g, two, (1.2, 1.2, 0.0))
     assert np.array_equal(g.material, before)
     assert "two" not in g.regions
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason="place never checks the placed bounds against the grid, so a crate placed 0.3 m below the floor is "
+    "accepted and clipped (docs/architecture.md, Known gaps). A bounds refusal at step 5a, where place becomes the "
+    "imagine intent's stage 2, flips this gate.",
+)
+def test_an_object_partly_outside_the_world_is_refused(dx_m, materials):
+    g = _grid(dx_m, materials)
+    try:
+        place(g, CRATE, (1.2, 1.2, -0.3))
+    except SpecRejected:
+        return
+    raise AssertionError("a crate 0.3 m below the floor was placed")

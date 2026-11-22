@@ -84,6 +84,31 @@ Each entry says which half each piece of work is.
 | **Status** | `advance(0.5)` costs about 0.7 s of CPU at 1.92 × 10⁶ cells, before fire, NPCs or radiation exist. Fire's costs are measured in its reviews (flame radiation dominates) |
 | **Next** | A fire budget before 6.2's radiation; deterministic work counters as the primary gate |
 
+## Structure and motion: load and moving bodies
+
+| | |
+|---|---|
+| **Goal** | Objects bear load and fail under it, and intact objects move as physical bodies (pushed, toppled, dragged, thrown) on the authoritative server, so that an NPC can learn what holds and what falls (owner, 2026-11-22, D31, D32) |
+| **Documents** | `../roadmap.md` Phase 2; `../design/world_v2.md` §3.2 (strength) and §4 (connectivity, loose solids, settling by angle of repose); no design document yet |
+| **Contract** (to decide) | what a body is against the grid, and how it hands back to cells at rest; the formats a body adds to frames, saves and the intent log; determinism (bit-identical on one machine, the outcome class across machines and grids); what NPCs sense (weight, contact, motion) |
+| **Laws** (to choose) | load against capacity (crushing, bending, buckling), rechecked on events and as strength changes; rigid-body dynamics with contacts and friction; each with a closed-form test and a cross-grid test |
+| **Decided** | load is in (D31); moving bodies are in if they can be done honestly, and a declined cost is a valid result (D32); imagined objects meet the support rule when placed (D33) |
+| **Open** | whether an existing physics library can meet the determinism and cross-grid rules, or the laws are ours; how fire and load couple (a burning leg fails, the table falls); a contract for structural members thinner than two cells (D31) |
+| **Status** | not started; Phase 2 |
+| **Next** | A research survey and a pre-registered spike, as for fire: the closed forms first (D31's, a box's tipping angle, a block sliding with friction), then one body crossing two grids |
+
+## Imagined-object generator
+
+| | |
+|---|---|
+| **Goal** | Text to imagined-object specs that the world accepts and that behave as asked, written by a generator on the world's side (O57); perhaps later a small model trained against the world's own scorer |
+| **Documents** | `../design/research/specgen_spike/plan.md` (stage 1) and `sources.md`; `../architecture.md` "Imagination"; `../roadmap.md` Phase 6 |
+| **Contract** | the spec `place` accepts (v0 today; v1 planned in `../design/fire_model.md`), with its refusal codes; provenance and the IP gate (`../design/ip_and_licensing.md` §3, §6) |
+| **Decided** | the spike is allowed, local only, P = 0.8 (O56); the generator is world-side, never the agent's imagination (O57); local models first (O58) |
+| **Open** | whether stage 2, training, goes ahead (plan §6); physics scoring waits on spec v1 (plan §5); the two Maxim questions O57 defers to Phase 6's design |
+| **Status** | stage 1 planned (draft, round 1 folded), not run |
+| **Next** | write the prompt and arm files, review them, then commit the plan with their hashes as the pre-registration; then run A0 to measure cost |
+
 ## How this file is kept
 
 - **An entry changes in the same commit** as the work or ruling that changes it.

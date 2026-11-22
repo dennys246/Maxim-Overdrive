@@ -390,3 +390,21 @@ renders it as "Failure type: None" in the replan prompt (`loop_state.py:248`, `p
 classifies by the text, though the replan prompt carries it verbatim as "Failure reason:" (`plan_document.py:280`);
 Maxim's one text classifier, `classify_failure_type`, runs only from a planner its own docstring calls dormant (delta
 rounds 2 and 3, SF-1, R3-5).
+
+### 32. A name in a docstring is not a plan: Maxim's imagination designs behaviour, not bodies (2026-11-22)
+
+**A game that assigns work to a named Maxim component must check that the component is built, or planned, to do it.**
+*Evidence:* since Phase 0, `simcore/core/imagination.py` said "Maxim's ImaginationDesigner, later" would propose
+imagined objects as primitives made of materials. At `origin/main` 688c4b02, `ImaginationDesigner.imagine`
+(`src/maxim/imagination/designer.py`) calls `EntityDesigner.design()` (`simulation/entity_designer.py`), which asks an
+LLM for a SEM entity: sensors, modulators, affordances and failure modes. It has no geometry, dimensions or materials,
+and no Maxim plan adds them. We searched geometry, primitive, mesh, voxel, metres, cylinder, text-to-3d and object
+spec, and found nothing. Maxim's claim is learning without fine-tuning (`README.md:28`), so a model trained to write
+geometry can't live inside the agent. *Consequence:* Phase 6 had no spec author.
+- The author is now a generator on the world's side (O57), never the agent's imagination.
+- Once an imagined object exists, what it does to an NPC is an ordinary world event. A first draft of O57 borrowed
+  Maxim's provenance words (`apparatus` for the generator, `imagined` for its objects). In Maxim those label
+  body-consequence records (`sem.py`, `OUTCOME_PROVENANCE`), and `apparatus` is never learned from, so using them
+  would have hidden from NPCs that an imagined table burns (round 1, Architecture B1).
+- Whether Maxim should know that an entity was generated is a question for Phase 6's design.
+- The spec generator spike (`docs/design/research/specgen_spike/plan.md`) measures the first step.

@@ -67,6 +67,9 @@ Each new field ships with a closed-form test and a cross-grid test, under the ve
 - **Gas and radiation:** smoke, toxins and Fallout-style rads, as diffusion plus sources.
 - **Convection:** an approximation so rooms heat realistically and fires don't have to sit on a material.
 - **Structural support:** cells left unsupported fall as debris.
+- **Load and moving bodies** (owner, 2026-11-22, D31, D32): objects bear load and fail under it, and intact objects
+  move as physical bodies if that can be done honestly. Research first, in the Structure and motion entry of
+  `docs/plans/long_term_features.md`. Imagined objects meet the support rule when placed (D33).
 - **Scale:** move the hot loops to numba or C if profiling says so (never coarser far cells: world_model D21).
 - **Close the known gap:** the coarsest rig's late-burn lag (`docs/architecture.md`).
 - **Moved from Phase 1 by the fire fallback (2026-11-20; after VS5):** crate and rungs 6.2–6.4 (flame object,
@@ -330,12 +333,15 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
 ## Phase 6: Imagination as a generative engine (later)
 
 - In-game imagination, bound to the materials table and a power budget. The world validates every spec before the
-  object exists.
+  object exists. A generator on the world's side writes the spec, never the agent's imagination (O57), on local
+  models first (O58). The research line is the spec generator spike (`docs/design/research/specgen_spike/plan.md`,
+  O56). When this phase's design starts, ask Maxim the two questions O57 defers.
 - An IP gate in front of `simcore.core.imagination.place`, shipped with the LLM caller that feeds it, never after it
   (design: `docs/design/ip_and_licensing.md` §3, once reviewed).
 - Assets are derived deterministically from specs: meshes from cells, procedural impact and burn sounds from
   material properties. Image-model art is cached decoration only and never decides physics.
-- **Exit:** a player imagines an object mid-scene and it burns and breaks like an authored one, at every rig.
+- **Exit:** a player imagines an object mid-scene, and it burns, breaks, and stands or falls like an authored one, at
+  every rig (D33).
 
 ## Phase 7: Book to world (later; the pipeline lives in Maxim)
 

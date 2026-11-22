@@ -38,3 +38,24 @@ def test_breach_is_the_same_outcome_at_every_rig(spacings, materials, energy, br
         assert damage.region_breached(g, "wall") is breached, dx_m
         integrities.append(damage.region_integrity(g, "wall"))
     assert max(integrities) - min(integrities) < 0.01  # the SEM integrity sensor reads the same at every rig
+
+
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason="region_breached picks its axis from cell extents, so it can change with the spacing: a 0.6 x 0.6 x 0.55 m "
+    "box at (0.5, 0.5, 0) tests x at 0.2 m (extents [2, 2, 2], ties to x) and z at 0.1 m ([5, 5, 4]), so a hole "
+    "through its thinnest authored axis counts only at the finer rig (docs/architecture.md, Known gaps). The fix is "
+    "world_model.md section 1's breach by remaining thickness in metres, at step 8a (phase1/fuel-surface).",
+)
+def test_a_hole_through_the_thinnest_authored_axis_is_a_breach_at_every_rig(spacings, materials):
+    for dx_m in spacings:
+        box = Box((0.5, 0.5, 0.0), (1.1, 1.1, 0.55), "wood", "box")  # thinnest authored axis: z
+        g = Scene((2.0, 2.0, 2.0), (box,)).build(materials, dx_m=dx_m)
+        x, y, _ = g.mesh()
+        # A 0.2 m square column in metres, whose faces are cell faces at every spacing, so it holds whole cells.
+        column = (x > 0.8) & (x < 1.0) & (y > 0.8) & (y < 1.0) & g.regions["box"].cells
+        with g.writing():
+            if g.destroy(column) == 0:  # the precondition raises outside the gate's raises=, so it can't pass as red
+                raise RuntimeError(f"no hole was made at {dx_m} m")
+        assert damage.region_breached(g, "box"), dx_m
