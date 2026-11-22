@@ -482,14 +482,7 @@ M2 stays withdrawn. **The wall-clock gap is the largest unmet assumption** (L2 �
 
 ## 10. Decisions
 
-**Ruled 2026-11-20:** **D1** the port's `frame` is the `BoundFrame` source (O36); **D2** the registry is code
-primary; **D3** the wall-clock pushback; **D4** the injected clock is machinery; **D5** (c); **D6** flux internal;
-**D7** answered; **D8** the flat stopgap body; **D9** for O34; **D10** split `region_parts`; **D11** (a).
-
-**Ruled 2026-11-21:** **D12, provisional** (§8), with per-body budgets; **D13** (§5); **D14** (§4.6): a pain path
-precedes Phase 4's fire scenarios; M16 merges into M4; **S4:** no exchange with cell faces in v1 (§2.3); **the
-split:** this document holds the contract; **D15** (§6.2); **PH2-S2, re-ruled:** (c) replaces (a) (§3.1); **the
-rounds stop:** the next review is on code.
+This document's decisions (20 rulings) are kept as records, with their dates, owner sections and status, in `decisions/sem_stimuli.md`.
 
 ## 11. Steps, open questions and risks
 

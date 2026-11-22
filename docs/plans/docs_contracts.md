@@ -136,14 +136,17 @@ retarget it, since it is a tool, not a lens report. Otherwise it stays a record 
   - Status is `live`, `amended by Ox` or `superseded by Ox`, taken only from existing text.
 - The design keeps its `## 0` heading, with the ids and a link.
 - Contract text found only in a ruling is copied to its owner section.
-- This covers B, N, WM, T, C, IP, SS §10, FM §11 and IL §1.
+- This covers B, N, WM, T, C, IP, SS §10 and FM §11's three ruled items. FM's open items and Maxim asks stay. IL §1
+  stays: its items are proposals, not rulings.
 - Plans (VS §1) keep their lists. **Owner to confirm.**
 
 **`check_plan.py`:**
 - `ID_SOURCES` gains the decision files of its six documents, and the D and T patterns follow them.
-- A new test checks that the required id set at dc0e1aa equals the set after the move, and goes red if a decision
-  file is dropped.
-- **OD-EA9 appears only in a fold table.** Proposed: add it to the roadmap row for `embeddable_agent_DRAFT.md`.
+- A new test holds the required id set to a superset of the set at 5c054f6, and goes red if a decision file is
+  dropped. The test is a superset, not equality, so new decisions don't break it.
+- **OD-EA9 drops out.** A fold table was its only source mention, and `foundations_plan.md` still names it. Adding it
+  to the roadmap would change the roadmap's Phase 3 exit list, which omits OD-EA6 and OD-EA9 while the foundations
+  plan lists both: a finding for the owner, not a move.
 - The open-question headings don't move.
 
 ## 5. References and section numbers

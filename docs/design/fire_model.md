@@ -473,11 +473,7 @@ from the Hess solve is caught and re-raised):
 
 ## 11. Decisions
 
-**Ruled (owner, 2026-11-20):**
-1. **Cost model:** one flame per cluster with analytic view factors and coarse occlusion, plus multi-rate radiation
-   on a fixed schedule; honest dilation is the fallback.
-2. **Cross-grid grading keeps tile §6.3's tolerances.**
-3. **Step 6 becomes the ladder,** with a time-box on R0–R2.5 and the fallback exit.
+Items 1–3 were ruled (owner, 2026-11-20) and are kept in `decisions/fire_model.md`.
 
 **Open, recommended as written:**
 
@@ -500,13 +496,3 @@ from the Hess solve is caught and re-raised):
 | MP-4 | is world_v2 P3 / OD-A16: delayed credit |
 | MP-3, MP-6 | the proximity plan's amendment and receptor adaptation, later (L6b §5) |
 
-## 12. Open questions and risks
-
-- Uncited: flame merging, per-flame extinction, autoignition (refused until cited).
-- Not in hand: R2a/R2b datasets, TN 2102's stick layout, its O₂ regime.
-- The flux → pyrolysis → Q → height loop near threshold: binary outcomes keep CLAUDE.md's band and margin.
-- Cost scales with flame count, unmeasured; x86 SIMD subset independence untested (CI offset test at 1 and N
-  threads).
-- The client may draw flourish (flicker, smoke) no NPC senses: a named asymmetry.
-- **Not yet designed** (`fold.md`): the per-layer placement of the new code; `strike` and breach on fuel objects; a
-  held flame's lifecycle; flipping the two fire red gates and retiring `actions.yaml`'s ceilings (proposed: in 6.4).

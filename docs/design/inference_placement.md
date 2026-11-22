@@ -28,19 +28,7 @@ means a round's reader or the author read the line there. The locked release is 
 
 ## 0. Decisions (owner, 2026-11-21)
 
-| # | Decision | Where |
-|---|---|---|
-| O46 | **The host's thinking lane owns placement.** It decides which model serves each request, by function, consent, health, capacity and budget. Maxim's `LLMRouter` is not built on the NPC path, and Maxim's backends are the transports. This argues against Maxim's rule that placement "rides on `LLMRouter`" (§1.2); the pushback is OD-A24. | §1, §2 |
-| O47 | **The calls run in host-owned inference gateway processes, not in the world server.** O13's "the LLM gateway stays in the host" reads as host-side. | IG §2 |
-| O48 | **Each function is pinned to its first eligible placement by default; `spill` is an opt-in per function. Load never moves a pinned function (§2.7).** | §2.4, §2.7 |
-| O49 | **A model on another of the player's machines counts as remote under O18.** | IG §6 |
-| O50 | **No streaming until Maxim's backends can stream to their caller.** The gateway calls with `stream=False`, and the first word arrives with the whole reply (§6.3). | IG §3, §6.3 |
-| O51 | **Consent is per speaker and outlives the session.** Taint covers every guest-supplied string, by any channel. | IG §6 |
-| O52 | **O46 goes to Maxim as a pushback** (OD-A24). | §9 |
-| O53 | **One gateway process per placement.** | IG §2 |
-| O54 | **Either the speaker or the save's owner may purge a speaker's words; only the speaker may release them to a remote class.** | IG §6 |
-| O55 | **A speaker is the guest's persistent identity, not a session:** a key the guest's client keeps, proven at the handshake, so consent, purge and release follow the person across sessions. | IG §6 |
-| — | Kept by the owner: an `owner_lan` endpoint must have a private, link-local or CGNAT address, and `http://` to one needs `cleartext: true` (IG §7). Load failures wait on the same placement (§2.7). Cache pairing covers only the shared prefix (§4.2). | |
+This document's decisions (11 rulings) are kept as records, with their dates, owner sections and status, in `decisions/inference_placement.md`.
 
 ## 1. What Maxim offers, and what this pushes against
 

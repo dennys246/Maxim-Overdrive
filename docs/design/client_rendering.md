@@ -11,20 +11,7 @@ probes (`research/godot_probes.md`).
 
 ## 0. Decisions this document rests on
 
-| Id | Decision | Owner, date | Source |
-|---|---|---|---|
-| T1 | Camera: isometric 3/4, fixed elevation, 90° steps, bounded zoom, a cut-away rule | owner, 2026-11-18 | §1, §2 |
-| T2 | Click-to-move and WASD, both validated intents; the client never moves the player | owner, 2026-11-18 | §3; world §3 |
-| T8 | The Compatibility renderer for Phase 1 | owner, 2026-11-18 | §7.4 |
-| T9 | No client-side prediction in Phase 1 | owner, 2026-11-18 | §3.1 |
-| T10 | Camera elevation 40° | owner, 2026-11-18 | §1 |
-| T11 | Walls-down by region, with stumps | owner, 2026-11-18 | §2 |
-| T12 | Goldens gated in Linux CI only; the owner's Mac is advisory | owner, 2026-11-18 | §6.5 |
-| D20 | Rigs are rendering tiers only; every tier receives the same 0.1 m channels | owner, 2026-11-16 | world_model §0 |
-| O31 | The tile spec's split into this document and `tile_and_client.md` | owner, 2026-11-18 | boundaries §0 |
-| CLAUDE.md | Godot 4.7.2 pinned; typed GDScript, warnings as errors; visuals from channels; never colour alone; nothing fed back | standing | CLAUDE.md |
-
-T3–T7 are world decisions (world §0).
+This document's decisions (10 rulings) are kept as records, with their dates, owner sections and status, in `decisions/client_rendering.md`.
 
 ## 1. The camera (T1, T10)
 
