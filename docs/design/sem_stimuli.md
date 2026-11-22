@@ -315,6 +315,7 @@ bounds by bisection. Superseding `npcs_and_sem.md` §6.6's "measured effect":
   refused or applied its intent (`L_us ≥ 1`, §4.1).
 - **One home:** `stimuli.wire`. `intents` keeps its refusal codes and layer 6 maps them to kinds; this supersedes by
   name `boundaries.md` §2.2's "receipts" in 5b and `settle`'s receipt type.
+<!-- contract: receipt.kinds: malformed limit accepted -->
 - **v1 kinds are target-independent (D15), decided by stage 1 alone:** `malformed`, `limit`; any stage-2 result is
   `accepted`. Whether the target existed, was in reach or was hit is logged host-side only; the effect arrives as
   stimuli. With no vision or touch row, `applied` against `unavailable` would be an existence and footprint oracle.

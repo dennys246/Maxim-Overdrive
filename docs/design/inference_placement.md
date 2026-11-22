@@ -214,9 +214,11 @@ The gateway classifies each backend result (IG §5), and the lane decides what i
   `prefix` is always what was delivered.
 
   Text beyond the delivered speech never reaches cognition (TB3-S5).
+<!-- contract: thought_failed.reasons: budget timeout parse reloaded unavailable model_error refused context_overflow -->
 - **One closed list of `thought_failed` reasons**, owned here: `budget`, `timeout`, `parse`, `reloaded`, `unavailable`,
   `model_error`, `refused`, `context_overflow`. `call_timeout` is an attempt outcome, not a reason. A thought's tier
   is decided by its final outcome only: attempts that a later attempt recovered flag nothing.
+<!-- contract: truncated.reasons: validation length transport -->
 - **One closed list of `truncated` reasons**, owned here:
   - `validation` (the guest-text gate, `npcs_and_sem.md` §6.6);
   - `length`;

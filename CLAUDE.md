@@ -215,7 +215,8 @@ only review holds.
   document links to that section and never restates it, so an edit can't leave a stale copy behind. Decision tables
   and fold tables are kept in `docs/design/reviews/` and indexes, not inside design documents, so design budgets go to
   contract. When a change touches a contract stated in two places, move it to one owner in the same branch.
-  Guard: B36
+  Guard: `scripts/lint_contracts.py::check_contracts` (the registered vocabularies and signatures, and no fold or
+  decision table in a design), B36 (prose restatements)
 - **Review finds; it doesn't design** (owner, 2026-11-21). A finding is a defect and its failure scenario. A fix a
   reviewer proposes is marked verified, with what they ran, or unverified, and the author verifies it before folding.
   A delta round reviews the diff. When a second paper round on a design finds new blockers in text the folds added,

@@ -376,6 +376,7 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
    against the world at apply. NPC and player intents share the validators and the log.
 2. **Authority per record kind,** from an actor role the host stamps:
 
+<!-- contract: record.kinds: thought_cancelled thought_failed agent_ready agent_failed floor_event reply_landed -->
 | Kind | Who may emit it |
 |---|---|
 | `intent` (the kinds of `tile_and_client.md` §3.2) | any actor |
@@ -412,6 +413,7 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
 - **The log holds every input** to the `Simulation`, not only actor intents: every kind in §6.1, including refused
   intents (a refusal at apply depends on world state), controls (a `latency_policy` change included) and host
   commands. `advance` takes ticks, never wall-derived seconds.
+<!-- contract: intent_record.fields: schema_version issued_tick params target invocation -->
 - **An intent record** is frozen and versioned, with golden fixtures for its format:
   - `schema_version`, `kind`, `actor_id`, `seq` (per actor);
   - `observed_tick`, `issued_tick`, `apply_tick`, and **`apply_us`** (int64, the integer world-microsecond offset
@@ -436,6 +438,7 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
   - **`thought_cancelled` and `thought_failed`** are logged as records, so the world never waits on a thought the log
     can't explain;
   - memory writes are not world-log records (§6.1).
+<!-- contract: ordering.key: (apply_tick, kind_rank, apply_us, actor_id, seq) -->
 - **One ordering key, stated here and nowhere else (foundations DR-S3, Wire S4; supersedes `realtime_lanes_coop.md`
   §4.2's arrival-order `host_seq`):** `(apply_tick, kind_rank, apply_us, actor_id, seq)`. Controls and joins rank
   before intents: `kind_rank` `[engineering]` is join/leave 0, `time` 10, moves 20, `kindle`, `strike`, `douse`,

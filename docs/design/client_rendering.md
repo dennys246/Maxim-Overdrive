@@ -76,6 +76,7 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
 
 ### 4.1 Server → client messages
 
+<!-- contract: server.messages: welcome regions tick intent_result time_decision error -->
 | Message | Carries |
 |---|---|
 | `welcome` | `session`, `role`, its own `actor` id (the body the camera follows), the world config, `shape`, the channel catalogue, the region map with each region's spec id, the zone list, material table v1 (ids to names and colours), the recipe name↔id map, 1-based archetype and item lists, `regions_version`, the time state, `bindings_digest`, the engine `build` |

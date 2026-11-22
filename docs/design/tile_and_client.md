@@ -189,6 +189,7 @@ fields, the ordering key and `kind_rank` are boundaries §6.2's; `actor_id` come
 
 ### 3.2 `kindle` (T4; WT-B2, BF-S4, BF-S5, PH-S4, DC-S5–S7)
 
+<!-- contract: intent.kinds: move move_to kindle strike douse imagine -->
 - **Action vocabulary v1** is `move`, `move_to`, `kindle`, `strike`, `douse`, `imagine`. It adds `kindle` (a bounded
   pilot) and retires `ignite`, as F7 retired `extinguish` for `douse` (water as a heat and O₂ sink, with caps). It
   ships with the first log writer (step 5), so no v0 intent log ever exists and the v0-log refusal test is moot
@@ -218,6 +219,7 @@ fields, the ordering key and `kind_rank` are boundaries §6.2's; `actor_id` come
 
 ### 3.3 Protocol v0's client messages (DC-B2)
 
+<!-- contract: client.messages: hello move move_to kindle time snapshot -->
 | Client → server | Fields | Final reply |
 |---|---|---|
 | `hello` | `protocol: 0`, `token` | `welcome`, or `error` then close |
@@ -230,6 +232,7 @@ fields, the ordering key and `kind_rank` are boundaries §6.2's; `actor_id` come
 - **No client message names a region or actor.**
 - **`strike`, `douse` and `imagine` have no wire message in v0** (T16); they join as versioned additions when a
   client caller exists. NPCs reach them through the adapter.
+<!-- contract: intent_result.outcomes: applied refused stale cancelled -->
 - **`intent_result`, one wire receipt for every intent:** `(actor_id, seq)`, outcome (`applied`, `refused`, `stale`,
   `cancelled`; the last two have no Phase 1 producer), refusal code, measured effect, before and after frame ids,
   and the wire-only `apply_tick` and `path_mm`. The agent-facing receipt is `sem_stimuli.md` §6.2's and carries no
@@ -238,6 +241,7 @@ fields, the ordering key and `kind_rank` are boundaries §6.2's; `actor_id` come
 
 ### 3.4 Refusals (WT-S1, EX-S8), in check order
 
+<!-- contract: refusal.codes: bad_json unknown_kind unknown_field not_int bad_shape out_of_range outside_extent rate_limited coalesced out_of_reach not_on_surface ambiguous_point region_gone no_igniter over_item_max pilot_live restrike_wait no_body no_path unreachable -->
 | Code | Stage | Reply | Logged | Step |
 |---|---|---|---|---|
 | `bad_json`, `unknown_kind`, `unknown_field`, `busy` | decode | `error` | no | 7 |

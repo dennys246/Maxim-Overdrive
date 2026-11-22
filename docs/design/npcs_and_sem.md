@@ -704,6 +704,7 @@ section pins them. Where it and an earlier section differ, this section wins, an
   `HF_HOME` are set under the agent home. No keys, no `MAXIM_*`, and the host's `HOME` never passes through: v3.1's
   interim `MAXIM_DATA_HOME` is dropped, since Maxim's A4 waits for A1 (`AgentHome`) (Maxim's plan review), so
   OD-A17's env-read test allows no read. The offline latch engages after the channel opens.
+<!-- contract: codec.kinds: resume shutdown step_output thought_output -->
 - **The codec:** length-prefixed frames, each a versioned, closed-schema JSON object through the strict decoder
   (`boundaries.md` §9.1), with size budgets checked before allocation. Message kinds are closed per direction: host to
   worker `step`, `resume`, `settle`, `consolidate`, `save`, `load` (every spawn begins with it, carrying the function envelopes), `shutdown`; worker to host `step_output`, `pending`,

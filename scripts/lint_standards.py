@@ -6,6 +6,8 @@
 4. Size tripwires and the size ratchet: ``lint_sizes.py``.
 5. Untrusted input by source: input primitives only in input gates, unsafe decoders nowhere: ``lint_inputs.py``.
 6. The gate registry: every entry point untrusted input can reach has a row: ``lint_gates.py``.
+7. One owner per contract: no registered vocabulary or signature restated outside its owner, no fold or decision
+   table inside a design: ``lint_contracts.py``.
 What they read from git comes from ``lint_repo.py``. This module runs them and says what the ratchets could not
 compare.
 
@@ -18,6 +20,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from lint_contracts import check_contracts
 from lint_coverage import check_coverage_ratchet, fail_under
 from lint_gates import check_gates
 from lint_guards import check_guards
@@ -56,6 +59,8 @@ def main(argv: list[str] | None = None, root: Path = ROOT) -> int:
     guard_problems, checked, review_only = check_guards((root / "CLAUDE.md").read_text(), backlog, root)
     problems += guard_problems
     problems += check_inputs(files)
+    designs = any(rel.startswith("docs/design/") for rel in files)
+    problems += check_contracts(files) if designs else []
     engine = any(rel.startswith("src/simcore/") for rel in files)
     problems += check_gates(files) if engine else []
     base_text, base_problems = base_pyproject(root, args.base)
@@ -73,6 +78,8 @@ def main(argv: list[str] | None = None, root: Path = ROOT) -> int:
         print(f"lint_standards: {n}")
     if not engine:
         print("lint_standards: note: no engine under src/simcore/, so the gate registry has nothing to hold")
+    if not designs:
+        print("lint_standards: note: no docs/design/, so the contracts check has nothing to hold")
     verdict = "FAIL" if problems else "PASS"
     print(
         f"lint_standards: {verdict} ({len(problems)} finding(s)); rules enforced by a check: {checked}, "
