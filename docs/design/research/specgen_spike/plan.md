@@ -1,13 +1,12 @@
-# Spec generator spike, stage 1: plan (draft, 2026-11-22; reviews folded through freeze delta 3)
+# Spec generator spike, stage 1: plan (pre-registration, frozen 2026-11-22; reviews through freeze delta 6)
 
-**This is a draft, not yet the pre-registration.** It becomes the pre-registration when these are committed
-together, before any spike code runs:
+**This is the pre-registration.** It was committed together with these, before any spike code ran:
 - `spikes/specgen/arms.yaml`, holding the schema text, the examples and the feedback wording;
 - `prompts_dev.yaml` and `prompts_heldout.yaml`, holding the prompts, dealt from `prompts_source.yaml` by `split.py`;
 - `spikes/specgen/freeze.sha256`: the SHA-256 of those five files and of both models' weights;
 - this plan.
 
-Those files are reviewed before that commit. After it, no metric, threshold or prompt changes to rescue a result, and
+Those files were reviewed before that commit. After it, no metric, threshold or prompt changes to rescue a result, and
 none is reinterpreted.
 
 **The question.** How well does a local model turn a text prompt into an imagined-object spec, the JSON that
