@@ -461,7 +461,7 @@ This review's findings are in `reviews/fire_solid/fold.md`. Every delta-round-1 
 |---|---|
 | This design | P2-B1, D-B1, NB1 (§3.1); NS1, P2-B2 (§4.4); N-B1, N-B2 (§1.3, §1.4); NS2, WT-B1, N-S1 (§2); N-S4, D-S1 (§0, §5.1); N-S5, N-S6, N-N4, D-S11 (§5.1, §5.2); N-S3, D-N1 (§5.6); N-S7, D1-S4 (§1.1, §5.5); N-N1 (§4.1); P2-S3, D1-S9, NS6, NN6 (§6); P2-S2 (§3.2); NN4 (§4.5); D-S4 (§1.3); D-S6 (§1.1, below); D-N5 (§0); P2-N1 (§4.4, the cone's spark) |
 | The 6.2 design | D1-B1, D1-B2, D1-S1, D1-S3, D1-S5–S8, D1-N1–N3, D-S10, P2-S1, P2-S4, P2-S5, P2-S7, P2-N2, P2-N3, NB2, NS3–NS5, NS7, NN1–NN3, N-N3, D-S8, D-S9 (with the owner), A-S4 (round 1); D1-S2 (6.1 runs awake); P2-S6 (also §3.1's Known gap); D-S3 (every structural face) |
-| 6.4, with `kindle`'s pilot | A-S2, NS8, D-S5 (red gates, `TEMPORARY` ceilings); N-S2, N-N2, NN5 |
+| `kindle`'s pilot, [`torch_pilot.md`](torch_pilot.md) | A-S2, NS8, D-S5 (red gates, `TEMPORARY` ceilings); N-S2, N-N2, NN5 |
 | fire_model's next revision, before the 6.2 design | D-N2, D-N3 (`douse` lands with 6.2's acts), D-N4, NN7 |
 | The tile §6 revision, before step 8 | D-S2 |
 | The client design pass, before step 8 (`client_objects.md`) | D-B2 |
