@@ -46,7 +46,7 @@ Where a later design supersedes by name, its text becomes the owner text, and th
 | 63, 66, 71 | `fire_solid.md` where it speaks; otherwise the text stays, marked for the flames design | 3 |
 | 68 | Emission is `fire_model.md` §4.4's; the body side is `sem_stimuli.md` §2.3's; the tile's face-to-body exchange is stale | 3 |
 | 72 | The thin-feature rule holds for cell geometry; fuel objects are exempt | 3 |
-| 79 | `crack` keeps one meaning; the bed's second meaning is dropped | F1 |
+| 79 | `crack` keeps one meaning; the bed's second meaning is dropped. Ruled; applying it waits with row 10 (Not decided, below) | F1 |
 
 ## Rows 6 and 7, re-ruled (owner, 2026-11-21: "great!", in reply to the recommendation)
 

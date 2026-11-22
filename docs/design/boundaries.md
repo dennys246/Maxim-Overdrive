@@ -330,8 +330,8 @@ module sits inside the core (`core/body`, `core/stimuli`) is `sem_stimuli.md` §
 | Scene files, saves, intent logs, bug reports | disk, **strangers' machines** | — | — | the strictest gate (world_model F14): no pickle, budget before allocation, all-or-nothing | scene v1, save v0, sim-clock |
 | Rigs, materials, limits, vocabulary, presets, rosters, arcs | `data/`, `content/`, later mods | — | — | a loader each under the gate contract (§5.4) | today and as each lands |
 | Handshake, per-launch token, `Origin` | network lane | the handshake below | — | the protocol decoder | `phase1/protocol` |
-| Joins and leaves | network lane | session token | — | session to actor id allocation (lanes §4.2) | `phase1/protocol` |
-| Controls: dial, pause, presets | host session | session token | `TimeAuthority` / `HostOnly` (lanes §5) | the protocol decoder | `phase1/protocol` |
+| Joins and leaves | network lane | session token | — | session to actor id allocation (below) | `phase1/protocol` |
+| Controls: dial, pause, presets | host session | session token | `TimeAuthority` / `HostOnly` (below) | the protocol decoder | `phase1/protocol` |
 | Client frames (intents) | network lane | session token | per kind | strict JSON decoder (§9.1), then stage 1; client-supplied `observed_tick`, `issued_tick`, `apply_tick`, `apply_us` and speech timing are refused, with golden rejection frames (foundations TB2-S6) | `phase1/protocol` |
 | Snapshot frames, as the client receives them | server | — | — | the client-side decoder (defence in depth; never crashes on a bad frame) | `phase1/protocol` |
 | Token delivery | env var or a 0600 file | — | — | a host config reader; never echoed or logged. The host owns `os` and `secrets` | `phase1/protocol` |
@@ -344,6 +344,13 @@ module sits inside the core (`core/body`, `core/stimuli`) is `sem_stimuli.md` §
 - **The handshake:** `hello` comes first and only once, within a deadline; anything else closes the session. There's
   a session cap. Client binary frames are refused. Any request carrying an `Origin` header is refused, including an
   empty one or `null`. Plain HTTP to the port gets a 400. The server binds the literal `127.0.0.1`.
+
+**Actor ids and time authority** (copied from `realtime_lanes_coop.md` §4.2 and §5):
+- **Actor ids are integers from the simulation lane's allocator**, issued when a join is applied, never reused,
+  for players and NPCs alike. NPCs are allocated in roster order at load.
+- **`TimeAuthority`** sees a frozen view of the sessions. `HostOnly` grants the host and refuses guests, with a
+  reason; it never returns `pending`. A `vote` message is refused in v0 (TB-17). A future vote needs a timeout and
+  a quorum rule, and the "pending" reply is reserved for it.
 
 **Two validation stages** (lanes §7, TB-13): stage 1 is typed parsing in `engine.intents` (shape, finiteness,
 ceilings, with caps from `data/world/`); stage 2 is the world check at apply, in the applier (target exists, not
@@ -376,7 +383,7 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
    against the world at apply. NPC and player intents share the validators and the log.
 2. **Authority per record kind,** from an actor role the host stamps:
 
-<!-- contract: record.kinds: thought_cancelled thought_failed agent_ready agent_failed floor_event reply_landed -->
+<!-- contract: record.kinds: intent imagine speak control thought_cancelled thought_failed join leave agent_ready agent_failed floor_event reply_landed | not: tile_and_client.md latency_policy inference_placement.md set_material npcs_and_sem.md -->
 | Kind | Who may emit it |
 |---|---|
 | `intent` (the kinds of `tile_and_client.md` §3.2) | any actor |
@@ -413,7 +420,7 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
 - **The log holds every input** to the `Simulation`, not only actor intents: every kind in §6.1, including refused
   intents (a refusal at apply depends on world state), controls (a `latency_policy` change included) and host
   commands. `advance` takes ticks, never wall-derived seconds.
-<!-- contract: intent_record.fields: schema_version issued_tick params target invocation -->
+<!-- contract: intent_record.fields: schema_version kind actor_id seq observed_tick issued_tick apply_tick apply_us params target invocation | not: invocation_id PhysicalEventId -->
 - **An intent record** is frozen and versioned, with golden fixtures for its format:
   - `schema_version`, `kind`, `actor_id`, `seq` (per actor);
   - `observed_tick`, `issued_tick`, `apply_tick`, and **`apply_us`** (int64, the integer world-microsecond offset
@@ -426,6 +433,8 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
     never mints or computes one. It is null, never a stand-in (no uuid, no executor `invocation_id`), until Maxim's
     G17 stage builds `PhysicalEventId`; until then any non-null value is refused with a typed code, and once the type
     exists any non-null value that isn't a pid.
+- **The record's `seq`:** `seq` is an integer in `[0, 2^31)` and must increase within a session (W-F5; copied from
+  `realtime_lanes_coop.md` §7).
 - **Derived, never input:** receipts, refusal reasons, destroyed volume, `ModulatorResult`s. Replay recomputes them
   and checks them against a per-tick digest.
 - **What is logged, kind by kind (foundations TB2-S2, DR-S8):**
@@ -454,7 +463,7 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
 
 ### 6.3 The log header (D-B2, D-S4)
 
-- Content digests of the scene, the truth constants (including `tick_us`), both material files after the split (the
+- Content digests of the scene, the registry (from `world_v2.md` §8), the truth constants (including `tick_us`), both material files after the split (the
   engine's and the content's), the action limits, the imagination budgets and the SEM vocabulary, and of the body
   archetypes, items, spawns and the navigation constants (tile WT-S3); the run seed; the host's initial
   `latency_policy` and thought-pace table (later changes are control records, §6.2). Rate limits are pre-log and
@@ -712,11 +721,8 @@ aren't packages in the import graph, so that half couldn't fail (Arch N5) and is
 
 ### 9.3 SEM refinement items (O5; foundations Arch S8, Wire S10, Wire S11, X-5, X-13, MP-B3)
 
-Ids are roadmap Phase 3's `OD-` ids (its "Was" column maps the old A, B, C and SEM-plan S-ids). **Additive first, in
-1.x:** under Maxim's own reading of CC3 (`AffordanceSchema`'s marker, `sem.py:113-116`), appending a field with a
-default is non-breaking (precedents: `always_active` #403, `speech_param` #1261), and a rename follows the
-alias-plus-deprecation precedent. Only `Modulator.execute`'s signature is a real break, and it can be opt-in. No
-major version is proposed.
+Ids are roadmap Phase 3's `OD-` ids (its "Was" column maps the old A, B, C and SEM-plan S-ids). The additive-first
+policy under CC3 is roadmap Phase 3's ("Ids").
 
 The items are roadmap Phase 3's rows OD-A1–OD-A12, OD-A14–OD-A18 (OD-A13 moved to OD-I3), OD-B12, OD-C1–OD-C10 and
 OD-I1–OD-I5; each row's content and path are the roadmap's.

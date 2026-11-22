@@ -4,7 +4,7 @@
 per contract"). A record: rulings are never edited; a new ruling is a new row. Who, date and Owner section come
 from the source table where it had those columns; otherwise the date is the ruling's own or its heading's, and
 "cites" lists the sections the ruling's text names, which are not necessarily its owner.
-Status comes only from supersessions and amendments the rulings state. -->
+Status comes from supersessions and amendments the rulings state, and from the docs-contracts rulings (`reviews/docs_contracts/rulings.md`). -->
 
 T8–T12 are client decisions (`client_rendering.md` §0).
 
@@ -25,6 +25,6 @@ T8–T12 are client decisions (`client_rendering.md` §0).
 | T18 | The accelerant is a pore-loading field the SEM bridge reads, never an SEM rule (`physics_spike.md`) | owner, 2026-11-20 | §5, §9 | live |
 | RT1–4 | Real time with pause on a fixed tick; a dial; pause a state; host-only time control | owner, 2026-11-15 | — | restates realtime decisions 1–4 |
 | D20, D25 | One truth at 0.1 m, rigs are rendering tiers; reconstruct, decide at the point, integrate | owner, 2026-11-16 | — | restates world_model §0 |
-| D26–D28 | Tile first, exit as written; clinic after; heat-debt prototype after the tile | owner, 2026-11-17 | — | restates world_model §0 |
+| D26–D28 | Tile first, exit as written; clinic after; heat-debt prototype after the tile | owner, 2026-11-17 | — | restates world_model §0; amended by docs-contracts ruling 59 |
 | D29, D30 | Step 6 = 6a open-air loss, 6b surface skin, 6c porous fuel bed, 6d char oxidation; solid sub-cell recession moves to Phase 2 | owner, 2026-11-18 | — | restates world_model §0 |
-| O23, O24, O31 | Frames publish on change; `simcore` in four layers (core, adapters, game, client protocol); this split | owner, 2026-11-17/18 | — | restates boundaries §0 |
+| O23, O24, O31 | Frames publish on change; `simcore` in four layers (core, adapters, game, client protocol); this split | owner, 2026-11-17/18 | — | restates boundaries §0; amended by docs-contracts ruling 49 |

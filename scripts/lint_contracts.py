@@ -3,29 +3,27 @@
 A contract that other modules depend on is stated in one section of one design document, its owner; every other
 document links to it. ``docs/design/contracts.md`` registers each checked contract as a table row:
 
-    | `<name>` | `<path under docs/>` §<number> | vocabulary or signature |
+    | `<name>` | `<path under docs/>` §<number> | vocabulary or signature | <restates at> |
 
-and its owner section carries ``<!-- contract: <name> -->`` on the line before the defining block (a table, a list or
-a paragraph). Where the block's shape doesn't isolate the members (a list inside a sentence), the marker names them:
-``<!-- contract: <name>: a b c -->``, and each named member must appear in the block as a code span, so the marker
-can't drift from the text. A marker lists the members that identify its vocabulary and may leave out a word other
-vocabularies share (the codec's `step` is also `AgentPort`'s); a signature's marker names the one span. The check is
-mechanical and has a known limit: it sees code spans, not prose, and a member the text gains but the marker doesn't
-name goes unseen.
+and the owner section carries ``<!-- contract: <name>: <members> | not: <spans> -->`` on the line before the block
+that defines it: one list item (with its nested lines), a table or a paragraph.
 
-- A *vocabulary* contract's members are the code spans of its defining block: a table's first column, a list item's
-  head (before its first ``:``), or every span of a paragraph. Any other block in scope that holds at least
-  ``min(3, n)`` distinct members restates it. Fewer is a reference: naming one ``thought_failed`` reason passes.
-- A *signature* contract's member is the first code span of its block (an ordering key, say); that span appearing
-  anywhere else in scope restates it.
-- Every row has exactly one marker, inside the section it names; every marker has a row; a vocabulary has at least
+- **The marker is tied to its text both ways.** Each member it names is a code span in the block; and every code span
+  in the block's member positions (a table's first column, any span of an item or paragraph) is either named or
+  listed after ``not:``. A member the text gains without the marker fails, and an exclusion is said aloud.
+- **A restatement** is any block in scope (a paragraph, a table, or a run of list items, so a copy one member per
+  bullet counts) that holds the row's *restates at* count of members outside the contract's own owner lines. A
+  signature's one span (an ordering key) restates wherever it appears.
+- Every row has exactly one marker, inside the section it names; every marker has a row; a vocabulary names at least
   three members.
-- No design document holds a fold table or a decision table: those are records (``docs/design/reviews/``,
-  ``docs/design/decisions/``).
+- No design document holds a fold table, a decision table, or a list of rulings (``- **D20.``, ``**Ruled …:**``):
+  those are records (``docs/design/reviews/``, ``docs/design/decisions/``).
 
 Scope: ``docs/design/*.md``, ``docs/plans/*.md``, ``docs/roadmap.md`` and ``docs/architecture.md``. Records
-(``reviews/``, ``decisions/``, ``research/``) sit in subdirectories and are out of scope, and so is a design marked
-superseded (a line starting ``> **Superseded``), which is history.
+(``reviews/``, ``decisions/``, ``research/``) sit in subdirectories and are out of scope, and so is a design whose
+header (the text before its first section) carries a ``> **Superseded`` banner. Markers in fenced code are quotation.
+The check sees code spans, not prose: a rule restated in words, a copy below a row's count, and an unregistered
+contract stay with review (B36).
 """
 
 from __future__ import annotations
@@ -44,6 +42,7 @@ HEADING = re.compile(r"^(#{1,6}) (.*)$")
 ITEM = re.compile(r"^(?:[-*]|\d+\.) ")
 ROW = re.compile(r"^\| `([a-z0-9_.-]+)` \| `([^`]+)` §(\d+(?:\.\d+)*) \| (\w+) \| (\d+) \|\s*$")
 FOLD = re.compile(r"^#{1,6} Fold table", re.M)
+RULING = re.compile(r"^(?:[-*] \*\*(?:O|OA|D|T|VS)\d+[a-z]?[.:*]|\*\*Ruled\b)", re.M)  # "- **D20.", "**Ruled 2026-…:**"
 
 
 @dataclass(frozen=True)
@@ -62,8 +61,8 @@ class Block:
 
 
 def blocks(text: str) -> list[Block]:
-    """Runs of non-blank lines, split at each top-level list item; a heading or a marker is a block of its own, and a
-    fenced code block is one block. A table is one block, so a vocabulary spread over its rows is a restatement."""
+    """Runs of non-blank lines; a heading or a marker is a block of its own, and a fenced code block is one block. A
+    table or a run of list items is one block, so a vocabulary spread over its rows or bullets is a restatement."""
     out: list[Block] = []
     cur: list[str] = []
     start = 0
@@ -78,32 +77,12 @@ def blocks(text: str) -> list[Block]:
             if line.strip():  # a heading or a marker stands alone
                 out.append(Block(i, (line,)))
             continue
-        if not fenced and cur and ITEM.match(line) and ITEM.match(cur[0]):
-            out.append(Block(start, tuple(cur)))  # each top-level list item is a block of its own
-            cur = []
         if not cur:
             start = i
         cur.append(line)
     if cur:
         out.append(Block(start, tuple(cur)))
     return out
-
-
-def members(block: Block, kind: str) -> list[str]:
-    """The code spans that define a contract, in order, without repeats."""
-    lines = block.lines
-    if kind == "signature":
-        spans = SPAN.findall("\n".join(lines))
-        return spans[:1]
-    if lines[0].startswith("|"):
-        rows = [ln for ln in lines if not re.fullmatch(r"\|[\s:|-]*\|", ln.strip())][1:]  # skip the header
-        found = [s for ln in rows for s in SPAN.findall(ln.strip().strip("|").split("|")[0])]
-    elif re.match(r"^\s*(?:[-*]|\d+\.) ", lines[0]):
-        items = [ln for ln in lines if re.match(r"^\s*(?:[-*]|\d+\.) ", ln)]
-        found = [s for ln in items for s in SPAN.findall(ln.split(":", 1)[0])]
-    else:
-        found = SPAN.findall("\n".join(lines))
-    return list(dict.fromkeys(found))
 
 
 def registry(files: dict[str, str]) -> tuple[list[Contract], list[str]]:
@@ -135,7 +114,7 @@ def section_span(text: str, number: str) -> tuple[int, int] | None:
     lines = text.split("\n")
     for i, line in enumerate(lines):
         m = HEADING.match(line)
-        if m and re.match(rf"{re.escape(number)}[. ]", m.group(2)):
+        if m and re.match(rf"{re.escape(number)}\.?\s", m.group(2)):
             level = len(m.group(1))
             for j in range(i + 1, len(lines)):
                 h = HEADING.match(lines[j])
@@ -145,33 +124,59 @@ def section_span(text: str, number: str) -> tuple[int, int] | None:
     return None
 
 
+def header(text: str) -> str:
+    """A document's lead, before its first section: where a superseded banner says the whole document is history."""
+    m = re.search(r"^## ", text, re.M)
+    return text[: m.start()] if m else text
+
+
 def in_scope(files: dict[str, str]) -> dict[str, str]:
     return {
-        rel: text for rel, text in files.items() if SCOPE.match(rel) and rel != REGISTRY and not SUPERSEDED.search(text)
+        rel: text
+        for rel, text in files.items()
+        if SCOPE.match(rel) and rel != REGISTRY and not SUPERSEDED.search(header(text))
     }
 
 
-def markers(files: dict[str, str]) -> dict[str, list[tuple[str, int, tuple[str, ...]]]]:
-    """Each marker name, with every (file, 0-based line, named members) that carries it, across the docs tree."""
-    found: dict[str, list[tuple[str, int, tuple[str, ...]]]] = {}
+@dataclass(frozen=True)
+class Marker:
+    rel: str
+    line: int  # 0-based
+    named: tuple[str, ...]  # the members (a signature names its one span)
+    excluded: tuple[str, ...]  # code spans in the marked block that are not members, said aloud
+
+
+def parse_marker(rel: str, line: int, body: str | None) -> Marker:
+    named, _, rest = (body or "").partition("|")
+    return Marker(rel, line, items(named), items(rest.strip().removeprefix("not:")))
+
+
+def items(text: str) -> tuple[str, ...]:
+    """Whitespace-separated words, where a backticked item may hold spaces: ``a `(b, c)` d``."""
+    return tuple(span or word for span, word in re.findall(r"`([^`]+)`|(\S+)", text))
+
+
+def markers(files: dict[str, str]) -> dict[str, list[Marker]]:
+    """Each marker name, with every marker that carries it, across the docs tree (fenced code is quotation)."""
+    found: dict[str, list[Marker]] = {}
     for rel, text in sorted(files.items()):
         if not rel.startswith("docs/") or not rel.endswith(".md"):
             continue
+        fenced = False
         for i, line in enumerate(text.split("\n")):
-            m = MARKER.match(line)
+            fenced = fenced != line.startswith("```")
+            m = None if fenced else MARKER.match(line)
             if m:
-                found.setdefault(m.group(1), []).append((rel, i, tuple((m.group(2) or "").split())))
+                found.setdefault(m.group(1), []).append(parse_marker(rel, i, m.group(2)))
     return found
 
 
-def owner_block(
-    files: dict[str, str], c: Contract, where: list[tuple[str, int, tuple[str, ...]]]
-) -> tuple[Block | None, list[str]]:
-    """The defining block of a registered contract, or the problems that stop the check from finding it."""
+def owner_block(files: dict[str, str], c: Contract, where: list[Marker]) -> tuple[Block | None, list[str]]:
+    """The block a contract's one marker marks: the list item, table or paragraph after it."""
     if len(where) != 1:
-        places = ", ".join(f"{r}:{i + 1}" for r, i, _ in where) or "nowhere"
+        places = ", ".join(f"{m.rel}:{m.line + 1}" for m in where) or "nowhere"
         return None, [f"{c.name}: needs exactly one `<!-- contract: {c.name} -->` marker, found at {places}"]
-    rel, line, _ = where[0]
+    rel, line = where[0].rel, where[0].line
     text = files.get(c.path)
     span = None if text is None else section_span(text, c.section)
     if rel != c.path or span is None or not span[0] < line < span[1]:
@@ -179,31 +184,35 @@ def owner_block(
     after = [b for b in blocks(files[rel]) if b.start > line]
     if not after or HEADING.match(after[0].lines[0]) or MARKER.match(after[0].lines[0]):
         return None, [f"{c.name}: no defining block follows its marker ({rel}:{line + 1})"]
-    return list_run(after), []
+    return first_item(after[0]), []
 
 
-def list_run(after: list[Block]) -> Block:
-    """The first block, extended over the list items that follow it without a break: a list defines as a whole."""
-    lines = list(after[0].lines)
-    for b in after[1:]:
-        if not ITEM.match(lines[0]) or not ITEM.match(b.lines[0]) or b.start != after[0].start + len(lines):
-            break
-        lines += b.lines
-    return Block(after[0].start, tuple(lines))
+def first_item(block: Block) -> Block:
+    """A list's first item, with its nested lines; any other block whole."""
+    if not ITEM.match(block.lines[0]):
+        return block
+    end = next((k for k, ln in enumerate(block.lines[1:], 1) if ITEM.match(ln)), len(block.lines))
+    return Block(block.start, block.lines[:end])
 
 
-def restatements(scope: dict[str, str], c: Contract, defined: list[str], owners: set[tuple[str, int]]) -> list[str]:
-    """Blocks outside every owner block that hold enough of ``c``'s members to restate it. An owner block defines its
-    own contract and may name another's members (``kind_rank`` names the kinds it ranks)."""
+def member_positions(block: Block) -> list[str]:
+    """The code spans that must each be a member or an exclusion: a table's first column, else every span."""
+    if not block.lines[0].startswith("|"):
+        return SPAN.findall("\n".join(block.lines))
+    rows = [ln for ln in block.lines if not re.fullmatch(r"\|[\s:|-]*\|", ln.strip())][1:]  # skip the header
+    return [s for ln in rows for s in SPAN.findall(ln.strip().strip("|").split("|")[0])]
+
+
+def restatements(scope: dict[str, str], c: Contract, defined: list[str], owner: set[tuple[str, int]]) -> list[str]:
+    """Blocks that hold the row's count of ``c``'s members outside ``c``'s own owner lines."""
     need = 1 if c.kind == "signature" else min(c.threshold, len(defined))
     out = []
     for rel, text in sorted(scope.items()):
         for b in blocks(text):
-            if (rel, b.start) in owners:
-                continue
-            spans = set(SPAN.findall("\n".join(b.lines)))
+            kept = [ln for k, ln in enumerate(b.lines) if (rel, b.start + k) not in owner]
+            spans = set(SPAN.findall("\n".join(kept)))
             hit = [m for m in defined if m in spans]
-            if len(hit) >= need:
+            if kept and len(hit) >= need:
                 shown = ", ".join(f"`{m}`" for m in hit[:4])
                 out.append(f"{rel}:{b.start + 1}: restates {c.name} ({shown}); link to {c.path} §{c.section} instead")
     return out
@@ -223,11 +232,14 @@ def structural(files: dict[str, str]) -> list[str]:
             cells = [x.strip() for x in head.strip().strip("|").split("|")] if head.startswith("|") else []
             if len(cells) > 1 and re.match(r"(Decision|Ruling)\b", cells[1]):
                 out.append(f"{rel}:{b.start + 1}: a decision table belongs in docs/design/decisions/")
+        for m in RULING.finditer(text):
+            line = text.count("\n", 0, m.start()) + 1
+            out.append(f"{rel}:{line}: a list of rulings belongs in docs/design/decisions/")
     return out
 
 
 def resolve(
-    files: dict[str, str], contracts: list[Contract], found: dict[str, list[tuple[str, int, tuple[str, ...]]]]
+    files: dict[str, str], contracts: list[Contract], found: dict[str, list[Marker]]
 ) -> tuple[list[tuple[Contract, Block, list[str]]], list[str]]:
     """Each registered contract with its owner block and members, or the problems that keep it from being checked."""
     resolved: list[tuple[Contract, Block, list[str]]] = []
@@ -237,20 +249,27 @@ def resolve(
         problems += missing
         if block is None:
             continue
-        named = found[c.name][0][2]
-        if c.kind == "signature" and named:
-            named = (" ".join(named),)  # a signature is one span, spaces and all
-        absent = [m for m in named if m not in SPAN.findall("\n".join(block.lines))]
-        defined = list(named) or members(block, c.kind)
-        if absent:
+        marker = found[c.name][0]
+        defined = [" ".join(marker.named)] if c.kind == "signature" and marker.named else list(marker.named)
+        spans = SPAN.findall("\n".join(block.lines))
+        absent = [m for m in defined if m not in spans]
+        unaccounted = [] if c.kind == "signature" else unnamed(block, defined, marker.excluded)
+        if not defined:
+            problems.append(f"{c.name}: its marker names no members")
+        elif absent:
             problems.append(f"{c.name}: its marker names {absent}, which its block doesn't hold as code spans")
+        elif unaccounted:
+            problems.append(f"{c.name}: its block holds {unaccounted}, which its marker neither names nor excludes")
         elif c.kind == "vocabulary" and len(defined) < 3:
             problems.append(f"{c.name}: a vocabulary needs at least 3 members to check, found {defined}")
-        elif not defined:
-            problems.append(f"{c.name}: its defining block holds no code span")
         else:
             resolved.append((c, block, defined))
     return resolved, problems
+
+
+def unnamed(block: Block, defined: list[str], excluded: tuple[str, ...]) -> list[str]:
+    """Spans in the block's member positions that the marker doesn't account for: a member the text gained."""
+    return list(dict.fromkeys(s for s in member_positions(block) if s not in defined and s not in excluded))
 
 
 def check_contracts(files: dict[str, str]) -> list[str]:
@@ -261,11 +280,10 @@ def check_contracts(files: dict[str, str]) -> list[str]:
         f"{r}:{i + 1}: marker {n} has no row in {REGISTRY}"
         for n, w in found.items()
         if n not in registered
-        for r, i, _ in w
+        for r, i in [(m.rel, m.line) for m in w]
     ]
     resolved, unresolved = resolve(files, contracts, found)
-    owners = {(c.path, b.start + k) for c, b, _ in resolved for k in range(len(b.lines))}
     scope = in_scope(files)
-    for c, _, defined in resolved:
-        problems += restatements(scope, c, defined, owners)
+    for c, b, defined in resolved:
+        problems += restatements(scope, c, defined, {(c.path, b.start + k) for k in range(len(b.lines))})
     return problems + unresolved + structural(files)

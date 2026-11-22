@@ -88,3 +88,37 @@ They are the rationale for the cutoff, not a copy of the law. Open: boundaries �
 log record" because it was "a pure function of the agent's pinned frame". `sem_stimuli.md` §6.1 supersedes the pinned
 frame, and §4.4 doesn't say whether a `BoundFrame` push needs a log record. The claim was dropped with the pinned frame
 and not restated.
+
+## Round 1 fold
+
+| Finding | What moved or changed | From | To |
+|---|---|---|---|
+| S2, A6 | "v2 §2.1 stands" became world_model's own sentence; v2 is provenance | `world_model.md` §2 | `world_model.md` §2 |
+| S2, A6 | "A `Region` keeps its authored footprint …" bullet, verbatim | `world_v2.md` §2.4 | `world_model.md` §5 |
+| S2, A6 | "Topology has one choke point. Every material change goes through `set_material`, which bumps a `topology_version`." verbatim | `world_v2.md` §2.2 | `world_model.md` §7 |
+| S2, A6 | "v2 §8 stands" became world_model's own sentence (the grammar is `client_rendering.md` §4.1's) | `world_model.md` §8 | `world_model.md` §8 |
+| S2 | Actor-id allocation bullet and `TimeAuthority` bullet, verbatim; the §5.3 table cells point "below" | `realtime_lanes_coop.md` §4.2, §5 | `boundaries.md` §5.3 |
+| S2, A6 | Handshake citation repointed | `ip_and_licensing.md` §4 | `boundaries.md` §5.3 |
+| S2, A6 | Superseded banner added (the only edit) | — | `world_v2.md` header |
+| S1 | "`seq` is an integer in `[0, 2^31)` and must increase within a session (W-F5)", verbatim, as a bullet after the intent record (inside the record's item it broke the `intent_record.fields` marker) | `realtime_lanes_coop.md` §7 | `boundaries.md` §6.2 |
+| S4 | `boundaries.md` §9.3's CC3 paragraph, verbatim less its last sentence (the owner bullet already says it); both design copies became a link | `boundaries.md` §9.3, `npcs_and_sem.md` §8.1 | roadmap Phase 3 ("Ids") |
+| S5 | Tier-A table cells restating OD-A2, OD-A3, OD-A7, OD-A17, OD-A18 replaced by the ids; Overdrive-side text kept | `npcs_and_sem.md` §6.1 | roadmap Phase 3 rows |
+| A7 | Status amended: boundaries O24 (ruling 49), O8 (50); npcs O11a (41), O14 (45); world_model D26 (59); tile "O23, O24, O31" (49), "D26–D28" (59); fire_model "ruled 2" (61). Each header's status sentence now names the docs-contracts rulings | `rulings.md` | `decisions/*.md` |
+
+**Skipped, and why.**
+- `world_v2.md` §2.1's table and bullets: they place solids in "rig cells" at "the rig's cell", and argue from "when
+  the rig changes" and "splits the rigs", which D20 and `world_model.md` §1 retired ("The rig profiles stop deciding
+  physics"); "An air cell's temperature becomes its zone's" conflicts with world_model §8 ("Air cells' `temperature_c`
+  stays cell temperature"). No ruling covers either. Not copied; for the owner.
+- `world_v2.md` §2.2's third sentence ("Zone volumes, gaps and the volume profile update incrementally, in the same
+  substep as the change") conflicts with world_model §6 ("Topology work is batched once per physics step, not per
+  substep"). Not copied.
+- `world_v2.md` §8, still live and unowned: the save bullet ("tied to one rig's cell size", the same D20 conflict;
+  derived fields checked against a stored digest; the "heavy mode" test); the six golden fixtures (unknown optional
+  and required channels), whose owner, `client_rendering.md` §4.2, has no word slack; "the intent log header hashes
+  the registry", absent from `boundaries.md` §6.3. Not copied; for the owner.
+- Provenance, left: `boundaries.md` §7.1 and `npcs_and_sem.md` §6.3 (supersession notes on lanes §4.1), `npcs_and_sem.md`
+  §9's world config ("from"), §11.2's supersession table, `tile_and_client.md` §6.2 (lanes §8 only names the stepped
+  host mode as a PR item; there is no text to copy), `checklists.md` items on realtime §7 (to-do items).
+- Excluded: `sem_stimuli.md` §7.1's "`world_v2.md` §2.6" (another session's PR). Not handled: `verify_harness.md` and
+  `checklists.md` cite "`world_v2.md` row 2" for the exact work counters.

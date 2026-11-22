@@ -4,7 +4,7 @@
 per contract"). A record: rulings are never edited; a new ruling is a new row. Who, date and Owner section come
 from the source table where it had those columns; otherwise the date is the ruling's own or its heading's, and
 "cites" lists the sections the ruling's text names, which are not necessarily its owner.
-Status comes only from supersessions and amendments the rulings state. -->
+Status comes from supersessions and amendments the rulings state, and from the docs-contracts rulings (`reviews/docs_contracts/rulings.md`). -->
 
 T3–T7 are world decisions (world §0).
 

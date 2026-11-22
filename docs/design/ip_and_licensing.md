@@ -53,7 +53,7 @@ of non-infringement. A lawyer reviews the pipeline before commercial release.
 
 ## 4. Protecting creators without DRM
 
-The world server runs on the host player's machine (`docs/design/realtime_lanes_coop.md` §5: loopback bind, host
+The world server runs on the host player's machine (`docs/design/boundaries.md` §5.3: loopback bind, host
 and guest tokens). So the "server-authoritative" guarantee protects the world from the client; it does not hide
 anything from the player who owns the machine. Any licensed content the host's server simulates is on the host's
 disk, and encryption only moves the key next to it. Second Life's CopyBot (2006) shows the end state.

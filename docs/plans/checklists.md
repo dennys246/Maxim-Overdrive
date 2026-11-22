@@ -210,7 +210,8 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 
 ## Step 7, `phase1/protocol`
 
-- The frame grammar's extension rule (`client_rendering.md` §4.1); fixtures for an unknown optional channel
+- The frame grammar's extension rule (`client_rendering.md` §4.1); six golden fixtures (`world_v2.md` §8), among them an
+  asymmetric grid and ones for an unknown optional channel
   (ignored) and an unknown required channel (refused).
 - The engine `build` in `welcome` (`client_rendering.md` §4.1) and the version `error`.
 - A refusal for exhausted u16 region ids.
@@ -249,6 +250,7 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 - **Names, not positions:** every index column (`archetype`, `held_item`, `material`) carries a name list in the
   header, and loading remaps by name.
 - **The load rule** is world_model §8's (F5, F14); loading never replays the log; every grid carries its cell size.
+- A "heavy mode" test saves, loads and continues, and must match an uninterrupted run bit for bit (`world_v2.md` §8).
 - No zero-valued `energy` or `dose` columns: they arrive in Phase 4 with defaults.
 - No agent state: the `EventSequencer`'s high-water seq in each agent home is save v1, Phase 4 (O43).
 

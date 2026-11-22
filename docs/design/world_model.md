@@ -64,8 +64,8 @@ This document's decisions (11 rulings) are kept as records, with their dates, ow
 
 ## 2. Matter: containers by phase
 
-v2 §2.1 stands (solids in cells; gas, and later liquid, in zones; no gas in cells; no per-cell phase tag), with these
-changes.
+Solids live in cells; gas, and later liquid, in zones; no gas in cells; no per-cell phase tag (from `world_v2.md`
+§2.1), with these changes.
 
 - **A gas consumer interface from the start** (A-SF). Consumers read gas only through `gas.at(zone)` and
   `gas.over(mask)`, never the zone tables directly. A later per-cell gas grid or a two-layer smoke zone is then a swap
@@ -120,7 +120,9 @@ with a ramp from 15% to 10% (*from memory*; the sources conflict, so both are ci
 
 ## 5. Ownership: one owner per cell, authored shapes in metres
 
-- **Regions become one `region_id` array** (u16), and each cell has one owner (v2 §2.4).
+- **Regions become one `region_id` array** (u16), and each cell has one owner (from `world_v2.md` §2.4).
+- **A `Region` keeps its authored footprint** for "is this point on it" and for where fires land. Its cells become
+  `region_id == id`, reached through one accessor (PR 1's `Region.cells` users move to it).
 - **That alone doesn't remove PR 1's interim rules** (A-B2). PR 1 refuses overlapping named solids because reach and
   fire placement read the authored bounding box. The fix is to make each region's authored shape exact:
   - A region's authored geometry is its solid primitives minus the air carved into them, held as a small CSG in
@@ -154,7 +156,8 @@ Laid now, so that Phase 2 adds behaviour without changing a format or a saved fi
 - **Reserved channels:** `loose` (u8) and `packing_fraction` (f32) are declared in the field registry and the frame
   grammar, absent until Phase 2.
 - **Mass conservation** (§2): destroyed solid mass goes to fines, so rubble later redistributes it.
-- **The topology choke point:** `set_material` and `topology_version` (v2 §2.2), with the batched relabel (§6).
+- **Topology has one choke point.** Every material change goes through `set_material`, which bumps a
+  `topology_version` (from `world_v2.md` §2.2), with the batched relabel (§6).
 - **Persisted cluster ids and a metric ordering key** (§6), defined now, used by rubble later.
 - **Fragment size is a length in metres from the start,** never "a cell".
 - **Strike and breach semantics are written for loose matter now** (A-B3): a hole filled with rubble doesn't count
@@ -163,8 +166,8 @@ Laid now, so that Phase 2 adds behaviour without changing a format or a saved fi
 
 ## 8. Formats and trust
 
-v2 §8 stands (self-describing frames, whose grammar is now `client_rendering.md` §4.1's; one grammar for wire and
-save), with these rules from the Wire and Trust review.
+Frames are self-describing, and their grammar is `client_rendering.md` §4.1's; one grammar serves wire and save (from
+`world_v2.md` §8), with these rules from the Wire and Trust review.
 
 - **A name is an identity** (F1). A channel's or sensor's name, units, grid and meaning are fixed for the life of the
   format. A new meaning gets a new name:
@@ -175,7 +178,10 @@ save), with these rules from the Wire and Trust review.
   Units are part of a channel's identity, from a closed vocabulary, and a lint checks them against the fixtures.
 - **A save has no optional fields** (F5). The code's registry and loaders are authoritative. Embedded copies of the
   registry, scene and specs are compared against them, never executed. A save from a newer build is refused, loudly.
-  A content change is refused too, and a save holds no in-flight thoughts, since agent state lives outside
+  The save uses the same grammar, losslessly. It embeds the registry, the material table, the scene with its zones,
+  and the placed imagined specs. Derived fields are recomputed on load and checked against a stored digest (from
+  `world_v2.md` §8, less its retired "tied to one rig's cell size", D20). A content change is refused too, and a save
+  holds no in-flight thoughts, since agent state lives outside
   `Simulation` (docs-contracts ruling 26, owner, 2026-11-21).
 - **Saves, scene files and replay logs are untrusted input** (F14), under the gate contract (`boundaries.md` §5.4):
   - the memory budget is checked before anything is allocated, from the header's declared shape;

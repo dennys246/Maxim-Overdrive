@@ -1,5 +1,7 @@
 # World, time and states of matter (design v2, 2026-11-16)
 
+> **Superseded 2026-11-16 by `world_model.md`, `npcs_and_sem.md` and the tile documents,** which replace it (`world_model.md`, status). Kept as the record of how the decisions were reached.
+
 **Status:** DRAFT, for a design review before any code. It supersedes `realtime_lanes_coop.md` (v1), which stays as
 the record of the decisions and reviews that led here. Sources:
 - v1 and its two review rounds (`reviews/realtime_lanes_coop/`, including the four `delta1_*.md` files on v1,

@@ -121,6 +121,10 @@ Both decisions are recorded in Overdrive. The Maxim-side record is proposed in
 
 **Ids** carry an `OD-` prefix, because Maxim already uses `A1`/`A2`, `B1`–`B4`, `T1`/`T2`, `E1`–`E3` and `S0`–`S6`.
 "Was" gives the id in this roadmap at 35b9c3e, or the older number where that is what documents cite.
+**Additive first, in 1.x:** under Maxim's own reading of CC3 (`AffordanceSchema`'s marker, `sem.py:113-116`),
+appending a field with a default is non-breaking (precedents: `always_active` #403, `speech_param` #1261), and a
+rename follows the alias-plus-deprecation precedent. Only `Modulator.execute`'s signature is a real break, and it can
+be opt-in (from `boundaries.md` §9.3).
 
 ### Issues now
 
