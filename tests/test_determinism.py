@@ -149,10 +149,10 @@ NUMPY_NAMES = {"np", "numpy"}
 CORE = "simcore/core"
 NUMPY_RANDOM_ALLOWED = {"default_rng", "Generator", "SeedSequence", "PCG64"}  # seeded construction only
 SEEDED_CONSTRUCTORS = {"default_rng", "PCG64", "SeedSequence"}
-# Package-qualified directories under src/ that may read the clock or OS entropy because nothing they read reaches the
-# world: the transport, when it lands (simcore/host, docs/standards_backlog.md B14). None exists yet, so every package
-# under src/ is scanned.
-NOT_SIMULATION: set[str] = set()
+# Package-qualified directories or files under src/ that may read the clock or OS entropy because nothing they read
+# reaches the world (docs/standards_backlog.md B14). The per-launch tokens draw from secrets and only admit sessions;
+# the rest of the host stays scanned, since its pacing loop will feed the world.
+NOT_SIMULATION: set[str] = {"simcore/host/tokens.py"}
 # Non-vacuity: the scan must reach the turn loop and the laws, wherever a move puts them (boundaries §11.2, W14).
 MUST_SCAN = {
     "simcore/core/world.py",

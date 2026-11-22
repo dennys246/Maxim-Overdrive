@@ -49,6 +49,7 @@ _EXT = "tests/test_extremes.py"
 _FMT = "tests/test_formats.py"
 _SIM = "tests/test_simulation.py"
 _WIRE = "tests/test_wire.py"
+_HOST = "tests/test_host.py"
 # §5.4 asks anything agent-facing (errors, receipts) to answer in a closed code vocabulary. Since step 3b part (b) every
 # refusal these gates give carries a code (simcore.core.refusals, WT-S1), and the membrane answers an agent with the
 # code alone (step 3b review, Trust S3).
@@ -67,6 +68,9 @@ GATE_MODULES = (
     "src/simcore/protocol/frame_header.py",
     "src/simcore/protocol/catalogue.py",
     "src/simcore/protocol/grammar.py",
+    "src/simcore/host/server.py",
+    "src/simcore/host/tokens.py",
+    "src/simcore/host/sessions.py",
 )
 
 _SCHEMA_READERS = (
@@ -140,6 +144,31 @@ GATES: dict[str, Gate] = {
     "src/simcore/core/text.py::visible_name": Gate(_V, "tests/test_text.py", "meets"),
     # the wire (boundaries §5.3, §9.1): the strict JSON decoder, decode and stage 1 of client messages, and the frame
     # grammar's reader, which the client mirrors (client/addons/engine/net/) and the save will use
+    # the host (boundaries §5.3): the handshake admits a connection, a token binds its role, and HostOnly decides time
+    "src/simcore/host/server.py::start": Gate("authentication", _HOST, "meets"),
+    "src/simcore/host/server.py::HostConfig": Gate("authentication", _HOST, "no input"),
+    "src/simcore/host/tokens.py::Tokens.match": Gate("authentication", _HOST, "meets"),
+    **{
+        f"src/simcore/host/tokens.py::{n}": Gate("authentication", _HOST, "no input")
+        for n in ("Role", "Tokens", "Tokens.fresh", "Tokens.host", "Tokens.guests", "Tokens.role", "write_token_file")
+    },
+    "src/simcore/host/sessions.py::Sessions.open": Gate("authentication", _HOST, "meets"),
+    "src/simcore/host/sessions.py::HostOnly.decide": Gate("authorization", _HOST, "meets"),
+    "src/simcore/host/sessions.py::TimeAuthority.decide": Gate("authorization", _HOST, "meets"),
+    **{
+        f"src/simcore/host/sessions.py::{n}": Gate("authorization", _HOST, "no input")
+        for n in (
+            "Session",
+            "SessionView",
+            "SessionView.role_of",
+            "Decision",
+            "TimeAuthority",
+            "HostOnly",
+            "Sessions",
+            "Sessions.close",
+            "Sessions.view",
+        )
+    },
     "src/simcore/protocol/strict_json.py::decode": Gate(_V, _WIRE, "meets"),
     "src/simcore/protocol/strict_json.py::encode": Gate(_V, _WIRE, "no input"),
     "src/simcore/protocol/messages.py::read_message": Gate(_V, _WIRE, "meets"),

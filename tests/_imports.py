@@ -84,6 +84,31 @@ ALLOWED: dict[str, dict[str, str]] = {
         "json": "the strict decoder's parser, with every hook set, and the encoder",
         "math": "isfinite, to refuse 1e400",
     },
+    # the host (boundaries §2.2, layer 8): sessions and their time authority, pure values
+    "simcore.host": {
+        "__future__": "postponed annotations",
+        "dataclasses": "the session's frozen types",
+        "typing": "TimeAuthority, a Protocol",
+    },
+    # the WebSocket server (boundaries §5.3): the transport, the only module that speaks to a socket
+    "simcore.host.server": {
+        "__future__": "postponed annotations",
+        "asyncio": "the hello deadline (wait_for)",
+        "collections": "Callable and Mapping, the dispatch type",
+        "dataclasses": "the host's frozen config",
+        "http": "the 403 and 400 statuses of a refused handshake",
+        "websockets": "the transport: the server, its handshake hook, close codes and caps",
+    },
+    # the per-launch tokens (boundaries §5.3): OS entropy that admits sessions and never reaches the world
+    "simcore.host.tokens": {
+        "__future__": "postponed annotations",
+        "dataclasses": "the tokens' frozen type",
+        "enum": "Role, a StrEnum",
+        "hmac": "compare_digest, a comparison whose time says nothing about the token",
+        "os": "an O_EXCL 0600 token file, written, never read",
+        "pathlib": "the token file's path",
+        "secrets": "fresh tokens each launch",
+    },
     "simcore.verify": {
         "__future__": "postponed annotations",
         "collections": "Callable, Hashable and Sequence from collections.abc",
@@ -154,6 +179,27 @@ _NAMES_VERIFY = frozenset({
     "dataclasses.dataclass", "itertools.pairwise", "math.inf", "math.isfinite", "math.log", "math.nan",
 })  # fmt: skip
 
+# the host's sessions: frozen values and a Protocol
+_NAMES_HOST = frozenset({
+    "__future__.annotations", "dataclasses.dataclass", "typing.Protocol",
+})  # fmt: skip
+
+# the transport: the server, its handshake hook and close codes, and the hello deadline
+_NAMES_HOST_SERVER = frozenset({
+    "__future__.annotations", "asyncio.wait_for", "collections.abc.Callable", "collections.abc.Mapping",
+    "dataclasses.dataclass", "http.HTTPStatus.BAD_REQUEST", "http.HTTPStatus.FORBIDDEN",
+    "websockets.asyncio.server.Server", "websockets.asyncio.server.ServerConnection",
+    "websockets.asyncio.server.serve", "websockets.exceptions.ConnectionClosed", "websockets.frames.CloseCode",
+    "websockets.frames.CloseCode.POLICY_VIOLATION", "websockets.frames.CloseCode.UNSUPPORTED_DATA",
+    "websockets.http11.Request", "websockets.http11.Response",
+})  # fmt: skip
+
+# the tokens: fresh entropy, a constant-time comparison, an exclusive 0600 file
+_NAMES_HOST_TOKENS = frozenset({
+    "__future__.annotations", "dataclasses.dataclass", "dataclasses.field", "enum.StrEnum", "hmac.compare_digest",
+    "os.O_CREAT", "os.O_EXCL", "os.O_WRONLY", "os.fdopen", "os.open", "pathlib.Path", "secrets.token_urlsafe",
+})  # fmt: skip
+
 # path arithmetic and the rig-name check
 _NAMES_DATA = frozenset({
     "__future__.annotations", "pathlib.Path", "re.compile",
@@ -164,6 +210,9 @@ EXTERNAL_NAMES: dict[str, frozenset[str]] = {
     "simcore.adapters.sem": _NAMES_SEM,
     "simcore.protocol": _NAMES_PROTOCOL,
     "simcore.protocol.strict_json": _NAMES_STRICT_JSON,
+    "simcore.host": _NAMES_HOST,
+    "simcore.host.server": _NAMES_HOST_SERVER,
+    "simcore.host.tokens": _NAMES_HOST_TOKENS,
     "simcore.verify": _NAMES_VERIFY,
     "maxim_overdrive.data": _NAMES_DATA,
 }

@@ -405,7 +405,7 @@ def _refused_messages() -> dict[str, tuple[bytes, str]]:
 
 
 def client_messages() -> dict[str, Fixture]:
-    refused = {k: (v, "refused", code, {}) for k, (v, code) in _refused_messages().items()}
+    refused: dict[str, Fixture] = {k: (v, "refused", code, {}) for k, (v, code) in _refused_messages().items()}
     return {**_accepted_messages(), **refused}
 
 

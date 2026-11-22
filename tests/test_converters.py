@@ -10,7 +10,14 @@ from simcore.core.digest import digest
 from simcore.core.refusals import Refused
 from simcore.core.schema import Converter, Real, Whole, item_count
 
-CONVERTERS = [Wholes(3, -5, 5), Wholes(2, 0, 2**31 - 1), Choice(("pause", "resume")), Flag(), Digest(), Opaque(8)]
+CONVERTERS: list[Converter] = [
+    Wholes(3, -5, 5),
+    Wholes(2, 0, 2**31 - 1),
+    Choice(("pause", "resume")),
+    Flag(),
+    Digest(),
+    Opaque(8),
+]
 
 
 @pytest.mark.parametrize(

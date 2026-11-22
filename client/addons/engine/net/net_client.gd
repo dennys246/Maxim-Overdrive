@@ -20,7 +20,8 @@ const TOKEN_FILE_ENV: String = "MAXIM_OVERDRIVE_TOKEN_FILE"
 var peer: WebSocketPeer = WebSocketPeer.new()
 ## welcome as received, once it is; empty before.
 var welcome: Dictionary = {}
-## The last refusal: an error the server sent, or what this client refused; empty while all is well.
+## The last refusal: an error the server sent, what this client refused, or "closed <code>" when the connection ended
+## with no reason; empty while all is well.
 var refusal: String = ""
 var last_frame: WireFrame = null
 var _token: String = ""
@@ -45,9 +46,10 @@ func open(port: int, token: String) -> Error:
 
 func poll() -> void:
 	peer.poll()
-	if peer.get_ready_state() != WebSocketPeer.STATE_OPEN:
+	if peer.get_ready_state() == WebSocketPeer.STATE_CLOSED:
+		_on_closed()
 		return
-	if not _hello_sent:
+	if peer.get_ready_state() == WebSocketPeer.STATE_OPEN and not _hello_sent:
 		var sent: Error = peer.send_text(JSON.stringify({"type": "hello", "protocol": PROTOCOL, "token": _token}))
 		_hello_sent = sent == OK  # on a failed send, the next poll tries again; the host's deadline bounds it
 		if not _hello_sent:
@@ -58,6 +60,15 @@ func poll() -> void:
 			_on_text(packet.get_string_from_utf8())
 		else:
 			_on_frame(packet)
+
+
+## The host refuses a handshake with an error and then a close whose reason is the same code (1008 "bad_token").
+## Godot 4.7.2 drops a text packet that arrives in the same poll as the close (measured: tests/test_godot_net.py), so
+## the close reason is what this client reads, when nothing before it said why.
+func _on_closed() -> void:
+	if refusal.is_empty():
+		var reason: String = peer.get_close_reason()
+		refusal = reason if not reason.is_empty() else "closed %d" % peer.get_close_code()
 
 
 func _on_text(text: String) -> void:
