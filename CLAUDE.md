@@ -129,7 +129,7 @@ the measured checks, advisory.
   Every write happens inside the write window, as a writer the field registry declares, holding its token. The SEM
   membrane is handed an applier and a frame view, never the world, and the import contracts and the ownership scans
   hold it to them.
-- Record known physics gaps in `docs/architecture.md` ("Known gaps"), with numbers, instead of hiding them.
+- Record known physics gaps in `docs/known_gaps.md`, their one owner, with numbers, instead of hiding them.
 
 ## Engineering standards
 

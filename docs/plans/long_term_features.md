@@ -80,7 +80,7 @@ Each entry says which half each piece of work is.
 | | |
 |---|---|
 | **Goal** | Real time at the tile, measured, with budgets |
-| **Documents** | `../architecture.md` Known gaps; `../standards_backlog.md` B5; `../design/research/fire_ladder/5_numerics.md` |
+| **Documents** | `../known_gaps.md`; `../standards_backlog.md` B5; `../design/research/fire_ladder/5_numerics.md` |
 | **Status** | `advance(0.5)` costs about 0.7 s of CPU at 1.92 × 10⁶ cells, before fire, NPCs or radiation exist. Fire's costs are measured in its reviews (flame radiation dominates) |
 | **Next** | A fire budget before 6.2's radiation; deterministic work counters as the primary gate |
 

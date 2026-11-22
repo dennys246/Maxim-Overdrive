@@ -32,7 +32,7 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   protocol v0 (`docs/design/tile_and_client.md` §3.3) and save v0 freeze. Its design review uses the note's own
   lenses.
 - Fires that go out when their fuel is gone, so a burnt-out crate's fire stops instead of heating air to millions of
-  degrees (`docs/architecture.md`, Known gaps; the red gate is
+  degrees (`docs/known_gaps.md`; the red gate is
   `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`). Needed before the Phase 1 exit
   (the slab) is gated. **Requirement:** fuel burns as sub-grid objects with geometry in metres, coupled to the cells
   by overlap (`docs/design/fire_model.md` §0, point 3; `docs/design/fire_solid.md` §1), well enough at the coarsest
@@ -73,7 +73,7 @@ Each new field ships with a closed-form test and a cross-grid test, under the ve
   move as physical bodies if that can be done honestly. Research first, in the Structure and motion entry of
   `docs/plans/long_term_features.md`. Imagined objects meet the support rule when placed (D33).
 - **Scale:** move the hot loops to numba or C if profiling says so (never coarser far cells: world_model D21).
-- **Close the known gap:** the coarsest rig's late-burn lag (`docs/architecture.md`).
+- **Close the known gap:** the coarsest rig's late-burn lag (`docs/known_gaps.md`).
 - **Moved from Phase 1 by the fire fallback (2026-11-20; after VS5):** crate and rungs 6.2–6.4 (flame object,
   two bodies, crib).
 - **Moved from Phase 1 by D26:** zones and vents, combustion per zone and its products, phase change other than
