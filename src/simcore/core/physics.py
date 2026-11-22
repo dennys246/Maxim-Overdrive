@@ -92,10 +92,6 @@ class Physics:
         self._bounds: dict[str, tuple[tuple[int, ...], float]] = {}  # per law: its bound_reads' versions, the bound
         self.work = Work()
 
-    @property
-    def laws(self) -> tuple[Law, ...]:
-        return self._laws
-
     def group(self, cadence: Cadence) -> tuple[Law, ...]:
         return tuple(law for law in self._laws if law.cadence is cadence)
 

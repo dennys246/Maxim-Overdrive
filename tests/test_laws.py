@@ -383,16 +383,41 @@ def test_a_read_only_view_follows_every_change_to_its_field():
     assert seen == [20.0, MATERIALS["concrete"].id, 30.0, AIR_ID, MATERIALS["wood"].id]
 
 
-def test_a_law_leaves_no_close_listener_behind():
-    """PR 2 delta N3: a listener registered from inside a window ran after every later window. Proven by deleting
-    the refusal in ``on_close``: the listener is registered and runs."""
+def test_a_law_leaves_no_rollback_listener_behind():
+    """PR 2 delta N3: a listener registered from inside a window ran after every later window. Since PR 4a the only
+    listener is the rollback's (on_close lost its caller with per-window publication). Proven by deleting the refusal
+    in ``on_roll_back``: the listener is registered and runs when a later window rolls back."""
     g = _grid()
     ran: list[int] = []
     with g.writing(writer=None), pytest.raises(WindowClosed, match="one owner"):
-        physics._run_as(g, _Plant(lambda grid: grid.on_close(lambda: ran.append(1))), 1.0, LawInputs())
-    with g.writing(writer=None):
-        pass
+        physics._run_as(g, _Plant(lambda grid: grid.on_roll_back(lambda: ran.append(1))), 1.0, LawInputs())
+    with pytest.raises(RuntimeError, match="later"), g.writing(writer=None):
+        raise RuntimeError("later")
     assert ran == []
+
+
+@pytest.mark.parametrize("law", physics.DEFAULT_LAWS, ids=lambda law: law.name)
+def test_every_shipped_law_answers_the_whole_protocol(law):
+    # The orchestrator prepares only per-substep laws, so a per-record law's prepare is reached only here; each law
+    # still answers every member (sim_core.md §5), so a cadence change can't meet a missing one.
+    g = _grid()
+    state = law.new_state(g)
+    with g.writing(writer=None):
+        inputs = law.prepare(g, state, Exposure((), 1))
+        bound = law.stable_dt(g, state)
+    assert set(law.bound_reads) <= set(law.reads)
+    assert bound > 0
+    assert inputs.loads == ()
+    assert (inputs.power_w is None) or law.name == "heat"
+
+
+def test_the_region_tables_version_is_topology_s():
+    # field_version("regions") moves exactly when a Topology batch changes the table (sim_core.md §7).
+    g = _grid()
+    before = g.field_version("regions")
+    with constructing(g):
+        paint(g, g.solid, "air")
+    assert g.field_version("regions") == g.topology_version > before
 
 
 def test_a_law_named_like_a_registered_one_gets_no_token():

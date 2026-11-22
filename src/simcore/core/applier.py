@@ -21,7 +21,6 @@ from simcore.core.checks import shown
 from simcore.core.grid import Point
 from simcore.core.intents import AFFORDANCE_OF, Action, ActionRefused, Extinguish, Ignite, Strike
 from simcore.core.law import Load, LoadEffect
-from simcore.core.limits import ActionLimits
 from simcore.core.refusals import RefusalCode, Refused, agent_text
 from simcore.core.world import HeatSource, World
 
@@ -63,10 +62,6 @@ class Applier:
 
     def __init__(self, world: World) -> None:
         self._world = world
-
-    @property
-    def limits(self) -> ActionLimits:
-        return self._world.limits
 
     def apply(self, region: str, action: Action, *, sources: dict[str, HeatSource], resolve: Resolve) -> Outcome:
         """Apply a typed action to ``region``: re-checked against this world's limits, then against the world now.

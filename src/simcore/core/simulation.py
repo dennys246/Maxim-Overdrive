@@ -137,10 +137,6 @@ class Simulation:
         return self._world.limits
 
     @property
-    def laws(self) -> tuple[Law, ...]:
-        return self._physics.laws
-
-    @property
     def frames(self) -> FrameView:
         """The latest published frame (§4), and no way to publish one."""
         return self._frames
