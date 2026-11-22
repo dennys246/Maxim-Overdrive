@@ -5,9 +5,10 @@ plain container a client test loader reads (``client/tests/support/snapshot_fixt
 assume is named in ``client/tests/fixtures/snapshots/FIELDS.md`` for step 7 to confirm or change.
 
 The geometry is the real alley, read from its one source, ``tests/fixtures/scenes/alley_box.yaml`` (tile §1.3), and
-built by the engine's own ``Scene`` at the 0.1 m truth, so material and region cells are what the server holds.
-The fire channels are hand-placed, as §6.1's renderer goldens are: a crack ramp over the crate and a patch of
-``wall_north``, a glow ramp over ``crate_far``'s envelope, and flames on a floor patch of their own. They exercise the shader; they are not a physical fire.
+built by the engine's own ``Scene`` at the 0.1 m truth, so material and region cells are what the server holds. The
+fire channels are hand-placed, as §6.1's renderer goldens are: a crack ramp over the crate and a patch of
+``wall_north``, a glow ramp over ``crate_far``'s envelope, and flames on a floor patch of their own. They exercise the
+shader; they are not a physical fire.
 
 Arrays are ``[nz, ny, nx]`` in C order, x fastest, so one z-slice is one Godot ``Image`` row by row. The engine's grid
 is indexed ``[x, y, z]``; this transposes it, as step 7's encoder will have to.
