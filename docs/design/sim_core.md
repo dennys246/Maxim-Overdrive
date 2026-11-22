@@ -71,7 +71,7 @@ Simulation.frames -> FrameView                                   # the latest pu
 - **`step` takes the records whose `apply_tick` is this tick,** already in the log's key order (`boundaries.md`
   §6.2). It refuses a record for any other tick, and refuses records out of order. It applies them, runs physics on
   physics ticks, and publishes one frame.
-- **Frames are published once per tick, at the end of the tick.** Today the applier publishes after each
+- **Frames are published once per tick, at the end of the tick** (owner, 2026-11-21). Today the applier publishes after each
   application (`boundaries.md` §4.1, 2c). From 5a, a strike and a read inside one tick see the frame from before
   the tick, and `tests/test_sem_bridge.py` moves to reading the next tick's frame.
 - **`TickReport`** is frozen. It holds the tick, the receipts and refusals (derived values, `boundaries.md` §6.2),
@@ -89,14 +89,32 @@ Simulation.frames -> FrameView                                   # the latest pu
 - **The list is a fixed tuple, never discovered.** Its order follows `research/physics_spike/splitting.md` §6, rule
   1: transport, then exchange, then sources and projections, then losses. Each law states the invariants it reads
   and the ones it can break.
-- **In 5a the tuple is `(heat, damage)`.** Damage stops being heat's `on_substep` callback and becomes the second
-  law, run after heat in each substep. That split is a behaviour change only if it alters the arithmetic, and §11
+- **In 5a the tuple is `(heat, damage)`** (owner, 2026-11-21). Damage stops being heat's `on_substep` callback and
+  becomes the second law, run after heat in each substep. That split is a behaviour change only if it alters the arithmetic, and §11
   says which way it went.
 - **Each law is split into `prepare` and an array-only kernel,** with a bit-identity parity test. That is the numba
   seam; numba itself waits for a profile that asks for it.
 - **The reversed-order test** constructs a `Simulation` with `laws=tuple(reversed(DEFAULT_LAWS))` and asks
   `same_class_under_refinement` (`verify_harness.md` §4) for the same outcome class in both orders.
 - **The header records** each law's `name` and `version` (`sem_stimuli.md` §5's slot).
+
+### 5.1 The flow: one direction, one writer per field (owner, 2026-11-21)
+
+- **Sources declare; laws resolve; observers read.** Within a tick, the applier turns each record into what it puts
+  into the world (a heat source, a mechanical load) and writes no outcome. The laws then run in the list's order.
+  The frame is published last, and observers read only frames.
+- **Every field has exactly one writer.** A law's `writes` (§6) is exclusive: no two laws write one field, and the
+  write window refuses a write to a field from anything but its declared writer. Heat is the only writer of
+  `temperature`; damage is the only writer of `integrity` and of destruction (a cell's material becoming air).
+- **Every damage source is a load, and one law resolves them.** Damage reads `temperature` (thermal degradation)
+  and the tick's `loads`, a list the applier appends to and damage consumes. A strike is a `Load` (kind, energy,
+  width, point, region), resolved at damage's place in the tick, in the list's key order. A later source (ballistic,
+  chemical, electrical) adds a load kind and its law of resolution inside damage, never a second writer of
+  `integrity`.
+- **Laws couple only through fields.** No law module imports another, or calls one, held by an import contract.
+- **What it changes:** a strike's crater is applied when damage runs, not when the applier validates the intent.
+  The frame shows it at the end of the same tick (§4). The strike's receipt (the destroyed volume) is built from
+  damage's resolution and carried in that tick's `TickReport`, not returned by the applier.
 
 ## 6. The field registry
 
@@ -112,7 +130,7 @@ Simulation.frames -> FrameView                                   # the latest pu
   the save.
 - **A generated artifact,** `docs/generated/fields.md`, is committed and compared byte for byte by a test, so the
   field list can be reviewed without reading code.
-- **This supersedes `world_v2.md` §2.5's `data/world/fields.yaml`.** Data can't import code, and fields are bound to
+- **This supersedes `world_v2.md` §2.5's `data/world/fields.yaml`** (owner, 2026-11-21, confirming D2). Data can't import code, and fields are bound to
   the laws that write them.
 - **Step 6's tables join this registry** (`fire_model.md` §10's row): one registry, not a second one.
 
@@ -136,14 +154,14 @@ Simulation.frames -> FrameView                                   # the latest pu
 - **The rule** (`splitting.md` §6, rule 3): at the start of each physics step, `n = max(1, ceil(P_s / min over laws
   of stable_dt))`, and `dt = P_s / n` exactly. `stable_dt` returns infinity only for an unconditionally stable
   update.
-- **One departure, for the owner (decision 1):** when a law's `Changes` tightens the stability bound mid-step
+- **One departure (owner, 2026-11-21):** when a law's `Changes` tightens the stability bound mid-step
   (destruction turns a cell to air, which is far more diffusive), the rest of the step is replanned, split evenly at
   the new bound, as `heat.step` does since step 4. `splitting.md` fixes `n` at the start, with a mid-step check as a
   debug assertion only. That can't hold, because a fixed `n` past a tightened bound is unstable.
 - **The substep floor goes:** `heat.min_substeps`, `FLOOR_AREA_M2`, its `TEMPORARY` marker and
   `tests/test_determinism.py::TURN_SUBSTEPS`.
-- **Accuracy at `P`** is a verification bar (§10, bar 1). If the bar fails, a measured accuracy floor joins the
-  rule, as a truth constant.
+- **Accuracy at `P`** is a verification bar (§10, bar 1). Only if the bar fails does a measured accuracy floor join
+  the rule, as a truth constant (owner, 2026-11-21).
 
 ## 9. The work counters
 
@@ -187,7 +205,8 @@ step 4's deferred counters (`verify_harness.md` §7) read them.
 
 `boundaries.md` §6.4 owns the classification. 5a moves:
 - **`World.advance`** to the physics phase of `Simulation.step`. Its marker goes.
-- **The applier's own window** to the apply phase of `Simulation.step`. Its marker goes.
+- **The applier's own window** to the apply phase of `Simulation.step`. Its marker goes. It stops writing
+  outcomes: `Strike` appends a `Load` instead of calling `damage.strike` (§5.1).
 - **`imagination.place`** to the applier, as the `imagine` intent kind's stage 2 (CLAUDE.md, "until step 5a makes
   `imagine` an intent kind"). Its marker goes.
 - **Construction** to `Simulation.from_scene`.

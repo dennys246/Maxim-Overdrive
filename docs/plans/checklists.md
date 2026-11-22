@@ -167,6 +167,10 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
   one rounding quantum, requiring a first differing tick named by the per-tick lanes (the tissue numbers, 10⁻¹²
   relative at tick 0 and one ulp at tick 120–152, were measured before rounding, N-F5); a toy producer two hops
   upstream bumped alone changes the row's key (A3-S5); an unbound row added stays green.
+- **The flow (`sim_core.md` §5.1, B40):** an import contract that no law module imports another, proven by a
+  planted import; the write window refuses a write from anything but a field's declared writer, tested with a
+  second writer; the applier writes no outcome field (the ownership scan); a strike resolves as a `Load` in damage,
+  and its receipt comes from that tick's `TickReport`. Then cite the checks in CLAUDE.md's rule in place of B40.
 
 ## Step 5b, bodies and movement (`tile_and_client.md` §2, §3, §4.1)
 

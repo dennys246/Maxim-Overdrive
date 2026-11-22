@@ -292,6 +292,11 @@ only review holds.
   `tests/test_tooling_config.py::test_every_package_under_src_is_a_root_of_the_import_graph`,
   `tests/test_ownership.py::test_every_function_that_writes_the_world_is_in_the_core`,
   `docs/code_review.md` (the Architecture lens asks it of every diff), B19
+- **Flow runs one way, and every field has one writer** (owner, 2026-11-21). Inputs declare what they put into the
+  world (a heat source, a load) and never write an outcome; laws resolve them in the law list's order; observers read
+  only published frames. Each field has exactly one writing law, and every source of an effect (every kind of damage,
+  say) is an input to that one law, never a second writer. Laws couple only through fields: no law imports or calls
+  another. The contract is `docs/design/sim_core.md` §5.1. Guard: B40
 - **Size tripwires.** Hard limits in `src/` and `scripts/`: a 40-line function body (code lines: the docstring,
   comments and blank lines don't count), a 500-line module and 12 public methods per class, properties included
   (`[tool.maxim_overdrive.size_limits]`). Ruff caps cyclomatic complexity at 10, plus branches, returns and
