@@ -291,12 +291,28 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 
 **Added by D-B2 (owner, 2026-11-22):** the fuel geometry's segment rule, slab face and rod origin are answered
 (`fire_solid.md` §1.1–§1.2). The torch's Phase 1 pilot is `torch_pilot.md`'s, built as 6.1b after 6.1 and before
-step 8's exit script. Its tests to write: the target function's tie, depth and contact-line cases, and one call site
-for every producer (§3); the overlap's closed form against fine quadrature, its conservation, and the ℓ/3 and 2ℓ/3
-offsets (§4.3); strips halved (§9.4); a cell target deposits nothing and heats no air (§4.4); the band in D at three
-grids and two steps (§9.2); a save at a mid-pilot tick and a rebuild of the overlaps, each bit-identical (§2, §9.3);
-§9.4's controls, each proved by deletion; the strip-width strict red gate (§7); the three `ignite` gates rewritten as
-§9.4 says.
+step 8's exit script. Its tests to write (mechanisms deferred here by the review, `reviews/torch_pilot/`):
+- the target: ties, beyond 50 mm, edge and corner faces, a burnt-out row, `pending` excluded, the slab-on-floor
+  contact line, one call site (§3); the catalogue's refusal of slab recipes ≤ 2 mm;
+- the overlap: its closed form against fine quadrature at asymmetric offsets, and its conservation (§4.3); its cache
+  keyed with the object's geometry, or geometry held immutable while referenced (D2-S4);
+- the lifecycle: `end_tick` on and off a physics tick, a `leave` at L ≡ 1 (mod `physics_every`) and one after the
+  last covered step was integrated (D2-S1), and a `kindle` at `end_tick` (§2);
+- two pilots on one part, applied in both orders; the digest rebuilt from tables and records equals the running one;
+  stepped, unpaced and replay runs bit-identical (§9.3);
+- the format and load refusals, with gate rows: `actions.yaml`, `torch.yaml`, the record (§2, §10); `actions.yaml`'s
+  ceiling equal to §6's formula over the committed sets;
+- §9.2's measurements: the flash band in D at three grids and three steps, the margins, e_dt and s_floor, with the
+  interpolated beat times (§5); then D and the cap, committed before the graded run;
+- the unpiloted-crossing count over holds, measured first. If it is zero for every hold, the pilot condition has no
+  shipped-path deletion proof, and the design says so (E2-S3);
+- §9.4's controls, each proved by deletion: beat 8's by a flame flux on a part that isn't flaming (E2-S2); the face
+  control's by projecting the disc, from a side point more than 1 mm below the top edge (E2-N5, D2-S3); the
+  strip-halving times interpolated; and §7's strict red gate;
+- a cell-target `kindle` deposits nothing and heats no air (§4.1);
+- the two delays for OD-A16 (§12): `kindle` to `t_flash` at the exit, with its spread, and the receipt to the first
+  change in a declared stimulus row ("none" in Phase 1), recorded in the roadmap's OD-A16 row.
+The save round trip and golden of the pilot record are step 9's (`torch_pilot.md` §2).
 
 - A short design note first, reviewed under the Physics lens, answering the final review (`reviews/tile_v1/
   final_physics.md`): FPH-B1 radiative transfer between slats inside the bed, plus the draught's air-supply loss;
@@ -373,7 +389,8 @@ grids and two steps (§9.2); a save at a mid-pilot tick and a rebuild of the ove
   px/m: 2.01-2.12x at the floor, 2.55x at 120; the shipped edge 1.07x there).
 - Deferred from D-B2's delta round (mechanism, `reviews/client_objects/`): partial thinning's mechanism and the
   per-fragment lookup's frame time (N3); timings reported as median beside minimum (P-N3).
-- The exit script (Phase 1's exit is `docs/roadmap.md`'s, Phase 1, "Exit"), run stepped and unpaced; the controls,
+- The exit script (Phase 1's exit is `docs/roadmap.md`'s, Phase 1, "Exit"; its beats are `torch_pilot.md` §9's, and
+  G1–G5 are mapped onto them here), run stepped and unpaced; the controls,
   each proven by deletion (PH-S3); the stage-2 refusal scripts.
 - The shader, the cut-away test at ≥ 95%, five scenario goldens per tier, staleness digests, `update_goldens.sh`
   (EX-S13).
@@ -384,6 +401,7 @@ grids and two steps (§9.2); a save at a mid-pilot tick and a rebuild of the ove
 ## Step 9, save v0
 
 - The actor and pilots tables and `body_key` (BF-N3).
+- The pilot records (`torch_pilot.md` §2): load refusals, a round trip at a mid-pilot tick, and a golden (D-N2).
 - **Names, not positions:** every index column (`archetype`, `held_item`, `material`) carries a name list in the
   header, and loading remaps by name.
 - **The load rule** is world_model §8's (F5, F14); loading never replays the log; every grid carries its cell size.

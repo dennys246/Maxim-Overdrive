@@ -1,303 +1,381 @@
-# The torch's Phase 1 pilot (design, 2026-11-22, for review)
+# The torch's Phase 1 pilot (design, 2026-11-22; rounds 1 and 2 folded)
 
-**Scope.** The one question that blocks step 8's exit scenario (`docs/plans/checklists.md` step 6, "Added by D-B2"):
-how a `kindle` ignites a slab when Phase 1 has no flame object. Phase 1's exit is the roadmap's (Phase 1, "Exit"): a
-slab lit with the torch, which chars, burns and flames out. Flame objects, and with them fire_model §5.4's "the
-torch's pilot is a flame object", are 6.2's, in Phase 2 (`client_objects.md` §1).
+**Scope.** The question that blocks step 8's exit scenario (`docs/plans/checklists.md` step 6, "Added by D-B2"): how
+a `kindle` ignites a slab when Phase 1 has no flame object. Phase 1's exit is the roadmap's (Phase 1, "Exit"). Flame
+objects, and with them fire_model §5.4's flame-object pilot, are 6.2's, in Phase 2 (`client_objects.md` §1). Both
+rounds' reports and folds are in `reviews/torch_pilot/`.
 
-**What this document owns** (one owner per contract): the pilot record (§2), the deposit and its clock (§4), the
-pilot condition (§5), the torch's physical data and `kindle`'s physics ceiling (§6), and what the slab exit observes
-(§9). That last answers D-S2 for Phase 1: tile §6 is the Phase 2 crate's, so the slab's beats had no owner
-(`client_objects.md` §7.3). It links to the rest:
-- `kindle`'s vocabulary, stage-1 checks, tick schedule, lifecycle and receipt: `tile_and_client.md` §3.2;
-- the target rule: `fire_model.md` §5.4;
+**What this document owns** (one owner per contract):
+- the pilot record (§2);
+- `kindle`'s target rule, whole (§3), taken from fire_model §5.4 and tile §3.2, whose copies become links (§10);
+- the deposit, its clock and the pilot condition (§4, §5);
+- the torch's physical data and `kindle`'s physics ceiling (§6);
+- the slab exit's beats, bands and controls (§9). This takes D-S2 for Phase 1. Tile §6 stays the Phase 2 crate's, and
+  fire_solid §7's D-S2 row and `client_objects.md` §7.3 become links here (§10).
+
+It links to the rest:
+- `kindle`'s vocabulary, stage-1 checks, lifecycle codes and receipt: `tile_and_client.md` §3.2;
 - the solid, flash, extinction, the ledger and the fuel view: `fire_solid.md` §4.4, §5.4, §5.6;
-- the flow (inputs, one resolver per input kind) and the field registry: `sim_core.md` §5.1, §6;
-- the fuel tables on the wire and the Phase 1 flame: `client_objects.md` §3, §5.3.
+- the flow, the registry, the digest and caches: `sim_core.md` §5.1, §6, §7, §9;
+- the agent receipt: `sem_stimuli.md` §6.2; the fuel tables and the Phase 1 flame: `client_objects.md` §3, §5.3.
 
-Tags as in `fire_solid.md`: **V** primary source read, **S** secondhand, **M** memory (verify before it enters
-`data/` or `content/`), **D** derived (`reviews/torch_pilot/numbers.md`).
+Tags as in `fire_solid.md` (V, S, M, D); D numbers are `reviews/torch_pilot/numbers.md`'s.
 
 ## 0. The answer
 
-1. **In Phase 1 the torch is the alley's cone heater and spark in one.** It imposes a prescribed surface flux on the
-   fuel segments under its footprint, and while it is live that footprint is the pilot. That is `fire_solid.md` §4.4's
-   cone case with the heater made local and the spark made conditional. No flame object, no `HeatSource`, and nothing
-   heats an air cell.
-2. **The pilot is state:** a record keyed by its intent's id, saved and digested. It is never a flame and never
-   clusters. 6.2 replaces it with fire_model §5.4's flame object through a save migration.
-3. **The target comes from fire_model §5.4's nearest-surface rule,** evaluated in integer micrometres on authored
-   geometry, at stage 2, in one core function. A player's `kindle` and an NPC's run the same function on the same
-   record kind.
+1. **In Phase 1 the torch is the alley's cone heater, made local, and its pilot, made conditional.** It imposes a
+   prescribed surface flux on the fuel segments under its footprint. While it is live, the footprint is the only
+   pilot. No flame object, no `HeatSource`, and nothing heats an air cell (`fire_solid.md` §3.1).
+2. **The pilot is state:** a record keyed by its intent's id, saved and digested. It is never a flame. 6.2's held-flame
+   design (fire_model §12) replaces it and defines what becomes of a saved one.
+3. **The target is the nearest authored surface within 50 mm,** from one geometry query that every `kindle`
+   producer's stage 2 calls. No term in the target or the deposit depends on dx.
 4. **The deposit is exact area overlap** of the footprint disc with each segment part, delivered on the solid's
-   physics step in proportion to the ticks the pilot covers. No term in it depends on dx.
-5. **The torch's flux and radius can't be cited today.** A search found no measured hand-torch flux. The owner chooses
-   between a bench measurement and `[engineering]` values inside the solid's graded range (§11, Q3). Nothing is fitted
-   to make the exit pass.
-6. **Two limits of the 6.1 solid show here, and they are named instead of hidden.** First, a strip's single profile
-   smears a narrow footprint across the strip's width: a strict red gate and a Known gap, fixed in 6.2 (§7). Second,
-   the torch heats no structural cell (§7).
+   physics step in proportion to the ticks the pilot covers.
+5. **The torch's flux and radius can't be cited today** (§6, Q3). Nothing is fitted to make the exit pass.
+6. **No `ignite` red gate flips by being rewritten.** Each goes only with the mechanism it guards, deleted at 6.1b
+   with 5b's interim sphere `kindle`, its last producer (Q6). The exit gains its own gates, each of which a deletion
+   turns red (§9).
+7. **The 6.1 solid's limits show here and are named:** a strip's single profile smears a narrow footprint (a strict
+   red gate), and nothing spreads beyond the strips the torch heats (§7).
 
 ## 1. What this rests on (read at origin/main 2586ed7)
 
-- **The cone case** (`fire_solid.md` §4.4): flash at m''_flash, a prescribed q''_fl while flaming with convective loss
-  off, extinction below m''_ext, at most one flash per part. The spark is present by definition, and the heater is
-  uniform.
-- **Strips** (`fire_solid.md` §1.2): a 0.02 m strip spans a slab's whole width with one profile per part, and it flips
-  whole at flash. A slab's segments lie on one face only (§1.1).
-- **Unpiloted ignition is refused** (`fire_model.md` §3.2). The cited pilot distance doesn't exist (P2-N1).
-- **The ambient rule** (`fire_solid.md` §3.1): nothing an object loses enters an air cell, and a test holds it to that.
-- **The tick schedule** (tile §3.2, DC-N6): the pilot covers ticks [apply_tick, apply_tick + D), and the physics step
-  at tick t covers (t − 5, t]. That is T3: a 0.1 s tick, physics every 5 ticks.
-- **Open findings routed here** (`fire_solid.md` §7, "6.4, with `kindle`'s pilot"): N-S2 (the pilot is state), N-N2
-  and NN5 (the target rule), and NS8, D-S5, A-S2 (the `ignite` red gates). §2, §3 and §9.4 answer them.
+- The cone case, its pilot and its hysteresis: `fire_solid.md` §4.4. The non-uniform heater test, the pattern for a
+  footprint along a slab: `fire_solid.md` §6.
+- Strips, whole-strip flash and the one segmented face of a slab: `fire_solid.md` §1.1–§1.2.
+- Unpiloted ignition refused; no cited pilot distance: `fire_model.md` §3.2, P2-N1.
+- The tick schedule (DC-N6) and the lifecycle codes: tile §3.2. The clock's config, `tick_us` and `physics_every`:
+  `src/simcore/core/simulation.py::SimConfig`.
+- Findings routed here by fire_solid §7: N-S2, N-N2, NN5, NS8, D-S5, A-S2.
 
 ## 2. The pilot record
 
-<!-- contract: pilot.fields: actor_id seq object_id face centre_um radius_um flux_w_m2 apply_tick end_tick -->
+<!-- contract: pilot.fields: actor_id seq target_kind object_id region_id face centre_m radius_m flux_w_m2 apply_tick end_tick -->
 | Field | dtype | Meaning |
 |---|---|---|
-| `actor_id` | u32 | key, with `seq`: the intent's id (tile §3.1's `cause`) |
+| `actor_id` | u32 | key, with `seq`: the intent's id, tile §3.1's `cause` |
 | `seq` | u32 | key |
-| `object_id` | u32 | the fuel target; the null id 2³² − 1 for a cell target (§4.4) |
-| `face` | u8 | which of the target's faces holds the footprint (§4.1) |
-| `centre_um` | 3 × i64 | the footprint's centre, the nearest surface point (§3), in whole micrometres |
-| `radius_um` | i64 | the item's footprint radius |
+| `target_kind` | u8 | 0 a fuel object, 1 a solid cell region |
+| `object_id` | u32 | the fuel object; 0 and unread when `target_kind` is 1 |
+| `region_id` | u16 | the target's region |
+| `face` | u8 | the face holding the nearest point (§3) |
+| `centre_m` | 3 × f64 | the footprint's centre: the nearest point on the resolved `face`, in metres |
+| `radius_m` | f64 | the item's footprint radius |
 | `flux_w_m2` | f64 | the item's gauge flux (§4.2) |
 | `apply_tick`, `end_tick` | u64, u64 | the covered ticks, [apply, end) |
 
-- **Keyed by (`actor_id`, `seq`)** (N-S2). One live pilot per actor is tile §3.2's `pilot_live`, unchanged.
-- **Saved and digested,** in key order. A save mid-pilot that is then loaded continues bit for bit (§9.3). It is step
-  9's save requirement.
-- **The overlaps are derived** (§4.3): rebuilt from the record and the immutable geometry (`fire_solid.md` §1.1),
-  never saved, never digested, and equal bit for bit to a rebuild.
-- **An input, not a field a law owns** (`sim_core.md` §5.1). The applier appends the record at stage 2. Its one
-  resolver is the solid law, at its physics step. It ends at `end_tick`, or on leave or `region_gone`, as tile §3.2's
-  lifecycle says. Its registry entry sits beside `sources` (`sim_core.md` §6). It is not perceivable
-  (`sem_stimuli.md` §7.4's default).
-- **The wire's pilots row stays tile §2.2's** (`actor_id`, `region_id`, `end_tick`). In 6.0–6.1 each fuel object is
-  its own region (`fire_solid.md` §1.3), so the row names the object. Whether it gains a point is Q5.
-- **Not a flame.** It has no Q, no cluster, no height and no merge weight. Burning segments never pull it into a
-  cluster, because Phase 1 has no clusters. 6.2 migrates each saved record to a flame object, under a save version
-  bump.
+- **The face enum, per target kind:** a slab's 0 top (its segmented face, fire_solid §1.1), 1 bottom, 2–5 the sides
+  at −length, +length, −width and +width; a rod's 0 lateral (segmented), 1 its axis's start, 2 its end; 255 for a cell
+  region, which takes no deposit in Phase 1 (§4.1).
+- **Saved and digested** in key order: an input in `sim_core.md` §6 and a new member of its §9 digest, at a position
+  sim_core's edit assigns. An empty member still hashes its name, dtype and shape, so 6.1b changes every tick digest: a
+  recorded break under `sim_core.md` §12 (§10). Overlaps are derived (§4.3), neither saved nor digested.
+- **Load refuses** a record whose end tick isn't after its apply tick, whose actor has two live records, whose object
+  or region doesn't exist, whose object id isn't 0 for a cell target, whose face isn't in its kind's enum, or whose
+  flux or radius lies outside the ceiling (§6). That is step 9's save requirement, with a round trip and a golden. Until then the 6.1b
+  test is fire_solid §5.5's: the digest after a rebuild from the tables equals the running digest.
+- **The lifecycle, in tick order** (`sem_stimuli.md` §4.1's steps):
+  - **Appended** by the applier at stage 2, in step 1. It is the record's one appender.
+  - **Live** at tick τ when apply tick ≤ τ < end tick. Tile §3.2's `pilot_live` reads that interval, never the
+    record's presence, so a `kindle` at the end tick applies.
+  - **Cut short** only on `leave`: the applier sets the end tick to the `leave`'s tick, in that tick's step 1. Nothing
+    else ends a pilot early. A burnt-out object's row stays (`fire_solid.md` §1.1), and a cell target takes no deposit,
+    so a pilot whose target burns out or is destroyed runs to its end tick, fruitless. Tile §3.2's "when its region is
+    gone" is dropped (§10).
+  - **Removed** by `Simulation` at the end of the first physics step at a tick ≥ the end tick − 1, or at the cut itself
+    when every covered tick has already been integrated. No law deletes its own input.
+- **Not perceivable:** the record, the pilots table and `pilot_ended` (`sem_stimuli.md` §7.4).
+- **Its one resolver is the solid law** (`sim_core.md` §5.1).
 
 ## 3. The target
 
-**The rule is fire_model §5.4's:** the nearest surface within 50 mm, and a tie within 1 mm is `ambiguous_point`. This
-section fixes only how that rule is evaluated.
-- **Candidates:** every live fuel object, by its authored geometry (`fire_solid.md` §1.1's kinds), and every solid
-  cell region, by its cells' faces on integer-micrometre edges (F13).
-- **Distances** are exact point-to-geometry distances in whole micrometres, computed from `point_mm` × 1000 and the
-  authored integers. A point inside a candidate has distance 0 and its depth is its distance to the nearest face. A
-  depth over 50 mm is `not_on_surface`, which restores tile §3.2's depth bound that fire_model §5.4 dropped (N-N2).
-- **A slab on the floor doesn't tie:** a point on its top face is 0 from the slab and the slab's thickness from the
-  floor. A point on the contact line ties and is refused, as N-N2 says it must be. The thickness must exceed the 1 mm
-  tie band, which every `slab` recipe's geometry range does (`fire_solid.md` §5.1).
-- **One function, at stage 2, in the core,** called for every `kindle` record whatever produced it. The client's
-  intent and an NPC's body act (tile §3.2: the body modulator, `hold` converted to ticks) both log the same record
-  kind with `target: null`. Replay recomputes the target from the logged point. No producer names a target.
-- **tile §3.2's restatement** ("two candidates is `ambiguous_point`") is the stale T4 rule that fire_model §10.1
-  revised (NN5). It becomes a link here (§10).
-- **Bed objects** (6.2) need a rule for a point inside porous fuel. That is 6.2's, as N-N2 notes.
+**The rule:** the candidate whose authored surface is nearest the point, within 50 mm. A second candidate less than
+1 mm farther than the nearest makes it `ambiguous_point`. With no candidate within 50 mm (a point deep inside a
+solid, or far from everything), the act is `not_on_surface`.
+- **Candidates:**
+  - every row of the object table, live or burnt out, as of the start of stage 2 (`pending` is excluded,
+    `fire_solid.md` §1.4);
+  - every solid cell region, by its authored solid primitives, minus carved air once world_model §5's CSG lands. It
+    is never measured by its cells, whose faces move with dx, nor by `scene.py::footprint_of`'s bounding box.
+  - When the sub-cell solids design lands, its objects of every role join, by its own states (Q1).
+- **Distances** are f64 point-to-geometry distances in metres, from `point_mm` ÷ 1000 and the authored geometry
+  (fire_solid §1.1 holds it in f64), by one fixed formula per kind. `centre_m` is stored unrounded.
+- **Faces:** of one object's faces, those less than 1 mm farther than its nearest (an edge, a corner) resolve to the
+  segmented face if it is among them, else to the lowest `face` value `[engineering]`. `centre_m` is the nearest
+  point on the resolved face.
+- **A slab on the floor doesn't tie:** a point on its top face is 0 from the slab and its thickness from the floor. A
+  point on the contact line ties, and is refused. A slab no thicker than the tie band could never be kindled from
+  above, so the catalogue refuses a slab recipe whose minimum thickness is ≤ 2 mm (§10).
+- **One query, two policies.** The geometry layer returns candidates ranked by distance. `kindle`'s stage 2 applies
+  this tie rule, and the sub-cell design's `strike` its own.
+- **Every producer calls the same stage 2:** the client's intent and, from Phase 4, an NPC's body act (tile §3.2). Both
+  log the same record kind with `target: null`, and replay recomputes the target from the logged point. In Phase 1 the
+  client is the only producer, so the one-call-site test covers that path alone.
+- **The receipt's effect value** (tile §3.3) is the derived target (its kind, object and region), never a deposit. An
+  agent's receipt is `sem_stimuli.md` §6.2's `accepted` in every case.
+- Porous `bed` objects need their own inside rule: 6.2's.
 
 ## 4. The deposit
 
 ### 4.1 The footprint
 
-- **A disc** of radius `radius_um`, centred on `centre_um`, lying in the plane of the target face that holds the
-  nearest point. On a rod, it lies in the tangent plane there.
-- **It deposits only on segment parts of that face.** A slab's segmented face is its top (`fire_solid.md` §1.1). A
-  footprint on a side or the underside deposits nothing, and the act still succeeds (fire_model §5.4: "a fruitless act
-  succeeds as an act"). A rod's lateral surface carries its segments, and its ends carry none.
-- **The disc's area beyond the face** reaches nothing: the slab next to it, the floor under an overhang, the air. It
-  never enters the world, so it is not on the ledger, just as the cone heater's flux outside the sample isn't.
+- **A disc** of radius `radius_m`, centred on `centre_m`, in the plane of the target's `face` (on a rod, the tangent
+  plane there).
+- **It deposits only on segment parts of that face.** On any other face it deposits nothing and the act still succeeds
+  (fire_model §5.4). Any disc area beyond the face reaches nothing, as the cone heater's flux beside a sample doesn't,
+  and is not on the ledger.
 
 ### 4.2 What it deposits
 
-- **A uniform gauge flux q''_t = `flux_w_m2` over the disc** `[engineering]`: the profile of an impinging torch is
-  uncited (§6). It follows the convention of `fire_solid.md` §4.4's q''_fl, a flux as a cold gauge reads it.
-- **It is absorbed at the surface node,** not through the in-depth absorption of §4.1 of fire_solid: a torch heats
-  mostly by convection (M). For the exit's opaque pine (κ → ∞), the two are the same.
-- **Over the covered share of a part, the convective loss is off,** because the torch's gas sits on the surface. That
-  is the same rule as under the cone flame. Re-radiation stays.
-- **It adds** to everything else the part receives: a flaming part gets q''_fl (Q2) and the torch together, as a cone
-  sample gets heater and flame.
+- **A uniform gauge flux q''_t over the disc** `[engineering]`: an impinging torch's profile is uncited.
+- **Absorbed whole at the surface node** `[engineering]`: a torch heats mostly by convection (M), so neither ε nor
+  in-depth absorption applies.
+- **Losses are the cone's before flash:** convective and radiative loss stay on under the footprint, as under the cone
+  heater. After flash the part is fire_solid §4.4's.
+- **Per part, contributions sum in a fixed order:** pilots in key order, then the flame flux (Q2).
 
 ### 4.3 Overlap, in metres
 
-- **Per segment part:** A_ov = |disc ∩ the part's face region|, exact, from the integer geometry. A strip's face
-  region is a rectangle (slab), or the band's silhouette 2R × ℓ in the tangent plane (rod).
-- **The covered share** f = A_ov ÷ A_part, with zero-area parts skipped (`fire_solid.md` §1.2's hygiene).
-- **Conservation:** Σ A_ov over a face equals |disc ∩ face| to 10⁻¹² relative `[engineering, as the straddle test]`.
-- **Centre sampling is forbidden** (CLAUDE.md, deposit by exact average). The build test moves the centre by ℓ/3 and
-  2ℓ/3 (§9.4).
-
-### 4.4 A cell target
-
-A `kindle` whose target is a solid cell region is `applied`, records the null `object_id`, and deposits nothing in
-Phase 1. A structural face has no skin unless it touches fuel (`fire_solid.md` §3.2). Depositing into the cell mean
-would understate its face temperature by an amount set by dx (D: 75 kW/m² for 60 s raises a semi-infinite concrete
-face about 346 K, but a 0.1 m cell's mean by 21 K). It is a Known gap (§7).
+- **Per segment part:** A_ov = |disc ∩ the part's face region|, in closed form. A strip's face region is a rectangle
+  on a slab, and on a rod the band's silhouette, 2R × ℓ, in the tangent plane.
+- **Conservation:** Σ A_ov over a face equals |disc ∩ face| to 10⁻¹² relative `[engineering, as fire_solid §6's
+  straddle test]`.
+- **Computed per pilot by scalar functions** (`math`, not vectorised numpy), in segment key order, in one call shape at
+  apply and on load. So a rebuild is bit-identical to the running value whatever other pilots exist (D1-S9's offset
+  problem).
+- **A cache keyed by the record's values,** built when the record is appended and on load, and evicted on removal and
+  on rollback (`sim_core.md` §7).
 
 ## 5. The clock and the pilot condition
 
-- **Time** is `Simulation.step`'s integer tick. The solid runs once per 0.5 s physics step (`fire_solid.md` §4.3).
-- **The energy into part p at the physics step ending at tick t** is q''_t · A_ov,p · 0.1 s · n_t, where n_t is the
-  number of the pilot's ticks in (t − 5, t] (tile §3.2's schedule). The implicit solve sees that as a step-mean surface
-  flux q''_t · f_p · n_t / 5, and it turns the convective loss off on the share f_p · n_t / 5. Ledger and solve use the
-  same f64 expression.
-- **Booked** as `fire_solid.md` §5.4's `incident_absorbed`, whose suppliers gain the torch (§10). The cone harness
-  stays the other supplier.
-- **A part is piloted at a step** when n_t ≥ 1 and A_ov,p > 0. Only then may it flash, by fire_solid §4.4's rule,
-  evaluated at that step. The pilot is the only one Phase 1 has: a flaming segment pilots nothing, since no cited
-  distance exists (P2-N1).
-- **An unpiloted crossing** (a part at or above m''_flash that isn't piloted) stays unignited. It is counted in a work
-  counter that the exit reports (§9.1). Phase 1 has no lateral conduction between strips, so only the torch can raise
-  a strip that far.
-- **Extinction, hysteresis and the one-flash cap are fire_solid §4.4's,** unchanged. The torch ending doesn't
-  extinguish anything. Flaming parts go out when their own mass flux falls below m''_ext.
+- **Time** is `Simulation.step`'s integer tick. The solid runs once per physics step (`fire_solid.md` §4.3).
+- **The energy into part p** at the physics step ending at tick t:
+  E_p,t = q''_t · A_ov,p · (`tick_us` ÷ 10⁶ s) · n_t,
+  where n_t counts the pilot's ticks in (t − `physics_every`, t] (tile §3.2's schedule).
+  - It is one named expression. The ledger books it, and the solve takes E_p,t ÷ (A_p · step length) as its step-mean
+    surface flux.
+  - It is booked as `fire_solid.md` §5.4's `incident_absorbed`, whose suppliers gain the torch (§10).
+- **The solid's time refinement is `tick_us`,** the only knob that reaches it (`substep_refine` doesn't,
+  `fire_solid.md` §4.3). The time study runs at `tick_us`, ½ and ¼ at a fixed `physics_every`, from a script that
+  states its apply times and holds in seconds (§9.1), which its loader converts to ticks. Each run starts with the
+  actor in reach, so no movement, whose speed is per tick (tile §2.3), enters it.
+- **A part is piloted at a step** when n_t ≥ 1 and A_ov,p > 0. Only then may it flash, by fire_solid §4.4's rule at
+  that step. Nothing else pilots in Phase 1: a flaming segment pilots nothing (P2-N1).
+- **An unpiloted crossing** is a part at or above m''_flash on a step where it isn't piloted, which the solid's lag
+  can produce after `end_tick`. It stays unignited. A lab instrument under `tests/` counts it (`fire_solid.md` §2),
+  not `WorkCounters`.
+- **Extinction and hysteresis are fire_solid §4.4's.** The torch ending doesn't extinguish anything. A part that goes
+  out may flash again, but only when piloted.
+- **A beat's time is interpolated within its step:** linearly between the two physics steps that bracket the crossing
+  of its quantity (a part's m'' through m''_flash or m''_ext, the residue share through 0.1). So times aren't
+  quantised to the 0.5 s step.
 
 ## 6. The torch's numbers
 
 | Quantity | Value | Basis |
 |---|---|---|
-| q''_t | **open (Q3)** | searched: no measured hand-torch impingement flux found (DTIC wood and propane fire fluxes of 10–134 kW/m² are fires, not torches; S) |
-| r_t | **open (Q3)** | as above; tile §3.2's 0.2 m disc and 2 kW are M and come from the retired sphere deposit |
-| `kindle`'s flux ceiling | 65 kW/m² | D: the lower of the highest graded fluxes, PMMA's 65 and pine's 75 (`fire_solid.md` §4.5), so no `kindle` drives a shipped recipe past its graded range |
-| `kindle`'s radius floor | ℓ = 0.02 m | `[engineering]`, by analogy with the two-cell rule: a footprint at least two strips across; the strip-halving test (§9.4) raises it if it fails, never lowers it |
-| D, the hold | from the band (§9.2) | tile §6.3 item 7's rule: ≥ 2× the band's upper edge |
-| The exit's slab | white pine (R1's recipe), 0.1 m wide | D: R1 grades pine on a 0.01 m² sample (`fire_solid.md` §4.4), and m''_ext depends on sample size (fire_model §4.3). Its thickness is MaCFP-4's (M; read V before `content/`) |
-| The exit's footprint | r_t ≥ W | D: 84% of the footprint's energy lands in fully covered strips at W = r_t, and none at W = 2r_t (§7) |
+| q''_t, r_t | **open (Q3)** | searched: no measured hand-torch impingement flux (fire fluxes of 10–134 kW/m² aren't a torch's; S). Tile §3.2's 2 kW over a 0.2 m disc is M, and came from the retired sphere deposit |
+| `kindle`'s flux ceiling | min over shipped recipes of ε_r · 50 kW/m²; about 45 kW/m² at ε 0.9 (M) | D: 50 kW/m² is graded on both rungs (`fire_solid.md` §4.5) and FDS-verified for PMMA (§4.6; pine is graded only). A cone heater at q delivers ε·q; the torch delivers q whole. ε_r is the least of the recipe's fixed, unfitted ε values (pine's fitted char ε is excluded). Computed from 6.1's committed sets, and a 6.1b test holds `actions.yaml`'s number to it |
+| `kindle`'s radius floor | ℓ = 0.02 m | `[engineering]`: at least two strips across; the strip-halving control (§9.4) raises it if it fails, never lowers it |
+| The exit's slab | white pine (R1's recipe), 0.1 m wide; its length is content's | D: R1 grades pine on a 0.01 m² sample (fire_solid §4.4), and m''_ext depends on sample size (fire_model §4.3). Thickness: MaCFP-4's (M; read V before `content/`) |
+| The exit's footprint | r_t ≥ 0.05 m, the slab's half-width | D: at r = W/2 a disc centred on the slab's centreline lies on it, and its most-covered strip gets 0.973–0.993 of q''_t over all centre offsets |
+| An NPC's holds (`brief`, `steady`, `long`) | Phase 4's body design (tile §3.2) | each must lie outside every shipped recipe's flash band under this item's flux and radius, measured when the holds are set; `torch.yaml` gains them then, with a version bump |
 
-- **A q''_t below 25 kW/m²** lies under both rungs' graded range, so the exit would run as an extrapolation of the
-  solid. It is reported as one, never tuned.
-- **The 0.2 m radius floor retires** with the sphere deposit (fire_model §5.4). It existed for the coarsest cell, and
-  nothing here sees a cell.
-- **Fixed before the first exit run** and committed, as fire_solid §4.5's fitter is pre-registered.
+- **A q''_t below ε_r · 25 kW/m²** lies below both rungs' graded range (converted as the ceiling is). The exit then runs
+  as an extrapolation and is reported as one, never tuned.
+- **The 0.2 m radius floor retires** with the sphere deposit. It existed for the coarsest cell, and nothing here sees a
+  cell.
+- **The torch's values are fixed and committed before the first exit run.** D and the cap come from the band runs by
+  §9.2's rule, and are committed before the graded run.
 
-## 7. Known gaps (into `docs/architecture.md` with the build step's commit)
+## 7. Known gaps (into `docs/architecture.md` with 6.1b's commit)
 
-- **A strip's mean smears a narrow footprint across its width.** One profile per strip means a flash decided on the
-  strip mean, which is averaging then thresholding (CLAUDE.md). D: the most-covered strip receives at most 0.195 of
-  q''_t when r = 0.05 m on a 0.5 m plank, and 0.973 when r = 0.05 m on a 0.1 m slab. A rod's ring gets at most 1/π.
-  Refinement across the width (6.2's partial transfer, `fire_solid.md` §1.2) is the verification: a **strict red gate**
-  (`raises=AssertionError`) asserts that a footprint narrower than its slab flashes at the time the same peak flux
-  gives on a slab it covers. It is fixed in 6.2. The exit stays clear of it by §6's W ≤ r_t.
-- **The torch heats no structural cell** (§4.4). D: up to about 346 K of face rise at the ceiling for 60 s, past
-  concrete's 300 °C degradation onset, is missed. The fix is skins on every structural face (the 6.2 design, D-S3).
-- **The cold-gauge convention overstates a hot surface's convective gain** by h_t(T_s − T_0), where h_t, the
-  impinging flame's coefficient, is uncited. The cone flame's q''_fl shares the convention.
-- **A slab's sides and underside take no footprint,** since 6.1's slab has segments on one face.
-- **The floor backs the exit slab, not the cone's Kaowool:** back-face behaviour is a prediction (`fire_solid.md` §4.5).
+- **A strip's mean smears a narrow footprint across its width.** A flash decided on the strip mean is averaging, then
+  thresholding (CLAUDE.md). D, over all centre offsets: the most-covered strip gets 0.195–0.199 of q''_t at r = 0.05 m
+  on a 0.5 m plank, and 0.662–0.666 at r = 0.1 m on 0.3 m. A rod's ring gets at most 1/π: 14.3 kW/m² at a 45 kW/m²
+  ceiling, below every graded flux, so every rod `kindle` is an extrapolation.
+  - **A strict red gate** (`raises=AssertionError`): a footprint of r = 0.05 m on a 0.5 m plank flashes within
+    max(e_dt, s_floor) (§9.2) of the same footprint on a 0.1 m slab. A never-flash case fails the assertion.
+  - **Fixed in the 6.2 design,** which must choose the mechanism: profiles across the width, or a footprint-sized
+    sub-profile. 6.2's partial transfer alone doesn't fix it (`fire_solid.md` §1.2). At §6's r ≥ W/2 the exit's
+    first strip is diluted by at most 2.7%. The gap is reduced there, not absent.
+- **Nothing spreads beyond the strips the torch heats.** Strips don't conduct to each other, and no flame heats or
+  pilots its neighbours until 6.2. A torch on a long plank lights a footprint-sized patch, which then goes out.
+- **The torch heats no structural cell, and no body.** D: at a 45 kW/m² ceiling for 60 s, a concrete face rises about
+  190 K with re-radiation and convection (187 K by a march that reads 3% low; 208 K by the lossless closed form). A
+  0.1 m cell's mean would read 12.8 K. With losses it reaches concrete's 300 °C onset after about 140 s (D). The fix is
+  skins on structural faces (the 6.2 design, D-S3), and tissue under Phase 4's body.
+- **The cold-gauge convention overstates a hot surface's gain** by (h_t − h_c)(T_s − T₀). h_c's part (3.3 kW/m² at a
+  350 °C surface, M) is kept by §4.2. The impinging flame's h_t is uncited.
+- **m''_flash is fitted under a spark and a radiant heater** (fire_solid §4.5). Applied under an impinging flame it is
+  a validation gap, not a verified law.
+- **Energy beyond the face is lost:** none at r = W/2, 22% at r = 0.075 m, and 39% at r = W (D).
+- **A slab's sides and underside take no footprint** (one segmented face in 6.1).
+- **The floor, not the cone's Kaowool, backs the exit slab,** so its back-face behaviour is a prediction.
+- **If Q2 is adopted,** a cone-fitted q''_fl applies to every flaming part: an extrapolation beyond the cone.
+- **Torch and flame fluxes add after flash** (§4.2), but two impinging flames share one boundary layer, so their gains
+  don't add. The overstatement is bounded by q''_t · A_ov over [`t_flash`, `end_tick`).
+- **PMMA under the torch is absorbed at the surface,** but its sets absorb in depth: fire_solid §4.1's −6.2% and
+  +42 s on FDS's peak at 50 kW/m² is the size of that error.
+- **A pine surface charred before flash** has char's ε, which is fitted, and may gain more than the ceiling's
+  cone-equivalent. Its size is measured at 6.1b.
 
 ## 8. What the client may draw
 
-- **The torch flame,** a purely visual effect (CLAUDE.md), while a pilots row is live: an additive emissive cone from
-  the actor's held item towards the target, `[engineering]` in look, flicker off in goldens. Engine why: a flame has
-  no surface, so it is drawn like `client_objects.md` §5.3's flames, after opaque geometry. Never colour alone: it adds
-  shape (pixels where nothing was) and brightness.
-- **Without a point on the wire** (Q5) the client aims at the target object's top face centre. With one, it aims at
-  the footprint.
-- **The surface's heating is drawn only from the fuel tables:** glow from the segment's surface temperature, the
-  Phase 1 flame from `ignited_fraction` (`client_objects.md` §5). The client never draws a footprint's heat it
-  computed.
-- **A named asymmetry:** a torch flame is luminous, but no Phase 1 stimulus row carries it. It joins
+- **The torch flame,** a purely visual effect, while a pilots row is live: an additive emissive cone from the actor's
+  held item, aimed at the footprint centre when the wire carries it (Q5), else along the actor's facing. Its look is
+  `[engineering]`, with flicker off in goldens. Engine why: a flame has no surface for a pass to hit, so it draws after
+  opaque geometry, as `client_objects.md` §5.3's flames do. Never colour alone: it adds shape and brightness.
+- **The surface's heating** is drawn only from the fuel tables (`client_objects.md` §5). The client never draws heat
+  it computed.
+- **A named asymmetry:** a torch flame is luminous, and no Phase 1 stimulus row carries it. It joins
   `client_objects.md` §5.4's divergences, OPEN against OD-C8.
 
 ## 9. What the exit observes
 
-### 9.1 Beats, on logged server state (never pixels)
+### 9.1 Beats, on logged server state
 
-The script is step 8's `tests/scenarios/` file, in tile §6.2's form, with one `kindle` whose point is on the slab's top
-face, and the cap of tile §6.2.
-1. **Applied:** the receipt is `applied`, and its derived region is the slab's.
-2. **Pilot:** a pilots row is live over [apply_tick, end_tick), and `pilot_ended` fires once.
-3. **Flash:** `t_flash` is the first physics step with a flaming part. Every flash happens at a step the pilot covers.
-4. **Char:** `t_char` is the first step at which some segment's residue share (`fire_solid.md` §5.6) is ≥ 0.1
-   `[engineering, as tile §6.3 item 3's 10%]`.
-5. **Burn:** the flaming area is > 0 on every step in [`t_flash`, `t_out`).
-6. **Flame out:** `t_out` is the first step after `end_tick` with no flaming part, before the cap.
-7. **Order:** `t_flash` < `end_tick` ≤ `t_out`, and `t_char` < `t_out`.
-8. **Reported, not gated:** the unpiloted-crossing count; `t_out` − `end_tick` (fire_solid §4.5: with the heater
-   removed it is a prediction); the share of the footprint's energy that landed in partly covered strips.
+The script is `tests/scenarios/slab_exit.yaml`, v0 and versioned. It departs from tile §6.2's form in one way: apply
+times and holds are in seconds (`hold_s`), which its loader converts to ticks by `tick_us` (§5). It holds one `kindle`
+on the slab's top face, with a hold of D seconds, and the cap of §9.2. Beats read the record, the tables and the ledger.
+The residue share is computed by fire_solid §5.6's definition from the store, never from pixels.
+1. **Applied:** the receipt is `applied`, with the slab as the target.
+2. **Pilot:** the pilots row is live over [apply_tick, end_tick), and `pilot_ended` fires once.
+3. **Flash:** `t_flash` is the first flash's interpolated time (§5). Every flash falls on a step the pilot covers.
+   Reflashes are counted and reported.
+4. **Char:** `t_char` is the interpolated time at which some segment's residue share reaches 0.1 `[engineering]`.
+5. **Burn:** the flaming area is above zero on every step in [`t_flash`, `t_out`).
+6. **Flame out:** `t_out` is the interpolated time at which the last flaming part goes out, after the pilot's last
+   covered step, before the cap.
+7. **Order:** `t_flash` falls no later than the pilot's last covered physics step, and `t_char` < `t_out`.
+8. **Out stays out:** from `t_out` to the cap, no part flames and no flame flux reaches any part. This carries the
+   burned-fuel gate's meaning onto fuel objects. A flame flux applied to a part that isn't flaming turns it red.
+9. **Reported, not gated:** the unpiloted-crossing count; `t_out` − `end_tick` (a prediction, fire_solid §4.5); the
+   footprint's energy on partly covered strips and off the slab.
 
-### 9.2 Gates
+### 9.2 Gates (bars derived from their sources' error; rules written now, values at 6.1b)
 
-- **The band:** flash is binary, so its hold D is band-gated (`world_model.md` §3). The build step measures the band
-  in D, q''_t fixed, at 0.2, 0.1 and 0.05 m and at the 0.5 and 0.25 s steps, and the script's D is ≥ 2× its upper
-  edge (tile §6.3 item 7).
-- **Across grids:** the class of every beat agrees on every grid, and `t_flash`, `t_char` and `t_out` agree by
-  `verify_harness.md` §4's `agrees`. The gate names its dx path: the slab's contact with the floor (`fire_solid.md`
-  §3.2), the only place dx enters (fire_model §6.1).
-- **In time:** the same beats at dt and dt/2 within fire_solid §6's flash tolerance, max(0.5 s, 3%).
-- **The ledger closes** (`fire_solid.md` §5.4), with the torch's `incident_absorbed`.
-- **Nothing heats air** (`fire_solid.md` §3.1's test, run on the exit).
+- **Margin** (`world_model.md` §3): every binary beat (flash against D, char reached, out before the cap) is held from
+  its threshold by at least max(its spread across the three grids and three steps, one quantum: a coarsest tick for
+  D, a physics step for a time). The script's D lies above the band's highest measured upper edge by that margin,
+  and the cap lies past the latest `t_out` by its margin.
+- **In time:** `t_flash`, `t_char` and `t_out` at `tick_us`, ½ and ¼ (0.5, 0.25 and 0.125 s steps), with
+  |t(dt/2) − t(dt/4)| ≤ |t(dt) − t(dt/2)|. That checks convergence; the scheme's order is fire_solid §6's to verify.
+  e_dt = |t(dt) − t(dt/2)| at 0.05 m is the shipped step's error.
+- **Across grids:** every beat's class agrees at 0.2, 0.1 and 0.05 m, and each time lies within max(e_dt, s_floor)
+  of 0.05 m's. The dx path is the slab's floor contact (`fire_solid.md` §3.2). s_floor is that path's own error
+  carried to the beat: each time's change when, at 0.05 m, the contact exchange is scaled by the contact closed form's
+  verified bound (`fire_solid.md` §6, 3%), up and down.
+- **The ledger closes** (`fire_solid.md` §5.4), and **nothing heats air** (its §3.1 test, on the exit).
 
 ### 9.3 Determinism
 
 Two stepped runs, the unpaced run and the replay are bit-identical at every physics tick (tile §6.3 item 9's form).
-So is a save taken at a mid-pilot tick and loaded, against one continuous run. The pilot's inputs are integers plus a
-digested data file's flux, and the overlaps are a fixed closed form summed in segment key order. Across machines only
-the class is promised.
+At 6.1b, the digest rebuilt from the tables and records equals the running digest at every step of the exit, with a
+second pilot on the slab from another actor. Across machines, only the class is promised.
 
-### 9.4 Controls, and the red gates
+### 9.4 Controls, and the `ignite` red gates
 
 | Control | Deletion that must turn it red |
 |---|---|
-| Flash needs the pilot | flux on, pilot condition off: no flash, and a nonzero unpiloted count |
-| Flash needs the flux | pilot on, q''_t = 0: no flash |
-| The footprint lands only on segmented faces | a point on the slab's side: `applied`, zero deposit |
-| Exact overlap | centre sampling: the ℓ/3 and 2ℓ/3 offsets' total deposit differs past 10⁻¹² |
-| Segment independence | strips halved: a different class, or `t_flash` past max(0.5 s, 3%) |
+| Flash needs the pilot | delete the pilot condition: a hold ending inside the band, where lag carries a part past m''_flash after the pilot's last step, then flashes |
+| Flash needs the deposit | delete the deposit: beat 3 fails |
+| Only the segmented face takes it | project the disc into the segmented face's plane: a point on the slab's side, more than 1 mm below its top edge, then lights it |
+| Exact overlap | centre sampling: per-strip A_ov against fine quadrature, at centre offsets 0.13ℓ and 0.71ℓ and r = 0.051 m (2r/ℓ not whole) |
+| Segment independence (a refinement, not a deletion) | strips halved: the interpolated times to 25, 50 and 75% of the final flaming area agree within max(e_dt, s_floor) |
 | The ledger line | drop the torch's `incident_absorbed` |
+| Out stays out | apply q''_fl to a part that isn't flaming: beat 8 |
 
-The three `ignite` red gates (NS8, D-S5):
-- `test_a_fire_that_has_burned_its_fuel_stops_heating` is rewritten on the exit slab with `kindle`. Its bar is
-  unchanged in meaning: after `t_out` the world gains no heat from the fire. It flips, and its gate is removed.
-- `test_the_fiercest_allowed_fire_…` is rewritten with `kindle` at §6's ceiling and the item's longest hold, keeping
-  its bar (the same outcome on every grid at every physics step, integrity within 0.1).
-- `test_a_fire_on_a_region_carved_hollow_…` tests the centroid rule that retires with `ignite`. It is replaced by a
-  passing test that `kindle` on a hollow cell region heats no air, and its Known gap is closed by name, not deleted.
+**None of the four `ignite` red gates is rewritten onto this design** (NS8, D-S5, A-S2):
+- `test_a_fire_that_has_burned_its_fuel_stops_heating` guards `World._power_field`'s fallback into air.
+- `test_the_fiercest_allowed_fire_…` reads cell integrity.
+- `test_a_fire_on_a_region_carved_hollow_…` guards the centroid rule.
+- `test_the_crate_is_badly_burned_at_the_same_turn_at_every_rig`, whose trigger is Phase 2's.
+
+The pilot touches none of them. At 5b, when `ignite` leaves the vocabulary, their precondition moves to 5b's sphere
+`kindle` on a cell region, which uses the same `HeatSource` path, so each stays red on its own subject. At 6.1b the
+sphere deposit, its last producer, goes, and with it `HeatSource`, `sources` and `_power_field`. Each gate and Known
+gap then closes by that deletion, recorded. That is Q6, and so is whether fire on structural cells leaves Phase 1.
 
 ## 10. What this changes elsewhere (after the owner's rulings)
 
-| Document | Change |
+| Document or file | Change |
 |---|---|
-| `tile_and_client.md` §3.2 | the deposit bullet, the item's fields and the 0.2 m radius floor become links here; the target sentence becomes a link to fire_model §5.4 |
-| `fire_solid.md` §2 | `kindle` is excepted from the object-only refusal (Q1) |
-| `fire_solid.md` §5.4, §7 | `incident_absorbed` gains the torch as a supplier; q''_fl's placement (Q2) |
-| `data/world/actions.yaml` v1, `content/items/torch.yaml` | `kindle`: `max_flux_w_m2`, `max_duration_s`, `min_radius_m` = 0.02; the item: `flux_w_m2`, `radius_m`, `max_duration_s`, `restrike_s`; each a version bump with a refusal test (repo-only formats) |
-| `docs/design/contracts.md` | `pilot.fields` registered |
-| `docs/plans/checklists.md` step 6 | the build sub-step and its tests |
+| `tile_and_client.md` §3.2 | the target sentence, the deposit bullet, the item's fields, `actions.yaml`'s `max_power_w` and the 0.2 m floor become links here; the lifecycle drops "when its region is gone"; the red-gate sentence ("rewritten to use `kindle`") links §9.4; the sphere band-aid's removal names 6.1b |
+| `tile_and_client.md` §2.2 | Q5's columns; `cause` needs `seq` on the row |
+| `fire_model.md` §5.4, §10.2, §12 | the target rule becomes a link; the flame-object pilot is Phase 2's; 6.1b joins the plan; the red-gate bullet links §9.4 |
+| `fire_solid.md` §1.3, §2, §4.4, §5.1, §5.4, §5.5, §7 | 6.1b uses no `holds_fuel`; `kindle` is excepted from the object-only refusal (Q1) and its row says 6.1b; on the shipped path the pilot is §5's; the catalogue refuses slabs ≤ 2 mm; `incident_absorbed` gains the torch; the record joins the save list; the D-S2 row links §9 |
+| `client_objects.md` §5.4, §7.3 | the torch flame's divergence; the beats link §9, and step 8 maps G1–G5 onto them |
+| `sim_core.md` §6, §9, §11, §12 | the pilot input, its appender, cutter, remover and resolver; its digest member and position; bar 2b notes the solid refines by `tick_us`; 6.1b's recorded digest break |
+| `sem_stimuli.md` §6.2's T11 sweep | adds the off-face and cell-target `applied`-with-no-deposit cases (§4.1) |
+| `data/world/actions.yaml` | `kindle`'s `max_flux_w_m2`, `max_duration_s`, `min_radius_m`; a version bump over 5b's v1, with a refusal test |
+| `content/items/torch.yaml` | v0: `flux_w_m2`, `radius_m`, `max_duration_s`, `restrike_s`; its loader checks them against the ceiling at load, with a gate-registry row |
+| `tests/test_act_validation.py` | `test_every_verification_grid_is_at_least_as_fine_as_the_smallest_action`'s 0.2 m floor gives way to §6's two-strip floor |
+| `docs/roadmap.md` | 6.1b in Phase 1; Phase 1's "must flip the strict red gate" sentences follow §9.4 and Q6; the Phase 0 claim "fire outcomes agree across rigs" is retired for structure (Q6); Phase 2 lists `core/solid.py` for the `TEMPORARY(phase2/6.2)` markers on the pilot deposit and, under Q2, q''_fl, and the strip-width red gate |
+| `docs/architecture.md` | Known gaps: §7's entries; the four gates' gaps closed by deletion at 6.1b |
+| `docs/plans/checklists.md` steps 5b, 6, 8, 9 | 5b moves the four gates' precondition to the sphere `kindle` and names 6.1b for its removal; 6.1b's tests; step 8 maps G1–G5 onto §9.1's beats; the record in save v0 |
 
-**The build step** is 6.1b, after 6.1 and 5b's vocabulary v1, before step 8's exit script. Placement: the record and
-the stage-2 target function in `core/applier.py`'s layer (6); the overlap geometry in `core/fuel_geometry.py` (2);
-the deposit in the solid law, `core/solid.py` (4).
+**The build step is 6.1b,** after 6.1 and 5b's vocabulary v1, before step 8's exit script. Placement:
+- the ranked-candidate query and the overlap in `core/fuel_geometry.py` (layer 2);
+- the record, stage 2 and the tie rule in `core/applier.py` (6);
+- the deposit in `core/solid.py` (4);
+- removal in `core/simulation.py`.
 
 ## 11. Open questions for the owner
 
-- **Q1. `kindle` on a fuel slab is refused today.** `fire_solid.md` §2 refuses every act on an object-only region
-  with `fuel_only_region`, and the exit's slab is one. The unmerged sub-cell solids design (S0) would rename that code
-  `wrong_target`, and its acts table gives `kindle` to 6.4. Recommended: except `kindle` in fire_solid §2, linking
-  here, and tell that session.
-- **Q2. Nothing on the shipped path applies q''_fl.** `fire_solid.md` §7 places the prescribed flame flux in the cone
-  harness under `tests/fire/`. Without it, the slab burns only while the torch is on it, and flames out as soon as the
-  torch ends. Recommended: q''_fl, already one fitted constant per material (§4.5 of fire_solid), moves into the solid
-  law as recipe data, flagged fitted in every result, and the harness keeps the heater and the spark.
-- **Q3. The torch's flux and radius.** (a) Measure a real torch with a heat-flux gauge at stated standoffs, a
-  pre-registered bench measurement like the starter's (fire_model §7). (b) Choose `[engineering]` values inside
-  25–65 kW/m², and describe the item honestly as a game torch, not a cited propane torch. Recommended: (b) now and
-  (a) when a gauge is available. Either way the values are fixed before any exit run.
-- **Q4. The strip gap.** Accept §7's strict red gate, fixed in 6.2, with the exit slab authored at W ≤ r_t?
-  Otherwise 6.2's partial transfer comes forward into Phase 1. Recommended: accept.
-- **Q5. A point on the wire.** Add `point_mm` (3 × i32, 12 B) to tile §2.2's pilots row, so co-op and replay draw the
-  torch where it heats, or keep 10 B and aim at the face centre. Recommended: add it, in step 7's freeze.
-- **Q6. The edits of §10.** Make them on this branch once Q1–Q5 are ruled, so that no stale owner survives the merge.
+- **Q1. `kindle` on a fuel slab is refused today, and the sub-cell design's S0 would keep refusing it.**
+  `fire_solid.md` §2 refuses every act on an object-only region, and the exit's slab is one. S0, which lands before
+  6.0a, rewrites that sentence to refuse with `wrong_target` until its S3. Whichever merges second undoes the other.
+  Recommended: except `kindle` in fire_solid §2 and in S0's rewrite, both linking here. The sub-cell design also
+  needs to know three more things:
+  - its §7.1 `kindle` row (fire_model §2.2, "6.4") links §3 here, built at 6.1b;
+  - its §4.3 makes a region holding only a burnt-out object "gone", which §2's continue rule must follow after S1;
+  - the ranked query's tie policy differs per act, and regions may mix (Q5's `object_id`).
+- **Q2. Nothing on the shipped path applies q''_fl.** fire_solid §7 places it in the cone harness, so the slab would
+  flame only while the torch is on it. Recommended: move it into the solid law as recipe data, flagged fitted, and
+  mark it `TEMPORARY(phase2/6.2)`. The harness keeps the heater and the spark.
+- **Q3. The torch's flux and radius.**
+  - (a) Bench-measure a real torch with a heat-flux gauge at stated standoffs, pre-registered.
+  - (b) Choose `[engineering]` values between ε_r · 25 kW/m² and §6's ceiling, and describe the item as a game torch.
+  - Recommended: (b) now, and (a) when a gauge is available.
+- **Q4. The strip gap.** Accept §7's strict red gate, fixed by the 6.2 design, with the exit at r ≥ W/2? Or bring
+  profiles across the width into Phase 1? Recommended: accept.
+- **Q5. The wire's pilots row.** Add `object_id` (u32), the footprint centre in mm (3 × i32) and `seq` (u32): 30 B
+  against 10. Then co-op and replay draw the torch where it heats, and `cause` holds. `end_tick` narrows to u32 by
+  refusal past 2³² − 1 (13.6 years at 0.1 s). Recommended: yes, in step 7's freeze.
+- **Q6. The `ignite` gates and fire on cells.** Recommended:
+  - at 5b, move the four gates' precondition to the sphere `kindle`;
+  - at 6.1b, delete the sphere deposit, `HeatSource`, `sources` and `_power_field`, and close the gates and their
+    Known gaps by deletion, recorded.
+  - Fire on structure then leaves Phase 1, and `kindle` on a cell is fruitless (§4.1). The Phase 0 claim "fire outcomes
+    agree across rigs" is retired for structure, a Known gap whose trigger is 6.2's skins (D-S3). For fuel, §9.2
+    replaces it.
+  - The crate gate's Phase 2 subject goes with it, to be rewritten by the 6.2 design.
+  - The alternative is to keep the sphere deposit as a lab path, under `tests/`, with the gates red on it. Tile's
+    `intent.kinds` excludes keeping `ignite`.
+- **Q7. The exit slab is small on screen:** 0.1 m is 7.2 px at the golden view (`client_objects.md` §2). Is a
+  cone-sized patch on a longer plank legible enough for the playtest?
+- **Q8. Process:** tile §6.3 item 7's 2× band margin is a round-number bar that B30 doesn't list. Add it?
+- **Q9. §10's edits:** make them on this branch once Q1–Q8 are ruled, so that no stale owner survives the merge.
 
 ## 12. Maxim
 
-Nothing here asks Maxim for anything. Phase 1 has no NPCs, and an NPC's `kindle` is tile §3.2's body act. Searched
-Maxim `origin/main` b98954f7 for `kindle`, `torch`, `igniter`, `held item`, `delayed credit`, `eligibility`. Delayed
-credit is R4's, on `NAc._eligibility` (pruned after about 44 loop iterations, `docs/plans/lookback_primitive.md`,
-shipped; `deferred/three_factor_credit_assignment.md`, revived with R4's build). So OD-A16 stays a question to R4.
-The time from `kindle` to `t_flash`, measured at 6.1b, is its evidence.
+Nothing here asks Maxim for anything. Phase 1 has no NPCs, and an NPC's `kindle` is tile §3.2's body act. OD-A16's
+route is the roadmap's row (Phase 3, OD-A16), not this note's. Searched Maxim `origin/main` b98954f7 (`kindle`,
+`torch`, `igniter`, `held item`, `delayed credit`, `eligibility`, `call window`); what bears on it:
+- `docs/plans/tool_failure_credit.md`, lines 76–80: retiring at invocation end removes the 300 s pending window, and
+  "R4 delayed credit must not assume the window";
+- `docs/plans/roadmap_1_4.md`, R4: relief after a call returns credits the next call;
+- `src/maxim/decisions/nac.py`: two paths reach past a call. The `tool:kindle` eligibility trace starts at 0.3,
+  decays ×0.9 per loop iteration (not per second), is pruned below 0.01, and credits the 0.20-capped `_reward_bias`
+  (`docs/plans/lookback_primitive.md`, "What exists"). The anchor tier has a 300 s window, read on `time.time()`
+  (OD-A20).
+
+**The evidence 6.1b hands OD-A16 is two delays:**
+- from `kindle` to `t_flash`, physics, measured;
+- from the receipt to the first change in a declared stimulus row: none in Phase 1, since no row carries flame
+  (`client_objects.md` §5.4, OD-C8).
+
+Lesson 35 records why this matters. The roadmap's OD-A16 row cites it, and the step 6 checklist records both delays
+at 6.1b.
