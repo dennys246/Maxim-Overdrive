@@ -89,6 +89,8 @@ decision.
     and `_complete_text` takes no function. So the field is a new ask (OD-A14).
   - Until it lands, the test double's functions stand in.
   - The vocabulary is closed, the table must cover every function, and the loader refuses one it doesn't.
+- **Model requests carry a deadline, not a priority.** The host stamps the deadline from the request's kind, outside
+  the cache key (§4.2).
 - **A function keeps its spec's restriction on degrading.** Each function declares its tier, and each placement
   declares the tier of its model. A function whose spec has an empty fallback (`agent_inference`: "never degrade",
   `function_router.py:57-58`) may list only placements of its own tier, and the loader checks this.
@@ -278,7 +280,8 @@ because without it the next request depends on thread timing.
   - the prompt-template and pymaxim versions;
   - an assertion that `tools is None`.
 - **Occurrences** are keyed `(content hash, occurrence index)`. The index is assigned when the request is created, in
-  canonical order by thought request id (`npcs_and_sem.md` §6.6), whether or not an entry is ever written.
+  canonical order by thought request id (`boundaries.md` §6.1), not execution order, whether or not an entry is ever
+  written, so two NPCs with byte-identical requests can't swap answers on a rerun (DET-S2).
 - **An entry** holds the raw output (the `reply` text), the canonical request and the provenance, for the final
   outcome only. On read, the gate recomputes the hash and refuses a mismatch. Actor, kind, timing and targets are
   recomputed, never read from the entry.
@@ -345,7 +348,7 @@ Owned here, and listed in `docs/architecture.md`'s Known gaps:
   - the vertical slice measured 0.23 s warm on a quiet Mac mini, and 8 s warm (48 s cold) with other processes loading the machine
     to 125–142 (`lessons_maxim_in_games.md` 30, "A local model's latency is the machine's").
 
-  On the loaded figures, a reply passes O11a's account (600–700 ms) and its yield (about 1 s). §4.5's lever 3 is
+  On the loaded figures, a reply passes the account and the yield (`npcs_and_sem.md` §4.4). §4.5's lever 3 is
   unavailable until OD-A25.
 - **Load versus failure (F2).** On the cloud and OpenAI-compatible transports, a hard-down server looks like load
   until OD-I9 (§2.7).

@@ -127,3 +127,43 @@ Word counts (5c054f6 → after step 3a → now): `boundaries.md` 13,982 → 10,6
 
 Fixed on review of step 3b: `checklists.md` step 9 keeps "loading never replays the log", which F5 and F14 don't say
 and ruling 26 doesn't contradict.
+
+## Step 3c: agents and inference
+
+Old locations are at 5c054f6 (after steps 3a and 3b for text those steps moved), uncommitted until the owner commits.
+Abbreviations as in the plan's §2.
+
+| Row | Contract | Owner section | Copies now links | Added to the owner |
+|---|---|---|---|---|
+| 34 | `AgentPort` signature | `npcs_and_sem.md` §6.6 | N §6.1 (table's port row); B §7.1 (table's Calls cell) | nothing; §6.6 already held both signatures and the tick conversion |
+| 35 | Agent lane, barrier | `npcs_and_sem.md` §6.3 | B §7.1 ("One owner per agent", "The barrier") | nothing; §6.3 already had `consolidate` |
+| 36 | "Gateway" | `inference_gateway.md` §2 | `roadmap.md` Phase 3 lead-in ("the gateway is the host's" reworded to the host executing model requests, with a link); N §6.3 gains the link | nothing (IG at its ceiling) |
+| 37 | Worker environment, `HOME` | `npcs_and_sem.md` §6.6 | N §6.3; B §7.1; B §5.3's agent-homes row; `foundations_plan.md` red-first test 2 | `HOME`, `XDG_*`, `TMPDIR` (ruling 37) and `HF_HOME` (FP) set under the agent home; "the host's `HOME` never passes through" (ruling 37); "so OD-A17's env-read test allows no read" (B §5.3) |
+| 38 | `agent_failed` reasons, lifecycle records | `npcs_and_sem.md` §6.6 | B §6.1's host-records row (now cites N §6.6 only); B §5.3's worker-channel row; SS §4.5 gains a pointer | `build` (SS §3.2, §4.5) and `agent_ready` (SS §4.4, §4.5) |
+| 40 | Three clocks | `npcs_and_sem.md` §1 | B §7.3 (table) | nothing: N's wording contains B's ("tick × `tick_us`", "fatigue") |
+| 41 | Latency policies, floor thresholds | `npcs_and_sem.md` §4.4 | B §7.4; N §6.6 (yield timing); N §11.1 and §11.2's "default" rows (kept, now links); IP §6.3 (O11a's thresholds) | O16's interim policy, verbatim (ruling-only text; §4.4 called it an owner question); §6.6's thresholds, which supersede O11a's |
+| 42 | Thought budgets | `npcs_and_sem.md` §4.7 | N §6.6 ("Budgets"); B §5.3's thought-budget row | the chain budget per NPC per world minute (§6.6); the liveness ceiling (IP §2.5) and per-park ceiling (§6.6) as file contents |
+| 43 | Model request | `inference_placement.md` §2.1, §4.2 | N §6.1 (request contents); N §6.6 (lifecycle's stamp); `roadmap.md` OD-A14 | "Model requests carry a deadline, not a priority" (ruling 43) and the host's out-of-key deadline stamp (N §6.1) |
+| 44 | Response-cache leftovers | `inference_placement.md` §4.2 | N §4.4 (failures cached); N §6.6 (cache repeats); B §6.2 (deleted or poisoned) | "not execution order … can't swap answers" (N §6.6, DET-S2); its id now cites `boundaries.md` §6.1 |
+| 45 | Guest-session gates | `roadmap.md` Phase 4 | N §12.1 item 1 | "which trigger on "maxim", the name of our world" (N §12.1) |
+| 46 | Guest-text character list | `npcs_and_sem.md` §6.6 | N §5.2; B §5.3's guest-text row | length cap and NFC (N §5.2, B); the separator list and its reason (N §5.2) |
+| 47 | Consent and taint | `inference_gateway.md` §6 | none: the only copies are decision records | nothing |
+| 48 | Worker codec | `npcs_and_sem.md` §6.6 | B §5.3's worker-channel row | nothing; its decoder citation corrected from `boundaries.md` §10 to §9.1 |
+
+Also changed: N §6.6's OS-sandbox bullet read "Proposed for the owner (§12.1 item 1)"; §12.1 no longer names the
+sandbox, and O30 deferred it by name, so it reads "Deferred by name (O30; roadmap Phase 4)".
+
+Left, and why:
+- Row 39: not this step's.
+- Row 45: `foundations_plan.md`'s O14 row and its §12.1 answers are decision summaries, which plans keep.
+- N §6.2's "`AgentPort`: `step`, `think` and `settle`" and §6.1's piece name are build items, not the signature.
+- B §7.1's "Agent isolation" bullet restates N §6.3's; it is OD-EA6's test, not the lane rule. Left.
+- SS §4.3's meanings of `hung` and `crashed` stay with SS's partial-send rule.
+- B §5.3's client-frames row also cites "strict JSON decoder (§10)"; row 17's, not this step's.
+- Gaps (A, row 80), reported only: IP §2.4 ends a request "as `unavailable`" without `thought_failed(...)`; N §4.4's
+  "out-of-memory" maps to no reason.
+
+Word counts (5c054f6 → after step 3b → now): `npcs_and_sem.md` 23,492 → 16,304 → 16,271; `boundaries.md` 13,982 →
+11,006 → 10,657; `inference_placement.md` 4,886 → 4,571 → 4,607; `sem_stimuli.md` 5,996 → 5,847 → 5,855;
+`inference_gateway.md` 2,509 → 2,509 → 2,509; `roadmap.md` 6,976 → 6,820 → 6,832; `foundations_plan.md` 2,500 →
+2,499 → 2,494.

@@ -240,7 +240,8 @@ failed agent breathes on a default schedule, so a crashed NPC is still poisoned.
 | restart | checks rerun; first delivery carries no events or receipts of the previous life, the dropped counts logged | `agent_ready` |
 | leave | tissue, events, visibility freed | `leave` |
 
-Membership comes from logged records, never delivery.
+Membership comes from logged records, never delivery. The `agent_ready` and `agent_failed` records are
+`npcs_and_sem.md` §6.6's.
 
 ### 4.6 Until a body can feel (D14)
 

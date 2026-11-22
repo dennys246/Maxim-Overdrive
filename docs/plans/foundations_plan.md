@@ -41,7 +41,7 @@ fuel-mass law, the same apart from detail at each rendering tier.
 - **The agent line, as tests (O19),** against the scripted double behind the real worker channel, after steps 5a and 7: types,
   codec, `data/agents/` gates; the worker channel; `AgentPort`, the double, the membrane. Red-first tests:
   1. a hash probe in the worker's first frame (`-I` ignores `PYTHONHASHSEED`);
-  2. the worker's `HOME`, `XDG_*`, `TMPDIR`, `HF_HOME` under the agent home, probed, with a planted real-home read;
+  2. the worker's environment (`npcs_and_sem.md` §6.6), probed, with a planted real-home read;
   3. the codec refuses a pickle;
   4. resume at the modelled landing tick, with a state digest that can go red;
   5. credit shares at two step rates, a strict red gate against pymaxim;
