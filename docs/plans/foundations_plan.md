@@ -155,6 +155,7 @@ a nit; OD-I6, OD-I7, OD-I8 new.
 | D27 | The clinic after the exit; §12 answered |
 | D28 | A grey-box heat-debt prototype before more physics |
 | D29 | Step 6 adds open-air loss, the surface skin, sub-cell recession |
+| D31, D32, D33, D34, D35, D36 | Structure |
 
 **tile §0:**
 
