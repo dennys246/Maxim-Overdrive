@@ -104,51 +104,118 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 
 ## Step 5a, the simulation core (O34)
 
-- Step 4's harness, the three items it left here (`docs/design/verify_harness.md` §7):
-  - the scenario agreement studies (`tests/test_cross_tier.py`, the cross-grid tests in `tests/test_act_validation.py`)
-    move from `World` to `Simulation` at its fixed physics step, so they refine space alone; until then they refine
-    space and time together;
-  - the reversed-order half of the splitting test, `same_class_under_refinement` over the law list in both orders
-    (`research/physics_spike/splitting.md` §6.4);
-  - the exact work counters (`world_v2.md` row 2) from `Simulation`, with B5's budgets as their reader.
+The contract is `docs/design/sim_core.md`; its reviews and fold tables are in `docs/design/reviews/sim_core/`. The
+owner stopped the paper rounds (2026-11-21), so the delta round's mechanism findings are tests here, each with its
+finding id, and 5a's code reviewers set their statuses. Each item cites the section it serves, and says how its test
+fails.
 
-- Retire `imagination.place`'s write window (its `TEMPORARY(phase1/sim-clock)` marker): owner confirmed 2026-11-20.
-- From step 3b part (b)'s review: the scene format becomes held by others once the log header records a scene (bug
-  reports carry it), so `SCENE` is declared `held_by_others` then and an old version migrates (Architecture A3); the
-  refusal codes produced today get their stage, reply and logging class beside tile §3.4's (Wire N6).
-
-- The substep floor (from 3a, marked `TEMPORARY(phase1/sim-clock)` in `src/simcore/core/heat.py`): `World.advance`
-  takes `max(heat.min_substeps(dx), stability)` substeps per call, the retired rigs' 4/16/64 as 0.16 m² / dx²,
-  whatever the call's length. On every 6 s turn the floor, not stability, sets the count; stability alone changes
-  every determinism digest (measured in 3a). Replace it with an accuracy floor per step length, with new goldens
-  and `tests/test_determinism.py::TURN_SUBSTEPS` updated, and rework its other callers:
-  `tests/test_heat.py::_error` and `::test_insulated_world_conserves_heat` pass it to 3,600 s calls, where it means
-  nothing, and `::test_the_substep_floor_follows_the_grid_spacing_as_the_rig_profiles_did` pins it.
-- A short composition note first: cell state, body state, ledger, clock, intent log; no god object.
-- The step as a fixed, ordered tuple of laws, each with `stable_dt(state)` and `step(state, dt, ledger)`;
-  topology changes read from `topology_version`. No discovery.
-- **The field registry:** one list in code that the grid's storage, the snapshot, the determinism digest, the
-  memory budget and the save all read. Step 6's fields join it, and step 7's catalogue is generated from it.
-- Each law split into `prepare` and an array-only kernel, with a bit-identity parity test (the numba seam; no
-  numba until a profile asks).
-- Intent kinds ranked 0/10/20/30, leaving room; a `retired:` list of verbs, and refusal codes append-only, tested.
-- Replay goldens keyed by an environment digest; the log header's field list as merged in step 1.
-- The u16 region-id array (world_model §10 row 4), which `fire_solid.md` §0 leans on.
-- **6.0a rides this line** (`fire_solid.md` §0, §5): the split material data, its loaders and versions, and the
-  fuel tables' registry entries, before the log writer records the first golden.
-- **The SEM stimulus contract's 5a half** (`sem_stimuli.md` v5 §5, §7.1, §11.1; the composition note cites §11.1,
-  A-S10): reserve lane chains (row lanes keyed `(name, derivation_version, producers)` with producers the transitive
-  closure over every law's declared reads and writes, an events lane and a per-tick bound lane per NPC; A3-S5, W11,
-  DP3-N2, S-F3, N3), header slots (schema, `BoundFrame` and receipt versions, each law's version, truth constants
-  including the per-tick event budget, the largest cognition divisor and the maximum emitter count; DP3-N3, DP-F-S3) and
-  the `join`, `leave`, `agent_ready`, `agent_failed` records; the per-tick law slot, the two-rate contact exchange,
-  the `body_points` container (A3-S4) and `radiant_emitters` keyed `(writer law, source object id, primitive id)`
-  (DP-F-N1); every `forbidden` list from `_core_modules()` with `as_packages = false`, asserted by its equality test
-  (N-S3, verified on a toy).
-- **Digest plants 5a can build, on a toy row** (§5; Y7, S-F4): a toy law change moving a digested value by at least
-  one rounding quantum, requiring a first differing tick named by the per-tick lanes (the tissue numbers, 10⁻¹²
-  relative at tick 0 and one ulp at tick 120–152, were measured before rounding, N-F5); a toy producer two hops
+- **The SEM fold rows 5a settles** (owner, 2026-11-21: each build step names them; 5a's reviewers set each status):
+  round 1 Executor S2 and A-S3; delta 1 X2, A-S10 and A2-S4; delta 2 A-S10 (the composition note cites §11.1), Y5, Y7,
+  A3-S4, A3-S5, A3-N3, DP3-N2, DP3-N3 and W11; final S-F3, S-F4, N-F5, N-S2, N-S3, A3-S5 (final), DP-F-S3 and DP-F-N1.
+- **Step 4's three items** (`verify_harness.md` §7): the scenario studies move to `Simulation` (§11 bars 2, 2b); the
+  reversed-order test (§11 bar 3); the work counters (§10).
+- **§2:** `World` keeps cell state only; `from_scene`, publication and source power leave it, and `World.advance`,
+  `World.turn`, `turn_seconds` and `grid.time_s` go. The caches are built eagerly, and a replay from a loaded state
+  gives the same `WorkCounters` as the live run from its first tick (fails if a cache builds lazily). The log writer
+  and replay reader live in `engine.host`.
+- **§3:**
+  - a closed form: a source on for k ticks delivers `k · tick_us · power` in its physics step, for k = 1 to 5 (fails
+    under today's whole-interval rule, where an ignite at tick 66 and one at 69 give identical bits);
+  - the same closed form for a source doused inside an interval, and for one re-ignited under its key at a new power
+    (each tick at its own value), with a save and restore mid-interval matching the live run (X-B2, D-N-S1);
+  - `from_scene` publishes frame 0, the first `step` runs tick 1, and tick T's physics covers `(T − 5, T]` (BF-5a-S4);
+  - frames carry `tick: int`, and seconds are derived (no float time stored).
+- **§4:** `step` validates the whole batch first: a batch with one bad record changes nothing (plant a valid record
+  before the bad one); publication follows `tile_and_client.md` §4's cases: a refusal-only tick publishes, and a tick
+  with no record and no physics publishes nothing (counted, §10; X-S4, N-S3, DA-S8).
+- **§5:**
+  - laws receive views of their reads and handles for their writes only: a planted law touching an undeclared field
+    raises;
+  - `prepare` reruns after a topology change: `test_a_cell_destroyed_mid_turn_gets_no_more_source_power` runs with
+    `substep_refine` > 1, and fails with the rerun deleted;
+  - the header records the law tuple in order, and a log recorded under the reversed tuple is refused;
+  - cadence groups run in §5's order: two strikes on one region in one tick give the second `REGION_GONE`, and
+    `topology_version` rises once per strike record (X-B1, N-B2, DA-S1, X-S2);
+  - `stable_dt` reads only its `bound_reads`: a planted law whose bound reads `temperature` misses the cache after
+    heating (Perf S3, DA-S9).
+- **§5.1, the flow (B43):**
+  - an import contract that no law module imports another, proven by a planted import;
+  - the write window refuses an undeclared writer, tested with one;
+  - the applier writes no outcome field (the ownership scan);
+  - `Topology` is the only path to `material`, `original_material` and `region_id`; `imagine` and `set_material`
+    produce requests;
+  - a strike resolves as a `Load` in the apply phase, on its own tick: its crater is in that tick's frame, its effect
+    in that tick's `TickReport`, and a second strike on the destroyed region is refused `REGION_GONE`;
+  - `radiant_emitters` rows are keyed `(writer, …)` and summed in sorted key order;
+  - every declared input kind names exactly one resolving law, held by a test over the registry (DA-B1);
+  - `integrity`'s writers are `damage.loads`, `damage.thermal` and `Topology`, and a planted law outside damage is
+    refused (DA-S4, X-N1);
+  - `contact_exchange` is reset by the solid law at its physics step and saved; contact and tissue share their
+    operator through a module that is not a law, and `sem_stimuli.md` §7.1's module table is edited by name (DA-S6,
+    DA-S7);
+  - keyed-table rows (`fire_solid.md` §1.4's `pending`, the id counter) go through `Topology` (DA-S3);
+  - then cite these checks in CLAUDE.md's rule in place of B43.
+- **§6:** `simcore/core/fields.py` holds the registry; `docs/generated/fields.md` matches it byte for byte (name the
+  regeneration command, LF endings; W-N6, deferred to this test); a planted field appears in storage, the snapshot
+  and the digest; construction and the save's loader are declared writers, so `from_scene`'s `temperature` write
+  passes without a carve-out (DA-S2).
+- **§7:**
+  - a re-ignite with a new radius under the same id gives the uncached result (fails with today's
+    `(source id, topology_version)` key);
+  - the bounding-box overlap, padded one cell, equals the whole-grid one bit for bit over random sources (it rests
+    on `sphere_overlap`'s 1/64 values);
+  - three overlapping sources inserted out of key order accumulate in sorted order, with a planted insertion-order
+    loop that turns it red (two sources can't fail: IEEE addition commutes);
+  - each cache equals its uncached path;
+  - a region reduction reads the current temperature after a physics step with no topology change (X-S1 delta);
+  - caches hold only the current sources' entries: re-ignite at 0.3 m, then 0.5 m, checkpoint, then 0.3 m, and the
+    replay's `rebuilds` equal the live run's (Perf S4);
+  - a quiet tick opens no cell window (`windows opened == 0`; Perf S4, P6);
+  - the bounding box builds its coordinates with `sphere_overlap`'s expression, `np.arange(i0, i1) * dx + off`
+    (D-N-N2).
+- **§8:** a constructed material table that tightens the bound mid-step replans from counts; the floor,
+  `FLOOR_AREA_M2` and `TURN_SUBSTEPS` are gone, and `test_heat.py`'s floor callers are reworked; bar 1 measured, and
+  an accuracy floor added only if it fails.
+- **§9:** the two-level digest and its byte form, with golden bytes for one tick; a run that differs only in a
+  zero-power source, only in a refusal, or only in a source's key has a different digest on that tick; an unchanged
+  member reuses its digest, and a replay from a loaded state hashes the same bytes as the live run (D-N-B1, Perf S1).
+- **§10:** counters hold exact expected values (for example `physics_steps == N // physics_every` after N steps
+  from construction; D-N-S4).
+- **§11:** bars 1 to 7 as stated; bar 3 reverses within each cadence group and its planted order-sensitive pair turns
+  it red (DA-S5, X-N2); bar 5's reference path is today's `heat.step` and damage callback, frozen as test fixtures
+  (X-N5); bar 7 records 0.2 m and 0.1 m and gates 0.1 m (Perf S2).
+- **§12:** each break named in the commit; the first replay golden committed in 5a, regenerated in 6.0a.
+- **§13:**
+  - the SEM bridge keeps its `TEMPORARY(phase1/agents)` synchronous path through a submit-and-step port its test or
+    host owns, one tick per `execute`; the marker's reason is rewritten to the interim rules (`sim_core.md` §13); its
+    `ModulatorResult` stops carrying the destroyed volume and absorbed energy (X-S3, DA-S10, D-N-N3);
+  - the `Applier(`/`region_parts` call sites (61 in `src/` and `tests/` at review) move to `Simulation`;
+  - `tests/test_ownership.py`'s writer scan names the new owners; the three `TEMPORARY(phase1/sim-clock)` window
+    markers and `heat.py`'s floor marker go, and the roadmap's Phase 1 list with them;
+  - CLAUDE.md's "only `World.advance` moves time", the membrane's "handed an applier and a frame view", the
+    verification rule's "until step 5a's fixed physics step" and the determinism rule's "Time comes from
+    `World.advance`" change in the same PR (X-S3);
+  - `boundaries.md` §6.4's rows follow §6's writer roles: "the laws in `advance`" goes, construction writes through
+    `Topology`, and a `Topology` row joins (X-N4).
+- **§14:** the intent log's `Format` (version 0, held by others), its reader, gate-registry row and golden fixtures,
+  including a `tick_digest` line (D-N-S5); `kind_rank` from `tile_and_client.md` §3.1, now ranking `ignite` and host
+  commands (D-N-S2); vocabulary v0 in 5a's logs (tile §3.2 amended; W-S2); the refusal codes produced today get their
+  stage, reply and logging class beside tile §3.4's (from step 3b part (b)'s review, Wire N6).
+- **6.0a rides this line** (`fire_solid.md` §0, §5): the split material data, its loaders and versions, and the fuel
+  tables' registry entries, before the first golden is regenerated.
+- **The SEM stimulus contract's 5a half** (`sem_stimuli.md` v5 §5, §7.1, §11.1): reserve lane chains (row lanes keyed
+  `(name, derivation_version, producers)`, producers the closure over every law's declared reads and writes at any
+  cadence, an events lane and a per-tick bound lane per NPC; A3-S5, W11, DP3-N2, S-F3, A3-N3), header slots (schema,
+  `BoundFrame` and receipt versions, each law's version, truth constants including the per-tick event budget, the
+  largest cognition divisor and the maximum emitter count; DP3-N3, DP-F-S3) and the `join`, `leave`, `agent_ready`,
+  `agent_failed` records; the per-tick law slot, the two-rate contact exchange, the `body_points` container (A3-S4)
+  and `radiant_emitters` (DP-F-N1); every `forbidden` list from `_core_modules()` with `as_packages = false`,
+  asserted by its equality test (N-S3).
+- **Digest plants 5a can build, on a toy row** (§9; Y7, S-F4): a toy law change moving a digested value by at least
+  one rounding quantum, requiring a first differing tick named by the per-tick lanes (N-F5); a toy producer two hops
   upstream bumped alone changes the row's key (A3-S5); an unbound row added stays green.
+- **Deferred** (owner, 2026-11-21, `reviews/sim_core/fold.md`): preallocated temporaries and the memory budget
+  (`world_v2.md` row 3), to B5's memory item, before step 9 (Perf P7).
 
 ## Step 5b, bodies and movement (`tile_and_client.md` §2, §3, §4.1)
 

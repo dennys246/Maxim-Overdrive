@@ -213,7 +213,7 @@ Decode → stage 1 (`simcore` core intents) → log → stage 2 against the worl
 ### 3.2 `kindle` (T4; WT-B2, BF-S4, BF-S5, PH-S4, DC-S5–S7)
 
 - **Action vocabulary v1** adds `kindle` (a bounded pilot) and retires `ignite`, as F7 retired `extinguish`. It ships
-  with the first log writer (step 5), so no v0 intent log ever exists and the v0-log refusal test is moot (DC-S5).
+  with 5b; 5a's logs carry v0, so the v0-log refusal test returns with 5b (owner, 2026-11-21; DC-S5).
   Until step 6's skin exists, step 5's `kindle` deposits by sphere volume overlap at the point with the item's radius,
   a marked, scheduled band-aid that step 6 removes. The red gate
   `test_a_fire_that_has_burned_its_fuel_stops_heating` is rewritten to use `kindle` when step 6 flips it.
