@@ -302,6 +302,12 @@ the fold itself: a delivery and digest that turned every new row into a replay b
 ruled on stationary bodies only (DP2-B1). *Consequence:* the v3 fold measured or traced each checkable fix before
 writing it, and recorded "unverified" where it couldn't. For any project folding reviews: a reviewer's fix gets the
 same check as a source's number, because a test that can't fail, adopted on a reviewer's word, guards nothing.
+*Again at step 8's fuel pass (2026-11-22, `docs/design/reviews/client_fuel/`):* the rendering lens's unverified fix
+for crossing sticks, an opaque core alpha-tested at coverage 0.5, did fix the occlusion, and it put a hard step in the
+edge's ramp that broke the stick-stability bar on the laptop tier (2.55–2.62× the ideal line against 2.0×). A depth-only
+core kept both. The fold's own new tests needed the same check: the headless renderer returns an identity transform and
+an empty box for any MultiMesh, which satisfied "a slab's local y is up" and "the culling box holds the rods", and
+three more mechanisms survived deleting them until their tests were rewritten.
 
 ### 27. A host that steps a Maxim body must not step it inside the agent's own tick (2026-11-21)
 
@@ -421,7 +427,22 @@ stimulus an NPC can sense (a brief flare's heat) exists in the world at all; the
 carry the exposure too (PR 4b), or a replay from a mid-step save would lose it again. For Maxim: none yet; it is the
 engine's precondition for any stimulus shorter than a physics step reaching the SEM sensors.
 
-### 34. When an agent's action costs world time, the membrane's "read right after execute" is a property of the port (2026-11-22)
+### 34. When the world models something below its grid, the renderer and the NPCs' senses both have to follow it, and they become two producers of what the fire looks like (2026-11-21)
+
+**A sub-grid representation (fuel as objects in metres, not cells) breaks every consumer built on cells, and the
+renderer and the stimulus path each have to be rebuilt on it separately.** *Evidence:* the shader branch (#31) drew
+glow and flames from per-cell channels (`surface_glow`, `burning`) after the fire build spec had moved fuel into
+sub-grid objects (B42). The cell raymarch walks straight through fuel sitting in air cells, and a 20 mm stick is
+0.6–2.4 px across the zoom range, so the client needs a second pass of instanced meshes and a pixel floor
+(`docs/design/client_objects.md` §2, §4). Once rebuilt, the presentation path shows the player three cues no stimulus
+row carries: burning brightness from the solid model's ignition latch, char darkening, and a client-drawn Phase 1
+flame. An NPC's sight row reads radiance from surface temperatures only (`sem_stimuli.md` §2.2), so a just-ignited
+stick looks to an NPC like unburnt wood at the same temperature. *Consequence:* for the world, each divergence is
+named where the presentation is built (`client_objects.md` §5.4), so that a perception bar that misses is traced to
+the game's split, not to Maxim. For Maxim there is nothing to ask yet. Whether sight needs an albedo or flame
+channel is the NPC fire note's question, against OD-C8.
+
+### 35. When an agent's action costs world time, the membrane's "read right after execute" is a property of the port (2026-11-22)
 
 **Maxim's tools assume an action's effect is readable the moment `execute` returns; in a stepped world that holds
 only if the port runs a tick for it.** *Evidence:* lesson 23's sensors read back right after `execute`. Before step

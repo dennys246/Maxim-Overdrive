@@ -42,9 +42,6 @@ Nothing 6.0 leans on is built at gates 396ae10:
 migration is needed. It doesn't prevent re-recording: any content change (6.1's fit) refuses older logs
 (boundaries §6.3), by design.
 
-**The plan's step 6 row** still reads "constants cited, never fitted … tile §6.3 passes at three grids". The commit
-that accepts this design revises it and the 5a and 6 checklists (D-N5).
-
 ## 1. Fuel objects (6.0b)
 
 ### 1.1 The store and its tables
@@ -66,8 +63,9 @@ The tables are column-major numpy arrays, registered and sorted by integer key:
 
 - **The object-id counter** is persisted. At 2³² − 1 the next insertion is refused (`object_ids_exhausted`), never
   wrapped.
-- **Geometry per kind:** a `rod` is origin, unit axis, length and radius. A `slab` is origin, two unit edge axes,
-  length, width and thickness. `bed` (6.2) adds its own columns.
+- **Geometry per kind** (owner, 2026-11-22): a `rod` is origin (its axis's start), unit axis, length and radius. A
+  `slab` is origin, two unit edge axes, length, width and thickness; its segments lie on the face at origin +
+  thickness·(length axis × width axis). `bed` (6.2) adds its own columns.
 - **Geometry is immutable in 6.0–6.1.** Regression changes node thickness only, and node thickness never feeds
   `contact`.
 - **Node densities are the one mass truth.** An inventory is a `bincount` over nodes in key order, never stored.
@@ -80,7 +78,7 @@ The tables are column-major numpy arrays, registered and sorted by integer key:
 ### 1.2 Segments and nodes
 
 - **A segment is a strip,** 0.02 m along a rod, or 0.02 m along a slab's length spanning its width, fixed in metres
-  per recipe class. 200 m² of 0.5 m-wide slab is 4.8×10⁵ nodes as strips and 1.2×10⁷ as tiles: 14–25 against
+  per recipe class, from the origin, the last the remainder: ⌈L/ℓ⌉ in whole micrometres (F13), as integers. 200 m² of 0.5 m-wide slab is 4.8×10⁵ nodes as strips and 1.2×10⁷ as tiles: 14–25 against
   350–620 ms per step (D, DP FS-S6).
 - **In 6.1 a segment flips whole at flash.** Its area and node profile move to the ignited part as a copy, so the
   front moves segment by segment. Partial transfer, with an enthalpy merge, is 6.2's (DP FS-S9). A zero-area part
@@ -416,15 +414,16 @@ In tile §3.4's enum, each tested at its gate:
 
 Until then, §6 tests that **the digest after a rebuild from the tables equals the running digest.**
 
-### 5.6 Snapshot requirements, for the client pass and step 7
+### 5.6 The fuel view, for the client
 
-6.0–6.1 sends no objects. The client design pass (before step 8) and step 7's grammar take:
-- **`objects`:** `object_id` u32, `recipe_id` u16, `region_id` u16, `kind` u8, geometry per kind as f32 metres.
-- **`segments`:** (`object_id`, `seg`); `surface_temperature_c` **f16** clipped to [−273, 6000] like `temperature_c`
-  (a u8 clips every ignited surface at 255 °C); `ignited_fraction` u8 in 1/255.
-- **Column-extensible tables,** so D-B2's char column needs no bump. `welcome` carries the recipe name↔id map. The
-  budget per profile is B5's. `burning` stays reserved.
-- These names supersede fire_model §9.2's `segment_glow` and `burning` (Bio N2).
+Step 7, after 6.0b, builds it with the encoder.
+- **It holds** each object's geometry and `state`, and per segment in f64, by `bincount` (§5.4): the
+  radiance-equivalent surface temperature (Σ a_p T_p⁴ / Σ a_p)^¼ over parts with area; the ignited share of the area;
+  Σ_p a_p·h_p ÷ (area × initial thickness); residue mass ÷ remaining solid mass, else 0.
+- **Site, cadence:** a read-only `FuelFrame` on the published `Frame`, computed on the encoder's request and cached on
+  `fuel_version`, bumped on change.
+- **Leak rule:** presentation only: not on `Observation`, not a perceivable field, unread by `adapters.sem`.
+- **Wire form:** `client_objects.md` §3.
 
 ## 6. Tests
 
@@ -464,8 +463,8 @@ This review's findings are in `reviews/fire_solid/fold.md`. Every delta-round-1 
 | The 6.2 design | D1-B1, D1-B2, D1-S1, D1-S3, D1-S5–S8, D1-N1–N3, D-S10, P2-S1, P2-S4, P2-S5, P2-S7, P2-N2, P2-N3, NB2, NS3–NS5, NS7, NN1–NN3, N-N3, D-S8, D-S9 (with the owner), A-S4 (round 1); D1-S2 (6.1 runs awake); P2-S6 (also §3.1's Known gap); D-S3 (every structural face) |
 | 6.4, with `kindle`'s pilot | A-S2, NS8, D-S5 (red gates, `TEMPORARY` ceilings); N-S2, N-N2, NN5 |
 | fire_model's next revision, before the 6.2 design | D-N2, D-N3 (`douse` lands with 6.2's acts), D-N4, NN7 |
-| The tile §6 revision, before 6.4 | D-S2 |
-| The client design pass, before step 8 | D-B2 |
+| The tile §6 revision, before step 8 | D-S2 |
+| The client design pass, before step 8 (`client_objects.md`) | D-B2 |
 | A note to the step 5 plan, before vocabulary v1 | D-S7, WT-S5 |
 
 **The NPC fire note** owns Bio delta-1 S2, S7, N3, NB1, NB2, NS1–NS5 and NN1–NN4. **Trigger:** ruled before step 5
@@ -484,6 +483,7 @@ for segment temperature; fire_model §2.2's "SEM … read" is corrected in fire_
 | Contact rows, skins, exchange | 4 | `core/coupling.py` |
 | Scene `fuel:`; spec v1 | 5a | `core/scene.py`, `core/imagination.py` |
 | `fuel_only_region`, insertion, the composed window | 6 | `core/applier.py`, `core/world.py` |
+| The fuel view, `FuelFrame` | 6 | `core/frames.py` |
 | Loaders | 7a | `adapters/loaders.py` |
 | The cone harness (heater, prescribed q''_fl, spark) and its test ledger | — | `tests/fire/` |
 
@@ -491,6 +491,5 @@ The core keeps its banned imports: no IO, no clock.
 
 ## 8. What 6.0–6.1 doesn't show
 
-Whether fire spreads, sustains in a crib or glows. A lone slab that flames out when the heater goes is the expected
-answer, and it passing says nothing about the crate. That question belongs to 6.2 onward, designed from what R0 and
-R1 measure.
+Whether fire spreads or sustains in a crib: 6.2's question, from what R0 and R1 measure. A lone slab flaming out
+without the heater is expected.

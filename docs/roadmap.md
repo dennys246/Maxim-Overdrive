@@ -15,8 +15,8 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
 
 ## Phase 1: The first visible tile (next)
 
-- A Godot 4 client that only draws and sends intents. It uploads snapshot arrays as 3-D textures, and a shader
-  reads `crack` and `glow`.
+- A Godot 4 client that only draws and sends intents. It uploads snapshot arrays as 3-D textures for a cell shader,
+  and draws fuel objects in a second pass (`docs/design/client_objects.md`).
 - A local transport between client and server: a WebSocket carrying JSON intents and binary snapshots (decided
   2026-11-15; `docs/architecture.md`, "Transport").
 - The first tile authored in metres: the alley. When the ripperdoc clinic is authored is D27's
