@@ -14,4 +14,5 @@ compares it byte for byte. Edit the code, never this file. The contract is `docs
 | Input | appended by | resolved by |
 |---|---|---|
 | `sources` | applier | heat |
+| `source_exposure` | simulation | heat |
 | `loads` | applier | damage.loads |

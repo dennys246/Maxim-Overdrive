@@ -21,6 +21,7 @@ from scipy.special import ndtr
 
 from simcore.core import damage, heat, physics, scene, topology
 from simcore.core.applier import Applier
+from simcore.core.exposure import Exposure, standing
 from simcore.core.grid import MaterialGrid
 from simcore.core.intents import Ignite, Strike
 from simcore.core.law import Cadence, Changes, LawInputs, Load, LoadEffect
@@ -60,17 +61,24 @@ def _reference_thermal_degrade(grid: MaterialGrid, dt: float) -> int:
     return destroy(grid, hot & (grid.integrity <= 0.0))
 
 
+# The substep floor PR 3 removed (sim_core.md §8, §12): heat.min_substeps(dx) = ceil(0.16 / dx^2), at least 1, the
+# retired rigs' 4, 16 and 64 at 0.2, 0.1 and 0.05 m. Kept here only as the reference the break is measured against.
+def _retired_floor(dx_m: float) -> int:
+    return max(1, math.ceil(0.16 / dx_m**2))
+
+
 def _reference_advance(w: World, seconds: float) -> int:
-    """The pre-tuple World.advance: heat.step with damage.thermal_degrade as its on_substep callback."""
+    """The pre-tuple, pre-PR-3 World.advance: heat.step with damage.thermal_degrade as its on_substep callback, under
+    the retired substep floor, its replan measured from a running float sum."""
     g = w.grid
     with constructing(g):  # the reference writes as construction, through Topology's edits
-        n = max(heat.min_substeps(g.dx), math.ceil(seconds / heat.stable_dt(g)))
+        n = max(_retired_floor(g.dx), math.ceil(seconds / heat.stable_dt(g)))
         dt = seconds / n
         planned, taken, elapsed, changed = n, 0, 0.0, False
-        power_w = w._power_field()
+        power_w = w._power_field(Exposure(standing(w.sources, 1), 1))
         while taken < planned:
             if changed:
-                power_w = w._power_field()
+                power_w = w._power_field(Exposure(standing(w.sources, 1), 1))
                 bound = heat.stable_dt(g)
                 if bound < dt:
                     remaining = seconds - elapsed
@@ -82,7 +90,7 @@ def _reference_advance(w: World, seconds: float) -> int:
             changed = bool(_reference_thermal_degrade(g, dt))
             elapsed += dt
             taken += 1
-        g.time_s += seconds
+        g.time_us += round(seconds * 1_000_000)
     return taken
 
 
@@ -105,9 +113,12 @@ def _reference_strike(w: World, point, energy_j: float, sigma_m: float) -> tuple
 
 
 @fast_spacings
-def test_the_law_tuple_is_bit_identical_to_heat_with_damage_as_its_callback(dx_m):
-    """Fire on the crate and a strike on the wall, through the tuple and through the reference: every byte agrees,
-    every turn, and the scenario really destroys cells both ways (so both paths ran)."""
+def test_the_digest_break_is_exactly_the_floor_the_law_tuple_otherwise_matches_its_callback_reference(dx_m):
+    """Fire on the crate and a strike on the wall, through the tuple and through the pre-tuple, pre-PR-3 reference:
+    given the retired floor's count as substep_refine, every byte agrees, every turn, and the scenario really destroys
+    cells both ways (so both paths ran). On shipped data stability asks for one substep per turn (sim_core.md §8), so
+    the floor's count times one is the floor's count: PR 3's digest break (§12) is the floor and nothing else.
+    test_the_break_is_real shows the shipped refine of 1 does differ."""
     worlds = [World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS) for _ in range(2)]
     for w in worlds:
         assert Applier(w).apply("crate", Ignite(power_w=FIRE_W, radius_m=0.3)).success
@@ -119,9 +130,23 @@ def test_the_law_tuple_is_bit_identical_to_heat_with_damage_as_its_callback(dx_m
     assert expected[0] > 0
     assert _state(tuple_world) == _state(reference)
     for _ in range(TURNS):
-        assert tuple_world.advance() == _reference_advance(reference, tuple_world.turn_seconds)
+        refine = _retired_floor(dx_m)
+        assert tuple_world.advance(refine=refine) == _reference_advance(reference, tuple_world.turn_seconds)
         assert _state(tuple_world) == _state(reference)
     assert (tuple_world.grid.original_material != AIR_ID).sum() > tuple_world.grid.solid.sum() + expected[0]
+
+
+@fast_spacings
+def test_the_break_is_real(dx_m):
+    """The other half of the recorded break (sim_core.md §12): at the shipped refine of 1, a 6 s turn takes the one
+    substep stability asks for, not the floor's 4 or 16, and the state leaves the floor's reference."""
+    worlds = [World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS) for _ in range(2)]
+    for w in worlds:
+        assert Applier(w).apply("crate", Ignite(power_w=FIRE_W, radius_m=0.3)).success
+    shipped, reference = worlds
+    assert shipped.advance() == 1
+    assert _reference_advance(reference, shipped.turn_seconds) == _retired_floor(dx_m)
+    assert _state(shipped) != _state(reference)
 
 
 def test_the_tuple_is_loads_heat_then_thermal_damage_at_their_cadences():
@@ -165,7 +190,7 @@ def test_a_law_tuple_the_registry_disagrees_with_is_refused(laws, match):
         physics.check_laws(laws)
     g = _grid()
     with g.writing(writer=None), pytest.raises(ValueError, match=match):
-        physics.run_physics(g, 1.0, min_substeps=1, power=lambda: None, laws=laws)
+        physics.run_physics(g, 1.0, refine=1, power=lambda: None, laws=laws)
 
 
 def _grid(dx_m: float = 0.2) -> MaterialGrid:
@@ -178,8 +203,8 @@ def _grid(dx_m: float = 0.2) -> MaterialGrid:
 def test_physics_over_no_time_runs_no_substep_and_moves_no_clock():
     g = _grid()
     with g.writing(writer=None):
-        assert physics.run_physics(g, 0.0, min_substeps=4, power=lambda: None) == 0
-        assert physics.run_physics(g, -1.0, min_substeps=4, power=lambda: None) == 0
+        assert physics.run_physics(g, 0.0, refine=4, power=lambda: None) == 0
+        assert physics.run_physics(g, -1.0, refine=4, power=lambda: None) == 0
     assert g.time_s == 0.0
 
 
@@ -222,7 +247,7 @@ def _set(arr: np.ndarray, value: float) -> None:
         (lambda g: _set(g.material, 0), ValueError, "read-only"),  # Topology's field: never writable by subscript
         (lambda g: g.destroy(np.ones(g.shape, dtype=bool)), UndeclaredWriter, "only Topology applies it"),
         (lambda g: g.paint(np.ones(g.shape, dtype=bool), "wood"), UndeclaredWriter, "only Topology applies it"),
-        (lambda g: setattr(g, "time_s", 5.0), UndeclaredWriter, "time moves in the orchestrator"),
+        (lambda g: setattr(g, "time_us", 5), UndeclaredWriter, "time moves in the orchestrator"),
         (lambda g: setattr(g.material.flags, "writeable", True), ValueError, "WRITEABLE"),  # SF2: can't unlock
         # G3: a law edits the world itself, holding Topology's token; G4: it narrows to another writer. Neither nests.
         (lambda g: topology.apply(g, [topology.Destroy(np.ones(g.shape, dtype=bool))]), UndeclaredWriter, "nests"),

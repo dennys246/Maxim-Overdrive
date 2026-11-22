@@ -17,7 +17,7 @@ from simcore.core.schema import Field, Format, Schema, Text
 
 _V0_MOVED = (
     "rig format v0 carried physics (cell_size_m, min_substeps_per_turn), which left the rig (world_model D20): the "
-    "grid spacing is now World.from_scene's dx_m, and the substep floor follows from it"
+    "grid spacing is now World.from_scene's dx_m, and the substeps follow from it and the fixed physics step"
 )
 RIG_PROFILE = Format("rig profile", 1, Schema((Field("name", Text()),)), refused={0: _V0_MOVED})
 

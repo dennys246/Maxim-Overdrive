@@ -30,12 +30,11 @@ def destroy(grid: MaterialGrid, mask: Mask) -> int:
 
 
 def heat_alone(
-    grid: MaterialGrid, seconds: float, min_substeps: int = 1, power: Callable[[], Field | None] | None = None
+    grid: MaterialGrid, seconds: float, refine: int = 1, power: Callable[[], Field | None] | None = None
 ) -> int:
-    """Heat alone, the one-law tuple through the orchestrator, inside the open window. Returns the substeps taken."""
-    return physics.run_physics(
-        grid, seconds, min_substeps=min_substeps, power=power or (lambda: None), laws=(heat.HEAT,)
-    )
+    """Heat alone, the one-law tuple through the orchestrator, inside the open window, as one fixed physics step of
+    ``seconds`` refined ``refine`` times. Returns the substeps taken."""
+    return physics.run_physics(grid, seconds, refine=refine, power=power or (lambda: None), laws=(heat.HEAT,))
 
 
 @dataclass(frozen=True)

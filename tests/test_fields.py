@@ -1,5 +1,6 @@
 """The field registry (sim_core.md §6): its committed artifact, its writers and its inputs agree with the code."""
 
+import importlib.util
 from pathlib import Path
 
 import pytest
@@ -36,6 +37,13 @@ def test_every_input_kind_has_one_resolver_and_it_is_a_law():
     names = [i.name for i in fields.INPUTS]
     assert len(set(names)) == len(names)
     assert all(i.resolver in fields.LAW_NAMES for i in fields.INPUTS)
+
+
+def test_every_input_names_a_known_appender_and_it_is_a_core_module():
+    """PR 3 review S2 (Architecture): the appender was a bare string, so a typo passed every test."""
+    assert all(i.appender in fields.APPENDERS for i in fields.INPUTS)
+    for appender in fields.APPENDERS:
+        assert importlib.util.find_spec(f"simcore.core.{appender}") is not None, appender
 
 
 def test_every_law_writes_only_fields_that_declare_it():

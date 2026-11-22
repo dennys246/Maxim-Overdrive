@@ -136,7 +136,7 @@ def test_one_window_at_a_time_and_none_at_rest():
     with g.writing(writer=None), pytest.raises(WindowClosed, match="one owner at a time"), g.writing(writer=None):
         pass  # pragma: no cover - the nested window is refused before its body runs
     with pytest.raises(WindowClosed, match="only inside the write window"):
-        g.time_s = 5.0
+        g.time_us = 5_000_000
     with pytest.raises(WindowClosed, match="only inside the write window"):
         name_region(g, "x", g.regions["crate"].cells, g.regions["crate"].footprint, solid=True)
 
@@ -146,7 +146,7 @@ def _write_everything_then_fail(w: World) -> None:
     with w.writing() as sources:  # each write as its owner does it: heat's field as heat, the paint through Topology
         as_law(g, lambda grid: grid.temperature.fill(500.0))
         paint(g, g.regions["crate"].cells, "air")
-        g.time_s = 60.0
+        g.time_us = 60_000_000
         sources["fire:crate"] = HeatSource((1.5, 1.5, 0.3), 0.3, 1.0)
         raise RuntimeError("midway")
 
@@ -632,7 +632,7 @@ def test_nothing_outside_the_core_imports_a_forbidden_module_through_an_allowed_
         "import simcore.core.frames as fr\nx = fr.reductions.region_breached",
         "from simcore.core import applier\nx = applier.physics.damage.LOADS",
         "from simcore.core import frames as f\nx = f.reductions.region_integrity",
-        "import simcore.core.world\nx = simcore.core.world.heat.step",
+        "import simcore.core.world\nx = simcore.core.world.physics.run_physics",
         "import simcore\nx = simcore.core.frames.reductions.region_breached",  # delta 2, Architecture D1
         "from simcore import core\nx = core.applier.physics.strike",
     ],

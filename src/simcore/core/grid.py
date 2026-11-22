@@ -19,7 +19,7 @@ from typing import Protocol
 import numpy as np
 import numpy.typing as npt
 
-from simcore.core.checks import MAXIM_TARGET_ALIASES, entity_key, finite_real, shown
+from simcore.core.checks import MAXIM_TARGET_ALIASES, entity_key, finite_real, shown, whole_number
 from simcore.core.materials import AIR_ID, MaterialTable
 from simcore.core.readonly import frozen
 from simcore.core.refusals import RefusalCode, Refused
@@ -156,7 +156,7 @@ class GridGeometry:
 
 
 # What a cell window's rollback restores: the channels, the region table, the clock and the topology version.
-_Saved = tuple[dict[str, npt.NDArray[np.generic]], dict[str, "Region"], float, int]
+_Saved = tuple[dict[str, npt.NDArray[np.generic]], dict[str, "Region"], int, int]
 
 
 class CellStore(WindowOwner[_Saved]):
@@ -198,7 +198,7 @@ class CellStore(WindowOwner[_Saved]):
         # Inside a window that paints: each region's writable mask, and its footprint and solidity, in table order.
         self._masks: dict[str, Mask] | None = None
         self._meta: dict[str, tuple[Footprint, bool]] = {}
-        self._time_s = 0.0
+        self._time_us = 0  # world time in whole microseconds: time is never stored as a float (sim_core.md §3)
 
     def _channel(self, name: str) -> npt.NDArray[np.generic]:
         """The field's array: writable inside the window only for a writer the registry declares for it, and for
@@ -270,14 +270,19 @@ class CellStore(WindowOwner[_Saved]):
 
     @property
     def time_s(self) -> float:
-        return self._time_s
+        """World time in seconds, derived from the whole microseconds it is stored as, never accumulated."""
+        return self._time_us / 1_000_000
 
-    @time_s.setter
-    def time_s(self, value: float) -> None:
+    @property
+    def time_us(self) -> int:
+        return self._time_us
+
+    @time_us.setter
+    def time_us(self, value: int) -> None:
         self._require_window("the clock")
         if self._gate.narrowed:
             raise UndeclaredWriter("time moves in the orchestrator, never inside a writer's block")
-        self._time_s = value
+        self._time_us = whole_number(value, "time_us")
 
     def _window_table(self) -> tuple[dict[str, Mask], dict[str, tuple[Footprint, bool]]]:
         """This window's changed region masks (writable, narrowed in place) and every region's footprint and
@@ -317,7 +322,7 @@ class CellStore(WindowOwner[_Saved]):
 
     def _open_window(self, writer: WriterToken | None) -> _Saved:
         self._gate.open(writer)
-        saved = (self._channels, self._regions, self._time_s, self._topology_version)
+        saved = (self._channels, self._regions, self._time_us, self._topology_version)
         self._channels, self._masks = {name: arr.copy() for name, arr in self._channels.items()}, None
         self._views.clear()
         return saved
@@ -332,7 +337,7 @@ class CellStore(WindowOwner[_Saved]):
         return install
 
     def _roll_back(self, saved: _Saved) -> None:
-        self._channels, self._regions, self._time_s, self._topology_version = saved
+        self._channels, self._regions, self._time_us, self._topology_version = saved
 
     def _close_window(self) -> None:
         self._masks, self._views = None, {}
