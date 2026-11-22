@@ -11,7 +11,8 @@ The source is checked before anything is dealt:
 - the plan's stratum sizes;
 - unique ids and texts;
 - materials from ``MATERIALS``, a copy of ``data/materials/core.yaml``'s solids (an empty ``expect`` is allowed);
-- `breaks` values, present on impossible prompts only.
+- `breaks` values, present on impossible prompts only, with the group sizes in ``BREAKS_SIZES``;
+- string ids, list strata, and `template` from ``TEMPLATES`` when present.
 
 Run: ``python spikes/specgen/split.py`` from the repository root. It rewrites ``prompts_dev.yaml`` and
 ``prompts_heldout.yaml`` beside this file. The same source gives the same files for one NumPy and one PyYAML
@@ -30,10 +31,14 @@ HERE = Path(__file__).parent
 SIZES = {"furniture": 50, "barriers": 40, "glass": 30, "mixed": 50, "impossible": 30}
 HELD_OUT = {"furniture": 13, "barriers": 10, "glass": 8, "mixed": 12, "impossible": 7}
 HELD_OUT_BREAKS = {"extent": 3, "mass": 2, "primitives": 2}
+# A relabelled prompt changes the deal. The sizes catch a single relabel, not two swapped in opposite directions:
+# the source is reviewed content, so that limit is stated rather than coded.
+BREAKS_SIZES = {"extent": 10, "mass": 10, "primitives": 10}
 assert sum(HELD_OUT_BREAKS.values()) == HELD_OUT["impossible"]  # a constant check at import
 MATERIALS = {"concrete", "steel", "glass", "wood", "drywall"}
-KEYS = {"id", "text", "expect", "breaks", "single_ok", "hard"}
+KEYS = {"id", "text", "expect", "breaks", "single_ok", "hard", "template"}
 HARD = {"shape"}
+TEMPLATES = {"legs", "sheets", "post", "stand"}
 SEED = 0
 
 
@@ -58,6 +63,8 @@ def _check_prompt(stratum: str, p: dict[str, Any]) -> None:
     if not isinstance(p, dict):
         raise ValueError(f"{stratum}: each prompt must be a mapping, not {p!r}")
     pid = p.get("id")
+    if not isinstance(pid, str) or not pid:
+        raise ValueError(f"{stratum}: every prompt needs a string id, not {pid!r}")
     if not set(p) <= KEYS or not {"id", "text", "expect"} <= set(p):
         raise ValueError(f"{pid}: keys {sorted(map(str, p))} must include id, text and expect, within {sorted(KEYS)}")
     if not isinstance(p["text"], str) or not p["text"].strip():
@@ -70,12 +77,16 @@ def _check_prompt(stratum: str, p: dict[str, Any]) -> None:
         raise ValueError(f"{pid}: breaks must be one of {sorted(HELD_OUT_BREAKS)}")
     if p.get("single_ok", True) is not True or p.get("hard", "shape") not in list(HARD):
         raise ValueError(f"{pid}: single_ok must be true and hard one of {sorted(HARD)}")
+    if p.get("template", "legs") not in list(TEMPLATES):
+        raise ValueError(f"{pid}: template must be one of {sorted(TEMPLATES)}")
 
 
 def _checked(source: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     if not isinstance(source, dict) or type(source.get("version")) is not int or source["version"] != 0:
         raise ValueError("prompts_source.yaml: a mapping with version 0 (an integer) is required")
     strata = {k: v for k, v in source.items() if k != "version"}
+    if not all(isinstance(v, list) for v in strata.values()):
+        raise ValueError("prompts_source.yaml: every stratum must be a list of prompts")
     if {k: len(v) for k, v in strata.items()} != SIZES:
         raise ValueError(f"stratum sizes {[(k, len(v)) for k, v in strata.items()]} differ from the plan's {SIZES}")
     for name, prompts in strata.items():
@@ -85,6 +96,9 @@ def _checked(source: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
         values = [p[field] for prompts in strata.values() for p in prompts]
         if len(values) != len(set(values)):
             raise ValueError(f"prompt {field}s repeat")
+    breaks = {b: sum(p["breaks"] == b for p in strata["impossible"]) for b in BREAKS_SIZES}
+    if breaks != BREAKS_SIZES:
+        raise ValueError(f"impossible prompts per `breaks` {breaks} differ from {BREAKS_SIZES}")
     return strata
 
 

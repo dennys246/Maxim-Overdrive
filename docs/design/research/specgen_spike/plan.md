@@ -1,11 +1,10 @@
-# Spec generator spike, stage 1: plan (draft, 2026-11-22; round 1 and delta 1 folded; D34)
+# Spec generator spike, stage 1: plan (draft, 2026-11-22; reviews folded through freeze delta 3)
 
 **This is a draft, not yet the pre-registration.** It becomes the pre-registration when these are committed
 together, before any spike code runs:
 - `spikes/specgen/arms.yaml`, holding the schema text, the examples and the feedback wording;
-- `prompts_dev.yaml` and `prompts_heldout.yaml`, holding the prompts and their expected materials;
-- the reference model's name, fixed on the mini (§2);
-- `spikes/specgen/freeze.sha256`: the SHA-256 of each file and of both models' weights;
+- `prompts_dev.yaml` and `prompts_heldout.yaml`, holding the prompts, dealt from `prompts_source.yaml` by `split.py`;
+- `spikes/specgen/freeze.sha256`: the SHA-256 of those five files and of both models' weights;
 - this plan.
 
 Those files are reviewed before that commit. After it, no metric, threshold or prompt changes to rescue a result, and
@@ -54,7 +53,7 @@ from the start.
    models first, with hosted models only ever the player's opt-in. The model server binds to the mini's Tailscale
    address only.
    - **Small model S:** Qwen3.5 4B at 8 bits (Apache-2.0), the model stage 2 would train.
-   - **Reference model R:** Qwen3.5 27B at 8 bits, S's family, so Δ measures scale (owner, 2026-11-22).
+   - **Reference model R:** Qwen3.5 27B at 8 bits (Apache-2.0), S's family, so Δ measures scale (owner, 2026-11-22).
    - **No Llama-family or hosted model:** nothing is spent, and no prompt leaves the owner's machines.
    - **Decoding:** llama.cpp (build 10621) with a JSON-schema grammar. Every arm emits whole centimetres as bounded
      integers, which the scorer converts to metres.
@@ -170,7 +169,7 @@ and the first that holds decides:
 3. **Neither:** in every other case, this data doesn't justify training. The report says which failure classes
    dominate, and the owner decides. A larger model or spec v1 may need to come first.
 
-L and H are also reported without furniture, whose examples are templates (`arms.yaml`), as a diagnostic only.
+L and H are also reported without prompts tagged `template` (sharing an example's structure), as a diagnostic only.
 
 **Power.** The 120 samples per arm are 30 prompts of 4 correlated samples each. With within-prompt correlation ρ, the
 design effect is 1 + 3ρ, so near a rate of 0.5 a half-width is about ±0.09 when ρ = 0 and ±0.18 when ρ = 1. A Δ under

@@ -9,11 +9,13 @@ prompts:
   text: a wooden dining chair
   expect:
   - wood
+  template: legs
 - stratum: furniture
   id: f06
   text: a wooden park bench with a backrest
   expect:
   - wood
+  template: legs
 - stratum: furniture
   id: f07
   text: a wooden desk with a drawer unit on one side
@@ -24,16 +26,19 @@ prompts:
   text: a wooden wardrobe with two doors
   expect:
   - wood
+  template: sheets
 - stratum: furniture
   id: f09
   text: a wooden chest of drawers
   expect:
   - wood
+  template: sheets
 - stratum: furniture
   id: f10
   text: a wooden nightstand
   expect:
   - wood
+  template: legs
 - stratum: furniture
   id: f11
   text: a wooden rocking chair
@@ -45,6 +50,7 @@ prompts:
   text: a wooden crate for shipping fruit
   expect:
   - wood
+  template: sheets
 - stratum: furniture
   id: f14
   text: a wooden shipping pallet
@@ -55,16 +61,19 @@ prompts:
   text: a wooden picnic table with attached benches
   expect:
   - wood
+  template: legs
 - stratum: furniture
   id: f16
   text: a heavy wooden workbench
   expect:
   - wood
+  template: legs
 - stratum: furniture
   id: f17
   text: a standing wooden coat rack
   expect:
   - wood
+  template: post
 - stratum: furniture
   id: f18
   text: a wooden TV stand
@@ -80,16 +89,19 @@ prompts:
   text: a tall wooden bar stool with a footrest
   expect:
   - wood
+  template: legs
 - stratum: furniture
   id: f23
   text: a wooden lectern
   expect:
   - wood
+  template: post
 - stratum: furniture
   id: f26
   text: a wooden hope chest
   expect:
   - wood
+  template: sheets
 - stratum: furniture
   id: f28
   text: a wooden folding screen with three panels
@@ -100,16 +112,19 @@ prompts:
   text: a wooden garden planter box
   expect:
   - wood
+  template: sheets
 - stratum: furniture
   id: f30
   text: a wooden doghouse
   expect:
   - wood
+  template: sheets
 - stratum: furniture
   id: f31
   text: a wooden bird feeder on a post
   expect:
   - wood
+  template: post
 - stratum: furniture
   id: f32
   text: a wooden fence section with three posts
@@ -146,11 +161,13 @@ prompts:
   text: a wooden sauna bench
   expect:
   - wood
+  template: legs
 - stratum: furniture
   id: f41
   text: a wooden church pew
   expect:
   - wood
+  template: legs
 - stratum: furniture
   id: f42
   text: a wooden market stall counter
@@ -166,11 +183,13 @@ prompts:
   text: a wooden filing cabinet
   expect:
   - wood
+  template: sheets
 - stratum: furniture
   id: f45
   text: a wooden side table with a lower shelf
   expect:
   - wood
+  template: legs
 - stratum: furniture
   id: f46
   text: a wooden corner shelf
@@ -181,6 +200,7 @@ prompts:
   text: a wooden high chair for a child
   expect:
   - wood
+  template: legs
 - stratum: furniture
   id: f49
   text: a wooden porch swing frame with its seat
@@ -257,6 +277,7 @@ prompts:
   text: a hollow concrete planter half a metre on each side
   expect:
   - concrete
+  template: sheets
 - stratum: barriers
   id: b17
   text: a steel manhole cover in its frame
@@ -278,6 +299,7 @@ prompts:
   text: a steel sign post with a sign plate
   expect:
   - steel
+  template: post
 - stratum: barriers
   id: b22
   text: a steel cage around a generator
@@ -303,6 +325,7 @@ prompts:
   text: a concrete enclosure for one small trash can
   expect:
   - concrete
+  template: sheets
 - stratum: barriers
   id: b31
   text: a steel scaffold section
@@ -357,6 +380,7 @@ prompts:
   expect:
   - glass
   - steel
+  template: legs
 - stratum: glass
   id: g02
   text: a window in a wooden frame
@@ -369,17 +393,20 @@ prompts:
   expect:
   - glass
   - wood
+  template: sheets
 - stratum: glass
   id: g04
   text: a glass shower enclosure with a steel frame
   expect:
   - glass
   - steel
+  template: sheets
 - stratum: glass
   id: g05
   text: a small balcony greenhouse with glass panels
   expect:
   - glass
+  template: sheets
 - stratum: glass
   id: g06
   text: a glass door with a steel handle
@@ -409,6 +436,7 @@ prompts:
   text: a shop counter with a glass top
   expect:
   - glass
+  template: sheets
 - stratum: glass
   id: g13
   text: a skylight frame with its glass
@@ -420,6 +448,7 @@ prompts:
   expect:
   - glass
   - wood
+  template: legs
 - stratum: glass
   id: g15
   text: a glass panel standing on a wooden easel
@@ -432,29 +461,34 @@ prompts:
   expect:
   - glass
   - steel
+  template: sheets
 - stratum: glass
   id: g17
   text: a ticket booth with a glass window
   expect:
   - glass
+  template: sheets
 - stratum: glass
   id: g19
   text: a steel drinks fridge with a glass door
   expect:
   - glass
   - steel
+  template: sheets
 - stratum: glass
   id: g20
   text: a small elevator car with glass walls and a steel floor
   expect:
   - glass
   - steel
+  template: sheets
 - stratum: glass
   id: g21
   text: a glass notice case on a steel post
   expect:
   - glass
   - steel
+  template: post
 - stratum: glass
   id: g23
   text: a glass cloche on a wooden board
@@ -479,24 +513,28 @@ prompts:
   text: a glass jewellery counter
   expect:
   - glass
+  template: sheets
 - stratum: mixed
   id: m01
   text: a wooden table on a steel frame
   expect:
   - wood
   - steel
+  template: legs
 - stratum: mixed
   id: m03
   text: a chair with a steel base and a wooden seat
   expect:
   - steel
   - wood
+  template: legs
 - stratum: mixed
   id: m04
   text: a workbench with a steel frame and a wooden top
   expect:
   - steel
   - wood
+  template: legs
 - stratum: mixed
   id: m05
   text: a drywall partition on a wooden stud frame
@@ -516,12 +554,14 @@ prompts:
   expect:
   - wood
   - steel
+  template: sheets
 - stratum: mixed
   id: m11
   text: a picnic table with steel legs and a wooden top
   expect:
   - steel
   - wood
+  template: legs
 - stratum: mixed
   id: m12
   text: a shed wall section with a wooden frame and drywall inside
@@ -534,12 +574,14 @@ prompts:
   expect:
   - concrete
   - wood
+  template: sheets
 - stratum: mixed
   id: m14
   text: a wooden bar counter with a steel foot rail
   expect:
   - wood
   - steel
+  template: sheets
 - stratum: mixed
   id: m15
   text: a ladder with steel rails and wooden rungs
@@ -576,6 +618,7 @@ prompts:
   expect:
   - steel
   - wood
+  template: post
 - stratum: mixed
   id: m23
   text: a steel wheelbarrow with wooden handles
@@ -589,12 +632,14 @@ prompts:
   expect:
   - wood
   - concrete
+  template: post
 - stratum: mixed
   id: m25
   text: a steel tool chest on a wooden pallet
   expect:
   - steel
   - wood
+  template: stand
 - stratum: mixed
   id: m27
   text: two concrete steps with a steel handrail
@@ -607,6 +652,7 @@ prompts:
   expect:
   - drywall
   - steel
+  template: sheets
 - stratum: mixed
   id: m29
   text: a steel-framed wooden lounge chair
@@ -619,6 +665,7 @@ prompts:
   expect:
   - wood
   - steel
+  template: sheets
 - stratum: mixed
   id: m31
   text: a concrete post holding a steel fence panel
@@ -631,12 +678,14 @@ prompts:
   expect:
   - wood
   - drywall
+  template: sheets
 - stratum: mixed
   id: m36
   text: a wooden sentry box with a steel roof
   expect:
   - wood
   - steel
+  template: sheets
 - stratum: mixed
   id: m37
   text: a drywall column wrapped around a steel post
@@ -649,6 +698,7 @@ prompts:
   expect:
   - wood
   - concrete
+  template: sheets
 - stratum: mixed
   id: m40
   text: a wooden shelf bracketed to a concrete block
@@ -673,6 +723,7 @@ prompts:
   expect:
   - wood
   - steel
+  template: sheets
 - stratum: mixed
   id: m45
   text: a wooden dock post with a steel cleat
@@ -697,6 +748,7 @@ prompts:
   expect:
   - concrete
   - steel
+  template: post
 - stratum: mixed
   id: m49
   text: a wooden bench against a low concrete wall
@@ -722,6 +774,7 @@ prompts:
   expect:
   - wood
   breaks: extent
+  template: legs
 - stratum: impossible
   id: i04
   text: a concrete wall four metres wide
@@ -747,6 +800,7 @@ prompts:
   expect:
   - steel
   breaks: extent
+  template: sheets
 - stratum: impossible
   id: i10
   text: a wooden canoe five metres long
@@ -831,6 +885,7 @@ prompts:
   expect:
   - wood
   breaks: primitives
+  template: legs
 - stratum: impossible
   id: i25
   text: a steel grate of forty separate crossing bars

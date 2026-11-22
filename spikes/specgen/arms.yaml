@@ -14,7 +14,9 @@ arms:
 # weights' SHA-256 are in freeze.sha256.
 engine:
   llama_cpp: "build 10621 (c1d0e7a00)"
-  server_flags: "--jinja -ngl 999 -c 16384 --parallel 1"
+  # The server binds to the mini's Tailscale address only (plan §2); the address itself is private, never written.
+  # Each run's header records the flags with the address replaced by this placeholder, so they compare byte for byte.
+  server_flags: "--host <the mini's Tailscale address> --jinja -ngl 999 -c 16384 --parallel 1"
   models:
     S: {repo: unsloth/Qwen3.5-4B-GGUF, revision: e87f176479d0855a907a41277aca2f8ee7a09523, file: Qwen3.5-4B-Q8_0.gguf}
     R: {repo: unsloth/Qwen3.5-27B-GGUF, revision: 3221f178a6b842d04f1fb42f1c413534adcc0a6a, file: Qwen3.5-27B-Q8_0.gguf}
@@ -45,6 +47,7 @@ protocol:
   # them as written.
   a0_parse: "code fences removed, then json.JSONDecoder.raw_decode tried at each { in order; the first that parses"
   truncated: "a reply that stops at max_output_tokens is the class truncated, before any parse"
+  context_overflow: "a request the server refuses for exceeding its 16,384-token context is also the class truncated"
   # A3 continues one conversation: each retry appends the refused reply as the assistant turn and the feedback as a
   # user turn. Each attempt is placed in a fresh empty scene. Each attempt is checked in this order: truncation, the
   # scorer's bounds check, then place. The loop ends at the first attempt that passes M1, at a truncated reply, at a

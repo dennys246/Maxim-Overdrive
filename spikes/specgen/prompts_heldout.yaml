@@ -9,11 +9,13 @@ prompts:
   text: a four-legged wooden kitchen table
   expect:
   - wood
+  template: legs
 - stratum: furniture
   id: f03
   text: a low wooden coffee table
   expect:
   - wood
+  template: legs
 - stratum: furniture
   id: f04
   text: a wooden bookshelf with five shelves
@@ -54,11 +56,13 @@ prompts:
   text: a wooden dresser with a tall frame on top
   expect:
   - wood
+  template: sheets
 - stratum: furniture
   id: f35
   text: a wooden toolbox with a handle
   expect:
   - wood
+  template: sheets
 - stratum: furniture
   id: f37
   text: a wooden plant stand with two tiers
@@ -128,12 +132,14 @@ prompts:
   text: a phone booth with glass windows
   expect:
   - glass
+  template: sheets
 - stratum: glass
   id: g11
   text: a glass vase on a wooden stand
   expect:
   - glass
   - wood
+  template: post
 - stratum: glass
   id: g18
   text: a glass balcony railing with steel posts
@@ -146,18 +152,21 @@ prompts:
   expect:
   - glass
   - steel
+  template: sheets
 - stratum: glass
   id: g26
   text: a glass desk with a steel frame
   expect:
   - glass
   - steel
+  template: legs
 - stratum: glass
   id: g27
   text: a wooden cold frame for seedlings with a glass lid
   expect:
   - glass
   - wood
+  template: sheets
 - stratum: glass
   id: g28
   text: a glass pyramid ornament on a concrete plinth
@@ -165,12 +174,14 @@ prompts:
   - glass
   - concrete
   hard: shape
+  template: post
 - stratum: glass
   id: g29
   text: a small security booth with glass windows on a thin concrete base
   expect:
   - glass
   - concrete
+  template: sheets
 - stratum: mixed
   id: m02
   text: a steel bed frame with a wooden headboard
@@ -219,18 +230,21 @@ prompts:
   expect:
   - steel
   - wood
+  template: legs
 - stratum: mixed
   id: m34
   text: a small steel safe on a wooden stand
   expect:
   - steel
   - wood
+  template: stand
 - stratum: mixed
   id: m35
   text: a wooden table with a concrete top
   expect:
   - wood
   - concrete
+  template: legs
 - stratum: mixed
   id: m39
   text: a steel railing on a concrete curb

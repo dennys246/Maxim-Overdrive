@@ -64,7 +64,8 @@ The splits were regenerated, and the deal is unchanged (the same ids in each spl
 
 The owner accepted each of the author's recommendations:
 - **f31 and m22:** covered by the templates disposition.
-- **The templates' residual risk:** plan §6 reports L and H without furniture, as a diagnostic only.
+- **The templates' residual risk:** plan §6 reports L and H without furniture, as a diagnostic only. Superseded by
+  the owner's ruling in `freeze_delta4.md` (NEW-E): without the prompts tagged `template`.
 - **R:** Qwen3.5 27B at 8 bits, S's family and quantization, so Δ measures scale. Gemma 4 31B was probed and set
   aside.
 - **llama.cpp:** frozen at the mini's installed build 10621 (c1d0e7a00), with no upgrade during the spike.
@@ -72,13 +73,19 @@ The owner accepted each of the author's recommendations:
 
 ## A disclosure before the freeze
 
-The mini probe (`../../research/specgen_spike/plan.md` §2) generated S's replies for six development prompts: f01,
-b03, g02, m05, m30 and i02, each under A2 with seeds 0 and 1 and under A0 with seed 0. It also ran one call without
-the thinking switch. The author read those replies. Nothing in any arm, prompt or bar was changed because of their
-content; the probe checked only the mechanics: the grammar compiles, thinking is off, the speed, and a same-seed
-repeat. The same six prompts were then run on Gemma 4 31B and on R, Qwen3.5 27B. For those two models only
-mechanics fields were printed (parse, name check, token counts, speed), never a reply's content. The six prompts
-stay in the development split.
+The mini probe ran the same 21 calls on each of three models, S (Qwen3.5 4B), Gemma 4 31B and R (Qwen3.5 27B), on
+six development prompts: f01, b03, g02, m05, m30 and i02.
+- **With the thinking switch, 19 calls:** A2 at seeds 0 and 1 for each prompt (12), A0 at seed 0 for each (6), and
+  f01's A2 seed 0 again, as a same-seed repeat (1).
+- **Without the switch, 2 calls:** f01 at seed 0, under A0 and under A2.
+
+What the author saw:
+- **Every call:** mechanics fields only (finish reason, reasoning length, parse, name check, primitive count, token
+  counts, speed).
+- **Content, two replies only:** S's f01 under A2 and under A0, both at seed 0 and with the switch, printed in part.
+
+Nothing in any arm, prompt or bar was changed because of a reply's content. The six prompts stay in the development
+split.
 
 **Measured on the mini (the frozen engine, build 10621):** S runs at about 40 tokens/s (about 5 s per spec), R at
 about 8 tokens/s (about 35 s per spec). At those speeds the plan's 12,800 generations take about 9 hours for S
