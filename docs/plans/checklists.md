@@ -225,6 +225,11 @@ fails.
     (`docs/roadmap.md`, Phase 1, names the PR).
   - PR 4: `(actor_id, seq)` unique across ticks, a receipt id on each outcome, and a validated `TickBatch` built by the
     log reader.
+- **Deferred from PR 2's review (`reviews/sim_laws/fold.md`, Exec NIT 5 and Wire N6):**
+  - PR 4: the per-record batch boundary (`sim_core.md` §5.1). A record's stage 2 and its loads are one batch, but
+    `physics.resolve_loads` closes one batch per per-record law; the two agree only while stage 2 emits no topology
+    requests, and `imagine` as stage 2 will. A test: one record whose stage 2 and load both edit cells bumps
+    `topology_version` once.
 ## Step 5b, bodies and movement (`tile_and_client.md` §2, §3, §4.1)
 
 - From step 3b part (b)'s review (Determinism N7): a spawn maps to a cell in integers (`at_mm * 1000 // dx_um`), with

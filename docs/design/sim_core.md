@@ -43,7 +43,7 @@ short list of named steps (§3).
   `grid.time_s` go.
 - **Where the new types live** (`boundaries.md` §2.2's layers): `FieldSpec`, `Topology` and its request type with
   the cells, since laws (a layer above) emit requests; `Load` and `Changes` (with load effects) with
-  the laws (proposed, `reviews/sim_laws/fold.md`); `Clock`, `SimConfig`, `TickReport` and `WorkCounters` with the
+  the laws (owner, 2026-11-22, `reviews/sim_laws/fold.md`); `Clock`, `SimConfig`, `TickReport` and `WorkCounters` with the
   simulation.
 
 ## 3. The clock and the tick
@@ -101,7 +101,7 @@ Simulation.frames -> FrameView                                   # the latest pu
   - later, `prepare(views)` and a kernel: arrays and scalars in, preallocated outputs, every order-sensitive
     reduction in `prepare`. That is the numba seam; numba waits for a profile, and until then `step` gets the grid.
   - `step(grid, dt_s, inputs) -> Changes`, run narrowed to the law's writer token: a read outside `reads` or a
-    write outside `writes` raises, and its writable arrays are revoked on return (proposed,
+    write outside `writes` raises, and its writable arrays are revoked on return (owner, 2026-11-22,
     `reviews/sim_laws/fold.md`). A ledger handle joins when the ledger lands (§2).
 - **`Changes`** holds the topology requests the law made (§5.1) and, per load, the effect it resolved.
 - **Cadence** is one of:
@@ -142,7 +142,7 @@ Simulation.frames -> FrameView                                   # the latest pu
   owns). A batch is one requester's one invocation: one record's apply (its stage 2 and its loads), one law's one
   substep, or construction. `Topology` applies a batch's requests in key order (an unkeyed request's key is its
   emission index: where paints overlap, the later wins) and bumps `topology_version` once per
-  batch that changed a cell's value or the region table (proposed, `reviews/sim_laws/fold.md`). It is `world_v2.md` §2.2's choke point.
+  batch that changed a cell's value or the region table (owner, 2026-11-22, `reviews/sim_laws/fold.md`). It is `world_v2.md` §2.2's choke point.
 - **Laws couple only through fields.** No law imports or calls another, held by an import contract; an operator two
   laws share lives in a module that is not a law. Contact's exchange with the solid is the declared field
   `contact_exchange`: per coupling row, written by contact each tick it runs, read and reset by the solid law at its

@@ -10,6 +10,10 @@ status is "open (for the reviewer)"** until a reviewer reads it from the tree (O
 for the owner** are places where the fold judged the code right and the design wrong. The draft wording is in
 `docs/design/sim_core.md`, marked "(proposed, `reviews/sim_laws/fold.md`)", and the owner rules on each one.
 
+**Owner's ruling (2026-11-22; status set by the author, after the owner decided):** all four amendments are
+accepted as recommended (§2 `Changes` with the laws, §5 token narrowing, §5.1 the emission-order key, §5.1 and §7
+the changing-batch bump). `sim_core.md` now marks them "(owner, 2026-11-22, ...)".
+
 ## How the main fix works
 
 - **Writers are tokens.** `writers.claim(name)` grants each writer's `WriterToken` once, at its owner's import:
