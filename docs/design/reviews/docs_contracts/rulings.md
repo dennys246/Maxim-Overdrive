@@ -59,8 +59,9 @@ target-independent subset until a row defines "perceived". So the split stands: 
 - **The `stale` credit rules.** boundaries §7.2 ("zero times when `stale`", "Stale is context, never credit") and
   npcs §6.4 assume the agent sees `stale`, which `sem_stimuli.md` §6.2's v1 receipt withholds. Not a receipt-shape
   copy, so left; a finding for the owner.
-- **Rows 10 and 79 (channel names, `crack`'s bed meaning).** #31 reads `surface_glow` and `burning` live; its
-  session has taken the conflict with `fire_solid.md` §5.6 to the owner.
+- **Rows 10 and 79 (channel names, `crack`'s bed meaning).** #31 merged reading `surface_glow` and `burning` live,
+  recorded as provisional (`client/tests/fixtures/snapshots/FIELDS.md`), and tracked as backlog B42: the client design
+  pass before step 8 (D-B2, `fire_solid.md` §5.6) decides them, and `client_rendering.md` §4.2's rows follow it.
 - **The `data/server/` client cap** in `client_rendering.md` §4.3 names a directory that doesn't exist. Ruling 18
   covers only stage-1 caps.
 

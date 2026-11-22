@@ -137,7 +137,7 @@ def test_the_main_scene_and_the_layout_exist():
 
 def test_every_script_and_shader_is_committed_with_its_uid():
     """Godot 4.7 gives each script and shader a .uid file; scripts/godot_check.py fails an import that creates one."""
-    scripts = sorted([*CLIENT.rglob("*.gd"), *CLIENT.rglob("*.gdshader")])
+    scripts = sorted([*CLIENT.rglob("*.gd"), *CLIENT.rglob("*.gdshader"), *CLIENT.rglob("*.gdshaderinc")])
     assert scripts
     assert [s for s in scripts if not Path(f"{s}.uid").is_file()] == []
 

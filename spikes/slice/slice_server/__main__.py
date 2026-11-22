@@ -14,6 +14,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from slice_server import config, intents
+from slice_server.metrics import read_log, report, session_metrics
 from slice_server.server import Server, write_run_file
 from slice_server.sim import Sim, replay
 from slice_server.voice import Voice, ollama
@@ -66,18 +67,9 @@ def serve(dx_m: float, port: int, *, llm: bool, root: Path = HERE, ticks: int | 
 def ticks_of(log_path: Path) -> tuple[float, list[list[intents.Intent]], str | None]:
     """A session log's grid spacing, its intents per tick, and the digest it ended with, if it ended cleanly. A crashed
     session's ticks run through the tick that crashed, so a replay reaches the crash; one cut off with no marker runs
-    to its last logged intent."""
-    lines = [json.loads(line) for line in log_path.read_text().splitlines()]
-    dx_m, by_tick, end, crashed = float(lines[0]["meta"]["dx_m"]), {}, None, None
-    for line in lines[1:]:
-        if "intents" in line:
-            by_tick[int(line["tick"])] = [intents.parse(raw) for raw in line["intents"]]
-        end = line.get("end", end)
-        crashed = line.get("crashed", crashed)
-    if end is not None:
-        return dx_m, [by_tick.get(t, []) for t in range(int(end["tick"]))], str(end["digest"])
-    last = int(crashed["tick"]) if crashed is not None else max(by_tick, default=-1)
-    return dx_m, [by_tick.get(t, []) for t in range(last + 1)], None
+    to its last logged intent. (``metrics.read_log`` is the one reader of the log's format.)"""
+    parts = read_log(log_path)
+    return parts.dx_m, parts.ticks, parts.digest
 
 
 def check_replay(log_path: Path) -> bool:
@@ -100,9 +92,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     run.add_argument("--no-llm", action="store_true", help="canned vendor lines only (the cut list's first cut)")
     check = sub.add_parser("replay")
     check.add_argument("log", type=Path)
+    numbers = sub.add_parser("metrics", help="a playtest session's numbers, by replaying its log")
+    numbers.add_argument("log", type=Path)
+    numbers.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     if args.cmd == "replay":
         return 0 if check_replay(args.log) else 1
+    if args.cmd == "metrics":
+        m = session_metrics(args.log)
+        print(json.dumps(m, indent=2) if args.json else report(m))
+        return 0 if m["replay_matches"] else 1
     serve(getattr(args, "dx", 0.2), getattr(args, "port", 0), llm=not getattr(args, "no_llm", False))
     return 0
 
