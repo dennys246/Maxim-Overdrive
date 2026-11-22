@@ -455,7 +455,7 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
   `imagine` 30, and `ignite` (vocabulary v0 only) 30, host commands (§6.1's: advance, rig selection, save, load,
   admin `set_material`) 40, so a tick's world actions apply before the host's own operations (owner, 2026-11-21, via
   phase1/sim-clock), leaving room. The log is written in that order, so a replay never sorts. Float accumulations over
-  named collections (today `World._power_field` over `sources`) iterate in sorted-key order. Ordering keys are
+  named collections (today the deposit over `sources`) iterate in sorted-key order. Ordering keys are
   integers (D-N2).
 - **Replay calls nothing live:** no model, no Maxim, no clock, and **never the response cache**
   (`inference_placement.md` §4.2). Tested by replaying with `maxim` blocked from import (foundations TB2-S4).

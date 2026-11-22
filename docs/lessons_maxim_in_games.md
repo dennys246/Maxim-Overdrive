@@ -249,8 +249,8 @@ A world that publishes frames only at physics steps would show the agent the wor
 (`simcore/core/frames.py`). With publication removed from the window's close (a planted mutation of
 `World.__init__`), `tests/test_sem_bridge.py::test_strike_moves_the_integrity_sensor` went red: the strike
 landed and the integrity reading did not move. *Consequence:* every write window that closes publishes, so an
-application's effect is in the next read (boundaries §4.2's cadence, now held by
-`tests/test_ownership.py::test_the_shipped_path_publishes_a_frame_after_each_application_and_each_advance`). For
+application's effect is in the next read (since step 5a's PR 4a, one frame per tick that applied a record or ran
+physics, held by `tests/test_ownership.py::test_the_shipped_path_publishes_one_frame_per_tick_with_a_record_or_physics`). For
 any engine: an agent that perceives by pulling needs its own act reflected in the next pull, or its efference copy
 has nothing to match; publish on change, and make the action's commit a change. *Amended 2026-11-20
 (`sem_stimuli.md` §6.2):* NPC stimuli are pushed each tick, so the post-`execute` cascade read sees the pre-act
@@ -442,18 +442,20 @@ named where the presentation is built (`client_objects.md` §5.4), so that a per
 the game's split, not to Maxim. For Maxim there is nothing to ask yet. Whether sight needs an albedo or flame
 channel is the NPC fire note's question, against OD-C8.
 
-### 35. When an agent's action costs world time, the membrane's "read right after execute" is a property of the port (2026-11-22)
+### 35. A stepped world's interim port hands an action's read-back whatever physics ran on that call, and Maxim credits it (2026-11-22)
 
-**Maxim's tools assume an action's effect is readable the moment `execute` returns; in a stepped world that holds
-only if the port runs a tick for it.** *Evidence:* lesson 23's sensors read back right after `execute`. Before step
-5a's PR 4a the applier opened its own window and published a frame per action, so that held for free. Since PR 4a
-the tick's window is `Simulation.step`'s and a frame is published once per tick (sim_core.md §4), so the bridge
-writes through a submit-and-step `Port` its test or host owns (§13): each `execute` is one record and one tick,
-`tests/test_sem_bridge.py::test_the_membrane_steps_only_through_its_port_one_tick_per_call`. The cost is that world
-time moves one tick per agent call, so a bridge-driven session can't be replayed and no outcome bar may be measured
-through it; every scenario now drives records directly (`tests/test_cross_tier.py`). *Consequence:* `phase1/agents`
-must replace "effect visible at once" with a pending result and the effect in a later frame (boundaries §6.4). For
-Maxim: a tool's result and the world's response to it are different events in a stepped world; Maxim's tool loop
-should read the response from the next observation, not from the tool's return. It sits beside Phase 3's OD-A4 (a
-tool's duration in world time, `docs/roadmap.md`); whether it needs its own Maxim item is asked there when
-`phase1/agents` builds the pending result, after searching Maxim's `origin/main`.
+**Through a submit-and-step port, Maxim's "read right after execute" shows an instant effect (a strike's crater)
+in the action's own read-back, but a slow one (a fire's heat) on whichever later call happens to run a physics
+tick, and Maxim learns from that read-back.** *Evidence:* since step 5a's PR 4a a frame is published once per tick
+(sim_core.md §4), so the bridge writes through a `Port` its test or host owns (§13): each call that reaches stage 2
+is one record and one tick (`tests/test_sem_bridge.py::test_the_membrane_steps_only_through_its_port_one_tick_per_call`).
+The PR's Bio-faithful review drove pymaxim 1.3.3's `ModulatorAffordanceTool` through that port, alternating
+`ignite` and `extinguish` on the crate: `temperature_max` read back 20.0 for calls 1 to 4, 21.29 on call 5 (a
+physics tick) and 22.15 on call 10, an extinguish. In 1.3.3 that read-back is credit, not only logging:
+`maxim/embodiment/tool_bridge.py` reads every sensor after `execute` (line 584) and passes the readings to
+`Cerebellum.observe_from_action(actual=...)` (line 885) whenever a cerebellum is attached (line 860), so the douse
+is credited with heating. Lesson 23's
+amendment ("the cascade read is logging, never credit") is the planned design, not 1.3.3's behaviour.
+*Consequence:* no outcome bar is measured through the port (§13), and `phase1/agents` replaces it with a pending
+result and the effect in a later frame. For Maxim: this is lesson 6's point, already Phase 3's OD-A16 (credit for
+effects measured later; the cerebellum observing at settle), and this is new evidence for it, not a new item.

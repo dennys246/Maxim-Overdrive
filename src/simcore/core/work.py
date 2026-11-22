@@ -27,7 +27,7 @@ class WorkCounters:
     cell_substeps: Counts = ()  # per law: the cells its kernel iterates, times its substeps
     stable_dt_evaluations: int = 0
     windows_opened: int = 0  # cell windows
-    cells_copied: int = 0  # by the cell windows opened: cells times the fields copied
+    cells_copied: int = 0  # field values the tick's window copied: at open, views, revocations and commit
     frames_published: int = 0
     power_field_builds: int = 0
     rebuilds: Counts = ()  # per cache

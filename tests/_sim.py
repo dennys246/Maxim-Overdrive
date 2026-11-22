@@ -90,8 +90,8 @@ def world_of(sim: Simulation) -> World:
 
 class SteppingPort:
     """The bridge's submit-and-step port (sim_core.md §13), owned by the test: each ``submit`` is one record and one
-    tick, so a bridge-driven run advances one tick per call and can't be replayed. No outcome bar is measured
-    through it."""
+    tick, so a bridge-driven run advances one tick per call that reaches stage 2 and can't be replayed. No outcome
+    bar is measured through it."""
 
     def __init__(self, sim: Simulation, *, actor: int = 1) -> None:
         self._sim, self._actor, self._seq = sim, actor, 0

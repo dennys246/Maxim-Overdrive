@@ -9,18 +9,19 @@ commit (the old path no longer exists to compare against in a test).
 
 from __future__ import annotations
 
+import contextlib
 from typing import cast
 
 import numpy as np
 import pytest
 
-from simcore.core import physics
+from simcore.core import heat, physics
 from simcore.core.intents import KIND_RANK, Extinguish, Ignite, LogRecord, Strike
 from simcore.core.law import STATELESS, LawInputs
-from simcore.core.refusals import RefusalCode
 from simcore.core.scene import Box, Scene
 from simcore.core.simulation import T3, SimConfig, Simulation
 from tests._sim import physics_steps, ticks, world_of
+from tests.conftest import FAST_SPACINGS
 from tests.test_determinism import FIRE_W, LIMITS, MATERIALS, SCENE, digest
 
 IGNITE = Ignite(power_w=FIRE_W, radius_m=0.3)
@@ -258,13 +259,25 @@ def test_a_tick_whose_physics_raises_leaves_no_half_applied_state():
 
 
 def test_a_rolled_back_tick_leaves_no_cache_a_later_state_reuses():
-    # PR 3's S1, now for every law cache: a rollback restores topology_version, so a cache keyed on it must forget.
-    sim = _sim(laws=(physics.DEFAULT_LAWS[0], _Raises(), physics.DEFAULT_LAWS[2]))
-    ticks(sim, 4)
-    with pytest.raises(RuntimeError, match="planted"):
-        sim.step([_record(STRIKE, tick=5, target="crate")])
-    assert sim._physics._bounds == {}
-    assert sim._physics._states["heat"] is STATELESS  # the planted law's: stateless, nothing to forget
+    # PR 3's S1, now for every law cache through Simulation: a strike on the crate at a physics tick whose heat raises
+    # rolls back, restoring topology_version; a different strike (on the wall) then reaches the same version. The
+    # run must equal one that only struck the wall, bit for bit and in its counted work: nothing the failed tick
+    # built at that version is reused.
+    def lit():
+        sim = _sim()
+        sim.step([_record(IGNITE)])
+        ticks(sim, 3)
+        return sim
+
+    clean = lit()
+    want = clean.step([_record(STRIKE, tick=5, target="wall")])
+    failing = lit()
+    with pytest.raises(RuntimeError, match="planted"), _raising_heat_once():
+        failing.step([_record(STRIKE, tick=5, target="crate")])
+    got = failing.step([_record(STRIKE, tick=5, target="wall")])
+    assert world_of(failing).grid.topology_version == world_of(clean).grid.topology_version
+    assert digest(failing) == digest(clean)
+    assert got.work == want.work
 
 
 # --- strikes resolve on their own tick (sim_core.md §5.1) ---
@@ -284,31 +297,18 @@ BLOCK = Scene((3.0, 3.0, 2.0), (Box((1.2, 1.2, 0), (1.6, 1.6, 0.4), "wood", "blo
 BIG = Strike(energy_j=LIMITS.max_energy_j, sigma_m=LIMITS.max_sigma_m, point_m=None)
 
 
-def _block_sim():
-    return Simulation.from_scene(BLOCK, MATERIALS, dx_m=0.2, config=T3, limits=LIMITS)
-
-
-def test_a_second_strike_on_a_region_destroyed_in_the_same_tick_is_refused_region_gone():
-    # sim_core.md §5.1: the next record's stage 2 sees the crater, so a strike on a region its predecessor destroyed
-    # is refused REGION_GONE. Before PR 4a "gone" meant a region a later paint emptied, so this strike "succeeded"
-    # with nothing to hit.
-    report = _block_sim().step([_record(BIG, target="block", seq=0), _record(BIG, target="block", seq=1)])
-    first, second = report.outcomes
-    if first.effects[0].destroyed_cells != 8:  # a precondition: the first strike destroys the whole block
-        raise RuntimeError("the first strike left cells: the test can't reach its bar")
-    assert (second.success, second.code) == (False, RefusalCode.REGION_GONE)
-
-
-def test_a_fire_on_a_destroyed_region_can_still_be_put_out():
-    # The douse finds the burning fire before the gone check: otherwise a fire on a crate struck to nothing would burn
-    # on for ever, with nothing an agent could do (PR 4a, found while fixing REGION_GONE).
-    sim = _block_sim()
-    sim.step([_record(IGNITE, target="block", seq=0), _record(BIG, target="block", seq=1)])
-    report = sim.step([_record(DOUSE, tick=2, target="block"), _record(IGNITE, tick=2, target="block", seq=1)])
-    douse, relight = report.outcomes
-    assert douse.success
-    assert (relight.success, relight.code) == (False, RefusalCode.REGION_GONE)
-    assert world_of(sim).sources == {}
+@pytest.mark.parametrize("dx_m", FAST_SPACINGS)
+def test_a_strike_on_a_region_destroyed_earlier_in_the_tick_applies_and_destroys_nothing(dx_m):
+    # sim_core.md §5.1 (owner, 2026-11-22): the next record's stage 2 sees the crater, but "gone" is authored geometry
+    # only, never destruction, whose survivors depend on the grid spacing (PR 4a review, Exec S2: a cell rule flipped
+    # between strike 29 at 0.2 m and 30 at 0.1 m). So the second strike is accepted at every spacing, with nothing
+    # left to hit.
+    sim = Simulation.from_scene(BLOCK, MATERIALS, dx_m=dx_m, config=T3, limits=LIMITS)
+    first, second = sim.step([_record(BIG, target="block", seq=0), _record(BIG, target="block", seq=1)]).outcomes
+    if not first.effects[0].destroyed_cells or sim.frames.latest.cells.solid.any():  # a precondition
+        raise RuntimeError("the first strike left the block standing: the test can't reach its bar")
+    assert second.success
+    assert second.effects[0].destroyed_cells == 0
 
 
 def test_topology_version_rises_once_per_strike_that_changes_the_world():
@@ -365,23 +365,84 @@ def test_physics_steps_are_the_ticks_over_physics_every(n):
 def test_the_work_counters_hold_their_exact_values_and_repeat_on_a_rerun():
     def run():
         sim = _sim()
-        sim.step([_record(IGNITE)])
-        return [r.work for r in physics_steps(sim, 3)]
+        lit = sim.step([_record(IGNITE)]).work
+        return lit, [r.work for r in physics_steps(sim, 3)]
 
-    first = run()
+    lit, first = run()
     cells = 15 * 15 * 10  # the 3 x 3 x 2 m scene at 0.2 m
+    # Construction builds every cache at rest and counts it in no tick (sim_core.md §2). The ignite's tick ends by
+    # bringing the caches to its state: the new fire's overlap and weights, nothing else (no topology change).
+    assert (lit.physics_steps, lit.stable_dt_evaluations, lit.rebuilds) == (0, 0, (("heat/deposit", 2),))
+    assert (lit.windows_opened, lit.cells_copied, lit.frames_published) == (0, 0, 1)
     step = first[0]
     assert step.physics_steps == 1
     assert step.substeps == (("damage.thermal", 1), ("heat", 1))
     assert step.cell_substeps == (("damage.thermal", cells), ("heat", cells))
-    assert (step.windows_opened, step.cells_copied, step.frames_published) == (1, 4 * cells, 1)
+    # Every copy the window made, counted where it is made (PR 4a review, Performance S3): the four fields at open and
+    # again at commit, read-only views of material and temperature for the laws that read them without writing, and
+    # heat's temperature revoked when its block ends. Eleven fields' worth, not the four a formula assumed.
+    assert (step.windows_opened, step.cells_copied, step.frames_published) == (1, (4 + 2 + 1 + 4) * cells, 1)
     assert step.power_field_builds == 1
-    # The first physics step builds heat's caches and evaluates the bound; with no topology change after, the later
-    # steps reuse all of them.
-    assert step.stable_dt_evaluations == 2  # once per per-substep law: heat and damage.thermal
-    assert step.rebuilds == (("heat/deposit", 2), ("heat/face_conductances", 1))
-    assert all((w.stable_dt_evaluations, w.rebuilds) == (0, ()) for w in first[1:])
-    assert run() == first
+    # Every cache was ready: the physics steps rebuild nothing and evaluate no bound while the topology stands.
+    assert all((w.stable_dt_evaluations, w.rebuilds) == (0, ()) for w in first)
+    assert run() == (lit, first)
+
+
+@pytest.mark.parametrize("records", [[_record(STRIKE, tick=10)], []], ids=["a strike", "quiet"])
+def test_a_retried_tick_counts_the_same_work_as_one_that_never_failed(records):
+    # PR 4a review, Determinism SF-1: a tick that raises rolls back, and its caches no longer match the restored state
+    # (their keys moved with the rolled-back window); they are rebuilt at rest for it, so the retry counts what an
+    # uninterrupted run counts at that tick. The same eager build lets PR 4b's replay from a loaded state count the
+    # live run's work (sim_core.md §2, §10). The quiet physics tick is the case that needs the rebuild: a strike's
+    # retry rebuilds the same caches in both runs (delta 1, D-S1). Proven by deleting the rebuild after a raise.
+    def to_tick(sim, last):
+        sim.step([_record(IGNITE)])
+        ticks(sim, last + 1 - sim.tick)
+
+    clean = _sim()
+    to_tick(clean, 9)
+    want = clean.step(records).work
+    failing = _sim()
+    to_tick(failing, 9)
+    with pytest.raises(RuntimeError, match="planted"), _raising_heat_once():
+        failing.step(records)
+    assert failing.step(records).work == want
+    assert digest(failing) == digest(clean)
+
+
+def test_a_publication_that_raises_leaves_the_tick_counted_so_no_retry_applies_it_twice(monkeypatch):
+    # PR 4a review, Determinism N-5: the window commits, then the clock moves, then the frame is published. If
+    # publication raised before the clock moved, a caller retrying the tick would apply its records twice. Proven by
+    # advancing the clock after publication: the next tick's record is refused as the wrong tick.
+    sim = _sim()
+    real = sim._feed.publish
+
+    def fails_once(frame):
+        monkeypatch.setattr(sim._feed, "publish", real)
+        raise MemoryError("planted")
+
+    monkeypatch.setattr(sim._feed, "publish", fails_once)
+    with pytest.raises(MemoryError, match="planted"):
+        sim.step([_record(IGNITE, tick=1)])
+    assert sim.tick == 2
+    assert "fire:crate" in world_of(sim).sources
+    with pytest.raises(ValueError, match="for tick 1 reached tick 2"):
+        sim.step([_record(IGNITE, tick=1, seq=1)])
+    assert sim.step([_record(DOUSE, tick=2)]).outcomes[0].success
+
+
+@contextlib.contextmanager
+def _raising_heat_once():
+    real = heat.HeatLaw.step
+
+    def raising(self, grid, dt_s, inputs, state):
+        raise RuntimeError("planted")
+
+    heat.HeatLaw.step = raising  # type: ignore[method-assign]
+    try:
+        yield
+    finally:
+        heat.HeatLaw.step = real  # type: ignore[method-assign]
 
 
 def test_a_record_and_a_config_store_plain_ints_so_the_key_serialises():

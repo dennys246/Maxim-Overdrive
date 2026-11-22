@@ -24,7 +24,8 @@ import numpy.typing as npt
 
 from simcore.core import reductions
 from simcore.core.checks import shown
-from simcore.core.grid import Field, Mask, MaterialGrid, Region
+from simcore.core.geometry import Field, Mask
+from simcore.core.grid import MaterialGrid, Region
 from simcore.core.materials import AIR_ID
 from simcore.core.writers import WindowClosed
 

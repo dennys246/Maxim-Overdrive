@@ -19,7 +19,7 @@ from types import MappingProxyType
 
 from simcore.core.checks import shown
 from simcore.core.grid import Point
-from simcore.core.intents import AFFORDANCE_OF, Action, ActionRefused, Extinguish, Ignite, Strike
+from simcore.core.intents import AFFORDANCE_OF, Action, ActionRefused, Ignite, Strike
 from simcore.core.law import Load, LoadEffect
 from simcore.core.refusals import RefusalCode, Refused, agent_text
 from simcore.core.world import HeatSource, World
@@ -72,9 +72,7 @@ class Applier:
         params = MappingProxyType({k: list(v) if isinstance(v, tuple) else v for k, v in asdict(action).items()})
         try:
             action.check(self._world.limits)
-            # A burning fire can always be put out, even on a region struck to nothing (PR 4a).
-            burning = isinstance(action, Extinguish) and f"fire:{region}" in sources
-            self._check_region(region, gone_ok=burning)
+            self._check_region(region)
         except ActionRefused as exc:
             return _refused(affordance, params, exc)
         if isinstance(action, Strike):
@@ -87,16 +85,16 @@ class Applier:
         """Where a fire or an aimless strike lands: the authored centroid, so it doesn't move with the grid spacing."""
         return self._world.grid.regions[region].footprint.centroid_m
 
-    def _check_region(self, region: str, *, gone_ok: bool) -> None:
-        grid = self._world.grid
-        regions = grid.regions
+    def _check_region(self, region: str) -> None:
+        regions = self._world.grid.regions
         if not isinstance(region, str) or region not in regions:
             raise ActionRefused(f"there is no {shown(region)} in this world", code=RefusalCode.NO_REGION)
         if not regions[region].solid:  # a name in the table
             raise ActionRefused(f"the {region} is air: there is no structure to act on", code=RefusalCode.NOT_SOLID)
-        # Gone: no solid cell left, whether a later paint took them or destruction did, an earlier record this tick
-        # included (sim_core.md §5.1: the next record's stage 2 sees the crater).
-        if not gone_ok and not (regions[region].cells & grid.solid).any():
+        # Gone: authored geometry (a later paint) took every cell. Not destruction: whether any cell survives a strike
+        # depends on the grid spacing, so deciding on it would refuse at one spacing and accept at another (PR 4a
+        # review, Exec S2; owner, 2026-11-22). A strike on a destroyed region applies and destroys nothing.
+        if not regions[region].cells.any():
             raise ActionRefused(f"the {region} is gone", code=RefusalCode.REGION_GONE)
 
     def _on_region(self, region: str, point: Point, sigma_m: float) -> bool:

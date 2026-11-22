@@ -383,19 +383,6 @@ def test_a_read_only_view_follows_every_change_to_its_field():
     assert seen == [20.0, MATERIALS["concrete"].id, 30.0, AIR_ID, MATERIALS["wood"].id]
 
 
-def test_a_law_leaves_no_rollback_listener_behind():
-    """PR 2 delta N3: a listener registered from inside a window ran after every later window. Since PR 4a the only
-    listener is the rollback's (on_close lost its caller with per-window publication). Proven by deleting the refusal
-    in ``on_roll_back``: the listener is registered and runs when a later window rolls back."""
-    g = _grid()
-    ran: list[int] = []
-    with g.writing(writer=None), pytest.raises(WindowClosed, match="one owner"):
-        physics._run_as(g, _Plant(lambda grid: grid.on_roll_back(lambda: ran.append(1))), 1.0, LawInputs())
-    with pytest.raises(RuntimeError, match="later"), g.writing(writer=None):
-        raise RuntimeError("later")
-    assert ran == []
-
-
 @pytest.mark.parametrize("law", physics.DEFAULT_LAWS, ids=lambda law: law.name)
 def test_every_shipped_law_answers_the_whole_protocol(law):
     # The orchestrator prepares only per-substep laws, so a per-record law's prepare is reached only here; each law
@@ -417,7 +404,44 @@ def test_the_region_tables_version_is_topology_s():
     before = g.field_version("regions")
     with constructing(g):
         paint(g, g.solid, "air")
-    assert g.field_version("regions") == g.topology_version > before
+    assert g.field_version("regions") == (0, g.topology_version)
+    assert g.topology_version > before[1]
+
+
+def test_a_field_written_in_construction_s_window_moves_its_version():
+    # PR 4a review, Determinism N-1: a field handed out writable outside a narrowed block (construction's window)
+    # changed its values without moving its version, so a cache keyed on it could serve the old values.
+    g = _grid()
+    before = g.field_version("temperature")
+    with constructing(g):
+        g.temperature[...] = 999.0
+    assert g.field_version("temperature") != before
+    untouched = g.field_version("integrity")
+    with constructing(g):
+        pass
+    assert g.field_version("integrity") == untouched
+
+
+def test_no_version_a_rolled_back_window_reached_is_reached_again():
+    # PR 4a review, Architecture S2: eviction is the type's, not one owner's. A window that rolls back restores the
+    # counts, so a different later edit could reach the same count; the grid's rollbacks are part of every key and
+    # never go back.
+    g = _grid()
+    seen = []
+
+    def paint_then_undo():
+        with constructing(g):
+            paint(g, g.solid, "air")
+            seen.append(g.field_version("material"))
+            raise RuntimeError("undo")
+
+    with pytest.raises(RuntimeError, match="undo"):
+        paint_then_undo()
+    (inside,) = seen
+    with constructing(g):
+        paint(g, g.solid, "air")
+    assert g.field_version("material")[1] == inside[1]  # the same count, reached by a later edit
+    assert g.field_version("material") != inside
 
 
 def test_a_law_named_like_a_registered_one_gets_no_token():
@@ -714,6 +738,95 @@ def test_a_bound_is_re_evaluated_when_a_field_it_reads_changes_and_not_otherwise
         for _ in range(3):
             orchestrator.run(0.5, refine=1, exposure=NO_SOURCES)
     assert (len(hot.calls), len(cold.calls)) == (3, 1)
+
+
+@dataclass(frozen=True)
+class _Peeks(_Bounded):
+    """A law whose bound declares ``material`` but reads ``temperature``, or whose prepare reads it."""
+
+    where: str = "bound"
+
+    def prepare(self, grid: MaterialGrid, state: LawState, exposure: Exposure) -> LawInputs:
+        if self.where == "prepare":
+            _ = grid.temperature
+        return LawInputs()
+
+    def stable_dt(self, grid: MaterialGrid, state: LawState) -> float:
+        if self.where == "bound":
+            _ = grid.temperature
+        return math.inf
+
+
+@pytest.mark.parametrize("where", ["bound", "prepare"])
+def test_a_bound_or_a_prepare_reading_an_undeclared_field_raises(where):
+    # PR 4a review, Architecture S1: the bound is cached on its bound_reads' versions, so a bound that read more
+    # would be served stale for ever; prepare's reads are the law's too. Both run narrowed to what they declare, at
+    # rest (construction's warm-up) and in a window. Proven by running them unnarrowed: neither raises.
+    g = _grid()
+    law = _Peeks("test.peeks", ("material",), where=where)
+
+    def build_then_run():
+        orchestrator = physics.Physics(g, (law,))
+        orchestrator.warm(())
+        with g.writing(writer=None):
+            orchestrator.run(0.5, refine=1, exposure=NO_SOURCES)
+
+    with pytest.raises(UndeclaredRead, match="temperature"):
+        build_then_run()
+
+
+class _PeekingState:
+    """A law state whose warm-up reads temperature, which its law doesn't declare."""
+
+    def builds(self):
+        return {}
+
+    def warm(self, grid, sources):
+        _ = grid.temperature
+
+
+@dataclass(frozen=True)
+class _PeeksInWarm(_Bounded):
+    def new_state(self, grid: MaterialGrid) -> LawState:
+        return _PeekingState()
+
+
+def test_a_law_state_warming_up_reads_only_what_its_law_declares():
+    # PR 4a delta, NIT: Physics.warm runs each law state's warm-up narrowed to the law's reads, at rest. Proven by
+    # warming unnarrowed: the read of temperature goes through.
+    g = _grid()
+    orchestrator = physics.Physics(g, (_PeeksInWarm("test.warm", ("material",)),))
+    with pytest.raises(UndeclaredRead, match="temperature"):
+        orchestrator.warm(())
+
+
+def test_a_bare_orchestrator_on_a_rolled_back_grid_serves_no_stale_cache():
+    # PR 4a review, Executor S1 and Architecture S2: heat's face conductances and the bound, cached on material's
+    # version, built inside a window that rolls back, must not serve a different later edit that reaches the same
+    # count. Any owner, not only Simulation: the rollbacks are part of the key. Proven by not counting rollbacks.
+    g = _grid()
+    orchestrator = physics.Physics(g, (heat.HEAT,))
+    with g.writing(writer=None):
+        orchestrator.run(0.5, refine=1, exposure=NO_SOURCES)
+
+    def edit_and_run(cells, then_raise):
+        with g.writing(writer=None):
+            destroy(g, cells)
+            orchestrator.run(0.5, refine=1, exposure=NO_SOURCES)
+            if then_raise:
+                raise RuntimeError("undo")
+
+    first, second = np.zeros(g.shape, bool), np.zeros(g.shape, bool)
+    first[g.solid.nonzero()[0][0], g.solid.nonzero()[1][0], g.solid.nonzero()[2][0]] = True
+    second[g.solid.nonzero()[0][-1], g.solid.nonzero()[1][-1], g.solid.nonzero()[2][-1]] = True
+    with pytest.raises(RuntimeError, match="undo"):
+        edit_and_run(first, then_raise=True)
+    edit_and_run(second, then_raise=False)
+    fresh = heat.face_conductances(g)
+    state = orchestrator._states["heat"]
+    assert isinstance(state, heat.HeatState)
+    cached = state.faces(g)
+    assert all(np.array_equal(a, b) for (_, a), (_, b) in zip(cached, fresh, strict=True))
 
 
 class _DestroyOnce:

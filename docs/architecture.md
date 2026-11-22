@@ -80,7 +80,7 @@ How the rule is kept, so far:
 - **Fires diverge across rigs mid-burn, so fire outcomes don't yet keep the verification rule.** Measured at the
   largest fire actions allow (500 kW, 0.3 m radius) on the 3×3×2 m crate scene, recording crate integrity every 6 s:
   the 0.2 and 0.1 m spread first exceeds 0.1 at 114 s (0.743 / 0.630) and peaks at 0.259 (2026-11-22; the 0.19
-  recorded before was stale). Older three-rig figures: It narrows near turn 30 only because the curves cross, and from about turn 30 the fuel gap
+  recorded before was stale). Older three-rig figures, in 6 s turns: It narrows near turn 30 only because the curves cross, and from about turn 30 the fuel gap
   takes over (at 40 turns, integrity 0.02 / 0.26 / 0.34 and peaks of 620 / 1.4×10⁵ / 1.4×10⁵ °C). Smaller radii or
   more power diverge sooner: at a 0.2 m radius the onsets are 11 / 8 / 7, and at 1 MW integrity at turn 30 is
   0.00 / 0.26 / 0.34. `temperature_max` diverges too (540 / 614 / 978 °C at turn 27). **The cause is measured:**

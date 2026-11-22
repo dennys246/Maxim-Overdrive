@@ -17,7 +17,7 @@ import math
 from collections.abc import Sequence
 
 from simcore.core import damage, heat, topology
-from simcore.core.exposure import Exposure
+from simcore.core.exposure import Exposure, Source
 from simcore.core.fields import FIELDS, LAW_NAMES
 from simcore.core.grid import MaterialGrid, Point
 from simcore.core.law import STATELESS, Cadence, Changes, Law, LawInputs, LawState, Load, LoadEffect
@@ -89,17 +89,28 @@ class Physics:
         check_laws(laws)
         self._grid, self._laws = grid, tuple(laws)
         self._states: dict[str, LawState] = {law.name: law.new_state(grid) for law in self._laws}
-        self._bounds: dict[str, tuple[tuple[int, ...], float]] = {}  # per law: its bound_reads' versions, the bound
+        self._bounds: dict[
+            str, tuple[tuple[tuple[int, int], ...], float]
+        ] = {}  # per law: its bound_reads' versions, the bound
         self.work = Work()
 
     def group(self, cadence: Cadence) -> tuple[Law, ...]:
         return tuple(law for law in self._laws if law.cadence is cadence)
 
-    def forget(self) -> None:
-        """A window rolled back: every cache forgets, since the versions it was keyed on can be reached again."""
-        for state in self._states.values():
-            state.forget()
-        self._bounds.clear()
+    def start_tick(self) -> Work:
+        """A fresh tally for the tick about to run: the orchestrator and the simulation add to it (§10)."""
+        self.work = Work()
+        return self.work
+
+    def warm(self, sources: Sequence[Source]) -> None:
+        """Bring every cache to the state: each law's state holds what ``sources`` need at the grid's versions, and
+        each per-substep law's bound is known (sim_core.md §2, §7). Run at the end of each tick that opened a window,
+        where its builds count in the tick's work, and at rest after construction and after a rollback, where they
+        count in no tick: so a run, a retried tick and a replay from a loaded state count the same work."""
+        for law in self._laws:
+            with self._grid.reading(reads=law.reads):
+                self._states[law.name].warm(self._grid, sources)
+        self.bound(self.group(Cadence.PER_SUBSTEP))
 
     def resolve_loads(self, loads: Sequence[Load]) -> tuple[LoadEffect, ...]:
         """Resolve one record's loads, inside the window: the per-record laws in tuple order, each one's world edits
@@ -125,7 +136,8 @@ class Physics:
         cached = self._bounds.get(law.name)
         if cached is not None and cached[0] == key:
             return cached[1]
-        value = law.stable_dt(self._grid, self._states[law.name])
+        with self._grid.reading(reads=law.bound_reads):  # a bound that reads more would be served stale
+            value = law.stable_dt(self._grid, self._states[law.name])
         self._bounds[law.name] = (key, value)
         self.work.stable_dt_evaluations += 1
         return value
@@ -154,7 +166,8 @@ class Physics:
         return taken
 
     def _prepare(self, law: Law, exposure: Exposure) -> LawInputs:
-        prepared = law.prepare(self._grid, self._states[law.name], exposure)
+        with self._grid.reading(reads=law.reads):
+            prepared = law.prepare(self._grid, self._states[law.name], exposure)
         self.work.power_field_builds += prepared.power_w is not None
         return prepared
 

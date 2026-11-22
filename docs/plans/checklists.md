@@ -135,7 +135,7 @@ fails.
   - `prepare` reruns after a topology change: `test_a_cell_destroyed_mid_turn_gets_no_more_source_power` runs with
     `substep_refine` > 1, and fails with the rerun deleted;
   - the header records the law tuple in order, and a log recorded under the reversed tuple is refused;
-  - cadence groups run in §5's order: two strikes on one region in one tick give the second `REGION_GONE`, and
+  - cadence groups run in §5's order: two strikes on one region in one tick, the second destroying nothing, and
     `topology_version` rises once per strike record that changes the world, and not for one that breaks nothing
     (X-B1, N-B2, DA-S1, X-S2; sim_core.md §7);
   - `stable_dt` reads only its `bound_reads`: a planted law whose bound reads `temperature` misses the cache after
@@ -147,7 +147,8 @@ fails.
   - `Topology` is the only path to `material`, `original_material` and `region_id`; `imagine` and `set_material`
     produce requests;
   - a strike resolves as a `Load` in the apply phase, on its own tick: its crater is in that tick's frame, its effect
-    in that tick's `TickReport`, and a second strike on the destroyed region is refused `REGION_GONE`;
+    in that tick's `TickReport`, and a second strike on the destroyed region applies and destroys nothing, at every
+    grid (owner, 2026-11-22: `REGION_GONE` is authored geometry only);
   - `radiant_emitters` rows are keyed `(writer, …)` and summed in sorted key order;
   - every declared input kind names exactly one resolving law, held by a test over the registry (DA-B1);
   - `integrity`'s writers are `damage.loads`, `damage.thermal` and `Topology`, and a planted law outside damage is
@@ -241,9 +242,16 @@ fails.
     which nothing ties together, go with `advance`.
   - PR 4a: heat's `prepare` and `bound_reads`, which take the sources from `World._power_field` (its
     `TEMPORARY(phase1/sim-clock)` marker); bar 5 with them. This is the one statement of where they are deferred.
-  - PR 4a, before the per-tick digest (owner, 2026-11-22): the face-conductance and `stable_dt` caches per
-    `topology_version`, each with the rollback eviction the deposit has. Measured at PR 3, without them bar 7 holds at
-    0.1 m only by 0.88–0.96×, and the digest's 1.7 ms per writing tick would take it to about 1.1×.
+  - PR 4a, before the per-tick digest (owner, 2026-11-22): the face-conductance and `stable_dt` caches, keyed on
+    `field_version`s that count rollbacks and rebuilt at each windowed tick's end (`reviews/sim_tick/fold.md`).
+    Measured at PR 3, without them bar 7 held at 0.1 m only by 0.88–0.96×; with them, 0.32–0.35×.
+  - Incremental cache rebuilds, triggered by B5's turn-time budget (owner, 2026-11-22, `reviews/sim_tick/fold.md`
+    D-S2): every tick that changes `material` rebuilds heat's face conductances and bound over the whole grid, 2× on
+    a strike every tick at 0.1 m (363 against 183 ms per 20 ticks on the T3 tile). Keep the per-cell arrays and
+    recompute only around Topology's edits, bit for bit the full rebuild, with a test holding the two equal.
+  - PR 4b: a `place` refused inside its own window changes the next physics tick's work counters, because only
+    `Simulation.step`'s rollbacks rebuild the caches at rest (PR 4a delta, measured); it ends when `imagine` joins
+    the tick and `place` runs inside the step's window.
 ## Step 5b, bodies and movement (`tile_and_client.md` §2, §3, §4.1)
 
 - From step 3b part (b)'s review (Determinism N7): a spawn maps to a cell in integers (`at_mm * 1000 // dx_um`), with
@@ -293,6 +301,11 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 (`fire_solid.md` §1.1–§1.2). Still open, before step 8's exit scenario: the torch's Phase 1 pilot, how `kindle`
 ignites a slab with no flame object.
 
+- From step 5a PR 4a's review (Exec S2; owner, 2026-11-22, `reviews/sim_tick/fold.md`): a region destroyed by
+  strikes or burning is never "gone" today, because "no solid cell left" flips with the grid spacing (strike 29 at
+  0.2 m, 30 at 0.1 m on a 1.2 m wood cube). With the fuel and structure work, a destruction-based `REGION_GONE`
+  decided in metres (remaining solid volume against the authored footprint), gated with an outcome margin across
+  grids, and its refusal held by a cross-grid test.
 - A short design note first, reviewed under the Physics lens, answering the final review (`reviews/tile_v1/
   final_physics.md`): FPH-B1 radiative transfer between slats inside the bed, plus the draught's air-supply loss;
   FPH-B2 the char-surface product (CO or CO₂) from a cited source, never chosen to make glow pass; FPH-B3 ignition

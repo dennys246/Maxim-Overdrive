@@ -142,6 +142,7 @@ ALLOWED_SPAWNS = {
     ("tests/test_constructors.py", "test_a_set_echoes_in_the_same_order_under_every_hash_seed"): "given",  # Python
     ("tests/_imports.py", "external_imports"): "given",  # grimp's graph of a tree's src/, in its own interpreter
     ("tests/test_client_project.py", "_detected"): "given",  # ci/install_godot.sh --platform, PATH only
+    ("tests/test_readme.py", "test_the_readmes_python_example_runs_and_prints_a_reading"): "given",  # Python, tmp_path
 }
 SPAWN_MODULES = {
     "subprocess": {"run", "call", "check_call", "check_output", "Popen", "getoutput", "getstatusoutput"},

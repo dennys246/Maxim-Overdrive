@@ -10,7 +10,8 @@ from dataclasses import dataclass
 
 from simcore.core.damage.strike import loss as strike_loss
 from simcore.core.exposure import Exposure
-from simcore.core.grid import Field, Mask, MaterialGrid
+from simcore.core.geometry import Field, Mask
+from simcore.core.grid import MaterialGrid
 from simcore.core.law import STATELESS, Cadence, Changes, LawInputs, LawState, Load, LoadEffect
 from simcore.core.topology import Destroy, Request
 

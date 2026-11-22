@@ -20,7 +20,8 @@ from collections.abc import Sequence
 import numpy as np
 
 from simcore.core.exposure import Point, Share, Source
-from simcore.core.grid import Field, MaterialGrid
+from simcore.core.geometry import Field
+from simcore.core.grid import MaterialGrid
 from simcore.core.readonly import frozen
 
 Box = tuple[slice, slice, slice]
@@ -62,19 +63,16 @@ def sphere_overlap(grid: MaterialGrid, center_m: Point, radius_m: float, box: Bo
 class Deposit:
     """The sources' power per cell, with sim_core.md §7's caches: each source's overlap per ``(point_m, radius_m)``
     (the grid's spacing and shape are fixed), and its solid-weighted weights and their sum per ``(point_m, radius_m,
-    topology_version)``. Each call keeps only the entries the current sources need, and a window that rolls back
-    empties them through `forget` (it restores ``topology_version``, so a later edit could reach a version an entry
-    already names): the caches' contents are a function of state."""
+    material's version)``. The version is the grid's `field_version`, which no rolled-back window's key ever
+    matches again, so an entry is never served to a state it wasn't built from. ``keep`` holds exactly the entries
+    the given source values need at the current version: its owner's `warm` calls it so the cache's contents, and the
+    builds counted, are a function of state."""
 
     def __init__(self, grid: MaterialGrid) -> None:
         self._grid = grid
         self._overlaps: dict[tuple[Point, float], tuple[Box, Field]] = {}
-        self._weights: dict[tuple[Point, float, int], Weights] = {}
+        self._weights: dict[tuple[Point, float, tuple[int, int]], Weights] = {}
         self.rebuilds = 0  # overlaps and weights built, a work counter (sim_core.md §10)
-
-    def forget(self) -> None:
-        """Drop every entry: the owner's rollback listener calls this (heat's state, sim_core.md §7)."""
-        self._overlaps, self._weights = {}, {}
 
     def power(self, shares: Sequence[Share], of_ticks: int) -> Field | None:
         """The step's mean power per cell in watts: each share's power times the fraction ``ticks / of_ticks`` of the
@@ -82,25 +80,31 @@ class Deposit:
         counted in integers; the fraction is the energy rule's one float, so a share of 2 in 5 holds only to rounding
         (PR 3 review, Performance N2). Accumulated in the order given, which the caller sorts by key and then tick;
         None when there are no shares."""
+        self.keep(tuple(share.source for share in shares))
         if not shares:
-            self.forget()
             return None
         power = np.zeros(self._grid.shape, dtype=np.float64)
-        overlaps: dict[tuple[Point, float], tuple[Box, Field]] = {}
-        weights: dict[tuple[Point, float, int], Weights] = {}
-        version = self._grid.topology_version
+        version = self._grid.field_version("material")
         for share in shares:
             src, ticks = share.source, share.ticks
+            box, w, total = self._weights[(src.point_m, src.radius_m, version)]
+            # This order of operations, so the field is the reference's bits: a share that stood the whole step has
+            # the fraction 1.0 exactly, and multiplying by it changes no bit.
+            power[box] += src.power_w * (ticks / of_ticks) * w / total
+        return power
+
+    def keep(self, sources: Sequence[Source]) -> None:
+        """Hold exactly the entries ``sources`` need at the current topology version: build the missing ones, drop
+        the rest. The cache's contents are then a function of the source values and the version alone (§7)."""
+        overlaps: dict[tuple[Point, float], tuple[Box, Field]] = {}
+        weights: dict[tuple[Point, float, tuple[int, int]], Weights] = {}
+        version = self._grid.field_version("material")
+        for src in sources:
             shape = (src.point_m, src.radius_m)
             overlaps[shape] = overlaps.get(shape) or self._overlaps.get(shape) or self._overlap(src)
             wkey = (src.point_m, src.radius_m, version)
             weights[wkey] = weights.get(wkey) or self._weights.get(wkey) or self._normalised(src, overlaps[shape])
-            box, w, total = weights[wkey]
-            # This order of operations, so the field is the reference's bits: a share that stood the whole step has
-            # the fraction 1.0 exactly, and multiplying by it changes no bit.
-            power[box] += src.power_w * (ticks / of_ticks) * w / total
         self._overlaps, self._weights = overlaps, weights
-        return power
 
     def _overlap(self, src: Source) -> tuple[Box, Field]:
         self.rebuilds += 1

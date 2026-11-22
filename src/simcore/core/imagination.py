@@ -157,7 +157,8 @@ def _voxelize(grid: MaterialGrid, name: str, placed: list[Primitive], footprint:
 
     # TEMPORARY(phase1/sim-clock): place opens the write window itself because the imagine intent kind doesn't exist
     # yet (boundaries §5.3, §6.4); step 5a's intent log (its PR 4b) is where every input joins one pipeline, and there
-    # place becomes the applier's stage 2 of an imagine intent, inside Simulation.step's window.
+    # place becomes the applier's stage 2 of an imagine intent, inside Simulation.step's window. Until then it
+    # publishes no frame (only Simulation.step publishes): the next tick's frame shows the object.
     with grid.writing(writer=None):  # Topology applies the batch, holding its own token
         topology.apply(grid, requests())
 

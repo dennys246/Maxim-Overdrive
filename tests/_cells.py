@@ -12,7 +12,8 @@ from dataclasses import dataclass
 from simcore.core import heat, physics, topology
 from simcore.core.exposure import Exposure
 from simcore.core.fields import FIELDS
-from simcore.core.grid import Footprint, Mask, MaterialGrid
+from simcore.core.geometry import Mask
+from simcore.core.grid import Footprint, MaterialGrid
 from simcore.core.law import STATELESS, Cadence, Changes, LawInputs, LawState
 
 NO_SOURCES = Exposure((), 1)

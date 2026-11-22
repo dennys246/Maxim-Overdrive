@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any
+from typing import Any, ClassVar
 
 from simcore.core.checks import finite_real, finite_vector, identity_key, shown, whole_number
 from simcore.core.limits import ActionLimits
@@ -46,6 +46,7 @@ def _typed(action: object, values: Mapping[str, object]) -> None:
 
 @dataclass(frozen=True)
 class Strike:
+    edits_cells: ClassVar[bool] = True  # a strike's load resolves in its record's tick: the tick's window copies cells
     energy_j: float
     sigma_m: float
     point_m: tuple[float, float, float] | None  # None: the region's centroid, found when the action applies
@@ -67,6 +68,7 @@ class Strike:
 
 @dataclass(frozen=True)
 class Ignite:
+    edits_cells: ClassVar[bool] = False  # a fire changes no cell until the next physics step
     power_w: float
     radius_m: float
 
@@ -80,6 +82,8 @@ class Ignite:
 
 @dataclass(frozen=True)
 class Extinguish:
+    edits_cells: ClassVar[bool] = False
+
     def check(self, limits: ActionLimits) -> None:
         pass
 

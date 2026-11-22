@@ -141,8 +141,8 @@ name = "adapters and protocol reach no cells, laws, geometry or scene build (bou
 type = "forbidden"
 source_modules = ["simcore.adapters", "simcore.protocol"]
 forbidden_modules = [
-    "simcore.core.damage", "simcore.core.deposit", "simcore.core.exposure", "simcore.core.grid",
-    "simcore.core.heat",
+    "simcore.core.damage", "simcore.core.deposit", "simcore.core.exposure", "simcore.core.geometry",
+    "simcore.core.grid", "simcore.core.heat",
     "simcore.core.imagination", "simcore.core.law",
     "simcore.core.physics", "simcore.core.readonly", "simcore.core.reductions", "simcore.core.scene",
     "simcore.core.stepping", "simcore.core.topology", "simcore.core.window", "simcore.core.writers",
@@ -155,12 +155,12 @@ allow_indirect_imports = true
 # counters. tests/test_tooling_config.py holds the list to every core module outside its surface.
 [[tool.importlinter.contracts]]
 id = "membrane-reads-frames"
-name = "the SEM membrane reads frames and writes through the applier only (boundaries §4.4, B-13)"
+name = "the SEM membrane reads frames and writes through its port only (boundaries §4.4, B-13; sim_core §13)"
 type = "forbidden"
 source_modules = ["simcore.adapters.sem"]
 forbidden_modules = [
     "simcore.core.damage", "simcore.core.deposit", "simcore.core.digest", "simcore.core.exposure",
-    "simcore.core.grid", "simcore.core.heat",
+    "simcore.core.geometry", "simcore.core.grid", "simcore.core.heat",
     "simcore.core.imagination", "simcore.core.law", "simcore.core.materials", "simcore.core.physics",
     "simcore.core.readonly", "simcore.core.reductions", "simcore.core.scene", "simcore.core.schema",
     "simcore.core.simulation",

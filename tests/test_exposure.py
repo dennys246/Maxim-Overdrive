@@ -12,7 +12,6 @@ import pytest
 from simcore.core import heat
 from simcore.core.exposure import Share, SourceExposure
 from simcore.core.intents import Extinguish, Ignite, LogRecord
-from simcore.core.physics import Physics
 from simcore.core.scene import Box, Scene
 from simcore.core.simulation import T3, Simulation
 from simcore.core.world import HeatSource, World
@@ -36,11 +35,9 @@ def _douse(tick: int, seq: int) -> LogRecord:
 
 def _run(schedule: dict[int, list[LogRecord]], ticks: int, world: World | None = None) -> tuple[Simulation, float]:
     """Run ``ticks`` ticks of ``schedule``; returns the simulation and the heat its world gained, in joules. A given
-    ``world`` (construction's sources) is wrapped through Simulation's private constructor, as from_scene does."""
-    if world is None:
-        sim = make(SLAB, MATERIALS, dx_m=0.2, limits=LIMITS)
-    else:
-        sim = Simulation(world, Physics(world.grid), config=T3)
+    ``world`` (construction's sources) is wrapped through Simulation's constructor for a built world, as from_scene
+    does."""
+    sim = make(SLAB, MATERIALS, dx_m=0.2, limits=LIMITS) if world is None else Simulation(world, config=T3)
     before = heat.heat_energy_j(world_of(sim).grid, 20.0)
     while sim.tick <= ticks:
         sim.step(schedule.get(sim.tick, []))

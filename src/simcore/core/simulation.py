@@ -11,16 +11,14 @@ the law tuple, and replay (PR 4b, §9, §14); `imagine` as an intent kind (PR 4b
 
 from __future__ import annotations
 
-import math
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 from simcore.core.applier import Applier, Outcome
 from simcore.core.checks import whole_number
 from simcore.core.exposure import SourceExposure
-from simcore.core.fields import FIELDS
 from simcore.core.frames import CellFrame, Frame, FrameFeed, FrameView
-from simcore.core.intents import LogRecord, Strike
+from simcore.core.intents import LogRecord
 from simcore.core.law import Law
 from simcore.core.limits import ActionLimits
 from simcore.core.materials import MaterialTable
@@ -29,8 +27,6 @@ from simcore.core.refusals import RefusalCode, Refused
 from simcore.core.scene import Scene
 from simcore.core.work import Work, WorkCounters
 from simcore.core.world import World
-
-_CELL_FIELDS = sum(f.container == "cells" for f in FIELDS)  # what a cell window copies per cell
 
 
 def _positive(value: object, what: str) -> int:
@@ -95,15 +91,17 @@ class Clock:
 class Simulation:
     """The world's one owner of time and of its write window. `step` runs exactly one tick (sim_core.md §4)."""
 
-    def __init__(self, world: World, physics: Physics, *, config: SimConfig) -> None:
-        # Private: `from_scene` is the one constructor (§2). The parts are built there, at rest.
-        self._world, self._physics, self._config = world, physics, config
+    def __init__(self, world: World, *, config: SimConfig, laws: Sequence[Law] = DEFAULT_LAWS) -> None:
+        """A simulation of an already constructed ``world`` at tick 0: what `from_scene` builds, and what the save's
+        loader will (PR 4b). Its orchestrator is built here over the world's own grid, so the two can't disagree."""
+        self._world, self._config = world, config
+        self._physics = physics = Physics(world.grid, laws)
         self._applier = Applier(world)
         self._clock = Clock()
         self._exposure = SourceExposure(world.sources, tick=self._clock.tick)  # construction's stand from tick 1
         self._feed = FrameFeed(Frame(CellFrame.of(world.grid, 0, tick=0, time_us=0)))
         self._frames = FrameView(self._feed)
-        world.grid.on_roll_back(physics.forget)  # a rolled-back tick leaves no cache a later state could reuse
+        physics.warm(self._exposure.values())  # every cache built eagerly, at rest (§2): counted in no tick
 
     @classmethod
     def from_scene(
@@ -118,9 +116,8 @@ class Simulation:
     ) -> Simulation:
         """The scene voxelized at ``dx_m``, published as frame 0. Tick 0 is construction: it runs no physics.
         ``laws`` is the law tuple (§5), the default in shipped play; the splitting bar runs it reversed (§11 bar 3).
-        Every law's caches are built here, eagerly (§2)."""
-        grid = scene.build(materials, dx_m=dx_m)
-        return cls(World(grid, limits=limits), Physics(grid, laws), config=config)
+        Every law's caches are built here, eagerly, at rest (§2)."""
+        return cls(World(scene.build(materials, dx_m=dx_m), limits=limits), config=config, laws=laws)
 
     @property
     def tick(self) -> int:
@@ -146,20 +143,29 @@ class Simulation:
 
         The batch is read once and checked whole before any of it applies, so a bad batch raises ``ValueError`` and
         changes nothing, and a one-shot iterable loses no record. A tick that raises later changes nothing either: the
-        window rolls back, and the clock, the exposure and the frames move only after it commits."""
+        window rolls back, its caches are rebuilt at rest for the state it left, and the clock, the exposure and the
+        frames move only after it commits. The clock moves before the frame is published, so a publication that
+        raised could never let a retry apply the tick's records twice."""
         tick, batch = self._clock.tick, tuple(records)
         self._check_batch(tick, batch)
         physics = tick % self._config.physics_every == 0
-        self._physics.work = work = Work()
+        work = self._physics.start_tick()
         before = self._physics.builds()
+        outcomes: tuple[Outcome, ...] = ()
+        substeps = 0
         if batch or physics:
-            outcomes, substeps = self._run(tick, batch, physics=physics, work=work)
-            self._publish(tick, work)
-        else:  # a quiet tick: no window, no frame (tile_and_client.md §4)
-            outcomes, substeps = (), 0
+            try:
+                outcomes, substeps = self._run(tick, batch, physics=physics, work=work)
+            except BaseException:
+                # The window rolled back, restoring versions a different later edit could reach again: bring every
+                # cache back to the restored state at rest, dropping what the failed tick built (§7, PR 3's S1).
+                self._physics.warm(self._exposure.values())
+                raise
         after = self._physics.builds()
         work.rebuilds.update({name: n - before.get(name, 0) for name, n in after.items()})
         self._clock.advance()
+        if batch or physics:  # a quiet tick: no window, no frame (tile_and_client.md §4)
+            self._publish(tick, work)
         return TickReport(tick, outcomes, physics, substeps, work.reading())
 
     def _run(
@@ -167,12 +173,10 @@ class Simulation:
     ) -> tuple[tuple[Outcome, ...], int]:
         """The tick's window: the apply phase, the tick's exposure, then the physics step on a physics tick. A strike
         or physics needs the cells; a tick of fires and douses alone holds the window without copying a cell."""
-        exposure, substeps = self._exposure.copy(), 0
-        cells = physics or any(isinstance(r.params, Strike) for r in batch)
+        exposure, substeps, copied = self._exposure.copy(), 0, self._world.grid.cells_copied
+        cells = physics or any(r.params.edits_cells for r in batch)
         with self._world.writing(cells=cells) as sources:
-            if cells:
-                work.windows_opened += 1
-                work.cells_copied += math.prod(self._world.grid.shape) * _CELL_FIELDS
+            work.windows_opened += cells
             resolve = self._physics.resolve_loads
             outcomes = tuple(self._applier.apply(r.target, r.params, sources=sources, resolve=resolve) for r in batch)
             exposure.end_tick(tick, sources)
@@ -180,7 +184,9 @@ class Simulation:
                 substeps = self._physics.run(
                     self._config.physics_seconds, refine=self._config.substep_refine, exposure=exposure.step(tick)
                 )
+            self._physics.warm(exposure.values())  # the caches follow the state the tick ends in (§7)
         self._exposure = exposure  # only once the window committed
+        work.cells_copied += self._world.grid.cells_copied - copied  # open, views, revocations and commit
         return outcomes, substeps
 
     def _publish(self, tick: int, work: Work) -> None:

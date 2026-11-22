@@ -15,13 +15,15 @@ Convection and radiation are not modelled yet: air here only conducts, which und
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
 
 from simcore.core.deposit import Deposit
-from simcore.core.exposure import Exposure
-from simcore.core.grid import Field, MaterialGrid
+from simcore.core.exposure import Exposure, Source
+from simcore.core.geometry import Field
+from simcore.core.grid import MaterialGrid
 from simcore.core.law import Cadence, Changes, LawInputs, LawState
 from simcore.core.readonly import frozen
 
@@ -86,11 +88,11 @@ def substep(grid: MaterialGrid, dt: float, power_w: Field | None = None, faces: 
 
 class HeatState:
     """Heat's caches for one grid (sim_core.md §7): the sources' deposit, and the face conductances per version of
-    ``material``, the only field they read. Built at construction; a rolled-back window empties both."""
+    ``material``, the only field they read. `warm` builds both for the state (sim_core.md §7)."""
 
     def __init__(self, grid: MaterialGrid) -> None:
         self.deposit = Deposit(grid)
-        self._faces: tuple[int, Faces] | None = None
+        self._faces: tuple[tuple[int, int], Faces] | None = None
         self._face_builds = 0
 
     def faces(self, grid: MaterialGrid) -> Faces:
@@ -100,12 +102,12 @@ class HeatState:
             self._face_builds += 1
         return self._faces[1]
 
-    def forget(self) -> None:
-        self.deposit.forget()
-        self._faces = None
-
     def builds(self) -> dict[str, int]:
         return {"deposit": self.deposit.rebuilds, "face_conductances": self._face_builds}
+
+    def warm(self, grid: MaterialGrid, sources: Sequence[Source]) -> None:
+        self.deposit.keep(sources)
+        self.faces(grid)
 
 
 @dataclass(frozen=True)

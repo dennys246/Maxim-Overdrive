@@ -1,0 +1,106 @@
+# Step 5a PR 4a (`phase1/sim-replay`): round 1 fold
+
+Round 1 ran three readers, eight lenses, on 336eee8 against bfb12f8: `round1_exec_phys_perf.md` (Executor, Physics
+and resolution, Performance), `round1_arch_wire_trust.md` (Architecture, Wire integrity, Trust boundary) and
+`round1_det_bio.md` (Determinism and replay, Bio-faithful integration), each copied verbatim. 0 BLOCKER,
+11 SHOULD-FIX (the eager caches reported twice), 18 NIT. This table is the author's account. **Every status is "open
+(for the reviewer)"** until a reviewer reads it from the tree (O25). Items marked **for the owner** change a contract
+or need a design call, and the owner rules on each.
+
+**Correction first.** 336eee8's message says "the interim Simulation(world) seam is gone" (false: the constructor
+for a built world stayed public and checked nothing, Arch S5) and "Lesson 34" (it is 35 after the merge with main).
+`from_scene`'s docstring and `work.py` said the caches were built eagerly (false: they were lazy, Det SF-1, Arch S3).
+
+## How the main fix works (Det SF-1, Arch S2, S3, Exec S1)
+
+- **Cache contents follow the state.** Each law's state has `warm(grid, sources)`, and `Physics.warm` runs it for
+  every law and evaluates every per-substep bound. `Simulation` calls it at construction and after a rolled-back
+  tick, at rest, counted in no tick, and at the end of every tick that opened a window, counted in that tick. The
+  deposit's `keep` holds exactly the entries the live and closed source values need. A retried tick then counts what
+  an uninterrupted run counts, and PR 4b's replay from a loaded state can too.
+- **Eviction is the type's.** `CellStore.field_version` is now `(rollbacks, count)`: a rollback restores the count
+  but never the rollbacks, so no key a rolled-back window reached is reached again, whoever owns the cache. That made
+  the rollback listener and `forget` redundant (deleting them changed no result), so both are gone rather than kept
+  as a mechanism no test could fail. Every cache (the faces, the bounds, the deposit's weights) keys on these
+  versions.
+- **Proofs.** Deleting the rollback count turns three tests red (the version test, a bare orchestrator over a rolled
+  back grid, the deposit's PR 3 S1 test); deleting each `warm` call (construction, a tick's end, after a rollback)
+  turns the counter or retry tests red.
+
+## Rows
+
+| # | Finding | Fold | Status |
+|---|---|---|---|
+| Det SF-1, Arch S3 | caches lazy, counters depend on history | as above; `test_a_retried_tick_counts_the_same_work_as_one_that_never_failed`; the counter test's values now show construction's builds in no tick | open (for the reviewer) |
+| Arch S2, Exec S1 | rollback eviction at one call site; heat's eviction untested | as above; `test_a_bare_orchestrator_on_a_rolled_back_grid_serves_no_stale_cache`, `test_no_version_a_rolled_back_window_reached_is_reached_again` | open (for the reviewer) |
+| Arch S1 | `bound_reads` and `prepare`'s reads not enforced | `CellStore.reading(reads=...)` narrows a writer-less reader in a window or at rest; the bound, `prepare` and `warm` run narrowed; `test_a_bound_or_a_prepare_reading_an_undeclared_field_raises`, red when either runs unnarrowed | open (for the reviewer) |
+| Exec S3 | `cells_copied` undercounts 2.75× | the grid counts every field copy where it is made (`CellStore.cells_copied`): open, views, revocations, commit. A 0.2 m physics tick is 11 fields' worth; red when the revocation isn't counted | open (for the reviewer) |
+| Exec S2 | `REGION_GONE` flips with grid spacing | owner ruled (a), below: reverted to main's rule, §5.1 amended, the destruction-based rule a Step 6 checklist row; `test_a_strike_on_a_region_destroyed_earlier_in_the_tick_applies_and_destroys_nothing` at 0.2 and 0.1 m | fixed (author's, after the owner's ruling) |
+| Det SF-2 | lesson 34 wrong for slow effects; Maxim ask misfiled | lesson 35 rewritten on the measured misattribution, with `tool_bridge.py:584` and `:885` read at 1.3.3; pointed at lesson 6 and OD-A16, whose roadmap row now cites it | open (for the reviewer) |
+| Arch S4 | README quick start and the slice spike run on the retired API | README rewritten and run by `tests/test_readme.py` (its own interpreter, an `ALLOWED_SPAWNS` row); the spike stays pinned to `bfb12f8` in its README (owner, 2026-11-22) | open (for the reviewer) |
+| Arch S5 | the constructor for a built world checks nothing | `Simulation(world, *, config, laws)` builds its orchestrator over `world.grid`, so two grids can't meet | open (for the reviewer) |
+| Arch S6 | sim_core §2 puts `source_exposure` in `World` | §2 amended: `Simulation` holds it; owner accepted, 2026-11-22 | fixed (author's, after the owner's ruling) |
+| Det N-1 | construction's writes don't move a version | fields handed writable in an un-narrowed window bump at commit; test red without it | open (for the reviewer) |
+| Det N-2, Exec N4, Arch NIT | §7 keys on `topology_version`, the code on material's version | §7 amended: keys are `field_version`s, which count rollbacks; owner accepted, 2026-11-22 | fixed (author's, after the owner's ruling) |
+| Det N-3 | lesson 23 cites a renamed test | fixed | open (for the reviewer) |
+| Det N-4 | "one tick per call" is wrong for stage-1 refusals | the marker, `SteppingPort` and lesson 35 say "per call that reaches stage 2" | open (for the reviewer) |
+| Det N-5 | commit before publication and the clock | the clock moves before the frame is published, so a publication that raised can't make a retry apply records twice | open (for the reviewer) |
+| Arch NIT | stale names | the membrane contract says "its port"; boundaries §6.2 names the deposit; `on_close` was deleted in c721850 | open (for the reviewer) |
+| Arch NIT | `_run` tests `Strike` itself | each action declares `edits_cells`; red when a strike's is false | open (for the reviewer) |
+| Arch NIT | `Simulation.step` replaces `Physics.work` | `Physics.start_tick()` hands out the tally | open (for the reviewer) |
+| Arch NIT | roadmap's membrane line, §13's "a callable" | the roadmap line is current; §13's "a callable its test or host owns" is a Protocol with one call, left as worded | open (for the reviewer) |
+| Arch NIT | the fierce-fire gap mixes units | its old figures are labelled "in 6 s turns" | open (for the reviewer) |
+| Arch NIT | `place` no longer publishes a frame | stated in its marker: the next tick's frame shows the object | open (for the reviewer) |
+| Arch NIT | `Simulation.step` has no gate row | not folded: `LogRecord`'s rows and `test_simulation.py`'s batch tests hold the records it takes; predates PR 4a | open (for the reviewer) |
+| Arch NIT | `field_version`'s docstring overclaims | it now says a key may move when values didn't | open (for the reviewer) |
+| Exec N1 | the 0.2 m bar 7 figure is noise | recorded as a range: 0.72–0.98× at 0.2 m (the reviewer's runs and mine); 0.32–0.35× at 0.1 m, the gated grid | open (for the reviewer) |
+| Exec N2 | `rho_cp` recomputed every substep | deferred to B5's profile pass (a cache beside the faces), not folded here | open (for the reviewer) |
+| Exec N3 | the douse exemption isn't in §5.1 | moot: the revert removed the exemption with the rule that needed it | open (for the reviewer) |
+| Arch NIT | fire_solid's `_check_region` row | true again after the revert ("not cells.any()") | open (for the reviewer) |
+
+## What "gone" means (Exec S2; owner, 2026-11-22: option (a))
+
+On main, `REGION_GONE` came only from a later paint emptying a region: authored, so it can't depend on the grid.
+336eee8 made it "no solid cell left", to meet sim_core §5.1 ("REGION_GONE still refuses a second strike on a
+destroyed region"). The reviewer measured that this flips with spacing: a 1.2 m wood cube struck repeatedly at 2e7 J
+is first refused at strike 29 at 0.2 m but strike 30 at 0.1 and 0.05 m. Options:
+
+- **(a) Revert to main's rule, and amend §5.1** (recommended for this PR; **the owner's ruling**): gone only when authored geometry empties
+  the region. A strike on a destroyed region succeeds with zero effect, as on main, and no outcome depends on the
+  grid. The douse exemption is then not needed. Destruction-based "gone" returns with a margin-gated rule in the
+  fuel and structure work, as a checklist row.
+- **(b) Keep the cell rule, and record it as a Known gap with a strict red gate** on the measured flip, fixed in a
+  named later step.
+- **(c) Define gone in metres now** (say, solid volume below a fraction of the authored footprint, gated with a
+  margin band), which is new design for this PR.
+
+## Delta 1 (`delta1.md`): 0 BLOCKER, 3 SHOULD-FIX, 6 NIT; round 1 read from the tree as 22 fixed, 5 open, 1 deferred, 1 rejected
+
+**Correction first.** The fold and its message claimed that deleting the rebuild after a raised tick turns a test red.
+It didn't: that proof was run before `forget` was removed, and not rerun after. Delta 1's D-S1 caught it.
+
+| # | Finding | Fold | Status |
+|---|---|---|---|
+| D-S1 | the rebuild after a raised tick has no test | the retry test also retries a quiet physics tick, the case that needs it; deleting the rebuild turns it red | open (for the reviewer) |
+| D-S2 | the end-of-tick rebuild costs 2.1× on a strike every tick | reproduced at 0.1 m on the T3 tile: 20 face builds and 363 ms per 20 ticks against 4 and 183 ms on 336eee8; bar 7's burn is unchanged. Owner ruled (2): accepted and tracked as a Step 5a checklist row, triggered by B5's turn-time budget | deferred (author's, after the owner's ruling; trigger B5's budget) |
+| D-S3 | `tests/_imports.py` over 120 columns | rewrapped; ruff clean | open (for the reviewer) |
+| D-N | `Physics.warm`'s narrowing untested | `test_a_law_state_warming_up_reads_only_what_its_law_declares`, red when warm runs unnarrowed | open (for the reviewer) |
+| D-N | Det N-5's order untested | `test_a_publication_that_raises_leaves_the_tick_counted_so_no_retry_applies_it_twice`, red when the clock moves after publication | open (for the reviewer) |
+| D-N | a refused `place` changes the next tick's counters | a PR 4b checklist row: it ends when `place` runs inside the step's window | open (for the reviewer) |
+| D-N | stale text | the checklist's cache row, `scene.py`'s `geometry.MAX_LENGTH_M`, the retry test's comment, CLAUDE.md's layout (`geometry.py`), §7's credit (the new rule proposed, the rollback rule the owner's), §7's measured bar 7 range | open (for the reviewer) |
+| D-N | `test_readme.py` takes 5.7 s | marked slow behind the tier variable | open (for the reviewer) |
+| D-N | lesson 35 omits that the credit needs a cerebellum | it says so (line 860) | open (for the reviewer) |
+| Arch N4 (open) | the fold's reason for §13's "a callable" is wrong: `Port` has `limits` too | §13 now says "an object its test or host owns"; owner accepted, 2026-11-22 | fixed (author's, after the owner's ruling) |
+
+### The end-of-tick rebuild's cost (D-S2; owner, 2026-11-22: option (2))
+
+Every cache is rebuilt for the state at each windowed tick's end, so the counters are a function of state (Det SF-1).
+A strike changes `material`, so heat's face conductances and its bound are rebuilt over the whole grid on every
+strike tick, not once per physics step. Options:
+- **(1) Make both rebuilds incremental:** keep the per-cell conductivity and stability arrays, and recompute only the
+  faces and cells around what Topology changed. Each face depends on its two cells, so the result is bit-identical;
+  the cost follows the edit, not the grid. Real work in this PR, and its own tests.
+- **(2) Accept the cost now and track it:** record the measured 2× on strike-dense ticks, with (1) as a checklist row
+  triggered by B5's turn-time budget. No budget exists yet to say 363 ms per 20 ticks at 0.1 m is too slow.
+- **(3) Rebuild lazily again** and amend §10 so counters match only on replays that start at a physics tick. This
+  gives up what Det SF-1 asked for.

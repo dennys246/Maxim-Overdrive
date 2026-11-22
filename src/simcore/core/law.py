@@ -2,8 +2,9 @@
 `step`. Not a law itself: the laws (`heat`, `damage`) import this, and no law imports another (§5.1, held by the
 `laws-independent` import contract), so what two laws share lives here.
 
-A law's state is its caches (sim_core.md §7): built once at construction, at rest (`new_state`), handed to its
-`prepare`, `stable_dt` and `step`, and told to forget when a window rolls back. A law holds no state of its own, so one
+A law's state is its caches (sim_core.md §7): made at construction (`new_state`), handed to its `prepare`,
+`stable_dt` and `step`, and brought to the state by `warm` at each tick's end and at rest after construction or a
+rolled-back tick. A law holds no state of its own, so one
 law object serves every simulation.
 
 A law writes only as itself, and never narrows itself: the orchestrator runs `step` narrowed to the law's token
@@ -14,14 +15,15 @@ step ends. World edits are requests in `Changes`, which Topology applies per bat
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
 from simcore.core.checks import finite_real, finite_vector
-from simcore.core.exposure import Exposure
-from simcore.core.grid import Field, MaterialGrid, Point
+from simcore.core.exposure import Exposure, Source
+from simcore.core.geometry import Field
+from simcore.core.grid import MaterialGrid, Point
 from simcore.core.topology import Request
 
 
@@ -85,23 +87,25 @@ class Changes:
 class LawState(Protocol):
     """A law's caches for one simulation (sim_core.md §7): each a function of the state it was built from."""
 
-    def forget(self) -> None:
-        """Drop everything: a window rolled back, restoring versions a different later edit could reach again."""
-        ...
-
     def builds(self) -> Mapping[str, int]:
         """How many times each cache has been built, by cache name: a work counter (sim_core.md §10)."""
+        ...
+
+    def warm(self, grid: MaterialGrid, sources: Sequence[Source]) -> None:
+        """Hold exactly what the state needs: the entries for ``sources`` (every value the step can still deposit)
+        at the grid's current versions (§7). Run at a tick's end and at rest after construction or a rollback, so a
+        cache's contents, and the builds a tick counts, are a function of state."""
         ...
 
 
 class Stateless:
     """The state of a law that caches nothing."""
 
-    def forget(self) -> None:
-        return None
-
     def builds(self) -> Mapping[str, int]:
         return {}
+
+    def warm(self, grid: MaterialGrid, sources: Sequence[Source]) -> None:
+        return None
 
 
 STATELESS = Stateless()

@@ -59,7 +59,7 @@ the measured checks, advisory.
   append-only refusal codes every refusal carries), `schema.py` (one declarative schema per data format, the one
   reader that applies it, versions and migrations), `digest.py` (`sha256/c14n-1:` digests), `fields.py` (the field
   registry: each field's declared writers, each input's one resolver; its artifact is `docs/generated/fields.md`),
-  `materials.py` (the material table's types), `readonly.py` (arrays nothing can make writable), `limits.py`
+  `geometry.py` (where cells are: spacing, shape, the micrometre rule), `materials.py` (the material table's types), `readonly.py` (arrays nothing can make writable), `limits.py`
   (`ActionLimits`), `writers.py` (writers as tokens their owners claim, and the gate: who may read and write inside
   the window), `window.py` (the window's lifecycle: one owner, commit or roll back), `grid.py` (cells: read-only at
   rest, written only inside `writing()`), `topology.py` (the one owner of world edits: paint, name and destroy
