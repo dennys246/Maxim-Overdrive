@@ -7,6 +7,10 @@ NIT. This table is the author's account. **Every status is "open (for the review
 the tree (O25). Items marked **proposed, for the owner** change a contract's wording or defer work, and the owner
 rules on each.
 
+**Owner's ruling (2026-11-22; status set by the author, after the owner decided):** all three are accepted as
+recommended: §7's rollback eviction (S1), §8's refined replan trigger (N3), and the conductance and `stable_dt`
+caches in PR 4, no later than the per-tick digest (DP S2).
+
 ## How the rollback fix works (S1)
 
 - **The defect.** `Deposit` keyed its solid weights on `(point_m, radius_m, topology_version)`. A window that rolls

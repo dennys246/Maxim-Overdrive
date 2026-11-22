@@ -43,7 +43,7 @@ short list of named steps (§3).
   `grid.time_s` go.
 - **Where the new types live** (`boundaries.md` §2.2's layers): `FieldSpec`, `Topology` and its request type with
   the cells, since laws (a layer above) emit requests; `Load` and `Changes` (with load effects) with
-  the laws (proposed, `reviews/sim_laws/fold.md`); `Clock`, `SimConfig`, `TickReport` and `WorkCounters` with the
+  the laws (owner, 2026-11-22, `reviews/sim_laws/fold.md`); `Clock`, `SimConfig`, `TickReport` and `WorkCounters` with the
   simulation.
 
 ## 3. The clock and the tick
@@ -101,7 +101,7 @@ Simulation.frames -> FrameView                                   # the latest pu
   - later, `prepare(views)` and a kernel: arrays and scalars in, preallocated outputs, every order-sensitive
     reduction in `prepare`. That is the numba seam; numba waits for a profile, and until then `step` gets the grid.
   - `step(grid, dt_s, inputs) -> Changes`, run narrowed to the law's writer token: a read outside `reads` or a
-    write outside `writes` raises, and its writable arrays are revoked on return (proposed,
+    write outside `writes` raises, and its writable arrays are revoked on return (owner, 2026-11-22,
     `reviews/sim_laws/fold.md`). A ledger handle joins when the ledger lands (§2).
 - **`Changes`** holds the topology requests the law made (§5.1) and, per load, the effect it resolved.
 - **Cadence** is one of:
@@ -142,7 +142,7 @@ Simulation.frames -> FrameView                                   # the latest pu
   owns). A batch is one requester's one invocation: one record's apply (its stage 2 and its loads), one law's one
   substep, or construction. `Topology` applies a batch's requests in key order (an unkeyed request's key is its
   emission index: where paints overlap, the later wins) and bumps `topology_version` once per
-  batch that changed a cell's value or the region table (proposed, `reviews/sim_laws/fold.md`). It is `world_v2.md` §2.2's choke point.
+  batch that changed a cell's value or the region table (owner, 2026-11-22, `reviews/sim_laws/fold.md`). It is `world_v2.md` §2.2's choke point.
 - **Laws couple only through fields.** No law imports or calls another, held by an import contract; an operator two
   laws share lives in a module that is not a law. Contact's exchange with the solid is the declared field
   `contact_exchange`: per coupling row, written by contact each tick it runs, read and reset by the solid law at its
@@ -187,7 +187,7 @@ Simulation.frames -> FrameView                                   # the latest pu
   - region reductions, per `topology_version` and the write tick of each field they read.
 - **A cache holds only what the current state needs:** entries for the current sources at the current
   `topology_version`. Replacing, removing or bumping evicts, and so does a window's rollback, which restores the
-  version a later edit can reach again (proposed, for the owner, `reviews/sim_step/fold.md` S1). So a cache's
+  version a later edit can reach again (owner, 2026-11-22, `reviews/sim_step/fold.md` S1). So a cache's
   contents are a function of state, and the eager build reproduces them on load.
 - **The overlap is computed over the source's bounding box, padded by one cell.** That is bit-identical to the
   whole-grid computation while `sphere_overlap`'s values are multiples of 1/64, which its 4³ sub-sample guarantees:
@@ -205,7 +205,7 @@ Simulation.frames -> FrameView                                   # the latest pu
   `n = substep_refine · max(1, ceil(P_s / min over laws of stable_dt))`, `dt = P_s / n`. `substep_refine` is hashed
   config, 1 in shipped play; tests raise it to refine time on the shipped path (§11).
 - **Replan when a change tightens the bound** below `substep_refine · dt` (owner, 2026-11-21; the refined trigger
-  proposed, for the owner, `reviews/sim_step/fold.md` N3): the rest is split evenly by the same rule. What remains
+  owner, 2026-11-22, `reviews/sim_step/fold.md` N3): the rest is split evenly by the same rule. What remains
   is computed from counts, `(planned − taken) · dt`, never from a running float sum.
 - **On shipped data `n` is 1** at every verification grid (heat's bound is 240, 60 and 15 s at 0.2, 0.1 and 0.05 m,
   measured), so the new substep is coarser than today's at 0.1 and 0.05 m, and the replan is reachable only from a
