@@ -35,6 +35,7 @@ idna==3.20
     # via
     #   anyio
     #   httpx
+    #   maxim-overdrive (pyproject.toml)
     #   pymaxim
 import-linter==2.6
     # via maxim-overdrive (pyproject.toml)

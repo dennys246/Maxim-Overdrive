@@ -34,6 +34,11 @@ _NUMERIC = {
     "collections": "Mapping, Sequence and friends from collections.abc",
     "contextlib": "the write window's context manager",
     "dataclasses": "frozen value types",
+    "enum": "StrEnum, the refusal codes' closed vocabulary",
+    "unicodedata": "a name's NFKC form and its letters' Unicode names (schema.Text); pure, no IO",
+    "idna": "IDNA2008's code-point tables and contextual rules for a name's characters (schema.Text); pure, no IO",
+    "hashlib": "sha256 for versioned content digests (simcore.core.digest); not the builtin hash()",
+    "re": "the shape of a stored digest",
     "math": "scalar maths",
     "numbers": "Real and Integral, to refuse bools and strings posing as numbers",
     "reprlib": "the bounded echo",
@@ -52,6 +57,10 @@ ALLOWED: dict[str, dict[str, str]] = {
         "typing": "types only",
         "pathlib": "the file gate: it reads files from an explicit path",
         "yaml": "the file gate: strict YAML through a SafeLoader subclass",
+        "re": "the bare-name check a DataPath joins with",
+        "os": "the file gate opens a file once, non-blocking, and stats the descriptor (os.open, os.fstat)",
+        "stat": "S_ISREG on the open descriptor: a data file is a regular file",
+        "weakref": "WeakKeyDictionary: a DataPath's real path, held by the gate and never by the handle",
     },
     "simcore.adapters.sem": {
         "__future__": "postponed annotations",
@@ -90,20 +99,24 @@ ALLOWED: dict[str, dict[str, str]] = {
 _NAMES_CORE = frozenset({
     "__future__.annotations", "collections.abc.Callable", "collections.abc.Collection", "collections.abc.Iterator",
     "collections.abc.Mapping", "collections.abc.Sequence", "contextlib.contextmanager", "dataclasses.asdict",
-    "dataclasses.dataclass", "dataclasses.field", "math.ceil", "math.isfinite", "math.log", "math.nan", "math.pi",
-    "math.prod", "math.sqrt", "numbers.Integral", "numbers.Real", "numpy.all", "numpy.arange", "numpy.argmin",
+    "dataclasses.dataclass", "dataclasses.field", "enum.StrEnum", "hashlib.sha256", "math.ceil", "math.inf",
+    "math.isfinite", "math.log", "math.nan", "math.pi", "math.prod", "math.sqrt", "numbers.Integral", "numbers.Real",
+    "numpy.all", "numpy.arange", "numpy.argmin",
     "numpy.argwhere", "numpy.array", "numpy.asarray", "numpy.bool_", "numpy.diff", "numpy.errstate",
     "numpy.flatnonzero", "numpy.float32", "numpy.float64", "numpy.floating", "numpy.floor", "numpy.frombuffer",
     "numpy.full", "numpy.generic", "numpy.inf", "numpy.integer", "numpy.intersect1d", "numpy.logical_and",
-    "numpy.max", "numpy.mean", "numpy.rint", "numpy.take", "numpy.typing.NDArray", "numpy.uint8", "numpy.where",
-    "numpy.zeros", "reprlib.Repr", "scipy.ndimage", "scipy.ndimage.label", "scipy.special.ndtr",
+    "numpy.max", "numpy.mean", "numpy.take", "numpy.typing.NDArray", "numpy.uint8", "numpy.where",
+    "numpy.zeros", "re.compile", "reprlib.Repr", "scipy.ndimage", "scipy.ndimage.label", "scipy.special.ndtr",
     "types.MappingProxyType", "typing.Any", "typing.Literal", "typing.Protocol", "typing.SupportsFloat",
+    "idna.IDNAError", "idna.check_label", "unicodedata.category", "unicodedata.digit", "unicodedata.name",
+    "unicodedata.normalize",
 })  # fmt: skip
 
 # the file gate: paths, and strict YAML through a SafeLoader subclass
 _NAMES_LOADERS = frozenset({
-    "__future__.annotations", "collections.Counter", "collections.abc.Mapping", "collections.abc.Sequence",
-    "pathlib.Path", "typing.Any", "yaml.MappingNode", "yaml.SafeLoader", "yaml.YAMLError", "yaml.load",
+    "__future__.annotations", "collections.Counter", "collections.abc.Sequence", "os.O_NOCTTY", "os.O_NONBLOCK",
+    "os.O_RDONLY", "os.close", "os.fdopen", "os.fstat", "os.open", "pathlib.Path", "re.compile", "stat.S_ISREG",
+    "weakref.WeakKeyDictionary", "typing.Any", "yaml.MappingNode", "yaml.SafeLoader", "yaml.YAMLError", "yaml.load",
     "yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG",
 })  # fmt: skip
 
@@ -181,14 +194,17 @@ GATES = ("simcore.adapters.loaders", "maxim_overdrive.data")
 PATH_ARITHMETIC = {"parent", "parents", "name", "stem", "suffix", "with_suffix", "joinpath"}
 PATH_HOLDERS: dict[str, dict[str, str]] = {
     "maxim_overdrive.data": {
+        "BAD_NAME": "RefusalCode.BAD_NAME, the rig-name refusal's code",
         "compile": "re.compile, the rig-name pattern",
         "fullmatch": "RIG_NAME.fullmatch, the name check",
         "load": "RigProfile.load, which hands the path on",
     },
     "simcore.protocol.tiers": {
-        "get": "Mapping.get on the decoded profile",
+        "check": "RIG_PROFILE.schema.check, the constructor's field rules",
+        "from_document": "RigProfile.from_document, which builds from a read document",
         "name": "the profile's own name field",
-        "strip": "str.strip in the name check",
+        "read": "RIG_PROFILE.read, the format's reader of the parsed document (no file: read_yaml opened it)",
+        "schema": "RIG_PROFILE.schema",
     },
 }
 

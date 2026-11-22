@@ -19,19 +19,25 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from maxim_overdrive import data
-from simcore.adapters.loaders import MATERIAL_REQUIRED, load_action_limits, load_materials
+from simcore.adapters.loaders import DataPath, load_action_limits, load_materials, read_yaml
 from simcore.adapters.sem import bridge
 from simcore.core import damage, heat
 from simcore.core.applier import Applier
 from simcore.core.grid import Footprint, MaterialGrid
 from simcore.core.imagination import Budget, SpecRejected, place
-from simcore.core.materials import MaterialTable
-from simcore.core.scene import Box, Cylinder, Scene
+from simcore.core.limits import ACTION_LIMITS
+from simcore.core.materials import MATERIAL, MATERIAL_TABLE, MaterialTable
+from simcore.core.refusals import RefusalCode, Refused
+from simcore.core.scene import Box, Cylinder, Scene, Spawn
 from simcore.core.world import HeatSource, World
-from simcore.protocol.tiers import RigProfile
+from simcore.protocol.tiers import RIG_PROFILE, RigProfile
 from tests._gitutil import git
 
 LIMITS = data.action_limits()
+MATERIAL_REQUIRED = frozenset(f.name for f in MATERIAL.fields if f.required)
+DATA = Path(__file__).resolve().parents[1] / "data"
+SCENE_RAW = {"version": 1, "extent_m": [1, 1, 1], "spawns": []}
+MATERIAL_OPTIONAL = frozenset(f.name for f in MATERIAL.fields if not f.required)
 
 # -- config ---------------------------------------------------------------------------------------------------------
 
@@ -72,7 +78,7 @@ def test_the_material_table_requires_air_at_id_zero(materials):
 
 
 def test_material_ids_must_fit_a_byte(materials):
-    with pytest.raises(ValueError, match="uint8"):
+    with pytest.raises(ValueError, match="id must be from 0 to 255"):
         MaterialTable(_table_with(materials, wood={"id": 256}))
 
 
@@ -119,13 +125,13 @@ def test_a_scene_refuses_unknown_materials(dx_m, materials):
 
 @pytest.mark.parametrize("raw", [["not", "a", "scene"], "scene", None, 3])
 def test_a_scene_must_be_a_mapping(raw):
-    with pytest.raises(ValueError, match="a scene must be a mapping"):
+    with pytest.raises(ValueError, match="scene must be a mapping"):
         Scene.from_dict(raw)
 
 
 def test_a_scene_refuses_unknown_primitive_kinds():
-    with pytest.raises(ValueError, match="unknown primitive kind 'torus'"):
-        Scene.from_dict({"version": 0, "extent_m": [1, 1, 1], "primitives": [{"kind": "torus", "material": "wood"}]})
+    with pytest.raises(ValueError, match="unknown kind 'torus'"):
+        Scene.from_dict({**SCENE_RAW, "primitives": [{"kind": "torus", "material": "wood"}]})
 
 
 # -- heat, damage, world ----------------------------------------------------------------------------------------------
@@ -230,7 +236,7 @@ def test_a_region_that_lost_all_its_cells_reads_nan_and_cannot_burn(dx_m, materi
     assert math.isnan(sensors["temperature_max"].value())
     res = mods["structure"].execute("ignite", {"power_w": 1000.0})
     assert not res.success
-    assert res.error == "the wall is gone"
+    assert res.error == "region_gone"  # the closed vocabulary; the words stay in the applier's Outcome
     assert "fire:wall" not in w.sources
 
 
@@ -248,10 +254,32 @@ def test_the_game_data_is_found_installed_or_in_a_checkout_or_refused(tmp_path):
     with pytest.raises(FileNotFoundError, match=r"no game data .*: none of .*_data, .*data is a directory"):
         data.data_dir(here)
     (tmp_path / "data").mkdir()
-    assert data.data_dir(here) == tmp_path / "data"  # a checkout
+    assert str(data.data_dir(here)) == str(tmp_path / "data")  # a checkout
     (here / "_data").mkdir()
-    assert data.data_dir(here) == here / "_data"  # installed wins
-    assert data.data_dir() == Path(__file__).resolve().parents[1] / "data"  # this checkout
+    assert str(data.data_dir(here)) == str(here / "_data")  # installed wins
+    assert str(data.data_dir()) == str(DATA)  # this checkout
+
+
+def test_the_game_data_is_a_place_only_the_file_gates_open():
+    """B29 (step 3b delta round 7, D7-N2): data_dir hands out no pathlib.Path, so game code can't read a data file
+    past the strict YAML gate; it joins bare names, and the loaders open it."""
+    where = data.data_dir() / "materials" / "core.yaml"
+    assert isinstance(where, DataPath)
+    for opener in ("read_text", "read_bytes", "open", "parent", "resolve", "__fspath__"):
+        assert not hasattr(where, opener), opener
+    with pytest.raises(TypeError):
+        Path(where)  # type: ignore[arg-type]  # no __fspath__: the point
+    assert load_materials(where).by_name.keys() == load_materials(DATA / "materials" / "core.yaml").by_name.keys()
+    again = data.data_dir() / "materials" / "core.yaml"
+    assert str(where) == str(again)  # handles compare by identity; their text names the place
+    assert repr(where).startswith("DataPath(")
+
+
+@pytest.mark.parametrize("name", ["..", ".", "a/b", "/etc", "", 7, "x\\y"])
+def test_a_data_path_joins_bare_names_only(name):
+    with pytest.raises(Refused) as caught:
+        data.data_dir() / name
+    assert caught.value.code is RefusalCode.BAD_NAME
 
 
 def test_a_rig_profile_loads_by_path_and_the_game_finds_its_own_by_name(tmp_path):
@@ -274,24 +302,12 @@ def test_a_rig_name_with_a_separator_dots_or_an_absolute_path_is_refused(name):
 
 
 @pytest.mark.parametrize(
-    ("ambient", "message"), [("nan", "finite number"), (".nan", "finite number"), (-300, "absolute zero")]
+    ("ambient", "message"), [("nan", "finite number"), (".nan", "finite number"), (-300, "above -273.15")]
 )
 def test_a_scene_refuses_an_impossible_ambient_temperature(ambient, message):
-    raw = yaml.safe_load(f"version: 0\nextent_m: [1, 1, 1]\nprimitives: []\nambient_c: {ambient}\n")
+    raw = yaml.safe_load(f"version: 1\nextent_m: [1, 1, 1]\nspawns: []\nambient_c: {ambient}\n")
     with pytest.raises(ValueError, match=message):
         Scene.from_dict(raw)
-
-
-@pytest.mark.parametrize(
-    "field", ["density_kg_m3", "specific_heat_j_kgk", "conductivity_w_mk", "fracture_energy_j_m3", "degrade_above_c"]
-)
-def test_a_material_file_refuses_a_value_that_is_not_a_finite_number(tmp_path, field):
-    raw = yaml.safe_load((data.data_dir() / "materials" / "core.yaml").read_text())
-    raw["materials"]["wood"][field] = "2.0e7"  # YAML 1.1 reads this as a string
-    path = tmp_path / "core.yaml"
-    path.write_text(yaml.safe_dump(raw))
-    with pytest.raises(ValueError, match=f"wood.{field} must be a finite number"):
-        load_materials(path)
 
 
 @pytest.mark.parametrize(
@@ -301,8 +317,8 @@ def test_a_material_file_refuses_a_value_that_is_not_a_finite_number(tmp_path, f
         ([3, 3], "extent_m must be 3 numbers"),
         (["3", 3, 2], "extent_m must be 3 finite numbers"),
         ([math.nan, 3, 2], "extent_m must be 3 finite numbers"),
-        ([0, 3, 2], "between 0 and 1000 m on every axis"),
-        ([3, 3, 1e6], "between 0 and 1000 m on every axis"),
+        ([0, 3, 2], "above 0 and within 1000 of 0 on every axis"),
+        ([3, 3, 1e6], "above 0 and within 1000 of 0 on every axis"),
     ],
 )
 def test_a_scene_refuses_an_impossible_extent(extent, message):
@@ -316,27 +332,8 @@ def test_a_scenes_ambient_bounds_are_exact(ambient, ok):
         given = int(ambient) if ambient.is_integer() else ambient  # an int becomes a float
         assert isinstance(Scene((1.0, 1.0, 1.0), ambient_c=given).ambient_c, float)
     else:
-        with pytest.raises(ValueError, match="ambient_c must be above absolute zero"):
+        with pytest.raises(ValueError, match=r"ambient_c must be above -273\.15 and at most 3000"):
             Scene((1.0, 1.0, 1.0), ambient_c=ambient)
-
-
-@pytest.mark.parametrize(("field", "value"), [("id", True), ("id", 2.0), ("color_rgb", [1, 2, "3"])])
-def test_a_material_files_whole_numbers_are_whole(tmp_path, field, value):
-    raw = yaml.safe_load((data.data_dir() / "materials" / "core.yaml").read_text())
-    raw["materials"]["wood"][field] = value
-    path = tmp_path / "core.yaml"
-    path.write_text(yaml.safe_dump(raw))
-    with pytest.raises(ValueError, match=f"wood.{field} must be a whole number"):
-        load_materials(path)
-
-
-def test_a_material_files_degrade_rate_must_be_a_number(tmp_path):
-    raw = yaml.safe_load((data.data_dir() / "materials" / "core.yaml").read_text())
-    raw["materials"]["wood"]["degrade_rate_per_s_per_100c"] = "0.01"
-    path = tmp_path / "core.yaml"
-    path.write_text(yaml.safe_dump(raw))
-    with pytest.raises(ValueError, match=r"wood\.degrade_rate_per_s_per_100c must be a finite number"):
-        load_materials(path)
 
 
 def test_a_named_region_needs_its_authored_bounds(dx_m, materials):
@@ -403,18 +400,6 @@ def test_a_later_paint_takes_cells_from_earlier_regions_and_a_refused_paint_chan
     with pytest.raises(ValueError, match="already exists"):
         g.paint(np.ones(g.shape, dtype=bool), "steel", region="left", footprint=g.regions["left"].footprint)
     assert np.array_equal(g.material, before)  # refused before anything was painted
-
-
-@pytest.mark.parametrize(
-    ("field", "value"), [("id", -1), ("color_rgb", [256, 5, 3]), ("color_rgb", [1, -5, 3]), ("color_rgb", [1, 2])]
-)
-def test_a_material_files_ids_and_colours_are_in_range(tmp_path, field, value):
-    raw = yaml.safe_load((data.data_dir() / "materials" / "core.yaml").read_text())
-    raw["materials"]["drywall"][field] = value
-    path = tmp_path / "core.yaml"
-    path.write_text(yaml.safe_dump(raw))
-    with pytest.raises(ValueError, match=r"uint8|color_rgb"):
-        load_materials(path)
 
 
 @pytest.mark.parametrize(
@@ -579,30 +564,15 @@ def test_a_rig_file_refuses_unknown_and_repeated_keys(tmp_path, text, message):
 
 
 def _material_file(tmp_path, edit):
-    raw = yaml.safe_load((data.data_dir() / "materials" / "core.yaml").read_text())
+    raw = yaml.safe_load((DATA / "materials" / "core.yaml").read_text())
     edit(raw)
     path = tmp_path / "core.yaml"
     path.write_text(yaml.safe_dump(raw))
     return path
 
 
-@pytest.mark.parametrize(
-    ("edit", "message"),
-    [
-        (lambda raw: raw.update(materails={}), r"material table .*: unknown key\(s\) \['materails'\]"),
-        # A misspelt degrade_above_c: without the refusal, wood would silently never degrade.
-        (lambda raw: raw["materials"]["wood"].update(degrade_above=250.0), r"material wood: unknown key\(s\)"),
-        (lambda raw: raw["materials"].update(steel=[1, 2]), "material steel must be a mapping"),
-        (lambda raw: raw.update(materials=[1]), "materials must be a mapping"),
-    ],
-)
-def test_a_material_file_refuses_unknown_keys_at_every_level(tmp_path, edit, message):
-    with pytest.raises(ValueError, match=message):
-        load_materials(_material_file(tmp_path, edit))
-
-
 def test_a_material_file_refuses_a_repeated_key(tmp_path):
-    text = (data.data_dir() / "materials" / "core.yaml").read_text()
+    text = (DATA / "materials" / "core.yaml").read_text()
     path = tmp_path / "core.yaml"
     path.write_text(text.replace("  wood:\n", "  wood:\n    id: 99\n", 1))
     with pytest.raises(ValueError, match="repeated key"):
@@ -613,38 +583,12 @@ BOX_RAW = {"kind": "box", "min_m": [0, 0, 0], "max_m": [0.5, 0.5, 0.5], "materia
 CYLINDER_RAW = {"kind": "cylinder", "center_xy_m": [0.5, 0.5], "radius_m": 0.2, "z_m": [0, 1], "material": "wood"}
 
 
-@pytest.mark.parametrize(
-    ("raw", "message"),
-    [
-        (
-            {"version": 0, "extent_m": [1, 1, 1], "primitives": [], "ambient": 30.0},
-            r"scene: unknown key\(s\) \['ambient'\]",
-        ),
-        (
-            {"version": 0, "extent_m": [1, 1, 1], "primitives": [{**BOX_RAW, "colour": "red"}]},
-            r"box primitive: unknown key",
-        ),
-        (
-            {"version": 0, "extent_m": [1, 1, 1], "primitives": [{**CYLINDER_RAW, "radius": 1}]},
-            r"cylinder primitive: unknown key",
-        ),
-        (
-            {"version": 0, "extent_m": [1, 1, 1], "primitives": [{**BOX_RAW, "radius_m": 0.2}]},
-            r"box primitive: unknown key",
-        ),
-    ],
-)
-def test_a_scene_refuses_unknown_keys_at_every_level(raw, message):
-    with pytest.raises(ValueError, match=message):
-        Scene.from_dict(raw)
-
-
 def test_a_scene_accepts_every_key_it_knows():
-    scene = Scene.from_dict(
-        {"version": 0, "extent_m": [1, 1, 1], "primitives": [BOX_RAW, CYLINDER_RAW], "ambient_c": 25.0}
-    )
+    spawn = {"name": "runner", "archetype": "human", "holding": "torch", "at_m": [0.5, 0.5, 0.0]}
+    scene = Scene.from_dict({**SCENE_RAW, "primitives": [BOX_RAW, CYLINDER_RAW], "ambient_c": 25.0, "spawns": [spawn]})
     assert [p.kind for p in scene.primitives] == ["box", "cylinder"]
     assert scene.ambient_c == 25.0
+    assert scene.spawns == (Spawn("runner", "human", (500, 500, 0), "torch"),)
 
 
 @pytest.mark.parametrize(
@@ -653,7 +597,10 @@ def test_a_scene_accepts_every_key_it_knows():
         # A provenance or licence field the reader doesn't know must not vanish silently.
         ({"name": "crate", "primitives": [BOX_RAW], "licence": "cc-by"}, r"unknown key\(s\) \['licence'\]"),
         ({"name": "crate", "primitves": [BOX_RAW]}, r"unknown key\(s\) \['primitves'\]"),
-        ({"name": "crate", "primitives": [{**BOX_RAW, "colour": "red"}]}, "malformed spec: box primitive: unknown"),
+        (
+            {"name": "crate", "primitives": [{**BOX_RAW, "colour": "red"}]},
+            r"malformed spec: primitives\[0\] \(box\): unknown",
+        ),
     ],
 )
 def test_an_imagined_object_refuses_unknown_keys(dx_m, materials, spec, message):
@@ -663,48 +610,10 @@ def test_an_imagined_object_refuses_unknown_keys(dx_m, materials, spec, message)
     assert not g.regions  # refused before anything was painted
 
 
-@pytest.mark.parametrize("value", [5, "red", [1, 2], {"r": 1}])
-def test_a_material_colour_must_be_three_whole_numbers(tmp_path, value):
-    path = _material_file(tmp_path, lambda raw: raw["materials"]["wood"].update(color_rgb=value))
-    with pytest.raises(ValueError, match=r"wood\.color_rgb must be three whole numbers"):
-        load_materials(path)
-
-
-# -- closed schemas, the other half: required keys, and shapes that must not crash -------------------------------------
-
-
 @pytest.mark.parametrize("kind", [["box"], {}, 3, None])
 def test_a_primitive_kind_that_is_not_a_name_is_refused_not_crashed_on(kind):
-    with pytest.raises(ValueError, match="unknown primitive kind"):
-        Scene.from_dict({"version": 0, "extent_m": [1, 1, 1], "primitives": [{**BOX_RAW, "kind": kind}]})
-
-
-@pytest.mark.parametrize(
-    ("raw", "message"),
-    [
-        ({"version": 0, "primitives": []}, r"scene: missing key\(s\) \['extent_m'\]"),
-        (
-            {
-                "version": 0,
-                "extent_m": [1, 1, 1],
-                "primitives": [{"kind": "box", "max_m": [1, 1, 1], "material": "wood"}],
-            },
-            r"box primitive: missing key\(s\) \['min_m'\]",
-        ),
-        (
-            {
-                "version": 0,
-                "extent_m": [1, 1, 1],
-                "primitives": [{k: v for k, v in CYLINDER_RAW.items() if k != "radius_m"}],
-            },
-            r"cylinder primitive: missing key\(s\) \['radius_m'\]",
-        ),
-        ({"version": 0, "extent_m": 5}, "extent_m must be 3 numbers"),
-    ],
-)
-def test_a_scene_refuses_a_missing_key_by_name(raw, message):
-    with pytest.raises(ValueError, match=message):
-        Scene.from_dict(raw)
+    with pytest.raises(ValueError, match="unknown kind"):
+        Scene.from_dict({**SCENE_RAW, "primitives": [{**BOX_RAW, "kind": kind}]})
 
 
 def test_a_rig_file_refuses_a_missing_key_by_name(tmp_path):
@@ -712,28 +621,6 @@ def test_a_rig_file_refuses_a_missing_key_by_name(tmp_path):
     path.write_text("version: 1\n")
     with pytest.raises(ValueError, match=r"missing key\(s\) \['name'\]"):
         RigProfile.load(path)
-
-
-@pytest.mark.parametrize(
-    ("text", "message"), [("name: [1]\n", r"needs a name, got \[1\]"), ("name: 7\n", "needs a name, got 7")]
-)
-def test_a_rig_name_must_be_a_string(tmp_path, text, message):
-    path = tmp_path / "t.yaml"
-    path.write_text(RIG_FILE.replace("name: t\n", text))
-    with pytest.raises(ValueError, match=message):
-        RigProfile.load(path)
-
-
-@pytest.mark.parametrize(
-    ("edit", "message"),
-    [
-        (lambda raw: raw["materials"]["wood"].pop("id"), r"material wood: missing key\(s\) \['id'\]"),
-        (lambda raw: raw["materials"].update({5: raw["materials"]["wood"]}), "material names must be strings"),
-    ],
-)
-def test_a_material_file_refuses_a_missing_key_and_a_name_that_is_not_a_string(tmp_path, edit, message):
-    with pytest.raises(ValueError, match=message):
-        load_materials(_material_file(tmp_path, edit))
 
 
 def test_a_material_without_its_optional_degradation_keys_loads(tmp_path):
@@ -746,18 +633,10 @@ def test_a_material_without_its_optional_degradation_keys_loads(tmp_path):
 
 
 def test_the_material_schema_names_every_field_the_reader_fills():
-    from simcore.adapters.loaders import MATERIAL_OPTIONAL  # noqa: PLC0415
     from simcore.core.materials import Material  # noqa: PLC0415
 
     assert {f.name for f in dataclasses.fields(Material)} - {"name"} == MATERIAL_REQUIRED | MATERIAL_OPTIONAL
     assert not MATERIAL_REQUIRED & MATERIAL_OPTIONAL
-
-
-@pytest.mark.parametrize("key", sorted(MATERIAL_REQUIRED))
-def test_every_required_material_key_is_named_when_missing(tmp_path, key):
-    path = _material_file(tmp_path, lambda raw: raw["materials"]["wood"].pop(key))
-    with pytest.raises(ValueError, match=rf"material wood: missing key\(s\) \['{key}'\]"):
-        load_materials(path)
 
 
 def test_every_optional_material_key_is_read_not_just_accepted(tmp_path):
@@ -848,7 +727,9 @@ _scene_like = (
 @settings(max_examples=300, deadline=None)
 @given(raw=_scene_like | _json)
 def test_a_scene_built_from_any_json_is_built_or_refused_never_crashed_on(raw):
-    with contextlib.suppress(ValueError):  # a refusal is expected for most inputs; anything else fails the test
+    # A refusal is expected for most inputs, and it is a coded one (WT-S1): a plain ValueError, a KeyError or a
+    # TypeError fails the test.
+    with contextlib.suppress(Refused):
         Scene.from_dict(raw)
 
 
@@ -891,9 +772,9 @@ def _mutation_paths(doc: object, prefix: tuple[object, ...] = ()) -> list[tuple[
 
 
 _DATA_FILES: list[tuple[Callable[[Path], object], Path]] = [
-    (RigProfile.load, data.data_dir() / "rigs" / "rig.yaml"),
-    (load_materials, data.data_dir() / "materials" / "core.yaml"),
-    (load_action_limits, data.data_dir() / "world" / "actions.yaml"),
+    (RigProfile.load, DATA / "rigs" / "rig.yaml"),
+    (load_materials, DATA / "materials" / "core.yaml"),
+    (load_action_limits, DATA / "world" / "actions.yaml"),
 ]
 
 
@@ -916,7 +797,7 @@ def test_every_data_loader_loads_or_refuses_one_change_to_its_real_file(tmp_path
             parent[data.draw(st.text(min_size=1, max_size=12))] = data.draw(_json)
         file = tmp_path_factory.mktemp("mutated") / source.name
         file.write_text(yaml.safe_dump(doc))
-        with contextlib.suppress(ValueError):
+        with contextlib.suppress(Refused):  # coded, or the test fails
             load(file)
 
 
@@ -926,65 +807,33 @@ def test_every_data_loader_loads_or_refuses_any_file(tmp_path_factory, raw, as_y
     path = tmp_path_factory.mktemp("fuzz") / "f.yaml"
     path.write_text(yaml.safe_dump(raw) if as_yaml else text)
     for load in (RigProfile.load, load_materials, load_action_limits):
-        with contextlib.suppress(ValueError):
+        with contextlib.suppress(Refused):  # coded, or the test fails
             load(path)
 
 
 # -- format versions: every data format names its version, and a reader refuses one it doesn't know (B21) --------------
 
 ROOT = Path(__file__).resolve().parents[1]
-BAD_VERSIONS = [("1", "got 1"), ("true", "got True"), ("0.0", "got 0.0"), ("'0'", "got '0'"), ("null", "got None")]
 
 
 # Rig format v1 (D20): 0 is the retired physics format, refused by version and never migrated.
-RIG_BAD_VERSIONS = [("0", "got 0"), ("2", "got 2"), ("true", "got True"), ("1.0", "got 1.0"), ("'1'", "got '1'")]
-
-
-@pytest.mark.parametrize(("value", "shown"), RIG_BAD_VERSIONS)
-def test_a_rig_file_refuses_a_version_it_does_not_know(tmp_path, value, shown):
-    path = tmp_path / "t.yaml"
-    path.write_text(RIG_FILE.replace("version: 1\n", f"version: {value}\n"))
-    with pytest.raises(ValueError, match=f"rig profile .* version must be 1, {shown}"):
-        RigProfile.load(path)
-
-
-def test_a_rig_file_without_a_version_is_refused(tmp_path):
-    path = tmp_path / "t.yaml"
-    path.write_text(RIG_FILE.replace("version: 1\n", ""))
-    with pytest.raises(ValueError, match="version must be 1, got None"):
-        RigProfile.load(path)
-
-
-@pytest.mark.parametrize("value", [1, True, 0.0, "0", None])
-def test_a_material_file_refuses_a_version_it_does_not_know(tmp_path, value):
-    path = _material_file(tmp_path, lambda raw: raw.update(version=value))
-    with pytest.raises(ValueError, match=f"material table .* version must be 0, got {value!r}"):
-        load_materials(path)
-
-
-@pytest.mark.parametrize("value", [1, True, 0.0, "0", None])
-def test_a_scene_refuses_a_version_it_does_not_know(value):
-    with pytest.raises(ValueError, match=f"scene version must be 0, got {value!r}"):
-        Scene.from_dict({"version": value, "extent_m": [1, 1, 1]})
 
 
 def test_every_shipped_data_file_is_at_its_formats_current_version():
-    from simcore.adapters.loaders import ACTION_LIMITS_VERSION, MATERIAL_TABLE_VERSION  # noqa: PLC0415
-    from simcore.protocol.tiers import RIG_PROFILE_VERSION  # noqa: PLC0415
 
     # Each data directory has one reader and one format; a file in a directory no reader owns is an error, so a new
     # kind of data file can't ship without a version and a loader.
     readers: dict[str, tuple[Callable[[Path], object], int]] = {
-        "rigs": (RigProfile.load, RIG_PROFILE_VERSION),
-        "materials": (load_materials, MATERIAL_TABLE_VERSION),
-        "world": (load_action_limits, ACTION_LIMITS_VERSION),
+        "rigs": (RigProfile.load, RIG_PROFILE.version),
+        "materials": (load_materials, MATERIAL_TABLE.version),
+        "world": (load_action_limits, ACTION_LIMITS.version),
     }
     # The files git tracks, not whatever is on disk: a Finder .DS_Store is not a data file.
     listed = git(ROOT, "ls-files", "data").stdout
     files = [ROOT / line for line in listed.splitlines()]
     assert files
     for path in files:
-        kind = path.relative_to(data.data_dir()).parts[0]
+        kind = path.relative_to(DATA).parts[0]
         assert kind in readers, f"{path}: no reader owns data/{kind}/"
         load, version = readers[kind]
         assert path.suffix == ".yaml", path
@@ -1005,8 +854,8 @@ def test_the_committed_v0_files_still_load(load, fixture):
     golden = load(Path(__file__).parent / "fixtures" / "formats" / "v0" / fixture)
     shipped = load(
         {
-            "core.yaml": data.data_dir() / "materials" / "core.yaml",
-            "actions.yaml": data.data_dir() / "world" / "actions.yaml",
+            "core.yaml": DATA / "materials" / "core.yaml",
+            "actions.yaml": DATA / "world" / "actions.yaml",
         }[fixture]
     )
     if isinstance(golden, MaterialTable):
@@ -1040,9 +889,9 @@ def _newer(text: str) -> str:
 @pytest.mark.parametrize(
     ("load", "source", "message"),
     [
-        (RigProfile.load, data.data_dir() / "rigs" / "rig.yaml", "rig profile .* version must be 1, got 2"),
-        (load_materials, data.data_dir() / "materials" / "core.yaml", "material table .* version must be 0, got 1"),
-        (load_action_limits, data.data_dir() / "world" / "actions.yaml", "action limits version must be 0, got 1"),
+        (RigProfile.load, DATA / "rigs" / "rig.yaml", "rig profile .* version must be 1, got 2"),
+        (load_materials, DATA / "materials" / "core.yaml", "material table .* version must be 0, got 1"),
+        (load_action_limits, DATA / "world" / "actions.yaml", "action limits .* version must be 0, got 1"),
     ],
 )
 def test_a_file_from_a_newer_format_is_refused_for_its_version_not_its_new_fields(tmp_path, load, source, message):
@@ -1053,8 +902,8 @@ def test_a_file_from_a_newer_format_is_refused_for_its_version_not_its_new_field
 
 
 def test_a_scene_from_a_newer_format_is_refused_for_its_version_not_its_new_fields():
-    with pytest.raises(ValueError, match="scene version must be 0, got 1"):
-        Scene.from_dict({"version": 1, "extent_m": [1, 1, 1], "added_in_v1": True})
+    with pytest.raises(ValueError, match="scene version must be 1, got 2"):
+        Scene.from_dict({**SCENE_RAW, "version": 2, "added_in_v2": True})
 
 
 @pytest.mark.parametrize(
@@ -1062,8 +911,8 @@ def test_a_scene_from_a_newer_format_is_refused_for_its_version_not_its_new_fiel
     [
         ("box", "primitives must be a list"),
         ({"kind": "box"}, "primitives must be a list"),
-        ([7], "each primitive must be a mapping"),
-        ([{"kind": ["box"]}], "unknown primitive kind"),
+        ([7], r"primitives\[0\] must be a mapping"),
+        ([{"kind": ["box"]}], "unknown kind"),
         ([{"kind": "box", "material": "wood"}], "missing key"),
     ],
 )
@@ -1079,15 +928,16 @@ def test_the_directory_gate_names_every_candidate_it_refused(tmp_path):
 
     (tmp_path / "a_file").write_text("x")
     with pytest.raises(FileNotFoundError, match=r"thing: none of .*missing, .*a_file is a directory"):
-        existing_directory([tmp_path / "missing", str(tmp_path / "a_file")], "thing")
-    assert existing_directory([str(tmp_path)], "thing") == tmp_path
+        existing_directory(tmp_path, ["missing", "a_file"], "thing")
+    found = existing_directory(tmp_path / "a" / "..", ["."], "thing")  # resolved: '..' is arithmetic the gate does
+    assert isinstance(found, DataPath)  # never a pathlib.Path (step 3b(b) delta review, D1)
+    assert str(found) == str(tmp_path.resolve())
 
 
 def test_a_symlinked_package_finds_the_data_beside_the_real_package(tmp_path):
-    # Delta round 6, Executor N-h. The intended behaviour: data is found beside the package's real location, as
-    # before fold 6 moved the resolution into the gate. Both resolutions are pinned: real_path before the
-    # arithmetic, and existing_directory on the directory it returns.
-    from simcore.adapters.loaders import existing_directory, real_path  # noqa: PLC0415
+    # Delta round 6, Executor N-h. The intended behaviour: data is found beside the package's real location, so the
+    # gate resolves the package before it joins a candidate; a symlinked data directory resolves too.
+    from simcore.adapters.loaders import existing_directory  # noqa: PLC0415
 
     real = tmp_path / "checkout" / "src" / "maxim_overdrive"
     real.mkdir(parents=True)
@@ -1095,8 +945,166 @@ def test_a_symlinked_package_finds_the_data_beside_the_real_package(tmp_path):
     link = tmp_path / "site" / "maxim_overdrive"
     link.parent.mkdir()
     link.symlink_to(real, target_is_directory=True)
-    assert real_path(link) == real.resolve()
-    assert data.data_dir(link) == (tmp_path / "checkout" / "data").resolve()  # not site/../data, which doesn't exist
+    assert str(data.data_dir(link)) == str((tmp_path / "checkout" / "data").resolve())  # not site/../data
     data_link = tmp_path / "data_link"
     data_link.symlink_to(tmp_path / "checkout" / "data", target_is_directory=True)
-    assert existing_directory([data_link], "x") == (tmp_path / "checkout" / "data").resolve()
+    assert str(existing_directory(tmp_path, ["data_link"], "x")) == str((tmp_path / "checkout" / "data").resolve())
+
+
+def test_a_data_file_is_a_regular_file_never_a_device_or_a_pipe(tmp_path):
+    """Delta D3: /dev/zero (and a FIFO) report 0 bytes, so a stat-only budget passed and read_bytes never ended."""
+    import os  # noqa: PLC0415
+
+    to_zero = tmp_path / "zero.yaml"
+    to_zero.symlink_to("/dev/zero")
+    pipe = tmp_path / "pipe.yaml"
+    os.mkfifo(pipe)
+    import threading  # noqa: PLC0415
+
+    def refused(path):
+        with pytest.raises(Refused, match="not a regular file") as caught:
+            read_yaml(path)
+        return caught.value.code
+
+    for path in (to_zero, pipe, tmp_path):
+        # On a deadline: a FIFO opened without O_NONBLOCK blocks forever, which would stall the gate, not fail it
+        # (delta round 4, R4-9).
+        codes: list[RefusalCode] = []
+        reader = threading.Thread(target=lambda p=path, out=codes: out.append(refused(p)), daemon=True)
+        reader.start()
+        reader.join(timeout=10)
+        assert not reader.is_alive(), f"{path}: the gate blocked on it"
+        assert codes == [RefusalCode.BAD_SHAPE]
+
+
+# -- the file gate refuses what PyYAML's constructors can't build (step 3b(b) review, Trust T1-S1, Executor S2) ------
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "version: " + "9" * 5000 + "\n",  # int() past CPython's 4,300-digit limit
+        "version: 2020-13-45\n",
+        "version: 2001-02-29\n",
+        "k: 2026-01-01 25:00:00\n",
+        "k: !!int x\n",
+        "k: !!float x\n",
+        "k: !!timestamp x\n",
+        "k: !!bool maybe\n",
+    ],
+)
+def test_a_value_yaml_cannot_build_is_a_coded_refusal_that_names_the_file(tmp_path, text):
+    path = tmp_path / "bad.yaml"
+    path.write_text(text)
+    with pytest.raises(Refused, match=r"bad\.yaml") as caught:
+        read_yaml(path)
+    assert caught.value.code is RefusalCode.BAD_SHAPE
+
+
+def test_a_data_file_is_utf8_whatever_the_machines_locale(tmp_path):
+    path = tmp_path / "bad.yaml"
+    path.write_bytes(b"version: 0\nname: \xff\xfe\n")
+    with pytest.raises(Refused, match="not UTF-8") as caught:
+        read_yaml(path)
+    assert caught.value.code is RefusalCode.BAD_SHAPE
+    path.write_bytes("name: Zoë\n".encode())
+    assert read_yaml(path) == {"name": "Zoë"}
+
+
+def test_a_data_file_over_its_byte_budget_is_refused_before_it_is_read(tmp_path, monkeypatch):
+    from simcore.adapters import loaders  # noqa: PLC0415
+
+    path = tmp_path / "big.yaml"
+    path.write_text("a: [1, 2, 3]\n")  # 13 bytes
+    monkeypatch.setattr(loaders, "MAX_FILE_BYTES", 12)
+    with pytest.raises(Refused, match="larger than 12 bytes") as caught:
+        read_yaml(path)
+    assert caught.value.code is RefusalCode.OVER_BUDGET
+    monkeypatch.setattr(loaders, "MAX_FILE_BYTES", 13)
+    assert read_yaml(path) == {"a": [1, 2, 3]}
+
+
+# -- step 3b(b) delta round 2 folds ------------------------------------------------------------------------------
+
+
+def test_a_data_path_holds_no_path_to_reach_past_the_gate():
+    """Delta 2, N1: ``(data_dir() / 'core.yaml')._path.open()`` read a data file past the strict YAML gate."""
+    where = data.data_dir() / "materials" / "core.yaml"
+    with pytest.raises(AttributeError):
+        where._path  # type: ignore[attr-defined]  # noqa: B018 - the point: there is no such attribute
+    assert not hasattr(where, "__dict__")
+
+
+def test_an_unreadable_data_file_is_a_coded_refusal(tmp_path):
+    """Delta 2, N4's neighbour: a mode-000 file raised an uncoded PermissionError."""
+    path = tmp_path / "locked.yaml"
+    path.write_text("a: 1\n")
+    path.chmod(0)
+    try:
+        with pytest.raises(Refused, match="can't be read") as caught:
+            read_yaml(path)
+        assert caught.value.code is RefusalCode.BAD_SHAPE
+    finally:
+        path.chmod(0o600)
+
+
+def test_a_data_file_is_read_no_further_than_its_budget(tmp_path, monkeypatch):
+    """Delta 2, N7: the refusal alone could not tell a bounded read from an unbounded one; the read's size can."""
+    import os  # noqa: PLC0415
+
+    from simcore.adapters import loaders  # noqa: PLC0415
+
+    asked: list[int] = []
+    real_fdopen = os.fdopen
+
+    class Spy:
+        def __init__(self, handle):
+            self._handle = handle
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            self._handle.close()
+
+        def read(self, n=-1):
+            asked.append(n)
+            return self._handle.read(n)
+
+    monkeypatch.setattr(os, "fdopen", lambda fd, mode: Spy(real_fdopen(fd, mode)))  # the gate's own os.fdopen
+    monkeypatch.setattr(loaders, "MAX_FILE_BYTES", 12)
+    path = tmp_path / "big.yaml"
+    path.write_text("a: " + "1" * 100 + "\n")
+    with pytest.raises(Refused, match="larger than 12 bytes"):
+        read_yaml(path)
+    assert asked == [13]
+
+
+def test_a_data_directory_candidate_is_relative_to_the_package():
+    """Delta 2, N8: an absolute candidate replaced the base."""
+    from simcore.adapters.loaders import existing_directory  # noqa: PLC0415
+
+    with pytest.raises(TypeError, match="relative to the package"):
+        existing_directory(DATA, ["/etc"], "x")
+
+
+# -- step 3b(b) delta round 3 folds ------------------------------------------------------------------------------
+
+
+def test_only_the_gate_makes_a_data_path_and_a_copy_is_the_same_place():
+    """Round 3, R3-6: DataPath() and copy.copy(h) made handles with no path, which failed later with a bare KeyError."""
+    import copy  # noqa: PLC0415
+
+    with pytest.raises(TypeError, match="made by the file gate"):
+        DataPath(object())
+    where = data.data_dir() / "materials"
+    assert copy.copy(where) is where
+    assert copy.deepcopy(where) is where
+    assert str(copy.deepcopy(where) / "core.yaml") == str(DATA / "materials" / "core.yaml")
+
+
+def test_a_path_with_a_nul_is_a_coded_refusal(tmp_path):
+    """Round 3, R3-10: an embedded NUL raised a bare ValueError from os.open."""
+    with pytest.raises(Refused, match="not a file name") as caught:
+        read_yaml(str(tmp_path / "a\x00b.yaml"))
+    assert caught.value.code is RefusalCode.BAD_NAME

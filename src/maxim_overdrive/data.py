@@ -9,10 +9,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from simcore.adapters.loaders import existing_directory, load_action_limits, load_materials, real_path
+from simcore.adapters.loaders import DataPath, existing_directory, load_action_limits, load_materials
 from simcore.core.checks import shown
 from simcore.core.limits import ActionLimits
 from simcore.core.materials import MaterialTable
+from simcore.core.refusals import RefusalCode, Refused
 from simcore.protocol.tiers import RigProfile
 
 __all__ = ["action_limits", "data_dir", "materials", "rig_profile"]
@@ -22,14 +23,15 @@ __all__ = ["action_limits", "data_dir", "materials", "rig_profile"]
 RIG_NAME = re.compile(r"[A-Za-z0-9_-]+")
 
 
-def data_dir(here: Path | None = None) -> Path:
+def data_dir(here: Path | None = None) -> DataPath:
     """Bundled data: inside the wheel when installed, the repo's ``data/`` in a checkout. Neither is a FileNotFoundError
     that names both, never a path that silently doesn't exist (boundaries §11.2, W5). ``here`` is this package's
-    directory; a test passes another."""
-    # Resolved before any arithmetic: a package reached through a symlink finds the data beside the real package
-    # (delta round 6, Executor N-h). The gate resolves, since realpath reads the filesystem.
-    here = real_path(Path(__file__).parent if here is None else here)
-    return existing_directory([here / "_data", here.parents[1] / "data"], "no game data (installed, then checkout)")
+    directory; a test passes another. It is a ``DataPath``, which only the file gates open (B29), so game code can't
+    read a data file past the strict YAML gate."""
+    # The gate resolves the package first, so a symlinked package finds the data beside the real one (delta round 6,
+    # Executor N-h), and hands back only a DataPath.
+    package = Path(__file__).parent if here is None else here
+    return existing_directory(package, ("_data", "../../data"), "no game data (installed, then checkout)")
 
 
 def materials() -> MaterialTable:
@@ -46,5 +48,5 @@ def rig_profile(name: str) -> RigProfile:
     """A shipped rendering tier by name (``data/rigs/<name>.yaml``). The name is a bare name: no separator, no ``..``
     and no absolute path, so it can't reach a file outside ``data/rigs/`` (delta round 4, D4-N2)."""
     if not isinstance(name, str) or not RIG_NAME.fullmatch(name):
-        raise ValueError(f"a rig name is letters, digits, '_' and '-' only, got {shown(name)}")
+        raise Refused(f"a rig name is letters, digits, '_' and '-' only, got {shown(name)}", code=RefusalCode.BAD_NAME)
     return RigProfile.load(data_dir() / "rigs" / f"{name}.yaml")

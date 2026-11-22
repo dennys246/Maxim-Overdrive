@@ -48,8 +48,14 @@ class CellFrame:
 
     def __post_init__(self) -> None:
         # Frozen means deep, of the type (step 3b review, Executor N6): a frame holds read-only arrays only.
-        for name in ("material", "original_material", "integrity", "temperature"):
-            if self.__dict__[name].flags.writeable:
+        arrays: dict[str, npt.NDArray[np.generic]] = {
+            "material": self.material,
+            "original_material": self.original_material,
+            "integrity": self.integrity,
+            "temperature": self.temperature,
+        }
+        for name, array in arrays.items():
+            if array.flags.writeable:
                 raise ValueError(f"a frame's {name} must be read-only (simcore.core.readonly.frozen)")
 
     @classmethod
