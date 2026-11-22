@@ -7,13 +7,13 @@ Every status below is **open (for the reviewer)**: the delta round's readers set
 
 | Ruling | Where it is written |
 |---|---|
-| Decisions 1–5 of the first draft: replan mid-step; code-primary registry; accuracy floor only if bar 1 fails; one frame per tick (cadence now owned by `boundaries.md` §4.2, as amended); damage a law | §8, §6, §8, §4, §5 |
+| Decisions 1–5 of the first draft: replan mid-step; code-primary registry; accuracy floor only if bar 1 fails; one frame per tick (cadence owned by `tile_and_client.md` §4); damage a law | §8, §6, §8, §4, §5 |
 | The flow is a standard (first written as "one writer per field") | §5.1, CLAUDE.md "Flow runs one way", B40 |
 | R1: rework it as declared, ordered writers, and one resolver per kind of effect, with accumulated fields and a topology owner | §5.1; §2's `Topology`; §6's `writers` column; CLAUDE.md shortened to link §5.1; B40 |
 | R2: damage resolves loads every tick in the apply phase; thermal damage on physics ticks | §5.1 (last bullet), §5's tuple `(damage.loads, heat, damage.thermal)` |
 | R3: the bridge keeps its marked synchronous path until `phase1/agents` | §13 |
 
-**Author's reading of R2, for the owner to confirm:** each load resolves right after *its own* record applies, not
+**R2's reading, confirmed by the owner (2026-11-21):** each load resolves right after *its own* record applies, not
 after all of the tick's records, so a later record's stage 2 sees the crater (X-S2). That keeps today's
 `REGION_GONE` refusal of a second strike on a destroyed region.
 
@@ -29,12 +29,12 @@ after all of the tick's records, so a later record's stage 2 sees the crater (X-
 - **Unverified, taken from the reviewers:** the 2.6× and 0.46× CPU figures (Perf P3); `n = 1` at every grid
   (Physics, Executor, measured by them); the 29.1 kJ energy effect (Physics).
 
-## Proposed for the owner
+## Ruled by the owner, 2026-11-21 (each accepted as proposed)
 
 - **Deferral, the memory budget and preallocated temporaries** (Perf P7, X-S9): to B5's memory row, before step 9.
 - **Tick 0 runs no physics** (D-S5): `realtime_lanes_coop.md` §2.1's phase rule (`tick % physics_every == 0`) includes
-  tick 0, whose interval lies before the world existed. §3 adds `T > 0`. realtime §2.1 needs the same amendment, or
-  the owner rules the other way.
+  tick 0, whose interval lies before the world existed. §3 adds `T > 0`, and supersedes realtime §2.1's phase rule on this
+  point; realtime is a superseded record and is not edited.
 - **5a's logs use action vocabulary v0** (W-S2), so v0 logs exist and 5b restores the v0-log refusal test, instead of
   moving `kindle` into 5a.
 

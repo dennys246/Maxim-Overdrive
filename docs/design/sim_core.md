@@ -53,7 +53,7 @@ short list of named steps (§3).
   file carries them in 5a.
 - **`step` runs tick `T` and then sets `tick = T + 1`.** A tick is a physics tick when `T % physics_every == 0` and
   `T > 0`; its physics covers the interval `(T − physics_every, T]` (the phase and the interval are
-  `realtime_lanes_coop.md` §2.1's and `tile_and_client.md` §3.2's). Tick 0 runs no physics: nothing existed before it.
+  `realtime_lanes_coop.md` §2.1's and `tile_and_client.md` §3.2's). Tick 0 runs no physics: nothing existed before it (owner, 2026-11-21).
 - **A source's energy in a physics step** is its power times the number of ticks in the interval at whose end it
   existed, times `tick_us`, in integers. An ignite at tick 66 and one at tick 69 then differ, as tile's per-tick
   overlap rule requires, and a closed-form test holds it (checklist).
