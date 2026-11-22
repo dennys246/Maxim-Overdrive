@@ -179,10 +179,17 @@ class LogRecord:
     params: Action
 
     def __post_init__(self) -> None:
-        _bounded(self.apply_tick, "apply_tick", _I64, minimum=1)  # tick 0 is construction (sim_core.md §3)
-        _bounded(self.apply_us, "apply_us", _I64)  # a step also holds it below its tick's length
-        _bounded(self.actor_id, "actor_id", _U32)  # ordering keys are integers (§6.2, D-N2); tile §2's actor table
-        _bounded(self.seq, "seq", _U32)
+        # Each is stored back as a plain int, so a numpy integer can't reach the key (it must serialise; PR 4's log).
+        object.__setattr__(
+            self, "apply_tick", _bounded(self.apply_tick, "apply_tick", _I64, minimum=1)
+        )  # tick 0 is construction (sim_core.md §3)
+        object.__setattr__(
+            self, "apply_us", _bounded(self.apply_us, "apply_us", _I64)
+        )  # a step also holds it below its tick's length
+        object.__setattr__(
+            self, "actor_id", _bounded(self.actor_id, "actor_id", _U32)
+        )  # ordering keys are integers (§6.2, D-N2)
+        object.__setattr__(self, "seq", _bounded(self.seq, "seq", _U32))
         identity_key(self.target, "target")
         if not isinstance(self.kind, str) or self.kind not in KIND_RANK:
             raise Refused(f"unknown record kind {shown(self.kind)}", code=RefusalCode.UNKNOWN_KIND)

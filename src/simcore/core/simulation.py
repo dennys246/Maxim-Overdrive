@@ -47,8 +47,8 @@ class SimConfig:
     physics_every: int = 5
 
     def __post_init__(self) -> None:
-        _positive(self.tick_us, "tick_us")
-        _positive(self.physics_every, "physics_every")
+        object.__setattr__(self, "tick_us", _positive(self.tick_us, "tick_us"))  # stored as a plain int
+        object.__setattr__(self, "physics_every", _positive(self.physics_every, "physics_every"))
 
     @property
     def physics_seconds(self) -> float:

@@ -218,6 +218,11 @@ fails.
 - **Deferred** (owner, 2026-11-21, `reviews/sim_core/fold.md`): preallocated temporaries and the memory budget
   (`world_v2.md` row 3), to B5's memory item, before step 9 (Perf P7).
 
+- **Deferred from PR 1's review (`reviews/sim_shell/fold.md`), each to the PR that owns it:**
+  - PR 2: rewrite CLAUDE.md's "only `World.advance` moves time" and "Time comes from `World.advance`" for `Simulation`.
+  - PR 3: a tick an exception interrupts leaves no half-applied state, once the write window moves into the step.
+  - PR 4: `(actor_id, seq)` unique across ticks, a receipt id on each outcome, and a validated `TickBatch` built by the
+    log reader.
 ## Step 5b, bodies and movement (`tile_and_client.md` §2, §3, §4.1)
 
 - From step 3b part (b)'s review (Determinism N7): a spawn maps to a cell in integers (`at_mm * 1000 // dx_um`), with

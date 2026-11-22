@@ -9,6 +9,8 @@ shell can't cancel out.
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 import pytest
 
@@ -262,3 +264,18 @@ def test_a_burning_run_through_simulation_is_bit_identical_to_the_same_calls_on_
     wrapped, direct = _through_simulation(0.2, 600, schedule), _directly(0.2, 600, schedule)
     assert (wrapped.grid.material != wrapped.grid.original_material).any()
     assert digest(wrapped) == digest(direct)
+
+
+def test_a_record_and_a_config_store_plain_ints_so_the_key_serialises():
+    # Wire delta: numpy integers passed validation unchanged, and json.dumps refuses them (PR 4's log needs it).
+    import json  # noqa: PLC0415 - only this test needs it
+
+    import numpy as np  # noqa: PLC0415
+
+    record = _record(IGNITE, tick=np.int64(1), us=np.int64(0), actor=np.int64(7), seq=np.int64(0))
+    assert all(type(v) is int for v in (record.apply_tick, record.apply_us, record.actor_id, record.seq))
+    json.dumps(record.key)
+    # cast: the test hands SimConfig the numpy integers its int annotations exclude, as a caller could.
+    config = SimConfig(tick_us=cast(int, np.int64(100_000)), physics_every=cast(int, np.int64(5)))
+    assert type(config.tick_us) is int
+    assert type(config.physics_every) is int
