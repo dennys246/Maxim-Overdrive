@@ -58,7 +58,7 @@ short list of named steps (§3).
   existed, times `tick_us`, in integers. An ignite at tick 66 and one at tick 69 then differ, as tile's per-tick
   overlap rule requires, and a closed-form test holds it (checklist).
 - **`apply_us` only orders records in 5a.** Time below the tick reaches no law.
-- **The order within a tick** belongs to `realtime_lanes_coop.md` (D10), amended in `sem_stimuli.md` §4.1. 5a builds
+- **The order within a tick** is owned by `sem_stimuli.md` §4.1 (D10 as amended). 5a builds
   steps 1 (apply), 6 (physics on physics ticks) and 8 (outputs), and the per-tick law slot (§5); 2–5 and 7 stay no-op
   seams.
 
@@ -73,8 +73,7 @@ Simulation.frames -> FrameView                                   # the latest pu
 
 - **`step` validates the whole batch before applying any of it:** every record's `apply_tick` is this tick, and the
   records are in the log's key order (`boundaries.md` §6.2). A bad batch raises `ValueError` and changes nothing.
-- **Frame cadence is `boundaries.md` §4.2's** (at most one frame per tick, at its end, only when a cell or a source
-  changed that tick). Observers inside a tick read the frame from before it, so an NPC's intent observed at tick T
+- **Frame cadence is `tile_and_client.md` §4's;** 5a publishes that tick's frame at the end of the tick. Observers inside a tick read the frame from before it, so an NPC's intent observed at tick T
   applies at T + 1 or later, and its effect is first in that tick's frame.
 - **`TickReport`** is frozen and host-side. It holds the tick, the refusals, the effects of each record (a strike's
   destroyed volume and absorbed energy are effects, logged host-side), the per-tick digest (§9) and the

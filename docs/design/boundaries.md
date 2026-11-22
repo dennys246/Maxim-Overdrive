@@ -242,8 +242,8 @@ below it. Siblings on one line are independent of each other.
   replaces. Cells change at physics steps and at intent apply, so a frame is published then, not per tick. Agents get
   reductions (per-region and per-NPC scalars from the bincount pass), not grids: a full-grid copy is 64–80 MB per tile
   at 0.1 m, about 13–16 GB/s of copying if published per tick at 20×. The copy and the publish are B5 rows.
-- **Cadence:** at most one frame per tick, when a cell or a source changed that tick (`sim_core.md` §4),
-  so a receipt's after-frame exists on its apply tick. The design never promises "one tick" of reafference for effects that
+- **Cadence:** a frame is published after each physics step (0.5 s) and after each tick that applied an intent, so a
+  receipt's after-frame exists on its apply tick. The design never promises "one tick" of reafference for effects that
   only show at the next physics step.
 - **Sensors type against a `Frame`/`Observation` protocol** with no `advance`, `sources` or `grid`, so mypy refuses
   a peek (D-B4). `RegionSensor` stops holding `World`.
