@@ -120,7 +120,9 @@ How the rule is kept, so far:
   with authored geometry (design v2) removes it.
 - **Whether an imagined object fits in the world can depend on the rig.** `imagination.place` refuses an object
   "smaller than one cell at this resolution" when it covers no cell centre, which can happen at the coarse rig and
-  not at a finer one. Its size and mass budgets are rig-independent; this check
+  not at a finer one, and at the truth grid too. Measured at the offset (0.503, 0.503, 0.003) m, 2026-11-22: a wooden
+  footstool with 4 cm parts and a glass aquarium on a steel stand are refused at 0.1 m, and a steel locker of 1 cm
+  sheets at 0.05 m (D34). Its size and mass budgets are rig-independent; this check
   isn't. The thin-features rule (`docs/design/world_model.md` §1.1) as a minimum authored size
   would remove it.
 - **`place` accepts an object that loses most of its geometry, or lies partly outside the world.** A wooden table,

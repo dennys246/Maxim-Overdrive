@@ -84,18 +84,18 @@ Each entry says which half each piece of work is.
 | **Status** | `advance(0.5)` costs about 0.7 s of CPU at 1.92 × 10⁶ cells, before fire, NPCs or radiation exist. Fire's costs are measured in its reviews (flame radiation dominates) |
 | **Next** | A fire budget before 6.2's radiation; deterministic work counters as the primary gate |
 
-## Structure and motion: load and moving bodies
+## Structure and motion: load, moving bodies and sub-cell solids
 
 | | |
 |---|---|
 | **Goal** | Objects bear load and fail under it, and intact objects move as physical bodies (pushed, toppled, dragged, thrown) on the authoritative server, so that an NPC can learn what holds and what falls (owner, 2026-11-22, D31, D32) |
-| **Documents** | `../roadmap.md` Phase 2; `../design/world_v2.md` §3.2 (strength) and §4 (connectivity, loose solids, settling by angle of repose); no design document yet |
+| **Documents** | `../roadmap.md` Phase 2; `../design/world_v2.md` §3.2 (strength) and §4 (connectivity, loose solids, settling by angle of repose); research in `../design/research/subcell_solids/`; no design document yet |
 | **Contract** (to decide) | what a body is against the grid, and how it hands back to cells at rest; the formats a body adds to frames, saves and the intent log; determinism (bit-identical on one machine, the outcome class across machines and grids); what NPCs sense (weight, contact, motion) |
 | **Laws** (to choose) | load against capacity (crushing, bending, buckling), rechecked on events and as strength changes; rigid-body dynamics with contacts and friction; each with a closed-form test and a cross-grid test |
-| **Decided** | load is in (D31); moving bodies are in if they can be done honestly, and a declined cost is a valid result (D32); imagined objects meet the support rule when placed (D33) |
-| **Open** | whether an existing physics library can meet the determinism and cross-grid rules, or the laws are ours; how fire and load couple (a burning leg fails, the table falls); a contract for structural members thinner than two cells (D31) |
+| **Decided** | load is in (D31); moving bodies are in if they can be done honestly, and a declined cost is a valid result (D32); imagined objects meet the support rule when placed (D33); sub-cell solids that aren't fuel get a contract, designed and reviewed before code (D34) |
+| **Open** | whether an existing physics library can meet the determinism and cross-grid rules, or the laws are ours; how fire and load couple (a burning leg fails, the table falls); the sub-cell solids contract: thin sheets, panes and structural members thinner than two cells (D31, D34) |
 | **Status** | not started; Phase 2 |
-| **Next** | A research survey and a pre-registered spike, as for fire: the closed forms first (D31's, a box's tipping angle, a block sliding with friction), then one body crossing two grids |
+| **Next** | The sub-cell solids design (survey done: `../design/research/subcell_solids/survey.md`; three owner questions in its §5), then its review; then a pre-registered spike, as for fire: the closed forms first (D31's, a box's tipping angle, a block sliding with friction), then one body crossing two grids |
 
 ## Imagined-object generator
 

@@ -1,0 +1,289 @@
+# The spec generator spike's held-out split (plan §4), dealt by split.py from prompts_source.yaml with
+# numpy.random.default_rng(0), numpy 2.5.5, PyYAML 6.0.3.
+# Generated: edit the source and rerun, never this file.
+version: 0
+split: held-out
+prompts:
+- stratum: furniture
+  id: f02
+  text: a four-legged wooden kitchen table
+  expect:
+  - wood
+- stratum: furniture
+  id: f03
+  text: a low wooden coffee table
+  expect:
+  - wood
+- stratum: furniture
+  id: f04
+  text: a wooden bookshelf with five shelves
+  expect:
+  - wood
+- stratum: furniture
+  id: f05
+  text: a single wooden bed frame
+  expect:
+  - wood
+- stratum: furniture
+  id: f12
+  text: a wooden step ladder with four steps
+  expect:
+  - wood
+- stratum: furniture
+  id: f19
+  text: a wooden shoe rack with three tiers
+  expect:
+  - wood
+- stratum: furniture
+  id: f21
+  text: a wooden bunk bed
+  expect:
+  - wood
+- stratum: furniture
+  id: f24
+  text: a wooden trestle table
+  expect:
+  - wood
+- stratum: furniture
+  id: f25
+  text: a wooden kitchen island with an overhanging top
+  expect:
+  - wood
+- stratum: furniture
+  id: f27
+  text: a wooden dresser with a tall frame on top
+  expect:
+  - wood
+- stratum: furniture
+  id: f35
+  text: a wooden toolbox with a handle
+  expect:
+  - wood
+- stratum: furniture
+  id: f37
+  text: a wooden plant stand with two tiers
+  expect:
+  - wood
+- stratum: furniture
+  id: f48
+  text: a wooden umbrella stand
+  expect:
+  - wood
+- stratum: barriers
+  id: b02
+  text: a steel bollard
+  expect:
+  - steel
+  single_ok: true
+- stratum: barriers
+  id: b06
+  text: a steel security door two metres tall
+  expect:
+  - steel
+- stratum: barriers
+  id: b08
+  text: a steel guard rail section two metres long
+  expect:
+  - steel
+- stratum: barriers
+  id: b14
+  text: a steel ladder two metres tall
+  expect:
+  - steel
+- stratum: barriers
+  id: b21
+  text: a steel gate two metres wide
+  expect:
+  - steel
+- stratum: barriers
+  id: b23
+  text: a concrete drainage channel section
+  expect:
+  - concrete
+- stratum: barriers
+  id: b25
+  text: a concrete fence post
+  expect:
+  - concrete
+  single_ok: true
+- stratum: barriers
+  id: b26
+  text: a small steel barricade of three crossed beams
+  expect:
+  - steel
+- stratum: barriers
+  id: b28
+  text: a steel bike rack
+  expect:
+  - steel
+- stratum: barriers
+  id: b33
+  text: a concrete ramp one metre long
+  expect:
+  - concrete
+  hard: shape
+- stratum: glass
+  id: g10
+  text: a phone booth with glass windows
+  expect:
+  - glass
+- stratum: glass
+  id: g11
+  text: a glass vase on a wooden stand
+  expect:
+  - glass
+  - wood
+- stratum: glass
+  id: g18
+  text: a glass balcony railing with steel posts
+  expect:
+  - glass
+  - steel
+- stratum: glass
+  id: g22
+  text: a small steel snack dispenser with a glass front
+  expect:
+  - glass
+  - steel
+- stratum: glass
+  id: g26
+  text: a glass desk with a steel frame
+  expect:
+  - glass
+  - steel
+- stratum: glass
+  id: g27
+  text: a wooden cold frame for seedlings with a glass lid
+  expect:
+  - glass
+  - wood
+- stratum: glass
+  id: g28
+  text: a glass pyramid ornament on a concrete plinth
+  expect:
+  - glass
+  - concrete
+  hard: shape
+- stratum: glass
+  id: g29
+  text: a small security booth with glass windows on a thin concrete base
+  expect:
+  - glass
+  - concrete
+- stratum: mixed
+  id: m02
+  text: a steel bed frame with a wooden headboard
+  expect:
+  - steel
+  - wood
+- stratum: mixed
+  id: m06
+  text: a concrete bench with wooden slats
+  expect:
+  - concrete
+  - wood
+- stratum: mixed
+  id: m07
+  text: a steel shelving unit with wooden shelves
+  expect:
+  - steel
+  - wood
+- stratum: mixed
+  id: m08
+  text: a steel-framed wooden noticeboard on legs
+  expect:
+  - wood
+  - steel
+- stratum: mixed
+  id: m16
+  text: a wooden seesaw with a steel pivot
+  expect:
+  - wood
+  - steel
+- stratum: mixed
+  id: m18
+  text: a drywall cubicle wall with a wooden desk shelf
+  expect:
+  - drywall
+  - wood
+- stratum: mixed
+  id: m26
+  text: a fireplace surround with a concrete hearth and a wooden mantel
+  expect:
+  - concrete
+  - wood
+- stratum: mixed
+  id: m33
+  text: a gym bench with a steel frame and a wooden seat
+  expect:
+  - steel
+  - wood
+- stratum: mixed
+  id: m34
+  text: a small steel safe on a wooden stand
+  expect:
+  - steel
+  - wood
+- stratum: mixed
+  id: m35
+  text: a wooden table with a concrete top
+  expect:
+  - wood
+  - concrete
+- stratum: mixed
+  id: m39
+  text: a steel railing on a concrete curb
+  expect:
+  - steel
+  - concrete
+- stratum: mixed
+  id: m44
+  text: a concrete fire pit with a steel rim
+  expect:
+  - concrete
+  - steel
+- stratum: impossible
+  id: i01
+  text: a wooden beam six metres long
+  expect:
+  - wood
+  breaks: extent
+  single_ok: true
+- stratum: impossible
+  id: i05
+  text: a wooden footbridge spanning five metres
+  expect:
+  - wood
+  breaks: extent
+- stratum: impossible
+  id: i06
+  text: a steel radio mast four metres tall
+  expect:
+  - steel
+  breaks: extent
+- stratum: impossible
+  id: i16
+  text: a one-tonne steel counterweight
+  expect:
+  - steel
+  breaks: mass
+  single_ok: true
+- stratum: impossible
+  id: i17
+  text: a solid concrete statue base two metres wide, two metres deep and one metre tall
+  expect:
+  - concrete
+  breaks: mass
+  single_ok: true
+- stratum: impossible
+  id: i26
+  text: a wooden abacus with fifty separate beads
+  expect:
+  - wood
+  breaks: primitives
+- stratum: impossible
+  id: i29
+  text: a wooden picket fence with forty separate pickets
+  expect:
+  - wood
+  breaks: primitives

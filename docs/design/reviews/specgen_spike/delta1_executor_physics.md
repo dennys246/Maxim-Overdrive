@@ -52,8 +52,8 @@ and ran read-only scripts:
   The first draft of the breach gate selected no cells at 0.05 m, and its precondition raised `AssertionError`,
   which the strict gate would have counted as red. The mask is now a column whose faces are cell faces at every
   spacing, and the precondition raises `RuntimeError`.
-- **The named steps:** the breach law at step 8a, which is the author's proposal for the owner to confirm, and
-  `place`'s bounds at step 5a.
+- **The named steps:** the breach law at step 8a, which the owner confirmed on 2026-11-22, and `place`'s bounds at
+  step 5a.
 - **Plan folds:** N-S1, N-S2, N-S3, N-N1, N-N2 and N-N3; the spacing for M1; and S7's sub-point in D31 and plan §1.
 - **The architecture delta's folds:** the docstring, O57's payload and the gateway, the lesson date and the roadmap
   trigger.

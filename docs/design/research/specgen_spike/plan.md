@@ -1,4 +1,4 @@
-# Spec generator spike, stage 1: plan (draft, 2026-11-22; round 1 and delta 1 folded)
+# Spec generator spike, stage 1: plan (draft, 2026-11-22; round 1 and delta 1 folded; D34)
 
 **This is a draft, not yet the pre-registration.** It becomes the pre-registration when these are committed
 together, before any spike code runs:
@@ -46,7 +46,7 @@ agent's imagination. Search terms and citations are in `sources.md`.
 checker narrows diversity (Yue et al. 2025), and a physics reward invites degenerate answers, so both are measured
 from the start.
 
-## 2. Owner decisions (2026-11-22, O56, O58)
+## 2. Owner decisions (2026-11-22, O56, O58, D34)
 
 1. **Scope.** O56 allows the spike outside the core.
 2. **Both models run locally, on the owner's Mac mini** (M4 Pro, 48 GB) over Tailscale. That follows O58: local
@@ -74,8 +74,11 @@ Each arm runs on S and on R.
 | A2 | grammar-constrained | plus 4 hand-authored examples | none |
 | A3 | as A2 | as A2 | up to 3 retries |
 
-- **A3's feedback** is each refusal's `agent_text`: the code and field an NPC would read, with no echo of the
+- **A3's feedback** is each refusal's `agent_text`, the code an NPC would read, with no echo of the
   model's own values. A3 is the BrickGPT analogue at whole-spec grain, and it tests whether refusals steer.
+  `too_small` is never fed back (D34): it would teach the model to thicken parts to suit the grid. The refusals a
+  grammar-constrained reply can reach carry no field, so A3 tests steering by the code alone. The protocol (retries,
+  seeds, parsing, serialisation) is `arms.yaml`'s.
 - **Coordinates.** The prompt states the convention: the object's minimum corner is at its origin, so every
   coordinate is at least 0. A free-text `intent` field comes before the geometry and is dropped before `place`.
 
@@ -108,43 +111,51 @@ The metrics:
 - **M1, acceptance.** The fraction that `place` accepts and whose placed bounds lie inside the world. The scorer checks
   the bounds, since `place` doesn't (a Known gap). Rejections are broken down by `RefusalCode` and field.
   "Outside the world" and A0's parse failures are their own classes.
-- **M2, degeneracy.** An accepted spec is degenerate if any of these holds:
-  - (a) it has one primitive and its prompt isn't a barrier;
+  - **`too_small` is a world outcome, not a generator failure** (D34). `place` refuses objects of thin parts depending
+    only on where they land on the grid: two of the four examples are refused at 0.1 m, and all four at some
+    spacing. M1 reports it apart. A spec
+    refused only as `too_small` passes M1 if every other check holds, judged in metres by the scorer: the materials,
+    the 3 m extent, the 500 kg mass from authored volume, the 32-primitive count and the bounds.
+- **M2, degeneracy.** A spec that passes M1 is degenerate if any of these holds:
+  - (a) it has one primitive and its prompt isn't marked `single_ok` (one primitive is a correct answer);
   - (b) it uses one material where two or more are expected;
-  - (c) its primitives' contact graph, judged in metres from authored shapes (touching or overlapping), has more than
-    one component: a floating part.
+  - (c) its primitives' contact graph, judged in metres from authored shapes (touching or overlapping), with the
+    floor (z = 0) as one more node, has more than one component: a floating part.
 
   Also reported: the fraction of authored volume in primitives whose smallest side is under 0.4 m, the thin-feature
   rule.
 - **M3, voxel fidelity.** The voxelized volume over the authored volume, at two offsets: the scene offset and that
   offset plus half a cell. Also whether `place` accepts the spec at 0.2 m (`TOO_SMALL` depends on the spacing). This
   is reported only: it measures the world, not the generator.
-- **M4, material fit.** Over prompts with expected materials, the fraction of accepted specs containing all of them.
+- **M4, material fit.** Over prompts with expected materials, the fraction of specs passing M1 that contain all of them.
 - **M5, burn diagnostic.** This is reported only, never part of the composite or a stage-2 reward until spec v1,
   because it measures known gaps. On the shipped path: run `place`, then `Applier.apply(name, Ignite(100 kW,
   0.3 m))`, then record:
   - (a) **fire on air:** the fraction of specs with no solid cell inside the fire's sphere at turn 0;
   - (b) for the rest, the turn at which the sphere's solid fraction reaches zero, and region integrity at turns 10,
     20 and 30, censored from that turn on. Past it, the fuel gap heats air.
-- **M6, semantic fit.** Each accepted spec is rendered from its authored primitives (three orthographic views and one
+- **M6, semantic fit.** Each spec passing M1 is rendered from its authored primitives (three orthographic views and one
   isometric view, coloured by `color_rgb`), not from voxels, so M6 judges the generator. The owner labels 300
   renders blind: "yes / partly / no".
   - **Paired, 240.** 30 dev prompts, drawn with seed 0 and stratified over the four possible strata, × samples 0–3 ×
     S-A3 and R-A3.
   - **Trend, 60.** Samples 0–1 of 10 of those prompts × S's A0–A2, as descriptive context only.
   - There is no LLM judge, so only owner labels decide.
+  - Prompts marked `hard: shape` need a shape the primitives can't make; their labels are reported apart.
 - **M7, diversity.**
-  - Among each prompt's accepted samples, the number of distinct `SpecId`s (`ip_and_licensing.md` §6).
+  - Among each prompt's samples passing M1, the number of distinct `SpecId`s (`ip_and_licensing.md` §6).
   - The Vendi score at orders 0.5 and ∞, with a kernel of volume IoU between authored shapes. The IoU is computed on a
     1 cm analysis raster, not a world grid, after each spec's minimum is moved to the origin.
-  - The denominator is the accepted samples. Prompts with fewer than 2 are counted, not scored.
-- **M8, impossible prompts.** The fraction accepted, and whether the accepted specs keep the intent at the smallest
-  size, labelled by the owner on samples 0–1 of 10 such prompts for S-A3.
+  - The denominator is the samples passing M1. Prompts with fewer than 2 are counted, not scored.
+- **M8, impossible prompts.** The fraction accepted, and whether each accepted spec is the closest object that fits,
+  scaled down only as far as the limits require, labelled by the owner on samples 0–1 of 10 such prompts for S-A3.
+  The grammar bounds a box at 300 cm, so for extent prompts under A1–A3 acceptance partly measures the grammar; A0
+  is reported beside it.
 - **M9, cost.** Tokens and wall time on the mini per good spec.
 
-**The composite, defined now.** A sample is a *good spec* if it is accepted and in the world (M1), not degenerate
-(M2), and labelled "yes". Physics and cross-grid agreement stay out until spec v1: a generator rewarded for avoiding
-simcore's known gaps would learn the gaps, not objects.
+**The composite, defined now.** A sample is a *good spec* if it passes M1 (accepted, or refused only as `too_small`) and
+is in the world, not degenerate (M2), and labelled "yes". Physics and cross-grid agreement stay out until spec v1: a
+generator rewarded for avoiding simcore's known gaps would learn the gaps, not objects.
 
 ## 6. Decision rules for stage 2
 
@@ -154,7 +165,8 @@ and the first that holds decides:
 
 1. **Stop, the small model suffices:** L's lower bound is at least P. S-A3 becomes the Phase 6 caller candidate.
 2. **Stage 2 goes ahead:** H's lower bound is at least P, and Δ's interval excludes zero, with H higher. The reference
-   model shows a level worth having, and fine-tuning S could close the gap.
+   model shows a level worth having, and fine-tuning S could close the gap. Its reward waits for the sub-cell solids
+   contract (D34), so the world can judge thin parts itself.
 3. **Neither:** in every other case, this data doesn't justify training. The report says which failure classes
    dominate, and the owner decides. A larger model or spec v1 may need to come first.
 

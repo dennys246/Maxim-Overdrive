@@ -1,0 +1,167 @@
+# The spec generator spike's arms (docs/design/research/specgen_spike/plan.md §3): which arm gets what, the
+# schema, the instructions, the examples, the feedback and the protocol generate.py follows. Frozen by SHA-256 in the
+# plan's pre-registration commit and never edited after it. Folded after freeze round 1
+# (docs/design/reviews/specgen_spike/freeze1_*.md).
+version: 0
+
+arms:
+  A0: {grammar: false, examples: false, retries: 0}
+  A1: {grammar: true, examples: false, retries: 0}
+  A2: {grammar: true, examples: true, retries: 0}
+  A3: {grammar: true, examples: true, retries: 3}
+
+# Sampling is pure temperature: every other sampler is pinned off, so llama.cpp build defaults can't differ.
+sampling:
+  temperature: 0.7
+  top_k: 0
+  top_p: 1.0
+  min_p: 0.0
+  repeat_penalty: 1.0
+  samples_per_prompt: 8
+  seeds: [0, 1, 2, 3, 4, 5, 6, 7]
+  retry_seed: "100 * attempt + seed"  # attempt 1, 2 or 3 in A3: 100-107, 200-207, 300-307, apart from the base seeds
+  max_output_tokens: 4096
+  thinking: off  # the template's enable_thinking=false, through llama-server; verified on the mini before the freeze
+
+protocol:
+  # Whole centimetres become metres by exact division, never by multiplying by 0.01: v * 0.01 and v / 100 differ for
+  # 35 of the values 0-300, which would change masses, SpecIds and digests.
+  cm_to_m: "v / 100, for every coordinate and the radius"
+  keys_to_m: {min_cm: min_m, max_cm: max_m, center_xy_cm: center_xy_m, radius_cm: radius_m, z_cm: z_m}
+  drop_before_place: [intent]
+  # A0 has no grammar. Its reply is parsed as the first complete JSON object in the text, after any code fence is
+  # removed; anything else is the class parse_failure. A0 keys in metres, or floats, aren't converted: place refuses
+  # them as written.
+  a0_parse: "code fences removed, then json.JSONDecoder.raw_decode tried at each { in order; the first that parses"
+  truncated: "a reply that stops at max_output_tokens is the class truncated, before any parse"
+  # A3 continues one conversation: each retry appends the refused reply as the assistant turn and the feedback as a
+  # user turn. Each attempt is placed in a fresh empty scene. Each attempt is checked in this order: truncation, the
+  # scorer's bounds check, then place. The loop ends at the first attempt that passes M1, at a truncated reply, at a
+  # too_small refusal, or after the third retry; the last attempt is the one scored.
+  a3_conversation: multi_turn
+  # too_small is a world outcome (D34): it is never fed back, and it ends the loop. The scorer's bounds check refuses
+  # an object partly outside the world, which place accepts, with RefusalCode.OUTSIDE_EXTENT.
+  a3_never_fed_back: [too_small]
+  a3_scorer_refusals: {outside_world: outside_extent}
+  # Examples go in as user/assistant turns: the user turn is user_template with the example's prompt, and the
+  # assistant turn is the reply as compact JSON (separators "," and ":"), keys in the order written here.
+  example_serialisation: "json.dumps(reply, separators=(',', ':'), ensure_ascii=True), keys in file order"
+
+# The JSON schema for grammar-constrained arms (A1-A3), compiled by llama.cpp. The grammar enforces integer ranges,
+# array lengths and the name's pattern. llama.cpp drops minLength and maxLength when a pattern is present, so the name
+# pattern bounds the length itself, at most 64 characters. A box can't exceed 300 cm, but a cylinder's centre plus
+# its radius can (to 450 cm); the validator and the scorer's bounds check catch that.
+schema:
+  type: object
+  additionalProperties: false
+  required: [intent, name, primitives]
+  properties:
+    intent: {type: string, maxLength: 300}
+    name: {type: string, pattern: "^[a-z0-9]{1,12}(_[a-z0-9]{1,12}){0,4}$"}
+    primitives:
+      type: array
+      minItems: 1
+      maxItems: 32
+      items:
+        anyOf:
+          - type: object
+            additionalProperties: false
+            required: [kind, min_cm, max_cm, material]
+            properties:
+              kind: {const: box}
+              min_cm: {type: array, minItems: 3, maxItems: 3, items: {type: integer, minimum: 0, maximum: 300}}
+              max_cm: {type: array, minItems: 3, maxItems: 3, items: {type: integer, minimum: 0, maximum: 300}}
+              material: {enum: [concrete, steel, glass, wood, drywall]}
+          - type: object
+            additionalProperties: false
+            required: [kind, center_xy_cm, radius_cm, z_cm, material]
+            properties:
+              kind: {const: cylinder}
+              center_xy_cm: {type: array, minItems: 2, maxItems: 2, items: {type: integer, minimum: 0, maximum: 300}}
+              radius_cm: {type: integer, minimum: 1, maximum: 150}
+              z_cm: {type: array, minItems: 2, maxItems: 2, items: {type: integer, minimum: 0, maximum: 300}}
+              material: {enum: [concrete, steel, glass, wood, drywall]}
+
+# The system text every arm sends. A0 relies on it alone; A1-A3 also decode under the schema.
+instructions: |
+  You design physical objects for a simulated world. Reply with one JSON object and nothing else.
+
+  The object is built from solid primitives:
+  - a box: {"kind": "box", "min_cm": [x, y, z], "max_cm": [x, y, z], "material": M}, axis-aligned, with every
+    max_cm value greater than its min_cm value;
+  - an upright cylinder: {"kind": "cylinder", "center_xy_cm": [x, y], "radius_cm": r, "z_cm": [bottom, top],
+    "material": M}, its axis vertical, with top greater than bottom.
+  All lengths are whole centimetres. z points up. The object's minimum corner is at its origin, so every point of
+  every primitive (a cylinder's centre minus its radius included) lies between 0 and 300, and z = 0 is the floor it
+  stands on. Every part must touch another part or the floor. Primitives may touch or overlap, but overlapping volume
+  counts twice in the mass.
+
+  Materials and their densities: concrete 2400 kg/m3, steel 7850, glass 2500, wood 600, drywall 800.
+
+  The world refuses an object that:
+  - is wider, deeper or taller than 300 cm;
+  - weighs more than 500 kg (volume times density, summed over primitives);
+  - has more than 32 primitives;
+  - uses any other material.
+
+  Reply with {"intent": one sentence saying what the parts are, "name": a lowercase_snake_case name,
+  "primitives": [...]}. If the request can't be met within these limits, make the closest object that fits, scaled
+  down only as far as the limits require.
+
+user_template: "Design: {prompt}"
+
+# A3: each refusal's agent_text (refusals.agent_text: "code" or "code (field)"). Measured in freeze round 1, the
+# refusals a grammar-constrained reply can reach carry no field (out_of_range, over_budget, bad_name), so A3 tests
+# steering by the code alone, as an NPC would get it; over_budget doesn't say whether mass or extent is at fault.
+feedback_template: "The world refused that object: {agent_text}. Reply with a corrected object."
+
+# A2 and A3: four hand-authored examples. No prompt asks for any of these objects or a near copy of one: freeze round
+# 1 replaced a bollard example that nearly answered four prompts, and reworded g25 and m36. The footstool is a
+# template for tables and the locker for cabinets: examples teach structure, which is what A2 measures. Each is
+# connected (touching parts, or the floor), within budget and inside the world at the scene offset. place refuses
+# the footstool and the aquarium at 0.1 m, the locker at 0.05 m and the birdbath at 0.2 m, as too_small, a world
+# outcome (D34; measured 2026-11-22).
+examples:
+  - prompt: a wooden footstool
+    reply:
+      intent: A square wooden seat on four square legs.
+      name: wooden_footstool
+      primitives:
+        - {kind: box, min_cm: [0, 0, 30], max_cm: [40, 40, 34], material: wood}
+        - {kind: box, min_cm: [0, 0, 0], max_cm: [4, 4, 30], material: wood}
+        - {kind: box, min_cm: [36, 0, 0], max_cm: [40, 4, 30], material: wood}
+        - {kind: box, min_cm: [0, 36, 0], max_cm: [4, 40, 30], material: wood}
+        - {kind: box, min_cm: [36, 36, 0], max_cm: [40, 40, 30], material: wood}
+  - prompt: a steel locker
+    reply:
+      intent: A tall steel box of thin sheets, open inside, with a door panel on the front.
+      name: steel_locker
+      primitives:
+        - {kind: box, min_cm: [0, 0, 0], max_cm: [1, 45, 180], material: steel}
+        - {kind: box, min_cm: [39, 0, 0], max_cm: [40, 45, 180], material: steel}
+        - {kind: box, min_cm: [1, 44, 0], max_cm: [39, 45, 180], material: steel}
+        - {kind: box, min_cm: [1, 0, 0], max_cm: [39, 44, 1], material: steel}
+        - {kind: box, min_cm: [1, 0, 179], max_cm: [39, 44, 180], material: steel}
+        - {kind: box, min_cm: [1, 0, 1], max_cm: [39, 1, 179], material: steel}
+  - prompt: a concrete birdbath
+    reply:
+      intent: A concrete pedestal holding a wide, shallow concrete basin.
+      name: concrete_birdbath
+      primitives:
+        - {kind: cylinder, center_xy_cm: [30, 30], radius_cm: 12, z_cm: [0, 70], material: concrete}
+        - {kind: cylinder, center_xy_cm: [30, 30], radius_cm: 30, z_cm: [70, 80], material: concrete}
+  - prompt: a glass aquarium on a steel stand
+    reply:
+      intent: A steel stand of four legs and a top plate, holding an open glass tank of five panes.
+      name: aquarium_on_stand
+      primitives:
+        - {kind: box, min_cm: [0, 0, 0], max_cm: [3, 3, 70], material: steel}
+        - {kind: box, min_cm: [77, 0, 0], max_cm: [80, 3, 70], material: steel}
+        - {kind: box, min_cm: [0, 37, 0], max_cm: [3, 40, 70], material: steel}
+        - {kind: box, min_cm: [77, 37, 0], max_cm: [80, 40, 70], material: steel}
+        - {kind: box, min_cm: [0, 0, 70], max_cm: [80, 40, 72], material: steel}
+        - {kind: box, min_cm: [0, 0, 72], max_cm: [80, 40, 73], material: glass}
+        - {kind: box, min_cm: [0, 0, 73], max_cm: [80, 1, 113], material: glass}
+        - {kind: box, min_cm: [0, 39, 73], max_cm: [80, 40, 113], material: glass}
+        - {kind: box, min_cm: [0, 1, 73], max_cm: [1, 39, 113], material: glass}
+        - {kind: box, min_cm: [79, 1, 73], max_cm: [80, 39, 113], material: glass}
