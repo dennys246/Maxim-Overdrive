@@ -36,7 +36,7 @@ from dataclasses import dataclass
 REGISTRY = "docs/design/contracts.md"
 KINDS = {"vocabulary", "signature"}
 MARKER = re.compile(r"^<!-- contract: ([a-z0-9_.-]+)(?:: ([^>]*?))? -->\s*$")
-SUPERSEDED = re.compile(r"^> \*\*Superseded", re.M)
+SUPERSEDED = re.compile(r"^> \*\*Superseded(?! in part)", re.M)  # a partial supersession leaves the design live
 SCOPE = re.compile(r"^docs/(design|plans)/[^/]+\.md$|^docs/(roadmap|architecture)\.md$")
 DESIGN = re.compile(r"^docs/design/[^/]+\.md$")
 SPAN = re.compile(r"`([^`\n]+)`")
@@ -46,8 +46,8 @@ LEAD = re.compile(r"^(?:[-*]|\d+\.) (?:\*\*)?`([^`\n]+)`")  # an item that start
 ROW = re.compile(r"^\| `([a-z0-9_.-]+)` \| `([^`]+)` §(\d+(?:\.\d+)*) \| (\w+) \| (\d+) \|\s*$")
 FOLD = re.compile(r"^#{1,6} Fold table", re.M)
 RULING = re.compile(
-    r"^(?:(?:[-*]|\d+\.) \*\*(?:O|OA|D|T|VS)\d+[a-z]?[.:*]|\*\*Ruled\b)", re.M
-)  # "- **D20.", "**Ruled 2026-…:**"
+    r"^(?:(?:[-*]|\d+\.) )?\*\*(?:(?:O|OA|D|T|VS)\d+[a-z]?[.:*]|Ruled\b)", re.M
+)  # "- **D20.", "**D20.", "1. **O3.", "**Ruled 2026-…:**", "- **Ruled …"
 
 
 @dataclass(frozen=True)
@@ -291,6 +291,8 @@ def marker_problem(c: Contract, block: Block, marker: Marker, defined: list[str]
     positions = member_positions(block)
     if not defined:
         return f"{c.name}: its marker names no members"
+    if marker.keyword == "|":
+        return f"{c.name}: its marker has a '|' with nothing after it"
     if marker.keyword not in ("", "not:"):
         return f"{c.name}: its marker reads {marker.keyword!r} after '|'; only 'not:' may follow it"
     checks = [

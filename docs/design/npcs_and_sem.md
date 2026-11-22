@@ -719,13 +719,14 @@ section pins them. Where it and an earlier section differ, this section wins, an
   unpickled; a frame from the wrong actor refused. **The test double runs behind this channel in a spawned worker,**
   so every [now] determinism test exercises the shipped path: spawned workers, the codec and the barrier's merge
   (DET-S3).
+<!-- contract: agent_failed.reasons: hung crashed protocol build | not: agent_failed `agent_failed(npc, reason = hung | crashed | protocol)` agent_ready data/agents/thought_budget.yaml sem_stimuli.md -->
 - **A hung or dead worker never freezes the world (Arch S6, TB3-S10, DET-S4).** A worker that doesn't park within the
   host's per-park wall ceiling (`data/agents/thought_budget.yaml`), exits, or sends a refused frame is killed. The
   host logs `agent_failed(npc, reason = hung | crashed | protocol)` as a record, treats the NPC as parked and inert
   (its body processes go on; it takes no actions), and flags the run tier 3. Restarting it from its last saved home is
   an explicit host control record that opens a new log segment (O45; its in-flight pids: §6.4, O44). **The lifecycle
   records** are `agent_ready`, logged when the worker is ready and at each restart, and `agent_failed`, whose closed
-  reasons are those three and `build`, for a refused worker build or binding table (`sem_stimuli.md` §3.2, §4.5).
+  reasons are `hung`, `crashed`, `protocol` and `build`, for a refused worker build or binding table (`sem_stimuli.md` §3.2, §4.5).
 - **The worker is a container, not a sandbox (TB3-S6).** It runs as the user and can read what the user can. It
   contains the paths Maxim's code takes by default (working directory, home, environment, keys, outbound network); a
   hostile process needs an OS sandbox (macOS `sandbox-exec`, Linux seccomp and namespaces, Windows AppContainer).

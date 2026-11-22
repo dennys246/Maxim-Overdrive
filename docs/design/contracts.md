@@ -25,10 +25,9 @@ both stay with review (B36). Marker lines don't count toward a design's word bud
 | `codec.kinds` | `design/npcs_and_sem.md` §6.6 | vocabulary | 4 |
 | `server.messages` | `design/client_rendering.md` §4.1 | vocabulary | 5 |
 | `client.messages` | `design/tile_and_client.md` §3.3 | vocabulary | 4 |
+| `agent_failed.reasons` | `design/npcs_and_sem.md` §6.6 | vocabulary | 3 |
 
 Not registered yet, and why:
-- `agent_failed`'s reasons (`npcs_and_sem.md` §6.6) are written inside one code span, so the lint can't see them
-  separately.
 - The snapshot channels (`client_rendering.md` §4.2) wait on #31's ruling.
 - The log header and the tiers are prose and table text, not code-span vocabularies.
 
