@@ -67,12 +67,10 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
     step 5a).
 - Part (b), on `phase1/formats`:
   - done, no shipped caller until step 5b (spawns) and step 8 (the shipped scene, with a scene file loader in
-    `loaders.py`): scene v1, F13 plus a required `spawns`; scene v0 is refused by version, not migrated (scenes are
-    repo-only); golden v0 and v1 fixtures (WT-S8); zones, vents and gaps refused by path; every extent a whole number of
-    0.2 m cells, judged in whole micrometres, so a scene builds at every verification grid or none (world_model WT-5,
-    WT-11); spawn names unique under Maxim's name rule, never a region's name nor one of Maxim's target aliases (`self`,
-    `aut`, `player`) (`simcore/core/scene.py`, `grid.py`; `tests/fixtures/formats/v0/scene.yaml`, `v1/scene.yaml`,
-    `tests/fixtures/scenes/alley_box.yaml`; `tests/test_scene_v1.py`).
+    `loaders.py`): scene v1, v0's refusal, the extent rule (world_model WT-5, WT-11) and the spawn-name rule, as
+    `tile_and_client.md` §1.3 states them; golden v0 and v1 fixtures (WT-S8) (`simcore/core/scene.py`, `grid.py`;
+    `tests/fixtures/formats/v0/scene.yaml`, `v1/scene.yaml`, `tests/fixtures/scenes/alley_box.yaml`;
+    `tests/test_scene_v1.py`).
   - done: one schema and one reader per data format; `MaterialTable`'s lookup arrays and every rejection test
     generated from it (`simcore/core/schema.py`; `tests/test_formats.py` finds every `Format`, fail closed, walks
     every tagged kind, and pins each schema in `tests/fixtures/formats/schemas.txt`). Not built: units and provenance
@@ -80,16 +78,16 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
     stage-1 intent parsing (`intents.py`) stays its own idiom until step 7 moves the wire format onto the schema.
   - done: one small migration mechanism (`read_version` plus `Format.migrations`, keyed by format and version),
     refused for a repo-only format at declaration; no shipped format is held by others yet, so none migrates.
-  - done, no shipped caller until step 5a's log header: digests stored versioned, as `sha256/c14n-1:<hex>`
+  - done, no shipped caller until step 5a's log header: digests stored versioned, in `boundaries.md` §6.3's form
     (`simcore/core/digest.py`).
   - done: content stores time in world units, never ticks: a schema field named for ticks is refused where it is
-    declared. Ticks derived at load arrive with the tick (step 5a).
+    declared. When ticks are derived is `npcs_and_sem.md` §9's.
   - done: the refusal-code enum (WT-S1, `simcore/core/refusals.py`), append-only and pinned; every gate's refusal
     carries a code, and the SEM membrane answers an agent with the code alone.
-  - done: identity keys contain no `:` (Maxim's owner, 2026-11-19: `make_agent_rng` joins `f"{base_seed}:{agent_id}"`,
-    so a `:` would make streams ambiguous), refused as `bad_identity_key` (`checks.identity_key`). Today's one loader
-    of them, the scene's spawns (name, archetype, held item), has a rejection test per key; NPC keys and stream
-    names get theirs with their loaders (`phase1/agents`), save v0's `body_key` at step 9 (`npcs_and_sem.md` §3.4).
+  - done: identity keys contain no `:` (`npcs_and_sem.md` §3.4), refused as `bad_identity_key`
+    (`checks.identity_key`). Today's one loader of them, the scene's spawns (name, archetype, held item), has a
+    rejection test per key; NPC keys and stream names get theirs with their loaders (`phase1/agents`), save v0's
+    `body_key` at step 9 (`npcs_and_sem.md` §3.4).
   - done: B29 (`loaders.DataPath`; `scripts/lint_inputs.py`'s routes through a value; the four corpus rows).
   - not built: loader types for body archetypes (the body contract is being redesigned, `sem_stimuli.md` v4 on
     `phase1/sem-stimulus`; owner, 2026-11-21) and for items, which travel with them (owner, 2026-11-21: skipped for
@@ -108,6 +106,9 @@ The contract is `docs/design/sim_core.md`; its reviews and fold tables are in `d
 owner stopped the paper rounds (2026-11-21), so the delta round's mechanism findings are tests here, each with its
 finding id, and 5a's code reviewers set their statuses. Each item cites the section it serves, and says how its test
 fails.
+
+- When `imagine` becomes an intent kind, fold `boundaries.md` §6.1's separate `imagine` record kind into `intent`
+  (docs-contracts round 1 ruling 5).
 
 - **The SEM fold rows 5a settles** (owner, 2026-11-21: each build step names them; 5a's reviewers set each status):
   round 1 Executor S2 and A-S3; delta 1 X2, A-S10 and A2-S4; delta 2 A-S10 (the composition note cites §11.1), Y5, Y7,
@@ -198,7 +199,7 @@ fails.
   - `boundaries.md` §6.4's rows follow §6's writer roles: "the laws in `advance`" goes, construction writes through
     `Topology`, and a `Topology` row joins (X-N4).
 - **§14:** the intent log's `Format` (version 0, held by others), its reader, gate-registry row and golden fixtures,
-  including a `tick_digest` line (D-N-S5); `kind_rank` from `tile_and_client.md` §3.1, now ranking `ignite` and host
+  including a `tick_digest` line (D-N-S5); `kind_rank` from `boundaries.md` §6.2, now ranking `ignite` and host
   commands (D-N-S2); vocabulary v0 in 5a's logs (tile §3.2 amended; W-S2); the refusal codes produced today get their
   stage, reply and logging class beside tile §3.4's (from step 3b part (b)'s review, Wire N6).
 - **6.0a rides this line** (`fire_solid.md` §0, §5): the split material data, its loaders and versions, and the fuel
@@ -232,13 +233,12 @@ fails.
   and a fixed point source (DPH-S4).
 - `join` records carry `body_key`, the archetype name and the held item's name.
 - The efference-copy fields (`tile_and_client.md` §3.1): bodies-part events and pilots rows carry `cause = (actor_id,
-  seq)`; the intent record carries an optional, opaque `invocation`. A test: a `move_to`'s `arrived` and a
+  seq)`; the intent record carries `invocation` (`boundaries.md` §6.2). A test: a `move_to`'s `arrived` and a
   `kindle`'s pilot row name their intent.
-- `invocation` is reserved and unfilled until Maxim's G17 stage (autonomic plan, post-fence resume) builds
-  `PhysicalEventId` (Maxim's review of v5, SHOULD-FIX 1). A test: null is accepted, and a stand-in is refused with a
-  typed code: a uuid string, an executor-style `invocation_id` and any other non-null value. The host copies the
-  field and never mints or computes one. When the type exists, the refusal narrows to any non-null value that isn't
-  a pid, with its own test.
+- `invocation` stays unfilled as `boundaries.md` §6.2 says until Maxim's G17 stage (autonomic plan, post-fence
+  resume) (Maxim's review of v5, SHOULD-FIX 1). A test: null is accepted, and a stand-in is refused with a typed
+  code: a uuid string, an executor-style `invocation_id` and any other non-null value. When the type exists, the
+  refusal narrows, with its own test.
 - Action vocabulary v1 with `actions.yaml` v1, refused at v0 by version, not migrated (DC-S5), and an interim sphere-overlap
   `kindle` deposit: a marked band-aid, its file listed under Phase 1 in the roadmap, removed by step 6's skin.
 
@@ -281,12 +281,14 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 
 ## Step 7, `phase1/protocol`
 
-- The frame grammar's extension rule restored (world_v2 §8): a `required` flag per channel, `compression: none`,
-  `axis_order`; fixtures for an unknown optional channel (ignored) and an unknown required channel (refused).
-- `welcome` and the version `error` carry the engine `build`.
+- The frame grammar's extension rule (`client_rendering.md` §4.1); six golden fixtures (`world_v2.md` §8), among them an
+  asymmetric grid and ones for an unknown optional channel
+  (ignored) and an unknown required channel (refused).
+- The engine `build` in `welcome` (`client_rendering.md` §4.1) and the version `error`.
 - A refusal for exhausted u16 region ids.
-- JSON reads floats (`client_rendering.md` §4.1): decoder fixtures with an integer at 2^53 and at 2^53 + 1 (refused);
-  stage 1 refuses `5500.0` and `true` where an integer is expected (Python reads a float, and `bool` is an `int`).
+- JSON reads floats (`client_rendering.md` §4.1; the pin is `boundaries.md` §9.1's): decoder fixtures with an integer
+  at 2^53 and at 2^53 + 1 (refused); stage 1 refuses `5500.0` and `true` where an integer is expected (Python reads a
+  float, and `bool` is an `int`).
 - B25's engine/game check, with the second engine file.
 
 - The strict red gate that refuses guest joins while real-Maxim NPCs are live, as the roadmap's Phase 4 assigns
@@ -305,8 +307,8 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 ## Step 8, the tile (`tile_and_client.md` §6; `client_rendering.md` §4–§6)
 
 - The game package and its `content/` (AR-S6).
-- The exit script, run stepped and unpaced; the controls, each proven by deletion (PH-S3); the stage-2 refusal
-  scripts.
+- The exit script (Phase 1's exit is `docs/roadmap.md`'s, Phase 1, "Exit"), run stepped and unpaced; the controls,
+  each proven by deletion (PH-S3); the stage-2 refusal scripts.
 - The shader, the cut-away test at ≥ 95%, five scenario goldens per tier, staleness digests, `update_goldens.sh`
   (EX-S13).
 - CR-B3's open half: a shaded golden that differs at 128 and 256 bits and agrees across Intel and AMD runners (the
@@ -318,9 +320,8 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 - The actor and pilots tables and `body_key` (BF-N3).
 - **Names, not positions:** every index column (`archetype`, `held_item`, `material`) carries a name list in the
   header, and loading remaps by name.
-- **The load rule:** a save is state, and loading never replays the log; it stores a region table, not the scene
-  file; a content change loads with a `content_changed` flag instead of refusing; every grid carries its cell size.
-  This supersedes world_model §8 F5's refuse-on-mismatch for saves (F5 and F14 contradict on embedded scenes).
+- **The load rule** is world_model §8's (F5, F14); loading never replays the log; every grid carries its cell size.
+- A "heavy mode" test saves, loads and continues, and must match an uninterrupted run bit for bit (`world_v2.md` §8).
 - No zero-valued `energy` or `dose` columns: they arrive in Phase 4 with defaults.
 - No agent state: the `EventSequencer`'s high-water seq in each agent home is save v1, Phase 4 (O43).
 
@@ -539,8 +540,8 @@ measured in the research (L3) or the reviews, **M** are from memory and must be 
   rest is low by 28% at 100 °C, 2.2× at 200 °C, **D**). Test: a two-region body, one region in a hot gas region of a
   fixture gas field, burns only that region; on the shipped path it waits for zones (P-N3).
 - **Immersion and plume** (PH2-S3): a continuous gas-temperature field per flame (flame, intermittent and plume
-  regions from a cited correlation), h(d)·(T_gas − T_s) per point; a cross-tier test with an outcome margin for a
-  hand at the flame edge; until then "plume gas doesn't heat" is a Known gap with a number.
+  regions from a cited correlation), h(d)·(T_gas − T_s) per point; a cross-tier test with an outcome margin
+  (`world_model.md` §3) for a hand at the flame edge; until then "plume gas doesn't heat" is a Known gap with a number.
 - **Contact** (PH2-B1): the object-side sub-mesh, refined to the substep's penetration depth, persists for the whole
   contact, read by the solid law through a conservative remap and remapped once at release. Outcome gate, with a
   horizon and a margin (P-S2): wood at 90 °C stays painless for 10 s with at least 1.9 K to threshold at the basal

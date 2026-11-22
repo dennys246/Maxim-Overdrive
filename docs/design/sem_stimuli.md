@@ -62,8 +62,9 @@ body YAML does, and `world_set_axis` clamps (`audio_localization.py:748-761`) ye
 with their field's design: contact and vibration, joints and vestibular (ANALOG); radiance after line of sight from
 **surface** temperatures only (`luminance` the EARN stopgap); `sound_event` per ear; gas per breath.
 
-The world ticks at 0.1 s and steps physics at 0.5 s. `tick` rows read fields held from the last physics step, a
-zero-order hold: a sensor never interpolates fields, which would invent states the simulation never had.
+The world's tick and physics step are `tile_and_client.md` §6.1's (T3). `tick` rows read fields held from the last
+physics step, a zero-order hold: a sensor never interpolates fields, which would invent states the simulation never
+had.
 
 ### 2.3 What binds every law
 
@@ -77,7 +78,7 @@ holds them to five rules:
   coarser published state. Contact's object-side sub-mesh lives for the whole contact (§7.1).
 - **Cell faces exchange nothing with bodies in v1** (owner, S4): strict red gates on face contact and face emission,
   and a Known gap with its number.
-- **Every body–world coupling gets a cross-tier test with an outcome margin.**
+- **Every body–world coupling gets a cross-tier test with an outcome margin** (`world_model.md` §3).
 
 ## 3. The body
 
@@ -101,8 +102,8 @@ body-instance field reserved now. So `core_temperature` moves: it rises beside a
 shivering saturates.
 
 **Tissue has one home:** `body/store.py` implements the field registry's `body_points` container kind, registering
-its arrays as fields (`world_v2.md` §2.5). The `FieldReader` opens read-only views of them, with no copy; save status
-comes from the registry entry.
+its arrays as fields (`boundaries.md` §9.1). The `FieldReader` opens read-only views of them, with no copy; save
+status comes from the registry entry.
 
 **The grammar is engine code; body instances are game data** (`boundaries.md` §2.1, BF-15). Site sets are in
 body-local metres: `skin` (regions of points: position, normal, area, depths), `eyes`, `ears`, `nostrils`, `mouth`,
@@ -119,8 +120,8 @@ beside a 33 °C palm reads 46 °C); it belongs in Maxim's receptor registry, **E
 when `join` is applied:** the row exists; sites lie in its site set and the body; `single` has one site; no mean spans
 depths; pooling is the class's. An invalid table refuses the join as a logged `agent_failed(build)`; replay reads
 `join` through the same gate. **The worker checks only what it alone sees:** Maxim sensor names, equal unit strings
-(`celsius` can't bind `celsius_norm`), ranges, no mean on a pain path. A **`bindings_digest`** goes in `welcome` and
-every `BoundFrame`; the worker refuses a mismatch with its own table.
+(`celsius` can't bind `celsius_norm`), ranges, no mean on a pain path. A **`bindings_digest`** goes in `welcome`
+(`client_rendering.md` §4.1) and every `BoundFrame`; the worker refuses a mismatch with its own table.
 
 ### 3.3 Phase 4's first body
 
@@ -208,7 +209,8 @@ class BoundFrame:
 
 ### 4.4 The worker
 
-- **The push:** `world_set_axis(emb, sensor, value, owner="overdrive_world")` per binding. **The body step**
+- **The push:** `world_set_axis(emb, sensor, value, owner="overdrive_world")` per binding. Per-part sensors
+  (`arms.thermal`) need OD-C10, since `world_set_axis` is root-only today. **The body step**
   (`Embodiment.evaluate_failures()`, M4): on a cognition tick the host pushes but doesn't step, so the agent's own
   tick steps the body in Maxim's W-4 order (`substrate_proposal.py:808-839`); under D5 (c) the host steps it on other
   ticks, under D14 never. A publish between passes keys to the last cluster stash, ANALOG until M4 answers.
@@ -240,7 +242,8 @@ failed agent breathes on a default schedule, so a crashed NPC is still poisoned.
 | restart | checks rerun; first delivery carries no events or receipts of the previous life, the dropped counts logged | `agent_ready` |
 | leave | tissue, events, visibility freed | `leave` |
 
-Membership comes from logged records, never delivery.
+Membership comes from logged records, never delivery. The `agent_ready` and `agent_failed` records are
+`npcs_and_sem.md` §6.6's.
 
 ### 4.6 Until a body can feel (D14)
 
@@ -280,20 +283,16 @@ missing law is an error (checked, **D**):
 - **Replay compares lanes whose key is unchanged,** refuses when a changed lane is one an NPC in the log bound, refuses
   an unknown format version by name, and reports skipped lanes. Adding a row, or an unbound row's law swap, keeps
   goldens green. Stored chains find the first bad *interval*; the first bad tick needs a reference run.
-- **The header:** `STIMULUS_SCHEMA_VERSION`, the `BoundFrame` and receipt versions, rows by sorted name with unit,
-  site set and version, each law's version, the lanes, id maps, truth constants (K tolerance and its Ω error, the
-  event byte budget, the largest cognition divisor, the maximum emitter count, refresh and clustering parameters,
-  cutoff floors). Bodies and bindings ride `join` records.
+- **The header's stimulus slots** are `boundaries.md` §6.3's.
 - **The save** holds all carried `core/body` and `core/stimuli` state as the registry and §7.1 declare it, contact
   sub-meshes and pending events included; a save anywhere reloads bit-identical.
 - **Tier 2 isn't bit-identical on real Maxim** until M6 and M8 land.
 
-**Version rules (F1, F15):** a new meaning gets a new name; a better estimate bumps `derivation_version` or the law's
-version, goldens regenerated in a commit saying so; adding a row is non-breaking; removing or renaming one bumps
+**Version rules:** F1 and F15 are `world_model.md` §8's; adding a row is non-breaking; removing or renaming one bumps
 `STIMULUS_SCHEMA_VERSION`; an agent home records its bound lane keys, refused on a change the load doesn't name (D13).
 **Each format has a version and a gate row:** body instance (5b); binding table, `BoundFrame`, receipt, `welcome`,
 `step_output` (`phase1/agents`); the save's body state (the first law). **`phase1/sim-clock` reserves** the lanes,
-header slots and `join`, `leave`, `agent_ready` and `agent_failed` records.
+header slots and the `join`, `leave` and agent lifecycle records (§4.5; `boundaries.md` §6.1).
 
 ## 6. Trust
 
@@ -304,7 +303,8 @@ membrane factory's frame source (`boundaries.md` §7.1, `npcs_and_sem.md` §6.5)
 (`boundaries.md` §4.2–§4.3, `npcs_and_sem.md` §7.2–§7.3); the pinned actor table (`tile_and_client.md` §4);
 `npcs_and_sem.md` §6.6's barrier levers.
 
-**D10 splits `region_parts`:** modulators stay in the membrane; the instrument builder becomes a lab builder. The
+**D10 splits `region_parts`:** modulators stay in the membrane; the instrument builder becomes a lab builder
+(`boundaries.md` §4.4). The
 environment entity is `phase1/agents`' design (T8, T13), which maps `StructureModulator.execute`'s refusals to §6.2.
 
 ### 6.2 Receipts
@@ -315,6 +315,7 @@ bounds by bisection. Superseding `npcs_and_sem.md` §6.6's "measured effect":
   refused or applied its intent (`L_us ≥ 1`, §4.1).
 - **One home:** `stimuli.wire`. `intents` keeps its refusal codes and layer 6 maps them to kinds; this supersedes by
   name `boundaries.md` §2.2's "receipts" in 5b and `settle`'s receipt type.
+<!-- contract: receipt.kinds: malformed limit accepted | not: applied unavailable -->
 - **v1 kinds are target-independent (D15), decided by stage 1 alone:** `malformed`, `limit`; any stage-2 result is
   `accepted`. Whether the target existed, was in reach or was hit is logged host-side only; the effect arrives as
   stimuli. With no vision or touch row, `applied` against `unavailable` would be an existence and footprint oracle.
@@ -376,7 +377,7 @@ takes the prediction error (blocking, Kamin, **S**), so the physical cue is neve
 | `adapters/agents/` | Maxim-side checks, the push, the value and thread checks | adapters |
 
 `core/body` sits beside cells and `core/stimuli` above it; stimuli imports nothing from `intents` (§6.2). This
-supersedes `boundaries.md` §2.2's map by name.
+supersedes `boundaries.md` §2.2's map by name; the layer order stays §2.2's.
 
 **Contact has one owner:** `contact.py` steps touched components in step 3, before `tissue.py` steps the rest,
 writing skin through the store's window and the object through an exchange field (`sim_core.md` §5.1), **against its own
@@ -386,7 +387,7 @@ applier, `tissue.py`, `irradiance.py`, `contact.py`.
 
 **Stimuli sit above the laws** (L7): tissue reaches models only through the `FieldReader`; the laws run every tick,
 whatever an agent's cadence. **5a's composition note gets three seams:** a per-tick law slot;
-the two-rate contact exchange, ledgered antisymmetrically (`world_v2.md` §2.6); the `body_points` container and a
+the two-rate contact exchange, ledgered antisymmetrically (`world_model.md` §4); the `body_points` container and a
 multi-writer `radiant_emitters` table, each row keyed `(writer law, source object id, primitive id)`, the key that
 orders sums and refresh.
 
@@ -423,7 +424,7 @@ In import-linter 2.6, `protected` sees direct imports only, and a nonexistent al
 | models allowlist | a grimp test: models import only `stimuli.schema`, the field-reader type, `body.geometry`, `body.sites`, `checks` | the tissue row's PR |
 | `stimuli-independent` | `independence` over `simcore.core.stimuli.models.*` | the tissue row's PR |
 | `agents-reads-body-frames` | `forbidden`, `allow_indirect_imports = false`; its list equals `_core_modules() − AGENTS_SURFACE` plus `adapters.sem.bridge`; `AGENTS_SURFACE` = `stimuli.wire`, `checks`, `readonly`; a grimp test requires the surface, with each member's parent packages, closed under imports | `phase1/agents` |
-| `maxim-through-adapters` | the worker module joins `allowed_importers`, its test with it | `phase1/agents` |
+| `maxim-through-adapters` | the worker module joins `allowed_importers`, its test with it (`boundaries.md` §8.1) | `phase1/agents` |
 
 Every `forbidden` list derived from `_core_modules()` sets `as_packages = false`, and its equality test asserts it;
 a test asserts every allowed importer exists. On toy packages (**D**, rerun for v5): the orders above keep every
@@ -482,14 +483,7 @@ M2 stays withdrawn. **The wall-clock gap is the largest unmet assumption** (L2 �
 
 ## 10. Decisions
 
-**Ruled 2026-11-20:** **D1** the port's `frame` is the `BoundFrame` source (O36); **D2** the registry is code
-primary; **D3** the wall-clock pushback; **D4** the injected clock is machinery; **D5** (c); **D6** flux internal;
-**D7** answered; **D8** the flat stopgap body; **D9** for O34; **D10** split `region_parts`; **D11** (a).
-
-**Ruled 2026-11-21:** **D12, provisional** (§8), with per-body budgets; **D13** (§5); **D14** (§4.6): a pain path
-precedes Phase 4's fire scenarios; M16 merges into M4; **S4:** no exchange with cell faces in v1 (§2.3); **the
-split:** this document holds the contract; **D15** (§6.2); **PH2-S2, re-ruled:** (c) replaces (a) (§3.1); **the
-rounds stop:** the next review is on code.
+This document's decisions (20 rulings) are kept as records, with their dates, owner sections and status, in `decisions/sem_stimuli.md`.
 
 ## 11. Steps, open questions and risks
 
@@ -508,7 +502,8 @@ rounds stop:** the next review is on code.
 
 - **Q1.** The `skin` point count. **Q3.** Face skins (S4). **Q4.** Bodies shading each other: a Known gap when
   irradiance lands. **Q5.** Ventilation's owner. **Q6.** Skin feedforward (L1 §9.1). **Q7.** Whether the embedded
-  build opens the Maxim session in build or at first step (§4.4 assumes it opens before `agent_ready`).
+  build opens the Maxim session in build or at first step (§4.4 assumes it opens before `agent_ready`). **Q8.** Whether a
+  `BoundFrame` push needs a log record (docs-contracts round 1 ruling 3).
 
 ### 11.3 Risks, said plainly
 
