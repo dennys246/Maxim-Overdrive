@@ -114,7 +114,7 @@ Stale text that no owner holds (X22, and the modulator path in P6) is changed to
 ## 3. Rulings
 
 The owner agreed to the recommendations on 2026-11-21. `reviews/docs_contracts/rulings.md` records the tiebreakers
-and each ✗ row's ruling. Row 28 waits on #32. CLAUDE.md stays untouched.
+and each ✗ row's ruling. Row 28 was settled from #32's merged code. CLAUDE.md stays untouched.
 
 ## 4. Fold and decision tables
 

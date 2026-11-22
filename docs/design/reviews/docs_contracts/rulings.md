@@ -31,7 +31,7 @@ Where a later design supersedes by name, its text becomes the owner text, and th
 | 22 | Refuse on mismatch for world inputs (boundaries §6.3); inference items recorded, never refused (inference_placement §4.3); boundaries states the exception | 2 |
 | 24 | Timing stays in integer microseconds; ticks derived only at apply (npcs §9) | owner's call |
 | 26 | Save v0 keeps F5: a newer build and a content change are refused; no in-flight thoughts, since agent state lives outside `Simulation` | owner's call |
-| 28 | Scene v0: **pending**, asked of #32's session, whose build decides | 1 |
+| 28 | Scene v0 is refused by version, never migrated, as built (`src/simcore/core/scene.py`, `_V0_REFUSED`, merged in #32 as 5c054f6); tile §1.3's migration text is stale | 1 |
 | 37 | The worker's `HOME`, `XDG_*` and `TMPDIR` are set under the agent home; npcs §6.6 reads "the host's `HOME` never passes through" | owner's call |
 | 41 | O16 is the live interim policy; npcs §6.6's floor thresholds fold into §4.4; O11a stays a record | 2 |
 | 43 | Model requests carry a deadline, not a priority. OD-A14's upstream ask is amended to match | 2 |
@@ -52,4 +52,3 @@ Where a later design supersedes by name, its text becomes the owner text, and th
 
 - **CLAUDE.md's handshake line.** The author offered to make it a link only if the owner says so explicitly; that
   has not happened, so CLAUDE.md is untouched.
-- **Row 28.** It waits on #32.
