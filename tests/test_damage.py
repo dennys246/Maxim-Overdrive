@@ -8,7 +8,8 @@ import math
 import pytest
 
 from simcore.core import damage, physics, reductions
-from simcore.core.scene import Box, Scene
+from simcore.core.scene import Box, Scene, constructing
+from tests._cells import destroy
 
 F_CONCRETE = 2.0e7
 
@@ -55,7 +56,7 @@ def test_a_hole_through_the_thinnest_authored_axis_is_a_breach_at_every_rig(spac
         x, y, _ = g.mesh()
         # A 0.2 m square column in metres, whose faces are cell faces at every spacing, so it holds whole cells.
         column = (x > 0.8) & (x < 1.0) & (y > 0.8) & (y < 1.0) & g.regions["box"].cells
-        with g.writing():
-            if g.destroy(column) == 0:  # the precondition raises outside the gate's raises=, so it can't pass as red
+        with constructing(g):
+            if destroy(g, column) == 0:  # the precondition raises outside the gate's raises=, so it can't pass as red
                 raise RuntimeError(f"no hole was made at {dx_m} m")
-        assert damage.region_breached(g, "box"), dx_m
+        assert reductions.region_breached(g, "box"), dx_m
