@@ -33,22 +33,24 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   lenses.
 - Fires that go out when their fuel is gone, so a burnt-out crate's fire stops instead of heating air to millions of
   degrees (`docs/architecture.md`, Known gaps; the red gate is
-  `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`). Needed before the tile's crate
-  scenario is gated. **Requirement:** a cell's burn rate must estimate the integral of the point-wise rate over the
-  cell, from a reconstructed sub-cell profile, well enough at the coarsest rig to pass the gate
-  (`docs/design/world_model.md` §3). Converging is not enough: today's law converges, slowly,
+  `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`). Needed before the Phase 1 exit
+  (the slab) is gated. **Requirement:** fuel burns as sub-grid objects with geometry in metres, coupled to the cells
+  by overlap (`docs/design/fire_model.md` §0, point 3; `docs/design/fire_solid.md` §1), well enough at the coarsest
+  rig to pass the gate. Converging is not enough: today's law converges, slowly,
   and the coarse rig still sits far off, because the measured cause is a threshold on a cell's mean temperature
   (the crate's mean temperature agrees across rigs within 1 °C while the degradation driver differs 1.3–1.5×). A
   per-cell ignition or pyrolysis threshold would inherit it. It must flip the strict
   red gate `tests/test_act_validation.py::test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn`,
   and it removes the marked band-aid in `data/world/actions.yaml`, whose ceilings keep fires at the powers the
   current physics has been measured at.
-- The substep floor in `src/simcore/core/heat.py`, a marked band-aid kept for bit-identity when resolution left the
-  rig: plan step 5a's fixed physics step replaces it, with an accuracy floor only if one is measured necessary
-  (`docs/design/sim_core.md` §8).
-- The write window's two owners before `Simulation` exists, marked band-aids (`docs/design/boundaries.md` §4.1, 2c):
-  `World.advance` in `src/simcore/core/world.py` and the intent applier in `src/simcore/core/applier.py` open the
-  window themselves; `phase1/sim-clock` moves both into `Simulation.step`. A third, `place` in
+- The write window's two owners until `Simulation.step` owns it, marked band-aids (`docs/design/boundaries.md` §4.1,
+  2c): `World.advance` in `src/simcore/core/world.py` and the intent applier in `src/simcore/core/applier.py` open the
+  window themselves; step 5a's PR 4 moves both into the step (PR 2 moved the laws into the tuple, not the window), and
+  with it a strike becomes a `Load` the applier appends. `World._power_field` in the same `world.py` holds the
+  sources' deposit (sorted and cached since PR 3, `src/simcore/core/deposit.py`) until PR 4 hands the sources to
+  heat's `prepare` (`docs/design/sim_core.md` §7). The shell's
+  interim `Simulation(world)` seam in `src/simcore/core/simulation.py` goes in PR 4, when `Simulation` carries the
+  per-tick digest its strangler tests compare. A third, `place` in
   `src/simcore/core/imagination.py`, opens it because the `imagine` intent kind doesn't exist yet; step 5a's intent
   log, where every input joins one pipeline, makes it the applier's stage 2 of that kind.
 - The SEM membrane applies synchronously with no log, a marked band-aid in `src/simcore/adapters/sem/bridge.py`
@@ -71,8 +73,9 @@ Each new field ships with a closed-form test and a cross-grid test, under the ve
 - **Close the known gap:** the coarsest rig's late-burn lag (`docs/architecture.md`).
 - **Moved from Phase 1 by the fire fallback (2026-11-20; after VS5):** crate and rungs 6.2–6.4 (flame object,
   two bodies, crib).
-- **Moved from Phase 1 by D26:** zones and vents, combustion per zone and its products, fuel recession and pyrolysis,
-  phase change, the CSG footprints, and the lab as Phase 2's benchmark tile.
+- **Moved from Phase 1 by D26:** zones and vents, combustion per zone and its products, phase change other than
+  fusion, and the CSG footprints. Pyrolysis, the fuel's regression, fusion and the lab (as the ladder's rigs) came
+  back to Phase 1 with the fire ladder (`docs/design/fire_model.md` §10.1; `docs/design/fire_solid.md` §4.2–§4.3).
 - **Plasma, slowly, aiming at plasma as a state of matter** (owner, 2026-11-19). The reason is what Maxim's NPCs can
   sense, learn and use from environmental effects:
   - an arc is a flash in the light field, a crackle in the sound field and ozone in the gas field;
@@ -282,7 +285,8 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
     arithmetic, not a run): `Hippocampus.sleep` scores retention on `time.time()`, so what an
     NPC forgets depends on wall time (`npcs_and_sem.md` §12.2). It stays with #1361 Q5 (Maxim, 2026-11-19); no
     workaround here, and Phase 4's replay exit carries it beside OD-A20.
-  - OD-A16 has closed the stale-refusal divergence before Phase 4.
+  - OD-A16 has landed before Phase 4: stale's divergence is closed for v1 (owner, 2026-11-22), and `call_error`
+    and `wrong_target` still need it.
   - Exp 64a's prerequisites (OD-B1 to OD-B7) are met, and its pre-registration is frozen.
   - The Exp 64 draft is in `docs/maxim_upstream/` and moves to Maxim's `docs/experiments/`.
 
@@ -350,7 +354,7 @@ See `docs/book_to_world.md`. Extraction, timeline and the perspective split, the
 - **Steam:** the Steamworks SDK in a private module, a trademark search and filing for the name, and the WashU OTM
   question settled before any store page.
 - **A creator marketplace, decided, not assumed.** Once players exist, decide whether to run one, from the costs in
-  `docs/design/ip_and_licensing.md` §5 (copyright takedowns and the safe harbour a cut puts at risk, EU seller
+  `docs/design/ip_marketplace.md` §3 (copyright takedowns and the safe harbour a cut puts at risk, EU seller
   verification, payouts through a merchant of record, Steam's rules on purchases and trading, curation, unit
   economics). Nothing for a marketplace is built before that decision; content identity (Phase 1) and the IP gate
   (Phase 6) are needed with or without one.
@@ -388,7 +392,7 @@ rules) live in `CLAUDE.md`, each with the check that enforces it; unenforced one
 
 ## Open questions
 
-- Turn length: 6 s is a placeholder. What does combat feel like at 3 s or 10 s?
+- Turn length: answered by T3 (owner, 2026-11-18): a 0.1 s tick, and the 6 s turn is retired.
 - Does the world server become a pip-installable dependency of Maxim experiments (cradles in real physics), or stay
   game-only?
 - Who holds copyright: Denny or RMDig LLC?

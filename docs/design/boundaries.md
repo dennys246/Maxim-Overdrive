@@ -50,7 +50,8 @@ Surveyed on `phase1/act-validation` at 2f200b5 (Executor confirmed each item):
   (spec) and `sem_env/` (bridge, `_compat`), plus a root `__init__` that re-exports config, grid, scene and world.
 - Only `sem_env/bridge.py` imports `maxim`.
 - No module imports `time`, `random`, `os` or `importlib`, but the core reached `pathlib` and `yaml` (`config.py`)
-  and `scipy` (`damage.py`), which bear on determinism (D-N1, D-B2; the IO left the core in 3a).
+  and `scipy` (`damage.py`, now `damage/strike.py` and `reductions.py`), which bear on determinism (D-N1, D-B2; the
+  IO left the core in 3a).
 - The world's writers lived outside `world/`, in the bridge and `place` (D-B1); objects called frozen were neither
   deeply frozen nor validated (TB-B2). Both fixed in 3b.
 - `data/` holds rigs, the material table (physical properties mixed with calibrations the file itself labels
@@ -96,13 +97,13 @@ bottom to top `simcore.core` < `simcore.adapters` < `simcore.protocol` < `simcor
 game). This order is the contract; O24 is its record. The table below is the map of where splits are expected to fall
 (O24): its `engine.*` names are working names, and its numbered layers are not import contracts. Built today:
 - layers 0–6 are `simcore.core`: `checks`, `materials`, `grid` (`engine.cells`), `heat` and `damage`
-  (`engine.laws`), `imagination`, `scene`, `intents` and `limits`, and `world`, `applier` and `frames`
+  (`engine.laws`), `imagination`, `scene`, `intents` and `limits`, and `world`, `applier`, `frames` and `simulation`
   (`engine.sim`), with `readonly`, `refusals`, `schema` and `digest` beside them;
 - `engine.loaders` and `engine.adapters.sem` are `simcore.adapters`;
 - `engine.tiers` and `engine.encoding` are `simcore.protocol`;
 - `engine.verify` is `simcore.verify`, which imports nothing from the engine (`verify_harness.md` §2).
 
-Not built: `engine.geometry` (primitives and footprints are in `scene`), `Simulation`, `engine.inference_wire`,
+Not built: `engine.geometry` (primitives and footprints are in `scene`), `engine.inference_wire`,
 `engine.adapters.inference`, `engine.protocol`'s wire codec, `engine.adapters.agents` and `engine.host`. Where a
 module sits inside the core (`core/body`, `core/stimuli`) is `sem_stimuli.md` §7.1's.
 
@@ -400,8 +401,8 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
 | host records: `agent_ready`, `agent_failed` (`npcs_and_sem.md` §6.6), `floor_event`, `reply_landed` (`npcs_and_sem.md` §6.6), redaction records (below) | the host |
 
 - **Redaction records** (`npcs_and_sem.md` O26). Each purged span becomes a record (actor, tick, length) in the
-  log. A reply that quoted the purged words is redacted too, and replay is bit-identical only up to the first
-  redacted reply, which the log marks as a replay boundary.
+  log. A reply that quoted the purged words is redacted too. A rerun reads recorded replies, never a model on purged
+  text, and matches only up to the first redacted reply, which the log marks as a replay boundary.
 - **Thought requests** come from an agent's `StepOutput` only; percepts may trigger them, rate-limited per speaker.
 - **`memory_write` is not a world-log kind** (foundations Arch S6, Wire S4). Agent state lives outside `Simulation`,
   the core can't apply it, and replay never runs Maxim. Memory writes are agent-side values in `StepOutput`, recorded
@@ -588,14 +589,13 @@ inside the simulation lane's tick"):**
   deadlocked with the dilate policy on one worker (foundations Arch B2), raced the tick (DR-B1), had no route into the
   pipeline and no second lane to wait across (Wire B2), and credited only instant effects (Arch S13). Under O6 the
   agent returns intents as values and receives receipts through `settle`.
-- **Each receipt is credited exactly once,** through `settle`, and zero times when `stale`; a test asserts it.
+- **Each receipt is credited exactly once,** through `settle` (stale: `sem_stimuli.md` §6.2); a test asserts it.
 - **Valence per D53:** the adapter always self-reports. `neutral` when the measured effect is nil or unverifiable,
   drive deltas through `measured_drive_transitions`; absent a report, Maxim books mechanical success as POSITIVE.
 - **Credit reads declared sensors only,** the ones the affordance declares it affects, and never instruments.
   Slow-effect credit (ignite) is an OPEN divergence with a red gate until settle can carry a horizon (OD-A16).
-- **Stale is context, never credit** (lesson 9). Until Maxim promotes a refusal-kind key through the bridge's failure
-  path (OD-A16), stale refusals are an OPEN divergence with a strict red gate, and the receipt goes to
-  the next thought's context.
+- **Stale is context, never credit** (lesson 9). v1 neither refuses nor credits a stale intent
+  (`sem_stimuli.md` §6.2), so stale's divergence is closed for v1; OD-A16 reopens it if `stale` becomes a kind.
 - **Per-actor binding (BF-6; foundations TB2-S8):** each NPC gets its own entity and modulator, bound to its actor.
   `name` and `full_path` stay identical across actors (lesson 10). The adapter refuses a call whose bound actor isn't
   the agent it is stepping.
@@ -819,7 +819,7 @@ harness is born in `engine.verify`:
 - **Docs:** README's quick start, `docs/code_review.md`, CLAUDE.md (Layout, Commands, the SEM rule's paths, the new
   rule) and `docs/architecture.md` are updated by hand. When the agent foundations land, CLAUDE.md's determinism
   rule ("one seeded `numpy.random.Generator` owned by `World`") becomes "the World's generator plus keyed per-NPC
-  streams from one root seed", `tests/test_determinism.py::NUMPY_RANDOM_ALLOWED` admits `Philox`, and the replay
+  streams from one run seed", `tests/test_determinism.py::NUMPY_RANDOM_ALLOWED` admits `Philox`, and the replay
   sentence is scoped to the world (§6.2) (foundations Wire S3, DR-S7, BF2-15). `docs/design/reviews/` and
   `docs/design/research/` are kept
   verbatim and excluded (W7, W11).
@@ -852,8 +852,7 @@ harness is born in `engine.verify`:
 
 - **Real NPCs wait for Maxim's embeddable agent contract** (O6). Until it ships, real Maxim behind the adapter is a
   strict red gate, and every agent test runs on the scripted test double.
-- **Stale refusals** stay an OPEN divergence until Maxim promotes a `stale` refusal kind (OD-A16)
-  (§7.2). Roadmap Phase 3's exit now requires OD-A16 before Phase 4 (`npcs_and_sem.md` §12.1 asks the owner to confirm).
+- **Stale refusals** are closed for v1 (§7.2); OD-A16 still carries `call_error` and `wrong_target`. Roadmap Phase 3's exit now requires OD-A16 before Phase 4 (`npcs_and_sem.md` §12.1 asks the owner to confirm).
 - **Slow-effect credit** stays OPEN until settle carries a horizon (OD-A16).
 - **Memory writes** are ungated until generate vs apply (OD-A18) and the host's `settle`; memory authority is OPEN until per-agent homes and
   pickle-free persistence land.

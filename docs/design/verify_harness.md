@@ -63,9 +63,9 @@ counter to report, and its budgets (B5), which read them. Every observable retur
   grid within tol of the reference" would let two grids sit 2 × tol apart.
 - **`same_class(outcome, spacings)` → `bool`:** one outcome class at every spacing.
 - **Agreement studies take spacings, not `Run`s.** A scenario's physics step is whatever `World` takes at that
-  spacing: until step 5a's fixed physics step, its substep floor scales as 1 / dx², so these studies refine space and
-  time together. A `dt_s` the study doesn't control would be a label, not a measurement. 5a's checklist moves them to
-  space alone.
+  spacing. Since step 5a's fixed physics step it is the same at every spacing on shipped data, so these studies refine
+  space alone, held time-converged by `sim_core.md` §11 bar 2b. A `dt_s` the study doesn't control would be a label,
+  not a measurement.
 - **`same_class_under_refinement(outcome, run, factors=(1, 10))` → `bool`.** The splitting test at fixed `dx_m`: the
   same outcome class at `steps` and `10 × steps` with `dt_s` divided to match (`splitting.md` §6.4). The
   reversed-order half needs a law list, so it lands with step 5a, stated as an item in 5a's checklist.
@@ -93,8 +93,8 @@ counter to report, and its budgets (B5), which read them. Every observable retur
 
 - CLAUDE.md's resolution rule, `docs/architecture.md`'s statement of it, and the review charter's Physics lens gain
   the verification rule's wording (`world_model.md` §1.1).
-- The substep floor in `heat.py` stays: it is step 5a's to remove (its `TEMPORARY` marker). Heat's studies pass
-  explicit step counts, so they don't depend on the floor; the scenario agreement studies do (§4).
+- The substep floor in `heat.py` stayed until step 5a's PR 3 removed it (`sim_core.md` §8). Heat's studies pass
+  explicit step counts, so they never depended on it; the scenario agreement studies did (§4).
 
 ## 7. Not in this step
 

@@ -11,17 +11,18 @@ sources as a private table nobody else holds. Two callers open it, ``advance`` a
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from types import MappingProxyType
 
-import numpy as np
-
-from simcore.core import damage, heat
+from simcore.core import physics
 from simcore.core.checks import finite_real, finite_vector
+from simcore.core.deposit import Deposit
+from simcore.core.exposure import Exposure, standing
 from simcore.core.frames import CellFrame, Frame, FrameFeed, FrameView
 from simcore.core.grid import Field, MaterialGrid
+from simcore.core.law import Law
 from simcore.core.limits import ActionLimits
 from simcore.core.materials import MaterialTable
 from simcore.core.refusals import RefusalCode, Refused
@@ -49,28 +50,6 @@ class HeatSource:
         object.__setattr__(self, "power_w", power)
 
 
-def sphere_overlap(
-    grid: MaterialGrid, center_m: tuple[float, float, float], radius_m: float, samples: int = 4
-) -> Field:
-    """Fraction of each cell inside a sphere, estimated on a samples^3 sub-grid per cell.
-
-    Weighting by overlap rather than by "centre inside" keeps a source's power density the same at every grid spacing;
-    with centre-inside, a 0.3 m fire at 0.2 m cells covered 35% more volume than the sphere and ran cooler.
-    """
-    offs = (np.arange(samples) + 0.5) / samples * grid.dx
-    frac = np.zeros(grid.shape, dtype=np.float64)
-    base = [np.arange(n) * grid.dx for n in grid.shape]
-    cx, cy, cz = center_m
-    for ox in offs:
-        dx2 = ((base[0] + ox - cx) ** 2)[:, None, None]
-        for oy in offs:
-            dy2 = ((base[1] + oy - cy) ** 2)[None, :, None]
-            for oz in offs:
-                dz2 = ((base[2] + oz - cz) ** 2)[None, None, :]
-                frac += (dx2 + dy2 + dz2) <= radius_m**2
-    return frac / samples**3
-
-
 class World:
     """One grid, its heat sources, its turn count and the limits on what one action may ask of it."""
 
@@ -89,6 +68,7 @@ class World:
         if not self._turn_seconds > 0:
             raise ValueError(f"turn_seconds must be positive, got {turn_seconds!r}")
         self._sources: Mapping[str, HeatSource] = MappingProxyType(dict(sources or {}))
+        self._deposit = Deposit(grid)
         self._feed = FrameFeed(Frame(CellFrame.of(grid, 0)))
         self._frames = FrameView(self._feed)
         grid.on_close(self._publish)
@@ -148,7 +128,7 @@ class World:
         cells would be committed and the sources not (no shipped path raises there)."""
         sources = dict(self._sources)
         if cells:
-            with self._grid.writing():
+            with self._grid.writing(writer=None):  # each law, and Topology, narrow to their own names inside
                 yield sources
         else:
             with self._grid.holding():
@@ -157,34 +137,37 @@ class World:
         if not cells:
             self._publish()
 
-    def _power_field(self) -> Field | None:
-        if not self._sources:
-            return None
-        power = np.zeros(self._grid.shape, dtype=np.float64)
-        for src in self._sources.values():
-            frac = sphere_overlap(self._grid, src.point_m, src.radius_m)
-            # A fire heats the material it burns on. Air only conducts here (no convection yet), so power dumped
-            # into air cells would sit there, and how much of it did would depend on the grid spacing.
-            on_solid = frac * self._grid.solid
-            weights = on_solid if on_solid.sum() > 0 else frac
-            if weights.sum() == 0:  # a source smaller than a cell heats the cell it sits in
-                weights = np.zeros(self._grid.shape)
-                weights[self._grid.cell_of(src.point_m)] = 1.0
-            power += src.power_w * weights / weights.sum()
-        return power
+    def _power_field(self, exposure: Exposure) -> Field | None:
+        # TEMPORARY(phase1/sim-clock): the world holds its sources' deposit and heat consumes the power, while the
+        # registry names heat as the sources' resolver (sim_core.md §6, §7): step 5a's PR 4, which moves the window
+        # into Simulation.step, hands the sources to heat's prepare. The deposit is already sorted and cached (PR 3).
+        return self._deposit.power(exposure.shares, exposure.of_ticks)
 
-    def advance(self, seconds: float | None = None) -> int:
-        """Run physics for one turn (or ``seconds``). Returns heat substeps taken."""
+    def advance(
+        self,
+        seconds: float | None = None,
+        *,
+        refine: int = 1,
+        exposure: Exposure | None = None,
+        laws: Sequence[Law] = physics.DEFAULT_LAWS,
+    ) -> int:
+        """Run ``laws`` for one turn (or ``seconds``, a whole number of microseconds) as one fixed physics step, its
+        substeps refined ``refine`` times (``SimConfig.substep_refine``), and move the clock by it. ``exposure`` is
+        the step's source shares (``Simulation``'s ``source_exposure``, sim_core.md §3); without it, the sources
+        standing now stand the whole step. Returns the substeps taken."""
         seconds = self._turn_seconds if seconds is None else seconds
-        # TEMPORARY(phase1/sim-clock): World.advance owns the write window for the laws until Simulation.step exists
-        # (boundaries §4.1, 2c); there the window moves into the step, beside the applier's, and this method goes.
+        interval_us = round(seconds * 1_000_000)
+        if interval_us / 1_000_000 != seconds or interval_us <= 0:  # time never stands still or runs backward
+            raise ValueError(f"a physics step is a positive whole number of microseconds, got {seconds!r} s")
+        step = Exposure(standing(self._sources, 1), 1) if exposure is None else exposure
+
+        def power() -> Field | None:  # read on each refresh, inside the window
+            return self._power_field(step)
+
+        # TEMPORARY(phase1/sim-clock): World.advance owns the write window for the law tuple until Simulation.step owns
+        # it (boundaries §4.1, 2c; sim_core.md §12): step 5a's PR 4 moves the window there, and this goes.
         with self.writing():
-            taken = heat.step(
-                self._grid,
-                seconds,
-                min_substeps=heat.min_substeps(self._grid.dx),
-                power=self._power_field,
-                on_substep=damage.thermal_degrade,
-            )
+            taken = physics.run_physics(self._grid, seconds, refine=refine, power=power, laws=laws)
+            self._grid.time_us += interval_us  # integer time, moved by the interval's owner (sim_core.md §3)
         self._turn += 1  # after the window, so a step that raises counts no turn
         return taken

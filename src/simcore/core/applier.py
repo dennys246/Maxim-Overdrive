@@ -18,7 +18,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from types import MappingProxyType
 
-from simcore.core import damage
+from simcore.core import physics
 from simcore.core.checks import shown
 from simcore.core.grid import Point
 from simcore.core.intents import AFFORDANCE_OF, Action, ActionRefused, Ignite, Strike
@@ -76,8 +76,9 @@ class Applier:
             self._check_region(region)
         except ActionRefused as exc:
             return _refused(affordance, params, exc)
-        # TEMPORARY(phase1/sim-clock): the applier opens the world's write window itself, synchronously, until
-        # Simulation.step exists (boundaries §4.1, 2c); there the step owns the window and applies intents in order.
+        # TEMPORARY(phase1/sim-clock): the applier opens the world's write window itself, synchronously, and a strike
+        # calls the orchestrator (physics.strike) instead of appending a Load for the tick, until Simulation.step owns
+        # the window (boundaries §4.1, 2c; sim_core.md §5.1, §12): step 5a's PR 4 moves both there.
         if isinstance(action, Strike):
             return self._strike(region, action, params)
         if isinstance(action, Ignite):
@@ -121,8 +122,8 @@ class Applier:
         if not self._on_region(region, point, action.sigma_m):
             refusal = ActionRefused(f"point_m is not on the {region}", code=RefusalCode.NOT_ON_REGION, field="point_m")
             return _refused("strike", params, refusal)
-        with self._world.writing():
-            res = damage.strike(self._world.grid, point, action.energy_j, action.sigma_m)
+        with self._world.writing():  # the strike is a load: damage resolves it, and Topology destroys (§5.1)
+            res = physics.strike(self._world.grid, point, action.energy_j, action.sigma_m)
         meta = {"destroyed_volume_m3": res.destroyed_volume_m3, "absorbed_j": res.absorbed_j}
         return Outcome("strike", params, True, metadata=MappingProxyType(meta))
 

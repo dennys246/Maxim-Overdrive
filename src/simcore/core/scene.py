@@ -13,11 +13,14 @@ fields are declared once, below, and read by ``simcore.core.schema``; the primit
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from simcore.core import topology
 from simcore.core.checks import MAXIM_TARGET_ALIASES, entity_key, shown
+from simcore.core.fields import CONSTRUCTION
 from simcore.core.grid import (
     MAX_LENGTH_M,
     REGION_NAME,
@@ -31,6 +34,19 @@ from simcore.core.grid import (
 from simcore.core.materials import MaterialTable
 from simcore.core.refusals import RefusalCode, Refused
 from simcore.core.schema import Field, Format, Identity, ListOf, Nested, Real, Schema, Tagged, Text, Vector, Whole
+from simcore.core.writers import claim
+
+_CONSTRUCTION = claim(CONSTRUCTION)
+
+
+@contextmanager
+def constructing(grid: MaterialGrid) -> Iterator[None]:
+    """Construction's write window on a grid nothing has run on yet (boundaries §4.1, §6.4): it writes the authored
+    temperature and integrity directly, and asks Topology (``topology.apply``) for every paint and name, like any
+    requester. Scene building is its shipped caller; tests author grids through it. Only construction opens one."""
+    with grid.writing(writer=_CONSTRUCTION):
+        yield
+
 
 # Validity bounds, not tunables: no ambient is hotter than a flame (wood's is about 2000 C), and a scene's air at
 # 1e300 C would overflow the first step. A tile is tens of metres. The extent bound only refuses absurd numbers: a
@@ -262,7 +278,7 @@ _V0_REFUSED = (
     "scene files are repo-only, so an old version is refused, never migrated (step 3b): add its spawns and set "
     "version 1"
 )
-_LATER = "zones, vents and gaps arrive with scene v2 in Phase 2 (world_model F13)"
+_LATER = "zones, vents and gaps arrive with a later scene version in Phase 2 (world_model F13)"
 SCENE = Format(
     "scene",
     1,
@@ -341,9 +357,12 @@ class Scene:
                 )
         _check_no_solid_overlaps(self.primitives)
         grid = MaterialGrid.empty(self.extent_m, materials, dx_m=dx_m, ambient_c=self.ambient_c)
-        with grid.writing():  # construction, the window's third owner (boundaries §4.1, §6.4)
-            for p in self.primitives:
-                grid.paint(p.mask(grid), p.material, region=p.name, footprint=footprint_of([p]) if p.name else None)
+        requests = (  # a generator: each primitive's mask is made as Topology paints it, never all at once
+            topology.Paint(p.mask(grid), p.material, region=p.name, footprint=footprint_of([p]) if p.name else None)
+            for p in self.primitives
+        )
+        with constructing(grid):
+            topology.apply(grid, requests)
         return grid
 
     @classmethod

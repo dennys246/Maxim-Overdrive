@@ -67,14 +67,14 @@ line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "RUF", "SIM", "BLE", "S110", "PT", "NPY", "PL", "C90"]
+select = ["E", "F", "W", "I", "B", "UP", "RUF", "SIM", "BLE", "S110", "PT", "NPY", "PL", "C90", "SLF001"]
 ignore = [
     "PLR2004",  # magic numbers: physics constants are named where they mean something, literal where they don't
     "PLR0913",  # many arguments: physics functions take their parameters explicitly
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["PLR0915"]
+"tests/**" = ["PLR0915", "SLF001"]  # tests reach private names to plant and probe; src and scripts never do
 
 # Separation of concerns (CLAUDE.md, "Code"). Ruff's PL rules already cap returns, branches and statements per function;
 # mccabe caps the paths through it. scripts/lint_sizes.py::check_sizes holds the limits ruff has no rule for, and
@@ -131,8 +131,8 @@ forbidden_modules = [
 
 # Skip-layer rule (boundaries §2.2, S2): the adapters and the protocol reach the core only through its public surface,
 # the simulation (world, applier, frames), the intents (intents, limits), the material types, the checks, the refusal
-# codes, the format schemas and the digests. Never the cells, the laws, the geometry and scene build, imagination's internals or the
-# core's array helpers. Direct imports only: reaching the cells through the world is the point of the public surface.
+# codes, the format schemas, the digests and the field registry. Never the cells or their writers, the laws and their
+# orchestrator, the geometry and scene build, imagination's internals or the core's array helpers. Direct imports only: reaching the cells through the world is the point of the public surface.
 # tests/test_tooling_config.py holds the list to every core module outside that surface, so a new core module must be
 # classified.
 [[tool.importlinter.contracts]]
@@ -141,23 +141,31 @@ name = "adapters and protocol reach no cells, laws, geometry or scene build (bou
 type = "forbidden"
 source_modules = ["simcore.adapters", "simcore.protocol"]
 forbidden_modules = [
-    "simcore.core.damage", "simcore.core.grid", "simcore.core.heat", "simcore.core.imagination",
-    "simcore.core.readonly", "simcore.core.scene",
+    "simcore.core.damage", "simcore.core.deposit", "simcore.core.exposure", "simcore.core.grid",
+    "simcore.core.heat",
+    "simcore.core.imagination", "simcore.core.law",
+    "simcore.core.physics", "simcore.core.readonly", "simcore.core.reductions", "simcore.core.scene",
+    "simcore.core.stepping", "simcore.core.topology", "simcore.core.window", "simcore.core.writers",
 ]  # fmt: skip
 allow_indirect_imports = true
 
 # B-13's import half (boundaries §4.4): the SEM membrane reads the world through published frames (and, from step 5a,
 # the field registry) and changes it through the applier, the two capabilities it is handed. On top of the skip-layer
-# rule it gives up the material types, the file gates and the world itself. tests/test_tooling_config.py holds the list to every core module outside its surface.
+# rule it gives up the material types, the file gates, the world itself and the simulation. tests/test_tooling_config.py holds the list to every core module outside its surface.
 [[tool.importlinter.contracts]]
 id = "membrane-reads-frames"
 name = "the SEM membrane reads frames and writes through the applier only (boundaries §4.4, B-13)"
 type = "forbidden"
 source_modules = ["simcore.adapters.sem"]
 forbidden_modules = [
-    "simcore.core.damage", "simcore.core.digest", "simcore.core.grid", "simcore.core.heat",
-    "simcore.core.imagination", "simcore.core.materials", "simcore.core.readonly", "simcore.core.scene",
-    "simcore.core.schema", "simcore.core.world", "simcore.adapters.loaders",
+    "simcore.core.damage", "simcore.core.deposit", "simcore.core.digest", "simcore.core.exposure",
+    "simcore.core.grid", "simcore.core.heat",
+    "simcore.core.imagination", "simcore.core.law", "simcore.core.materials", "simcore.core.physics",
+    "simcore.core.readonly", "simcore.core.reductions", "simcore.core.scene", "simcore.core.schema",
+    "simcore.core.simulation",
+    "simcore.core.stepping", "simcore.core.topology", "simcore.core.window", "simcore.core.world",
+    "simcore.core.writers",
+    "simcore.adapters.loaders",
 ]  # fmt: skip
 allow_indirect_imports = true
 
@@ -182,6 +190,15 @@ name = "the game never imports the verification harness (verify_harness §2)"
 type = "forbidden"
 source_modules = ["maxim_overdrive"]
 forbidden_modules = ["simcore.verify"]
+
+# Laws couple only through fields (sim_core.md §5.1, B43): no law imports another, directly or through a third module.
+# The orchestrator (simcore.core.physics) imports them all, and nothing a law imports may. tests/test_tooling_config.py
+# holds the list to the modules of physics.DEFAULT_LAWS, so a new law must join it.
+[[tool.importlinter.contracts]]
+id = "laws-independent"
+name = "no law imports another: laws couple only through fields (sim_core.md §5.1, B43)"
+type = "independence"
+modules = ["simcore.core.damage.loads", "simcore.core.damage.thermal", "simcore.core.heat"]
 
 [[tool.importlinter.contracts]]
 id = "maxim-through-adapters"

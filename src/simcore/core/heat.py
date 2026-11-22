@@ -6,41 +6,23 @@ Each cell exchanges heat with its six neighbours through a face whose conductanc
 cells' conductivities (the standard choice for a material interface: it keeps flux continuous across it). The outer
 boundary is insulated (zero flux), so with no sources total heat energy is conserved exactly, up to rounding.
 
-The step is explicit, so stability bounds its length. ``step`` takes as many substeps as stability needs and never
-fewer than its caller's floor; ``World`` passes ``min_substeps(dx)``, a per-call floor set by the grid spacing.
+The step is explicit, so stability bounds its length. The shipped path runs ``HEAT``, this law, in the law tuple
+(``simcore.core.physics``), whose fixed physics step takes as many substeps as stability needs, times the config's
+``substep_refine`` (sim_core.md §8); there is no accuracy floor. Heat alone is the one-law tuple ``(HEAT,)`` through
+the same orchestrator, so time has one mover.
 Convection and radiation are not modelled yet: air here only conducts, which understates how fast a room heats.
 """
 
 from __future__ import annotations
 
-import math
-from collections.abc import Callable
+from dataclasses import dataclass
 
 import numpy as np
 
 from simcore.core.grid import Field, MaterialGrid
+from simcore.core.law import Cadence, Changes, LawInputs
 
 STABILITY_SAFETY = 0.9
-
-# TEMPORARY(phase1/sim-clock): a per-call substep floor kept from the retired rig profiles for bit-identity
-# (2026-11-19, plan step 3a); the real fix is step 5a's fixed physics step with an accuracy floor per step length.
-# min_substeps(dx) = FLOOR_AREA_M2 / dx^2 gives 4, 16 and 64 substeps at 0.2, 0.1 and 0.05 m, the rigs' old
-# min_substeps_per_turn, so results are bit-identical to theirs (digests compared by hand in 3a; the per-turn counts
-# are pinned by tests/test_determinism.py::TURN_SUBSTEPS). It is
-# not the stability bound, and it is an accuracy floor only at the 6 s turn: it applies per call, whatever the call's
-# length, so advance(0.5) at 0.05 m takes 64 substeps of 7.8 ms and advance(600) 64 of 9.4 s. On every 6 s turn the
-# floor, not stability, decides the count; dropping it changes every digest, a behaviour change owed to step 5a.
-FLOOR_AREA_M2 = 0.16
-# The rule is the smallest whole number of substeps at or above FLOOR_AREA_M2 / dx^2, so a substep is never longer
-# than 37.5 s * dx^2 / m^2 at the 6 s turn. It gives the rigs' numbers at their spacings (the quotients are
-# 3.9999999999999996, 15.999999999999996 and 63.99999999999999, which ceil takes to 4, 16 and 64), and it differs
-# from the round() first used here at spacings nothing runs at: at 0.16 m the quotient is 6.25, which round() gave 6
-# and this gives 7. Ceiling, not rounding, because a floor that is a bound must not round down.
-
-
-def min_substeps(dx_m: float) -> int:
-    """The fewest substeps one ``step`` call takes at grid spacing ``dx_m`` (at least 1)."""
-    return max(1, math.ceil(FLOOR_AREA_M2 / dx_m**2))
 
 
 def _face_conductances(k: Field) -> list[tuple[int, Field]]:
@@ -93,48 +75,26 @@ def substep(grid: MaterialGrid, dt: float, power_w: Field | None = None) -> None
     T += dT
 
 
-def step(
-    grid: MaterialGrid,
-    seconds: float,
-    min_substeps: int = 1,
-    power: Callable[[], Field | None] | None = None,
-    on_substep: Callable[[MaterialGrid, float], int] | None = None,
-) -> int:
-    """Advance heat by ``seconds``. Returns the number of substeps taken.
+@dataclass(frozen=True)
+class HeatLaw:
+    """Conduction plus the heat sources' power, as a per-substep law (sim_core.md §5): it resolves the sources and
+    writes temperature, and nothing else."""
 
-    ``power()`` gives the source power per cell in watts (or None). ``on_substep(grid, dt)`` runs after each substep
-    (damage uses it to weaken hot cells) and returns how many cells it destroyed. Destroyed cells change both the
-    stability bound and where sources deposit (a fire heats solids, and a destroyed cell is air), so both are
-    recomputed after a substep that destroyed something, and only then.
-    """
-    if seconds <= 0:
-        return 0
-    n = max(min_substeps, math.ceil(seconds / stable_dt(grid)))
-    dt = seconds / n
-    # Count substeps; never compare a running float sum with an absolute epsilon. The sum of n steps of seconds / n
-    # misses seconds by rounding that grows with n (about 1e-9 s at 8,000 steps of 0.45 s), and an end test of
-    # elapsed < seconds - 1e-12 then took one extra sliver of a substep (step 4's space study found it).
-    planned = n
-    taken = 0
-    elapsed = 0.0
-    changed = False
-    power_w = power() if power is not None else None
-    while taken < planned:
-        if changed:
-            power_w = power() if power is not None else None
-            bound = stable_dt(grid)
-            if bound < dt:  # destruction tightened stability: split the rest evenly at the new bound, to rounding
-                remaining = seconds - elapsed
-                more = math.ceil(remaining / bound)
-                dt = remaining / more  # not dt = bound: a remainder of a whole number of bounds would leave a 0 s step
-                planned = taken + more
-        dt = min(dt, seconds - elapsed)
-        substep(grid, dt, power_w)
-        changed = bool(on_substep(grid, dt)) if on_substep is not None else False
-        elapsed += dt
-        taken += 1
-    grid.time_s += seconds
-    return taken
+    name: str = "heat"
+    version: int = 1
+    cadence: Cadence = Cadence.PER_SUBSTEP
+    reads: tuple[str, ...] = ("material", "temperature")
+    writes: tuple[str, ...] = ("temperature",)
+
+    def stable_dt(self, grid: MaterialGrid) -> float:
+        return stable_dt(grid)
+
+    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs) -> Changes:
+        substep(grid, dt_s, inputs.power_w)  # the orchestrator runs this as heat (simcore.core.physics)
+        return Changes()
+
+
+HEAT = HeatLaw()
 
 
 def heat_energy_j(grid: MaterialGrid, reference_c: float = 0.0) -> float:

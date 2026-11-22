@@ -34,7 +34,7 @@ _NUMERIC = {
     "collections": "Mapping, Sequence and friends from collections.abc",
     "contextlib": "the write window's context manager",
     "dataclasses": "frozen value types",
-    "enum": "StrEnum, the refusal codes' closed vocabulary",
+    "enum": "StrEnum, the closed vocabularies: refusal codes and law cadences",
     "unicodedata": "a name's NFKC form and its letters' Unicode names (schema.Text); pure, no IO",
     "idna": "IDNA2008's code-point tables and contextual rules for a name's characters (schema.Text); pure, no IO",
     "hashlib": "sha256 for versioned content digests (simcore.core.digest); not the builtin hash()",
@@ -97,19 +97,18 @@ ALLOWED: dict[str, dict[str, str]] = {
 # path) is a stated blind spot. Anything not named here is refused; a test holds each set to exactly today's use.
 # the core's types, scalar maths and arrays, and two scipy laws
 _NAMES_CORE = frozenset({
-    "__future__.annotations", "collections.abc.Callable", "collections.abc.Collection", "collections.abc.Iterator",
-    "collections.abc.Mapping", "collections.abc.Sequence", "contextlib.contextmanager", "dataclasses.asdict",
-    "dataclasses.dataclass", "dataclasses.field", "enum.StrEnum", "hashlib.sha256", "math.ceil", "math.inf",
-    "math.isfinite", "math.log", "math.nan", "math.pi", "math.prod", "math.sqrt", "numbers.Integral", "numbers.Real",
-    "numpy.all", "numpy.arange", "numpy.argmin",
-    "numpy.argwhere", "numpy.array", "numpy.asarray", "numpy.bool_", "numpy.diff", "numpy.errstate",
-    "numpy.flatnonzero", "numpy.float32", "numpy.float64", "numpy.floating", "numpy.floor", "numpy.frombuffer",
-    "numpy.full", "numpy.generic", "numpy.inf", "numpy.integer", "numpy.intersect1d", "numpy.logical_and",
-    "numpy.max", "numpy.mean", "numpy.take", "numpy.typing.NDArray", "numpy.uint8", "numpy.where",
-    "numpy.zeros", "re.compile", "reprlib.Repr", "scipy.ndimage", "scipy.ndimage.label", "scipy.special.ndtr",
-    "types.MappingProxyType", "typing.Any", "typing.Literal", "typing.Protocol", "typing.SupportsFloat",
-    "idna.IDNAError", "idna.check_label", "unicodedata.category", "unicodedata.digit", "unicodedata.name",
-    "unicodedata.normalize",
+    "__future__.annotations", "collections.abc.Callable", "collections.abc.Collection", "collections.abc.Iterable",
+    "collections.abc.Iterator", "collections.abc.Mapping", "collections.abc.Sequence", "contextlib.contextmanager",
+    "dataclasses.asdict", "dataclasses.dataclass", "dataclasses.field", "enum.StrEnum", "hashlib.sha256", "math.ceil",
+    "math.inf", "math.isfinite", "math.log", "math.nan", "math.pi", "math.prod", "math.sqrt", "numbers.Integral",
+    "numbers.Real", "numpy.all", "numpy.arange", "numpy.argmin", "numpy.argwhere", "numpy.array", "numpy.asarray",
+    "numpy.bool_", "numpy.diff", "numpy.errstate", "numpy.flatnonzero", "numpy.float32", "numpy.float64",
+    "numpy.floating", "numpy.floor", "numpy.frombuffer", "numpy.full", "numpy.generic", "numpy.inf", "numpy.integer",
+    "numpy.intersect1d", "numpy.logical_and", "numpy.max", "numpy.mean", "numpy.take", "numpy.typing.NDArray",
+    "numpy.uint8", "numpy.where", "numpy.zeros", "re.compile", "reprlib.Repr", "scipy.ndimage", "scipy.ndimage.label",
+    "scipy.special.ndtr", "types.MappingProxyType", "typing.Any", "typing.Literal", "typing.Protocol",
+    "typing.SupportsFloat", "idna.IDNAError", "idna.check_label", "unicodedata.category", "unicodedata.digit",
+    "unicodedata.name", "unicodedata.normalize",
 })  # fmt: skip
 
 # the file gate: paths, and strict YAML through a SafeLoader subclass
