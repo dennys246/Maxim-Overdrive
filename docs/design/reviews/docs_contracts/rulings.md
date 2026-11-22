@@ -66,3 +66,16 @@ target-independent subset until a row defines "perceived". So the split stands: 
 
 - **CLAUDE.md's handshake line.** The author offered to make it a link only if the owner says so explicitly; that
   has not happened, so CLAUDE.md is untouched.
+
+## Round 1 rulings (owner, 2026-11-21: "agreed overall with your recommendations")
+
+1. **Counts:** each registry row's "restates at" is three, or one more than the largest reference outside its owner,
+   with the judged references listed in `docs/design/contracts.md`.
+2. **Marker lines don't count** toward a design's word budget.
+3. **"A push needs no log record"** stays dropped with the pinned frame. It is an open finding for `sem_stimuli.md`
+   §4.4: whether a `BoundFrame` push needs a log record.
+4. **CLAUDE.md's thin-feature rule** gains its exemption: "(fuel objects excepted, `docs/design/world_model.md`
+   §1.1)". Of the two options offered, the author applied this one; the alternative was making the rule a link.
+5. **`imagine`:** `boundaries.md` §6.1's separate `imagine` record kind folds into `intent` when step 5a makes
+   `imagine` an intent kind. This is recorded here; §6.1 changes with 5a.
+6. **Superseded banners** may add their words to a record: `world_v2.md`'s 25.

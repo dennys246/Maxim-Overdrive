@@ -102,7 +102,8 @@ result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` dr
   own scale: NPC sensors as reductions over volumes in metres, zones as integrals, the client at its own level of
   detail; none of them reads "a cell". Fineness is spent where the gradients are. Binary outcomes (breached,
   ignited) keep a band near their threshold however fine the cells are, so they are gated with an outcome margin.
-- Thin features must be at least two cells of the coarsest verification grid (0.2 m) thick.
+- Thin features must be at least two cells of the coarsest verification grid (0.2 m) thick (fuel objects excepted,
+  `docs/design/world_model.md` §1.1).
 - The world server is authoritative. The client never computes anything that feeds back into the world; it may add
   purely visual effects.
 - The SEM bridge uses Maxim's frozen types (`SensorReading`, `ModulatorResult`, `AffordanceSchema`, `Entity`).

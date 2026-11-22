@@ -451,7 +451,9 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
 - **One ordering key, stated here and nowhere else (foundations DR-S3, Wire S4; supersedes `realtime_lanes_coop.md`
   §4.2's arrival-order `host_seq`):** `(apply_tick, kind_rank, apply_us, actor_id, seq)`. Controls and joins rank
   before intents: `kind_rank` `[engineering]` is join/leave 0, `time` 10, moves 20, `kindle`, `strike`, `douse`,
-  `imagine` 30, leaving room. The log is written in that order, so a replay never sorts. Float accumulations over
+  `imagine` 30, and `ignite` (vocabulary v0 only) 30, host commands (§6.1's: advance, rig selection, save, load,
+  admin `set_material`) 40, so a tick's world actions apply before the host's own operations (owner, 2026-11-21, via
+  phase1/sim-clock), leaving room. The log is written in that order, so a replay never sorts. Float accumulations over
   named collections (today `World._power_field` over `sources`) iterate in sorted-key order. Ordering keys are
   integers (D-N2).
 - **Replay calls nothing live:** no model, no Maxim, no clock, and **never the response cache**
