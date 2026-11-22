@@ -353,3 +353,27 @@ def test_a_design_without_sections_is_exempt_only_by_a_banner_in_its_lead() -> N
     assert len(check(**{"docs/design/old.md": late})) == 1
     early = "# Old\n\n> **Superseded by `x.md`.**\n\nBody `timeout`, `budget`, `parse`.\n"
     assert check(**{"docs/design/old.md": early}) == []
+
+
+def test_mentions_scattered_through_a_list_are_references() -> None:
+    plan = "# Plan\n\n- On `timeout` it retries.\n- Later, `budget` stops it.\n- Logs show `parse`.\n"
+    assert check(**{"docs/plans/plan.md": plan}) == []
+
+
+def test_a_list_whose_items_lead_with_members_restates() -> None:
+    plan = "# Plan\n\n- **`budget`**: over\n- `timeout`, late\n- `parse` is bad\n"
+    assert check(**{"docs/plans/plan.md": plan}) == [
+        "docs/plans/plan.md:3: restates outcomes.reasons (`budget`, `timeout`, `parse`); "
+        "link to docs/design/placement.md §2.6 instead"
+    ]
+
+
+def test_one_list_item_holding_the_count_restates() -> None:
+    plan = "# Plan\n\n- First.\n- The reasons are `budget`, `timeout` and `parse`.\n"
+    assert len(check(**{"docs/plans/plan.md": plan})) == 1
+
+
+@pytest.mark.parametrize("count", ["0"])
+def test_a_registry_count_below_one_fails(count: str) -> None:
+    low = REGISTRY.replace("| vocabulary | 3 |", f"| vocabulary | {count} |")
+    assert any("restates at" in p and "at least 1" in p for p in check(**{"docs/design/contracts.md": low}))

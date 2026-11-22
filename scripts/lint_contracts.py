@@ -42,6 +42,7 @@ DESIGN = re.compile(r"^docs/design/[^/]+\.md$")
 SPAN = re.compile(r"`([^`\n]+)`")
 HEADING = re.compile(r"^(#{1,6}) (.*)$")
 ITEM = re.compile(r"^(?:[-*]|\d+\.) ")
+LEAD = re.compile(r"^(?:[-*]|\d+\.) (?:\*\*)?`([^`\n]+)`")  # an item that starts with a code span
 ROW = re.compile(r"^\| `([a-z0-9_.-]+)` \| `([^`]+)` §(\d+(?:\.\d+)*) \| (\w+) \| (\d+) \|\s*$")
 FOLD = re.compile(r"^#{1,6} Fold table", re.M)
 RULING = re.compile(
@@ -105,6 +106,9 @@ def registry(files: dict[str, str]) -> tuple[list[Contract], list[str]]:
         name, path, section, kind, at = m.groups()
         if kind not in KINDS:
             problems.append(f"{REGISTRY}:{n}: {name}'s kind is {kind!r}; it must be one of {sorted(KINDS)}")
+            continue
+        if int(at) < 1:
+            problems.append(f"{REGISTRY}:{n}: {name}'s restates at is {at}; it must be at least 1")
             continue
         if any(c.name == name for c in out):
             problems.append(f"{REGISTRY}:{n}: {name} is registered twice")
@@ -216,12 +220,26 @@ def restatements(scope: dict[str, str], c: Contract, defined: list[str], owner: 
     for rel, text in sorted(scope.items()):
         for b in blocks(text):
             kept = [ln for k, ln in enumerate(b.lines) if (rel, b.start + k) not in owner]
-            spans = set(SPAN.findall("\n".join(kept)))
-            hit = [m for m in defined if m in spans]
+            hit = max((([m for m in defined if m in spans]) for spans in counted_spans(kept)), key=len, default=[])
             if len(hit) >= need:
                 shown = ", ".join(f"`{m}`" for m in hit[:4])
                 out.append(f"{rel}:{b.start + 1}: restates {c.name} ({shown}); link to {c.path} §{c.section} instead")
     return out
+
+
+def counted_spans(lines: list[str]) -> list[set[str]]:
+    """The span sets a restatement is counted over. A paragraph or a table is one set. A list is each item on its own,
+    plus the spans its items lead with (`- `a`: …`), so a copy one member per bullet counts and mentions scattered
+    through a long list don't add up."""
+    if not lines or not ITEM.match(lines[0]):
+        return [set(SPAN.findall("\n".join(lines)))]
+    items: list[list[str]] = []
+    for ln in lines:
+        if ITEM.match(ln) or not items:
+            items.append([])
+        items[-1].append(ln)
+    heads = {m.group(1) for it in items if (m := LEAD.match(it[0]))}
+    return [heads] + [set(SPAN.findall("\n".join(it))) for it in items]
 
 
 def structural(files: dict[str, str]) -> list[str]:
