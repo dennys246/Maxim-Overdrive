@@ -434,3 +434,12 @@ A silent "no thinking" proves nothing until the same call without the switch sho
 its frozen settings, and verifies it once per model and engine build with a control call. A default flip costs the
 whole reply budget: the reference model took about 8.6 minutes a call, against lesson 30's
 latency bound of seconds. The spike records the switch in `spikes/specgen/arms.yaml` and its engine build there too.
+
+**Maxim has the same gap (run on pymaxim 1.3.4, 2026-11-22).** Pointed at the same llama-server serving S, Maxim's
+`_OpenAIBackend` returned empty content after 12.5 s: 512 of 512 tokens, stop reason `length`. Nothing in the backend
+can switch a template's thinking off, so a reasoning model behind a Maxim lane answers nothing (OD-I12, a question to
+its deferred self-hosted-servers plan). The first attempt found a second defect: without `allow_local_endpoints`, the
+backend blocks the loopback URL and falls back to the OpenAI client's default endpoint, so the test prompt went to
+api.openai.com (refused 401). A blocked local endpoint fails open to the cloud (OD-I11). For a local-first game (O58),
+any gateway built on Maxim's backends must refuse there, not fall back. Running Maxim found both; reading its plans
+found neither.
