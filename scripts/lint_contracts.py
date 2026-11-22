@@ -42,7 +42,6 @@ DESIGN = re.compile(r"^docs/design/[^/]+\.md$")
 SPAN = re.compile(r"`([^`\n]+)`")
 HEADING = re.compile(r"^(#{1,6}) (.*)$")
 ITEM = re.compile(r"^(?:[-*]|\d+\.) ")
-LEAD = re.compile(r"^(?:[-*]|\d+\.) (?:\*\*)?`([^`\n]+)`")  # an item that starts with a code span
 ROW = re.compile(r"^\| `([a-z0-9_.-]+)` \| `([^`]+)` §(\d+(?:\.\d+)*) \| (\w+) \| (\d+) \|\s*$")
 FOLD = re.compile(r"^#{1,6} Fold table", re.M)
 RULING = re.compile(
@@ -229,16 +228,16 @@ def restatements(scope: dict[str, str], c: Contract, defined: list[str], owner: 
 
 def counted_spans(lines: list[str]) -> list[set[str]]:
     """The span sets a restatement is counted over. A paragraph or a table is one set. A list is each item on its own,
-    plus the spans its items lead with (`- `a`: …`), so a copy one member per bullet counts and mentions scattered
-    through a long list don't add up."""
+    plus each item's first span (`- `a`: …`, `- **A** (`a`) …`), so a copy one member per bullet counts and mentions
+    deeper in a long list's items don't add up."""
     if not lines or not ITEM.match(lines[0]):
         return [set(SPAN.findall("\n".join(lines)))]
     items: list[list[str]] = []
     for ln in lines:
-        if ITEM.match(ln) or not items:
+        if ITEM.match(ln):
             items.append([])
         items[-1].append(ln)
-    heads = {m.group(1) for it in items if (m := LEAD.match(it[0]))}
+    heads = {spans[0] for it in items if (spans := SPAN.findall("\n".join(it)))}
     return [heads] + [set(SPAN.findall("\n".join(it))) for it in items]
 
 

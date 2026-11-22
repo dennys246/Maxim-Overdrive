@@ -341,8 +341,8 @@ It needs step 7: the host's stage 1 for worker speech calls `engine.text.player_
   worker sends intents as wire data; stage 1 parses them host-side (N-S2).
 - Versions and gate rows: binding table, `BoundFrame`, receipt, `welcome`, `step_output` (W13); replay refuses an
   unknown format version by name, planted by bumping the receipt version (W11).
-- A `BoundFrame` push is unlogged (`sem_stimuli.md` Q8): a rerun with every push stripped from the record matches each
-  per-tick digest, and one planted push of a value the world didn't produce turns a digest red.
+- A `BoundFrame` push is never logged (`sem_stimuli.md` §4.2): a rerun that re-derives every frame from the world and
+  the `join` bindings reproduces each per-tick digest, and a frame built from one perturbed input turns a digest red.
 - A stale intent gets no credit (`sem_stimuli.md` §6.2): its settle books nothing, while its receipt still reads
   `accepted`.
 - Receipts: `pid` per NPC (W14); kinds per D15, decided by stage 1, every stage-2 result `accepted`; one `Receipt` in

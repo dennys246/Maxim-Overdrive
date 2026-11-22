@@ -249,14 +249,14 @@ roster), not through the SCN work (BF2-7, X-9).
 
 - **Never the World's generator,** so a noisy sense never changes a fire's outcome.
 - **Keyed by stable identity, not by order (DR-S4, Wire S3):**
-  - `SeedSequence(root, spawn_key=(NS_AGENT, npc_key, stream_key))`, never `spawn()`, which numbers children by
+  - `SeedSequence(run_seed, spawn_key=(NS_AGENT, npc_key, stream_key))`, never `spawn()`, which numbers children by
     spawn order (Overdrive's own streams; Maxim's derive by O40);
   - `npc_key` is the persisted NPC identity from the roster (stable across saves and roster edits), not the actor
     allocator's integer; it and every stream name contain no `:` (Maxim's owner: `make_agent_rng` keeps exactly
     `sha256(f"{base_seed}:{agent_id}")`, so a `:` would make it ambiguous), refused at load;
   - `stream_key` from a registry of fixed integers in `data/` (or the first 8 bytes of SHA-256 of the name), never
     `hash()`;
-  - the World's generator is `spawn_key=(NS_WORLD,)` from the same root, so the two trees can't overlap.
+  - the World's generator is `spawn_key=(NS_WORLD,)` from the same run seed, so the two trees can't overlap.
 - **Counter layout survives rejection sampling.** One normal draw consumes a variable number of Philox outputs, so
   `(tick, event)` goes in the high counter words, or a bit generator is built per `(tick, event)` key. Percept noise is
   keyed by `(npc, stream, tick, sensor)`, never by a running counter, so it can't depend on how often Maxim pulls a
@@ -267,7 +267,7 @@ roster), not through the SCN work (BF2-7, X-9).
 - **Two kinds of stream, and one accepted cost (DET-S8, BD-13).** Overdrive's own streams (percept noise, the speed
   trait) stay keyed Philox counters as above. Maxim's internal streams are a `random.Random`
   per stream from `make_agent_rng` with a stream argument (until it exists, `agent_id` is `"npc_key:stream"`), keyed
-  by `npc_key` and stream, never Maxim's ordinal, `base_seed` from this tree's root (O40). Each stream's state is
+  by `npc_key` and stream, never Maxim's ordinal, `base_seed` from this tree's run seed (O40). Each stream's state is
   saved pickle-free in the agent home. That fixes
   isolation across NPCs and streams, but **within** a stream Maxim's draws stay sequential, so a change in how often
   Maxim draws (a cadence change) shifts that stream's later draws. Accepted: §2.1's Δt test keeps bit identity only
@@ -719,10 +719,10 @@ section pins them. Where it and an earlier section differ, this section wins, an
   unpickled; a frame from the wrong actor refused. **The test double runs behind this channel in a spawned worker,**
   so every [now] determinism test exercises the shipped path: spawned workers, the codec and the barrier's merge
   (DET-S3).
-<!-- contract: agent_failed.reasons: hung crashed protocol build | not: agent_failed `agent_failed(npc, reason = hung | crashed | protocol)` agent_ready data/agents/thought_budget.yaml sem_stimuli.md -->
+<!-- contract: agent_failed.reasons: hung crashed protocol build | not: agent_failed `agent_failed(npc, reason)` agent_ready data/agents/thought_budget.yaml sem_stimuli.md -->
 - **A hung or dead worker never freezes the world (Arch S6, TB3-S10, DET-S4).** A worker that doesn't park within the
   host's per-park wall ceiling (`data/agents/thought_budget.yaml`), exits, or sends a refused frame is killed. The
-  host logs `agent_failed(npc, reason = hung | crashed | protocol)` as a record, treats the NPC as parked and inert
+  host logs `agent_failed(npc, reason)` as a record, treats the NPC as parked and inert
   (its body processes go on; it takes no actions), and flags the run tier 3. Restarting it from its last saved home is
   an explicit host control record that opens a new log segment (O45; its in-flight pids: §6.4, O44). **The lifecycle
   records** are `agent_ready`, logged when the worker is ready and at each restart, and `agent_failed`, whose closed

@@ -400,8 +400,8 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
 | host records: `agent_ready`, `agent_failed` (`npcs_and_sem.md` §6.6), `floor_event`, `reply_landed` (`npcs_and_sem.md` §6.6), redaction records (below) | the host |
 
 - **Redaction records** (`npcs_and_sem.md` O26). Each purged span becomes a record (actor, tick, length) in the
-  log. A reply that quoted the purged words is redacted too, and replay is bit-identical only up to the first
-  redacted reply, which the log marks as a replay boundary.
+  log. A reply that quoted the purged words is redacted too. A rerun reads recorded replies, never a model on purged
+  text, and matches only up to the first redacted reply, which the log marks as a replay boundary.
 - **Thought requests** come from an agent's `StepOutput` only; percepts may trigger them, rate-limited per speaker.
 - **`memory_write` is not a world-log kind** (foundations Arch S6, Wire S4). Agent state lives outside `Simulation`,
   the core can't apply it, and replay never runs Maxim. Memory writes are agent-side values in `StepOutput`, recorded
@@ -588,8 +588,7 @@ inside the simulation lane's tick"):**
   deadlocked with the dilate policy on one worker (foundations Arch B2), raced the tick (DR-B1), had no route into the
   pipeline and no second lane to wait across (Wire B2), and credited only instant effects (Arch S13). Under O6 the
   agent returns intents as values and receives receipts through `settle`.
-- **Each receipt is credited exactly once,** through `settle`; a stale intent's credit is `sem_stimuli.md` §6.2's. A
-  test asserts it.
+- **Each receipt is credited exactly once,** through `settle` (stale: `sem_stimuli.md` §6.2); a test asserts it.
 - **Valence per D53:** the adapter always self-reports. `neutral` when the measured effect is nil or unverifiable,
   drive deltas through `measured_drive_transitions`; absent a report, Maxim books mechanical success as POSITIVE.
 - **Credit reads declared sensors only,** the ones the affordance declares it affects, and never instruments.

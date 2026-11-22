@@ -356,7 +356,7 @@ def test_a_design_without_sections_is_exempt_only_by_a_banner_in_its_lead() -> N
 
 
 def test_mentions_scattered_through_a_list_are_references() -> None:
-    plan = "# Plan\n\n- On `timeout` it retries.\n- Later, `budget` stops it.\n- Logs show `parse`.\n"
+    plan = "# Plan\n\n- On `x` it retries a `timeout`.\n- On `y`, `budget` stops it.\n- `z` logs show `parse`.\n"
     assert check(**{"docs/plans/plan.md": plan}) == []
 
 
@@ -419,3 +419,13 @@ def test_an_exclusion_outside_a_tables_first_column_is_stale() -> None:
 def test_a_bare_bar_in_a_marker_says_so() -> None:
     bare = PLACEMENT.replace(" | not: thought_failed call_timeout", " |")
     assert "outcomes.reasons: its marker has a '|' with nothing after it" in check(**{"docs/design/placement.md": bare})
+
+
+def test_a_list_whose_items_name_a_member_first_restates_even_behind_a_label() -> None:
+    plan = "# Plan\n\n- **Budget** (`budget`): over\n- **Timeout** (`timeout`): late\n- **Parse** (`parse`): bad\n"
+    assert len(check(**{"docs/plans/plan.md": plan})) == 1
+
+
+def test_a_copy_in_nested_bullets_under_one_item_restates() -> None:
+    plan = "# Plan\n\n- The reasons:\n  - `budget`\n  - `timeout`\n  - `parse`\n"
+    assert len(check(**{"docs/plans/plan.md": plan})) == 1
