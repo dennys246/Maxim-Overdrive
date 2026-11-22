@@ -91,8 +91,8 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
   optional ones. An optional channel or table bumps the registry version, not the protocol; a required table or a new
   object kind bumps the protocol; a new encoding, dtype, `kind` or
   compression bumps the protocol. `kind: delta` is reserved, not built.
-- **Axis order is Godot's** (W-F4): z, y, x, x fastest, one `Image` per z-slice. The server's z-up becomes Godot's y-up only in
-  `IsoCamera.to_godot` and the shaders' `axes.gdshaderinc`.
+- **Axis order is Godot's** (W-F4): z, y, x, x fastest, one `Image` per z-slice; only `IsoCamera.to_godot` and
+  `axes.gdshaderinc` map z-up to y-up.
 - **The catalogue hash** uses boundaries §6.3's one canonicaliser, in the core's checks. The region map is outside the
   hash, so `imagine` doesn't churn it.
 - **The decoder refuses** a frame whose `regions_version` is ahead of its map, or whose hash differs from `welcome`'s.
