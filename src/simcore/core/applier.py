@@ -18,7 +18,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from types import MappingProxyType
 
-from simcore.core import damage
+from simcore.core import physics
 from simcore.core.checks import shown
 from simcore.core.grid import Point
 from simcore.core.intents import AFFORDANCE_OF, Action, ActionRefused, Ignite, Strike
@@ -121,8 +121,8 @@ class Applier:
         if not self._on_region(region, point, action.sigma_m):
             refusal = ActionRefused(f"point_m is not on the {region}", code=RefusalCode.NOT_ON_REGION, field="point_m")
             return _refused("strike", params, refusal)
-        with self._world.writing():
-            res = damage.strike(self._world.grid, point, action.energy_j, action.sigma_m)
+        with self._world.writing():  # the strike is a load: damage resolves it, and Topology destroys (§5.1)
+            res = physics.strike(self._world.grid, point, action.energy_j, action.sigma_m)
         meta = {"destroyed_volume_m3": res.destroyed_volume_m3, "absorbed_j": res.absorbed_j}
         return Outcome("strike", params, True, metadata=MappingProxyType(meta))
 

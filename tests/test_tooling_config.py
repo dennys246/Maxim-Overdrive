@@ -284,6 +284,7 @@ CORE_PUBLIC_SURFACE = {
     "simcore.core.refusals",  # the closed vocabulary every refusal answers in
     "simcore.core.schema",  # the format declarations and their one reader, which the file gates and tiers apply
     "simcore.core.digest",  # versioned content digests, which step 5a's log header records
+    "simcore.core.fields",  # the field registry, which the membrane, the snapshot and the digest read (sim_core.md §6)
 }
 # What the membrane may import from the core (B-13): frames to read, the applier to write, the intents to parse. Not the
 # world: it is handed an applier and a frame view instead (step 3b review, Architecture S1).
@@ -310,6 +311,18 @@ def test_the_membrane_contract_leaves_it_frames_the_applier_and_the_intents_only
     expected = (_core_modules() - MEMBRANE_SURFACE) | {"simcore.adapters.loaders"}
     assert set(contract["forbidden_modules"]) == expected
     assert contract["allow_indirect_imports"] is True
+
+
+def test_the_laws_independent_contract_covers_every_law_in_the_tuple():
+    # B43: laws couple only through fields. The contract lists each law's module; a law added to the tuple from a new
+    # module, or a contract that loses one, goes red here. Proven by planting `from simcore.core import heat` in
+    # damage.py: lint-imports went red on this contract (commit message).
+    from simcore.core import physics  # noqa: PLC0415 - the tuple, read where it is declared
+
+    contract = _contracts()["laws-independent"]
+    assert contract["type"] == "independence"
+    assert set(contract["modules"]) == {type(law).__module__ for law in physics.DEFAULT_LAWS}
+    assert contract.get("allow_indirect_imports", False) is False  # through a third module counts too
 
 
 def test_the_gate_exports_the_tier_switch_conftest_reads():

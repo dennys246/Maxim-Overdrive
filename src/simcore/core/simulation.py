@@ -1,9 +1,9 @@
 """The simulation (step 5a, `docs/design/sim_core.md`): an integer clock that runs one tick per `step`.
 
-This is step 5a's first PR, the strangler wrap: `Simulation` drives today's `World` unchanged. A tick applies its
-records through today's applier, in the log's key order, then runs physics on physics ticks through `World.advance`,
-so heat, damage and the substep floor are exactly as before. PRs 2-4 move those pieces inside: the law list and
-registry, the fixed physics step, and the intent log with its per-tick digest.
+This is step 5a's strangler wrap: `Simulation` drives `World`. A tick applies its records through the applier, in
+the log's key order, then runs physics on physics ticks through `World.advance`, which runs the law tuple
+(`simcore.core.physics`, PR 2), so heat, damage and the substep floor are exactly as before. PRs 3-4 move the rest
+inside: the fixed physics step, and the intent log with its per-tick digest.
 
 Interim departures from sim_core.md, each named with the PR that ends it:
 - the `Simulation(world, *, config)` seam beside `from_scene` (marked below; PR 4, when `Simulation` carries the

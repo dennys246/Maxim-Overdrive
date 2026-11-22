@@ -23,8 +23,9 @@ import numpy.typing as npt
 
 from simcore.core import damage
 from simcore.core.checks import shown
-from simcore.core.grid import Field, Mask, MaterialGrid, Region, WindowClosed
+from simcore.core.grid import Field, Mask, MaterialGrid, Region
 from simcore.core.materials import AIR_ID
+from simcore.core.writers import WindowClosed
 
 # Each quantity a region reading may report, with its unit.
 QUANTITIES: Mapping[str, str] = MappingProxyType(

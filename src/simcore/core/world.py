@@ -18,7 +18,7 @@ from types import MappingProxyType
 
 import numpy as np
 
-from simcore.core import damage, heat
+from simcore.core import heat, physics
 from simcore.core.checks import finite_real, finite_vector
 from simcore.core.frames import CellFrame, Frame, FrameFeed, FrameView
 from simcore.core.grid import Field, MaterialGrid
@@ -148,7 +148,7 @@ class World:
         cells would be committed and the sources not (no shipped path raises there)."""
         sources = dict(self._sources)
         if cells:
-            with self._grid.writing():
+            with self._grid.writing(writer=None):  # each law, and Topology, narrow to their own names inside
                 yield sources
         else:
             with self._grid.holding():
@@ -176,15 +176,11 @@ class World:
     def advance(self, seconds: float | None = None) -> int:
         """Run physics for one turn (or ``seconds``). Returns heat substeps taken."""
         seconds = self._turn_seconds if seconds is None else seconds
-        # TEMPORARY(phase1/sim-clock): World.advance owns the write window for the laws until Simulation.step owns it
-        # (boundaries §4.1, 2c; sim_core.md §12): step 5a's PR 2 moves it into the step's law list, and this goes.
+        # TEMPORARY(phase1/sim-clock): World.advance owns the write window for the law tuple until Simulation.step owns
+        # it (boundaries §4.1, 2c; sim_core.md §12): step 5a's PR 4 moves the window there, and this goes.
         with self.writing():
-            taken = heat.step(
-                self._grid,
-                seconds,
-                min_substeps=heat.min_substeps(self._grid.dx),
-                power=self._power_field,
-                on_substep=damage.thermal_degrade,
+            taken = physics.run_physics(
+                self._grid, seconds, min_substeps=heat.min_substeps(self._grid.dx), power=self._power_field
             )
         self._turn += 1  # after the window, so a step that raises counts no turn
         return taken

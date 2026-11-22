@@ -24,7 +24,7 @@ from hypothesis import strategies as st
 from maxim_overdrive import data
 from simcore.adapters.loaders import load_action_limits, read_yaml
 from simcore.adapters.sem.bridge import region_parts
-from simcore.core import damage
+from simcore.core import damage, physics
 from simcore.core.applier import Applier
 from simcore.core.intents import CALL_KEYS, ActionRefused, Extinguish, Ignite, Strike, parse_action
 from simcore.core.limits import ActionLimits
@@ -243,7 +243,7 @@ def test_apply_names_the_affordance_from_the_action_and_reports_the_parsed_value
 def test_a_region_that_is_gone_refuses_with_a_code_the_agent_can_use():
     w = _world()
     s = _structure(w)
-    with w.grid.writing():  # a later paint takes every cell
+    with w.grid.writing(writer="construction"):  # a later paint takes every cell
         w.grid.paint(w.grid.regions["crate"].cells, "air")
     for affordance, params in [("ignite", {"power_w": 1.0}), ("strike", {"energy_j": 1.0}), ("extinguish", {})]:
         res = s.execute(affordance, params)
@@ -396,7 +396,7 @@ def test_a_strike_past_a_regions_face_into_another_region_belongs_to_that_region
 )
 def test_a_strike_refuses_non_finite_physics(point, energy, sigma):
     with pytest.raises(ValueError, match="strike"):
-        damage.strike(_world().grid, point, energy, sigma)
+        physics.strike(_world().grid, point, energy, sigma)
 
 
 @pytest.mark.parametrize(

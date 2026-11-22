@@ -288,7 +288,7 @@ def test_name_region_itself_keeps_the_region_name_rule(name):
     grid = Scene((2.0, 2.0, 2.0)).build(MATERIALS, dx_m=0.2)
     mask = np.zeros(grid.shape, dtype=np.bool_)
     mask[0, 0, 0] = True
-    with pytest.raises(Refused) as caught, grid.writing():
+    with pytest.raises(Refused) as caught, grid.writing(writer="construction"):
         grid.name_region(name, mask, Footprint(((0, 0, 0), (0.2, 0.2, 0.2)), (0.1, 0.1, 0.1)), solid=True)
     assert caught.value.code is RefusalCode.BAD_NAME
 

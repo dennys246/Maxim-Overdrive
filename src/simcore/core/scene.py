@@ -17,7 +17,9 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from simcore.core import topology
 from simcore.core.checks import MAXIM_TARGET_ALIASES, entity_key, shown
+from simcore.core.fields import CONSTRUCTION
 from simcore.core.grid import (
     MAX_LENGTH_M,
     REGION_NAME,
@@ -341,9 +343,12 @@ class Scene:
                 )
         _check_no_solid_overlaps(self.primitives)
         grid = MaterialGrid.empty(self.extent_m, materials, dx_m=dx_m, ambient_c=self.ambient_c)
-        with grid.writing():  # construction, the window's third owner (boundaries §4.1, §6.4)
-            for p in self.primitives:
-                grid.paint(p.mask(grid), p.material, region=p.name, footprint=footprint_of([p]) if p.name else None)
+        requests = [
+            topology.Paint(p.mask(grid), p.material, region=p.name, footprint=footprint_of([p]) if p.name else None)
+            for p in self.primitives
+        ]
+        with grid.writing(writer=CONSTRUCTION):  # construction, the window's third owner (boundaries §4.1, §6.4)
+            topology.apply(grid, requests, writer=CONSTRUCTION)
         return grid
 
     @classmethod

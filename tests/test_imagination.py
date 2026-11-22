@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from simcore.core import damage
+from simcore.core import damage, physics
 from simcore.core.imagination import Budget, SpecRejected, place
 from simcore.core.scene import Box, Scene
 
@@ -24,8 +24,8 @@ def test_an_imagined_crate_is_destructible_like_any_other(dx_m, materials):
     mass = place(g, CRATE, (1.2, 1.2, 0.0))
     assert mass == pytest.approx(0.216 * 600)  # from authored geometry, the same at every rig
     assert g.volume_m3(g.regions["imagined_crate"].cells) == pytest.approx(0.216, rel=1e-6)
-    with g.writing():
-        damage.strike(g, (1.5, 1.5, 0.3), 5.0e6, 0.3)
+    with g.writing(writer="construction"):
+        physics.strike(g, (1.5, 1.5, 0.3), 5.0e6, 0.3)
     assert damage.region_integrity(g, "imagined_crate") < 1.0
 
 
