@@ -1,436 +1,516 @@
-# Sub-cell solids: the contract (design draft, 2026-11-22; D34, D35; not yet reviewed)
+# Sub-cell solids: the contract (design, 2026-11-22; D34–D36; round 1 folded)
 
-**Scope.** This document is the contract for solid parts thinner than the world's cells can hold: a steel sheet, a glass
-pane, a table's 4 cm leg. It covers:
-- how a part is represented;
-- the one object store and its tables;
-- ownership and overlap;
-- coupling to cells, objects and zones;
-- acts and laws on objects;
-- load and support;
-- what NPCs and the client receive;
-- the formats.
+**Scope.** The contract for solid parts thinner than the world's cells can hold: a steel sheet, a glass pane, a
+table's 4 cm leg. Mechanisms nothing else depends on go to §13's build steps as tests to write.
 
-Mechanisms that nothing else depends on go to §13's build checklist as tests to write.
+**It depends on PR #42** (`phase6/specgen-spike`), which carries D31–D35 (`decisions/world_model.md`) and the survey
+`research/subcell_solids/survey.md`. Read the survey's §0 and §1 first; they aren't restated here. D36 records the
+owner's rulings on round 1 (`reviews/subcell_solids/`).
 
-**It depends on PR #42** (`phase6/specgen-spike`), which carries D31–D35 (`decisions/world_model.md`) and the research
-survey, `research/subcell_solids/survey.md`. Neither is on `main` at 703b745, where this draft was written. Read the
-survey's §0 (what docs-contracts ruling 72 forbids, and why) and §1 (the options) before this one. They are not
-restated here.
-
-**Owners this design leans on, and never restates:**
-- fuel objects, their store, coupling and formats: `fire_solid.md` §1–§5;
-- the flow, the law list and the field registry: `sim_core.md` §5, §5.1, §6;
-- the reconstruction rule, ownership and determinism: `world_model.md` §3, §5, §6;
-- the fuel objects' wire columns: `client_objects.md` §3 (PR #40, accepted 2026-11-22);
-- stimuli and perception: `sem_stimuli.md`;
-- the gates and the log header: `boundaries.md` §5.3, §5.4, §6.3.
+**Owners it leans on, never restates:** `fire_solid.md` §1–§5 (fuel objects); `sim_core.md` §5–§7 (flow, laws,
+Topology, registry); `world_model.md` §2–§6; `client_objects.md` §3 (wire); `sem_stimuli.md`; `tile_and_client.md`
+§3.4 (codes); `boundaries.md` §5.3, §5.4, §6.3.
 
 ## 0. The answer
 
-1. **A part is an object when its thinnest dimension is under `object_threshold_m`,** a length in data, proposed as
-   0.4 m. The rule is applied per authored primitive, in metres, before any cell is touched. The grid's spacing and the
-   part's offset never enter it, so one spec gets one representation on every rig (D35 (1); §2).
-2. **Objects keep their authored primitives,** boxes and upright cylinders in metres, with a lumped or 1-D thermal
-   profile chosen by a Biot number computed from data (D35 (2); §3.3).
-3. **One store holds every object.** `fire_solid.md`'s `FuelStore` becomes `ObjectStore`, and each row gains a `role`:
-   `fuel`, `structure` or `inert` (D35 (3); §3).
-4. **`too_small` stops depending on where a part lands.** A part is refused only for being thinner than
-   `min_part_thickness_m`, in metres, under a new code; the old code retires (§11.3).
-5. **Regions may mix cells and objects** (§4). Every act and reading is defined on objects, which replaces
-   `fire_solid.md` §2's `fuel_only_region` before it ships (§7).
-6. **Both conflicts the survey names are resolved:**
-   - objects exchange heat with zone gas once zones land, and `fire_solid.md` §3.1's ambient rule is kept for Phase 1
-     only (§5.2);
-   - an object closes gap area between authored zones, counted in integers (§6).
-7. **Load is solved on a member graph** of bearing contacts in metres. A member fails when its load exceeds its
-   capacity, gated with a margin. D33's placement check reads the same graph (§8). Until D32's bodies exist, a lost
-   support is a Known gap with a strict red gate, never silent.
+1. A part is an object when its thinnest dimension, in whole micrometres on the spec's own coordinates, is under
+   `object_threshold_um` (D35 (1); §2).
+2. Objects keep analytic geometry in metres, as the kinds `slab` and `rod`, with tiled faces and per-tile profiles
+   chosen by Biot number (D35 (2); §3).
+3. One store, `ObjectStore`, holds every object, each with a `role` (D35 (3); §3).
+4. NPC quantities stay on cells, and refusal codes never reveal the representation (D36 (2), (3); §7.3, §11.3).
+5. Load is statics: rigid parts, compression-only bearing contacts, a deterministic active set (D36 (5); §8).
+6. Where the two representations differ in outcome, the difference is a strict red gate and a Known gap, closed in a
+   named step (D36 (6); §2.3).
 
-## 1. What this rests on
+## 1. Landing order
 
-The rulings this design implements are kept in `decisions/world_model.md`: D22 and D26 (rubble and zones are Phase 2),
-D31 (load), D32 (bodies), D33 (placement support), D34 (the defect, with its measurements) and D35 (the owner's three
-answers). Docs-contracts ruling 72 (`reviews/docs_contracts/rulings.md`; stated in `world_model.md` §1.1) is the rule
-§12 revises; its reasons are survey §0's. Each section below cites the ruling it serves.
+- **S0 lands before `fire_solid.md` 6.0a:** a text revision of its §1.3, §2, §5.2 and §5.3 (§12), so no code ships
+  that would need withdrawing from the append-only enum (D36 (4)).
+- **S1–S6 follow 6.0b** (§13), each its own branch and review round, on the Phase 2 line. Read against merged PRs
+  #40, #44, #45 and #46.
 
 ## 2. The representation rule
 
-### 2.1 The rule
+### 2.1 Geometry in whole micrometres
 
-For each authored primitive p, from a scene or a spec, its **thinnest dimension** t(p) is:
-- for a box, its smallest edge, `min(max_m − min_m)`;
-- for an upright cylinder, `min(2 · radius_m, z_m[1] − z_m[0])`.
+Every metric decision here (thickness, overlap, contact, support, gap blocking, thresholds) is made on integers.
+- **The quantum:** q(v) = rint(v · 10⁶), int64 micrometres, F13's cell-edge quantum.
+- **Specs are judged in their own frame,** before `imagination._offset` adds the origin. A scene's primitives are
+  judged on their authored values.
+- **Every threshold is held in integer micrometres** in data (§11.1).
+- **Why:** in float64, `4.0 − 3.6` is `0.3999999999999999`, so the alley's north wall would be an object and its
+  south wall cells. In integers both are 400,000 µm, as is every 40 cm centimetre edge (A-B1, Physics B1, T-B1).
+
+### 2.2 The rule
+
+For each authored primitive p, its thinnest dimension t(p) is the smallest of its edges for a box, or
+min(2·r, z₁ − z₀) for an upright cylinder, in µm:
 
 | Condition | Representation |
 |---|---|
-| p is a fuel recipe entry (`fire_solid.md` §5.2) | an object, role `fuel`, at every t (unchanged) |
-| `t(p) < min_part_thickness_m` | refused, `part_too_thin` (§11.3) |
-| `min_part_thickness_m ≤ t(p) < object_threshold_m` | an object, role `structure` or `inert` (§3.2) |
-| `t(p) ≥ object_threshold_m` | cells, voxelized by volume overlap (§2.3) |
+| p is a fuel entry (`fire_solid.md` §5.2) | an object, role `fuel`, at every t |
+| p is `air` (a scene's carve) | cells, always |
+| t(p) < `min_part_thickness_um` | refused, `out_of_range`, naming the part's index |
+| `min_part_thickness_um` ≤ t(p) < `object_threshold_um` | an object, role `structure` or `inert` (§3.2) |
+| t(p) ≥ `object_threshold_um` | cells (§2.4) |
 
-- **Both thresholds are in `data/world/limits.yaml`** (§11.1). Proposed values: `object_threshold_m = 0.4`, which is
-  two cells of the 0.2 m coarsest verification grid (`world_model.md` §1.1's thin-feature bar), and
-  `min_part_thickness_m = 0.001`, the contact tolerance (`fire_solid.md` §1.3).
-- **The comparison runs on the authored float64 values,** exactly as written. It is never run on a quantity derived
-  from a grid. A part exactly at the threshold becomes cells.
-- **Per primitive, not per spec.** One spec can give cells and objects together: a 3 m × 0.5 m concrete plinth carrying
-  a 2 cm steel rail. Both belong to the spec's one region (§4.3).
-- **Never dx:** representation, refusal and mass are functions of the authored primitives and the data only. The
-  red-first test of §13 holds every rig and every sub-cell offset to that.
+- **Proposed values:**
+  - `object_threshold_um` = 400,000. That is two cells of the 0.2 m coarsest verification grid, `world_model.md`
+    §1.1's thin-feature bar, and the loader refuses a smaller value.
+  - `min_part_thickness_um` = 3,000, which must exceed twice `contact_tolerance_um` (1,000). Then no part can lie
+    inside another within the tolerance (Physics S2, Trust T-S2).
+- **Per primitive, not per spec.** One spec can give cells and objects together, in one region (§4.3).
+- **The shipped alley's walls and floor sit exactly on the threshold** and stay cells. Any change to the quantum is
+  therefore a representation change, and S1 tests it.
 
-### 2.2 What this makes objects
+### 2.3 Outcomes on both sides of the threshold
 
-Most furniture, panes, doors, pipes, rails, sheet-metal enclosures and posts under 0.4 m become objects; walls, floors,
-slabs and blocks at or above 0.4 m stay cells. A 0.39 m concrete block is an object, and a 0.4 m one is cells. That
-step is the price of a rule independent of dx. Both representations must give the same outcome class for a block near
-the threshold, so §13 includes a test across the threshold: blocks of 0.38, 0.40 and 0.42 m under one fire and one
-load.
+A 0.39 m part is an object and a 0.40 m part is cells. Where their laws give a different outcome class, the
+difference is a Known gap with its numbers and a strict red gate, closed in a named step:
 
-### 2.3 Cells from authored primitives
+| Law | Object (< 0.4 m) | Cells (≥ 0.4 m) | Until |
+|---|---|---|---|
+| Heat | tile profiles (§3.3) | cell conduction, with §2.4's aliasing | same class; §2.4's gap |
+| Strike | the metric sphere's share of the part (§7.1) | the same sphere on cells | same class |
+| Breach | ligament in metres (§7.2) | `region_breached` (Known gap: axis from cell extents) | step 8a |
+| Burning wood | burns from 6.2 (§3.2) | never (`fire_solid.md` D-S4) | the 6.2 design's wood cells |
+| Load capacity | crushes, buckles, bends (§8.2) | rigid; no capacity | D22's cell capacity |
+| Body contact | `sem_stimuli.md` §7.1 (§5.1) | cell faces exchange nothing in v1 | `sem_stimuli.md` §2.3's face row |
+| Gap blocking | projection (§6) | face count | same class |
 
-Primitives at or above the threshold are voxelized **by exact volume overlap,** never by cell centre. That is
-CLAUDE.md's deposit rule, already required for fuel initialisation (`world_model.md` §3's S3 row). A cell's material is
-assigned when the primitive's overlap fraction is at least ½. Mass is computed from authored volume, never from counted
-cells. A part at least two coarse cells thick keeps a stable material assignment at every offset. The verification tests
-measure the residual surface aliasing at 0.2 m and record it as a Known gap with its numbers.
+S1–S4 each owe the cross-threshold test for their rows: parts of 0.38, 0.40 and 0.42 m, at three grids and several
+offsets (§13). A same-class row is a passing test, and every other row is a red gate whose reason names the step in
+its "Until" column.
+
+### 2.4 Cells from authored primitives
+
+- **A cell takes a primitive's material when the primitive covers at least half of it,** with the overlap computed
+  exactly on integer µm. A tie at exactly ½ assigns the cell. This replaces the cell-centre rule (`scene.py`), so it
+  is a digest break, recorded under `sim_core.md` §12 with a bump of F15's `derivation_version`.
+- **Mass is the authored volume's,** never the counted cells'.
+- **The residual is a Known gap with its numbers.** A 0.4 m box becomes 0.4 or 0.6 m of cells at 0.2 m, 0.4 or 0.5 m
+  at 0.1 m, and 0.4 or 0.45 m at 0.05 m. Heat capacity can therefore reach 1.5× the authored value, and the time for
+  heat to cross can reach 2.25× (Physics S1, Architecture A-S5). It closes with B28's material fraction per cell.
 
 ## 3. One store
 
 ### 3.1 `ObjectStore`
 
-`fire_solid.md` §1.1's `FuelStore` is renamed `ObjectStore`, with the same tables, keys, window, copy-on-first-write,
-reduction order and id counter. Only the changes are listed here.
+`fire_solid.md` §1.1's `FuelStore` is renamed `ObjectStore`. The window, copy-on-first-write, key order, `pending` and
+the counter are unchanged. Only the changes are listed here:
 
 | Table | Change |
 |---|---|
-| `objects` | adds `role` u8 (`fuel` 0, `structure` 1, `inert` 2); `material_id` u8 for `structure` and `inert` (`recipe_id` stays for `fuel`; the unused column holds its sentinel, 0xFF or 0xFFFF); `kind` adds `box` (origin f64×3, extent f64×3) and `cylinder` (centre f64×2, radius f64, z0 f64, z1 f64); `integrity` f64 in [0, 1]; `support` u8 (`anchored` 0, `bearing` 1, `loose` 2, §8.3); `pose` f64×7 (translation, unit quaternion), **reserved for D32 and fixed at identity**; `state` adds `failed` and `removed` |
-| `segments` | for `box` and `cylinder` objects, one row per face (6 for a box, 3 for a cylinder: bottom, top, side), with its area, outward normal and the node it exchanges through (§3.3) |
-| `nodes` | for `structure` and `inert` objects, one profile per object across its thinnest dimension (§3.3) |
-| `contact` | adds object-to-object rows, keyed (`object_a` < `object_b`, `face_a`, `face_b`), with their contact area; still derived |
-| `members` | new, derived: the bearing graph of §8.1, rebuilt per topology batch; never saved |
+| `objects` | adds:<br>- `role` u8: `fuel` 0, `structure` 1, `inert` 2;<br>- `material_id` u8 for `structure` and `inert`, with the sentinel 0xFF for `fuel`;<br>- `integrity` f64 in [0, 1];<br>- `breached` u8, 0 or 1;<br>- `support` u8: `attached` 0, `loose` 1, `unstable` 2 (§8.3);<br>- `pose` f64×7: (tx, ty, tz, qw, qx, qy, qz), qw ≥ 0, zeros +0.0. It is fixed at identity until D32.<br><br>`state` numbers `live` 0, `burnt_out` 1, `failed` 2, `removed` 3. Kinds stay `rod` and `slab`: an upright cylinder is a rod with axis z, and a box is a slab with axis-aligned edges and its thinnest edge as thickness |
+| `tiles` | new, for `structure` and `inert` objects. Keyed (`object_id`, `tile`): each face is cut into tiles of `tile_m` per material (§11.1), numbered in (face, length, width) order, with the area, centre and outward normal of each |
+| `nodes` | for structure and inert tiles: one profile per tile across the thickness (§3.3) |
+| `contact` | object-to-cell rows as `fire_solid.md` has them, extended to every role. Its derivation is §4.1's |
+| `object_contact` | new, derived. Keyed (`object_a` < `object_b`, `tile_a`, `tile_b`), with the patch's polygon in µm and its area |
 
-- **`kind` and `role` are independent:**
-  - a fuel `slab` is `kind` `slab`, role `fuel`;
-  - a 4 cm wooden leg is `kind` `box`, role `structure`;
-  - a glass vase is `kind` `cylinder`, role `inert`.
-- **Geometry stays immutable** until D32's bodies, as `fire_solid.md` §1.1 has it for fuel. Damage changes `integrity`,
-  `state` and node thicknesses, never `objects`' geometry columns.
-- **One mass truth:** an object's mass is its authored volume times its material's density, minus what its nodes have
-  lost (`fire_solid.md` §5.4's inventory and `removed_kg`). Overlapping parts of one spec are refused (§4.2), so a
-  volume is never counted twice.
-- **Limits are shared:** `fire_solid.md` §1.3's `objects`, `segments`, `nodes` and `contact` limits count every role.
-  Their values are re-measured at build step S1 (§13), under B5, with structural objects included.
+- **Fuel keeps its `segments`** (strips, `fire_solid.md` §1.2); a structural face is `tiles`, so no row has two
+  meanings (Wire S1, A-S2).
+- **Geometry stays immutable** until D32. Damage changes `integrity`, node thicknesses and the state columns, never
+  geometry.
+- **One mass truth:** authored volume times density, minus node losses (`fire_solid.md` §5.4). Overlap and
+  containment are refused (§4.2), so no volume counts twice.
+- **Ids are minted** in part order within a spec, and in entry order at scene build.
+- **Limits are per role:**
+  - fuel's are `fire_solid.md` §1.3's;
+  - structure and inert get their own object, tile and node limits;
+  - a global `object_contact` limit is added;
+  - all are counted with `pending` before acceptance and refused with the `world_limit_*` family (§11.3).
+
+  So thin structure can't exhaust fire's budget (Trust T-S5).
 
 ### 3.2 Role
 
-- **`structure`:** a member of the bearing graph (§8.1). It carries load from what rests on it and has a capacity.
-- **`inert`:** it has mass and imposes load on its supports, but it is never a member, so it carries nothing.
-- **`fuel`:** as `fire_solid.md` defines it: it imposes load, carries none, and burns under its recipe.
-- **How a scene or spec picks a role:**
-  - a part under the threshold is `structure` unless it is authored `inert`;
-  - a spec part sets it with the optional key `role` (§11.2);
-  - a fuel entry is always `fuel`.
-- **Burning is a matter of material, not role.** A structural object burns if its material names a recipe in
-  `data/materials/mechanics.yaml`'s `burns_as` (§11.1), as wood does, which `fire_solid.md` §4 runs on its nodes.
-  Steel, glass, concrete and drywall name none in v0. That is how a leg that burns and a leg that carries load are one
-  object (D35 (3)).
+- **`structure`:** a member of the statics graph (§8). It carries load and has a capacity.
+- **`inert`:** it has weight and loads its supports, but it carries nothing. On a cell part, `inert` means the cells
+  are a load and never a support.
+- **`fuel`:** `fire_solid.md`'s. It loads its supports and carries nothing.
+- **How a role is set:** a part takes `structure` unless authored `inert`. `fuel` comes only from a fuel entry, and
+  `role: fuel` on a structural part is `kind_not_admitted`.
+- **Burning is by material, from the 6.2 design** (D36 (7)). A structure or inert object whose material names a recipe
+  in `mechanics.yaml`'s `burns_as` burns under `fire_solid.md` §4 from 6.2. Until then no structural object burns, and
+  wood cells never do (§2.3).
 
-### 3.3 The thermal profile, by Biot number
+### 3.3 Tiles and the thermal profile
 
-For a `structure` or `inert` object:
-- **The Biot number** is Bi = h_ref · (t / 2) / k, with t the thinnest dimension (§2.1), k the material's
-  conductivity (`core.yaml`) and `h_ref` from `mechanics.yaml` (§11.1). Every input is authored or data, so it is
-  never dx.
-- **If Bi < `lumped_biot_max`** (data, proposed 0.1), the profile is lumped: one node, and every face exchanges through
-  it.
-- **Otherwise it is 1-D across t,** between the two faces normal to the thinnest axis: nodes by `fire_solid.md` §1.2's
-  node rule, the first face reading node 0 and the opposite face the last node. The other faces (the edges) exchange
-  through the profile's mean. A cylinder whose thinnest dimension is its diameter is 1-D radially; one whose thinnest
-  dimension is its height is 1-D axially.
-- **Survey §1's reference cases fall as expected:** 1 cm steel is lumped, a 6 mm pane is 1-D (Bi ≈ 0.1–0.3), and a
-  4 cm pine leg is 1-D (Bi ≈ 4). The values are re-derived from the data at build step S2.
-- **The choice is fixed at insertion** and saved with the layout, as `fire_solid.md` §5.5 requires: the saved layout
-  is the truth.
+- **Tiles give lateral resolution.** A 3 m rail heated at one end is hot at that end, and neighbouring tiles of one
+  object exchange heat by in-plane conduction (Physics B2, Architecture A-B7).
+- **Biot number:** Bi = h_ref · L_c / k. Here L_c is the tile's volume over its exposed area (r/2 for a rod), and k is
+  the conductivity in `core.yaml`. `h_ref` is the material's exposure coefficient: convection plus radiation
+  linearized at `t_ref_k`, both in `mechanics.yaml` with their source cited (Physics S3, N1).
+- **The profile:** a tile with Bi < `lumped_biot_max` is lumped, with one node, and 1/h_node = 0 in contact (Physics
+  N2). Otherwise it is 1-D across the thickness, by `fire_solid.md` §1.2's node rule, with radial metrics for a rod.
+- **Glass has an edge band.** Tiles within `edge_band_um` of a pane's perimeter form its band, and §7.2's crack
+  criterion reads the band against the interior (Physics B4).
+- **Fixed at insertion and saved,** as `fire_solid.md` §5.5 requires: the saved layout is the truth.
 
 ## 4. Ownership and overlap
 
 ### 4.1 Objects against cells
 
-- **An object owns no cell.** `world_model.md` §5's rule stands: each cell has one owner, through `region_id`.
-- **An object may not overlap any solid region's authored geometry by more than 1 mm,** judged in metres on the CSG
-  of `world_model.md` §5, never on cells. This extends `fire_solid.md` §1.3's rule from fuel to every role.
-- **A structural cell `place` may not overlap an object.**
-- **An object that touches a cell face**, with separation ≤ 1 mm and an overlap over 1 mm along each face axis
-  (`fire_solid.md` §1.3), gets a contact row. Cell edges are integer micrometres (F13).
+- **An object owns no cell** (`world_model.md` §5).
+- **Overlap and contact are judged against a cell region's authored geometry** (its primitives, in µm), never against
+  cell faces. An object may not overlap it by more than `contact_tolerance_um`, and it touches it when the separation
+  is ≤ the tolerance and the overlap exceeds it along each face axis.
+- **A contact's exchange lands on the cells under the authored patch,** weighted by area, each through its skin.
+- **Why:** a cell face lies up to dx/2 from the authored surface, so by cell faces a rail on a plinth was attached at
+  one grid and loose at another (Physics B7). The fuel rule moves with it (§12, S0).
 
-### 4.2 Objects against objects
+### 4.2 Objects against objects, and within a spec
 
-- **No two objects may overlap by more than 1 mm,** across specs and within one. This is a change for structural
-  specs: v0 lets one spec's primitives overlap, counting the volume twice. Spec v1 refuses it as `parts_overlap`
-  (§11.3). The spike measures v0 as frozen (`research/specgen_spike/plan.md`), and stage 2 is written against v1.
-- **Touching objects get contact rows** by the same separation-and-overlap test, in metres, with no cells involved.
+- **Overlap is measured exactly per pair of kinds,** in integer µm: box against box by axis intersections, box against
+  cylinder by the disc's distance to the rectangle, and cylinder against cylinder by centre distance squared.
+  - **Across specs and with existing objects:** an overlap beyond the tolerance, or containment, is `space_taken`,
+    the same code cells give.
+  - **Within one spec:** it is `parts_overlap`. This changes v0, which let a spec's parts overlap and counted the
+    volume twice (D36 (7)).
+- **Touching objects get `object_contact` rows** by the same test.
 
-### 4.3 Regions
+### 4.3 Regions and insertion
 
-- **A region may own cells and objects together.** This replaces `fire_solid.md` §1.3's "cells only or objects only".
-- **A spec's or scene entry's parts are one region,** whatever their representation.
-- **`Region` keeps its authored footprint,** which is now the union of its cell CSG and its objects' primitives, and
-  its centroid is the volume-weighted centroid of both.
+- **A region may own cells and objects.** A spec's or scene entry's parts are one region, with the union of its parts
+  as its footprint.
+- **The whole region enters at the drain** (`fire_solid.md` §1.4). Its cell parts' paint requests and its objects are
+  applied in one Topology batch, so no step sees half an object (Trust T-S7). Cell parts' occupancy is judged in µm on
+  authored geometry, never on `mask & grid.solid`.
 - **A region is gone** when it has no live cell and no object in state `live` or `failed`.
 
 ## 5. Coupling
 
 ### 5.1 Contact
 
-- **Object to cell:** `fire_solid.md` §3.2's skin coupling, unchanged, for every role.
-- **Object to object:** per contact row, one antisymmetric transfer per physics step,
-  q = A · (T_a − T_b) / (1/h_a + 1/h_contact + 1/h_b), where:
-  - T_a and T_b are each face's exchange node (§3.3);
-  - h_a and h_b are each node's conductance to its face;
-  - `h_contact` is in `mechanics.yaml`, per material pair, defaulting to its `contact_default`.
-
-  It runs as a Robin condition inside both objects' implicit solves, as `fire_solid.md` §3.2's scheme does, and it is
-  written to the declared field `contact_exchange` (`sim_core.md` §5.1). No law calls another.
-- **dx enters only through cell contact rows and the skin's far boundary,** as `fire_solid.md` §3.2 states.
-  Object-to-object coupling is grid-free.
+- **Object to cell:** `fire_solid.md` §3.2's skin coupling, for every role, on §4.1's patches.
+- **Object to object, one coupled solve:** the solid law (`fire_solid.md` §4, extended to every role's nodes)
+  assembles each contact island, a connected set of touching objects, into one implicit system. The conductance
+  1/(1/h_a + 1/h_contact + 1/h_b) is the coupling term. Each transfer is booked once, as ±H·A·(T_a − T_b)·Δt at the
+  end-of-step temperatures, so it is antisymmetric and stable at any capacity ratio. Islands run in order of their
+  smallest `object_id` (Physics B5: a frozen-partner Robin scheme created 95% at a 120× capacity ratio).
+- **Body to object:** owned by `sem_stimuli.md` §7.1. A body reads the touched tile's surface node and writes §7.1's
+  exchange field, which the solid law reads and resets like `contact_exchange`; §3.3's profile never sets the skin's
+  contact temperature. Object tiles are `radiant_emitters` rows when §7.1's irradiance lands (Bio S4).
+- **dx enters only through cell contact rows and the skin's far boundary.**
 
 ### 5.2 Gas: the first conflict
 
-- **In Phase 1, `fire_solid.md` §3.1's ambient rule applies to every object, of every role.** Phase 1 has no zones
-  (D26), so a steel sheet in a burning room never heats from the room's gas. That stays a Known gap, recorded with the
-  §3.1 numbers and extended to structure.
-- **Once zones land (Phase 2),** every exposed face of every object exchanges with the gas of the zone it faces, not
-  with the ambient:
-  - convection and radiation, in the same forms as §3.1's loss, with T∞ replaced by the zone's gas temperature;
-  - booked as one antisymmetric transfer to that zone's energy, ledger line `object_to_zone`;
-  - this revises §3.1's "permanent for Phase 1" to "until zones land" (§12).
-- **Which zone a face faces:** for each face, the area over each zone's air cells, probed 1 mm outward along its normal.
-  It is computed from integer-micrometre cell edges and the face's authored geometry, cached per `topology_version`, and
-  summed in sorted zone order. A face over two zones splits its exchange by those areas.
-- **"No law heats air cells" stays** (`fire_solid.md` §3.1's guard). Zone gas is not air cells (`world_model.md` §2).
-- **Object-to-surface radiation** is owned by `fire_model.md` §3.3's surface exchange, and joins when that lands.
+- **Phase 1:** `fire_solid.md` §3.1's ambient rule applies to every role. It is a Known gap extended to structure,
+  with §3.1's numbers. A steel door in a burning room stays cool to the touch, a false regularity, so the gap must
+  close (S5) before any NPC contact row reads an object (Bio N1).
+- **When zones land (Phase 2):** each exposed tile exchanges with the gas of the zone it faces: convection, and
+  radiation with the gas emissivity `epsilon_gas` (data; Physics S7). It is booked as one antisymmetric transfer to
+  the zone (`object_to_zone`). This revises §3.1's "permanent for Phase 1" to "until zones land" (§12).
+- **The zone a tile faces** is the authored zone volume containing the point `contact_tolerance_um` outward from its
+  centre, judged in µm on authored zones, never on cells.
+- **"No law heats air cells" stays:** zone gas is not air cells.
 
 ### 5.3 The ledger
 
-New terms in `fire_solid.md` §5.4's equation:
-- storage: Δ(object nodes), all roles;
+These are new terms in `fire_solid.md` §5.4's equation:
+- storage: Δ(object nodes) for every role;
 - internal and net zero: `object_contact`;
-- output: `object_to_zone`, from Phase 2.
+- output, from Phase 2: `object_to_zone`.
 
-Every term is one transfer, limited by what the donor holds and applied antisymmetrically, never clamped afterwards
-(`world_model.md` §4).
+Every term is one transfer, limited by what the donor holds and never clamped afterwards.
 
 ## 6. Zone topology: the second conflict
 
-- **Zones stay authored in metres,** and their volumes and gap areas stay integer counts (`world_model.md` §2, §6).
-  Objects never relabel a zone.
-- **A gap's open area** for each (zone pair, z-bin) is its face count times the face area, minus a **blocked area**:
-  - the summed projected area, onto that gap's cell faces, of every live object lying within 1 mm of the gap plane;
-  - held as an integer number of square micrometres;
-  - computed from object geometry quantized to integer micrometres, which is the same quantization as cell edges
-    (F13).
-- **Cadence:** recomputed per topology batch, assembled in sorted order, and equal bit for bit to a full recompute,
-  under the Hypothesis property of `world_model.md` §6.
-- **A pane filling a window gives the gap zero open area.** When the pane breaches (§7.2), the next batch restores the
-  open area. That is the pane's breach joining the zones (survey §4).
+- **An opening is the authored interface between two zones' volumes,** in µm. Neither the zones nor the opening is
+  relabelled by objects.
+- **An object blocks an opening** when it spans the opening's plane within `contact_tolerance_um`, is in state `live`
+  or `failed`, and is not `breached`.
+- **Blocked area is the union of the blocking objects' projections, clipped to the opening,** as exact integer µm²
+  (int64). A disc projects as the regular polygon of `disc_sides` (data) whose vertices are rounded to µm, so no
+  transcendental function is evaluated. The open fraction is (opening − blocked) ÷ opening, applied to `world_model.md`
+  §6's integer gap area by integer floor division. It never goes negative, and nothing is clamped (Physics S8,
+  Architecture A-S9, Determinism D-S5, Trust T-N2).
+- **Cadence:** recomputed in each Topology batch that changes a blocking object (§7.4), and equal bit for bit to a
+  full recompute.
 
-## 7. Acts and laws on objects
+## 7. Acts, laws and readings
 
-Each act on an object resolves in one law, per `sim_core.md` §5.1's rule of one resolver per input kind. Objects take no
-outcome from the applier.
+### 7.1 Acts
 
-### 7.1 The acts
+Each act resolves in one law (`sim_core.md` §5.1). Objects take no outcome from the applier.
 
 | Act | On an object | Resolver |
 |---|---|---|
-| `strike` | the point in metres must lie within 1 mm of a live object's surface; the `Load` decrements its `integrity` by the strike law's closed form on the object's material and section | `damage.objects` |
-| `ignite` | allowed on an object whose material `burns_as` a recipe, or on a fuel object; refused otherwise with today's `not_solid` sense, under a new code `not_flammable` (§11.3) | heat, as for fuel |
-| `douse` | as on cells, through the object's faces | heat |
-| `kindle` | `fire_model.md` §2.2's metric nearest-surface query, over cells and objects | 6.4's |
+| `strike` | **The target:** the point must lie within `contact_tolerance_um` of a surface. Ties break on the smallest distance in µm, then a cell face before an object, then the smallest `object_id`.<br>**The effect:** the strike's metric damage sphere (`damage.strike`) is intersected with the part, and `integrity` falls by the destroyed share. A point off every surface is today's `not_on_surface` | a resolver module in `damage.loads`'s declared tuple, `per_record` (Architecture A-B5) |
+| `kindle` | `fire_model.md` §2.2's metric nearest-surface query over cells and objects. A target that can't burn behaves as a non-burning cell surface does, with no new code | 6.4's |
+| `douse` | as on cells, through the object's tiles | `fire_model.md`'s next revision (D-N3) |
 
-`fire_solid.md` §2's `fuel_only_region` is never built. Every act above is defined on every role.
+`ignite` is retired by vocabulary v1 (`tile_and_client.md` §3.2) and has no row (Architecture A-B6).
 
-### 7.2 The laws
+### 7.2 Laws on objects
 
-- **`thermal_degrade`:** an object's strength factor is `mechanics.yaml`'s temperature table, read at the profile's
-  minimum-strength node, never at the mean. That is the "decide at the point" rule applied to a 1-D profile.
-- **Breach:** a `structure` or `inert` object is breached when its remaining thickness along its thinnest axis, in
-  metres, falls below `breach_ligament_m` (data). That is `world_model.md` §3's strength-and-breach row on the object.
-- **Glass cracking:** a glass object cracks when the ΔT between its centre node and its edge nodes crosses
-  `mechanics.yaml`'s `crack_delta_t_k`. A cracked pane is breached. This binary outcome is band-gated, with a margin in
-  input flux (ruling 60; survey §4). Its validation scatter is a Known gap.
-- **`crack`** on an object is 1 − `integrity`, the same meaning as the cell channel (`world_model.md` §8, F1).
-- **Destruction:** at `integrity` 0 an object's `state` becomes `removed`. Its remaining mass goes to its zone's fines
-  species, or in Phase 1 to the ledger's `removed_with_mass`, so mass is never deleted (`world_model.md` §2). Fracture
-  into new objects is out of scope; per-object local voxels are D35 (2)'s later kind.
+- **Strength, integrated over the section.** A member's capacity integrates its material's strength factor
+  σ(T(x))/σ(T₀) over the remaining section of each tile row it bears through, and E(T) enters I for buckling. A
+  minimum-node read is used only for local events such as breach (Physics B3).
+- **Breach:** a tile is breached when its remaining thickness falls below `breach_ligament_um`, and the object is then
+  `breached`. The loader requires `breach_ligament_um` < `min_part_thickness_um`, so nothing is breached at insertion
+  (Trust T-S3).
+- **Glass cracking:** a pane cracks, and is `breached`, when max over interior tiles of (T_tile − T̄_band) ≥
+  `crack_delta_t_k`. This is an in-plane ΔT, the criterion of Pagni and Joshi and of Keski-Rahkonen. The binary
+  outcome is band-gated with a margin in input flux (ruling 60), and its validation scatter is a Known gap. Any
+  material with `crack_delta_t_k` cracks; no code keys on a material's name.
+- **Destruction:** at `integrity` 0 an object becomes `removed`. Its remaining mass goes to its zone's fines species,
+  or in Phase 1 to `removed_with_mass`. Fracture into new objects is out of scope (D35 (2)'s later kind).
 
 ### 7.3 Readings
 
-- **`frames.QUANTITIES`** (`integrity`, `temperature_max`, `temperature_mean`, `breached`) is defined on a region's
-  matter, both cells and objects:
-  - `integrity` and `temperature_mean` are volume-weighted over cells and objects;
-  - `temperature_max` is the maximum over cells and object nodes;
-  - `breached` holds if any of its cells' axes or any of its objects is breached.
-- **A cell-only region's value is bit-identical to today's,** pinned by a test. Every region that exists before this
-  design is cell-only or fuel-only, so no recorded value changes meaning. `fire_solid.md` §2's cell-only pin is revised
-  to this one (§12). **This is an owner question** (§14, item 1), because F1 says a new meaning gets a new name.
+- **`frames.QUANTITIES` keeps its cell meaning,** pinned by test. A mixed region reduces over its cells only.
+- **An object-only region is refused by `Frame.reading` and `region_parts`,** as `fire_solid.md` §2 has it for
+  fuel: never 0.0 and never NaN. So the bridge's surface, `QUANTITIES` and the affordances are unchanged (D36 (2);
+  Bio B1, Wire B2). An NPC can't reach an object-only region through the bridge until the NPC fire note rules on
+  objects (§9).
+- **Object readings get new names on a lab surface,** under `tests/` or a lab builder, never in `QUANTITIES` or on an
+  NPC builder. Examples are `object_integrity` and `object_temperature_max`. They reduce over cells by flat index,
+  then objects by key, by `bincount`.
 
-## 8. Load
+### 7.4 State changes are Topology requests
 
-### 8.1 The member graph
+Object state transitions are keyed-table requests applied by `Topology` (`sim_core.md` §5.1). They are:
+- `state` (`burnt_out`, `failed`, `removed`);
+- `breached`;
+- `support`.
 
-- **Its vertices:**
-  - every object in state `live` (all roles, each with its weight);
-  - one **anchor** per cell region connected to the world's floor by `world_model.md` §6's anchor test.
-- **Its edges are bearing contacts:** contact rows (§4) whose contact normal is within `bearing_angle_deg` (data,
-  proposed 30°) of vertical, so they can pass a vertical load in compression. In v1 nothing else is a joint: there is
-  no glue, tension or authored joint.
-- **Members** are the `structure` vertices. `inert` and `fuel` vertices only carry their own weight into the graph.
-- **The graph is derived,** rebuilt per topology batch and from the `objects` table in key order, and never saved.
+Each batch that applies one bumps `topology_version`, so `contact`, `object_contact`, zone faces, blocked area and the
+statics graph rebuild in the step the change happens (Architecture A-B4, Determinism D-B3, Wire S2). The requests are
+emitted by:
+- the solid law: burnt out, breached, cracked;
+- `damage.loads`: removed;
+- statics: failed, support.
 
-### 8.2 Capacity and the solve
+`Topology` is the only writer of those columns, and `damage.loads` is the only writer of an object's `integrity`
+after insertion.
 
-- **Capacity, per member,** from authored geometry in metres and `mechanics.yaml`, scaled by the strength factor of
-  §7.2:
-  - crushing σ_c · A;
-  - Euler buckling π² · E · I / (K · L)², with K = 1 for v1 (pinned at both bearings);
-  - bending, for a member carrying load between two bearings, σ = M · c / I against σ_t.
+## 8. Statics
 
-  A, I and c come from the member's section in metres, never from cells. D31's measured risk was a 6.25× error in A and
-  39× in I for a 4 cm leg on 0.1 m cells.
-- **The load split** comes from a linear-elastic solve over the graph, with axial stiffness E · A / L per member edge,
-  in float64. Vertices and edges are ordered by key, and the factorization is deterministic, so one machine gives
-  bit-identical results. That makes a statically indeterminate four-legged table determinate. The solver is chosen at
-  build step S4 against the closed forms of §13.
-- **Cadence:** `per_physics_step`, in `sim_core.md` §5's tuple after the thermal laws. It runs only when a topology
-  batch or a member's strength factor changed since the last solve, keyed on those versions (`sim_core.md` §7).
+### 8.1 The graph
 
-### 8.3 Failure and the hand-off
+- **Vertices** are every live or failed object of every role, and every cell region not anchored. Each is a rigid
+  body with three degrees of freedom: a vertical translation and tilts about x and y.
+- **Anchors** are the domain floor (the plane z = 0) and every cell region whose cells connect to it through cells.
+  Each connected component has its own anchor, keyed by its `region_id` and its lowest flat cell index. That key only
+  orders, so a split region gets two anchors (Trust T-B2, Determinism D-N3).
+- **Bearing contacts carry load.** A bearing contact is a contact whose normal is within `bearing_angle_deg` of
+  vertical. Its points are the vertices of its patch polygon in µm. Each point is a compression-only spring whose
+  stiffness is the series axial stiffness of the two parts, E·A/L each, with the patch area shared among the points.
+- **Side contacts attach but carry nothing** (D36 (1)). A part is attached if any contact, on any face, links it to
+  the anchored set. Load passes only through bearing contacts. Side contacts carrying no load is a Known gap until
+  joints exist.
+- **Cell regions enter as loads and supports.** An unanchored cell region resting on objects is a vertex with its
+  authored weight. An anchored cell region is a support (Architecture A-B3).
+- **Derived,** rebuilt in each batch that changes topology, from the tables in key order, and never saved.
 
-- **A member fails** when its load exceeds its capacity. That binary outcome is band-gated with a margin (ruling 60). A
-  failed member's `state` becomes `failed`, and every vertex that loses its last bearing path to an anchor gets
-  `support` `loose`.
-- **Until D32's bodies land,** a loose object stays where it is, with its `support` set to `loose` and an event
-  `support_lost` in the tick report. That is a **Known gap with a strict red gate:** a table whose leg chars through
-  under its load falls (D31's case), `xfail(strict=True, raises=AssertionError)`.
-- **The hand-off when bodies land** is D32's design. Cells whose support fails are D22's rubble. This design reserves
-  `pose` and `support` so neither needs a format change.
+### 8.2 The solve
 
-### 8.4 Placement support (D33)
+- **Per island:** each connected set of vertices that touches an anchor is one SPD system, solved by a direct
+  Cholesky factorization in float64. Degrees of freedom are ordered by vertex key, then (w, θx, θy). Islands are
+  ordered by their smallest key, so an unrelated object can't change a table's split (Determinism D-S1).
+- **Compression only, by an active set:**
+  1. Solve with every bearing point active.
+  2. Deactivate every point in tension at once.
+  3. Reactivate any inactive point whose gap closes.
+  4. Repeat until neither step 2 nor step 3 changes anything, or `statics_max_iterations` is reached.
 
-A `place`, or a scene entry, is refused as `unsupported` (§11.3) when any of its parts would be `loose` in the graph
-built with the placed parts included. That is judged on authored geometry in metres, before any write, with
-`pending`'s objects counted (`fire_solid.md` §1.4). Whether an imagined object may anchor another stays with D32 (D33).
+  The iterations are counted as work (`sim_core.md` §10). For a load over one leg of a four-legged table, this gives
+  the correct lift-off, where a scalar model split the load 0.25 to each leg (Physics B6).
+- **Capacity per member,** the strength-integrated section of §7.2 against these modes:
+  - crushing;
+  - Euler buckling π²·E·I/(K·L)², with K = `buckling_k` (data, 2.0 in v1: no joint restrains the upper bearing
+    laterally; Physics S5);
+  - bending between bearings, at their positions in metres.
+- **Undefined results are defined outcomes.** If the system is singular (a part with no stable support), any result
+  is non-finite, or the iteration cap is reached, every non-anchor vertex of that island gets `support` `unstable`. It
+  is never an exception inside the step (Trust T-B4).
+- **Cadence and key:** statics is a law, `per_physics_step`, after the solid law. Its key is the write ticks of every
+  field it reads: node temperature and thickness, density, `integrity`, the state columns and `topology_version`. It
+  reruns when any of them moves (Determinism D-B2, Physics S6). Per-member loads are derived, recomputed on load and
+  never digested. The outcomes `state` and `support` are digested.
+- **The solver's identity,** with the BLAS and its thread count, is part of the law's version and the log header.
+
+### 8.3 Failure, and what waits for D32
+
+- **A member fails** when its load exceeds its capacity, band-gated with a margin (ruling 60). Every member over
+  capacity fails at once, then the island is re-solved, repeating until none fails, within the step and counted as
+  work (Determinism D-S2).
+- **A vertex with no contact path to an anchor becomes `loose`.** This is the only meaning "loose" has before D32
+  (D33, D36 (1)).
+- **Until D32,** loose and unstable parts hold in place. That is a Known gap with a strict red gate: a table whose leg
+  chars through under load falls (D31's case). It is tagged ANALOG with D32 as the step that earns it. No NPC
+  perception or learning bar may depend on it (D36 (7); Bio N2). `support_lost` is recorded in the `TickReport`'s lab
+  section and the log, never as a `StimulusEvent` or in text an NPC can read (Bio S3).
+- **Hand-off:** D32's design takes loose and unstable parts. Cells whose support fails are D22's rubble.
+
+### 8.4 Placement (D33)
+
+- **A spec's own parts must connect.** In the spec's own frame, with its z = 0 plane as the floor, a part with no
+  contact path to the base is `parts_disconnected`, a spec fault.
+- **The placement must attach.** In the world, with `pending` counted, a part with no contact path to an anchor is
+  `unsupported`, a world outcome. There is no snapping: a base placed 3 mm above anything doesn't touch (Trust T-B2).
+- Stability is judged after acceptance (§8.3).
 
 ## 9. Sensors and NPCs
 
-- **NPC sensors reduce over volumes in metres, across cells and objects alike,** under `sem_stimuli.md`'s rows and
-  `boundaries.md` §4.4's rule that percepts come only through physical channels at the perceiver. No sensor names a
-  cell or an object.
-- **New object quantities** (a load, a contact force, a support state) are registered fields under `sim_core.md` §6.
-  They are perceivable only when `sem_stimuli.md` §7.4's registry marks them, which is false by default.
-- **What an NPC senses of weight, contact and motion** is owned by `sem_stimuli.md` §3's body: a contact force at its
-  receptors when it pushes or lifts, never an object's mass as a number. Motion waits for D32.
-- **The bridge's surface** (`region_parts`, the affordances) changes only through the NPC fire note's ruling, which
-  `fire_solid.md` §7 names. This design adds no affordance.
+- **NPC sensors reduce over volumes in metres** under `sem_stimuli.md`'s rows and `boundaries.md` §4.4. No sensor
+  names a cell or an object.
+- **The bridge is unchanged** (§7.3). The NPC fire note's trigger moves ahead of the first step that makes an
+  object-only region reachable by an NPC act. That is S3, because `fire_solid.md` §7's premise (the bridge untouched)
+  holds only until then (Bio B1).
+- **Never perceivable,** in the class of material ids (`sem_stimuli.md` §7.4):
+  - `support`, `role`, `material_id` and `breached`;
+  - capacities and object `integrity`;
+  - the statics graph and its outputs.
+
+  Only a force or a temperature at a receptor's site may be perceivable (Bio S3).
+- **Stage-2 refusals go through `sem_stimuli.md` §6.2's receipts.** Every target-dependent refusal this design
+  produces does: `space_taken` on objects, `unsupported`, and `not_on_surface`. T11's sweep gains material and support
+  categories (§12; Bio S1).
+- **Weight, contact force and motion have no row yet:** a future `sem_stimuli.md` row at receptor sites, frozen with
+  D32's or the body-support design, triggered by the first act or state that puts a body's weight on an object or lets
+  it push or lift one. Until then it is a named perception gap. Maxim's side binds through M11, a question to GL3's
+  `mechano_proprio` (Bio S2; Maxim `origin/main` b98954f7, `docs/plans/grounding.md`).
 
 ## 10. The snapshot
 
-`client_objects.md` §3 owns the object columns (PR #40). This design hands it requirements, as `fire_solid.md` §5.6 did:
-- `objects`: `role` u8; `kind` `box` and `cylinder` with geometry as f32 metres; `integrity` u8 in 1/255; `support` u8;
-  `pose` absent until D32.
-- `segments` for structural faces: `surface_temperature_c` f16, clipped to [−273, 6000] as `temperature_c` is.
-- **Never by colour alone:** crack severity by shape (`client_objects.md` §6), and glow with brightness
-  (`client_objects.md` §5).
-- **Every tier draws every live structural object,** since it is gameplay geometry. A tier may simplify edges and
-  shading, never existence.
+`client_objects.md` §3 owns the wire. This design hands it requirements in that document's grammar (Wire B1,
+Architecture A-S2):
+- **Fuel's tables are unchanged:** `objects`, `rods`, `slabs` and `segments`, with `state` 0 or 1. Structural objects
+  never appear in them.
+- **A new required table, `structures`:** keyed `object_id`, with:
+  - `region_id`, and `material_id` (in `welcome`'s material map);
+  - `role`, `kind`, `state` (§3.1's numbers), `breached` and `support`;
+  - `integrity` (u8, linear 1/255).
+
+  Its geometry goes in new required tables `structure_rods` and `structure_slabs`, in the fuel tables' column forms.
+- **A new required table, `tiles`,** keyed (`object_id`, `tile`), with `surface_temperature_c` as f16, clipped as
+  `segments` is. `welcome` carries each material's `tile_m`.
+- **The protocol bumps** for the new required tables (`client_objects.md` §3.1). Frame bytes and the join cap are
+  re-derived at S6 with structure's limits.
+- **The presentation view:** `fire_solid.md` §5.6's `FuelFrame` becomes `ObjectFrame` (`objects_version`), with the
+  same site, cadence and leak rule: presentation only.
+- **Never by colour alone,** and every tier draws every live structural object, since it is gameplay geometry.
 
 ## 11. Formats
 
 ### 11.1 Data
 
-| File | Change | Holds |
-|---|---|---|
-| `data/world/limits.yaml` | version bump, refusal test for the old version (repo-only data) | `object_threshold_m`, `min_part_thickness_m`, `lumped_biot_max`, `breach_ligament_m`, `bearing_angle_deg`; `fire_solid.md` §1.3's limits, re-measured |
-| `data/materials/mechanics.yaml` | new, `version: 0`, loader `load_mechanics` in `adapters/loaders.py`, gate row | per solid material, by name: `sigma_c_pa`, `sigma_t_pa`, `e_pa`, a strength-factor table against temperature, `h_ref_w_m2k`, `burns_as` (a recipe name or null), for glass `crack_delta_t_k`; `h_contact` per material pair, with `contact_default` |
+| File | Holds |
+|---|---|
+| `data/world/limits.yaml` (6.0a's v0, bumped at S1) | **Thresholds:** `object_threshold_um`, `min_part_thickness_um`, `contact_tolerance_um`.<br>**Limits:** the per-role object, tile and node limits; `object_contact`; statics' `statics_max_iterations` and its island size.<br>**Cross-checks:** 2·tolerance < minimum < threshold, and threshold ≥ 400,000 |
+| `data/materials/mechanics.yaml` (new, v0, `load_mechanics`, gate row) | **Per solid material, by name:** `sigma_c_pa`, `sigma_t_pa`, `e_pa`, a strength-factor table, `tile_m`, `h_ref` inputs and `t_ref_k`, `lumped_biot_max`, `breach_ligament_um`, `bearing_angle_deg`, `buckling_k`, `burns_as`, and optionally `crack_delta_t_k` with `edge_band_um`.<br>**`h_contact`,** keyed by the sorted pair `a\|b`.<br>**Global:** `contact_default`, `disc_sides`, `epsilon_gas` |
 
-- **`core.yaml` doesn't change.** `FuelCatalogue` (`fire_solid.md` §5.1) gains `mechanics.yaml`'s cross-references:
-  every material has a row, and `burns_as` names a known recipe. Each has a catalogue refusal and a test.
-- **Every value enters tagged as V, S, M or D** (`fire_solid.md`'s tags), and no M value enters `data/` unverified
-  (`world_model.md` §11).
+- **The loader refuses:**
+  - any non-finite or non-positive physical value;
+  - a strength-factor table whose temperatures don't strictly increase, or whose factors lie outside [0, 1];
+  - `bearing_angle_deg` outside (0, 90);
+  - a reversed or repeated pair, as `duplicate_key`.
+
+  Each refusal has its test and gate row (Trust T-S3, T-S4; Wire S8).
+- **`fire_solid.md` §5.1 owns the data-file list.** It gains `mechanics.yaml`, its header digest and the shipped-data
+  test's key (§12). `FuelCatalogue` becomes `MaterialCatalogue` and checks that every material has a row and that
+  `burns_as` names a known recipe.
+- **Values enter tagged V, S, M or D,** and no M value enters `data/` unverified.
 
 ### 11.2 Scene and spec
 
-- **Scene:** the next scene version after the one on `main` when S1 lands. A primitive may carry `role: inert`, and
-  the representation follows §2.1. Scenes are repo-only, so the old version gets a bump and a refusal test.
-- **Structural spec v1:** `{spec_version: 1, name, primitives}`, where each primitive may carry `role` (`structure` or
-  `inert`).
-  - It is checked against `Budget`, §2.1, §4.2 and §8.4.
-  - An unversioned spec is refused as `bad_version` once v1 ships. Nothing persisted v0, so no migration is needed.
-  - `fire_solid.md` §5.2's fuel spec v1 and this structural spec v1 are one format, decided at S1 with its owner.
-- **`imagine`** stays step 5's intent (`fire_solid.md` §5.2), with `pending` (`fire_solid.md` §1.4) covering every
-  role.
+- **One tagged spec format, v1, shared with fuel:** `{version: 1, name, parts}`. Each part is either:
+  - a structural part, `{kind: box | cylinder, geometry, material, role?}`;
+  - or a fuel entry, as `fire_solid.md` §5.2 defines it.
+
+  `version` is `Format`'s key (`schema.read_version`). It is settled in S0, before 6.0b ships a different v1 (Wire S6,
+  Architecture A-B8, Trust T-S8).
+- **v0 migrates.** An unversioned `{name, primitives}` reads as v1 with every primitive a structural part and no role.
+  The migration never changes geometry, so a v0 spec whose parts overlap is refused under v1's rules. The spike's
+  committed specs stay readable. Stage 1 is scored under v0, as frozen, and v1 scoring is stage 2's (§12).
+- **`SpecId`** (`ip_and_licensing.md` §6.1) hashes the migrated v1 form, so `version` and `role` join the hash.
+- **Scene:** the next version after `main`'s when S1 lands. A primitive may carry `role: inert`. Scenes are
+  repo-only, so the old version gets a bump and a refusal test.
 
 ### 11.3 Refusal codes
 
-Codes are appended to `refusals.RefusalCode`, each tested at its gate:
-- **Spec and scene:** `part_too_thin`, `parts_overlap`, `overlaps_object`, `unsupported`, `unknown_role`.
-- **Acts:** `not_flammable`; `not_on_object`, for a strike point off every surface of an object-only region.
-- **Loaders:** `bad_version` for `mechanics.yaml`; catalogue codes `missing_mechanics` and `dangling_reference`.
+| Code | New? | Class | Where |
+|---|---|---|---|
+| `out_of_range` | no | spec fault | a part under the minimum thickness, a zero volume, or an unknown role value |
+| `parts_overlap` | yes | spec fault | two of one spec's parts overlap, or one contains another |
+| `parts_disconnected` | yes | spec fault | a part with no contact path to the spec's base (§8.4) |
+| `kind_not_admitted` | 6.0b's | spec fault | `role: fuel` on a structural part |
+| `space_taken` | no | world outcome | overlap with any existing cells or objects |
+| `unsupported` | yes | world outcome | no contact path to an anchor at the placement (§8.4) |
+| `outside_extent` | no | world outcome | a part outside the world, from `place` and the scorer |
+| `not_on_surface` | no | world outcome | a strike point off every surface |
+| `missing_mechanics` | yes | loader | a solid material without a `mechanics.yaml` row |
 
-`too_small` retires: it stays in the enum, as append-only requires, and nothing produces it. Its meaning, "no cell
-centre fell inside", is the defect D34 names, and F1 forbids giving the name a new meaning.
+- **The classes are what a generator may be fed:** spec faults, with the part's index (a number the world writes);
+  never world outcomes (D36 (3)). The class column belongs with `tile_and_client.md` §3.4 (§12).
+- **A code is a function of authored geometry, the spec and the world in metres,** never of representation: it reads
+  the same for a 0.39 m part and a 0.41 m part.
+- **`too_small` is produced by nothing.** Its two producers are recoded: the cell-centre test disappears with §2.4,
+  and `scene._check_volume`'s zero volume becomes `out_of_range`. An `imagine` refused as `too_small` before S1 and
+  accepted after it is a replay break, recorded at S1 (Wire S3, Trust T-S6).
 
 ### 11.4 Digest, save and header
 
-- **Digested:** every `ObjectStore` table except `contact` and `members`, which are derived, plus `pending` and the
-  counter (`fire_solid.md` §5.4). Empty tables add no bytes, so 5a's replay goldens are unchanged without objects.
-- **Save, handed to step 9** (`fire_solid.md` §5.5's list plus):
-  - `role`, `material_id`, `integrity`, `support` and `pose`;
-  - name maps for `material_id`, remapped by name;
-  - on load, `members` and the load solve are recomputed and must equal the stored digest.
-- **The log header** records `limits.yaml` and `mechanics.yaml` as `boundaries.md` §6.3 says.
+- **Digested:** every `ObjectStore` table but `contact` and `object_contact` (derived), plus `pending` and the counter.
+  The new members change every tick's digest even when they are empty, because the digest hashes each member's name
+  and shape (`sim_core.md` §9). That is a break, recorded at S1, with the new tables placed after fuel's in name order
+  (Wire S5, Determinism D-N2).
+- **Save, handed to step 9,** is `fire_solid.md` §5.5's list plus:
+  - the new columns and `tiles`;
+  - name maps for `material_id`, `recipe_id` and `region_id`.
+
+  The reader refuses any of these (Trust T-N3, Wire N2):
+  - a `pose` other than identity before D32;
+  - an enum value outside its numbers;
+  - an `integrity` that is non-finite or outside [0, 1];
+  - a saved `support` or `state` that differs from the recomputed statics.
+- **The log header** records `limits.yaml`, `mechanics.yaml` and the statics solver's identity (§8.2).
 
 ## 12. Revisions this design requires (proposed, not applied here)
 
 | Document | Edit |
 |---|---|
-| `world_model.md` §1.1, thin features | "fuel objects are exempt only as `rod`, `slab` or `bed` recipes" becomes "parts thinner than `object_threshold_m` are objects (`subcell_solids.md` §2); fuel recipes are objects at any thickness". Ruling 72 is superseded |
-| CLAUDE.md, the thin-features line | the same, citing `world_model.md` §1.1 as its owner |
-| `world_model.md` §2, §6 | gap areas subtract object-blocked area (§6 here) |
-| `world_model.md` §5 | an object owns no cell; a region may own cells and objects |
-| `fire_solid.md` §1.1 | `FuelStore` becomes `ObjectStore`; the columns of §3.1 here |
-| `fire_solid.md` §1.3 | "structural materials are cells" becomes §2.1's rule; "a region is cells only or objects only" is withdrawn |
-| `fire_solid.md` §2 | `fuel_only_region` withdrawn before it ships; acts per §7.1 here; the `QUANTITIES` pin per §7.3 |
-| `fire_solid.md` §3.1 | "permanent for Phase 1" becomes "until zones land (`subcell_solids.md` §5.2)"; the Known gap extends to structure |
-| `fire_solid.md` §5.3, §5.6 | the codes of §11.3; the requirements of §10 |
-| `client_objects.md` §3 (PR #40) | `role`, the box and cylinder kinds, `integrity` and `support` columns |
-| `sim_core.md` §5, §6 | the laws `objects.thermal`, `damage.objects` and `load` in the tuple; the `ObjectStore` tables in the registry |
-| `imagination.py` docstring | "voxelized into the grid like any authored primitive" becomes §2.1's rule |
-| `docs/architecture.md`, Known gaps | the rig-dependent fit gap (D34) closes when S1 passes its red-first test; §5.2's and §8.3's gaps are added when their steps land |
+| **S0, before 6.0a:** `fire_solid.md` §1.3 | contact and overlap against authored geometry in µm (§4.1); "structural materials are cells" becomes §2.2's rule; regions may mix; per-role limits |
+| **S0:** `fire_solid.md` §2 | object-only acts are refused with the existing `wrong_target` until S3 defines them, so `fuel_only_region` never ships; readings and `region_parts` keep refusing object-only regions |
+| **S0:** `fire_solid.md` §5.2, §5.3 | one tagged spec v1 (§11.2); `overlaps_fuel` becomes `space_taken`; `fuel_only_region` is dropped |
+| `fire_solid.md` §1.1, §1.2 | `ObjectStore`; §3.1's columns; structural `tiles` beside fuel's strips |
+| `fire_solid.md` §3.1 | "permanent for Phase 1" becomes "until zones land" (§5.2); the Known gap extends to structure |
+| `fire_solid.md` §4 | the solid law covers every role's nodes and object-to-object islands (§5.1) |
+| `fire_solid.md` §5.1, §5.4–§5.6 | `mechanics.yaml` and `MaterialCatalogue`; the digest and save lists; `ObjectFrame` |
+| `fire_solid.md` §7 | acts on objects and structural faces move from "the 6.2 design" to this design |
+| `world_model.md` §1.1, and CLAUDE.md's thin-features line | thin parts are objects (§2); ruling 72 is superseded |
+| `world_model.md` §2, §5, §6 | solids live in cells and objects; an object owns no cell; gap areas take §6's open fraction |
+| `sim_core.md` §5, §5.1 | the statics law; `damage.loads`'s object resolver; §7.4's request kinds, and which bump `topology_version` |
+| `sim_core.md` §9, §12 | the new digest members and their place; the breaks of §2.4, §11.3 and §11.4 |
+| `tile_and_client.md` §3.4 | the new codes, and a class column (spec fault or world outcome) |
+| `sem_stimuli.md` §6.2, §7.4, §2.2 | T11's material and support categories; the never-perceivable list (§9); the future contact-force row and its trigger |
+| `fire_model.md`, its next revision | `douse` and `kindle` over objects (§7.1) |
+| `client_objects.md` §3 | §10's tables, the protocol bump, and the re-derived bytes and join cap |
+| `ip_and_licensing.md` §6.1; `imagination.py` (`SPEC_KEYS`, docstring); `scene.py` docstring | v1 and the migration; §2's rule; §2.4's voxelization |
+| `docs/architecture.md`, Known gaps | §2.3's rows; §2.4's aliasing; side contacts; §5.2's ambient gap; §8.3's hold-in-place gap |
+| The spec generator spike's stage 2 design | what v1 replaces (Trust T-N4): the instruction "may touch or overlap" becomes "may touch"; M2's connectivity becomes §8.4's; the scene places at z = 0; the A3 loop feeds back spec faults only |
 
 ## 13. Build steps, and the tests each owes
 
-Every step is its own branch and review round. Every physics law ships with a closed-form test and a cross-grid test.
+Every physics law ships with a closed-form test and a cross-grid test (§2.3's scenarios at three grids and several
+offsets).
 
-| Step | Lands | Tests (survey §4 has their numbers) |
+| Step | Lands | Tests |
 |---|---|---|
-| **S1. Representation and store**, after `fire_solid.md` 6.0b | §2, §3.1–§3.2, §4, §11.2–§11.3; no new physics | **red first:** the footstool, aquarium and locker specs (`spikes/specgen/arms.yaml`) at N sub-cell offsets × 0.2, 0.1, 0.05 m: the same representation, refusal outcome and mass at every one; every §11.3 code at its gate; Hypothesis: representation is a function of the primitives and data only; overlap tests in metres |
-| **S2. Thermal on objects** | §3.3, §5.1, §5.3 | a lumped steel sheet under constant flux, dT/dt = q″/(ρ·c·t), and convective decay (τ ≈ 1,570 s at h = 25); a sheet between two solids; the Biot choice on survey §1's cases; ledger closure; the threshold test of §2.2 under one fire |
-| **S3. Acts, laws and readings** | §7 | strike and breach on objects in metres; glass cracking's band gate; `thermal_degrade` at the profile's weakest node; the `QUANTITIES` pin on cell-only regions; destruction's mass to fines |
-| **S4. Load** | §8 | a column's crushing load; Euler buckling of a 1 m × 1 cm steel rod; a simply supported beam; a four-legged table's split; a pine leg charred at β under load (D31's fire coupling); D33's `unsupported`; the red gate of §8.3 |
-| **S5. Zones** (with Phase 2's zones) | §5.2, §6 | zone coupling closed form; a pane separating two zones at every grid and offset, and its breach joining them; gap integers against a full recompute |
-| **S6. Snapshot** | §10 | `client_objects.md` §7's goldens and measured checks for the new columns |
+| **S0**, before 6.0a | §12's S0 rows | the contracts lint; `fire_solid.md`'s tests unchanged |
+| **S1. Representation, store, ownership** | §2, §3.1–§3.2, §4, §7.4, §11 | **red first:** the footstool, aquarium and locker specs at N sub-cell offsets and N origins × 0.2, 0.1 and 0.05 m: the same representation, codes and mass everywhere. Hypothesis: representation is a function of primitives and data, with parts exactly at each threshold; any spec and origin places or raises `SpecRejected` with an enum code, leaving the tables, `pending` and cells unchanged (Trust T-S10, B9). Every §11.3 code at its gate; the loader's cross-checks; the alley's walls stay cells |
+| **S2. Thermal** | §3.3, §5.1, §5.3 | **closed forms with their boundary conditions stated:** a lumped sheet exchanging on all faces (τ ≈ 770 s at h = 25, Physics S9) and under constant flux; a rail heated at one end against 1-D lateral conduction; an island's coupled solve conserving energy at a 120× capacity ratio. The Biot choice on survey §1's cases. §2.3's heat row across the threshold. **Deferred:** Physics S4's square section against a two-sided char closed form; a miss is a Known gap with its numbers, and its fix (orthogonal profiles) changes the node limit |
+| **S3. Acts, laws, readings** | §7 | strike's sphere share against cells' at the threshold; breach by ligament; glass cracking's band gate on the in-plane closed form; the `QUANTITIES` pin; object-only refusals in `Frame.reading` and `region_parts`; the never-perceivable list |
+| **S4. Statics** | §8 | crushing; Euler buckling of a 1 m × 1 cm steel rod with `buckling_k`; a simply supported beam; the eccentric table's lift-off; a pine leg charred at β under load (D31); bit-identity per island against the island alone (Determinism D-S1); `unstable` on a singular island, never an exception; §8.4's codes; §8.3's red gate; a B5 budget for re-solves during a fire (Trust T-S5) |
+| **S5. Zones**, with Phase 2's zones | §5.2, §6 | zone coupling's closed form; a pane at an authored interface blocking at every grid and offset, and its breach joining the zones in that step; the union against a full recompute; a double-glazed unit's blocked area ≤ the opening |
+| **S6. Snapshot** | §10 | `client_objects.md` §7's goldens and measured checks for the new tables |
 
 ## 14. Open questions for the owner
 
-1. **Readings over mixed regions (§7.3).** Extend `QUANTITIES`' meaning from a region's cells to its matter, keeping
-   every cell-only value bit-identical, or name new quantities? The author recommends extending, because no region that
-   exists before this design changes value. F1's rule is the argument against.
-2. **A lost support until D32 (§8.3).** A loose object stays where it is, behind a strict red gate. Is that acceptable,
-   or does load wait for bodies?
-3. **Burning structure (§3.2).** Wood structure burns through `burns_as`, which needs a solid recipe for wood. Should
-   it land with S2, or should structural wood stay non-burning until 6.2's flames?
-4. **The threshold's value (§2.2).** At 0.4 m, a 0.39 m block is an object. Confirm the value, or raise it.
-5. **Spec v1 refuses overlapping parts (§4.2).** That changes the generator's contract for stage 2. Confirm it.
+1. **The minimum part thickness rises to 3 mm** (§2.2), so a 1 mm steel sheet is refused. The rule needs the
+   minimum above twice the 1 mm contact tolerance. Confirm, or lower the tolerance instead.
+2. **S0 edits another session's design** (`fire_solid.md`) before its step 6.0a. Who carries it: this branch, or that
+   line's next branch?
