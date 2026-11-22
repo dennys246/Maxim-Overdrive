@@ -311,21 +311,18 @@ ignites a slab with no flame object.
 
 ## Step 7, `phase1/protocol`
 
-- The frame grammar's extension rule (`client_rendering.md` §4.1); six golden fixtures (`world_v2.md` §8), among them an
-  asymmetric grid and ones for an unknown optional channel
-  (ignored) and an unknown required channel (refused).
-- The engine `build` in `welcome` (`client_rendering.md` §4.1) and the version `error`.
-- A refusal for exhausted u16 region ids.
-- JSON reads floats (`client_rendering.md` §4.1; the pin is `boundaries.md` §9.1's): decoder fixtures with an integer
-  at 2^53 and at 2^53 + 1 (refused); stage 1 refuses `5500.0` and `true` where an integer is expected (Python reads a
-  float, and `bool` is an `int`).
-- B25's engine/game check, with the second engine file.
+Landed on `phase1/protocol`: the frame grammar and its extension rule, the six goldens and the decode and stage-1
+rejection fixtures (both decoders read one manifest), the JSON pins (below 2⁵³, O59; integers only, O62), the
+catalogue and its hash checked on every frame, `welcome`'s `build` and the version `error`, the handshake (Origin
+capture, the token, caps, 1009), `HostOnly` with a guest-role view, and `player_text` (O61). Remaining:
 
+- Region ids' exhausted-u16 refusal belongs to step 5a's Topology (owner, 2026-11-22); this step ships the u16
+  `region` channel in fixtures and decoders only.
+- B25's engine/game check, with the second engine file.
 - The strict red gate that refuses guest joins while real-Maxim NPCs are live, as the roadmap's Phase 4 assigns
   this PR (TB-B2).
-- `intent_result`, `seq`, `observed_tick` and events' `cause`; the catalogue with non-default-scale fixtures and its hash check on
-  every frame (WT-B3, WT-S13).
-- `region` as u16 `region_id`, the `regions` message and `regions_version` (DC-B1); the fuel tables and fuel view
+- `intent_result`, `seq`, `observed_tick` and events' `cause` (after step 5a's integer clock).
+- The `regions` message (DC-B1); the fuel tables and fuel view
   (`client_objects.md` §3, `fire_solid.md` §5.6) with u32 and f32 in v0's dtypes, a cell channel's fixtures at a
   non-default scale (`client_objects.md` §7.1), the join cap counting fuel, the fuel view's leak test (`Observation`'s
   members pinned; `adapters.sem` never imports or reads it), the decoder filling `CellSnapshot` with v0's channels and
@@ -333,14 +330,13 @@ ignites a slab with no flame object.
   input), and `encoding`'s `glow` key retired with `docs/architecture.md`'s and the roadmap's mentions of it;
   `tick` as JSON with integer columns (DC-S9); events accumulated with a resync (DC-S4); `tile_and_client.md`
   §3.3's message table; `welcome`'s maps; a `snapshot` on join (WT-S6).
-- Decode and stage-1 rejection fixtures; `HostOnly` tested directly with a guest-role view (WT-S9).
-- Buffer caps and the 1009-close test (WT-S12); the `Origin` capture test.
-- The guest-text gate `engine.text.player_text`. Its Cf rule must let ZWNJ and ZWJ through for Persian, Indic
-  spelling and emoji sequences, or say why not, and NFC runs before the length cap. This is an owner decision
-  (TB-N5).
 - The fuel decoder's world-extent check (`client_objects.md` §3.2; owner, 2026-11-22, review TB2-S2): fuel geometry
   outside the cell snapshot's extent is refused, as fire_solid §1.3 refuses it on the server; finite but huge
   geometry passes the client's checks until then.
+- The shipped path: the game launches the host (tokens, the 0600 token file, `start`) with a `dispatch` for the
+  messages after `welcome`, the live frame encoder reads published frames (their tick and region ids come with
+  step 5a), and the client's scene owns a `NetClient`. Until then the server, `encode_cells`, `player_text` and
+  `NetClient` run only under tests.
 
 ## Step 8, the tile (`tile_and_client.md` §6; `client_rendering.md` §4–§6)
 
