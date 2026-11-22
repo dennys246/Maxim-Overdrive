@@ -55,14 +55,17 @@ the measured checks, advisory.
   `[tool.importlinter]` in `pyproject.toml`): game > verify > protocol > adapters > core
 - `src/simcore/core/` (the sealed core: no IO, no clock, no `maxim`): `checks.py` (every untrusted number becomes a
   finite float or a whole number there, and every mapping is held to its reader's keys, `known_keys`, or is
-  refused; `shown`, the bounded echo; `entity_key`, Maxim's name rule), `materials.py` (the material table's types),
+  refused; `shown`, the bounded echo; `entity_key`, Maxim's name rule; `identity_key`, no `:`), `refusals.py` (the
+  append-only refusal codes every refusal carries), `schema.py` (one declarative schema per data format, the one
+  reader that applies it, versions and migrations), `digest.py` (`sha256/c14n-1:` digests), `materials.py` (the material table's types),
   `readonly.py` (arrays nothing can make writable), `limits.py` (`ActionLimits`), `grid.py` (cells, and the write
   window: read-only at rest, written only inside `writing()`), `scene.py` (authoring in metres), `heat.py`,
   `damage.py`, `intents.py` (typed actions and stage-1 parsing), `frames.py` (published frames and the
   `Observation` protocol observers read), `world.py` (turn loop, heat sources, the world's window, frame
   publication), `applier.py` (stage 2: the only code that applies an action), `imagination.py` (imagined objects as
   validated specs that become cells)
-- `src/simcore/adapters/`: `loaders.py` (the file gates: material table, action limits, strict YAML) and
+- `src/simcore/adapters/`: `loaders.py` (the file gates: material table, action limits, strict YAML, and `DataPath`,
+  the only kind of path the game's data locator hands out) and
   `sem/bridge.py` (the membrane's gate half: environment regions as Maxim SEM Entities, reading frames and writing
   through the applier; the only engine code that imports `maxim`)
 - `src/simcore/protocol/`: what the client receives: `tiers.py` (rig profiles as rendering tiers, no physics),
@@ -246,7 +249,7 @@ only review holds.
 - **Every format is versioned:** wire protocol, saves, scene files and every data file. Readers refuse versions they
   don't know, loudly. Old fixtures stay committed, and a format change that breaks one needs a migration or a version
   bump. Guard: `tests/test_validation.py::test_every_shipped_data_file_is_at_its_formats_current_version`,
-  `tests/test_validation.py::test_a_scene_refuses_a_version_it_does_not_know`, B3, B4
+  `tests/test_formats.py::test_every_format_refuses_a_version_it_does_not_know`, B3, B4
 - **The client is untrusted input.** Every intent is validated at the protocol layer. Malformed input gets an error
   reply, never a crash or a half-applied change. The server binds to 127.0.0.1, refuses any handshake carrying an
   `Origin` header, and requires the per-launch token. Imagined and authored geometry is validated where primitives

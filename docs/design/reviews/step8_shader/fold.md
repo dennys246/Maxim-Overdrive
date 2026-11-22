@@ -1,6 +1,6 @@
 # Step 8 shader fold: author's record
 
-**The author's record, not a fold-status table** (O25: reviewers set statuses from the tree). Backlog rows B30 and B31 in the review reports were renumbered B38 and B39 when main's own B30-B37 merged in. Round one ran at
+**The author's record, not a fold-status table** (O25: reviewers set statuses from the tree). Backlog rows B30 and B31 in the review reports are now B40 and B41: main took B30-B39 first. Round one ran at
 ce06d7b: `executor.md`, `architecture.md`, `wire_integrity.md`, `client_rendering.md`, `performance.md`. No
 BLOCKERs were raised. Ids: E Executor, A Architecture, W Wire integrity, C Client and rendering, P Performance.
 
@@ -14,7 +14,7 @@ BLOCKERs were raised. Ids: E Executor, A Architecture, W Wire integrity, C Clien
 | C (1.5 px floor not met on slanted faces) | The pixel floor is divided by the face's cosine with the ray (floored at 0.25). | — |
 | C (laptop crack becomes speckle) | Voronoi spacing is one cell, or a power-of-two multiple of it so a polygon spans at least 12 px; it changes only at whole octaves of zoom. Never colour alone now runs at every tier. | Carving deleted (darkening kept): crack fails at laptop, rig and max (|ΔL*| 4.7–4.9, edge ratio < 1). |
 | C (`MAX_STEPS` sized for the alley), P NIT | The loop bound is `nx + ny + nz + 4` from the `cells` uniform. | — |
-| C (hatching aliases on laptop) | The period is at least 8 px. Hatching is still unmeasured: B38. | — |
+| C (hatching aliases on laptop) | The period is at least 8 px. Hatching is still unmeasured: B40. | — |
 | C NIT (entry axis from distances) | Taken from the box face's normal through a varying. | — |
 | C NIT (`texture()` in divergent flow) | `textureLod(…, 0.0)`. | — |
 | P NIT (8-tap AO reads 5 zero-weight taps) | Only the near-side neighbours are read: 2 edge taps, plus 1 corner at 8. The image is the same by construction. | — |
@@ -27,7 +27,7 @@ BLOCKERs were raised. Ids: E Executor, A Architecture, W Wire integrity, C Clien
 | A 4, W S1, E N7 (nearest-point cut pops on the pavement) | The rule clamps only across a region's short side, so a side wall's decision depends only on the player's distance across it. §2 amended in place (word count kept). Three pavement samples join the rendered check; the unit test sweeps x from 0.3 m. | The nearest-point rule restored: the unit test goes red at exactly the pavement positions. |
 | A 7, W S5, C (unknown materials draw black) | `use_palette` takes the vocabulary, reports a solid material without a colour or an id over 15, and draws it magenta. | Tested: an uncoloured id reads magenta. |
 | A NIT 8, W S4 (vocabulary off the seam) | `material_ids` is on `CellSnapshot`, and `problems()` refuses a snapshot without it. | Tested. |
-| A 3 (pixel footprint depends on call order) | `RenderStage` recomputes `pixel_m` from both `aim` and `use_tier`. The composition still lives in test support: B38. | — |
+| A 3 (pixel footprint depends on call order) | `RenderStage` recomputes `pixel_m` from both `aim` and `use_tier`. The composition still lives in test support: B40. | — |
 | E S4 (golden scene refusals untested) | Shot parsing and drawability checks moved to `tests/support/golden_shot.gd`, each refusal tested headless; a fixture without a crate region is refused. The cut-away scene's own refusals stay untested (it takes one argument). | `test_golden_shot.gd`. |
 | E N5 | Duplicate actor ids refused. | Tested. |
 | E N6, A NIT 10 | `BRICK_SHIFT` is the one constant. The shader's `8` and `16` are held by the uniform test. | — |
@@ -54,7 +54,7 @@ BLOCKERs were raised. Ids: E Executor, A Architecture, W Wire integrity, C Clien
 
 §2 (rule, test), §5.3 (emission formula; the 920 °C claim, which was false), §5.5 (8-tap) and §6.5 edited in place:
 `client_rendering.md` is 3,796 words, under its 3,800. FIELDS.md gains the grid origin, the missing `region`
-channel and `glow`'s different quantity. B5, B7 and a new B38 (the composition in test support, the black-night
+channel and `glow`'s different quantity. B5, B7 and a new B40 (the composition in test support, the black-night
 constraint, unbuilt flame particles, unmeasured hatching, no ANGLE compile, the untested perspective path). CLAUDE.md's
 Layout names the new files.
 
@@ -74,8 +74,8 @@ Layout names the new files.
    faces' gradation; delta 4 showed it clips about 1,230-1,400 °C to white (top fifth, against a tenth at 4). A soft
    knee and two tonemappers were measured and rejected (the knee killed the bloom); the owner kept plain gain 7, the
    bloom halo carrying heat beyond white, the laptop tier's flat band recorded in B7.
-6. **Black night:** accepted; B38. Whether the clear-colour behaviour is an engine bug is to be settled before step 8
-   closes, and nothing filed without the owner's go (B39).
+6. **Black night:** accepted; B40. Whether the clear-colour behaviour is an engine bug is to be settled before step 8
+   closes, and nothing filed without the owner's go (B41).
 7. **Crack severity by shape:** scheduled as its own branch after this one: severity drives polygon density, every
    cracked cell is guaranteed an edge, and a mild-against-severe edge-density check holds it. B7 names it.
 8. **Stump height (delta 3):** 0.2 m, not §2's 0.3 m: two stumps in a dead-end corner hid 6.5% of the body
@@ -100,14 +100,14 @@ two readers independently.
 | A N6, N7 | §2 counts four (sample, yaw) pairs; §5.3 defines T₀. | — |
 | EW N1 | The summary says "goldens not judged" under `--no-xvfb`; the matching-frames test judges goldens. | — |
 | EW N3, A NIT 10 | The shader's palette clamp, cut loop bound and brick size are now held to the GDScript constants by the uniform test. | — |
-| A (B38 a grab-bag) | Split: each item has its own trigger; unmeasured hatching moved to B7. | — |
+| A (B40 a grab-bag) | Split: each item has its own trigger; unmeasured hatching moved to B7. | — |
 
 **Not folded, with reasons:**
 - A NIT 11 (alley numbers in `cutaway.gd`'s docstring): they are the evidence for the rule, kept deliberately.
 - A NIT 12, W N4 (a third copy of the alley's boxes): it remains until `content/scenes/alley.yaml` exists, then the
   generator reads it.
 - EW N2 (the palette's two `push_error` paths untested): a test that triggers one prints `ERROR:`, which fails the gate's scan.
-- A N4 (the seam checks presence, not ids or duplicates), A N5 / EW N4 (bounds cache by identity: in B38 (1)),
+- A N4 (the seam checks presence, not ids or duplicates), A N5 / EW N4 (bounds cache by identity: in B40 (1)),
   EW N5 (`rmtree` then `mkdir`), CP N5 (the fissure floor's axis), CP N6 (depth-bound gaps at silhouettes), CP N8
   (hatch phase moves with zoom), P NITs (carve hoisting, redundant reads): NITs, left open, named here.
 - Step 7's checklist line for shipping the brick mask: B5 carries the trigger. The checklist is the owner's plan.
@@ -142,7 +142,7 @@ hides more than 5%.
 | Finding | Change | Proof |
 |---|---|---|
 | S1 (stumps alone fail in a corner) | Two corner samples added; measured 93.5% at both. The owner chose a 0.2 m stump (decision 8). | Corners 98.7%, walls 99.3% (Mac). |
-| S2 (the hold has no caller; a default hides that) | `held` is required; the stateless check stage passes an empty array and says why (a hold only adds cuts, so the stateless frame is a lower bound). Wiring the hold into play is B38 (1). | A call without it fails to compile. |
+| S2 (the hold has no caller; a default hides that) | `held` is required; the stateless check stage passes an empty array and says why (a hold only adds cuts, so the stateless frame is a lower bound). Wiring the hold into play is B40 (1). | A call without it fails to compile. |
 | S3 (nothing checks the reference frame) | A ratio above 1 + 1/without is a finding; `cut_all` reports more flagged walls than the shader can cut. | Tested on a reference that kept a wall. |
 | N1, N5 | The docstring counts 5 (9) sightlines; the reference stump is −1.0 m, not −inf. | — |
 | N4 (§10 overstated while the gain was pending) | The gain is decided; §10 now holds. | — |
@@ -160,10 +160,10 @@ Report: `delta4_all.md`. No BLOCKER. `prepush: PASS 8c28afc5a93f`.
 |---|---|
 | SHOULD-FIX (gain 7's comment: "without flattening the hottest faces") | False, and corrected first in the hand-off. Measured alternatives (decision 5); plain gain 7 kept by the owner; the comment, §5.3 and B7 now say what it does. |
 | N1 (§2 stump sentence) | The derivation and the measurement are separate clauses, each tagged. |
-| N2, S2 residue (the hold stated as shipped) | §2 says built, wired with `main.tscn`; B38 (1) names it. |
+| N2, S2 residue (the hold stated as shipped) | §2 says built, wired with `main.tscn`; B40 (1) names it. |
 | N4 (corner samples undocumented) | The scene's header says why they exist. |
 | N6, D2 N5 residue (§5.4 "≥ 12 px") | §5.4 says "~12 px, held". |
-| (owner) the Godot clear colour | B39, with its steps and trigger. |
+| (owner) the Godot clear colour | B41, with its steps and trigger. |
 
 Not folded, named: N3 (`cut_all`'s overflow report can't run with three walls), N5 (`golden_compare` reads the first
 renderer line of the joined log; every call uses the same renderer), P1 (runtime under load: the split calls ran

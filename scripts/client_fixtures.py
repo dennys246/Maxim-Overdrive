@@ -4,10 +4,10 @@ Protocol v0 (step 7) isn't frozen, so these are **not** wire frames. They carry 
 plain container a client test loader reads (``client/tests/support/snapshot_fixture.gd``), and every field they
 assume is named in ``client/tests/fixtures/snapshots/FIELDS.md`` for step 7 to confirm or change.
 
-The geometry is the real alley (tile_and_client.md §1.1), built by the engine's own ``Scene`` at the 0.1 m truth, so
-material and region cells are what the server holds. The fire channels are hand-placed, as §6.1's renderer goldens
-are: a crack ramp over the crate and a patch of ``wall_north``, a glow ramp over ``crate_far``'s envelope, and
-flames on a floor patch of their own. They exercise the shader; they are not a physical fire.
+The geometry is the real alley, read from its one source, ``tests/fixtures/scenes/alley_box.yaml`` (tile §1.3), and
+built by the engine's own ``Scene`` at the 0.1 m truth, so material and region cells are what the server holds.
+The fire channels are hand-placed, as §6.1's renderer goldens are: a crack ramp over the crate and a patch of
+``wall_north``, a glow ramp over ``crate_far``'s envelope, and flames on a floor patch of their own. They exercise the shader; they are not a physical fire.
 
 Arrays are ``[nz, ny, nx]`` in C order, x fastest, so one z-slice is one Godot ``Image`` row by row. The engine's grid
 is indexed ``[x, y, z]``; this transposes it, as step 7's encoder will have to.
@@ -28,8 +28,9 @@ import numpy as np
 from numpy.typing import NDArray
 
 from maxim_overdrive.data import materials
+from simcore.adapters.loaders import read_yaml
 from simcore.core.grid import MaterialGrid
-from simcore.core.scene import SCENE_VERSION, Scene
+from simcore.core.scene import Scene
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "client" / "tests" / "fixtures" / "snapshots"
@@ -40,18 +41,8 @@ CELL_M = 0.1
 GLOW_OFFSET_C, GLOW_SCALE_NUM, GLOW_SCALE_DEN = 525, 975, 255
 CHANNELS = (("material", "u8"), ("region", "u16"), ("crack", "u8"), ("surface_glow", "u8"), ("burning", "u8"))
 
-PRIMITIVES: tuple[dict[str, object], ...] = tuple(
-    {"kind": "box", "name": name, "material": material, "min_m": lo, "max_m": hi}
-    for name, material, lo, hi in (
-        ("floor", "concrete", [0.0, 0.0, 0.0], [12.0, 4.0, 0.4]),
-        ("wall_south", "concrete", [1.2, 0.0, 0.4], [12.0, 0.4, 4.4]),
-        ("wall_north", "concrete", [1.2, 3.6, 0.4], [12.0, 4.0, 4.4]),
-        ("wall_end", "concrete", [11.6, 0.4, 0.4], [12.0, 3.6, 4.4]),
-        ("crate", "wood", [6.0, 2.6, 0.4], [6.6, 3.2, 1.0]),
-        ("crate_far", "wood", [9.0, 0.8, 0.4], [9.6, 1.4, 1.0]),
-    )
-)
-ALLEY = {"version": SCENE_VERSION, "extent_m": [12.0, 4.0, 4.8], "ambient_c": 15.0, "primitives": list(PRIMITIVES)}
+# The alley's one source (tile §1.3): the Apache scene fixture the engine's own tests read, at scene format v1.
+ALLEY_SCENE = ROOT / "tests" / "fixtures" / "scenes" / "alley_box.yaml"
 # The player where the exit script kindles the crate (tile §6.2, tick 57), and a second body whose axis sits on
 # wall_north's face, half inside it: the depth golden (§5.3, CR-S1). Feet on the floor's top, 0.4 m.
 ACTORS = ({"id": 1, "pos_mm": [5500, 2925, 400]}, {"id": 2, "pos_mm": [8000, 3600, 400]})
@@ -61,9 +52,9 @@ U8 = NDArray[np.uint8]
 
 def alley() -> tuple[MaterialGrid, dict[str, int]]:
     """The alley at the 0.1 m truth, and region ids 1, 2, ... in authoring order (0: no region)."""
-    grid = Scene.from_dict(ALLEY).build(materials(), dx_m=CELL_M)
-    ids = {str(p["name"]): i + 1 for i, p in enumerate(PRIMITIVES)}
-    return grid, ids
+    scene = Scene.from_dict(read_yaml(ALLEY_SCENE))
+    ids = {str(p.name): i + 1 for i, p in enumerate(scene.primitives) if p.name}
+    return scene.build(materials(), dx_m=CELL_M), ids
 
 
 def wire_order(a: NDArray[np.generic]) -> NDArray[np.generic]:

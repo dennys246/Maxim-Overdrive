@@ -44,8 +44,8 @@ def test_an_imagined_crate_is_destructible_like_any_other(dx_m, materials):
             "too",
         ),
         ({"name": "nothing", "primitives": []}, (1.2, 1.2, 0), "at least one"),
-        ({**CRATE, "name": ""}, (1.2, 1.2, 0), "needs a name"),
-        ({**CRATE, "name": 7}, (1.2, 1.2, 0), "needs a name"),
+        ({**CRATE, "name": ""}, (1.2, 1.2, 0), "name must be a printable string"),
+        ({**CRATE, "name": 7}, (1.2, 1.2, 0), "name must be a printable string"),
         ({**CRATE, "name": " box"}, (1.2, 1.2, 0), "no outer spaces"),
         ({**CRATE, "name": "box "}, (1.2, 1.2, 0), "no outer spaces"),
         ({**CRATE, "name": "  "}, (1.2, 1.2, 0), "no outer spaces"),
@@ -108,7 +108,7 @@ def test_an_imagined_crate_is_destructible_like_any_other(dx_m, materials):
                 ],
             },
             (1.2, 1.2, 0),
-            "malformed.*positive radius",
+            "malformed.*radius_m must be above 0",
         ),
         # Shapes an LLM can produce that are not numbers, lists or mappings where they should be.
         ({**CRATE, "primitives": [{**CRATE["primitives"][0], "min_m": [0, 0, 10**400]}]}, (1.2, 1.2, 0), "malformed"),
@@ -135,7 +135,7 @@ def test_an_imagined_crate_is_destructible_like_any_other(dx_m, materials):
         (
             {**CRATE, "primitives": [{**CRATE["primitives"][0], "max_m": [1e308, 1e308, 1e308]}]},
             (1.2, 1.2, 0),
-            "too large|too heavy|lie within",
+            "too large|too heavy|within 1000 of 0",
         ),
     ],
 )

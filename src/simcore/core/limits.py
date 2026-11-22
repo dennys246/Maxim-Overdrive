@@ -1,10 +1,27 @@
-"""Action limits: how much one action may ask of the world. The type only; ``simcore.adapters.loaders`` reads it."""
+"""Action limits: how much one action may ask of the world. The type and its format; ``simcore.adapters.loaders``
+reads the file."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass
+from types import MappingProxyType
 
-from simcore.core.checks import finite_real
+from simcore.core.refusals import RefusalCode, Refused
+from simcore.core.schema import Field, Format, Nested, Real, Schema
+
+_POSITIVE = Real(lo=0.0, lo_open=True)
+# The file groups the limits by the action they bound; ActionLimits holds them flat.
+SECTIONS: Mapping[str, Schema] = MappingProxyType({
+    "ignite": Schema(
+        tuple(Field(n, _POSITIVE) for n in ("max_power_w", "min_radius_m", "max_radius_m", "default_radius_m"))
+    ),
+    "strike": Schema(
+        tuple(Field(n, _POSITIVE) for n in ("max_energy_j", "min_sigma_m", "max_sigma_m", "default_sigma_m"))
+    ),
+})  # fmt: skip
+_FLAT = Schema(tuple(f for section in SECTIONS.values() for f in section.fields))
+ACTION_LIMITS = Format("action limits", 0, Schema(tuple(Field(n, Nested(s)) for n, s in SECTIONS.items())))
 
 
 @dataclass(frozen=True)
@@ -29,12 +46,25 @@ class ActionLimits:
     default_sigma_m: float
 
     def __post_init__(self) -> None:
-        for name, value in vars(self).items():
-            number = finite_real(value, f"action limit {name}")
-            if number <= 0:
-                raise ValueError(f"action limit {name} must be positive, got {value!r}")
-            object.__setattr__(self, name, number)
+        for name, value in _FLAT.check(asdict(self), "action limit").items():
+            object.__setattr__(self, name, value)
         if not self.min_radius_m <= self.default_radius_m <= self.max_radius_m:
-            raise ValueError("ignite's default_radius_m must lie between its minimum and maximum")
+            raise Refused(
+                "ignite's default_radius_m must lie between its minimum and maximum",
+                code=RefusalCode.OUT_OF_RANGE,
+                field="default_radius_m",
+            )
         if not self.min_sigma_m <= self.default_sigma_m <= self.max_sigma_m:
-            raise ValueError("strike's default_sigma_m must lie between its minimum and maximum")
+            raise Refused(
+                "strike's default_sigma_m must lie between its minimum and maximum",
+                code=RefusalCode.OUT_OF_RANGE,
+                field="default_sigma_m",
+            )
+
+    @classmethod
+    def from_document(cls, doc: Mapping[str, object]) -> ActionLimits:
+        """The limits from a document ``ACTION_LIMITS`` has read, its sections flattened."""
+        flat: dict[str, float] = {}
+        for section in SECTIONS:
+            flat.update(doc[section])  # type: ignore[call-overload]  # each section is a Nested read
+        return cls(**flat)

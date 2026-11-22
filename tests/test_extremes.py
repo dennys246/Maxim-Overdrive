@@ -21,6 +21,7 @@ from hypothesis import strategies as st
 from maxim_overdrive import data
 from simcore.core import scene as scene_module
 from simcore.core.imagination import SpecRejected, place
+from simcore.core.refusals import Refused
 from simcore.core.scene import MAX_EXTENT_M, Box, Cylinder, Scene
 
 MATERIALS = data.materials()
@@ -77,7 +78,7 @@ def test_the_primitive_constructors_refuse_a_number_that_is_no_shape(value):
 
 
 def test_an_extreme_authored_cylinder_is_refused_when_the_scene_is_read():
-    raw = {"version": 0, "extent_m": [3.0, 3.0, 2.0], "primitives": [_cylinder(radius_m=1e200)]}
+    raw = {"version": 1, "extent_m": [3.0, 3.0, 2.0], "primitives": [_cylinder(radius_m=1e200)], "spawns": []}
     with pytest.raises(ValueError, match="radius_m"):
         Scene.from_dict(raw)
 
@@ -147,9 +148,12 @@ def test_an_imagined_object_with_any_numbers_is_placed_or_refused(reach):
             reach["on"] = 0
 
     run()
-    # Measured reach (2026-11-20): every example builds a primitive; about half are valid shapes; masks are computed
-    # for the ones that pass the analytic budgets. The floors keep the fuzzer from drifting back to junk.
-    assert reach["constructed"] >= reach["examples"]
+    # Measured reach (2026-11-21, step 3b part b): the schema's reader now runs the field rules the constructor used
+    # to run first, so a primitive is constructed only once its fields pass (59% of examples, was 100%, the same rules
+    # one layer earlier). The round 1 fold refuses a shape whose volume underflows to 0 m³ at its first constructor,
+    # before imagination offsets it and constructs it again: 43% (172 of 400), valid 31%, masked 5.5%. The floors
+    # keep the fuzzer from drifting back to junk.
+    assert reach["constructed"] >= 0.4 * reach["examples"], reach
     assert reach["valid"] >= 0.2 * reach["examples"], reach
     assert reach["masked"] >= 0.02 * reach["examples"], reach
 
@@ -160,12 +164,16 @@ def test_a_scene_with_any_numbers_is_built_or_refused(reach):
     def run(prims):
         reach["examples"] += 1
         reach["on"] = 1
-        with contextlib.suppress(ValueError):
-            Scene.from_dict({"version": 0, "extent_m": [3.0, 3.0, 2.0], "primitives": prims}).build(MATERIALS, dx_m=0.2)
+        with contextlib.suppress(Refused):  # every refusal on the way is coded (WT-S1)
+            Scene.from_dict({"version": 1, "extent_m": [3.0, 3.0, 2.0], "primitives": prims, "spawns": []}).build(
+                MATERIALS, dx_m=0.2
+            )
         reach["on"] = 0
 
     run()
-    assert reach["constructed"] >= reach["examples"]
+    # Past the reader's field rules, as above: 107 of 300 (36%, was 100%); valid and masked kept their floors (22%,
+    # 21%).
+    assert reach["constructed"] >= 0.3 * reach["examples"], reach
     assert reach["valid"] >= 0.2 * reach["examples"], reach
     assert reach["masked"] >= 0.1 * reach["examples"], reach
 
