@@ -7,8 +7,8 @@ extends RefCounted
 ## RefCounted, not Resource: it is never saved or edited, and it frees itself when the last holder lets go.
 ##
 ## Columns are kept as the bytes that arrived, little-endian, keyed "<table>.<column>", so the per-frame segment
-## columns upload as textures without a GDScript loop (§4.1). Only problems(), run when the trigger bytes change,
-## walks rows.
+## columns upload as textures without a GDScript loop (§4.1). Only problems(), run when structure() changes, walks
+## rows, and it reads each column once, never per row (a per-row lookup made it 29-41 ms at the world limits).
 
 ## client_objects.md §3.2 and §3.3: each table's columns and their dtypes, in wire order.
 const OBJECTS: Dictionary[String, String] = {
@@ -35,6 +35,16 @@ const DTYPE_BYTES: Dictionary[String, int] = {"u8": 1, "u16": 2, "u32": 4, "f16"
 const DRAWABLE_KINDS: Array[String] = ["rod", "slab"]
 ## How far a unit axis may be from length 1 (client_objects.md §3.2).
 const UNIT_TOLERANCE: float = 1e-6
+## fire_solid.md §1.3's world limits, the most a server sends: checked before any size is multiplied, and well inside
+## what the drawing side encodes (a first segment row in 24 bits, an object row in 16, a texture height of 2,048).
+const MAX_OBJECTS: int = 2000
+const MAX_SEGMENTS: int = 20000
+## The columns whose change is a structural change (§3.2): every objects column but state, the geometry tables and the
+## segments' keys. The rest change every frame and are only held to their size (frame_problems).
+const FRAME_COLUMNS: Array[String] = [
+	"objects.state", "segments.surface_temperature_c", "segments.ignited_fraction", "segments.thickness_fraction",
+	"segments.char_fraction",
+]
 
 ## Rows per table: "objects", "rods", "slabs", "segments".
 var rows: Dictionary[String, int] = {}
@@ -54,22 +64,37 @@ func column(table: String, name: String) -> PackedByteArray:
 	return columns.get("%s.%s" % [table, name], PackedByteArray())
 
 
-## The bytes whose change means the structure changed (§3.2): every objects column but state, the geometry tables
-## and the segments' keys. A native compare against the last frame's decides whether problems() and the rebuild run.
-func trigger_bytes() -> PackedByteArray:
-	var out: PackedByteArray = PackedByteArray()
-	for table: String in ["objects", "rods", "slabs"]:
-		var spec: Dictionary = tables()[table]
-		for name: String in spec:
-			if not (table == "objects" and name == "state"):
-				out.append_array(column(table, name))
-	out.append_array(column("segments", "object_id"))
-	out.append_array(column("segments", "seg"))
+## An f32 column as floats, decoded natively in one call.
+func floats(table: String, name: String) -> PackedFloat32Array:
+	return column(table, name).to_float32_array()
+
+
+## The objects rows of one kind, in object order: geometry row i of that kind's table is object row geometry_rows(kind)[i]
+## (problems() holds the tables to that). The one place an object's table is decided, so the pass, the flames and the
+## checks can't disagree.
+func geometry_rows(kind: String) -> PackedInt32Array:
+	var out: Array[int] = []
+	var id: int = kind_ids.get(kind, -1)
+	var kinds: PackedByteArray = column("objects", "kind")
+	for i: int in kinds.size():
+		if kinds[i] == id:
+			out.append(i)
+	return PackedInt32Array(out)
+
+
+## What a structural change compares (§3.2): the structural columns, the row counts and the vocabularies. Cheap to build
+## (the arrays are shared, not copied) and compared natively; whoever draws holds the last drawn one.
+func structure() -> Dictionary:
+	var out: Dictionary = {"#rows": rows.duplicate(), "#kinds": kind_ids.duplicate(), "#recipes": recipe_ids.duplicate()}
+	for key: String in columns:
+		if not FRAME_COLUMNS.has(key):
+			out[key] = columns[key]
 	return out
 
 
-## Every reason this snapshot can't be drawn; empty when it can. ``region_names`` is the region map (id -> name), so a
-## fuel object's region must be one the map knows. Run when trigger_bytes() changes; state_problems() runs every frame.
+## Every reason this snapshot's structure can't be drawn; empty when it can. ``region_names`` is the region map (id ->
+## name), so a fuel object's region must be one the map knows. Run when structure() changes; frame_problems() runs on
+## every frame.
 func problems(region_names: Dictionary[int, String]) -> Array[String]:
 	var out: Array[String] = _shape_problems()
 	if not out.is_empty():
@@ -81,8 +106,17 @@ func problems(region_names: Dictionary[int, String]) -> Array[String]:
 	return out
 
 
-## The one per-frame check: state is 0 (live) or 1 (burnt out), the only values §3.2 defines.
-func state_problems() -> Array[String]:
+## The per-frame check: the columns that change every frame hold their row counts' sizes (the structural check doesn't
+## see them change), and state is 0 (live) or 1 (burnt out), the only values §3.2 defines.
+func frame_problems() -> Array[String]:
+	var spec: Dictionary[String, Dictionary] = tables()
+	for key: String in FRAME_COLUMNS:
+		var table: String = key.get_slice(".", 0)
+		var dtype: String = spec[table][key.get_slice(".", 1)]
+		var want: int = rows.get(table, 0) * DTYPE_BYTES[dtype]
+		var got: PackedByteArray = columns.get(key, PackedByteArray())
+		if got.size() != want:
+			return ["%s has %d bytes, not %d" % [key, got.size(), want]]
 	var state: PackedByteArray = column("objects", "state")
 	for i: int in state.size():
 		if state[i] > 1:
@@ -107,10 +141,13 @@ func first_rows() -> PackedInt32Array:
 
 func _shape_problems() -> Array[String]:
 	var out: Array[String] = []
+	var limits: Dictionary[String, int] = {
+		"objects": MAX_OBJECTS, "rods": MAX_OBJECTS, "slabs": MAX_OBJECTS, "segments": MAX_SEGMENTS,
+	}
 	var spec: Dictionary[String, Dictionary] = tables()
 	for table: String in spec:
-		if not rows.has(table) or rows[table] < 0:
-			out.append("no row count for %s" % table)
+		if not rows.has(table) or rows[table] < 0 or rows[table] > limits[table]:
+			out.append("%s has %s rows, outside 0..%d (fire_solid §1.3)" % [table, rows.get(table), limits[table]])
 			continue
 		var cols: Dictionary = spec[table]
 		for name: String in cols:
@@ -124,29 +161,52 @@ func _shape_problems() -> Array[String]:
 
 func _vocabulary_problems() -> Array[String]:
 	var out: Array[String] = []
-	for kind_name: String in kind_ids:
-		if not DRAWABLE_KINDS.has(kind_name):
-			out.append("kind %s is not one this client draws" % kind_name)
+	for kind_name_: String in kind_ids:
+		if not DRAWABLE_KINDS.has(kind_name_):
+			out.append("kind %s is not one this client draws" % kind_name_)
+	# A kind id is a u8 in objects.kind and a recipe id a u16 in objects.recipe_id (fire_solid §1.1).
+	for pair: Array in [["kinds", kind_ids, 0xFF], ["recipes", recipe_ids, 0xFFFF]]:
+		var vocabulary: Dictionary = pair[1]
+		var seen: Dictionary[int, bool] = {}
+		for name: String in vocabulary:
+			var id: int = vocabulary[name]
+			if id < 0 or id > pair[2]:
+				out.append("%s %s has id %d, outside 0..%d" % [pair[0], name, id, pair[2]])
+			if seen.has(id):
+				out.append("two %s share id %d" % [pair[0], id])
+			seen[id] = true
 	return out
 
 
 func _object_problems(region_names: Dictionary[int, String]) -> Array[String]:
 	var out: Array[String] = []
+	var oids: PackedByteArray = column("objects", "object_id")
+	var recipes: PackedByteArray = column("objects", "recipe_id")
+	var regions: PackedByteArray = column("objects", "region_id")
+	var kinds: PackedByteArray = column("objects", "kind")
 	var counts: PackedByteArray = column("objects", "segment_count")
+	var lengths: PackedFloat32Array = floats("objects", "segment_length_m")
+	var recipe_set: Array[int] = []
+	recipe_set.assign(recipe_ids.values())
+	var kind_set: Array[int] = []
+	kind_set.assign(kind_ids.values())
 	var total: int = 0
+	var last_id: int = -1
 	for i: int in rows["objects"]:
-		var recipe: int = column("objects", "recipe_id").decode_u16(i * 2)
-		var region: int = column("objects", "region_id").decode_u16(i * 2)
-		var kind: int = column("objects", "kind")[i]
-		if not recipe_ids.values().has(recipe):
-			out.append("object row %d names recipe %d, which welcome's map doesn't" % [i, recipe])
-		if not region_names.has(region):
-			out.append("object row %d names region %d, which the region map doesn't" % [i, region])
-		if not kind_ids.values().has(kind):
-			out.append("object row %d names kind %d, which welcome's vocabulary doesn't" % [i, kind])
-		var length: float = column("objects", "segment_length_m").decode_float(i * 4)
-		if not (is_finite(length) and length > 0.0):
-			out.append("object row %d has segment length %s" % [i, length])
+		var oid: int = oids.decode_u32(i * 4)
+		if oid <= last_id:
+			out.append("object row %d has id %d, not above the previous row's %d" % [i, oid, last_id])
+		last_id = oid
+		if not recipe_set.has(recipes.decode_u16(i * 2)):
+			out.append("object row %d names recipe %d, which welcome's map doesn't" % [i, recipes.decode_u16(i * 2)])
+		if not region_names.has(regions.decode_u16(i * 2)):
+			out.append("object row %d names region %d, which the region map doesn't" % [i, regions.decode_u16(i * 2)])
+		if not kind_set.has(kinds[i]):
+			out.append("object row %d names kind %d, which welcome's vocabulary doesn't" % [i, kinds[i]])
+		if not (is_finite(lengths[i]) and lengths[i] > 0.0):
+			out.append("object row %d has segment length %s" % [i, lengths[i]])
+		if counts.decode_u16(i * 2) == 0:
+			out.append("object row %d has no segments" % i)
 		total += counts.decode_u16(i * 2)
 	if total != rows["segments"]:
 		out.append("segment counts sum to %d, but there are %d segment rows" % [total, rows["segments"]])
@@ -186,20 +246,13 @@ func _implied_segment_rows() -> int:
 
 func _geometry_problems() -> Array[String]:
 	var out: Array[String] = []
-	var expected: Dictionary[String, Array] = {"rods": [] as Array[int], "slabs": [] as Array[int]}
-	for i: int in rows["objects"]:
-		var kind: int = column("objects", "kind")[i]
-		var kind_name: String = _kind_name(kind)
-		if kind_name in ["rod", "slab"]:
-			var ids: Array[int] = expected[kind_name + "s"]
-			ids.append(column("objects", "object_id").decode_u32(i * 4))
-	for table: String in expected:
-		var got: Array[int] = []
-		for r: int in rows[table]:
-			got.append(column(table, "object_id").decode_u32(r * 4))
-		var want: Array[int] = expected[table]
-		if got != want:
-			out.append("%s rows are not exactly the %s objects, in object order" % [table, table.trim_suffix("s")])
+	var oids: PackedInt32Array = column("objects", "object_id").to_int32_array()
+	for kind: String in DRAWABLE_KINDS:
+		var want: Array[int] = []
+		for row: int in geometry_rows(kind):
+			want.append(oids[row])
+		if column(kind + "s", "object_id").to_int32_array() != PackedInt32Array(want):
+			out.append("%ss rows are not exactly the %s objects, in object order" % [kind, kind])
 	out.append_array(_rod_problems())
 	out.append_array(_slab_problems())
 	return out
@@ -207,46 +260,51 @@ func _geometry_problems() -> Array[String]:
 
 func _rod_problems() -> Array[String]:
 	var out: Array[String] = []
+	var origins: Array[PackedFloat32Array] = _vectors("rods", "origin_", "_m")
+	var axes: Array[PackedFloat32Array] = _vectors("rods", "axis_", "")
+	var lengths: PackedFloat32Array = floats("rods", "length_m")
+	var radii: PackedFloat32Array = floats("rods", "radius_m")
 	for r: int in rows["rods"]:
-		var axis: Vector3 = _vector("rods", "axis_", "", r)
-		var origin: Vector3 = _vector("rods", "origin_", "_m", r)
-		var length: float = column("rods", "length_m").decode_float(r * 4)
-		var radius: float = column("rods", "radius_m").decode_float(r * 4)
-		if not (origin.is_finite() and _is_unit(axis) and length > 0.0 and radius > 0.0):
+		var origin: Vector3 = _at(origins, r)
+		var axis: Vector3 = _at(axes, r)
+		var sizes: Vector2 = Vector2(lengths[r], radii[r])
+		if not (origin.is_finite() and _is_unit(axis) and sizes.is_finite() and sizes.x > 0.0 and sizes.y > 0.0):
 			out.append("rod row %d has bad geometry: origin %s, axis %s, length %s, radius %s"
-				% [r, origin, axis, length, radius])
+				% [r, origin, axis, sizes.x, sizes.y])
 	return out
 
 
 func _slab_problems() -> Array[String]:
 	var out: Array[String] = []
+	var origins: Array[PackedFloat32Array] = _vectors("slabs", "origin_", "_m")
+	var alongs: Array[PackedFloat32Array] = _vectors("slabs", "length_axis_", "")
+	var acrosses: Array[PackedFloat32Array] = _vectors("slabs", "width_axis_", "")
+	var size_columns: Array[PackedFloat32Array] = [
+		floats("slabs", "length_m"), floats("slabs", "width_m"), floats("slabs", "thickness_m"),
+	]
 	for r: int in rows["slabs"]:
-		var origin: Vector3 = _vector("slabs", "origin_", "_m", r)
-		var along: Vector3 = _vector("slabs", "length_axis_", "", r)
-		var across: Vector3 = _vector("slabs", "width_axis_", "", r)
-		var sizes: Vector3 = Vector3(
-			column("slabs", "length_m").decode_float(r * 4),
-			column("slabs", "width_m").decode_float(r * 4),
-			column("slabs", "thickness_m").decode_float(r * 4))
+		var origin: Vector3 = _at(origins, r)
+		var along: Vector3 = _at(alongs, r)
+		var across: Vector3 = _at(acrosses, r)
+		var sizes: Vector3 = _at(size_columns, r)
 		var positive: bool = sizes.is_finite() and sizes.x > 0.0 and sizes.y > 0.0 and sizes.z > 0.0
-		if not (origin.is_finite() and _is_unit(along) and _is_unit(across) and positive):
+		# Perpendicular too: the shaders' normals (MODEL_NORMAL_MATRIX) are right only for an orthogonal basis.
+		var square: bool = absf(along.dot(across)) <= UNIT_TOLERANCE
+		if not (origin.is_finite() and _is_unit(along) and _is_unit(across) and square and positive):
 			out.append("slab row %d has bad geometry: origin %s, axes %s %s, sizes %s" % [r, origin, along, across, sizes])
 	return out
 
 
-func _kind_name(kind: int) -> String:
-	for kind_name: String in kind_ids:
-		if kind_ids[kind_name] == kind:
-			return kind_name
-	return ""
+## A vector's three f32 columns, decoded once.
+func _vectors(table: String, prefix: String, suffix: String) -> Array[PackedFloat32Array]:
+	return [
+		floats(table, prefix + "x" + suffix), floats(table, prefix + "y" + suffix), floats(table, prefix + "z" + suffix),
+	]
 
 
-func _vector(table: String, prefix: String, suffix: String, r: int) -> Vector3:
-	return Vector3(
-		column(table, prefix + "x" + suffix).decode_float(r * 4),
-		column(table, prefix + "y" + suffix).decode_float(r * 4),
-		column(table, prefix + "z" + suffix).decode_float(r * 4))
+static func _at(xyz: Array[PackedFloat32Array], r: int) -> Vector3:
+	return Vector3(xyz[0][r], xyz[1][r], xyz[2][r])
 
 
-func _is_unit(v: Vector3) -> bool:
+static func _is_unit(v: Vector3) -> bool:
 	return v.is_finite() and absf(v.length() - 1.0) <= UNIT_TOLERANCE

@@ -32,7 +32,9 @@ from pathlib import Path
 
 import godot_check as gc
 import golden_compare
+import golden_fuel
 import golden_measures as gm
+import golden_stability
 
 ROOT = Path(__file__).resolve().parents[1]
 CLIENT = ROOT / "client"
@@ -45,9 +47,14 @@ DRAW = (
 )  # fmt: skip
 GOLDEN_SCENE = "res://tests/golden.tscn"
 CUTAWAY_SCENE = "res://tests/cutaway_check.tscn"
+STABILITY_SCENE = "res://tests/stability_check.tscn"
+# The shaded frames judged against goldens, per tier: goldens/<build key>/<tier>/<scene>.png.
+GOLDEN_SCENES = ("fire", "fuel")
 TIERS = gm.TIERS
-# (frame name, fixture, tier, pass): every tier's shaded fire frame is a golden; every tier's cold frame and masks
-# feed its never-colour-alone check.
+# The fuel shots' scene: the cold alley with golden_fuel's fixture, the one the fuel checks read.
+FUEL_SCENE = f"alley_cold+{golden_fuel.FIXTURE_NAME}"
+# (frame name, fixture, tier, pass): every tier's shaded fire and fuel frames are goldens; every tier's cold frame and
+# masks feed its never-colour-alone check, and the fuel frames feed client_objects.md §7.2's fuel checks.
 SHOTS = tuple(
     shot
     for tier in TIERS
@@ -56,6 +63,10 @@ SHOTS = tuple(
         (f"cold-{tier}.png", "alley_cold", tier, "shaded"),
         (f"fire-{tier}-crack_mask.png", "alley_fire", tier, "crack_mask"),
         (f"fire-{tier}-glow_mask.png", "alley_fire", tier, "glow_mask"),
+        (f"fuel-{tier}.png", FUEL_SCENE, tier, "shaded"),
+        (f"fuel-{tier}-noflame.png", FUEL_SCENE, tier, "shaded_noflame"),
+        (f"fuel-{tier}-fuel_mask.png", FUEL_SCENE, tier, "fuel_mask"),
+        (f"fuel-{tier}-flame_mask.png", FUEL_SCENE, tier, "flame_mask"),
     )
 )
 
@@ -74,11 +85,12 @@ def draw(
 
 
 def golden_findings(log: str, out: Path) -> list[str]:
-    """Each tier's shaded frame against ``goldens/<build key>/<tier>/fire.png``."""
+    """Each tier's shaded frames against ``goldens/<build key>/<tier>/{fire,fuel}.png``."""
     found = []
     for tier in TIERS:
-        png = out / f"fire-{tier}.png"
-        found += golden_compare.judge(log, png, GOLDENS, f"{tier}/fire.png", png.with_suffix(".diff.png"))
+        for scene in GOLDEN_SCENES:
+            png = out / f"{scene}-{tier}.png"
+            found += golden_compare.judge(log, png, GOLDENS, f"{tier}/{scene}.png", png.with_suffix(".diff.png"))
     return found
 
 
@@ -88,6 +100,8 @@ def measured_findings(out: Path, cut: Path) -> list[str]:
     for tier in TIERS:
         found += gm.colour_alone_findings(out, tier)
     found += gm.speckle_findings(out)
+    found += golden_fuel.fuel_findings(out)
+    found += golden_stability.findings(out / "stability")
     rig = golden_compare.load_rgb(out / "fire-rig.png")
     for tier in TIERS:
         if tier != "rig":
@@ -98,8 +112,9 @@ def measured_findings(out: Path, cut: Path) -> list[str]:
 def draw_all(
     godot: str, project: Path, out: Path, *, home: Path, timeout_s: float, wrapper: tuple[str, ...]
 ) -> tuple[list[str], str]:
-    """Both scenes, each split into calls that stay well inside the timeout (one per tier, one per yaw step: a
-    loaded machine took 83 s for all twelve shots in one call); returns (findings, the golden scene's logs)."""
+    """The golden, cut-away and stability scenes, each split into calls that stay well inside the timeout (one per
+    tier, one per yaw step: a loaded machine took 83 s for all twelve shots in one call); returns (findings, the golden
+    scene's logs)."""
     found: list[str] = []
     logs: list[str] = []
     for tier in TIERS:
@@ -119,8 +134,20 @@ def draw_all(
         )  # fmt: skip
         (out / f"cutaway-k{k}.log").write_text(cut_log + "\n")
         found += cut_found
+    stab = out / "stability"
+    shutil.rmtree(stab, ignore_errors=True)
+    stab.mkdir()
+    stab_found, stab_log = draw(
+        godot, project, STABILITY_SCENE, [f"--out={stab}"], home=home, timeout_s=timeout_s, wrapper=wrapper
+    )
+    (out / "stability.log").write_text(stab_log + "\n")
+    found += stab_found
     print(log)
-    found += [f"draw: no frame at {out / name}" for name, *_ in SHOTS if not found and not (out / name).is_file()]
+    if not found:
+        found += [f"draw: no frame at {out / name}" for name, *_ in SHOTS if not (out / name).is_file()]
+        footprints = [out / name for name, fx, *_ in SHOTS if "+" in fx]
+        unmeasured = [p for p in footprints if not p.with_suffix(".segments.json").is_file()]
+        found += [f"draw: no footprints beside {p}" for p in unmeasured]
     return found, log
 
 
@@ -162,8 +189,8 @@ def main(argv: list[str] | None = None, *, work_parent: Path | None = None) -> i
         )
     for f in found:
         print(f"golden_run: {f}", file=sys.stderr)
-    judged = "goldens not judged" if args.no_xvfb else f"{len(TIERS)} goldens"
-    print(f"golden_run: {'FAIL' if found else 'PASS'} ({len(SHOTS)} shots, {judged}, cut-away)")
+    judged = "goldens not judged" if args.no_xvfb else f"{len(TIERS) * len(GOLDEN_SCENES)} goldens"
+    print(f"golden_run: {'FAIL' if found else 'PASS'} ({len(SHOTS)} shots, {judged}, cut-away, stick stability)")
     return 1 if found else 0
 
 

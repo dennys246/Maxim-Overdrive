@@ -1,29 +1,17 @@
-// Rods (docs/design/client_objects.md §4): a unit cylinder per instance, its axis along local y, scaled by the
-// instance transform to the rod's length and radius. The vertex shader only widens a thin rod to the 2 px floor; the
-// fragment shader finds its own segment and drops a burnt-through one, decided per pixel, never per vertex (§4.2).
+// The rod's depth pass (fuel_rod.gdshaderinc): invisible (blended at alpha 0), writing depth over exactly the drawn
+// silhouette, coverage 0.5 and up, the 2 px floor included. Its next pass, fuel_rod_fringe.gdshader, draws the colour.
+// Depth only, because an opaque core showing its colour put a hard step in the edge's ramp at coverage 0.5, which
+// crawled on the laptop tier (2.55-2.62x the ideal line against the 2.0x bar, measured 2026-11-22).
 shader_type spatial;
-render_mode unshaded, cull_back;
+render_mode unshaded, cull_back, blend_mix, depth_draw_always;
 
-#include "res://addons/engine/render/fuel_object.gdshaderinc"
-
-varying float v_s;
-varying flat int v_instance;
-varying vec3 v_normal_world;
-
-void vertex() {
-	v_instance = INSTANCE_ID;
-	float length_m = length(MODEL_MATRIX[1].xyz);
-	float radius_m = length(MODEL_MATRIX[0].xyz);
-	v_s = (VERTEX.y + 0.5) * length_m;
-	VERTEX.xz *= max(1.0, floor_half_m / max(radius_m, 1e-6));
-	v_normal_world = godot_to_world(normalize(MODEL_NORMAL_MATRIX * NORMAL));
-}
+#include "res://addons/engine/render/fuel_rod.gdshaderinc"
 
 void fragment() {
-	Instance inst = instance_at(v_instance);
-	int row = segment_row(inst, v_s);
-	if (burnt_through(row)) {
+	int row;
+	if (rod_coverage(row) < 0.5) {
 		discard;
 	}
-	ALBEDO = fuel_colour(inst, row, normalize(v_normal_world));
+	ALBEDO = vec3(0.0);
+	ALPHA = 0.0;
 }

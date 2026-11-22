@@ -7,6 +7,7 @@
 #include "res://addons/engine/render/axes.gdshaderinc"
 #include "res://addons/engine/render/key_light.gdshaderinc"
 #include "res://addons/engine/render/glow_curve.gdshaderinc"
+#include "res://addons/engine/render/flame_colour.gdshaderinc"
 
 // Three RGBA8 texels per instance, at x = 0, 1, 2 and y = INSTANCE_ID (FuelPass writes them on a rebuild):
 //   0: first segment row (3 bytes, little-endian), the recipe's palette index;
@@ -23,13 +24,18 @@ uniform sampler2D state_tex : filter_nearest, repeat_disable;
 uniform vec3 recipe_colours[16];
 // Metres one output pixel spans: half the 2 px floor (§4.2). 0 until set, which floors nothing.
 uniform float floor_half_m = 0.0;
+// FuelPass.View: 0 shaded; 1 the fuel-ID mask (fuel white, flames black); 2 the flame-ID mask (flames white, fuel
+// black). §7.2's checks read both, unlit.
+uniform int fuel_debug = 0;
 
 const int ROW_WIDTH = 256;
+// §3.3's clip of surface_temperature_c, applied here too: an f16 inf would otherwise drive the HDR glow to inf.
+const float FUEL_MIN_C = -273.0;
+const float FUEL_MAX_C = 6000.0;
 // §5.1: the glow's start and span are client constants now that the input is degrees C.
 const float FUEL_GLOW_START_C = 525.0;
 const float FUEL_GLOW_SPAN_C = 975.0;
-// §5.2: a flaming surface is brighter than a hot one at the same temperature.
-const vec3 BURN_COLOUR = vec3(1.0, 0.42, 0.08);
+// §5.2: a flaming surface is brighter than a hot one at the same temperature, in the cell pass's flame colour.
 const float BURN_GAIN = 1.2;
 // §5.2: char darkens the albedo, a luminance change the char check measures.
 const float FUEL_CHAR_DARKEN = 0.7;
@@ -59,6 +65,28 @@ Instance instance_at(int id) {
 	return inst;
 }
 
+#ifdef FUEL_INSTANCE
+// The instance's fields, fetched once per vertex instead of per fragment (review P-N2), as flat varyings: x first
+// row, y count, z object row, w palette slot.
+varying flat ivec4 v_instance;
+varying flat float v_segment_m;
+
+// Each vertex() sets them from instance_at(INSTANCE_ID): Godot lets only vertex() itself assign a varying.
+ivec4 instance_fields(Instance inst) {
+	return ivec4(inst.first, inst.count, inst.object_row, inst.recipe);
+}
+
+Instance fuel_instance_from_varyings() {
+	Instance inst;
+	inst.first = v_instance.x;
+	inst.count = v_instance.y;
+	inst.object_row = v_instance.z;
+	inst.recipe = v_instance.w;
+	inst.segment_m = v_segment_m;
+	return inst;
+}
+#endif
+
 ivec2 row_at(int row) {
 	return ivec2(row % ROW_WIDTH, row / ROW_WIDTH);
 }
@@ -70,6 +98,10 @@ int segment_row(Instance inst, float s) {
 	return inst.first + k;
 }
 
+bool burnt_out(int object_row) {
+	return byte_of(texelFetch(state_tex, row_at(object_row), 0).r) == 1u;
+}
+
 bool burnt_through(int row) {
 	return texelFetch(thickness_tex, row_at(row), 0).r <= 0.0;
 }
@@ -77,17 +109,16 @@ bool burnt_through(int row) {
 // A segment's colour: lit albedo darkened by char, plus glow and the burning term, both off once the object is burnt
 // out (§4.3). Glow and burning are HDR, so above 1.0 they drive bloom: brightness, never hue alone (§5).
 vec3 fuel_colour(Instance inst, int row, vec3 n_world) {
-	float t_c = texelFetch(temperature_tex, row_at(row), 0).r;
+	float t_c = clamp(texelFetch(temperature_tex, row_at(row), 0).r, FUEL_MIN_C, FUEL_MAX_C);
 	float ignited = texelFetch(ignited_tex, row_at(row), 0).r;
 	float charred = texelFetch(char_tex, row_at(row), 0).r;
-	bool burnt_out = byte_of(texelFetch(state_tex, row_at(inst.object_row), 0).r) == 1u;
 	vec3 albedo = recipe_colours[clamp(inst.recipe, 0, 15)] * (1.0 - FUEL_CHAR_DARKEN * charred);
 	vec3 colour = face_lit(albedo, n_world, 1.0);
-	if (burnt_out) {
+	if (burnt_out(inst.object_row)) {
 		return colour;
 	}
 	if (t_c > FUEL_GLOW_START_C) {
 		colour += glow_curve(t_c, FUEL_GLOW_START_C, clamp((t_c - FUEL_GLOW_START_C) / FUEL_GLOW_SPAN_C, 0.0, 1.0));
 	}
-	return colour + BURN_COLOUR * BURN_GAIN * ignited;
+	return colour + FLAME_COLOUR * BURN_GAIN * ignited;
 }

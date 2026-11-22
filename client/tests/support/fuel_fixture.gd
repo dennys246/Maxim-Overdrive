@@ -68,7 +68,7 @@ func _read(header: Dictionary, compressed: PackedByteArray) -> void:
 		_read_tables(header, data, snap)
 	if problems.is_empty():
 		problems.append_array(snap.problems(region_names))
-		problems.append_array(snap.state_problems())
+		problems.append_array(snap.frame_problems())
 	snapshot = snap
 
 

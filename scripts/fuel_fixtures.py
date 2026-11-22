@@ -30,6 +30,8 @@ from simcore.core.scene import Scene
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "client" / "tests" / "fixtures" / "fuel"
 NAME = "fuel_ramp"
+# The stick-stability measure's stick (step 8's checklist): one 20 mm rod 1 m long, alone.
+STICK = "fuel_stick"
 FORMAT = "overdrive-client-fuel-fixture"
 VERSION = 0
 ALLEY_SCENE = ROOT / "tests" / "fixtures" / "scenes" / "alley_box.yaml"
@@ -106,10 +108,15 @@ def segment_count(length_m: float) -> int:
     return -(-length_um // segment_um)
 
 
-def rod(region: str, origin: tuple[float, float, float], length_m: float, radius_m: float, *, state: int = 0) -> Fuel:
-    """A rod lying on the floor along world x, its axis at ``origin``'s height."""
+def rod(
+    region: str, origin: tuple[float, float, float], length_m: float, radius_m: float, *, state: int = 0,
+    along_y: bool = False,
+) -> Fuel:  # fmt: skip
+    """A rod lying along world x (or y), its axis at ``origin``'s height."""
     geometry = dict(zip(("origin_x_m", "origin_y_m", "origin_z_m"), origin, strict=True))
-    geometry |= {"axis_x": 1.0, "axis_y": 0.0, "axis_z": 0.0, "length_m": length_m, "radius_m": radius_m}
+    axis = (0.0, 1.0, 0.0) if along_y else (1.0, 0.0, 0.0)
+    geometry |= dict(zip(("axis_x", "axis_y", "axis_z"), axis, strict=True))
+    geometry |= {"length_m": length_m, "radius_m": radius_m}
     segments = [Segment() for _ in range(segment_count(length_m))]
     return Fuel("rod", "pine_rod", region, geometry, state=state, segments=segments)
 
@@ -150,14 +157,34 @@ def visible() -> list[Fuel]:
     plank = slab("slab_char", (2.4, 2.4, FLOOR_TOP_M), 0.5, 0.3, 0.02)
     for k, s in enumerate(plank.segments):
         s.char = k / (len(plank.segments) - 1)
+    # Burnt out while its char is still hot and reporting ignition: §4.3 draws it with no glow and no flame, so the
+    # burnout branch changes pixels (review S1, S2) and the burnout check can see it deleted.
     spent = rod("rod_spent", (2.4, 1.6, FLOOR_TOP_M + 0.03), 0.4, 0.03, state=1)
     for s in spent.segments:
-        s.char = 1.0
-    return [hot, burnt, lit, plank, spent]
+        s.char, s.temperature_c, s.ignited = 1.0, 1200.0, 1.0
+    # Cold and live, but its burnt-through run reports ignition: a flame there would rise from no surface (§4.3).
+    gap = rod("rod_gap", (2.4, 2.0, FLOOR_TOP_M + 0.03), 0.4, 0.03)
+    for k, s in enumerate(gap.segments):
+        if 8 <= k < 12:
+            s.thickness, s.ignited = 0.0, 1.0
+    # A hot thin stick lying across a cold log, the log later in instance order: where they cross the stick, in front,
+    # must show (review C-S1: a floored stick wrote no depth, and a rod drawn after it overwrote it).
+    cross = rod("stick_cross", (3.2, 1.6, FLOOR_TOP_M + 0.1 + 0.005), 0.5, 0.005, along_y=True)
+    for s in cross.segments:
+        s.temperature_c = 1500.0
+    log = rod("log_cross", (2.95, 1.85, FLOOR_TOP_M + 0.05), 0.5, 0.05)
+    return [hot, burnt, lit, plank, spent, gap, cross, log]
 
 
 def objects() -> list[Fuel]:
     return padding() + visible()
+
+
+def stick() -> list[Fuel]:
+    return [rod("stick", (4.5, 2.0, FLOOR_TOP_M + 0.01), 1.0, 0.01)]
+
+
+FIXTURES = {NAME: objects, STICK: stick}
 
 
 def alley_region_count() -> int:
@@ -207,9 +234,9 @@ def column_bytes(values: list[float], dtype: str, encoding: str) -> bytes:
     return array.astype(NUMPY[dtype]).tobytes()
 
 
-def content() -> tuple[dict[str, object], bytes]:
+def content(name: str = NAME) -> tuple[dict[str, object], bytes]:
     """The fixture's header, without the compressed file's digest, and its columns end to end."""
-    fuel = objects()
+    fuel = FIXTURES[name]()
     data, blob, tables = columns(fuel), bytearray(), {}
     for table, spec in TABLES.items():
         cols = {}
@@ -226,7 +253,7 @@ def content() -> tuple[dict[str, object], bytes]:
         "recipes": RECIPES,
         "regions": {str(rid): name for name, rid in region_ids(fuel).items()},
         "tables": tables,
-        "data": f"{NAME}.bin.gz",
+        "data": f"{name}.bin.gz",
         "data_size": len(blob),
         "data_sha256": hashlib.sha256(blob).hexdigest(),
     }
@@ -234,26 +261,32 @@ def content() -> tuple[dict[str, object], bytes]:
 
 
 def files() -> dict[str, bytes]:
-    header, blob = content()
-    compressed = gzip.compress(blob, mtime=0)
-    header["data_gzip_sha256"] = hashlib.sha256(compressed).hexdigest()
-    return {
-        f"{NAME}.json": (json.dumps(header, indent=1, sort_keys=True) + "\n").encode(),
-        f"{NAME}.bin.gz": compressed,
-    }
+    out: dict[str, bytes] = {}
+    for name in FIXTURES:
+        header, blob = content(name)
+        compressed = gzip.compress(blob, mtime=0)
+        header["data_gzip_sha256"] = hashlib.sha256(compressed).hexdigest()
+        out[f"{name}.json"] = (json.dumps(header, indent=1, sort_keys=True) + "\n").encode()
+        out[f"{name}.bin.gz"] = compressed
+    return out
 
 
-def stale(directory: Path) -> bool:
-    """Whether the committed fixture differs in content from what this script makes (zlib builds differ in bytes,
-    so the check is the header, the compressed file's own digest, and the arrays it inflates to)."""
-    header_path, data_path = directory / f"{NAME}.json", directory / f"{NAME}.bin.gz"
-    if not (header_path.is_file() and data_path.is_file()):
-        return True
-    want, raw = content()
-    got = json.loads(header_path.read_text())
-    compressed = data_path.read_bytes()
-    digest = got.pop("data_gzip_sha256", None)
-    return got != want or digest != hashlib.sha256(compressed).hexdigest() or gzip.decompress(compressed) != raw
+def stale(directory: Path) -> list[str]:
+    """The fixtures in ``directory`` whose content differs from what this script makes (zlib builds differ in
+    bytes, so the check is the header, the compressed file's own digest, and the arrays it inflates to)."""
+    found = []
+    for name in FIXTURES:
+        header_path, data_path = directory / f"{name}.json", directory / f"{name}.bin.gz"
+        if not (header_path.is_file() and data_path.is_file()):
+            found.append(name)
+            continue
+        want, raw = content(name)
+        got = json.loads(header_path.read_text())
+        compressed = data_path.read_bytes()
+        digest = got.pop("data_gzip_sha256", None)
+        if got != want or digest != hashlib.sha256(compressed).hexdigest() or gzip.decompress(compressed) != raw:
+            found.append(name)
+    return found
 
 
 def main(argv: list[str] | None = None, *, out: Path = OUT) -> int:
@@ -261,14 +294,14 @@ def main(argv: list[str] | None = None, *, out: Path = OUT) -> int:
     parser.add_argument("--check", action="store_true", help="exit 1 when the committed fixture differs")
     args = parser.parse_args(argv)
     if args.check:
-        if stale(out):
-            print(f"fuel_fixtures: {NAME} is stale; rerun scripts/fuel_fixtures.py", file=sys.stderr)
-            return 1
-        return 0
+        found = stale(out)
+        for name in found:
+            print(f"fuel_fixtures: {name} is stale; rerun scripts/fuel_fixtures.py", file=sys.stderr)
+        return 1 if found else 0
     out.mkdir(parents=True, exist_ok=True)
     for name, body in files().items():
         (out / name).write_bytes(body)
-    print(f"fuel_fixtures: wrote {NAME} to {out}")
+    print(f"fuel_fixtures: wrote {len(FIXTURES)} fixtures to {out}")
     return 0
 
 

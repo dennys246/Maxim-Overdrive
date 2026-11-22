@@ -19,7 +19,8 @@ uniform float glow_scale_c = 0.0;
 // 0 in goldens (animation off, §6.1); 1 in play.
 uniform float flicker_amount = 0.0;
 
-const vec3 FLAME_COLOUR = vec3(1.0, 0.42, 0.08);
+#include "res://addons/engine/render/flame_colour.gdshaderinc"
+
 const float FLAME_GAIN = 1.6;
 
 // surface_glow in counts (0-255) for the face with outward normal ``n_cell`` at ``p_cell``. Linear filtering
