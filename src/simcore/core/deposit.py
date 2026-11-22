@@ -94,7 +94,7 @@ class Deposit:
         return power
 
     def keep(self, sources: Sequence[Source]) -> None:
-        """Hold exactly the entries ``sources`` need at the current topology version: build the missing ones, drop
+        """Hold exactly the entries ``sources`` need at `material`'s current version: build the missing ones, drop
         the rest. The cache's contents are then a function of the source values and the version alone (§7)."""
         overlaps: dict[tuple[Point, float], tuple[Box, Field]] = {}
         weights: dict[tuple[Point, float, tuple[int, int]], Weights] = {}

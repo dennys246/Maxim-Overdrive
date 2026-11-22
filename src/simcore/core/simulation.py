@@ -93,7 +93,9 @@ class Simulation:
 
     def __init__(self, world: World, *, config: SimConfig, laws: Sequence[Law] = DEFAULT_LAWS) -> None:
         """A simulation of an already constructed ``world`` at tick 0: what `from_scene` builds, and what the save's
-        loader will (PR 4b). Its orchestrator is built here over the world's own grid, so the two can't disagree."""
+        loader will (PR 4b). Its orchestrator is built here over the world's own grid, so the two can't disagree, and
+        the world is adopted, so no other simulation can own it."""
+        world.adopt()
         self._world, self._config = world, config
         self._physics = physics = Physics(world.grid, laws)
         self._applier = Applier(world)
@@ -142,10 +144,11 @@ class Simulation:
         """Run one tick: apply its records in key order, then physics if it is a physics tick, in one window.
 
         The batch is read once and checked whole before any of it applies, so a bad batch raises ``ValueError`` and
-        changes nothing, and a one-shot iterable loses no record. A tick that raises later changes nothing either: the
-        window rolls back, its caches are rebuilt at rest for the state it left, and the clock, the exposure and the
-        frames move only after it commits. The clock moves before the frame is published, so a publication that
-        raised could never let a retry apply the tick's records twice."""
+        changes nothing, and a one-shot iterable loses no record. A tick that raises before its window commits changes
+        nothing either: the window rolls back, its caches are rebuilt at rest for the state it left, and the clock and
+        the exposure move only after it commits. A publication that raises comes after the commit and the clock: the
+        tick stands, with no frame and no report, so a retry can't apply its records twice. A host that logs from the
+        report would miss that tick; PR 4b's log must cover it (its checklist row)."""
         tick, batch = self._clock.tick, tuple(records)
         self._check_batch(tick, batch)
         physics = tick % self._config.physics_every == 0
@@ -157,8 +160,9 @@ class Simulation:
             try:
                 outcomes, substeps = self._run(tick, batch, physics=physics, work=work)
             except BaseException:
-                # The window rolled back, restoring versions a different later edit could reach again: bring every
-                # cache back to the restored state at rest, dropping what the failed tick built (§7, PR 3's S1).
+                # The window rolled back. No key it reached can recur (field_version counts rollbacks), but the caches
+                # still hold what it built: bring them back to the restored state at rest, so a retry counts the work
+                # an uninterrupted run counts (§7, §10).
                 self._physics.warm(self._exposure.values())
                 raise
         after = self._physics.builds()

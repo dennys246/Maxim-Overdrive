@@ -137,6 +137,16 @@ def test_time_is_whole_microseconds_and_seconds_are_derived_never_summed():
     assert (sim.frames.latest.cells.time_us, sim.frames.latest.time_s) == (300_000, 0.3)
 
 
+def test_a_world_another_simulation_owns_is_refused_so_time_has_one_owner():
+    # Delta 2 D2-S1: a second simulation over a stepped world published frame 0 at tick 0, and both stepped it.
+    first = _sim()
+    ticks(first, 3)
+    with pytest.raises(ValueError, match="already has its simulation"):
+        Simulation(world_of(first), config=T3)
+    ticks(first, 2)  # the world's own simulation still owns it: its tick 5 runs physics and publishes
+    assert (first.tick, first.frames.latest.tick) == (6, 5)
+
+
 def test_a_law_tuple_the_registry_disagrees_with_is_refused_at_construction():
     laws = (*physics.DEFAULT_LAWS, physics.DEFAULT_LAWS[1])
     with pytest.raises(ValueError, match="names each law once"):

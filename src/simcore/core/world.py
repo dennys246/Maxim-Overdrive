@@ -53,6 +53,14 @@ class World:
         # (boundaries §6.4): after it, only the applier changes them.
         self._grid, self._limits = grid, limits
         self._sources: Mapping[str, HeatSource] = MappingProxyType(dict(sources or {}))
+        self._adopted = False
+
+    def adopt(self) -> None:
+        """Hands the world to its one simulation, the one owner of its time (sim_core.md §2). A second adoption
+        raises, so a world another simulation has stepped can't be published again as frame 0, or stepped twice."""
+        if self._adopted:
+            raise ValueError("this world already has its simulation (sim_core.md §2)")
+        self._adopted = True
 
     @property
     def grid(self) -> MaterialGrid:

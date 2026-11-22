@@ -190,7 +190,7 @@ class StructureModulator:
             # undefaulted, so this arises only when the model adds one (step 3b(b) review, Bio S1; delta D4).
             return self._result(label, {}, False, agent_text(RefusalCode.WRONG_TARGET, "target"))
         # TEMPORARY(phase1/agents): execute submits through a submit-and-step port its test or host owns, so a caller
-        # sees an instant effect at once: each call that reaches stage 2 is one tick (a stage-1 or target refusal is
+        # sees an instant effect: each call that reaches stage 2 is one tick (a stage-1 or target refusal is
         # none), every physics_every-th such call runs physics, the records aren't logged (a bridge-driven session
         # can't be replayed), and no outcome bar may be measured through this path (sim_core.md §13). In
         # phase1/agents execute only parses, checks the bound actor and appends the intent to the stepping agent's

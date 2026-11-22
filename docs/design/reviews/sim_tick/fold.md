@@ -7,10 +7,11 @@ and resolution, Performance), `round1_arch_wire_trust.md` (Architecture, Wire in
 (for the reviewer)"** until a reviewer reads it from the tree (O25). Items marked **for the owner** change a contract
 or need a design call, and the owner rules on each.
 
-**Correction first.** 336eee8's message says "the interim Simulation(world) seam is gone" (false: the constructor
-for a built world stayed public and checked nothing, Arch S5) and "Lesson 34" (it is 37: 35 after the first merge with main, 37 after main added its own lessons 35 and
-36; "lesson 35" in the rows below and in the reviewers' reports is this lesson).
-`from_scene`'s docstring and `work.py` said the caches were built eagerly (false: they were lazy, Det SF-1, Arch S3).
+**Correction first.** 336eee8's message says "the interim Simulation(world) seam is gone" (false: the constructor for a
+built world stayed public and checked nothing, Arch S5) and "Lesson 34" (it is 37: 35 after the first merge with main,
+37 after main added its own lessons 35 and 36; "lesson 35" in the rows below and in the reviewers' reports is this
+lesson). `from_scene`'s docstring and `work.py` said the caches were built eagerly (false: they were lazy, Det SF-1,
+Arch S3).
 
 ## How the main fix works (Det SF-1, Arch S2, S3, Exec S1)
 
@@ -105,3 +106,25 @@ strike tick, not once per physics step. Options:
   triggered by B5's turn-time budget. No budget exists yet to say 363 ms per 20 ticks at 0.1 m is too slow.
 - **(3) Rebuild lazily again** and amend §10 so counters match only on replays that start at a physics tick. This
   gives up what Det SF-1 asked for.
+
+## Delta 2: 0 BLOCKER, 3 SHOULD-FIX, 8 NIT, on 82447d3
+
+Two readers, on the whole fold commit (no snapshot of delta 1's tree survived): `delta2_exec_det_perf_phys.md`
+(Executor, Determinism, Performance, Physics: 0 SHOULD-FIX, 3 NIT; 20 fixed, 3 deferred, 1 open of its 24 rows) and
+`delta2_arch_wire_trust_bio.md` (Architecture, Wire integrity, Trust boundary, Bio-faithful: 3 SHOULD-FIX, 5 NIT;
+28 fixed, 1 open, 2 deferred, 1 rejected of its 32 rows). Each copied verbatim. Their statuses stand as read; each
+reopened row (Arch S5, Exec N2) is folded below. Every deletion claim they tried went red.
+
+| # | Finding | Fold | Status |
+|---|---|---|---|
+| D2-S1, Arch S5 (reopened) | the built-world constructor accepts a world another simulation owns; §2 and §4 say there is one constructor | `World.adopt()`: the constructor adopts its world, and a second adoption raises. §2 names both constructors, §4 lists the second. `test_a_world_another_simulation_owns_is_refused_so_time_has_one_owner`, red when `adopt` is deleted | open (for the reviewer) |
+| D2-S2 | §13 and the bridge test's comment still say "one tick per call" | both say "each `execute` that reaches stage 2" | open (for the reviewer) |
+| D2-S3 | `sim_core.md` grew from 3,770 to 3,773 words | 3,770 words (`wc -w`) after this fold's own additions, by tightening §7's cost and cache text and §13 | open (for the reviewer) |
+| D2-N1 | `Deposit.keep`'s docstring says "topology version" | "`material`'s current version" | open (for the reviewer) |
+| D2-N2 | lesson 37 calls the cerebellum's update "credit"; it omits the LLM's read | checked at 1.3.3 (`cerebellum.py`'s docstring, `tool_bridge.py:908`); lesson 37 and OD-A16 now say the forward model learns from the read-back and the LLM reads it, and that NAc's reward credit doesn't come from it | open (for the reviewer) |
+| D2-N3 | the cadence row lost its precondition | "the first destroying it and the second applying and destroying nothing" | open (for the reviewer) |
+| D2-N4 | Exec S2's Step 6 row sits in the superseded record | moved out, as an "Added by" paragraph like D-B2's | open (for the reviewer) |
+| D2-N5 | unwrapped lines and a stray capital | every line this branch added past 120 columns outside tables and headings is rewrapped, word for word; "it" | open (for the reviewer) |
+| A N1 | `step`'s docstring says a raising tick changes nothing, but a raising publication leaves it committed | the docstring says so, and the rollback branch's comment no longer says keys recur; a PR 4b checklist row covers a log that would drop that tick | open (for the reviewer) |
+| A N2, Exec N2 (reopened) | the D-S2 row lacks the max-profile figure and the deposit's 40 against 10; `rho_cp`'s deferral is only in this file | the row gives both; `rho_cp` has its own Step 5a checklist row, triggered by B5's profile pass | open (for the reviewer) |
+| A N3 | the marker's "an instant effect at once" | "an instant effect" | open (for the reviewer) |
