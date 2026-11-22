@@ -138,7 +138,7 @@ fails.
     `topology_version` rises once per strike record (X-B1, N-B2, DA-S1, X-S2);
   - `stable_dt` reads only its `bound_reads`: a planted law whose bound reads `temperature` misses the cache after
     heating (Perf S3, DA-S9).
-- **§5.1, the flow (B40):**
+- **§5.1, the flow (B43):**
   - an import contract that no law module imports another, proven by a planted import;
   - the write window refuses an undeclared writer, tested with one;
   - the applier writes no outcome field (the ownership scan);
@@ -154,7 +154,7 @@ fails.
     operator through a module that is not a law, and `sem_stimuli.md` §7.1's module table is edited by name (DA-S6,
     DA-S7);
   - keyed-table rows (`fire_solid.md` §1.4's `pending`, the id counter) go through `Topology` (DA-S3);
-  - then cite these checks in CLAUDE.md's rule in place of B40.
+  - then cite these checks in CLAUDE.md's rule in place of B43.
 - **§6:** `simcore/core/fields.py` holds the registry; `docs/generated/fields.md` matches it byte for byte (name the
   regeneration command, LF endings; W-N6, deferred to this test); a planted field appears in storage, the snapshot
   and the digest; construction and the save's loader are declared writers, so `from_scene`'s `temperature` write

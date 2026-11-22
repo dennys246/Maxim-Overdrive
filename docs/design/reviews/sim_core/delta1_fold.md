@@ -20,7 +20,7 @@ they name are listed too.
    load (§9).
 4. **"All heat input resolves in heat"** (DA-B1). It is now "one resolver per input kind", asserted over the
    registry. `temperature` has declared, ordered writers (heat, then the solid, contact, skin and bed laws as they
-   land), and all damage resolving in damage is one instance of the rule (§5.1, §6). CLAUDE.md and B40 are reworded.
+   land), and all damage resolving in damage is one instance of the rule (§5.1, §6). CLAUDE.md and B43 are reworded.
 
 **Measured or verified by the author:** each contract fix was checked against the text it touches. Nothing was rerun:
 no fix in this fold rests on a new measurement. Performance's corrected figures are quoted from its report.
@@ -72,7 +72,7 @@ no fix in this fold rests on a new measurement. Performance's corrected figures 
 
 | Id | Where it went | Status |
 |---|---|---|
-| DA-B1 | §5.1 one resolver per input kind; §6 inputs name their resolver; checklist §5.1 test; CLAUDE.md and B40 | open (for the reviewer, on 5a's code PR) |
+| DA-B1 | §5.1 one resolver per input kind; §6 inputs name their resolver; checklist §5.1 test; CLAUDE.md and B43 | open (for the reviewer, on 5a's code PR) |
 | DA-S1 | §5 cadences name their D10 step and position | open (for the reviewer, on 5a's code PR) |
 | DA-S2 | §6 writer roles: laws, `Topology`, construction and the save's loader, input appenders; the column is the writers' owner | open (for the reviewer, on 5a's code PR) |
 | DA-S3 | §5.1: keyed-table rows are topology requests; fire_solid §1.4 owns their timing; checklist §5.1 | open (for the reviewer, on 5a's code PR) |

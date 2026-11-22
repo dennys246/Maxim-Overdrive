@@ -8,8 +8,8 @@ Every status below is **open (for the reviewer)**: the delta round's readers set
 | Ruling | Where it is written |
 |---|---|
 | Decisions 1–5 of the first draft: replan mid-step; code-primary registry; accuracy floor only if bar 1 fails; one frame per tick (cadence owned by `tile_and_client.md` §4); damage a law | §8, §6, §8, §4, §5 |
-| The flow is a standard (first written as "one writer per field") | §5.1, CLAUDE.md "Flow runs one way", B40 |
-| R1: rework it as declared, ordered writers, and one resolver per kind of effect, with accumulated fields and a topology owner | §5.1; §2's `Topology`; §6's `writers` column; CLAUDE.md shortened to link §5.1; B40 |
+| The flow is a standard (first written as "one writer per field") | §5.1, CLAUDE.md "Flow runs one way", B43 |
+| R1: rework it as declared, ordered writers, and one resolver per kind of effect, with accumulated fields and a topology owner | §5.1; §2's `Topology`; §6's `writers` column; CLAUDE.md shortened to link §5.1; B43 |
 | R2: damage resolves loads every tick in the apply phase; thermal damage on physics ticks | §5.1 (last bullet), §5's tuple `(damage.loads, heat, damage.thermal)` |
 | R3: the bridge keeps its marked synchronous path until `phase1/agents` | §13 |
 
@@ -168,7 +168,7 @@ after all of the tick's records, so a later record's stage 2 sees the crater (X-
 | W-S9 | §14: the header records the scene by digest, so scenes stay repo-only (`fire_solid.md` §5.2 holds) |
 | W-S10 | as P-B1 |
 | W-N1 | as BF-5a-N2 |
-| W-N2 | CLAUDE.md and B40 now link §5.1 instead of restating it |
+| W-N2 | CLAUDE.md and B43 now link §5.1 instead of restating it |
 | W-N3 | as D-N2 |
 | W-N4 | `realtime_lanes_coop.md` §2.1's `World.advance` line is superseded by §2 (not edited; the docs-contracts line's) |
 | W-N5 | §4: a bad batch raises `ValueError`; §3 links the physics phase |

@@ -296,5 +296,6 @@ The owner took `fire_model.md` §7's fallback, and fire stays a long-term featur
 - **The crate moves to Phase 2,** with 6.2–6.4 (the flame object, two bodies, the crib).
 - **Rerun 2 stays banked,** unspent, until §0.2's pre-ignition question has a cited answer (a cone-in-air parameter
   set, or an ignition criterion from the literature). It then gets its own pre-registration.
-- **Open for 6.1's design:** whether the slab exit flips the burnout red gate
-  (`tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`), which the plan put at 6.4.
+- **Ruled (owner, 2026-11-21):** the burnout red gate
+  (`tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`) flips at 6.1, not 6.4: 6.1's
+  fuel objects replace the heat source that heats air once its fuel is gone, and the gate is rewritten against them.
