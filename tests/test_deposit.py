@@ -152,9 +152,11 @@ def test_a_window_that_rolls_back_leaves_no_entry_a_later_state_could_reuse(mate
     """sim_core.md §7: a cache's contents are a function of state. A rollback restores ``topology_version``, so an
     entry built inside the rolled-back window would be found again by a different edit that reaches the same version
     (PR 3 review S1, all three lenses: 75 W into a destroyed cell). Edit A, deposit, raise; then edit B: the deposit is
-    a fresh one's, bit for bit."""
+    a fresh one's, bit for bit. Its owner wires `forget` to the rollback (PR 4a: `Simulation` registers
+    `Physics.forget`, which forgets heat's state and this deposit with it; tests/test_simulation.py holds that)."""
     g = _grid(materials)
     deposit = Deposit(g)
+    g.on_roll_back(deposit.forget)
     fire = {"fire": HeatSource((0.5, 0.5, 0.4), 0.3, 1e3)}
     _power(deposit, fire)
     v0 = g.topology_version

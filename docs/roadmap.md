@@ -43,16 +43,10 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   red gate `tests/test_act_validation.py::test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn`,
   and it removes the marked band-aid in `data/world/actions.yaml`, whose ceilings keep fires at the powers the
   current physics has been measured at.
-- The write window's two owners until `Simulation.step` owns it, marked band-aids (`docs/design/boundaries.md` §4.1,
-  2c): `World.advance` in `src/simcore/core/world.py` and the intent applier in `src/simcore/core/applier.py` open the
-  window themselves; step 5a's PR 4 moves both into the step (PR 2 moved the laws into the tuple, not the window), and
-  with it a strike becomes a `Load` the applier appends. `World._power_field` in the same `world.py` holds the
-  sources' deposit (sorted and cached since PR 3, `src/simcore/core/deposit.py`) until PR 4 hands the sources to
-  heat's `prepare` (`docs/design/sim_core.md` §7). The shell's
-  interim `Simulation(world)` seam in `src/simcore/core/simulation.py` goes in PR 4, when `Simulation` carries the
-  per-tick digest its strangler tests compare. A third, `place` in
-  `src/simcore/core/imagination.py`, opens it because the `imagine` intent kind doesn't exist yet; step 5a's intent
-  log, where every input joins one pipeline, makes it the applier's stage 2 of that kind.
+- The write window's last owner outside `Simulation.step`, a marked band-aid (`docs/design/boundaries.md` §4.1): `place`
+  in `src/simcore/core/imagination.py` opens it because the `imagine` intent kind doesn't exist yet; step 5a's PR 4b,
+  with the intent log, makes it the applier's stage 2 of that kind. PR 4a moved `World.advance`'s and the applier's
+  windows into the step, made a strike a `Load`, and handed the sources to heat's `prepare`.
 - The SEM membrane applies synchronously with no log, a marked band-aid in `src/simcore/adapters/sem/bridge.py`
   (`docs/design/boundaries.md` §6.4): `phase1/agents` makes `execute` only parse, check the bound actor and append
   the intent to the stepping agent's outbox.

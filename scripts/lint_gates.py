@@ -136,6 +136,11 @@ GATES: dict[str, Gate] = {
     "src/simcore/adapters/sem/bridge.py::RegionInstrument.reading_schema": Gate(_V, _VAL, "no input"),
     "src/simcore/adapters/sem/bridge.py::RegionInstrument.value": Gate(_V, _VAL, "no input"),
     "src/simcore/adapters/sem/bridge.py::RegionInstrument.read": Gate(_V, _SEM, "no input"),
+    # the membrane's write half (sim_core.md §13): an interface its test or host implements; it carries a typed action
+    # stage 1 already parsed, and Simulation.step's batch check and the applier judge it
+    "src/simcore/adapters/sem/bridge.py::Port": Gate(_V, _SEM, "no input"),
+    "src/simcore/adapters/sem/bridge.py::Port.limits": Gate(_V, _SEM, "no input"),
+    "src/simcore/adapters/sem/bridge.py::Port.submit": Gate(_V, _SEM, "no input"),
     "src/simcore/adapters/sem/bridge.py::region_parts": Gate(_V, _ACT, "meets"),
     "src/simcore/adapters/sem/bridge.py::to_maxim_entity": Gate(_V, _ACT, "meets"),
 }

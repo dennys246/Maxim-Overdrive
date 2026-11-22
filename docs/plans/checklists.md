@@ -221,27 +221,27 @@ fails.
 
 - **Deferred from PR 1's review (`reviews/sim_shell/fold.md`), each to the PR that owns it:**
   - PR 2: rewrite CLAUDE.md's "only `World.advance` moves time" and "Time comes from `World.advance`" for `Simulation`.
-  - PR 4: a tick an exception interrupts leaves no half-applied state, once the write window moves into the step
+  - PR 4a: a tick an exception interrupts leaves no half-applied state, once the write window moves into the step
     (`docs/roadmap.md`, Phase 1, names the PR).
-  - PR 4: `(actor_id, seq)` unique across ticks, a receipt id on each outcome, and a validated `TickBatch` built by the
+  - PR 4b: `(actor_id, seq)` unique across ticks, a receipt id on each outcome, and a validated `TickBatch` built by the
     log reader.
 - **Deferred from PR 2's review (`reviews/sim_laws/fold.md`, Exec NIT 5 and Wire N6):**
-  - PR 4: the per-record batch boundary (`sim_core.md` §5.1). A record's stage 2 and its loads are one batch, but
+  - PR 4b: the per-record batch boundary (`sim_core.md` §5.1). A record's stage 2 and its loads are one batch, but
     `physics.resolve_loads` closes one batch per per-record law; the two agree only while stage 2 emits no topology
     requests, and `imagine` as stage 2 will. A test: one record whose stage 2 and load both edit cells bumps
     `topology_version` once.
 - **Deferred from PR 3's review (`reviews/sim_step/fold.md`), each to the PR that owns it:**
-  - PR 4: `source_exposure` as digest member 3 (§9) and in the save, with a save and restore mid-interval (X-B2).
-  - PR 4: a physics step that raises loses its exposure (`Simulation.step` clears it before `advance`); with the
+  - PR 4b: `source_exposure` as digest member 3 (§9) and in the save, with a save and restore mid-interval (X-B2).
+  - PR 4a: a physics step that raises loses its exposure (`Simulation.step` clears it before `advance`); with the
     window in the step it rolls back with the cells, tested beside the interrupted tick above.
-  - PR 4: the scenario tests move from `World`'s 6 s turn to `Simulation`'s 0.5 s step, and bar 2b reruns there.
+  - PR 4a: the scenario tests move from `World`'s 6 s turn to `Simulation`'s 0.5 s step, and bar 2b reruns there.
     The strict red gates it can't hold, and `test_act_validation.py`'s fiercest allowed fire, join bar 2b when their
     gates flip.
-  - PR 4: frames carry their tick (§3); bars 4–7; `World.advance`'s float interval and its exposure's `of_ticks`,
+  - PR 4a: frames carry their tick (§3); bars 5–7 (bar 4, replay, is PR 4b's); `World.advance`'s float interval and its exposure's `of_ticks`,
     which nothing ties together, go with `advance`.
-  - PR 4: heat's `prepare` and `bound_reads`, which take the sources from `World._power_field` (its
+  - PR 4a: heat's `prepare` and `bound_reads`, which take the sources from `World._power_field` (its
     `TEMPORARY(phase1/sim-clock)` marker); bar 5 with them. This is the one statement of where they are deferred.
-  - PR 4, no later than the per-tick digest (owner, 2026-11-22): the face-conductance and `stable_dt` caches per
+  - PR 4a, before the per-tick digest (owner, 2026-11-22): the face-conductance and `stable_dt` caches per
     `topology_version`, each with the rollback eviction the deposit has. Measured at PR 3, without them bar 7 holds at
     0.1 m only by 0.88–0.96×, and the digest's 1.7 ms per writing tick would take it to about 1.1×.
 ## Step 5b, bodies and movement (`tile_and_client.md` §2, §3, §4.1)

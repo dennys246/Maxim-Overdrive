@@ -60,6 +60,12 @@ class SourceExposure:
         self._live: dict[str, tuple[Source, int]] = {key: (sources[key], tick) for key in sorted(sources)}
         self._closed: list[Share] = []  # in the order the values ended, so per key in tick order
 
+    def copy(self) -> SourceExposure:
+        """An independent copy: a tick works on one and keeps it only if the tick commits (sim_core.md §4)."""
+        twin = SourceExposure({}, tick=self._start)
+        twin._live, twin._closed = dict(self._live), list(self._closed)
+        return twin
+
     @property
     def closed(self) -> tuple[Share, ...]:
         """The values that ended inside the current step, sorted by key and then tick (§9 member 3)."""

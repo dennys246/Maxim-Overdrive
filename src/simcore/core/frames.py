@@ -1,7 +1,8 @@
 """Published frames: what observers read instead of the world (boundaries §4.2, B-10; §4.4, B-13).
 
-A frame is an immutable sample of the cells, published after each write window closes, which is after each intent
-application and each advance (and at construction), whether or not the window changed a cell. It holds the
+A frame is an immutable sample of the cells at the end of one tick, stamped with that tick: `Simulation` publishes
+frame 0 at construction and one at the end of each tick that applied a record or ran physics (sim_core.md §4,
+`tile_and_client.md` §4), whether or not it changed a cell. It holds the
 read-only owners of that moment. No window writes an owner in place (``CellStore.writing`` swaps in new ones at exit),
 so a frame is a copy in effect, without copying: a reading taken from it is the same however much later it is taken.
 A test holds that.
@@ -38,7 +39,8 @@ class CellFrame:
     """The cells at one publication: read-only arrays that no window writes again, and the regions of that moment."""
 
     sequence: int  # how many frames this world published before this one
-    time_s: float
+    tick: int  # the tick it was published at the end of; 0 is construction
+    time_us: int  # the tick's end in whole world microseconds: seconds are derived, never stored (sim_core.md §3)
     dx_m: float
     shape: tuple[int, int, int]
     material: npt.NDArray[np.uint8]
@@ -59,15 +61,20 @@ class CellFrame:
             if array.flags.writeable:
                 raise ValueError(f"a frame's {name} must be read-only (simcore.core.readonly.frozen)")
 
+    @property
+    def time_s(self) -> float:
+        return self.time_us / 1_000_000
+
     @classmethod
-    def of(cls, grid: MaterialGrid, sequence: int) -> CellFrame:
+    def of(cls, grid: MaterialGrid, sequence: int, *, tick: int, time_us: int) -> CellFrame:
         """The grid as it is at rest, never inside a window, whose arrays the window goes on writing. The region
         table is copied: the grid's own view of it follows later windows."""
         if grid.is_writing:
             raise WindowClosed("a frame is published at rest, never while the write window is open")
         return cls(
             sequence,
-            grid.time_s,
+            tick,
+            time_us,
             grid.dx,
             grid.shape,
             grid.material,
@@ -88,6 +95,9 @@ class Observation(Protocol):
 
     @property
     def sequence(self) -> int: ...
+
+    @property
+    def tick(self) -> int: ...
 
     @property
     def time_s(self) -> float: ...
@@ -116,6 +126,10 @@ class Frame:
     @property
     def sequence(self) -> int:
         return self.cells.sequence
+
+    @property
+    def tick(self) -> int:
+        return self.cells.tick
 
     @property
     def time_s(self) -> float:
@@ -160,7 +174,7 @@ class FrameView:
 
 
 class FrameFeed:
-    """The latest frame one world published. Only the world holds it; observers get a ``FrameView``."""
+    """The latest frame one simulation published. Only the simulation holds it; observers get a ``FrameView``."""
 
     def __init__(self, first: Frame) -> None:
         self._latest = first
@@ -172,4 +186,6 @@ class FrameFeed:
     def publish(self, frame: Frame) -> None:
         if frame.sequence != self._latest.sequence + 1:
             raise ValueError(f"frame {frame.sequence} does not follow frame {self._latest.sequence}")
+        if frame.tick <= self._latest.tick:  # one frame per tick at most, in tick order (sim_core.md §4)
+            raise ValueError(f"a frame for tick {frame.tick} can't follow tick {self._latest.tick}'s")
         self._latest = frame

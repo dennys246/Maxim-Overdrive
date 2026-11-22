@@ -418,5 +418,21 @@ fires lit at ticks 66 and 69 gave bit-identical states. `source_exposure` (sim_c
 at the end of each tick and deposits each its integer ticks' share; `tests/test_exposure.py` holds it to
 `k · tick_us · power` for k = 1 to 5, a douse, a re-ignite at a new power and a replacement. *Consequence:* the
 stimulus an NPC can sense (a brief flare's heat) exists in the world at all; the per-tick digest and the save must
-carry the exposure too (PR 4), or a replay from a mid-step save would lose it again. For Maxim: none yet; it is the
+carry the exposure too (PR 4b), or a replay from a mid-step save would lose it again. For Maxim: none yet; it is the
 engine's precondition for any stimulus shorter than a physics step reaching the SEM sensors.
+
+### 34. When an agent's action costs world time, the membrane's "read right after execute" is a property of the port (2026-11-22)
+
+**Maxim's tools assume an action's effect is readable the moment `execute` returns; in a stepped world that holds
+only if the port runs a tick for it.** *Evidence:* lesson 23's sensors read back right after `execute`. Before step
+5a's PR 4a the applier opened its own window and published a frame per action, so that held for free. Since PR 4a
+the tick's window is `Simulation.step`'s and a frame is published once per tick (sim_core.md §4), so the bridge
+writes through a submit-and-step `Port` its test or host owns (§13): each `execute` is one record and one tick,
+`tests/test_sem_bridge.py::test_the_membrane_steps_only_through_its_port_one_tick_per_call`. The cost is that world
+time moves one tick per agent call, so a bridge-driven session can't be replayed and no outcome bar may be measured
+through it; every scenario now drives records directly (`tests/test_cross_tier.py`). *Consequence:* `phase1/agents`
+must replace "effect visible at once" with a pending result and the effect in a later frame (boundaries §6.4). For
+Maxim: a tool's result and the world's response to it are different events in a stepped world; Maxim's tool loop
+should read the response from the next observation, not from the tool's return. It sits beside Phase 3's OD-A4 (a
+tool's duration in world time, `docs/roadmap.md`); whether it needs its own Maxim item is asked there when
+`phase1/agents` builds the pending result, after searching Maxim's `origin/main`.

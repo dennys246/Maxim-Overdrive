@@ -304,15 +304,17 @@ CORE_PUBLIC_SURFACE = {
     "simcore.core.schema",  # the format declarations and their one reader, which the file gates and tiers apply
     "simcore.core.digest",  # versioned content digests, which step 5a's log header records
     "simcore.core.fields",  # the field registry, which the membrane, the snapshot and the digest read (sim_core.md §6)
+    "simcore.core.work",  # the work counters every TickReport carries (sim_core.md §10)
 }
-# What the membrane may import from the core (B-13): frames to read, the applier to write, the intents to parse. Not the
-# world: it is handed an applier and a frame view instead (step 3b review, Architecture S1).
+# What the membrane may import from the core (B-13): frames to read, the intents to parse, and the applier's Outcome its
+# port returns. Not the world or the simulation: it is handed a port and a frame view instead (sim_core.md §13).
 MEMBRANE_SURFACE = CORE_PUBLIC_SURFACE - {
     "simcore.core.materials",
     "simcore.core.world",
     "simcore.core.simulation",
     "simcore.core.schema",
     "simcore.core.digest",
+    "simcore.core.work",  # a TickReport is never a stimulus (sim_core.md §4)
 }
 
 

@@ -168,7 +168,7 @@ class LogRecord:
 
     5a's first PR carries world actions only: ``params`` is the typed action, ``target`` the region it acts on. The
     rest of §6.2's record (schema_version, the observed and issued ticks, the audit payload) and the log's file format
-    join in step 5a's PR 4, as fields with their own payload kinds, so this type widens rather than renames."""
+    join in step 5a's PR 4b, as fields with their own payload kinds, so this type widens rather than renames."""
 
     apply_tick: int
     apply_us: int
@@ -179,7 +179,7 @@ class LogRecord:
     params: Action
 
     def __post_init__(self) -> None:
-        # Each is stored back as a plain int, so a numpy integer can't reach the key (it must serialise; PR 4's log).
+        # Each is stored back as a plain int, so a numpy integer can't reach the key (it must serialise; PR 4b's log).
         object.__setattr__(
             self, "apply_tick", _bounded(self.apply_tick, "apply_tick", _I64, minimum=1)
         )  # tick 0 is construction (sim_core.md §3)

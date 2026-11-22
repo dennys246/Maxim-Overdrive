@@ -8,21 +8,23 @@ vocabulary as a body, so a Maxim agent perceives and acts on a wall exactly as i
                 structure.extinguish()
 
 This module is the membrane's gate half (boundaries §2.2, §6.4). It reads the world only through published frames
-(``simcore.core.frames``, B-13) and changes it only through the applier (``simcore.core.applier``); the import
-contracts in ``pyproject.toml`` hold it to that. With pymaxim installed, ``to_maxim_entity`` returns a real
-``maxim.embodiment.sem.Entity``, and Maxim's own tool generation, gating and prompt formatting work on it unchanged.
-Without pymaxim, the same classes run on local stand-ins with the same fields.
+(``simcore.core.frames``, B-13) and changes it only through a ``Port``, which submits a record and steps
+(sim_core.md §13), never holding the simulation; the import contracts in ``pyproject.toml`` hold it to that. With
+pymaxim installed, ``to_maxim_entity`` returns a real ``maxim.embodiment.sem.Entity``, and Maxim's own tool
+generation, gating and prompt formatting work on it unchanged. Without pymaxim, the same classes run on local stand-ins
+with the same fields.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
-from simcore.core.applier import Applier, Outcome
+from simcore.core.applier import Outcome
 from simcore.core.checks import entity_key, shown
 from simcore.core.frames import QUANTITIES, FrameSource
-from simcore.core.intents import AFFORDANCE_OF, ActionRefused, parse_action
+from simcore.core.intents import AFFORDANCE_OF, Action, ActionRefused, parse_action
+from simcore.core.limits import ActionLimits
 from simcore.core.refusals import RefusalCode, Refused, agent_text
 
 if TYPE_CHECKING:
@@ -44,6 +46,17 @@ else:
 
 # Where an Entity came from, as a fixed vocabulary value on the wire, never a module path (boundaries §11.2, W10).
 ENTITY_SOURCE = "overdrive_world"
+
+
+class Port(Protocol):
+    """The membrane's write half (sim_core.md §13): the limits stage 1 parses against, and ``submit``, which turns a
+    typed action on a region into a record and runs one tick for it, returning its outcome. Its test or host owns
+    it; the membrane never holds the simulation."""
+
+    @property
+    def limits(self) -> ActionLimits: ...
+
+    def submit(self, region: str, action: Action) -> Outcome: ...
 
 
 class RegionInstrument:
@@ -103,26 +116,26 @@ _TARGET_RULE = "The target, if given, is this structure itself, by its name; nev
 
 
 class StructureModulator:
-    """What can be done *to* a region: the gate in front of the applier. Time passes only in ``World.advance``.
+    """What can be done *to* a region: the gate in front of the port. Time passes only in ``Simulation.step``.
 
     This is a trust boundary: an NPC's tool call, an LLM's output and a client's intent will all arrive here.
-    ``execute`` parses (stage 1), judges the call's target, then hands the typed action to the applier (stage 2); a
-    refusal at any stage is a failed result and changes nothing.
+    ``execute`` parses (stage 1), judges the call's target, then submits the typed action through the port, whose
+    tick applies it (stage 2); a refusal at any stage is a failed result and changes nothing.
     """
 
     name = "structure"
 
-    def __init__(self, applier: Applier, frames: FrameSource, region: str) -> None:
+    def __init__(self, port: Port, frames: FrameSource, region: str) -> None:
         frame = frames.latest
         if not isinstance(region, str) or region not in frame.region_names:
             raise Refused(f"no region {shown(region)} in this world", code=RefusalCode.NO_REGION)
         if not frame.is_solid(region):
             raise Refused(f"region {shown(region)} is air: there is no structure to act on", code=RefusalCode.NOT_SOLID)
-        self._applier, self._region = applier, region
+        self._port, self._region = port, region
 
     @property
     def affordances(self) -> dict[str, AffordanceSchema]:
-        lim = self._applier.limits
+        lim = self._port.limits
         return {
             "strike": AffordanceSchema(
                 params={"energy_j": float, "sigma_m": (float, lim.default_sigma_m), "point_m": (list, None)},
@@ -162,7 +175,7 @@ class StructureModulator:
         # The affordance is echoed only when it is one of ours: a made-up one is "unknown", never its own text.
         label = affordance if isinstance(affordance, str) and affordance in AFFORDANCE_OF.values() else "unknown"
         try:
-            action = parse_action(affordance, params, self._applier.limits)
+            action = parse_action(affordance, params, self._port.limits)
         except ActionRefused as exc:  # the agent is told the code, never the words (boundaries §5.4)
             return self._result(label, {}, False, exc.agent_text)
         target = params.get("target") if isinstance(params, Mapping) else None
@@ -176,15 +189,16 @@ class StructureModulator:
             # a structure declares no direction for it (OD-C3, OD-A16). On an NPC's per-entity tool, target is
             # undefaulted, so this arises only when the model adds one (step 3b(b) review, Bio S1; delta D4).
             return self._result(label, {}, False, agent_text(RefusalCode.WRONG_TARGET, "target"))
-        # TEMPORARY(phase1/agents): execute applies synchronously and logs nothing (boundaries §6.4). In phase1/agents
-        # it only parses, checks the bound actor and appends the intent to the stepping agent's outbox, returning a
-        # pending, neutral result; the host's step applies it.
-        return self._from(self._applier.apply(self._region, action))
+        # TEMPORARY(phase1/agents): execute submits through a submit-and-step port its test or host owns, so a caller
+        # sees the effect at once: world time advances one tick per call, every physics_every-th call runs physics,
+        # the records aren't logged (a bridge-driven session can't be replayed), and no outcome bar may be measured
+        # through this path (sim_core.md §13). In phase1/agents execute only parses, checks the bound actor and
+        # appends the intent to the stepping agent's outbox, returning a pending, neutral result; the host steps.
+        return self._from(self._port.submit(self._region, action))
 
     def _from(self, outcome: Outcome) -> ModulatorResult:
-        return self._result(
-            outcome.affordance, dict(outcome.params), outcome.success, outcome.agent_text, **outcome.metadata
-        )
+        # No effects: a strike's destroyed volume and absorbed energy are host-side, in the tick's report (§4, §13).
+        return self._result(outcome.affordance, dict(outcome.params), outcome.success, outcome.agent_text)
 
     def _is_namesake(self, target: object) -> bool:
         """A Maxim Entity that shares this region's name but isn't it (an item or an NPC called "crate")."""
@@ -205,22 +219,22 @@ class StructureModulator:
 
 
 def region_parts(
-    applier: Applier, frames: FrameSource, region: str
+    port: Port, frames: FrameSource, region: str
 ) -> tuple[dict[str, RegionInstrument], dict[str, StructureModulator]]:
-    """One region's instruments and modulators, built from the two capabilities the membrane is given: an applier to
-    change the world and a frame view to read it. It never receives the world (step 3b review, Architecture S1)."""
+    """One region's instruments and modulators, built from the two capabilities the membrane is given: a port to
+    change the world and a frame view to read it. It never receives the simulation (step 3b review, Architecture S1)."""
     sensors = {q: RegionInstrument(frames, region, q) for q in QUANTITIES}
     # An air region (a room, a doorway) is sensed, but it has no structure: nothing to strike or set alight.
     solid = frames.latest.is_solid(region)
-    modulators = {"structure": StructureModulator(applier, frames, region)} if solid else {}
+    modulators = {"structure": StructureModulator(port, frames, region)} if solid else {}
     return sensors, modulators
 
 
-def to_maxim_entity(applier: Applier, frames: FrameSource, region: str, entity_type: str = "structure") -> Entity:
+def to_maxim_entity(port: Port, frames: FrameSource, region: str, entity_type: str = "structure") -> Entity:
     """A real Maxim Entity for one region, from the membrane's two capabilities. Requires pymaxim."""
     if not HAVE_MAXIM:
         raise RuntimeError("pymaxim is not installed: pip install 'maxim-overdrive[maxim]'")
-    sensors, modulators = region_parts(applier, frames, region)
+    sensors, modulators = region_parts(port, frames, region)
     return Entity(
         region,
         entity_type,

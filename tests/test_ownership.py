@@ -21,12 +21,13 @@ import pytest
 
 from maxim_overdrive import data
 from simcore.adapters.sem.bridge import region_parts
-from simcore.core.applier import Applier
+from simcore.core.intents import Extinguish, Ignite, Strike
 from simcore.core.readonly import frozen
 from simcore.core.scene import Box, Scene, constructing
 from simcore.core.world import HeatSource, World
 from simcore.core.writers import WindowClosed
 from tests._cells import as_law, name_region, paint
+from tests._sim import SteppingPort, make, record, ticks, world_of
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -38,8 +39,12 @@ SCENE = Scene(
 )
 
 
+def _sim():
+    return make(SCENE, MATERIALS, dx_m=0.2, limits=LIMITS)
+
+
 def _world() -> World:
-    return World.from_scene(SCENE, MATERIALS, dx_m=0.2, limits=LIMITS)
+    return world_of(_sim())
 
 
 def _surfaces(w: World) -> Iterator[tuple[str, np.ndarray]]:
@@ -116,14 +121,14 @@ def test_the_region_table_and_the_sources_are_read_only_mappings():
 def test_a_handle_or_view_unlocked_inside_a_window_and_written_after_it_closes_changes_nothing():
     # The scenario that broke a flag-based window (foundations DR-B4): a view that re-enables itself inside the
     # window stays writable after it, so a guard proven only with the window closed would pass while failing.
-    w = _world()
-    g = w.grid
+    sim = _sim()
+    g = world_of(sim).grid
     with constructing(g):
         handle = g.temperature
         view = g.temperature[1:3]
         view.flags.writeable = True
         assert handle.flags.writeable
-    frame = w.frames.latest
+    frame = sim.frames.latest
     before = g.temperature.copy()
     handle[:] = 999.0  # the old handles are still writable, but nothing reads them any more
     view[:] = 999.0
@@ -136,31 +141,29 @@ def test_one_window_at_a_time_and_none_at_rest():
     with g.writing(writer=None), pytest.raises(WindowClosed, match="one owner at a time"), g.writing(writer=None):
         pass  # pragma: no cover - the nested window is refused before its body runs
     with pytest.raises(WindowClosed, match="only inside the write window"):
-        g.time_us = 5_000_000
-    with pytest.raises(WindowClosed, match="only inside the write window"):
         name_region(g, "x", g.regions["crate"].cells, g.regions["crate"].footprint, solid=True)
 
 
 def _write_everything_then_fail(w: World) -> None:
     g = w.grid
-    with w.writing() as sources:  # each write as its owner does it: heat's field as heat, the paint through Topology
+    with w.writing(cells=True) as sources:  # each write as its owner does it: heat's as heat, the paint by Topology
         as_law(g, lambda grid: grid.temperature.fill(500.0))
         paint(g, g.regions["crate"].cells, "air")
-        g.time_us = 60_000_000
         sources["fire:crate"] = HeatSource((1.5, 1.5, 0.3), 0.3, 1.0)
         raise RuntimeError("midway")
 
 
 def test_a_window_that_raises_changes_nothing():
-    w = _world()
+    sim = _sim()
+    w = world_of(sim)
     g = w.grid
-    before = (g.temperature.copy(), dict(g.regions), g.time_s, dict(w.sources), w.frames.latest)
+    before = (g.temperature.copy(), dict(g.regions), dict(w.sources), sim.frames.latest)
     with pytest.raises(RuntimeError, match="midway"):
         _write_everything_then_fail(w)
     assert np.array_equal(g.temperature, before[0])
     assert _same_regions(g.regions, before[1])
-    assert (g.time_s, dict(w.sources)) == before[2:4]
-    assert w.frames.latest is before[4]
+    assert dict(w.sources) == before[2]
+    assert sim.frames.latest is before[3]
     assert not g.temperature.flags.writeable  # and the owners are read-only again
 
 
@@ -175,21 +178,21 @@ def _same_regions(a, b) -> bool:
 def test_the_sources_stay_read_only_after_an_ignite_and_a_dict_kept_past_its_window_changes_nothing():
     # Step 3b review, Executor S1: the window committed the very dict its caller held, so a write after the window
     # closed lit a fire no applier had lit, with no frame published.
-    w = _world()
-    _, crate = region_parts(Applier(w), w.frames, "crate")
-    assert crate["structure"].execute("ignite", {"power_w": 1000.0}).success
+    sim = _sim()
+    w = world_of(sim)
+    assert sim.step([record(Ignite(1000.0, 0.3), "crate", tick=1)]).outcomes[0].success
     with pytest.raises(TypeError):
         w.sources["fire:x"] = HeatSource((1.5, 1.5, 0.3), 0.3, 1e6)  # type: ignore[index]
-    with w.writing() as kept:
+    with w.writing(cells=False) as kept:
         pass
     kept["fire:x"] = HeatSource((1.5, 1.5, 0.3), 0.3, 1e6)
     assert set(w.sources) == {"fire:crate"}
-    w.advance()
+    ticks(sim, 4)  # through a physics tick
     assert "fire:x" not in w.sources
 
 
 def _heat_and_light(w: World) -> None:
-    with w.writing() as sources:
+    with w.writing(cells=True) as sources:
         as_law(w.grid, lambda grid: grid.temperature.fill(99.0))
         sources["fire:x"] = HeatSource((1.5, 1.5, 0.3), 0.3, 1.0)
 
@@ -197,9 +200,10 @@ def _heat_and_light(w: World) -> None:
 def test_a_failure_while_the_window_closes_rolls_it_back_and_leaves_the_owners_read_only(monkeypatch):
     # Step 3b review, Architecture S2: the freeze at exit sat outside the rollback, so a MemoryError there left the
     # window's writable copies as the world's arrays, committed and unpublished.
-    w = _world()
+    sim = _sim()
+    w = world_of(sim)
     g = w.grid
-    before = (g.temperature.copy(), w.frames.latest, dict(w.sources))
+    before = (g.temperature.copy(), sim.frames.latest, dict(w.sources))
     real, calls = frozen, []
 
     def fails_second(arr):
@@ -216,7 +220,7 @@ def test_a_failure_while_the_window_closes_rolls_it_back_and_leaves_the_owners_r
     with pytest.raises(ValueError, match="read-only"):
         g.temperature[0, 0, 0] = 5.0
     assert np.array_equal(g.temperature, before[0])
-    assert (w.frames.latest, dict(w.sources)) == before[1:]
+    assert (sim.frames.latest, dict(w.sources)) == before[1:]
 
 
 def test_a_region_table_taken_before_a_failed_window_still_shows_the_table_before_it():
@@ -233,15 +237,16 @@ def test_a_window_that_changes_only_the_sources_copies_no_cells_but_still_publis
     # Step 3b review, Architecture S5: ignite and extinguish copied every channel twice for a change no frame carries.
     # Delta review, Architecture D2: they still publish, so every application has its after-frame (lesson 23: Maxim's
     # sensors read back right after execute). A frame holds the immutable owners, so republishing copies nothing.
-    w = _world()
+    sim = _sim()
+    w = world_of(sim)
     owners = w.grid.temperature
-    first = w.frames.latest
-    _, crate = region_parts(Applier(w), w.frames, "crate")
-    assert crate["structure"].execute("ignite", {"power_w": 1000.0}).success
+    first = sim.frames.latest
+    _, crate = region_parts(SteppingPort(sim), sim.frames, "crate")
+    assert crate["structure"].execute("ignite", {"power_w": 1000.0}).success  # ticks 1 and 2: neither is physics
     assert crate["structure"].execute("extinguish", {}).success
     assert w.grid.temperature is owners
-    assert w.frames.latest.sequence == first.sequence + 2
-    assert w.frames.latest.cells.temperature is first.cells.temperature
+    assert sim.frames.latest.sequence == first.sequence + 2
+    assert sim.frames.latest.cells.temperature is first.cells.temperature
 
 
 def test_the_grid_window_and_the_sources_window_share_one_owner():
@@ -257,11 +262,10 @@ def test_the_grid_window_and_the_sources_window_share_one_owner():
 
 
 def _ignite_inside_a_failing_grid_window(w: World) -> None:
-    from simcore.core.intents import Ignite  # noqa: PLC0415
-
     with constructing(w.grid):
         w.grid.temperature[:] = 500.0
-        Applier(w).apply("crate", Ignite(1000.0, 0.3))  # a second owner: refused, so the grid window raises
+        with w.writing(cells=False) as sources:  # a second owner: refused, so the grid window raises
+            sources["fire:crate"] = HeatSource((1.5, 1.5, 0.3), 0.3, 1000.0)  # pragma: no cover - refused first
         raise AssertionError("the nested window was not refused")  # pragma: no cover - reached only if the guard fails
 
 
@@ -360,6 +364,9 @@ def writers(rel: str, source: str) -> set[str]:
                 walk(node.body, f"{prefix}{node.name}.")
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 scan = _Writes()
+                # A parameter named sources is the open window's table, handed down (PR 4a: the applier's).
+                params = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+                scan.aliases |= {a.arg for a in params if a.arg == "sources"}
                 for stmt in node.body:
                     scan.visit(stmt)
                 if scan.writes:
@@ -405,6 +412,8 @@ def test_every_function_that_writes_the_world_is_in_the_core():
         "def f(w):\n    w.sources.pop('fire:x')\n",
         "def f(w):\n    with w.writing() as s:\n        s['fire:x'] = 1\n",
         "def f(w):\n    with w.writing() as s:\n        del s['fire:x']\n",
+        "def f(sources):\n    sources['fire:x'] = 1\n",  # the window's table, handed down (PR 4a)
+        "class C:\n    def f(self, region, *, sources):\n        del sources['fire:x']\n",
         "class C:\n    def f(self):\n        self._sources = {}\n",
         "class C:\n    def f(self):\n        self._channels, self._open = {}, True\n",
         "def f(g):\n    g.regions['x'].cells[:] = False\n",
@@ -432,14 +441,12 @@ def test_the_writer_scan_ignores(source):
 
 # -- who opens the window (boundaries §4.1) ----------------------------------------------------------------------------
 
-# The window's owners, each with its reason. World.advance and the applier carry band-aid markers scheduled for
-# phase1/sim-clock: both move into Simulation.step. World.writing is the world's window itself (it opens the grid's).
+# The window's owners, each with its reason. Since PR 4a the tick's one window is Simulation.step's (sim_core.md §4,
+# §13): the apply phase and physics both run inside it. World.writing is the world's window itself (it opens the
+# grid's).
 WINDOW_OWNERS = {
-    "simcore/core/world.py::World.advance": "the laws, during advance",
+    "simcore/core/simulation.py::Simulation._run": "the tick's one window: its records, then physics",
     "simcore/core/world.py::World.writing": "the world's window opens the grid's",
-    "simcore/core/applier.py::Applier._strike": "intent application: strike",
-    "simcore/core/applier.py::Applier._ignite": "intent application: ignite",
-    "simcore/core/applier.py::Applier._extinguish": "intent application: douse",
     "simcore/core/scene.py::constructing": "construction (Scene.build is its shipped caller)",
     "simcore/core/imagination.py::_voxelize": "place, under a phase1/sim-clock marker: imagine has no intent kind yet",
 }
@@ -471,19 +478,23 @@ def test_only_the_named_owners_open_the_write_window():
     assert found == set(WINDOW_OWNERS)
 
 
-def test_the_shipped_path_publishes_a_frame_after_each_application_and_each_advance():
-    w = _world()
-    _, crate = region_parts(Applier(w), w.frames, "crate")
-    seen = [w.frames.latest.sequence]
-    assert crate["structure"].execute("ignite", {"power_w": 1000.0}).success
-    seen.append(w.frames.latest.sequence)
-    w.advance()
-    seen.append(w.frames.latest.sequence)
-    assert crate["structure"].execute("strike", {"energy_j": 1e5}).success
-    seen.append(w.frames.latest.sequence)
-    assert not crate["structure"].execute("strike", {"energy_j": -1.0}).success  # a refusal publishes nothing
-    seen.append(w.frames.latest.sequence)
-    assert seen == [0, 1, 2, 3, 3]  # every application and advance publishes; a refusal publishes nothing
+def test_the_shipped_path_publishes_one_frame_per_tick_with_a_record_or_physics():
+    # sim_core.md §4 (tile_and_client.md §4's cases): a record's tick publishes, a refusal-only tick too, a physics
+    # tick does, and a quiet tick doesn't. Before PR 4a a frame followed each window and a refusal published nothing.
+    sim = _sim()
+    seen = [sim.frames.latest.sequence]
+    assert sim.step([record(Ignite(1000.0, 0.3), "crate", tick=1)]).outcomes[0].success
+    seen.append(sim.frames.latest.sequence)
+    ticks(sim, 3)  # ticks 2 to 4: quiet
+    seen.append(sim.frames.latest.sequence)
+    ticks(sim, 1)  # tick 5: physics
+    seen.append(sim.frames.latest.sequence)
+    assert sim.step([record(Strike(1e5, LIMITS.default_sigma_m, None), "crate", tick=6)]).outcomes[0].success
+    seen.append(sim.frames.latest.sequence)
+    assert not sim.step([record(Extinguish(), "wall", tick=7)]).outcomes[0].success  # nothing burns on the wall
+    seen.append(sim.frames.latest.sequence)
+    assert seen == [0, 1, 1, 2, 3, 4]
+    assert sim.frames.latest.tick == 7
 
 
 # -- the membrane and the protocol reach the world only through their capabilities (step 3b review, Arch S1, Exec S2)
@@ -627,14 +638,14 @@ def test_nothing_outside_the_core_imports_a_forbidden_module_through_an_allowed_
     "line",
     [
         "from simcore.core.frames import MaterialGrid",
-        "from simcore.core.applier import physics",
+        "from simcore.core.simulation import Physics",
         "from simcore.core.frames import reductions, QUANTITIES",
         "import simcore.core.frames as fr\nx = fr.reductions.region_breached",
-        "from simcore.core import applier\nx = applier.physics.damage.LOADS",
+        "from simcore.core import applier\nx = applier.Load",
         "from simcore.core import frames as f\nx = f.reductions.region_integrity",
-        "import simcore.core.world\nx = simcore.core.world.physics.run_physics",
+        "import simcore.core.simulation\nx = simcore.core.simulation.Physics.run",
         "import simcore\nx = simcore.core.frames.reductions.region_breached",  # delta 2, Architecture D1
-        "from simcore import core\nx = core.applier.physics.strike",
+        "from simcore import core\nx = core.simulation.Physics",
     ],
 )
 def test_the_reexport_scan_catches(line):

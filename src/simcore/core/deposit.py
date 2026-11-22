@@ -63,16 +63,17 @@ class Deposit:
     """The sources' power per cell, with sim_core.md §7's caches: each source's overlap per ``(point_m, radius_m)``
     (the grid's spacing and shape are fixed), and its solid-weighted weights and their sum per ``(point_m, radius_m,
     topology_version)``. Each call keeps only the entries the current sources need, and a window that rolls back
-    empties them (it restores ``topology_version``, so a later edit could reach a version an entry already names), so
-    the caches' contents are a function of state."""
+    empties them through `forget` (it restores ``topology_version``, so a later edit could reach a version an entry
+    already names): the caches' contents are a function of state."""
 
     def __init__(self, grid: MaterialGrid) -> None:
         self._grid = grid
         self._overlaps: dict[tuple[Point, float], tuple[Box, Field]] = {}
         self._weights: dict[tuple[Point, float, int], Weights] = {}
-        grid.on_roll_back(self._forget)
+        self.rebuilds = 0  # overlaps and weights built, a work counter (sim_core.md §10)
 
-    def _forget(self) -> None:
+    def forget(self) -> None:
+        """Drop every entry: the owner's rollback listener calls this (heat's state, sim_core.md §7)."""
         self._overlaps, self._weights = {}, {}
 
     def power(self, shares: Sequence[Share], of_ticks: int) -> Field | None:
@@ -82,7 +83,7 @@ class Deposit:
         (PR 3 review, Performance N2). Accumulated in the order given, which the caller sorts by key and then tick;
         None when there are no shares."""
         if not shares:
-            self._forget()
+            self.forget()
             return None
         power = np.zeros(self._grid.shape, dtype=np.float64)
         overlaps: dict[tuple[Point, float], tuple[Box, Field]] = {}
@@ -91,9 +92,9 @@ class Deposit:
         for share in shares:
             src, ticks = share.source, share.ticks
             shape = (src.point_m, src.radius_m)
-            overlaps[shape] = self._overlaps.get(shape) or self._overlap(src)
+            overlaps[shape] = overlaps.get(shape) or self._overlaps.get(shape) or self._overlap(src)
             wkey = (src.point_m, src.radius_m, version)
-            weights[wkey] = self._weights.get(wkey) or self._normalised(src, overlaps[shape])
+            weights[wkey] = weights.get(wkey) or self._weights.get(wkey) or self._normalised(src, overlaps[shape])
             box, w, total = weights[wkey]
             # This order of operations, so the field is the reference's bits: a share that stood the whole step has
             # the fraction 1.0 exactly, and multiplying by it changes no bit.
@@ -102,10 +103,12 @@ class Deposit:
         return power
 
     def _overlap(self, src: Source) -> tuple[Box, Field]:
+        self.rebuilds += 1
         box = bounding_box(self._grid, src.point_m, src.radius_m)  # cached entries are frozen: every hit shares them
         return box, frozen(sphere_overlap(self._grid, src.point_m, src.radius_m, box))
 
     def _normalised(self, src: Source, overlap: tuple[Box, Field]) -> Weights:
+        self.rebuilds += 1
         box, frac = overlap
         on_solid = frac * self._grid.solid[box]
         weights = on_solid if on_solid.sum() > 0 else frac

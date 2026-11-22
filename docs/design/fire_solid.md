@@ -151,7 +151,7 @@ Each consumer that asks "is something here", read at 396ae10:
 | `grid.Region.solid` | set once: at `paint` (`solid=mid != AIR_ID`), or `True` when imagined | unchanged |
 | `applier._check_region` | refuses unknown, `not solid` ("is air"), `not cells.any()` ("is gone") | refuses `fuel_only_region` first |
 | `applier._on_region` | strike-point ownership from footprints and others' `solid`; refuses nothing | unchanged; no fuel sits in a solid footprint |
-| `World._power_field` | `frac * grid.solid`, falling back to air (Known gap) | unchanged; guarded (§3.1) |
+| `Deposit` | `frac * grid.solid`, falling back to air (Known gap) | unchanged; guarded (§3.1) |
 | `bridge.region_parts`, `StructureModulator` | `frame.is_solid`; an instrument per `QUANTITIES` entry; `strike`, `ignite`, `extinguish` | `region_parts` refuses an object-only region; affordances pinned |
 | `frames.Frame.reading` | cell reductions; `region_integrity` is 0.0 with no solid cells | refuses an object-only region, never 0.0 |
 | `Frame.is_solid`, `Observation.is_solid`, `CellFrame.solid` | cells | unchanged |
@@ -168,7 +168,7 @@ Each consumer that asks "is something here", read at 396ae10:
 
 **Every exposed object surface loses h_c(T_s − T∞) + εσ(T_s⁴ − T∞⁴) to the ambient reservoir:** tile 6a (§1.2,
 §5.2) on object surfaces, booked as tile §5.4's `open_air_loss`. Nothing an object loses enters an air cell.
-- **Why:** Phase 1 air has no advection, so heat put into it pools by an amount set by dx. `World._power_field`
+- **Why:** Phase 1 air has no advection, so heat put into it pools by an amount set by dx. `Deposit`
   refuses air for the same reason. For a cone sample the rule is literally true.
 - **It is permanent for Phase 1,** a Known gap rather than a `TEMPORARY` marker, recorded in `docs/architecture.md`
   in 6.0b's commit with its costs:
@@ -179,7 +179,7 @@ Each consumer that asks "is something here", read at 396ae10:
 - **The plume** leaves the open-topped alley (tile §1.2). Preheating from hot gas would be a new law 6.2 may design,
   not a stub it owes.
 - **The guard:** a test sums each law's power into `material == AIR_ID` cells and requires zero, except
-  `_power_field`'s fallback, whose Known gap has its strict red gate
+  `Deposit`'s fallback, whose Known gap has its strict red gate
   (`tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`). Sending an object's loss to its
   cells turns it red.
 

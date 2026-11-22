@@ -19,13 +19,13 @@ from typing import Protocol
 import numpy as np
 import numpy.typing as npt
 
-from simcore.core.checks import MAXIM_TARGET_ALIASES, entity_key, finite_real, shown, whole_number
+from simcore.core.checks import MAXIM_TARGET_ALIASES, entity_key, finite_real, shown
 from simcore.core.materials import AIR_ID, MaterialTable
 from simcore.core.readonly import frozen
 from simcore.core.refusals import RefusalCode, Refused
 from simcore.core.schema import Text
 from simcore.core.window import WindowOwner
-from simcore.core.writers import Gate, UndeclaredWriter, WindowClosed, WriterToken
+from simcore.core.writers import Gate, WindowClosed, WriterToken
 
 # The one rule for a region's name, whoever names it (a scene file, an imagined object, code): printable, bounded,
 # and never a name Maxim resolves to the agent itself (step 3b(b) delta review, D-S1, D-S2).
@@ -156,7 +156,7 @@ class GridGeometry:
 
 
 # What a cell window's rollback restores: the channels, the region table, the clock and the topology version.
-_Saved = tuple[dict[str, npt.NDArray[np.generic]], dict[str, "Region"], int, int]
+_Saved = tuple[dict[str, npt.NDArray[np.generic]], dict[str, "Region"], dict[str, int], int]
 
 
 class CellStore(WindowOwner[_Saved]):
@@ -198,7 +198,9 @@ class CellStore(WindowOwner[_Saved]):
         # Inside a window that paints: each region's writable mask, and its footprint and solidity, in table order.
         self._masks: dict[str, Mask] | None = None
         self._meta: dict[str, tuple[Footprint, bool]] = {}
-        self._time_us = 0  # world time in whole microseconds: time is never stored as a float (sim_core.md §3)
+        # How many times each field may have changed: a cache keyed on a law's bound_reads reads these (sim_core.md
+        # §7). Bumped for each narrowed block a field was handed writable in, and for each edit that changed it.
+        self._versions: dict[str, int] = dict.fromkeys(self._channels, 0)
 
     def _channel(self, name: str) -> npt.NDArray[np.generic]:
         """The field's array: writable inside the window only for a writer the registry declares for it, and for
@@ -217,6 +219,13 @@ class CellStore(WindowOwner[_Saved]):
         if view is None:
             view = self._views[name] = frozen(arr)
         return view
+
+    def field_version(self, name: str) -> int:
+        """A count that moves whenever ``name``'s values may have changed, and never otherwise; a window's rollback
+        restores it. Equal versions mean equal values, so a cache keyed on them is a function of state."""
+        if name == "regions":  # the table moves only in Topology's batches, which bump the topology version
+            return self._topology_version
+        return self._versions[name]
 
     @property
     def topology_version(self) -> int:
@@ -240,6 +249,7 @@ class CellStore(WindowOwner[_Saved]):
                 for name in self._handed:
                     self._channels[name] = self._channels[name].copy()
                     self._views.pop(name, None)
+                    self._versions[name] += 1
                 self._handed.clear()
 
     def _require_window(self, what: str) -> None:
@@ -267,22 +277,6 @@ class CellStore(WindowOwner[_Saved]):
         if self._open:
             self._gate.require_read("regions")
         return MappingProxyType(self._region_table())
-
-    @property
-    def time_s(self) -> float:
-        """World time in seconds, derived from the whole microseconds it is stored as, never accumulated."""
-        return self._time_us / 1_000_000
-
-    @property
-    def time_us(self) -> int:
-        return self._time_us
-
-    @time_us.setter
-    def time_us(self, value: int) -> None:
-        self._require_window("the clock")
-        if self._gate.narrowed:
-            raise UndeclaredWriter("time moves in the orchestrator, never inside a writer's block")
-        self._time_us = whole_number(value, "time_us")
 
     def _window_table(self) -> tuple[dict[str, Mask], dict[str, tuple[Footprint, bool]]]:
         """This window's changed region masks (writable, narrowed in place) and every region's footprint and
@@ -322,7 +316,7 @@ class CellStore(WindowOwner[_Saved]):
 
     def _open_window(self, writer: WriterToken | None) -> _Saved:
         self._gate.open(writer)
-        saved = (self._channels, self._regions, self._time_us, self._topology_version)
+        saved = (self._channels, self._regions, dict(self._versions), self._topology_version)
         self._channels, self._masks = {name: arr.copy() for name, arr in self._channels.items()}, None
         self._views.clear()
         return saved
@@ -337,7 +331,7 @@ class CellStore(WindowOwner[_Saved]):
         return install
 
     def _roll_back(self, saved: _Saved) -> None:
-        self._channels, self._regions, self._time_us, self._topology_version = saved
+        self._channels, self._regions, self._versions, self._topology_version = saved
 
     def _close_window(self) -> None:
         self._masks, self._views = None, {}
@@ -467,9 +461,11 @@ class MaterialGrid(GridGeometry, CellStore):
         whether any value changed: a batch moves ``topology_version`` only if it changed a value (sim_core.md §5.1)."""
         changed = False
         for name, value in values:
-            changed = changed or bool((self._channels[name][mask] != value).any())
+            differs = bool((self._channels[name][mask] != value).any())
             self._channels[name][mask] = value  # in place, through the owner's dict: the writer scan sees it
             self._views.pop(name, None)
+            self._versions[name] += differs
+            changed = changed or differs
         return changed
 
     def _require_edit(self, what: str, *fields: str) -> None:

@@ -50,17 +50,17 @@ How the rule is kept, so far:
 
 **Known gaps (tracked, not gated yet):**
 - NPC inference (no streaming yet, load versus failure, first hops, spend): `docs/design/inference_placement.md` §6.3.
-- Late in a burn the coarsest rig lags (crate integrity 0.539 at 0.2 m vs 0.370 and 0.381 at 0.1 and 0.05 m after 150
-  turns): a coarse cell degrades as one block. Onset agrees to within 5%. It falls below 0.7 at turn 137 at 0.2 m
-  against 104 at 0.1 m (one substep per 6 s turn, 2026-11-22). Red gate: `tests/test_cross_tier.py::test_the_crate_is_badly_burned_at_the_same_turn_at_every_rig`.
+- Late in a burn the coarsest rig lags (crate integrity 0.550 at 0.2 m vs 0.370 at 0.1 m after 900 s): a coarse
+  cell degrades as one block. Onset agrees to within 5%. It falls below 0.7 at 830 s at 0.2 m against 629.5 s at
+  0.1 m (31.9%, the bar 15%; 2026-11-22). Red gate: `tests/test_cross_tier.py::test_the_crate_is_badly_burned_at_the_same_time_at_every_rig`.
 - No convection or radiation: air only conducts, so rooms heat too slowly and fires must sit on a material.
 - Destroying a cell removes its heat (it becomes air at air's heat capacity). Measured: a 5.4-minute crate-and-pallet
   burn lost 42.2 of 84.0 MJ to 14 destroyed cells (commit 6e8f037).
-- **Fires don't consume fuel: once nothing solid is left under a fire, it heats air.** `World._power_field` spreads a
+- **Fires don't consume fuel: once nothing solid is left under a fire, it heats air.** Heat's deposit spreads a
   fire's power over the solid cells its sphere overlaps, and falls back to the air cells when there are none. Air has
   about 1/1000 of wood's ρc, so the runaway is enormous. On the 3×3×2 m crate scene at 500 kW, radius 0.3 m: the
-  crate is gone by turn 50 at 0.2 m cells, and the peak is 207,350 °C at turn 50 and 2.67 million °C at turn 200;
-  at 0.1 m it is 361,913 °C at turn 50 and 2.67 million °C at turn 200. The snapshot clamps at 6000 °C; the heat
+  crate goes and a cell passes 2000 °C at 243 s at 0.2 m (201.5 s at 0.1 m); peaks reach 423,810 and 578,046 °C by
+  360 s (2026-11-22). The snapshot clamps at 6000 °C; the heat
   still conducts. The fix is a fire that goes out
   when it has nothing to burn. It blocks the exit test's "burn away", so it lands before the tile's crate scenario
   is gated. Red gate: `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`
@@ -68,16 +68,16 @@ How the rule is kept, so far:
   *Fixed 2026-11-15, the other half:* power went into cells destroyed mid-turn (16,619 °C by turn 30); it is now
   recomputed after any substep that destroys cells (peaks 538 °C at 0.2 m, 613 °C at 0.1 m). Guards: `tests/test_heat.py::test_a_cell_destroyed_mid_turn_gets_no_more_source_power`
   and `tests/test_cross_tier.py::test_a_fierce_fire_never_heats_any_cell_past_the_flame_temperature`.
-- **A source smaller than a cell heats one cell.** `World._power_field` puts all of a sub-cell source's power into
+- **A source smaller than a cell heats one cell.** Heat's deposit puts all of a sub-cell source's power into
   the cell it sits in, so total power is right but its density is P/dx³: 64× higher at 0.05 m cells than at 0.2 m.
   Peak temperature near a spark therefore depends on the rig. *Closed for actions (2026-11-15):* an `ignite` must
   have a radius of at least 0.3 m and a `strike` a width of at least 0.2 m, the coarsest rig's cell
   (`data/world/actions.yaml`, held by `tests/test_act_validation.py`). A `HeatSource` built directly in code can
   still be smaller.
 - **Fires diverge across rigs mid-burn, so fire outcomes don't yet keep the verification rule.** Measured at the
-  largest fire actions allow (500 kW, 0.3 m radius) on the 3×3×2 m crate scene, recording crate integrity every
-  turn: the spread across laptop / rig / max exceeds 0.1 on every turn from 18 to 27 and peaks at 0.19 at turn 22
-  (0.70 / 0.57 / 0.51). It narrows near turn 30 only because the curves cross, and from about turn 30 the fuel gap
+  largest fire actions allow (500 kW, 0.3 m radius) on the 3×3×2 m crate scene, recording crate integrity every 6 s:
+  the 0.2 and 0.1 m spread first exceeds 0.1 at 114 s (0.743 / 0.630) and peaks at 0.259 (2026-11-22; the 0.19
+  recorded before was stale). Older three-rig figures: It narrows near turn 30 only because the curves cross, and from about turn 30 the fuel gap
   takes over (at 40 turns, integrity 0.02 / 0.26 / 0.34 and peaks of 620 / 1.4×10⁵ / 1.4×10⁵ °C). Smaller radii or
   more power diverge sooner: at a 0.2 m radius the onsets are 11 / 8 / 7, and at 1 MW integrity at turn 30 is
   0.00 / 0.26 / 0.34. `temperature_max` diverges too (540 / 614 / 978 °C at turn 27). **The cause is measured:**
@@ -153,7 +153,7 @@ words and changes nothing. The physics checks again underneath: `HeatSource` and
 and negative values, whoever calls them. The limits are physics-safety ceilings, not what a body can do; an NPC's
 capability will come from its body and energy (`docs/roadmap.md`, Phase 5).
 
-Actions change cells; only `World.advance` moves time.
+Actions change cells; only `Simulation.step` moves time.
 
 ## Fine-scale state drives graphics
 

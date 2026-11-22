@@ -2,6 +2,10 @@
 `step`. Not a law itself: the laws (`heat`, `damage`) import this, and no law imports another (§5.1, held by the
 `laws-independent` import contract), so what two laws share lives here.
 
+A law's state is its caches (sim_core.md §7): built once at construction, at rest (`new_state`), handed to its
+`prepare`, `stable_dt` and `step`, and told to forget when a window rolls back. A law holds no state of its own, so one
+law object serves every simulation.
+
 A law writes only as itself, and never narrows itself: the orchestrator runs `step` narrowed to the law's token
 (`simcore.core.physics.run_law`), so the window refuses a read of a field outside `reads` and a write to a field the
 registry doesn't list the law as a writer of (`simcore.core.fields`), and revokes the law's writable arrays when its
@@ -10,11 +14,13 @@ step ends. World edits are requests in `Changes`, which Topology applies per bat
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Protocol
 
 from simcore.core.checks import finite_real, finite_vector
+from simcore.core.exposure import Exposure
 from simcore.core.grid import Field, MaterialGrid, Point
 from simcore.core.topology import Request
 
@@ -76,6 +82,31 @@ class Changes:
     effects: tuple[LoadEffect, ...] = ()
 
 
+class LawState(Protocol):
+    """A law's caches for one simulation (sim_core.md §7): each a function of the state it was built from."""
+
+    def forget(self) -> None:
+        """Drop everything: a window rolled back, restoring versions a different later edit could reach again."""
+        ...
+
+    def builds(self) -> Mapping[str, int]:
+        """How many times each cache has been built, by cache name: a work counter (sim_core.md §10)."""
+        ...
+
+
+class Stateless:
+    """The state of a law that caches nothing."""
+
+    def forget(self) -> None:
+        return None
+
+    def builds(self) -> Mapping[str, int]:
+        return {}
+
+
+STATELESS = Stateless()
+
+
 class Law(Protocol):
     """A member of the declared law tuple (§5), whatever its cadence."""
 
@@ -94,10 +125,26 @@ class Law(Protocol):
     @property
     def writes(self) -> tuple[str, ...]: ...
 
-    def stable_dt(self, grid: MaterialGrid) -> float:
-        """The longest stable step for this law on the grid as it stands, in seconds; infinity if unconditional."""
+    @property
+    def bound_reads(self) -> tuple[str, ...]:
+        """The fields `stable_dt` reads, a declared subset of ``reads``: the orchestrator caches the bound on their
+        versions (sim_core.md §5, §7), so a bound that reads anything else would be served stale."""
         ...
 
-    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs) -> Changes:
+    def new_state(self, grid: MaterialGrid) -> LawState:
+        """This law's caches for ``grid``, built at construction, at rest."""
+        ...
+
+    def prepare(self, grid: MaterialGrid, state: LawState, exposure: Exposure) -> LawInputs:
+        """A per-substep law's inputs for the substeps until the next refresh, inside the window: every
+        order-sensitive reduction is here (sim_core.md §5). ``exposure`` is the step's source shares (§3)."""
+        ...
+
+    def stable_dt(self, grid: MaterialGrid, state: LawState) -> float:
+        """The longest stable step for this law on the grid as it stands, in seconds; infinity if unconditional.
+        Reads only ``bound_reads``."""
+        ...
+
+    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs, state: LawState) -> Changes:
         """Advance this law by ``dt_s`` (or resolve its inputs, for a per-record law), inside the window."""
         ...
