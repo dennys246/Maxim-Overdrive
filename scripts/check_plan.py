@@ -3,8 +3,9 @@
 It checks presence, not truth: each id and question must appear in docs/plans/foundations_plan.md, and a reviewer
 still checks that the plan states each one correctly. Sources:
 
-- decision ids (``O12``, ``O11a``, ``OA3``) and Phase 3 ids (``OD-A17``) from the design documents and the roadmap,
-  world-model decisions (``D26``) from ``world_model.md``, and the tile's decisions (``T1``) from its two documents;
+- decision ids (``O12``, ``O11a``, ``OA3``) and Phase 3 ids (``OD-A17``) from the design documents, their decision
+  records in ``docs/design/decisions/`` and the roadmap, world-model decisions (``D26``) from ``world_model.md`` and
+  its record, and the tile's decisions (``T1``) from its two documents and their records;
 - every open question: the numbered items of ``boundaries.md`` §12, ``world_model.md`` §12, ``npcs_and_sem.md``
   §12.1, ``tile_and_client.md`` §9 and ``client_rendering.md`` §10, and the bullets of the roadmap's "Open
   questions". The plan lists each source's questions under a heading ``### Open: <source>``, numbered from 1, one
@@ -30,8 +31,19 @@ ID_SOURCES = (
     "docs/design/world_model.md",
     "docs/design/tile_and_client.md",
     "docs/design/client_rendering.md",
+    "docs/design/decisions/boundaries.md",
+    "docs/design/decisions/npcs_and_sem.md",
+    "docs/design/decisions/world_model.md",
+    "docs/design/decisions/tile_and_client.md",
+    "docs/design/decisions/client_rendering.md",
 )
-TILE_DOCS = ("docs/design/tile_and_client.md", "docs/design/client_rendering.md")
+WORLD_DOCS = ("docs/design/world_model.md", "docs/design/decisions/world_model.md")
+TILE_DOCS = (
+    "docs/design/tile_and_client.md",
+    "docs/design/client_rendering.md",
+    "docs/design/decisions/tile_and_client.md",
+    "docs/design/decisions/client_rendering.md",
+)
 DECISION = re.compile(r"\b(O\d+[a-z]?|OA\d+)\b")
 PHASE3 = re.compile(r"\bOD-[A-Z]+\d+\b")
 WORLD_DECISION = re.compile(r"\bD\d+\b")
@@ -76,7 +88,7 @@ def count_items(body: str, numbered: bool) -> int:
 
 def missing_ids(plan: str, sources: dict[str, str]) -> list[str]:
     ids = {i for text in sources.values() for i in DECISION.findall(text) + PHASE3.findall(text)}
-    ids |= set(WORLD_DECISION.findall(sources["docs/design/world_model.md"]))
+    ids |= {i for doc in WORLD_DOCS for i in WORLD_DECISION.findall(sources[doc])}
     ids |= {i for doc in TILE_DOCS for i in TILE_DECISION.findall(sources[doc])}
     return [f"{i} is in the sources but not in the plan" for i in sorted(ids) if not re.search(rf"\b{i}\b", plan)]
 

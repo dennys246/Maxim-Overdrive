@@ -15,9 +15,9 @@ in one vocabulary, for every law.
 
 ## 2. Where it lives
 
-- **`simcore.verify`**, `boundaries.md`'s layer 8 (`engine.verify`). It imports nothing from the engine: only
-  `math`, `dataclasses`, `itertools` and `collections.abc`. A layers entry puts it under `maxim_overdrive` and above
-  `simcore.protocol`, and a forbidden contract (`verify-measures-only`) keeps it off `simcore.core`,
+- **`simcore.verify`** (`engine.verify`), in `boundaries.md` §2.2's layer order. It imports nothing from the engine:
+  only `math`, `dataclasses`, `itertools` and `collections.abc`. A forbidden contract (`verify-measures-only`) keeps
+  it off `simcore.core`,
   `simcore.adapters`, `simcore.protocol` and `maxim`. Nothing in `src/` imports it, tests do: the layers contract
   keeps the engine's lower layers off it, and `verify-ships-nowhere` keeps the game off it.
 - **It never builds a `World`.** It receives observables as callables and never constructs state itself. A test
@@ -54,7 +54,7 @@ counter to report, and its budgets (B5), which read them. Every observable retur
 - **`band_gate(outcome, xs, runs)` → `Band`.** `outcome(run, x)` is a binary outcome at control value `x`. The harness
   evaluates every `x`, finds each run's flip point, and refuses an outcome that flips more than once (a coarse grid
   can alias a threshold; bisection would hide it). It reports the band across grids. The test then asserts its
-  operating point clears the band by its margin (`tile_and_client.md` §6.3 item 7).
+  operating point clears the band by its margin (`world_model.md` §3).
 - **`agrees(observable, spacings)` → `Agreement`,** for a scenario outcome that isn't smooth in the
   spacing, so has no order. `observable(dx_m)` returns the outcome; spacings go coarse to fine. It reports the spread
   across grids, each grid's error against the finest, and `converging`: each coarser grid's error is no smaller than

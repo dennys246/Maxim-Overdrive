@@ -53,7 +53,7 @@ of non-infringement. A lawyer reviews the pipeline before commercial release.
 
 ## 4. Protecting creators without DRM
 
-The world server runs on the host player's machine (`docs/design/realtime_lanes_coop.md` §5: loopback bind, host
+The world server runs on the host player's machine (`docs/design/boundaries.md` §5.3: loopback bind, host
 and guest tokens). So the "server-authoritative" guarantee protects the world from the client; it does not hide
 anything from the player who owns the machine. Any licensed content the host's server simulates is on the host's
 disk, and encryption only moves the key next to it. Second Life's CopyBot (2006) shows the end state.
@@ -126,12 +126,12 @@ than edited into them here.
      one world, "who made it first" is the earliest tick; ticks from different worlds don't compare, so proving
      priority across players needs a timestamp signed at publish (an open question for the design review).
    - Licence reference: one value today, `first-party/all-rights-reserved`. The reader refuses unknown values.
-3. **The spec reader refuses unknown keys,** as every loader does: closed key sets at every level through
+3. **The spec reader refuses unknown keys** (`boundaries.md` §5.4): closed key sets at every level through
    `checks.known_keys` (PR #2, the owner's choice of 2026-11-17), with `imagination.spec.SPEC_KEYS` as the accepted
    set this item names.
-4. **Region identity crosses the wire.** The `welcome` region list carries each region's spec id. The intent log
-   header digests the *initial* spec store, as it digests the scene, the material files, the action limits and the
-   imagination budgets (`boundaries.md` §6.3). Specs imagined mid-session arrive later as logged thought
+4. **Region identity crosses the wire,** as each region's spec id in `welcome` (`client_rendering.md` §4.1). The
+   intent log header digests the *initial* spec store, as it digests the scene, the material files, the action limits
+   and the imagination budgets (`boundaries.md` §6.3). Specs imagined mid-session arrive later as logged thought
    results, so their content is in the records, not the header.
 5. **Material ids are not a creator namespace.** `data/materials/core.yaml` ids are permanent `uint8` values (at most
    255). Third-party materials, if they come, get string ids mapped to per-world compact indices at load, recorded

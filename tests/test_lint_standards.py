@@ -32,6 +32,7 @@ ratchet = _load("lint_coverage")
 gitfiles = _load("lint_repo")
 _load("lint_inputs")  # lint_standards imports these siblings by name
 _load("lint_gates")
+_load("lint_contracts")
 lint = _load("lint_standards")
 
 ROADMAP = """\
@@ -439,6 +440,16 @@ def test_main_fails_and_reports_each_finding(repo, capsys):
     assert "FAIL (2 finding(s))" in out.out
     assert "fell from 100 to 90" in out.err
     assert "list hack.py under Phase 1" in out.err
+
+
+def test_main_runs_the_contracts_check_once_there_are_designs(repo, capsys):
+    assert "the contracts check has nothing to hold" in (lint.main([], root=repo), capsys.readouterr().out)[1]
+    (repo / "docs/design").mkdir()
+    (repo / "docs/design/d.md").write_text("# D\n\n## Fold table: a review\n")
+    assert lint.main([], root=repo) == 1
+    err = capsys.readouterr().err
+    assert "docs/design/contracts.md is missing" in err
+    assert "docs/design/d.md:3: a fold table belongs in docs/design/reviews/" in err
 
 
 def test_main_without_a_base_or_backlog_still_runs(repo, capsys):

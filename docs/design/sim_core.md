@@ -303,9 +303,7 @@ Bar 3 is proven able to fail by a planted order-sensitive pair of test laws (a c
   one c14n-1 record per line after a header record, and one `tick_digest` line per tick carrying §9's digest. Its
   reader refuses an unknown version or digest scheme, has a gate-registry row, and has golden fixtures for a record,
   a header and a digest line. The record, header and ordering key are `boundaries.md` §6.2 and §6.3's; `kind_rank` is
-  `tile_and_client.md` §3.1's table (moving to `boundaries.md` §6.2). 5a's v0 logs add two values (owner, 2026-11-21):
-  `ignite` (v0 only) at 30, with the other world actions, and host commands (`boundaries.md` §6.1's: advance, rig
-  selection, save, load, admin `set_material`) at 40, above them. Pause and the dial are `time`, at 10, unchanged.
+  `boundaries.md` §6.2's, with the two values 5a's v0 logs add (owner, 2026-11-21).
 - **5a's logs carry action vocabulary v0** (`ignite`, `strike`, `douse`); 5b's v1 adds `kindle`, so the v0-log
   refusal test returns with 5b (`tile_and_client.md` §3.2, amended to match).
 - **The header** is `boundaries.md` §6.3's. 5a adds `SimConfig`, the law tuple with each law's version and cadence,
