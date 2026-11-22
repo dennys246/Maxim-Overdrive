@@ -671,3 +671,67 @@ measured in the research (L3) or the reviews, **M** are from memory and must be 
   one rounding quantum; an order reversal in `reduce.py`, `join` unchanged, on one-sided exposure, asserting first
   that the permuted values differ; a bound home refused when a producer two hops upstream changes (A3-S5); events get
   a plant with their first producer.
+
+## Generation harness (`../design/generation_harness.md`; after the spike's results)
+
+Tests to write first, by step. Each cites the design section it serves and the round-1 finding behind it
+(`../design/reviews/generation_harness/`).
+
+**H0, preconditions (§10):**
+- PRs #50, #51 and #52 and `phase1/torch-pilot` merged;
+- each check's cost per spec measured at the spike's scene (Physics S3, Executor S9), and §11's first question
+  settled;
+- a delta review of the design's folds.
+
+**H1, the package, the gates, the client and the runner (§4, §5):**
+- the `generation-surface` contract refuses a planted `simcore.core.grid` import, and `overdrive_tools` is absent from
+  the built wheel (Architecture B1, S7);
+- each gate exemption has its own test row: `NOT_SIMULATION`, `ALLOWED`, `INPUT_GATES` and the gate registry (Executor
+  B1, Wire S8);
+- the client:
+  - refuses a planted system proxy;
+  - refuses an address outside the placement's;
+  - refuses when its effective base URL differs, with no socket opened;
+  - never prints the endpoint in an error (Trust T1, T4, N2);
+- the mask leaves no address or `$HOME` in any file under a run directory, and a committed run directory holding an
+  undeclared file is refused (Trust T2);
+- strict decoding refuses a repeated key, `NaN`, `1e999` and over-deep or over-long input, and a too-deep reply is
+  `parse_failure` (Wire S5, Trust T7, N1);
+- resume after a kill at every byte offset of the last record (a property test); a run file of another job, version
+  or `must_match` key is refused; a header key in neither class fails a test (Determinism D4, Wire S2);
+- the outcome-to-record mapping is total over IG's outcomes and the client's (Wire S3, Architecture S4);
+- the fake server binds port 0, at an `ALLOWED_SPAWNS` site with an explicit environment (Executor S5);
+- a fixture cell run twice on the mini, with and without a mid-run resume, gives byte-identical records, which proves
+  `cache_prompt: false` (Determinism D6);
+- golden fixtures for the v1 job, header and record formats, and the v0 header and records read by the v0 reader
+  (Executor S6, Wire S2);
+- the job file refuses a feedback rule naming anything but spec-fault `agent_text` (Trust T6).
+
+**H2, the scoring kit (§9):**
+- the digest of the integer statistics is pinned, and the `pow` and BLAS statistics are compared by outcome class,
+  with the band written first (Determinism D2);
+- each statistic's interval is unchanged when other statistics are scored (Executor N1);
+- a regression comparison refuses headers that differ in more than the declared variable (Determinism D8);
+- contact metrics call the engine's rule, so a planted edge-only contact and a 0.5 mm gap agree with `place`
+  (Coverage S5);
+- records are shuffled and the output is unchanged.
+
+**H3, the battery and the engine-property suite (§6, §7):**
+- each judged check goes red once:
+  - by a planted spec for U1, U1c, U2, U3, U3s, T7 and C;
+  - by a mechanism mutation for U8 (a perturbed voxelizer) and for L5's no-pain assertion (a planted failure mode)
+    (Executor S2);
+- U3s's strike energy derives from the spec's material and mass (Executor S2);
+- the 0.38, 0.40 and 0.42 m planted triple for L5 and U2 (Bio B3);
+- a planted engine NaN stops the batch and names the spec, and never marks it (Physics B3);
+- a planted Known-gap failure records `engine_gap` with its gate id, and the spec stays eligible (Coverage B2, Trust
+  T5);
+- a spec's verdict alone equals its verdict in a shuffled batch, under 1 and N BLAS threads, in two processes with
+  different hash seeds (Determinism D7);
+- each `not_run` check has its strict red gate with `raises=CheckUnavailable` (Executor S1, Physics B4);
+- a maximum-budget spec stays within the battery file's cost bound (Trust T9);
+- the battery uses the locked pymaxim, which is recorded in the verdict key (Bio N1, Determinism D3).
+
+**H4, the first consumer (§10):**
+- stage 2's data job refuses a spec with `spec_fault`, `not_run` or `within_margin` on a needed check, and a verdict
+  file from another engine or battery (Executor S7, Determinism D3).
