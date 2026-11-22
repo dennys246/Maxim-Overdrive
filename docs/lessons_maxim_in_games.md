@@ -441,3 +441,55 @@ stick looks to an NPC like unburnt wood at the same temperature. *Consequence:* 
 named where the presentation is built (`client_objects.md` §5.4), so that a perception bar that misses is traced to
 the game's split, not to Maxim. For Maxim there is nothing to ask yet. Whether sight needs an albedo or flame
 channel is the NPC fire note's question, against OD-C8.
+
+### 35. A name in a docstring is not a plan: Maxim's imagination designs behaviour, not bodies (2026-11-22)
+
+**A game that assigns work to a named Maxim component must check that the component is built, or planned, to do it.**
+*Evidence:* since Phase 0, `simcore/core/imagination.py` said "Maxim's ImaginationDesigner, later" would propose
+imagined objects as primitives made of materials. At `origin/main` 688c4b02, `ImaginationDesigner.imagine`
+(`src/maxim/imagination/designer.py`) calls `EntityDesigner.design()` (`simulation/entity_designer.py`), which asks an
+LLM for a SEM entity: sensors, modulators, affordances and failure modes. It has no geometry, dimensions or materials,
+and no Maxim plan adds them. We searched geometry, primitive, mesh, voxel, metres, cylinder, text-to-3d and object
+spec, and found nothing. Maxim's claim is learning without fine-tuning (`README.md:28`), so a model trained to write
+geometry can't live inside the agent. *Consequence:* Phase 6 had no spec author.
+- The author is now a generator on the world's side (O57), never the agent's imagination.
+- Once an imagined object exists, what it does to an NPC is an ordinary world event. A first draft of O57 borrowed
+  Maxim's provenance words (`apparatus` for the generator, `imagined` for its objects). In Maxim those label
+  body-consequence records (`sem.py`, `OUTCOME_PROVENANCE`), and `apparatus` is never learned from, so using them
+  would have hidden from NPCs that an imagined table burns (round 1, Architecture B1).
+- Whether Maxim should know that an entity was generated is a question for Phase 6's design.
+- The spec generator spike (`docs/design/research/specgen_spike/plan.md`) measures the first step.
+
+### 36. A reasoning model's default thinking can spend the whole reply budget: switch it off in the chat template, and prove the switch with a control (2026-11-22)
+
+**A generator that thinks before it answers can run out of tokens before it writes a single field.** *Evidence:* on
+the owner's Mac mini, before the spec generator spike's freeze (`docs/design/reviews/specgen_spike/freeze_delta2.md`):
+- **Without the switch,** llama-server (build 10621) with the model's own template, Qwen3.5 4B (Q8_0) put all 4,096
+  reply tokens into reasoning (11,926 characters) and returned an empty answer, so the scorer would class every
+  reply `truncated`. The JSON-schema grammar didn't prevent it: with the grammar on, the reasoning still took all
+  4,096 tokens (12,136 characters). The grammar constrains the answer, and the answer never started.
+- **With the switch,** `chat_template_kwargs: {enable_thinking: false}`, all 19 probe replies (12 under A2, 6 under A0
+  and one same-seed repeat) had no reasoning, and every grammar-constrained reply parsed, at about 40 tokens/s (about
+  5 s per spec).
+- **Gemma 4 31B** also thought by default, but within the budget: 3,170 and 3,655 tokens of reasoning, four to five
+  minutes a call at 12 tokens/s, before it answered. With the switch it didn't reason at all.
+- **Qwen3.5 27B,** the reference model, matched S: without the switch it spent all 4,096 tokens reasoning (11,093
+  and 11,601 characters) for about 520 s per call and answered nothing; with it, all 19 replies parsed at about
+  8 tokens/s.
+
+A silent "no thinking" proves nothing until the same call without the switch shows thinking.
+
+*Consequence:* any game call to a local model (imagination, an NPC's voice) pins the template's thinking switch in
+its frozen settings, and verifies it once per model and engine build with a control call. A default flip costs the
+whole reply budget: the reference model took about 8.6 minutes a call, against lesson 30's
+latency bound of seconds. The spike records the switch in `spikes/specgen/arms.yaml` and its engine build there too.
+
+**Maxim has the same gap (run on pymaxim 1.3.4, 2026-11-22).** Pointed at the same llama-server serving S, Maxim's
+`_OpenAIBackend` returned empty content after 12.5 s: 512 of 512 tokens, stop reason `length`. Nothing in the backend
+can switch a template's thinking off, so a reasoning model behind a Maxim lane answers nothing (OD-I12, a question to
+its deferred self-hosted-servers plan). The first attempt found a second defect: without `allow_local_endpoints`, the
+backend blocks the loopback URL, and because its refusal checks the provider's name rather than its type, a provider
+keyed `local` of type `openai` falls back to the OpenAI client's default endpoint. The test prompt went to
+api.openai.com (refused 401). A blocked local endpoint can fail open to the cloud (OD-I11). For a local-first game (O58),
+any gateway built on Maxim's backends must refuse there, not fall back. Running Maxim found both; reading its plans
+found neither.
