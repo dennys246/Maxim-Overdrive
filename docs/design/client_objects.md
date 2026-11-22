@@ -1,4 +1,4 @@
-# Fuel objects on the client (design D-B2, 2026-11-21, round 1 folded)
+# Fuel objects on the client (design D-B2, 2026-11-21; accepted by the owner, 2026-11-22)
 
 **Scope.** The client design pass that `fire_solid.md` §7 assigns to D-B2 ("the client design pass, before step 8";
 D-B2's text is `reviews/fire_model/delta1_architecture.md`, with A-S7 in `reviews/fire_solid/architecture.md`). It
@@ -406,16 +406,16 @@ checklist say so.
 
 1. **Thin fuel shows char by darkening and burn-away by gaps,** not by cracks (§6.3).
 2. **Outlines rather than an edge in every cracked cell** (§6.1, rule 3). This narrows step 8 decision 7, which
-   conflicts with decision 4 at a 7.2 px cell pitch. The 1/8 outline threshold was added after the ruling, to stop
-   scattered slight damage drawing a grid (`delta1_five_lenses.md` S6). It is the author's, for the owner to confirm.
+   conflicts with decision 4 at a 7.2 px cell pitch. The 1/8 outline threshold, added after the ruling to stop
+   scattered slight damage drawing a grid (`delta1_five_lenses.md` S6), was confirmed by the owner.
 3. **Anti-aliasing:** prototype MSAA and analytic coverage at step 8, and choose by the stability check and frame
    time (§4.2).
 4. **The exit's holes:** D-S2's trigger moves to "before step 8" (fire_solid §7), and checklist step 6 names the
    torch's Phase 1 pilot.
 5. **Structural glow from the cell mean** until face skins exist, a Known gap (§5.1).
 
-Also the author's, after the rulings, for the owner to confirm: Phase 1 flames are drawn in goldens, with flicker off
-(§5.3). `client_rendering.md` had turned flames off in goldens, but §7.2's flame-shape check needs them drawn.
+Also confirmed by the owner: Phase 1 flames are drawn in goldens, with flicker off (§5.3). `client_rendering.md` had
+turned flames off in goldens, but §7.2's flame-shape check needs them drawn.
 
 ## 10. Not settled here
 

@@ -105,6 +105,9 @@ S7, S8, N3; W N9; P-N3.
 closer than the floor's offset. Parity holds, and the server's receipt names the region it kindled, so the player is
 told. It is a NIT.
 
+**Owner, 2026-11-22:** the 1/8 outline threshold and flames drawn in goldens are confirmed; the stop is accepted, and
+the mechanism findings above move to step 8's checklist.
+
 **The rounds stop here** (`docs/code_review.md`, "When the rounds stop"). This second paper round found a new BLOCKER
 in text the first fold added. It was contract, and it is folded. The mechanism findings move to step 8 with the
 owner's acceptance.
