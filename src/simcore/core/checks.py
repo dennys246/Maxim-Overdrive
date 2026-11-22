@@ -17,6 +17,8 @@ from collections.abc import Collection, Mapping, Sequence
 
 import numpy as np
 
+from simcore.core.refusals import RefusalCode, Refused
+
 
 class _BoundedRepr(reprlib.Repr):
     """reprlib that echoes only plain values by value, so an echo is the same text in every run.
@@ -101,7 +103,7 @@ def finite_real(value: object, what: str) -> float:
         except OverflowError:  # an int too big for a float, such as 10**400 from YAML or JSON
             f = math.nan
     if not math.isfinite(f):
-        raise ValueError(f"{what} must be a finite number, got {shown(value)}")
+        raise Refused(f"{what} must be a finite number, got {shown(value)}", code=RefusalCode.NOT_FINITE)
     return f
 
 
@@ -109,7 +111,7 @@ def whole_number(value: object, what: str) -> int:
     """``value`` as an int, or a ValueError that names it. Only integers count: not bools, floats such as 2.9 (which
     ``int()`` would quietly truncate to 2) or numeric strings."""
     if isinstance(value, bool) or not isinstance(value, numbers.Integral):
-        raise ValueError(f"{what} must be a whole number, got {shown(value)}")
+        raise Refused(f"{what} must be a whole number, got {shown(value)}", code=RefusalCode.NOT_INT)
     return int(value)
 
 
@@ -128,30 +130,17 @@ def known_keys(
     if both:  # a reader's own schema contradicting itself is a programming error, not bad input
         raise TypeError(f"{what}: {both} can't be both required and optional")
     if not isinstance(raw, Mapping):
-        raise ValueError(f"{what} must be a mapping, got {type(raw).__name__}")
+        raise Refused(f"{what} must be a mapping, got {type(raw).__name__}", code=RefusalCode.BAD_SHAPE)
     keys = list(raw)
     names = {k for k in keys if isinstance(k, str)}
     unknown = sorted(shown(k) for k in keys if not isinstance(k, str) or (k not in required and k not in optional))
     if unknown:
         listed = ", ".join(unknown[:8]) + (f" and {len(unknown) - 8} more" if len(unknown) > 8 else "")
-        raise ValueError(f"{what}: unknown key(s) [{listed}]; it takes {sorted({*required, *optional})}")
+        message = f"{what}: unknown key(s) [{listed}]; it takes {sorted({*required, *optional})}"
+        raise Refused(message, code=RefusalCode.UNKNOWN_FIELD)
     missing = sorted(k for k in required if k not in names)
     if missing:
-        raise ValueError(f"{what}: missing key(s) {missing}")
-    return raw
-
-
-def format_version(raw: object, expected: int, what: str) -> Mapping[str, object]:
-    """``raw`` as a mapping whose ``version`` is exactly ``expected``, or a ValueError that names what it found.
-
-    Checked before the keys, so a file from a newer format is refused for its version, not for the fields it added.
-    Only an int counts: ``true`` and ``0.0`` are not version 0, and a file with no version is refused, not assumed.
-    """
-    if not isinstance(raw, Mapping):
-        raise ValueError(f"{what} must be a mapping, got {type(raw).__name__}")
-    version = raw.get("version")
-    if type(version) is not int or version != expected:
-        raise ValueError(f"{what} version must be {expected}, got {shown(version)}")
+        raise Refused(f"{what}: missing key(s) {missing}", code=RefusalCode.MISSING_FIELD, field=missing[0])
     return raw
 
 
@@ -165,8 +154,39 @@ def _has_length(value: Sequence[object], n: int) -> bool:
 def finite_vector(value: object, n: int, what: str) -> tuple[float, ...]:
     """``value`` as ``n`` finite floats, or a ValueError that names the field."""
     if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or not _has_length(value, n):
-        raise ValueError(f"{what} must be {n} numbers, got {shown(value)}")
+        raise Refused(f"{what} must be {n} numbers, got {shown(value)}", code=RefusalCode.BAD_SHAPE)
     try:
         return tuple(finite_real(v, what) for v in value)
     except ValueError:
-        raise ValueError(f"{what} must be {n} finite numbers, got {shown(value)}") from None
+        raise Refused(f"{what} must be {n} finite numbers, got {shown(value)}", code=RefusalCode.NOT_FINITE) from None
+
+
+# Target names Maxim's tools resolve to the agent itself before any lookup, case-insensitively (pymaxim 1.3.3 and Maxim
+# origin/main 043eab8: embodiment/tool_bridge.py::ModulatorAffordanceTool._resolve_target_body, to the caller's body;
+# simulation/tools.py::OrchestratorActorTool._TARGET_ALIASES, to the agent under test's). EntityMap is one namespace
+# for bodies and regions, so neither may take one: it could never be named. tests/test_sem_compat.py holds the set to
+# Maxim's own (step 3b(b) delta review, D2, D3).
+MAXIM_TARGET_ALIASES = frozenset({"self", "aut", "player"})
+
+IDENTITY_KEY_CHARS = 64
+
+
+def identity_key(value: object, what: str) -> str:
+    """``value`` as an identity key (a body's, an NPC's, a stream's, an archetype's), or a Refused coded
+    ``bad_identity_key``: a printable string of 1 to 64 characters with no outer spaces and no ``:``.
+
+    No ``:`` because Maxim's ``make_agent_rng`` seeds a stream from ``f"{base_seed}:{agent_id}"`` (Maxim's owner,
+    2026-11-19), and until its stream argument lands the agent id is the composite ``f"{npc_key}:{stream}"`` (O40,
+    OD-A7): with a ``:`` in a key, ("a:b", "c") and ("a", "b:c") seed one stream (npcs_and_sem §3.4). An int base seed
+    alone would not collide, so the composite is the reason; keep the rule while it exists."""
+    ok = (
+        isinstance(value, str)
+        and 0 < len(value) <= IDENTITY_KEY_CHARS
+        and value.isprintable()
+        and value == value.strip()
+        and ":" not in value
+    )
+    if not ok:
+        rule = f"a printable string of 1 to {IDENTITY_KEY_CHARS} characters, with no outer spaces and no ':'"
+        raise Refused(f"{what} must be {rule}, got {shown(value)}", code=RefusalCode.BAD_IDENTITY_KEY)
+    return str(value)

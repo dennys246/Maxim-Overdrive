@@ -1,0 +1,8 @@
+# Golden scene at format version 0, as Scene.from_dict read it before scene v1 (step 3b part b). Never edit it to match
+# a newer format: tests/test_formats.py holds the reader to refusing it by version, not migrating it.
+version: 0
+extent_m: [3.0, 2.0, 2.0]
+ambient_c: 20.0
+primitives:
+  - {kind: box, name: floor, material: concrete, min_m: [0.0, 0.0, 0.0], max_m: [3.0, 2.0, 0.4]}
+  - {kind: cylinder, name: post, material: wood, center_xy_m: [1.5, 1.0], radius_m: 0.2, z_m: [0.4, 1.6]}
