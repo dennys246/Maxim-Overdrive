@@ -320,8 +320,14 @@ ignites a slab with no flame object.
   fixture rows past 2,048; the per-fragment segment lookup; the 2 px output floor and anti-aliasing (its owner
   question 3); picking objects with no snap; Phase 1 flames; §7.2's checks, each proved by deletion; the fuel B5
   rows; the structural-glow Known gap in `docs/architecture.md`; the fuel fixture's head-on row readout (C S7).
-- Deferred from D-B2's delta round (mechanism, `reviews/client_objects/`): the stability measure's bins, offsets and
-  statistic fixed before measuring (S7); the Burning check run with flames off (S5); the Phase 1 flame pass's
+- The stick-stability measure (`client_objects.md` §7.2; S7), fixed 2026-11-22 before any renderer was measured: a
+  20 mm rod 1 m long, at 72 and 30 px/m, on the rig (scale 1.0) and laptop (0.5) tiers, drawn in the fuel-coverage
+  pass; bins fixed in world space along the axis, each the length that projects to 4 output px, the two at each end
+  dropped; 8 camera offsets of k/8 output px along both screen axes (k = 0..7); per bin, the covered area's spread
+  (max - min) / mean over the offsets; the statistic, its 95th percentile over bins; the reference, an ideal line of
+  the drawn width rasterised in numpy at exact area coverage (16 x 16 per pixel) at the same geometry and offsets;
+  the bar, the renderer's statistic at most twice the reference's.
+- Deferred from D-B2's delta round (mechanism, `reviews/client_objects/`): the Burning check run with flames off (S5); the Phase 1 flame pass's
   instancing path and bound (S8); partial thinning's mechanism and the per-fragment lookup's frame time (N3);
   timings reported as median beside minimum (P-N3).
 - The exit script (Phase 1's exit is `docs/roadmap.md`'s, Phase 1, "Exit"), run stepped and unpaced; the controls,
