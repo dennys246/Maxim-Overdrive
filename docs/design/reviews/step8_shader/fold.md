@@ -80,6 +80,9 @@ Layout names the new files.
    cracked cell is guaranteed an edge, and a mild-against-severe edge-density check holds it. B7 names it.
 8. **Stump height (delta 3):** 0.2 m, not §2's 0.3 m: two stumps in a dead-end corner hid 6.5% of the body
    (93.5% measured, failing the gate); at 0.2 m the corner measures 98.7% and a wall 99.3%.
+9. **The fire channels (after delta 4):** `fire_solid.md` §5.6, the fire build spec the author hadn't read, supersedes
+   `surface_glow` and `burning` for fuel with object and segment tables. The owner chose to merge with the conflict
+   recorded (FIELDS.md, B42); the client design pass (D-B2) replaces the glow and flame inputs.
 
 ## Delta 1 (at the staged fold over ce06d7b)
 
@@ -165,7 +168,5 @@ Report: `delta4_all.md`. No BLOCKER. `prepush: PASS 8c28afc5a93f`.
 | N6, D2 N5 residue (§5.4 "≥ 12 px") | §5.4 says "~12 px, held". |
 | (owner) the Godot clear colour | B41, with its steps and trigger. |
 
-Not folded, named: N3 (`cut_all`'s overflow report can't run with three walls), N5 (`golden_compare` reads the first
-renderer line of the joined log; every call uses the same renderer), P1 (runtime under load: the split calls ran
-25-76 s at a load of 80-150; no idle baseline), and the earlier not-folded set. This fold changes a comment and docs
-only: no code path, no pixel.
+Not folded: N3 (`cut_all`'s overflow can't fire with three walls), N5 (one renderer per run), P1 (no idle
+runtime baseline). A comment and docs only.

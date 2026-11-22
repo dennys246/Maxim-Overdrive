@@ -17,8 +17,8 @@ owns them; the fixtures follow it. What §4.2 doesn't say, and step 7 must settl
 | cell size | `cell_m`, metres | `simcore.protocol.encoding.snapshot` calls it `cell_size_m`; §4.1 names none. |
 | origin | cell (0, 0, 0)'s corner is the world's origin | The box, the cut boxes and actor positions assume it; streaming would need a field. |
 | `region` | ids 1, 2, … in authoring order | `encoding.snapshot` sends no region channel, and the engine has no region ids yet. |
-| `surface_glow` | §4.2's quantity | `encoding.snapshot`'s `glow` has §4.2's scale but the cell-mean temperature, not the envelope skin: renaming the key is not enough. |
-| `burning` | §4.2 | Not in `encoding.snapshot` yet. |
+| `surface_glow` | §4.2's quantity, **provisional** | Superseded for fuel by `fire_solid.md` §5.6: fire state lives in object and segment tables (`surface_temperature_c` f16, `ignited_fraction` u8). The client design pass before step 8 (D-B2) decides how those are drawn and what replaces this channel (B42). Meanwhile, `encoding.snapshot`'s `glow` has §4.2's scale but the cell-mean temperature. |
+| `burning` | §4.2, **provisional** | `fire_solid.md` §5.6 keeps `burning` reserved; superseded with `surface_glow` (B42). |
 | `temperature_c` | not read | No pass draws it yet. |
 
 ## Vocabularies (the `welcome` message)
