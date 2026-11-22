@@ -96,13 +96,13 @@ bottom to top `simcore.core` < `simcore.adapters` < `simcore.protocol` < `simcor
 game). This order is the contract; O24 is its record. The table below is the map of where splits are expected to fall
 (O24): its `engine.*` names are working names, and its numbered layers are not import contracts. Built today:
 - layers 0–6 are `simcore.core`: `checks`, `materials`, `grid` (`engine.cells`), `heat` and `damage`
-  (`engine.laws`), `imagination`, `scene`, `intents` and `limits`, and `world`, `applier` and `frames`
+  (`engine.laws`), `imagination`, `scene`, `intents` and `limits`, and `world`, `applier`, `frames` and `simulation`
   (`engine.sim`), with `readonly`, `refusals`, `schema` and `digest` beside them;
 - `engine.loaders` and `engine.adapters.sem` are `simcore.adapters`;
 - `engine.tiers` and `engine.encoding` are `simcore.protocol`;
 - `engine.verify` is `simcore.verify`, which imports nothing from the engine (`verify_harness.md` §2).
 
-Not built: `engine.geometry` (primitives and footprints are in `scene`), `Simulation`, `engine.inference_wire`,
+Not built: `engine.geometry` (primitives and footprints are in `scene`), `engine.inference_wire`,
 `engine.adapters.inference`, `engine.protocol`'s wire codec, `engine.adapters.agents` and `engine.host`. Where a
 module sits inside the core (`core/body`, `core/stimuli`) is `sem_stimuli.md` §7.1's.
 
