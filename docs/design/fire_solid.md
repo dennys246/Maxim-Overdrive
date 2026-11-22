@@ -418,15 +418,14 @@ Until then, §6 tests that **the digest after a rebuild from the tables equals t
 
 ### 5.6 The fuel view, for the client
 
-6.0–6.1 sends none. Step 7 builds it with its caller, the encoder:
-- **It holds** each object's geometry and `state`, and per segment, in f64, by `bincount` (§5.4): the
-  radiance-equivalent surface temperature (Σ a_p T_p⁴ / Σ a_p)^¼ over parts with area (exact for glow while one part
-  has area); the ignited part's share of the area; Σ_p a_p·h_p ÷ (area × initial thickness); and residue
-  mass ÷ remaining solid mass, 0 when none remains.
-- **Cadence:** once per physics step and insertion, never per window; `fuel_version` bumps on change.
-- **Leak rule:** presentation only. It is not on `Observation`, not a registered or perceivable field, and
-  `adapters.sem` never reads it.
-- **Wire form:** `client_objects.md` §3, superseding fire_model §9.2's names (`burning` reserved).
+Step 7, after 6.0b, builds it with the encoder.
+- **It holds** each object's geometry and `state`, and per segment in f64, by `bincount` (§5.4): the
+  radiance-equivalent surface temperature (Σ a_p T_p⁴ / Σ a_p)^¼ over parts with area; the ignited share of the area;
+  Σ_p a_p·h_p ÷ (area × initial thickness); residue mass ÷ remaining solid mass, else 0.
+- **Site, cadence:** a read-only `FuelFrame` on the published `Frame`, computed on the encoder's request and cached on
+  `fuel_version`, bumped on change.
+- **Leak rule:** presentation only: not on `Observation`, not a perceivable field, unread by `adapters.sem`.
+- **Wire form:** `client_objects.md` §3.
 
 ## 6. Tests
 
@@ -466,7 +465,7 @@ This review's findings are in `reviews/fire_solid/fold.md`. Every delta-round-1 
 | The 6.2 design | D1-B1, D1-B2, D1-S1, D1-S3, D1-S5–S8, D1-N1–N3, D-S10, P2-S1, P2-S4, P2-S5, P2-S7, P2-N2, P2-N3, NB2, NS3–NS5, NS7, NN1–NN3, N-N3, D-S8, D-S9 (with the owner), A-S4 (round 1); D1-S2 (6.1 runs awake); P2-S6 (also §3.1's Known gap); D-S3 (every structural face) |
 | 6.4, with `kindle`'s pilot | A-S2, NS8, D-S5 (red gates, `TEMPORARY` ceilings); N-S2, N-N2, NN5 |
 | fire_model's next revision, before the 6.2 design | D-N2, D-N3 (`douse` lands with 6.2's acts), D-N4, NN7 |
-| The tile §6 revision, before 6.4 | D-S2 |
+| The tile §6 revision, before step 8 | D-S2 |
 | The client design pass, before step 8 (`client_objects.md`) | D-B2 |
 | A note to the step 5 plan, before vocabulary v1 | D-S7, WT-S5 |
 
@@ -486,6 +485,7 @@ for segment temperature; fire_model §2.2's "SEM … read" is corrected in fire_
 | Contact rows, skins, exchange | 4 | `core/coupling.py` |
 | Scene `fuel:`; spec v1 | 5a | `core/scene.py`, `core/imagination.py` |
 | `fuel_only_region`, insertion, the composed window | 6 | `core/applier.py`, `core/world.py` |
+| The fuel view, `FuelFrame` | 6 | `core/frames.py` |
 | Loaders | 7a | `adapters/loaders.py` |
 | The cone harness (heater, prescribed q''_fl, spark) and its test ledger | — | `tests/fire/` |
 
@@ -493,4 +493,5 @@ The core keeps its banned imports: no IO, no clock.
 
 ## 8. What 6.0–6.1 doesn't show
 
-Whether fire spreads or sustains in a crib: 6.2's question, designed from what R0 and R1 measure.
+Whether fire spreads or sustains in a crib: 6.2's question, from what R0 and R1 measure. A lone slab flaming out
+without the heater is expected.

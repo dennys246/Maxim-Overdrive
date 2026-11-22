@@ -68,3 +68,43 @@ Not folded:
   6.2's partial transfer.
 - **The probe itself** wasn't changed. It records what was measured, and the reviewers' variants live in their
   scratch copies. C S7's head-on row readout goes to step 8's build of the fuel fixture.
+
+## Delta 1 (at bbebd69; author's record)
+
+Reports: `delta1_wire_integrity.md` and `delta1_five_lenses.md`. Both found one contract BLOCKER, the same defect in
+text round 1's fold added: the segment recount. Owner rulings of 2026-11-22 (all five round 1 questions, as
+recommended) are applied in the same fold.
+
+**Correction first:** the recount check (`⌈L/ℓ − 10⁻⁶⌉`) was the author's, added against round 1 F4's own advice
+("no f32 recount check"), and its cited "19 of 1,981" was F4's measure of a different computation. It refused 42 valid
+lengths, 0.36 m and 2 m among them.
+
+| Finding | Change |
+|---|---|
+| W N1, 5L B1 (recount refuses valid frames) | §3.2 drops the recount. `segment_count` is the server's; the key check catches a misdistributed count, and §4.1's clamp keeps fragments on their object. The server's rule joins checklist step 6's questions |
+| W N2 (the step 7–8 seam) | Step 7's checklist owns `CellSnapshot`'s v0 channels and deletes the provisional reads; B42's trigger is step 7 |
+| W N3, A-N2 (bump rule unstated) | `client_rendering.md` §4.1 states the table and object-kind rule; §3.1 links to it |
+| W N4 (severity stated twice) | §5.4 keeps only the floors and links to §6; §6.1 rule 4 links to §5.4 |
+| W N5, 5L S4 (flames "off in goldens") | §5.3 of both documents: flicker off, flames drawn. §9 records this as the author's change for the owner to confirm |
+| W N6 (stale copies) | §5.5's particle column marked optional; §7's tree has `Fuel`; B40 (2) and B42 rewritten; boundaries §8.3 linked; "(question F2)" and §8's F1–F3 claim corrected; glow's "span" removed |
+| W N7, 5L S2 (questions in the wrong step) | They move to checklist step 6, answered before step 7 freezes the tables; §3.2 marks its span and origin provisional |
+| W N8, 5L S1 (step 7 before 6.0b) | `foundations_plan.md` row 7 depends on 6.0b; fire_solid §5.6 names the site (`FuelFrame` on `Frame`), and §7's placement table has its row |
+| 5L S3 (per-step cost) | fire_solid §5.6: computed on the encoder's request, cached on `fuel_version`, so headless runs pay nothing; §7.4 restated |
+| 5L S6 (outlines remove edges; no threshold) | §6.1: rule 2 holds within a cell; outlines from c ≥ 1/8 `[engineering]` follow the region's edge. §9 records the threshold as the author's, for the owner |
+| 5L N1 (conductivity) | §5.1 and `architecture.md`'s new Known gap use the shipped 1.7 W/m·K: 29 K per kW/m², stated as a bound |
+| 5L N2 (trigger bytes, `state`) | §3.2 names the trigger bytes and checks `state` every frame |
+| 5L N4 (clamp needs count and ℓ) | §4.1: three RGBA8 texels per instance |
+| 5L N6 (deleted fire_solid caveat) | Restored in fire_solid §8, shortened |
+| 5L N7 (burning in the laptop's white band) | B7 records it |
+| W N10 (flames and the join cap) | §3.4 |
+
+**Deferred to step 8's checklist as mechanism** (the charter's stop rule, pending the owner's acceptance): 5L S5,
+S7, S8, N3; W N9; P-N3.
+
+**Not folded:** 5L N5. The hover outline can name a different stick than the one the server kindles when sticks are
+closer than the floor's offset. Parity holds, and the server's receipt names the region it kindled, so the player is
+told. It is a NIT.
+
+**The rounds stop here** (`docs/code_review.md`, "When the rounds stop"). This second paper round found a new BLOCKER
+in text the first fold added. It was contract, and it is folded. The mechanism findings move to step 8 with the
+owner's acceptance.

@@ -88,7 +88,8 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
   format (DC-N5). Tables have typed columns: column-major, a per-column offset, an integer key column, no strings.
 - **Extension and bumps** (F2–F4, F6, W-F6): readers refuse, loudly, an unknown protocol version, `kind`, dtype or
   compression, a missing required channel, and an unknown required channel, table or grid; they ignore unknown
-  optional ones. An optional channel bumps the registry version, not the protocol; a new encoding, dtype, `kind` or
+  optional ones. An optional channel or table bumps the registry version, not the protocol; a required table or a new
+  object kind bumps the protocol; a new encoding, dtype, `kind` or
   compression bumps the protocol. `kind: delta` is reserved, not built.
 - **Axis order is Godot's** (W-F4): z, y, x, x fastest, one `Image` per z-slice; only the shader maps the server's
   z-up to Godot's y-up.
@@ -169,24 +170,22 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
   **stylisation**: T⁴ is total radiance, not visible radiance (PH-N2, CR-N4). Hue goes dull red → orange →
   yellow-white; above ~1,230 °C it clips white and bloom carries the rest. Embers near 920 °C bloom. Output above 1.0 drives glow
   [ran].
-- **Burning and flames:** `client_objects.md` §5.2–§5.3. Visual only, and off in goldens.
+- **Burning and flames:** `client_objects.md` §5.2–§5.3. Visual only; flicker off in goldens.
 
 ### 5.4 Crack changes shape (EX-S10, CR-S4)
 
-- **The pattern:** 3-D Voronoi edges, ~12 px polygons (cell × 2ⁿ, held), from an integer hash. With c = `crack` in [0, 1],
-  points within w = max(0.02 m × c, the metres 0.75 px spans, ÷ the face's slant) of an edge are empty when
-  c > 0, so a groove is never narrower than 1.5 px `[engineering]`. The march goes `crack_substeps` into the cell.
-  Fissure walls darken with depth, and the normal tilts towards the edge.
-- **Worked numbers (derived):** at 72 px/m, c = 0.25 gives 0.72 px from the metre term, so the floor applies. At
-  c = 1 the groove is 2.9 px.
+- **The pattern:** 3-D Voronoi edges from an integer hash, the finest polygons ~12 px (cell × 2ⁿ, held). Grooves are
+  never narrower than 1.5 px, divided by the face's slant `[engineering]`. How severity draws is `client_objects.md`
+  §6. The march goes `crack_substeps` into the cell. Fissure walls darken with depth, and the normal tilts towards
+  the edge.
 - **Testing:** char darkens the albedo too, so the tests (§6.4) measure luminance and edges over cracked cells only.
-  The deletion proof disables carving with the darkening kept. Severity shows by edge density (`client_objects.md` §6).
+  The deletion proof disables carving with the darkening kept.
 
 ### 5.5 Tiers (client data, AR-S7)
 
 A typed `Resource` in `client/game/tiers/`:
 
-| Tier | `scaling_3d_scale` | Crack substeps | Glow sampler | Bloom | AO | Flame particles |
+| Tier | `scaling_3d_scale` | Crack substeps | Glow sampler | Bloom | AO | Flame particles (optional detail) |
 |---|---|---|---|---|---|---|
 | laptop | 0.5 | 2 | nearest | off | off | 64 |
 | rig | 1.0 | 4 | linear | on | 4-tap | 256 |
@@ -279,7 +278,7 @@ client/game/                     this game (rights reserved)
   main.tscn                      Main (Node3D)
     ├── Net (Node)
     ├── World (Node3D) → CellVolume (MeshInstance3D: BoxMesh + ShaderMaterial), Actors → Actor_<id>
-    │     (MeshInstance3D: CapsuleMesh), Path (MeshInstance3D: ImmediateMesh), Flames → GPUParticles3D
+    │     (MeshInstance3D: CapsuleMesh), Path (MeshInstance3D: ImmediateMesh), Fuel → MultiMeshInstance3D per kind, flames
     ├── CameraRig (Node3D, yaw) → Pitch (Node3D) → Camera3D
     ├── WorldEnvironment
     ├── IntentInput (Node)
