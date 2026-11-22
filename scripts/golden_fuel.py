@@ -28,6 +28,9 @@ TIER_AREA_MAX = 0.15  # client_rendering.md §6.3's ID-mask areas
 # The laptop tier draws at render scale 0.5 and is upscaled, which spreads a thin stick's coverage up to one of its
 # pixels (2 output px) past the drawn edge: the area window reaches that far on every tier, so all tiers count alike.
 AREA_WINDOW_PX = 2.0
+# A live run's width may fall short of its drawn width by one output pixel: the pixel grid's quantization of its
+# two edges, half a pixel each (written before measuring).
+WIDTH_SLACK_PX = 1.0
 HOT_C, COLD_C = 1000.0, 300.0
 CHARRED = 230  # char_fraction counts at or above which a cold segment is the burnout check's reference (0.9)
 # How far from a burnt-out or burnt-through object a flame pixel counts as its flame: twice FuelPass.FLAME_HEIGHT_M,
@@ -166,9 +169,11 @@ def state_findings(frames: Path, tier: str, seg: Segments) -> list[str]:
 
 def burn_through_findings(frames: Path, tier: str, seg: Segments) -> list[str]:
     """No fuel pixel inside the burnt run, its strip shortened at each end by the drawn half-width (the live
-    neighbours' round ends reach that far); every live segment of that rod draws."""
+    neighbours' round ends reach that far); every live segment of that rod draws, and each run of them at its
+    drawn width (owner, 2026-11-22: the width clause restored, ends excluded)."""
     png = frames / f"fuel-{tier}-fuel_mask.png"
-    fuel, foot = gm.mask_of(golden_compare.load_rgb(png)), footprints(png)
+    rgb = golden_compare.load_rgb(png)
+    fuel, foot = gm.mask_of(rgb), footprints(png)
     burnt = seg.rows("rod_burnt", seg.thickness == 0)
     run = np.array([[*foot[burnt[0], :2], *foot[burnt[-1], 2:4], foot[burnt[0], 4]]])
     inside = int((strip(fuel.shape, run, shrink_px=float(run[0, 4])) & fuel).sum())
@@ -179,7 +184,27 @@ def burn_through_findings(frames: Path, tier: str, seg: Segments) -> list[str]:
     ends = foot[[burnt[0], burnt[-1]]][:, :4].reshape(-1, 2)
     clear = [int(r) for r in seg.rows("rod_burnt", seg.thickness > 0) if _distance(foot[r], ends) > foot[r, 4]]
     silent = [r for r in clear if not (strip(fuel.shape, foot[[r]]) & fuel).any()]
-    return found + ([f"burn-through ({tier}): live segments {silent} draw nothing"] if silent else [])
+    found += [f"burn-through ({tier}): live segments {silent} draw nothing"] if silent else []
+    return found + _width_findings(tier, rgb[..., 1].astype(np.float64) / 255.0, foot, clear)
+
+
+def _width_findings(tier: str, coverage: NDArray[np.float64], foot: NDArray[np.float64], rows: list[int]) -> list[str]:
+    """Each contiguous run of ``rows`` draws its drawn width, less WIDTH_SLACK_PX: its summed coverage within its
+    strips widened by AREA_WINDOW_PX, divided by its length on screen."""
+    found = []
+    for run in np.split(np.array(rows), np.flatnonzero(np.diff(rows) != 1) + 1):
+        if run.size == 0:
+            continue
+        strips = foot[run].copy()
+        strips[:, 4] += AREA_WINDOW_PX
+        length = float(np.hypot(foot[run, 2] - foot[run, 0], foot[run, 3] - foot[run, 1]).sum())
+        width = float((coverage * strip(coverage.shape, strips)).sum()) / length
+        drawn = 2.0 * float(foot[run[0], 4])
+        if width < drawn - WIDTH_SLACK_PX:
+            found.append(
+                f"burn-through ({tier}): live run {int(run[0])}-{int(run[-1])} draws {width:.2f} px, not {drawn:.2f}"
+            )
+    return found
 
 
 def _distance(row: NDArray[np.float64], points: NDArray[np.float64]) -> float:

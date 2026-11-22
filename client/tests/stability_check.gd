@@ -12,7 +12,10 @@ const HEIGHT: int = 720
 const FIXTURE: String = "fuel_stick"
 const RECIPES: MaterialPalette = preload("res://game/recipe_palette.tres")
 const TIERS: Array[String] = ["rig", "laptop"]
-const PX_PER_M: Array[float] = [72.0, 30.0]
+## 120 px/m (owner, 2026-11-22): at 30-90 the stick is floored to a whole 2 px, where even a hard edge barely crawls
+## on the rig tier (2.01-2.12x the ideal); at 120 it is 2.4 px, and a hard edge fails there (2.55x) while the shipped
+## edge holds (1.07x). Chosen from that survey of the deletion, before the shipped shader was judged at it.
+const PX_PER_M: Array[float] = [72.0, 30.0, 120.0]
 const OFFSETS: int = 8
 
 var _stage: RenderStage = RenderStage.new()

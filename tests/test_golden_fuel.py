@@ -117,6 +117,22 @@ def test_fuel_drawn_inside_the_burnt_run_is_found(tmp_path):
     assert any("inside the burnt run" in f for f in gf.burn_through_findings(tmp_path, "rig", SEG))
 
 
+def test_a_live_run_drawn_narrower_than_its_width_is_found(tmp_path):
+    _frames(tmp_path, "rig")
+    assert not any("draws" in f and "px, not" in f for f in gf.burn_through_findings(tmp_path, "rig", SEG))
+    mask_png = tmp_path / "fuel-rig-fuel_mask.png"
+    mask = np.asarray(Image.open(mask_png)).copy()
+    foot = gf.footprints(mask_png)
+    live = SEG.rows("rod_burnt", SEG.thickness > 0)
+    mask[gf.strip(SHAPE, foot[live])] = 0
+    thin = foot[live].copy()
+    thin[:, 4] = 0.5  # a 1 px line where 4 px are drawn
+    mask[gf.strip(SHAPE, thin)] = 255
+    Image.fromarray(mask).save(mask_png)
+    found = gf.burn_through_findings(tmp_path, "rig", SEG)
+    assert any(f.startswith("burn-through (rig): live run") and "px, not 4.00" in f for f in found)
+
+
 def test_a_live_segment_that_draws_nothing_is_found_away_from_the_run(tmp_path):
     _frames(tmp_path, "rig")
     mask_png = tmp_path / "fuel-rig-fuel_mask.png"

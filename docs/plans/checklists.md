@@ -312,6 +312,9 @@ ignites a slab with no flame object.
 - The guest-text gate `engine.text.player_text`. Its Cf rule must let ZWNJ and ZWJ through for Persian, Indic
   spelling and emoji sequences, or say why not, and NFC runs before the length cap. This is an owner decision
   (TB-N5).
+- The fuel decoder's world-extent check (`client_objects.md` §3.2; owner, 2026-11-22, review TB2-S2): fuel geometry
+  outside the cell snapshot's extent is refused, as fire_solid §1.3 refuses it on the server; finite but huge
+  geometry passes the client's checks until then.
 
 ## Step 8, the tile (`tile_and_client.md` §6; `client_rendering.md` §4–§6)
 
@@ -334,7 +337,9 @@ ignites a slab with no flame object.
   dropped; 8 camera offsets of k/8 output px along both screen axes (k = 0..7); per bin, the covered area's spread
   (max - min) / mean over the offsets; the statistic, its 95th percentile over bins; the reference, an ideal line of
   the drawn width rasterised in numpy at exact area coverage (16 x 16 per pixel) at the same geometry and offsets;
-  the bar, the renderer's statistic at most twice the reference's.
+  the bar, the renderer's statistic at most twice the reference's. Owner, 2026-11-22: a third zoom, 120 px/m, where
+  the floored 2 px stick no longer hides a hard edge on the rig tier (a survey of the hard-edged deletion at 30-120
+  px/m: 2.01-2.12x at the floor, 2.55x at 120; the shipped edge 1.07x there).
 - Deferred from D-B2's delta round (mechanism, `reviews/client_objects/`): partial thinning's mechanism and the
   per-fragment lookup's frame time (N3); timings reported as median beside minimum (P-N3).
 - The exit script (Phase 1's exit is `docs/roadmap.md`'s, Phase 1, "Exit"), run stepped and unpaced; the controls,

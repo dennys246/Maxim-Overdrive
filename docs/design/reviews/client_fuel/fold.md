@@ -131,3 +131,12 @@ pixel size), D-N6 (red vs green channel, uncited), D-N7 (a rationale inside §7.
 a second copy of the fixture name), E2-N1 (the dead-flame check can name the wrong rod: they are 0.4 m apart, the
 reach), E2-N2 (the palette-slot read has no golden-visible guard), PD-N2 (no close-zoom frame-time mode), TB delta
 NITs (the limits are hand copies of `limits.yaml`; `_refused`'s loose substring).
+
+## Owner rulings (2026-11-22): the author's statuses, after the owner decided
+
+| Finding | Ruling | Change |
+|---|---|---|
+| A1, burn-through | restore the width clause, ends excluded | `golden_fuel._width_findings`: each clear live run's summed coverage over its length ≥ its drawn width less 1 px (`WIDTH_SLACK_PX`, written before measuring). Measured 7.19–7.26 px against 7.20, every tier, M2 and llvmpipe. **Fixed (author's)** |
+| A1, tier agreement per object; the Burnout and Crossing rows | accepted | §7.2 keeps them; the per-object rationale moved out of the table (D-N7). **Fixed (author's)** |
+| A5 (1), the rig tier's weak stability | a third zoom, chosen by measuring the deletion first | survey of the hard-edged deletion on rig at 30–120 px/m: 2.01–2.12x wherever the stick is floored to a whole 2 px, 2.55x at 120 px/m (2.4 px). 120 px/m added on both tiers; shipped 1.07x (rig), 1.00x (laptop). **Fixed (author's)** |
+| TB2-S2, huge finite geometry | the world-extent check lands at step 7, from the cell snapshot's extent | §3.2's rule and step 7's checklist item. **Deferred (author's)**, trigger: step 7's decoder |

@@ -63,11 +63,12 @@ change the cell raymarch and so re-record every golden (§6.5).
 
 ## What this leaves open
 
-1. **The measure discriminates weakly on the rig tier** (the owner's question, step 8's review fold). A hard-edged
-   synthetic line scores 1.9–2.1x the ideal (`tests/test_golden_stability.py`), about the bar itself. With the
-   shipped shader's fade deleted, rig measured 2.12x at 72 px/m and 1.16x at 30 px/m; the laptop tier's 5.8–5.9x is
-   what fails the check. A regression confined to the rig tier would pass. The parameters were fixed before measuring,
-   so they are not retuned here.
+1. **The measure discriminated weakly on the rig tier; settled (owner, 2026-11-22) by a third zoom.** With the fade
+   deleted, rig measured 1.16x at 30 px/m and 2.12x at 72. A survey of that deletion at 30–120 px/m found why: at the
+   floor the stick is a whole 2 px wide, and a hard edge of whole-pixel width barely crawls (2.01–2.12x from 40 to 90
+   px/m). At 120 px/m it is 2.4 px and a hard edge fails at 2.55x, while the shipped edge measures 1.07x (rig) and
+   1.00x (laptop). The zoom was chosen from the deletion's numbers before the shipped shader was judged at it; its
+   margin over the bar is real but not wide.
 2. **Slabs have no edge coverage.** A slab's edges (a 20 mm thickness seen side-on) are hard. Coverage for a box's
    silhouette is a different calculation; step 8's checklist holds it.
 3. **llvmpipe's frame cost** is unmeasured.

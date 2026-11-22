@@ -125,7 +125,8 @@ draws nothing new. The decoder refuses on any of these:
 - an unknown kind, recipe or region; `object_id`s not strictly rising;
 - a `segment_count` of 0, Σ `segment_count` ≠ the `segments` rows, or key bytes ≠ the keys the objects imply;
 - a geometry row missing, or present in another kind's table;
-- non-finite geometry, a non-positive size, an axis off unit or slab axes off square by more than 10⁻⁶ `[engineering]`.
+- non-finite geometry, a non-positive size, an axis off unit or slab axes off square by more than 10⁻⁶ `[engineering]`;
+- from step 7, geometry outside the world: the cell snapshot's extent (fire_solid §1.3).
 
 The client never recounts segments from geometry. `segment_count` is the server's, its rule fire_solid §1.2's. A recount from f32 columns disagrees with any rule for some lengths: 42 of 1,981 at an absolute tolerance
 (`delta1_wire_integrity.md` N1). The key check catches a misdistributed count, and §4.1's clamp keeps every fragment on
@@ -347,19 +348,18 @@ and decides more. B7 measured c = 0.25–0.96 drawing the same grooves on rig wa
 | Crack (kept), cracked cells and charred faces ≥ 12 px | mean \|ΔL*\| ≥ 8 and ≥ 2× edge density | carving off, darkening kept |
 | **Severity** | edge density rises by at least one step per band, at every tier | one octave for every severity |
 | **Outlines** | every isolated cracked cell has groove pixels on each of its exposed edges | outlines removed |
-| **Burn-through** | zero fuel-ID pixels inside the burnt run's axial footprint, shrunk at each end by its projected radius; every live segment farther than that radius from the run's ends draws | thickness ignored |
+| **Burn-through** | zero fuel-ID pixels inside the burnt run's axial footprint, shrunk at each end by its projected radius; every live segment farther than that radius from the run's ends draws, each run of them at its drawn width less 1 px | thickness ignored; rods narrowed |
 | **Stick stability** | the per-bin coverage spread, under 8 sub-pixel camera offsets, within a margin of an ideal anti-aliased line drawn in the same fixture | anti-aliasing off |
 | **Flame shape** | flame-ID pixels above the flaming segments > 0, and ≥ 15 L* over them | flames off, emission kept |
 | **Burnout** | burnt out: < 15 L* above cold char, flames off; no flame-ID pixel near it or a burnt-through run | ignore `state`; ungate flames |
 | **Crossing** | a stick over a log drawn later ≥ 15 L* above the log | depth from the blended pass alone |
-| Tier agreement | each object's fuel-ID area, as summed coverage within one laptop pixel of the drawn edge, within 15% of rig's (per object: pooled per kind, a thin stick's doubling hid) | floor in rendered pixels |
+| Tier agreement | each object's fuel-ID area, as summed coverage within one laptop pixel of the drawn edge, within 15% of rig's | floor in rendered pixels |
 | Speckle (kept) | extended to the fuel fixture's cold frame | an isolated-pixel defect planted in the fixture |
 
 - **The stability measure** integrates coverage over axial bins 4 px wide and compares each bin across sub-pixel
-  offsets of the camera: a test of crawl under motion.
-- **Its margin** comes from the ideal line's own spread across the same offsets. The ideal is computed outside Godot
-  (numpy, exact area coverage), never by either candidate. Bins, offsets and the statistic are fixed in step 8's
-  checklist before the renderer is measured (`delta1_five_lenses.md` S7).
+  camera offsets: crawl under motion.
+- **Its margin** comes from an ideal line's spread over the same offsets, computed in numpy at exact coverage. The
+  parameters and zooms are step 8's checklist's, fixed before measuring.
 - The masks come from the shaders' debug passes: a fuel-ID view, a flame-ID view and a groove view.
 
 ### 7.3 Scenario goldens

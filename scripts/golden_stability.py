@@ -31,7 +31,7 @@ PERCENTILE = 95.0
 BAR_RATIO = 2.0
 # What stability_check.tscn draws (its TIERS, PX_PER_M and OFFSETS; test_golden_stability holds them together):
 # every key must be measured, so a run that measured nothing can't pass.
-KEYS = ("laptop-30", "laptop-72", "rig-30", "rig-72")
+KEYS = ("laptop-120", "laptop-30", "laptop-72", "rig-120", "rig-30", "rig-72")
 OFFSETS = 8
 
 Floats = NDArray[np.float64]

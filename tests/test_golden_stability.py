@@ -126,7 +126,7 @@ def test_a_failing_stick_with_an_ideal_of_zero_is_reported_not_divided(tmp_path,
     _stability_frames(tmp_path, flicker=False)
     monkeypatch.setattr(gs, "stability", lambda images, axes, width: (0.5, 0.0))
     found = gs.findings(tmp_path)
-    assert len(found) == 4
+    assert len(found) == len(gs.KEYS)
     assert all("against an ideal of 0" in f for f in found)
 
 
