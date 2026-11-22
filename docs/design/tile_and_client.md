@@ -356,8 +356,7 @@ doesn't reach 625 °C, the exit fails, and the measured balance goes to the owne
 
 - **Remaining fuel = virgin wood + char, by mass.** `t_gone` is when it falls to 5% of 32.4 kg (1.62 kg). Ash is
   ignored (Known gap).
-- **`crack` for a bed cell** = 1 − integrity, with integrity the cell's virgin wood fraction of its initial fuel, so
-  charring shows as cracking and shape change.
+- **`crack`** keeps one meaning, 1 − integrity (`client_rendering.md` §4.2; docs-contracts row 79).
 
 ## 6. The exit scenario
 

@@ -57,12 +57,19 @@ the measured checks, advisory.
   finite float or a whole number there, and every mapping is held to its reader's keys, `known_keys`, or is
   refused; `shown`, the bounded echo; `entity_key`, Maxim's name rule; `identity_key`, no `:`), `refusals.py` (the
   append-only refusal codes every refusal carries), `schema.py` (one declarative schema per data format, the one
-  reader that applies it, versions and migrations), `digest.py` (`sha256/c14n-1:` digests), `materials.py` (the material table's types),
-  `readonly.py` (arrays nothing can make writable), `limits.py` (`ActionLimits`), `grid.py` (cells, and the write
-  window: read-only at rest, written only inside `writing()`), `scene.py` (authoring in metres), `heat.py`,
-  `damage.py`, `intents.py` (typed actions, stage-1 parsing and the log record), `frames.py` (published frames and
-  the `Observation` protocol observers read), `world.py` (turn loop, heat sources, the world's window, frame
-  publication), `simulation.py` (`Simulation`, the integer clock and `step`; step 5a), `applier.py` (stage 2: the
+  reader that applies it, versions and migrations), `digest.py` (`sha256/c14n-1:` digests), `fields.py` (the field
+  registry: each field's declared writers, each input's one resolver; its artifact is `docs/generated/fields.md`),
+  `materials.py` (the material table's types), `readonly.py` (arrays nothing can make writable), `limits.py`
+  (`ActionLimits`), `writers.py` (writers as tokens their owners claim, and the gate: who may read and write inside
+  the window), `window.py` (the window's lifecycle: one owner, commit or roll back), `grid.py` (cells: read-only at
+  rest, written only inside `writing()`), `topology.py` (the one owner of world edits: paint, name and destroy
+  requests, applied per batch), `scene.py` (authoring in metres; `constructing`, construction's window), `law.py`
+  (what a law is: cadence, reads, writes, `step`), `stepping.py` (the substep loop), `heat.py` and `damage/` (the
+  laws, one module each, and damage's load resolvers; no law imports another), `exposure.py` (`source_exposure`:
+  which value of each heat source stood each tick), `deposit.py` (where a source's power lands, and its caches),
+  `reductions.py` (region readings observers take), `physics.py` (the law tuple and its orchestrator, which runs each law as itself), `intents.py`
+  (typed actions, stage-1 parsing and the log record), `frames.py` (published frames and the `Observation` protocol
+  observers read), `world.py` (turn loop, heat sources, the world's window, frame publication), `simulation.py` (`Simulation`, the integer clock and `step`; step 5a), `applier.py` (stage 2: the
   only code that applies an action), `imagination.py` (imagined objects as validated specs that become cells)
 - `src/simcore/adapters/`: `loaders.py` (the file gates: material table, action limits, strict YAML, and `DataPath`,
   the only kind of path the game's data locator hands out) and
@@ -95,8 +102,8 @@ the measured checks, advisory.
   machine simulates one truth; rig profiles are rendering tiers only, with no physics
   (world_model D20). Any new physics ships with a closed-form test, through `simcore.verify` with space and time
   refined apart (`tests/test_heat.py` is the pattern), and a cross-grid test (`tests/test_cross_tier.py`), whose
-  scenarios refine both together until step 5a's fixed physics step. If a cross-grid test fails, fix the physics;
-  never loosen the test to pass.
+  scenarios refine space alone at the fixed physics step and are held time-converged (`docs/design/sim_core.md` §11
+  bar 2b). If a cross-grid test fails, fix the physics; never loosen the test to pass.
 - Author scenes in metres. Keep physics parameters per unit volume. Deposit energy by exact cell average or volume
   overlap, never by whether the cell centre is inside.
 - **Reconstruct, decide at the point, integrate upward** (owner: `docs/design/world_model.md` §3). Never apply a threshold or a non-linear law to a cell's
@@ -117,7 +124,9 @@ the measured checks, advisory.
 - Imagined objects enter only through `simcore.core.imagination.place`, which validates them. Never write cells
   directly from LLM output.
 - Actions change cells through `simcore.core.applier`, and imagined objects through `place`, until step 5a makes
-  `imagine` an intent kind; only `World.advance` moves time. Every write happens inside the write window. The SEM
+  `imagine` an intent kind. Only `Simulation.step` moves the integer clock; `World.advance`, which it calls on
+  physics ticks, moves the world's time in whole microseconds (`time_s` is derived; PR 4 retires `World.advance`).
+  Every write happens inside the write window, as a writer the field registry declares, holding its token. The SEM
   membrane is handed an applier and a frame view, never the world, and the import contracts and the ownership scans
   hold it to them.
 - Record known physics gaps in `docs/architecture.md` ("Known gaps"), with numbers, instead of hiding them.
@@ -243,8 +252,9 @@ only review holds.
 
 - **Determinism.** The same scene, grid spacing and intents give bit-identical state on one machine. Across machines
   only the outcome class is promised, as across grid spacings. Randomness, when it arrives, comes from one seeded
-  `numpy.random.Generator` owned by `World`. Time comes from `World.advance`, never the wall clock. No builtin
-  `hash()` in the simulation. Guard: `tests/test_determinism.py::test_runs_in_processes_with_different_hash_seeds_agree`,
+  `numpy.random.Generator` owned by `World`. Time comes from `Simulation.step`'s integer tick (and the world's whole
+  microseconds, until step 5a's PR 4), never the wall clock. No builtin `hash()` in the simulation. Guard:
+  `tests/test_determinism.py::test_runs_in_processes_with_different_hash_seeds_agree`,
   `tests/test_determinism.py::test_the_simulation_and_tests_have_no_hidden_sources_of_nondeterminism`
 - **Replays are first-class.** The intent log plus the scene and grid spacing reproduce any session. It is the bug
   report, the regression test and the save format's backbone. Guard: B2
@@ -301,7 +311,13 @@ only review holds.
 - **Flow runs one way: declared, ordered writers, and one resolver per input kind** (owner, 2026-11-21). Inputs
   never write outcomes, every write to a field is declared, every input kind (each kind of damage, say) resolves in
   one law, and laws couple only through fields. The contract is stated in `docs/design/sim_core.md` §5.1, its one
-  owner; follow it there. Guard: B43
+  owner; follow it there. Guard: `scripts/prepush.sh::lint_imports` (the laws-independent contract),
+  `tests/test_tooling_config.py::test_the_laws_independent_contract_covers_every_law_in_the_tuple`,
+  `tests/test_laws.py::test_a_law_reads_and_writes_only_what_it_declares`,
+  `tests/test_ownership.py::test_only_each_writers_owner_narrows_claims_or_names_its_token`,
+  `tests/test_ownership.py::test_the_applier_writes_no_outcome_field`,
+  `tests/test_ownership.py::test_only_topology_edits_the_world`,
+  `tests/test_fields.py::test_every_input_kind_has_one_resolver_and_it_is_a_law`, B43
 - **Size tripwires.** Hard limits in `src/` and `scripts/`: a 40-line function body (code lines: the docstring,
   comments and blank lines don't count), a 500-line module and 12 public methods per class, properties included
   (`[tool.maxim_overdrive.size_limits]`). Ruff caps cyclomatic complexity at 10, plus branches, returns and

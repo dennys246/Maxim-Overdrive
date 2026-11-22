@@ -80,18 +80,17 @@ def test_the_scenario_exercises_burning(dx_m):
     assert (original_crate & ~w.grid.solid).any()  # and destroyed crate cells
 
 
-# The substeps each 6 s turn takes on the shipped path, as the retired rigs set them (laptop, rig). The digests were
-# shown bit-identical across the move by hand (step 3a's hand-off); a golden digest isn't committed, because only the
-# outcome class is promised across machines and CI runs on another one. This pins the one number that set them.
-TURN_SUBSTEPS = {0.2: 4, 0.1: 16, 0.05: 64}
-
-
+# The fixed physics step (sim_core.md §8): on shipped data stability's bound (240, 60 and 15 s at 0.2, 0.1 and 0.05 m)
+# is longer than any step, so each step takes substep_refine substeps, 1 in shipped play. This replaced TURN_SUBSTEPS,
+# the retired floor's per-turn 4, 16 and 64, in PR 3's recorded digest break (§12; tests/test_laws.py shows the break
+# is the floor and nothing else). A golden digest isn't committed: only the outcome class is promised across machines.
 @fast_spacings
-def test_each_turn_takes_the_substeps_the_rigs_took(dx_m):
+@pytest.mark.parametrize("refine", [1, 4])
+def test_each_physics_step_takes_refine_substeps_on_shipped_data(dx_m, refine):
     w = World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
     _, crate = region_parts(Applier(w), w.frames, "crate")
     assert crate["structure"].execute("ignite", {"power_w": FIRE_W, "radius_m": 0.3}).success
-    assert [w.advance() for _ in range(3)] == [TURN_SUBSTEPS[dx_m]] * 3
+    assert [w.advance(0.5, refine=refine) for _ in range(3)] == [refine] * 3
 
 
 @fast_spacings
@@ -155,7 +154,14 @@ SEEDED_CONSTRUCTORS = {"default_rng", "PCG64", "SeedSequence"}
 # under src/ is scanned.
 NOT_SIMULATION: set[str] = set()
 # Non-vacuity: the scan must reach the turn loop and the laws, wherever a move puts them (boundaries §11.2, W14).
-MUST_SCAN = {"simcore/core/world.py", "simcore/core/heat.py", "simcore/core/damage.py", "simcore/core/applier.py"}
+MUST_SCAN = {
+    "simcore/core/world.py",
+    "simcore/core/heat.py",
+    "simcore/core/damage/loads.py",
+    "simcore/core/damage/thermal.py",
+    "simcore/core/damage/strike.py",
+    "simcore/core/applier.py",
+}
 
 
 def _dotted(node: ast.AST) -> str | None:
@@ -402,7 +408,7 @@ def test_a_chain_is_one_finding():
 # The digest scene has boxes only. A cylinder's mask squares its radius as radius_m**2, as fa27d5f did; r*r is not
 # the same number for every radius, and at this one, on this grid, the two put a different number of cells inside
 # (20 against 24 on the machine that recorded it; delta 2, Executor N-d). No golden digest is committed (see
-# TURN_SUBSTEPS above: only the outcome class is promised across machines), so the test pins the formula: the mask
+# the fixed-step note above: only the outcome class is promised across machines), so the test pins the formula: the mask
 # is the squaring Python gives radius**2. Where pow rounds exactly, the two agree and the test can't tell them apart.
 KNIFE_EDGE_RADIUS_M = 0.28284271247461895
 

@@ -22,12 +22,16 @@ from PIL import Image
 
 from tests.test_godot_check import gc  # registers godot_check, which golden_run imports
 from tests.test_golden_compare import KEY, LOG, gcmp
+from tests.test_golden_fuel import gf  # registers golden_fuel and its imports, which golden_run imports
 from tests.test_golden_measures import gm
+from tests.test_golden_stability import gs  # registers golden_stability
 
 ROOT = Path(__file__).resolve().parents[1]
 assert gc is not None
 assert gcmp is not None
 assert gm is not None
+assert gf is not None
+assert gs is not None
 _spec = importlib.util.spec_from_file_location("golden_run", ROOT / "scripts" / "golden_run.py")
 assert _spec is not None
 assert _spec.loader is not None
@@ -49,11 +53,13 @@ if not os.path.exists(mark):  # as the real Godot fails on a class_name in a pro
     print('SCRIPT ERROR: Parse Error: Identifier "EnginePin" not declared in the current scope.')
 user = sys.argv[sys.argv.index("--") + 1:]
 outs = [a.removeprefix("--shot=").split(":", 3)[3] for a in user if a.startswith("--shot=")]
+yaws = [x.removeprefix("--yaw=") for x in user if x.startswith("--yaw=")]
 for a in user:
-    if a.startswith("--out="):  # the cut-away scene: one pair at the yaw step it was given
-        d = a.removeprefix("--out=")
-        k = next(x for x in user if x.startswith("--yaw=")).removeprefix("--yaw=")
+    if a.startswith("--out=") and yaws:  # the cut-away scene: one pair at the yaw step it was given
+        d, k = a.removeprefix("--out="), yaws[0]
         outs += [os.path.join(d, f"cut-end-k{{k}}-with.png"), os.path.join(d, f"cut-end-k{{k}}-without.png")]
+    elif a.startswith("--out="):  # the stability scene: one frame stands in for its 32
+        outs.append(os.path.join(a.removeprefix("--out="), "stab-rig-72-0.png"))
 if any(not os.path.isabs(o) for o in outs):
     print("ERROR: Can't save PNG at a relative path")  # the real Godot reads it against the project
     sys.exit(1)
@@ -65,6 +71,8 @@ if mode == "hang":
 for o in outs:
     if mode != "no-frame":
         shutil.copy(os.environ["FAKE_GODOT_FRAME"], o)
+    if mode != "no-footprints" and os.path.basename(o).startswith("fuel-"):  # golden.gd writes one per fuel shot
+        open(o[:-4] + ".segments.json", "w").write("[]")
 sys.exit(2 if mode == "exit-2" else 0)
 """
 WRAPPER = f"""#!{sys.executable}
@@ -90,6 +98,7 @@ def setup(tmp_path, monkeypatch):
     for tier in gr.TIERS:
         (goldens / KEY / tier).mkdir(parents=True)
         Image.fromarray(rgb).save(goldens / KEY / tier / "fire.png")
+        Image.fromarray(rgb).save(goldens / KEY / tier / "fuel.png")
     Image.fromarray(rgb).save(tmp_path / "frame.png")
     monkeypatch.setattr(gr, "GOLDENS", goldens)
     measured: list[Path] = []
@@ -115,7 +124,7 @@ def test_matching_frames_pass_every_shot_is_drawn_and_the_logs_are_kept(setup, t
     code = gr.main(["--godot", godot, "--out", str(tmp_path / "out")], work_parent=tmp_path)
     assert code == 0, capsys.readouterr().err
     printed = capsys.readouterr().out
-    assert printed.endswith("golden_run: PASS (12 shots, 3 goldens, cut-away)\n")
+    assert printed.endswith("golden_run: PASS (24 shots, 6 goldens, cut-away, stick stability)\n")
     assert printed.count("res://tests/cutaway_check.tscn took") == 4
     assert printed.count("res://tests/golden.tscn took") == 3  # one call per tier
     out = tmp_path / "out"
@@ -134,6 +143,7 @@ def test_matching_frames_pass_every_shot_is_drawn_and_the_logs_are_kept(setup, t
         ("error", "Godot printed an error: SCRIPT ERROR: something broke"),
         ("exit-2", "exited 2"),
         ("no-frame", "draw: no frame at"),
+        ("no-footprints", "draw: no footprints beside"),
     ],
 )
 def test_a_draw_that_errs_exits_badly_or_writes_nothing_fails_and_judges_nothing(
@@ -172,12 +182,16 @@ def test_every_measured_finding_fails_the_job(tmp_path, monkeypatch):
     monkeypatch.setattr(gm, "colour_alone_findings", lambda out, tier: [f"{tier}: glow: dim"] if tier == "max" else [])
     monkeypatch.setattr(gm, "agreement_findings", lambda name, tier, rig: [f"tiers: {name}"])
     monkeypatch.setattr(gm, "speckle_findings", lambda out: ["rig: speckle"])
+    monkeypatch.setattr(gf, "fuel_findings", lambda out: ["burning (rig): dim"])
+    monkeypatch.setattr(gs, "findings", lambda frames: ["stick stability (laptop-30): crawls"])
     for tier in gr.TIERS:
         Image.fromarray(np.zeros((90, 160, 3), dtype=np.uint8)).save(tmp_path / f"fire-{tier}.png")
     assert gr.measured_findings(tmp_path, tmp_path) == [
         "cutaway: hidden",
         "max: glow: dim",
         "rig: speckle",
+        "burning (rig): dim",
+        "stick stability (laptop-30): crawls",
         "tiers: laptop",
         "tiers: max",
     ]
@@ -206,7 +220,7 @@ def test_off_the_ci_image_the_goldens_are_not_judged_and_stale_cut_frames_are_cl
     assert _main(tmp_path, godot) == 0  # --no-xvfb
     printed = capsys.readouterr().out
     assert "goldens not judged" in printed
-    assert printed.endswith("golden_run: PASS (12 shots, goldens not judged, cut-away)\n")
+    assert printed.endswith("golden_run: PASS (24 shots, goldens not judged, cut-away, stick stability)\n")
     assert measured == [tmp_path / "out" / "cutaway"]
     assert not stale.exists()
 

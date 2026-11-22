@@ -195,20 +195,26 @@ func _read_actors(header: Dictionary) -> void:
 
 
 func _inflate(header: Dictionary, compressed: PackedByteArray) -> PackedByteArray:
+	return inflate(header, compressed, MAX_DATA_BYTES, problems)
+
+
+## A fixture's data, checked against the header's digests and size before use; any problem is appended to
+## ``found`` and the result is empty. Shared by the cell and fuel fixture readers.
+static func inflate(header: Dictionary, compressed: PackedByteArray, max_bytes: int, found: Array[String]) -> PackedByteArray:
 	# The compressed bytes are checked before Godot parses them: decompress prints its own ERROR on a corrupt stream.
 	if _sha256(compressed) != text_of(header.get("data_gzip_sha256")):
-		problems.append("the compressed data's SHA-256 is not %s" % [header.get("data_gzip_sha256")])
+		found.append("the compressed data's SHA-256 is not %s" % [header.get("data_gzip_sha256")])
 		return PackedByteArray()
 	var size: int = whole_of(header.get("data_size"), 0)
-	if size <= 0 or size > MAX_DATA_BYTES:
-		problems.append("data_size %s is not a whole number in 1..%d" % [header.get("data_size"), MAX_DATA_BYTES])
+	if size <= 0 or size > max_bytes:
+		found.append("data_size %s is not a whole number in 1..%d" % [header.get("data_size"), max_bytes])
 		return PackedByteArray()
-	var data: PackedByteArray = compressed.decompress_dynamic(MAX_DATA_BYTES, FileAccess.COMPRESSION_GZIP)
+	var data: PackedByteArray = compressed.decompress_dynamic(max_bytes, FileAccess.COMPRESSION_GZIP)
 	if data.size() != size:
-		problems.append("the data inflates to %d bytes, not %d" % [data.size(), size])
+		found.append("the data inflates to %d bytes, not %d" % [data.size(), size])
 		return PackedByteArray()
 	if _sha256(data) != text_of(header.get("data_sha256")):
-		problems.append("the data's SHA-256 is not %s" % [header.get("data_sha256")])
+		found.append("the data's SHA-256 is not %s" % [header.get("data_sha256")])
 		return PackedByteArray()
 	return data
 

@@ -136,7 +136,8 @@ fails.
     `substep_refine` > 1, and fails with the rerun deleted;
   - the header records the law tuple in order, and a log recorded under the reversed tuple is refused;
   - cadence groups run in §5's order: two strikes on one region in one tick give the second `REGION_GONE`, and
-    `topology_version` rises once per strike record (X-B1, N-B2, DA-S1, X-S2);
+    `topology_version` rises once per strike record that changes the world, and not for one that breaks nothing
+    (X-B1, N-B2, DA-S1, X-S2; sim_core.md §7);
   - `stable_dt` reads only its `bound_reads`: a planted law whose bound reads `temperature` misses the cache after
     heating (Perf S3, DA-S9).
 - **§5.1, the flow (B43):**
@@ -220,9 +221,29 @@ fails.
 
 - **Deferred from PR 1's review (`reviews/sim_shell/fold.md`), each to the PR that owns it:**
   - PR 2: rewrite CLAUDE.md's "only `World.advance` moves time" and "Time comes from `World.advance`" for `Simulation`.
-  - PR 3: a tick an exception interrupts leaves no half-applied state, once the write window moves into the step.
+  - PR 4: a tick an exception interrupts leaves no half-applied state, once the write window moves into the step
+    (`docs/roadmap.md`, Phase 1, names the PR).
   - PR 4: `(actor_id, seq)` unique across ticks, a receipt id on each outcome, and a validated `TickBatch` built by the
     log reader.
+- **Deferred from PR 2's review (`reviews/sim_laws/fold.md`, Exec NIT 5 and Wire N6):**
+  - PR 4: the per-record batch boundary (`sim_core.md` §5.1). A record's stage 2 and its loads are one batch, but
+    `physics.resolve_loads` closes one batch per per-record law; the two agree only while stage 2 emits no topology
+    requests, and `imagine` as stage 2 will. A test: one record whose stage 2 and load both edit cells bumps
+    `topology_version` once.
+- **Deferred from PR 3's review (`reviews/sim_step/fold.md`), each to the PR that owns it:**
+  - PR 4: `source_exposure` as digest member 3 (§9) and in the save, with a save and restore mid-interval (X-B2).
+  - PR 4: a physics step that raises loses its exposure (`Simulation.step` clears it before `advance`); with the
+    window in the step it rolls back with the cells, tested beside the interrupted tick above.
+  - PR 4: the scenario tests move from `World`'s 6 s turn to `Simulation`'s 0.5 s step, and bar 2b reruns there.
+    The strict red gates it can't hold, and `test_act_validation.py`'s fiercest allowed fire, join bar 2b when their
+    gates flip.
+  - PR 4: frames carry their tick (§3); bars 4–7; `World.advance`'s float interval and its exposure's `of_ticks`,
+    which nothing ties together, go with `advance`.
+  - PR 4: heat's `prepare` and `bound_reads`, which take the sources from `World._power_field` (its
+    `TEMPORARY(phase1/sim-clock)` marker); bar 5 with them. This is the one statement of where they are deferred.
+  - PR 4, no later than the per-tick digest (owner, 2026-11-22): the face-conductance and `stable_dt` caches per
+    `topology_version`, each with the rollback eviction the deposit has. Measured at PR 3, without them bar 7 holds at
+    0.1 m only by 0.88–0.96×, and the digest's 1.7 ms per writing tick would take it to about 1.1×.
 ## Step 5b, bodies and movement (`tile_and_client.md` §2, §3, §4.1)
 
 - From step 3b part (b)'s review (Determinism N7): a spawn maps to a cell in integers (`at_mm * 1000 // dx_um`), with
@@ -268,6 +289,10 @@ fails.
 6.1) and the later rung designs. The list below is kept as the record of what the tile spec asked; each item is
 answered, replaced or carried by those documents (their §10 and §7 tables).
 
+**Added by D-B2 (owner, 2026-11-22):** the fuel geometry's segment rule, slab face and rod origin are answered
+(`fire_solid.md` §1.1–§1.2). Still open, before step 8's exit scenario: the torch's Phase 1 pilot, how `kindle`
+ignites a slab with no flame object.
+
 - A short design note first, reviewed under the Physics lens, answering the final review (`reviews/tile_v1/
   final_physics.md`): FPH-B1 radiative transfer between slats inside the bed, plus the draught's air-supply loss;
   FPH-B2 the char-surface product (CO or CO₂) from a cited source, never chosen to make glow pass; FPH-B3 ignition
@@ -300,7 +325,12 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
   this PR (TB-B2).
 - `intent_result`, `seq`, `observed_tick` and events' `cause`; the catalogue with non-default-scale fixtures and its hash check on
   every frame (WT-B3, WT-S13).
-- `region` as u16 `region_id`, the `regions` message and `regions_version` (DC-B1); `surface_glow` and `burning`;
+- `region` as u16 `region_id`, the `regions` message and `regions_version` (DC-B1); the fuel tables and fuel view
+  (`client_objects.md` §3, `fire_solid.md` §5.6) with u32 and f32 in v0's dtypes, a cell channel's fixtures at a
+  non-default scale (`client_objects.md` §7.1), the join cap counting fuel, the fuel view's leak test (`Observation`'s
+  members pinned; `adapters.sem` never imports or reads it), the decoder filling `CellSnapshot` with v0's channels and
+  the renderer's provisional `surface_glow` and `burning` reads deleted (B42; glow from `client_objects.md` §5.1's
+  input), and `encoding`'s `glow` key retired with `docs/architecture.md`'s and the roadmap's mentions of it;
   `tick` as JSON with integer columns (DC-S9); events accumulated with a resync (DC-S4); `tile_and_client.md`
   §3.3's message table; `welcome`'s maps; a `snapshot` on join (WT-S6).
 - Decode and stage-1 rejection fixtures; `HostOnly` tested directly with a guest-role view (WT-S9).
@@ -308,10 +338,36 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 - The guest-text gate `engine.text.player_text`. Its Cf rule must let ZWNJ and ZWJ through for Persian, Indic
   spelling and emoji sequences, or say why not, and NFC runs before the length cap. This is an owner decision
   (TB-N5).
+- The fuel decoder's world-extent check (`client_objects.md` §3.2; owner, 2026-11-22, review TB2-S2): fuel geometry
+  outside the cell snapshot's extent is refused, as fire_solid §1.3 refuses it on the server; finite but huge
+  geometry passes the client's checks until then.
 
 ## Step 8, the tile (`tile_and_client.md` §6; `client_rendering.md` §4–§6)
 
 - The game package and its `content/` (AR-S6).
+- The fuel-object pass (`client_objects.md` §4–§7). Built on `phase1/client-fuel`: the per-instance row texture
+  with fixture rows past 2,048; the per-fragment segment lookup; the 2 px output floor; rod edge coverage in two
+  passes (owner ruling 3); Phase 1 flames, gated by burnout and burn-through; §7.2's fuel checks, each proved by
+  deletion. Remaining: picking objects with no snap; slab edge coverage (`research/fuel_antialiasing.md` item 2);
+  a stick resting on a slab, against the slab floor's growth (`reviews/client_fuel/`, C-S4; anchored at the top face,
+  the growth hides in whatever the slab rests on, D2); the rod edge at crossings, sorted per yaw or measured as a
+  crossing in the stability check (`research/fuel_antialiasing.md`, D1); rod ends' edge coverage; a guard on the
+  shader's temperature clamp, which no fixture reaches (E2-S3); a two-frame golden for
+  the in-place segment upload (E-N2); §7.2's Severity, Outlines, charred-face Crack and fuel Speckle checks, with the
+  groove view; whether fuel-ID coverage reads linear or sRGB on each tier, stated and tested (W-S5), before the
+  per-object area bar is relied on; the fuel B5 rows; the structural-glow Known gap in `docs/architecture.md`;
+  the fuel fixture's head-on row readout (C S7).
+- The stick-stability measure (`client_objects.md` §7.2; S7), fixed 2026-11-22 before any renderer was measured: a
+  20 mm rod 1 m long, at 72 and 30 px/m, on the rig (scale 1.0) and laptop (0.5) tiers, drawn in the fuel-coverage
+  pass; bins fixed in world space along the axis, each the length that projects to 4 output px, the two at each end
+  dropped; 8 camera offsets of k/8 output px along both screen axes (k = 0..7); per bin, the covered area's spread
+  (max - min) / mean over the offsets; the statistic, its 95th percentile over bins; the reference, an ideal line of
+  the drawn width rasterised in numpy at exact area coverage (16 x 16 per pixel) at the same geometry and offsets;
+  the bar, the renderer's statistic at most twice the reference's. Owner, 2026-11-22: a third zoom, 120 px/m, where
+  the floored 2 px stick no longer hides a hard edge on the rig tier (a survey of the hard-edged deletion at 30-120
+  px/m: 2.01-2.12x at the floor, 2.55x at 120; the shipped edge 1.07x there).
+- Deferred from D-B2's delta round (mechanism, `reviews/client_objects/`): partial thinning's mechanism and the
+  per-fragment lookup's frame time (N3); timings reported as median beside minimum (P-N3).
 - The exit script (Phase 1's exit is `docs/roadmap.md`'s, Phase 1, "Exit"), run stepped and unpaced; the controls,
   each proven by deletion (PH-S3); the stage-2 refusal scripts.
 - The shader, the cut-away test at ≥ 95%, five scenario goldens per tier, staleness digests, `update_goldens.sh`

@@ -5,15 +5,20 @@ The laws write the cells only inside the grid's write window (boundaries §4.1),
 """
 
 import math
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
 import numpy as np
 import pytest
 
-from simcore.core import heat
+from simcore.core import heat, physics, topology
 from simcore.core.grid import MaterialGrid
+from simcore.core.law import Cadence, Changes, LawInputs
 from simcore.core.materials import AIR_ID
-from simcore.core.scene import Box, Scene
+from simcore.core.scene import Box, Scene, constructing
+from simcore.core.stepping import substep_loop
 from simcore.verify import Run, converges
+from tests._cells import heat_alone, paint
 from tests.conftest import ALL_TIERS
 
 SIGMA0, T_S = 0.3, 3600.0
@@ -22,18 +27,40 @@ SIGMA0, T_S = 0.3, 3600.0
 def _bar(dx_m, materials):
     g = Scene((4.0, 0.2, 0.2), (Box((0, 0, 0), (4, 0.2, 0.2), "steel"),)).build(materials, dx_m=dx_m)
     x = g.centers(0)[:, None, None]
-    with g.writing():
+    with constructing(g):
         g.temperature[:] = 20 + 100 * np.exp(-((x - 2) ** 2) / (2 * SIGMA0**2))
     return g, x
 
 
-def _error(dx_m, materials):
+PHYSICS_STEP_S = 0.5  # T3's P (simcore.core.simulation.T3.physics_seconds): the shipped path's fixed physics step
+
+
+def _spread(dx_m, materials, refine=1):
+    """The bar after T_S of heat alone on the shipped path: fixed physics steps of P, each refined ``refine`` times."""
     g, x = _bar(dx_m, materials)
-    with g.writing():
-        heat.step(g, T_S, heat.min_substeps(dx_m))
+    with g.writing(writer=None):
+        for _ in range(round(T_S / PHYSICS_STEP_S)):
+            heat_alone(g, PHYSICS_STEP_S, refine)
     s2 = SIGMA0**2 + 2 * materials["steel"].diffusivity_m2_s * T_S
     exact = 20 + 100 * SIGMA0 / np.sqrt(s2) * np.exp(-((x - 2) ** 2) / (2 * s2))
-    return float(np.abs(g.temperature - exact).max() / (exact.max() - 20))
+    return g.temperature.copy(), exact
+
+
+def _error(dx_m, materials):
+    got, exact = _spread(dx_m, materials)
+    return float(np.abs(got - exact).max() / (exact.max() - 20))
+
+
+def test_at_the_fixed_step_heats_time_error_is_below_its_space_error(materials):
+    """sim_core.md §11 bar 1 (verification): at P = 0.5 s and 0.1 m, the error the step length adds (P against P/8,
+    the same spacing) is below the error the spacing leaves (P/8 against the closed form). If this failed, a measured
+    accuracy floor would join the step rule as a truth constant (§8); it is the only thing that may."""
+    coarse, exact = _spread(0.1, materials, refine=1)
+    fine, _ = _spread(0.1, materials, refine=8)
+    amplitude = exact.max() - 20
+    time_error = float(np.abs(coarse - fine).max() / amplitude)
+    space_error = float(np.abs(fine - exact).max() / amplitude)
+    assert time_error < space_error, (time_error, space_error)
 
 
 def test_gaussian_spreads_as_the_heat_equation_says(dx_m, materials):
@@ -41,12 +68,13 @@ def test_gaussian_spreads_as_the_heat_equation_says(dx_m, materials):
 
 
 def _gaussian(dx_m, materials, substeps):
-    """The bar after T_S seconds in exactly ``substeps`` steps: its closed-form error and its peak."""
+    """The bar after T_S seconds in exactly ``substeps`` steps, each one fixed physics step of T_S / substeps: its
+    closed-form error and its peak."""
     g, x = _bar(dx_m, materials)
-    with g.writing():
-        taken = heat.step(g, T_S, substeps)
-    if taken != substeps:  # a precondition: the study's step, not stability's or the floor's, set the count
-        raise RuntimeError(f"heat.step took {taken} substeps, not the study's {substeps}")
+    with g.writing(writer=None):
+        taken = sum(heat_alone(g, T_S / substeps) for _ in range(substeps))
+    if taken != substeps:  # a precondition: the study's step, not stability's, set the count
+        raise RuntimeError(f"heat took {taken} substeps, not the study's {substeps}")
     s2 = SIGMA0**2 + 2 * materials["steel"].diffusivity_m2_s * T_S
     exact = 20 + 100 * SIGMA0 / np.sqrt(s2) * np.exp(-((x - 2) ** 2) / (2 * s2))
     return float(np.abs(g.temperature - exact).max() / (exact.max() - 20)), float(g.temperature.max())
@@ -128,30 +156,48 @@ def test_a_step_takes_exactly_the_substeps_it_plans_however_many(materials):
     """Red first: an end test of elapsed < seconds - 1e-12 on a running float sum took 8,001 substeps when asked for
     8,000 of 0.45 s, a sliver from rounding that grows with the count (found by step 4's space study)."""
     g, _ = _bar(0.2, materials)
-    for substeps in (4, 8_000):  # 8,000 is the red-first case; more adds time, not coverage
-        with g.writing():
-            assert heat.step(g, T_S, substeps) == substeps
+    stability = math.ceil(T_S / heat.stable_dt(g))
+    for refine in (4, 8_000):  # 8,000 is the red-first case's count; more adds time, not coverage
+        with g.writing(writer=None):
+            assert heat_alone(g, T_S, refine) == refine * stability
+
+
+@dataclass(frozen=True)
+class _EditOnce:
+    """A per-substep test law that asks Topology for one world edit on its first substep and records every dt."""
+
+    edit: Callable[[MaterialGrid], topology.Request]
+    dts: list[float] = field(default_factory=list)
+    name: str = "test.edit_once"
+    version: int = 1
+    cadence: Cadence = Cadence.PER_SUBSTEP
+    reads: tuple[str, ...] = ()
+    writes: tuple[str, ...] = ()
+
+    def stable_dt(self, grid: MaterialGrid) -> float:
+        return math.inf
+
+    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs) -> Changes:
+        self.dts.append(dt_s)
+        return Changes((self.edit(grid),)) if len(self.dts) == 1 else Changes()
+
+
+def _to_steel(grid: MaterialGrid) -> topology.Request:
+    return topology.Paint(np.ones(grid.shape, dtype=bool), "steel")
 
 
 def test_a_step_replans_at_the_shorter_step_when_a_change_tightens_stability(materials):
-    """When on_substep changes cells so stability needs a shorter step (wood becoming steel, about 100x more
+    """When a law's world edit makes stability need a shorter step (wood becoming steel, about 100x more
     diffusive), the rest of the call is replanned at the new bound instead of overrunning it."""
     g = MaterialGrid.empty((0.6, 0.6, 0.6), materials, dx_m=0.2)
-    with g.writing():
-        g.paint(np.ones(g.shape, dtype=bool), "wood")
+    with constructing(g):
+        paint(g, np.ones(g.shape, dtype=bool), "wood")
         g.temperature[:] = np.random.default_rng(1).uniform(0, 100, g.shape)
     seconds = 2 * heat.stable_dt(g)  # two planned substeps at wood's step
-    turned: list[float] = []
-
-    def to_steel(grid, dt):
-        if turned:
-            return 0
-        turned.append(dt)
-        grid.paint(np.ones(grid.shape, dtype=bool), "steel")
-        return 1
-
-    with g.writing():
-        taken = heat.step(g, seconds, 2, on_substep=to_steel)
+    law = _EditOnce(_to_steel)
+    with g.writing(writer=None):
+        taken = physics.run_physics(g, seconds, refine=1, power=lambda: None, laws=(heat.HEAT, law))
+    turned = law.dts[:1]
     steel_dt = heat.stable_dt(g)
     assert steel_dt < turned[0]  # the change really tightened stability below the planned step
     assert taken == 1 + math.ceil((seconds - turned[0]) / steel_dt)
@@ -165,24 +211,16 @@ def test_a_replan_splits_the_rest_evenly_and_never_takes_a_zero_length_substep(m
     """Red first: replanning at dt = bound with ceil(remaining / bound) steps took a 0.0 s substep whenever the
     remainder was a whole number of bounds up to rounding. These k did on this machine (2026-11-21, Physics S1)."""
     g = MaterialGrid.empty((0.6, 0.6, 0.6), materials, dx_m=0.2)
-    with g.writing():
-        g.paint(np.ones(g.shape, dtype=bool), "steel")
+    with constructing(g):
+        paint(g, np.ones(g.shape, dtype=bool), "steel")
     steel_dt = heat.stable_dt(g)
-    with g.writing():
-        g.paint(np.ones(g.shape, dtype=bool), "wood")
+    with constructing(g):
+        paint(g, np.ones(g.shape, dtype=bool), "wood")
         g.temperature[:] = np.random.default_rng(1).uniform(0, 100, g.shape)
-    dts: list[float] = []
-
-    def to_steel(grid, dt):
-        dts.append(dt)
-        if len(dts) > 1:
-            return 0
-        grid.paint(np.ones(grid.shape, dtype=bool), "steel")
-        return 1
-
-    with g.writing():
-        heat.step(g, 2 * k * steel_dt, 2, on_substep=to_steel)
-    rest = dts[1:]
+    law = _EditOnce(_to_steel)
+    with g.writing(writer=None):
+        physics.run_physics(g, 2 * k * steel_dt, refine=2, power=lambda: None, laws=(heat.HEAT, law))
+    rest = law.dts[1:]
     assert min(rest) == pytest.approx(max(rest), rel=1e-9)  # one even step, so no zero-length or sliver substep
     assert max(rest) <= steel_dt * (1 + 1e-12)  # an even split can exceed the bound by one ulp (Physics delta N-1)
 
@@ -191,21 +229,21 @@ def test_insulated_world_conserves_heat(dx_m, materials):
     g = Scene(
         (1.2, 1.2, 1.2), (Box((0, 0, 0), (1.2, 1.2, 0.6), "concrete"), Box((0, 0, 0.6), (1.2, 1.2, 1.2), "steel"))
     ).build(materials, dx_m=dx_m)
-    with g.writing():
+    with constructing(g):
         g.temperature[:] = np.random.default_rng(0).uniform(0, 500, g.shape)
     before = heat.heat_energy_j(g)
-    with g.writing():
-        heat.step(g, 3600.0, heat.min_substeps(dx_m))
+    with g.writing(writer=None):
+        heat_alone(g, 3600.0)
     assert abs(heat.heat_energy_j(g) - before) / before < 1e-9
 
 
 def test_step_never_exceeds_the_stability_bound(materials):
     dx_m = 0.2
     g = Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (1, 1, 1), "steel"),)).build(materials, dx_m=dx_m)
-    with g.writing():
+    with constructing(g):
         g.temperature[2, 2, 2] = 1000.0
-    with g.writing():
-        n = heat.step(g, 10 * 3600.0, min_substeps=1)
+    with g.writing(writer=None):
+        n = heat_alone(g, 10 * 3600.0)
     assert n >= 10 * 3600.0 / heat.stable_dt(g)
     assert np.isfinite(g.temperature).all()
     assert np.max(g.temperature) <= 1000.0 + 1e-6
@@ -218,30 +256,76 @@ def test_a_cell_destroyed_mid_turn_gets_no_more_source_power(dx_m, materials):
     become air (1/1000 of wood's rho*cp) is what drove burning crates to tens of thousands of degrees.
     """
     g = MaterialGrid.empty((dx_m,) * 3, materials, dx_m=dx_m)
-    with g.writing():
-        g.paint(np.ones(g.shape, dtype=bool), "wood")
+    with constructing(g):
+        paint(g, np.ones(g.shape, dtype=bool), "wood")
     p_w = 1000.0
 
     def power():
         return p_w * g.solid.astype(np.float64)
 
-    def destroy_once(grid, dt):
-        if (grid.material != AIR_ID).any():
-            return grid.destroy(np.ones(grid.shape, dtype=bool))
-        return 0
-
+    law = _EditOnce(lambda grid: topology.Destroy(np.ones(grid.shape, dtype=bool)))
     rho_cp = materials["wood"].volumetric_heat_capacity
-    with g.writing():
-        n = heat.step(g, 6.0, min_substeps=4, power=power, on_substep=destroy_once)
+    with g.writing(writer=None):
+        n = physics.run_physics(g, 6.0, refine=4, power=power, laws=(heat.HEAT, law))
     assert n == 4
+    assert (g.material == AIR_ID).all()  # the edit really landed after the first substep
     expected = 20.0 + p_w * 1.5 / (rho_cp * g.cell_volume_m3)
     assert g.temperature[0, 0, 0] == pytest.approx(expected, rel=1e-9)
 
 
-def test_the_substep_floor_follows_the_grid_spacing_as_the_rig_profiles_did():
-    """Resolution left the rig (D20) without changing a result: the floor at today's spacings is exactly what the
-    retired rig profiles carried (laptop 4, rig 16, max 64), and it grows as 1/dx^2, never below one substep."""
-    assert [heat.min_substeps(dx) for dx in (0.2, 0.1, 0.05)] == [4, 16, 64]
-    assert heat.min_substeps(0.16) == 7  # 6.25 rounds up: the floor is a bound, never rounded down
-    assert heat.min_substeps(0.4) == 1
-    assert heat.min_substeps(10.0) == 1
+@pytest.mark.parametrize("refine", [0, -1])
+def test_the_fixed_step_refuses_a_refinement_below_one(refine):
+    with pytest.raises(ValueError, match="refine must be at least 1"):
+        substep_loop(1.0, refine, lambda: 1.0, lambda dt, refresh: False)
+
+
+def test_the_fixed_step_is_refine_times_stabilitys_count():
+    """sim_core.md §8: n = refine * max(1, ceil(P / bound)), dt = P / n, with no floor beyond refine."""
+    seen: list[float] = []
+
+    def record(dt: float, refresh: bool) -> bool:
+        seen.append(dt)
+        return False
+
+    assert substep_loop(1.0, 3, lambda: 0.4, record) == 9
+    assert seen == [1.0 / 9] * 9
+    assert substep_loop(1.0, 1, lambda: 10.0, lambda dt, refresh: False) == 1  # a long bound: one substep, not a floor
+
+
+def test_a_replan_takes_the_rest_from_counts_not_from_a_running_sum():
+    """sim_core.md §8: the rest of a replanned step is ``(planned - taken) * dt``. On 0.5 s in 10 substeps, the 9th
+    edits the world and the new bound is a tenth of the last substep: from counts the rest is exactly 10 substeps.
+    From ``seconds - elapsed`` (nine float additions of 0.05 fall short of 0.45 by rounding) the rest divided by
+    the bound is 10.000000000000009, whose ceiling is 11, so the step took 11 even substeps for the rest, 20 in all.
+    Proved by planting that sum in ``substep_loop``: this went red (20 substeps) and every other test stayed green."""
+    seconds, dt = 0.5, 0.5 / 10
+    limit = (10 - 9) * dt / 10
+    seen: list[float] = []
+
+    def bound() -> float:
+        return 0.055 if len(seen) < 9 else limit  # ceil(0.5 / 0.055) is 10 substeps of 0.05 s
+
+    def once(step: float, refresh: bool) -> bool:
+        seen.append(step)
+        return len(seen) == 9  # the 9th substep edits the world, so the bound is rechecked
+
+    assert substep_loop(seconds, 1, bound, once) == 9 + 10
+    assert seen[:9] == [dt] * 9
+    assert seen[9:] == [(10 - 9) * dt / 10] * 10
+
+
+@pytest.mark.parametrize("refine", [1, 2, 4])
+def test_a_replan_keeps_each_substep_within_the_bound_over_refine(refine):
+    """sim_core.md §8: after an edit tightens the bound, every later substep is at most bound / refine, so a refined
+    run stays a refinement of a stable step. PR 3 review N3: the trigger compared the bound with the refined dt, so a
+    bound between the refined dt and the step refine divides replanned refine 1 but not refine 4, whose remaining
+    substeps were then 1.7 times bound / 4. Proved by restoring ``limit < dt``: refine 2 and 4 went red."""
+    bounds = iter([0.5, 0.3])  # a 1 s step at a 0.5 s bound; the first substep's edit tightens it to 0.3 s
+    seen: list[float] = []
+
+    def step_once(dt: float, refresh: bool) -> bool:
+        seen.append(dt)
+        return len(seen) == 1
+
+    substep_loop(1.0, refine, lambda: next(bounds), step_once)
+    assert all(dt <= 0.3 / refine for dt in seen[1:]), seen

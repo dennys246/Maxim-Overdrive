@@ -11,10 +11,13 @@
 //
 // The top-level .gdshader files set the render mode and GLOW_LINEAR, then include this.
 
+#include "res://addons/engine/render/axes.gdshaderinc"
 #include "res://addons/engine/render/traversal.gdshaderinc"
 #include "res://addons/engine/render/cutaway.gdshaderinc"
 #include "res://addons/engine/render/crack.gdshaderinc"
+#include "res://addons/engine/render/key_light.gdshaderinc"
 #include "res://addons/engine/render/lighting.gdshaderinc"
+#include "res://addons/engine/render/glow_curve.gdshaderinc"
 #include "res://addons/engine/render/emission.gdshaderinc"
 #include "res://addons/engine/render/debug.gdshaderinc"
 

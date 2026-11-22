@@ -11,12 +11,13 @@ separately; see docs/architecture.md.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from typing import Any, SupportsFloat
 
 import numpy as np
 
+from simcore.core import topology
 from simcore.core.checks import entity_key, finite_vector, known_keys, shown
 from simcore.core.grid import REGION_NAME, Footprint, MaterialGrid
 from simcore.core.refusals import RefusalCode, Refused
@@ -136,24 +137,29 @@ def _within_world_rules(grid: MaterialGrid, placed: list[Primitive], budget: Bud
 
 
 def _voxelize(grid: MaterialGrid, name: str, placed: list[Primitive], footprint: Footprint) -> None:
-    """Paint the primitives and name them, one mask per primitive, each computed once. A refusal raised here (the
-    space is occupied, or the object covers no cell) rolls the window back whole."""
+    """Paint the primitives and name them as one batch of Topology requests, each mask made as it is painted, so the
+    batch never holds every primitive's full-grid mask at once. A refusal (the space is occupied, or the object covers
+    no cell) raises inside the window, which rolls the batch back whole: it changes nothing."""
     solid = grid.solid  # before anything is painted: overlap among the object's own primitives is allowed
     union = np.zeros(grid.shape, dtype=np.bool_)
-    # TEMPORARY(phase1/sim-clock): place opens the write window itself because the imagine intent kind doesn't exist
-    # yet (boundaries §5.3, §6.4); step 5a's intent log (its PR 4) is where every input joins one pipeline, and there
-    # place becomes the applier's stage 2 of an imagine intent, inside Simulation.step's window.
-    with grid.writing():
-        for p in placed:
+
+    def requests() -> Iterator[topology.Request]:
+        for p in placed:  # in the spec's order: where two overlap, the later one's material is the cell's (§5.1)
             mask = p.mask(grid)
             if (mask & solid).any():
                 raise SpecRejected("that space is occupied", code=RefusalCode.SPACE_TAKEN)
-            union |= mask
-            grid.paint(mask, p.material)
+            union[...] |= mask
+            yield topology.Paint(mask, p.material)
         if not union.any():
             message = "the object is smaller than one cell at this resolution, or outside the world"
             raise SpecRejected(message, code=RefusalCode.TOO_SMALL)
-        grid.name_region(name, union, footprint, solid=True)  # imagined objects are never air (see _read)
+        yield topology.NameRegion(name, union, footprint, solid=True)  # imagined objects are never air (_read)
+
+    # TEMPORARY(phase1/sim-clock): place opens the write window itself because the imagine intent kind doesn't exist
+    # yet (boundaries §5.3, §6.4); step 5a's intent log (its PR 4) is where every input joins one pipeline, and there
+    # place becomes the applier's stage 2 of an imagine intent, inside Simulation.step's window.
+    with grid.writing(writer=None):  # Topology applies the batch, holding its own token
+        topology.apply(grid, requests())
 
 
 def place(

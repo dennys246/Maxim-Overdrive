@@ -9,10 +9,6 @@
 uniform int ao_taps = 4;
 uniform vec3 palette[16];
 
-// World axes (x east, y north, z up): from the south-south-west, high.
-const vec3 KEY_DIR_WORLD = vec3(-0.30, -0.45, 0.84);
-const vec3 KEY_COLOUR = vec3(1.25, 1.18, 1.05);
-const vec3 AMBIENT_COLOUR = vec3(0.13, 0.15, 0.22);
 const float CHAR_DARKEN = 0.4;
 const float HATCH_PERIOD_M = 0.12;
 const float HATCH_MIN_PERIOD_PX = 8.0;
@@ -25,11 +21,6 @@ vec3 albedo_of(int material, float crack) {
 	// Char darkens as well as carves: a burned surface is darker. The checks (§6.4) measure shape over cracked
 	// cells, so this alone can't pass them.
 	return base * (1.0 - CHAR_DARKEN * crack);
-}
-
-vec3 face_lit(vec3 albedo, vec3 n_world, float ao) {
-	float s = 0.5 + 0.5 * dot(n_world, normalize(KEY_DIR_WORLD));
-	return albedo * (AMBIENT_COLOUR + KEY_COLOUR * s * s) * ao;
 }
 
 // Darkening for a hit ``depth_m`` inside a fissure: its walls get less light the deeper they are.

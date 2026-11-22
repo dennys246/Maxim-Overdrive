@@ -22,10 +22,11 @@ import pytest
 from maxim_overdrive import data
 from simcore.adapters.sem.bridge import region_parts
 from simcore.core.applier import Applier
-from simcore.core.grid import WindowClosed
 from simcore.core.readonly import frozen
-from simcore.core.scene import Box, Scene
+from simcore.core.scene import Box, Scene, constructing
 from simcore.core.world import HeatSource, World
+from simcore.core.writers import WindowClosed
+from tests._cells import as_law, name_region, paint
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -117,7 +118,7 @@ def test_a_handle_or_view_unlocked_inside_a_window_and_written_after_it_closes_c
     # window stays writable after it, so a guard proven only with the window closed would pass while failing.
     w = _world()
     g = w.grid
-    with g.writing():
+    with constructing(g):
         handle = g.temperature
         view = g.temperature[1:3]
         view.flags.writeable = True
@@ -132,20 +133,20 @@ def test_a_handle_or_view_unlocked_inside_a_window_and_written_after_it_closes_c
 
 def test_one_window_at_a_time_and_none_at_rest():
     g = _world().grid
-    with g.writing(), pytest.raises(WindowClosed, match="one owner at a time"), g.writing():
+    with g.writing(writer=None), pytest.raises(WindowClosed, match="one owner at a time"), g.writing(writer=None):
         pass  # pragma: no cover - the nested window is refused before its body runs
     with pytest.raises(WindowClosed, match="only inside the write window"):
-        g.time_s = 5.0
+        g.time_us = 5_000_000
     with pytest.raises(WindowClosed, match="only inside the write window"):
-        g.name_region("x", g.regions["crate"].cells, g.regions["crate"].footprint, solid=True)
+        name_region(g, "x", g.regions["crate"].cells, g.regions["crate"].footprint, solid=True)
 
 
 def _write_everything_then_fail(w: World) -> None:
     g = w.grid
-    with w.writing() as sources:
-        g.temperature[:] = 500.0
-        g.paint(g.regions["crate"].cells, "air")
-        g.time_s = 60.0
+    with w.writing() as sources:  # each write as its owner does it: heat's field as heat, the paint through Topology
+        as_law(g, lambda grid: grid.temperature.fill(500.0))
+        paint(g, g.regions["crate"].cells, "air")
+        g.time_us = 60_000_000
         sources["fire:crate"] = HeatSource((1.5, 1.5, 0.3), 0.3, 1.0)
         raise RuntimeError("midway")
 
@@ -189,7 +190,7 @@ def test_the_sources_stay_read_only_after_an_ignite_and_a_dict_kept_past_its_win
 
 def _heat_and_light(w: World) -> None:
     with w.writing() as sources:
-        w.grid.temperature[:] = 99.0
+        as_law(w.grid, lambda grid: grid.temperature.fill(99.0))
         sources["fire:x"] = HeatSource((1.5, 1.5, 0.3), 0.3, 1.0)
 
 
@@ -251,14 +252,14 @@ def test_the_grid_window_and_the_sources_window_share_one_owner():
         _ignite_inside_a_failing_grid_window(w)
     assert dict(w.sources) == {}
     assert w.grid.temperature.max() == 20.0  # the grid window rolled back too
-    with w.writing(cells=False), pytest.raises(WindowClosed, match="one owner at a time"), w.grid.writing():
+    with w.writing(cells=False), pytest.raises(WindowClosed, match="one owner at a time"), w.grid.writing(writer=None):
         pass  # pragma: no cover - the nested window is refused before its body runs
 
 
 def _ignite_inside_a_failing_grid_window(w: World) -> None:
     from simcore.core.intents import Ignite  # noqa: PLC0415
 
-    with w.grid.writing():
+    with constructing(w.grid):
         w.grid.temperature[:] = 500.0
         Applier(w).apply("crate", Ignite(1000.0, 0.3))  # a second owner: refused, so the grid window raises
         raise AssertionError("the nested window was not refused")  # pragma: no cover - reached only if the guard fails
@@ -269,8 +270,8 @@ def test_a_paint_far_from_every_region_copies_no_region_mask():
     g = _world().grid
     far = np.zeros(g.shape, dtype=np.bool_)
     far[-1, -1, -1] = True
-    with g.writing():
-        g.paint(far, "steel")
+    with constructing(g):
+        paint(g, far, "steel")
         assert g._masks == {}
 
 
@@ -375,13 +376,12 @@ def _all_writers() -> set[str]:
 
 # Non-vacuity: the scan must find the writers known to exist, so a change that blinds it goes red.
 KNOWN_WRITERS = {
-    "simcore/core/damage.py::strike",
-    "simcore/core/damage.py::thermal_degrade",
+    "simcore/core/damage/loads.py::LoadsLaw.step",
+    "simcore/core/damage/thermal.py::ThermalLaw.step",
     "simcore/core/heat.py::substep",
-    "simcore/core/grid.py::MaterialGrid.paint",
+    "simcore/core/grid.py::MaterialGrid._set_cells",  # paint's and destroy's in-place edits
     "simcore/core/grid.py::MaterialGrid.name_region",
-    "simcore/core/grid.py::MaterialGrid.destroy",
-    "simcore/core/grid.py::CellStore.writing",
+    "simcore/core/grid.py::CellStore._open_window",
     "simcore/core/grid.py::CellStore._take_cells",
     "simcore/core/world.py::World.writing",
     "simcore/core/applier.py::Applier._ignite",
@@ -440,7 +440,7 @@ WINDOW_OWNERS = {
     "simcore/core/applier.py::Applier._strike": "intent application: strike",
     "simcore/core/applier.py::Applier._ignite": "intent application: ignite",
     "simcore/core/applier.py::Applier._extinguish": "intent application: douse",
-    "simcore/core/scene.py::Scene.build": "construction",
+    "simcore/core/scene.py::constructing": "construction (Scene.build is its shipped caller)",
     "simcore/core/imagination.py::_voxelize": "place, under a phase1/sim-clock marker: imagine has no intent kind yet",
 }
 
@@ -627,14 +627,14 @@ def test_nothing_outside_the_core_imports_a_forbidden_module_through_an_allowed_
     "line",
     [
         "from simcore.core.frames import MaterialGrid",
-        "from simcore.core.applier import damage",
-        "from simcore.core.frames import damage, QUANTITIES",
-        "import simcore.core.frames as fr\nx = fr.damage.region_breached",
-        "from simcore.core import applier\nx = applier.damage.strike",
-        "from simcore.core import frames as f\nx = f.damage.region_integrity",
-        "import simcore.core.world\nx = simcore.core.world.heat.step",
-        "import simcore\nx = simcore.core.frames.damage.region_breached",  # delta 2, Architecture D1
-        "from simcore import core\nx = core.applier.damage.strike",
+        "from simcore.core.applier import physics",
+        "from simcore.core.frames import reductions, QUANTITIES",
+        "import simcore.core.frames as fr\nx = fr.reductions.region_breached",
+        "from simcore.core import applier\nx = applier.physics.damage.LOADS",
+        "from simcore.core import frames as f\nx = f.reductions.region_integrity",
+        "import simcore.core.world\nx = simcore.core.world.physics.run_physics",
+        "import simcore\nx = simcore.core.frames.reductions.region_breached",  # delta 2, Architecture D1
+        "from simcore import core\nx = core.applier.physics.strike",
     ],
 )
 def test_the_reexport_scan_catches(line):
@@ -646,3 +646,139 @@ def test_the_world_window_has_one_owner_at_a_time_too():
     w = _world()
     with w.writing(cells=False), pytest.raises(WindowClosed, match="one owner at a time"), w.writing(cells=False):
         pass  # pragma: no cover - the nested window is refused before its body runs
+
+
+# B43: inputs never write outcomes. The applier appends a record's inputs (a heat source, a load) and the laws resolve
+# them; it writes no cell field and makes no world edit itself. The writer scan above finds every write, so here it
+# must find only the two that touch the sources table, and no call may reach a cell writer or Topology.
+APPLIER = "simcore/core/applier.py"
+OUTCOME_CALLS = {"destroy", "paint", "name_region", "substep", "as_writer"}
+OUTCOME_MODULES = {"simcore.core.topology", "simcore.core.damage", "simcore.core.heat", "simcore.core.grid"}
+
+
+def _under(module: str | None, packages: set[str]) -> bool:
+    return module is not None and any(module == p or module.startswith(f"{p}.") for p in packages)
+
+
+def applier_outcome_writes(source: str) -> list[str]:
+    tree = ast.parse(source)
+    found = sorted(w for w in writers(APPLIER, source) if not w.endswith(("Applier._ignite", "Applier._extinguish")))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in OUTCOME_CALLS:
+            found.append(f"line {node.lineno}: calls {node.func.attr}")
+        if isinstance(node, ast.ImportFrom) and node.module == "simcore.core":
+            found += [f"imports {a.name}" for a in node.names if f"simcore.core.{a.name}" in OUTCOME_MODULES]
+        if isinstance(node, ast.ImportFrom) and _under(node.module, OUTCOME_MODULES - {"simcore.core.grid"}):
+            found.append(f"imports from {node.module}")
+    return found
+
+
+def test_the_applier_writes_no_outcome_field():
+    assert applier_outcome_writes((SRC / APPLIER).read_text()) == []
+
+
+@pytest.mark.parametrize(
+    "planted",
+    [
+        "def f(self):\n    self._world.grid.integrity[0] = 0.0\n",
+        "def f(self, m):\n    self._world.grid.destroy(m)\n",
+        "def f(self, m):\n    self._world.grid.paint(m, 'air')\n",
+        "def f(self):\n    with self._world.grid.as_writer('damage.loads'):\n        pass\n",
+        "from simcore.core import topology\n",
+        "from simcore.core import damage\n",
+        "from simcore.core.topology import apply\n",
+        "from simcore.core.damage.loads import LOADS\n",
+    ],
+)
+def test_the_applier_scan_catches(planted):
+    assert applier_outcome_writes((SRC / APPLIER).read_text() + "\n\n" + planted), planted
+
+
+# B43: Topology is the one path to the topology fields (sim_core.md §5.1). The window refuses paint, naming and
+# destruction outside Topology's block; this scan holds the call sites to Topology's own module (and the grid's paint,
+# which names the region it paints), so no requester even spells an edit itself.
+WORLD_EDITS = {"destroy", "paint", "name_region"}
+WORLD_EDITORS = {"simcore/core/topology.py", "simcore/core/grid.py"}
+
+
+def world_edit_calls(rel: str, source: str) -> list[str]:
+    return [
+        f"{rel}:{node.lineno}: {node.func.attr}"
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr in WORLD_EDITS
+    ]
+
+
+def test_only_topology_edits_the_world():
+    found = []
+    for p in sorted(SRC.rglob("*.py")):
+        rel = p.relative_to(SRC).as_posix()
+        calls = world_edit_calls(rel, p.read_text())
+        assert rel not in {"simcore/core/topology.py"} or calls, "non-vacuity: Topology's own calls must be found"
+        if rel not in WORLD_EDITORS:
+            found += calls
+    assert not found, found
+
+
+def test_the_world_edit_scan_catches_a_requester_painting_for_itself():
+    assert world_edit_calls("x.py", "def f(g, m):\n    g.paint(m, 'air')\n")
+    assert world_edit_calls("x.py", "def f(w, m):\n    w.grid.destroy(m)\n")
+
+
+# B43: a writer is a token its owner holds (``simcore.core.writers.claim``), and the window refuses everyone else at
+# runtime. This scan holds the narrowing, the claims, the tokens and construction's window to their owners' modules, so
+# a law can't even name another writer (Exec SF1's plants G3 and G4).
+NARROWERS = {"simcore/core/physics.py", "simcore/core/topology.py"}
+TOKENS = {"_TOKENS": "simcore/core/physics.py", "_TOPOLOGY": "simcore/core/topology.py"} | {
+    "_CONSTRUCTION": "simcore/core/scene.py",
+    "_run_as": "simcore/core/physics.py",  # runs a body holding a law's token; tests use it, shipped code may not
+    "_claimed": "simcore/core/writers.py",  # every granted token (PR 2 delta, N1)
+}
+OWNED_CALLS = {"as_writer": NARROWERS, "claim": set(TOKENS.values()), "constructing": {"simcore/core/scene.py"}}
+
+
+def _named(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    if isinstance(node, ast.Name):
+        return node.id
+    return node.name if isinstance(node, ast.alias) else None
+
+
+def token_uses(rel: str, source: str) -> list[str]:
+    found = []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Call):
+            name = _named(node.func)
+            if name in OWNED_CALLS and rel not in OWNED_CALLS[name]:
+                found.append(f"{rel}:{node.lineno}: calls {name}")
+        held = _named(node)
+        if held in TOKENS and TOKENS[held] != rel:
+            found.append(f"{rel}: uses {held}")
+    return found
+
+
+def test_only_each_writers_owner_narrows_claims_or_names_its_token():
+    found = []
+    for p in sorted(SRC.rglob("*.py")):
+        rel = p.relative_to(SRC).as_posix()
+        found += token_uses(rel, p.read_text())
+    assert not found, found
+    assert "as_writer" in (SRC / "simcore/core/topology.py").read_text()  # non-vacuity: the owners do narrow
+
+
+@pytest.mark.parametrize(
+    ("rel", "planted"),
+    [
+        # G3: thermal damage edits the world itself as Topology. G4: heat writes as construction.
+        ("simcore/core/damage/thermal.py", "def f(g, m):\n    with g.as_writer(topology._TOPOLOGY):\n        pass\n"),
+        ("simcore/core/heat.py", "def f(g):\n    with g.as_writer('construction'):\n        pass\n"),
+        ("simcore/core/heat.py", "from simcore.core.writers import claim\nT = claim('construction')\n"),
+        ("simcore/core/applier.py", "from simcore.core.scene import _CONSTRUCTION\n"),
+        ("simcore/core/applier.py", "def f(g):\n    with constructing(g):\n        pass\n"),
+        ("simcore/core/damage/loads.py", "from simcore.core import physics\nT = physics._TOKENS['heat']\n"),
+    ],
+    ids=["g3", "g4", "claim", "import-token", "construct", "law-token"],
+)
+def test_the_token_scan_catches(rel, planted):
+    assert token_uses(rel, planted), planted

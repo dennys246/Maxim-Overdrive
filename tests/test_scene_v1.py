@@ -16,7 +16,8 @@ from maxim_overdrive import data
 from simcore.core.checks import IDENTITY_KEY_CHARS, identity_key
 from simcore.core.grid import MaterialGrid
 from simcore.core.refusals import RefusalCode, Refused
-from simcore.core.scene import MAX_SPAWNS, SCENE, Scene, Spawn, to_mm
+from simcore.core.scene import MAX_SPAWNS, SCENE, Scene, Spawn, constructing, to_mm
+from tests._cells import name_region
 
 ROOT = Path(__file__).resolve().parents[1]
 FORMATS = ROOT / "tests" / "fixtures" / "formats"
@@ -290,8 +291,8 @@ def test_name_region_itself_keeps_the_region_name_rule(name):
     grid = Scene((2.0, 2.0, 2.0)).build(MATERIALS, dx_m=0.2)
     mask = np.zeros(grid.shape, dtype=np.bool_)
     mask[0, 0, 0] = True
-    with pytest.raises(Refused) as caught, grid.writing():
-        grid.name_region(name, mask, Footprint(((0, 0, 0), (0.2, 0.2, 0.2)), (0.1, 0.1, 0.1)), solid=True)
+    with pytest.raises(Refused) as caught, constructing(grid):
+        name_region(grid, name, mask, Footprint(((0, 0, 0), (0.2, 0.2, 0.2)), (0.1, 0.1, 0.1)), solid=True)
     assert caught.value.code is RefusalCode.BAD_NAME
 
 

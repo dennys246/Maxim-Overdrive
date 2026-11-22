@@ -1,6 +1,6 @@
 extends Node
 ## The renderer goldens and the never-colour-alone frames (client_rendering.md §6), drawn from snapshot fixtures,
-## never a live server. Each ``--shot=<fixture>:<tier>:<pass>:<png>`` after ``--`` draws one frame at the golden
+## never a live server. Each ``--shot=`` after ``--`` (GoldenShot states the grammar) draws one frame at the golden
 ## camera (§1: yaw 45, size 10 m, centred on the crate, 1280 x 720) and saves it; scripts/golden_run.py names the
 ## shots and judges them. The cut is the one the fixture's player (actor 1) would see. Flicker, particles and
 ## cross-fade are off (§6.1). It needs a real GL context (Xvfb in CI): under --headless it refuses at once, since
@@ -15,9 +15,11 @@ const SIZE_M: float = 10.0
 const PLAYER: int = 1
 const PALETTE: MaterialPalette = preload("res://game/palette.tres")
 const WALLS: CutawayRegions = preload("res://game/cutaway.tres")
+const RECIPES: MaterialPalette = preload("res://game/recipe_palette.tres")
 
 var _stage: RenderStage = RenderStage.new()
 var _fixtures: Dictionary[String, SnapshotFixture] = {}
+var _fuel_fixtures: Dictionary[String, FuelFixture] = {}
 
 
 func _ready() -> void:
@@ -27,7 +29,7 @@ func _ready() -> void:
 		return
 	var shots: Array[String] = _shots()
 	if shots.is_empty():
-		_fail("pass the shots after --: -- %s<fixture>:<tier>:<pass>:<png> ..." % SHOT_FLAG)
+		_fail("pass the shots after --: -- %s<shot> ..., each as GoldenShot parses" % SHOT_FLAG)
 		return
 	_stage.size = Vector2i(WIDTH, HEIGHT)
 	add_child(_stage)
@@ -49,7 +51,20 @@ func _draw(text: String) -> String:
 	var why: String = GoldenShot.usable(fixture, tier, PLAYER)
 	if not why.is_empty():
 		return why
+	var fuel: FuelFixture = null
+	if not shot.fuel.is_empty():
+		fuel = _fuel_fixture(shot.fuel)
+		why = GoldenShot.fuel_usable(fuel)
+		if not why.is_empty():
+			return why
 	_stage.show_snapshot(fixture.snapshot, PALETTE)
+	var fuel_regions: Dictionary[int, String] = {}
+	if fuel != null:
+		fuel_regions = fuel.region_names
+	var refused: Array[String] = _stage.show_fuel(fuel.snapshot if fuel != null else null, fuel_regions, RECIPES)
+	if not refused.is_empty():
+		return "fuel: " + "; ".join(refused)
+	_stage.use_fuel_view(shot.fuel_view, shot.flames)
 	_stage.use_tier(tier)
 	var yaw: float = IsoCamera.step_yaw(0)
 	_stage.aim(_stage.volume_bounds_m("crate").get_center(), yaw, SIZE_M)
@@ -64,6 +79,10 @@ func _draw(text: String) -> String:
 	var err: Error = image.save_png(shot.png)
 	if err != OK:
 		return "save_png failed: %s" % error_string(err)
+	if fuel != null:
+		why = _write_footprints(fuel.snapshot, shot.png)
+		if not why.is_empty():
+			return why
 	print("golden: wrote %s adapter=%s" % [shot.png, RenderingServer.get_video_adapter_name()])
 	return ""
 
@@ -74,6 +93,24 @@ func _fixture(fixture_name: String) -> SnapshotFixture:
 	if not _fixtures.has(fixture_name):
 		_fixtures[fixture_name] = SnapshotFixture.named(fixture_name)
 	return _fixtures[fixture_name]
+
+
+func _fuel_fixture(fixture_name: String) -> FuelFixture:
+	if not _fuel_fixtures.has(fixture_name):
+		_fuel_fixtures[fixture_name] = FuelFixture.named(fixture_name)
+	return _fuel_fixtures[fixture_name]
+
+
+## Each segment's footprint, projected by the camera that drew the frame, beside the PNG: <png>.segments.json.
+func _write_footprints(snap: FuelSnapshot, png: String) -> String:
+	var rows: Array[Array] = FuelFootprints.of(snap, _stage.camera, SIZE_M / HEIGHT)
+	var file: FileAccess = FileAccess.open(png.get_basename() + ".segments.json", FileAccess.WRITE)
+	if file == null:
+		return "cannot write the footprints: %s" % error_string(FileAccess.get_open_error())
+	if not file.store_string(JSON.stringify(rows)):
+		return "the footprints didn't write"
+	file.close()
+	return ""
 
 
 func _shots() -> Array[String]:
