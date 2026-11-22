@@ -60,7 +60,7 @@ the suite green.
 | S2 | `KIND_RANK` is a closed table of the kinds a record can carry today, with values from `boundaries.md` §6.2; an unlisted kind is refused. `test_a_records_rank_is_read_from_the_table_not_assumed` kills the constant-rank plant | open (for the reviewer) |
 | S3 | As Determinism S2; `seq` is bounded below 2³² | open (for the reviewer) |
 | S4 | The frame-cadence departure is named in `simulation.py`'s docstring, with a strict red gate, `test_a_refusal_only_tick_publishes_one_frame_stamped_with_its_tick` (`raises=AssertionError`; its precondition raises `RuntimeError`). It flips in PR 4 | open (for the reviewer) |
-| S5 | **For the owner, not folded:** `tile_and_client.md` §6.2's exit script joins the host at tick 0, while `sim_core.md` §3 makes tick 0 construction and `LogRecord` refuses `apply_tick` 0. One of them has to give | open (for the owner) |
+| S5 | **Ruled by the owner (2026-11-22): the join applies at tick 1.** `tile_and_client.md` §6.2's exit script moves its host `join` from tick 0 to tick 1: tick 0 is construction (`sim_core.md` §3) and takes no records, and `LogRecord` refuses `apply_tick` 0. A one-character change; the tile spec's word count is unchanged | open (for the reviewer) |
 | S6 | CLAUDE.md's layout lists `simulation.py`, and `intents.py` now says it holds the log record | open (for the reviewer) |
 | S7 | `boundaries.md` §2.2 lists `simulation` as built under `engine.sim`, and drops `Simulation` from "Not built" | open (for the reviewer) |
 | N1 | As Architecture N2 | open (for the reviewer) |

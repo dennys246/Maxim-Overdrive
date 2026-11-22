@@ -375,7 +375,7 @@ server reports the tick before its apply tick. Each run produces a log, and the 
 
 | Tick | Input | Assert |
 |---|---|---|
-| 0 | `join` (host) | actor 1 at (600, 2000, 400) mm, holding `torch` |
+| 1 | `join` (host) | actor 1 at (600, 2000, 400) mm, holding `torch` |
 | 10 | `move {dir: [1000, 0]}` | 140 mm per tick |
 | 42 | `move {dir: null}` | `pos_mm` == (5080, 2000, 400) |
 | 50 | `move_to {target_mm: [5500, 2925]}` | one segment, 1,015.9 mm; `pos_mm` == (5500, 2925, 400) at tick 57 |
