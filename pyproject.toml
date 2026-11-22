@@ -148,7 +148,7 @@ allow_indirect_imports = true
 
 # B-13's import half (boundaries §4.4): the SEM membrane reads the world through published frames (and, from step 5a,
 # the field registry) and changes it through the applier, the two capabilities it is handed. On top of the skip-layer
-# rule it gives up the material types, the file gates and the world itself. tests/test_tooling_config.py holds the list to every core module outside its surface.
+# rule it gives up the material types, the file gates, the world itself and the simulation. tests/test_tooling_config.py holds the list to every core module outside its surface.
 [[tool.importlinter.contracts]]
 id = "membrane-reads-frames"
 name = "the SEM membrane reads frames and writes through the applier only (boundaries §4.4, B-13)"

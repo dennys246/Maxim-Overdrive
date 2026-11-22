@@ -2,45 +2,53 @@
 
 This is step 5a's first PR, the strangler wrap: `Simulation` drives today's `World` unchanged. A tick applies its
 records through today's applier, in the log's key order, then runs physics on physics ticks through `World.advance`,
-so heat, damage, the substep floor and the frame cadence are exactly as before. PRs 2-4 move those pieces inside:
-the law list and registry, the fixed physics step, and the intent log with its per-tick digest.
+so heat, damage and the substep floor are exactly as before. PRs 2-4 move those pieces inside: the law list and
+registry, the fixed physics step, and the intent log with its per-tick digest.
+
+Interim departures from sim_core.md, each named with the PR that ends it:
+- the `Simulation(world, *, config)` seam beside `from_scene` (marked below; PR 4, when `Simulation` carries the
+  per-tick digest the tests compare);
+- frames are still published when a write window closes, so a tick with two records publishes two and a refusal-only
+  tick publishes none, and frames carry no tick (§4's cadence, `tile_and_client.md` §4; PR 4, with the record path);
+- the world's time is still `grid.time_s`, a float that `World.advance` accumulates (§2 retires it; PR 3, with the
+  fixed physics step).
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from simcore.core.applier import Applier, Outcome
+from simcore.core.checks import whole_number
 from simcore.core.frames import FrameView
-from simcore.core.intents import AFFORDANCE_OF, Action
+from simcore.core.intents import LogRecord
 from simcore.core.limits import ActionLimits
 from simcore.core.materials import MaterialTable
+from simcore.core.refusals import RefusalCode, Refused
 from simcore.core.scene import Scene
 from simcore.core.world import World
 
-# kind_rank for 5a's v0 log vocabulary (sim_core.md §14; boundaries.md §6.2 owns the table): every v0 world action
-# (ignite, strike and its douse, spelled `extinguish` in today's intents) ranks 30.
-WORLD_ACTION_RANK = 30
 
-
-def _whole(value: object, name: str, *, minimum: int) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
-        raise ValueError(f"{name} must be a whole number of at least {minimum}, got {value!r}")
-    return value
+def _positive(value: object, what: str) -> int:
+    n = whole_number(value, what)
+    if n < 1:
+        raise Refused(f"{what} must be at least 1, got {n}", code=RefusalCode.OUT_OF_RANGE)
+    return n
 
 
 @dataclass(frozen=True)
 class SimConfig:
     """The truth constants (tile_and_client.md §6.1, T3): a tick's length in world microseconds, and how many ticks
-    one physics step covers. Integers, so nothing stores time as a float (sim_core.md §3)."""
+    one physics step covers. Integers, so nothing stores time as a float (sim_core.md §3). §3's third constant,
+    `substep_refine`, joins with the fixed physics step in step 5a's PR 3."""
 
     tick_us: int = 100_000
     physics_every: int = 5
 
     def __post_init__(self) -> None:
-        _whole(self.tick_us, "tick_us", minimum=1)
-        _whole(self.physics_every, "physics_every", minimum=1)
+        _positive(self.tick_us, "tick_us")
+        _positive(self.physics_every, "physics_every")
 
     @property
     def physics_seconds(self) -> float:
@@ -49,44 +57,6 @@ class SimConfig:
 
 
 T3 = SimConfig()
-
-
-@dataclass(frozen=True)
-class LogRecord:
-    """One input record, carrying what `step` needs in 5a's first PR (boundaries.md §6.2's fields and key).
-
-    The log's full record (schema_version, observed and issued ticks, typed params, the audit payload) and its file
-    format are step 5a's PR 4; this is the subset `step` applies today: the typed action and the region it targets."""
-
-    apply_tick: int
-    apply_us: int
-    actor_id: str
-    seq: int
-    target: str
-    action: Action
-
-    def __post_init__(self) -> None:
-        _whole(self.apply_tick, "apply_tick", minimum=1)
-        _whole(self.apply_us, "apply_us", minimum=0)
-        _whole(self.seq, "seq", minimum=0)
-        for name, value in (("actor_id", self.actor_id), ("target", self.target)):
-            if not isinstance(value, str) or not value:
-                raise ValueError(f"{name} must be a non-empty string, got {value!r}")
-        if type(self.action) not in AFFORDANCE_OF:
-            raise ValueError(f"action must be a typed action, got {type(self.action).__name__}")
-
-    @property
-    def kind(self) -> str:
-        return AFFORDANCE_OF[type(self.action)]
-
-    @property
-    def kind_rank(self) -> int:
-        return WORLD_ACTION_RANK
-
-    @property
-    def key(self) -> tuple[int, int, int, str, int]:
-        """The log's one ordering key (boundaries.md §6.2)."""
-        return (self.apply_tick, self.kind_rank, self.apply_us, self.actor_id, self.seq)
 
 
 @dataclass(frozen=True)
@@ -118,8 +88,11 @@ class Simulation:
     """The world's one owner of time. `step` runs exactly one tick (sim_core.md §4)."""
 
     def __init__(self, world: World, *, config: SimConfig) -> None:
-        """The strangler seam: wrap a world that construction already published as frame 0. Construction moves
-        into `from_scene`, through the topology owner, in step 5a's PR 2 (sim_core.md §2)."""
+        # TEMPORARY(phase1/sim-clock): this seam wraps a World the caller built and still holds, so the strangler
+        # tests can compare digest(world) against direct World calls; sim_core.md §4's one constructor is from_scene.
+        # Step 5a's PR 4 removes it, when Simulation carries the per-tick digest those tests compare instead.
+        if world.turn != 0 or world.grid.time_s != 0.0:
+            raise ValueError("Simulation wraps a world at construction (tick 0), never one that has advanced")
         self._world, self._config = world, config
         self._applier = Applier(world)
         self._clock = Clock()
@@ -144,26 +117,32 @@ class Simulation:
     def frames(self) -> FrameView:
         return self._world.frames
 
-    def step(self, records: Sequence[LogRecord]) -> TickReport:
+    def step(self, records: Iterable[LogRecord]) -> TickReport:
         """Run one tick: apply its records in key order, then physics if it is a physics tick.
 
-        The whole batch is checked before any of it applies, so a bad batch raises ``ValueError`` and changes
-        nothing."""
-        tick = self._clock.tick
-        self._check_batch(tick, records)
-        outcomes = tuple(self._applier.apply(r.target, r.action) for r in records)
+        The batch is read once and checked whole before any of it applies, so a bad batch raises ``ValueError`` and
+        changes nothing, and a one-shot iterable loses no record."""
+        tick, batch = self._clock.tick, tuple(records)
+        self._check_batch(tick, batch)
+        outcomes = tuple(self._applier.apply(r.target, r.params) for r in batch)
         physics = tick % self._config.physics_every == 0
         substeps = self._world.advance(self._config.physics_seconds) if physics else 0
         self._clock.advance()
         return TickReport(tick, outcomes, physics, substeps)
 
-    @staticmethod
-    def _check_batch(tick: int, records: Sequence[LogRecord]) -> None:
-        for r in records:
+    def _check_batch(self, tick: int, batch: tuple[object, ...]) -> None:
+        records = []
+        for r in batch:
             if not isinstance(r, LogRecord):
                 raise ValueError(f"step takes LogRecords, got {type(r).__name__}")
             if r.apply_tick != tick:
                 raise ValueError(f"a record for tick {r.apply_tick} reached tick {tick}")
+            if r.apply_us >= self._config.tick_us:
+                raise ValueError(f"apply_us {r.apply_us} is not within a {self._config.tick_us} us tick")
+            records.append(r)
+        ids = [(r.actor_id, r.seq) for r in records]
+        if len(set(ids)) != len(ids):
+            raise ValueError("a batch repeats an (actor_id, seq), the intent id receipts carry (boundaries.md §6.1)")
         keys = [r.key for r in records]
         if any(keys[i + 1] <= keys[i] for i in range(len(keys) - 1)):
             raise ValueError("records must be in strictly increasing key order (boundaries.md §6.2)")

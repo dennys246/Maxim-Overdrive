@@ -60,10 +60,10 @@ the measured checks, advisory.
   reader that applies it, versions and migrations), `digest.py` (`sha256/c14n-1:` digests), `materials.py` (the material table's types),
   `readonly.py` (arrays nothing can make writable), `limits.py` (`ActionLimits`), `grid.py` (cells, and the write
   window: read-only at rest, written only inside `writing()`), `scene.py` (authoring in metres), `heat.py`,
-  `damage.py`, `intents.py` (typed actions and stage-1 parsing), `frames.py` (published frames and the
-  `Observation` protocol observers read), `world.py` (turn loop, heat sources, the world's window, frame
-  publication), `applier.py` (stage 2: the only code that applies an action), `imagination.py` (imagined objects as
-  validated specs that become cells)
+  `damage.py`, `intents.py` (typed actions, stage-1 parsing and the log record), `frames.py` (published frames and
+  the `Observation` protocol observers read), `world.py` (turn loop, heat sources, the world's window, frame
+  publication), `simulation.py` (`Simulation`, the integer clock and `step`; step 5a), `applier.py` (stage 2: the
+  only code that applies an action), `imagination.py` (imagined objects as validated specs that become cells)
 - `src/simcore/adapters/`: `loaders.py` (the file gates: material table, action limits, strict YAML, and `DataPath`,
   the only kind of path the game's data locator hands out) and
   `sem/bridge.py` (the membrane's gate half: environment regions as Maxim SEM Entities, reading frames and writing

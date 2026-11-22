@@ -141,8 +141,8 @@ def _voxelize(grid: MaterialGrid, name: str, placed: list[Primitive], footprint:
     solid = grid.solid  # before anything is painted: overlap among the object's own primitives is allowed
     union = np.zeros(grid.shape, dtype=np.bool_)
     # TEMPORARY(phase1/sim-clock): place opens the write window itself because the imagine intent kind doesn't exist
-    # yet (boundaries §5.3, §6.4); step 5a's intent log is where every input joins one pipeline, and there place
-    # becomes the applier's stage 2 of an imagine intent, inside Simulation.step's window.
+    # yet (boundaries §5.3, §6.4); step 5a's intent log (its PR 4) is where every input joins one pipeline, and there
+    # place becomes the applier's stage 2 of an imagine intent, inside Simulation.step's window.
     with grid.writing():
         for p in placed:
             mask = p.mask(grid)

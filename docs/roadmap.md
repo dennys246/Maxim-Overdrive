@@ -46,9 +46,11 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
 - The substep floor in `src/simcore/core/heat.py`, a marked band-aid kept for bit-identity when resolution left the
   rig: plan step 5a's fixed physics step replaces it, with an accuracy floor only if one is measured necessary
   (`docs/design/sim_core.md` §8).
-- The write window's two owners before `Simulation` exists, marked band-aids (`docs/design/boundaries.md` §4.1, 2c):
-  `World.advance` in `src/simcore/core/world.py` and the intent applier in `src/simcore/core/applier.py` open the
-  window themselves; `phase1/sim-clock` moves both into `Simulation.step`. A third, `place` in
+- The write window's two owners until `Simulation.step` owns it, marked band-aids (`docs/design/boundaries.md` §4.1,
+  2c): `World.advance` in `src/simcore/core/world.py` and the intent applier in `src/simcore/core/applier.py` open the
+  window themselves; step 5a's PR 2 moves the laws' window into the step, and its PR 4 the applier's. The shell's
+  interim `Simulation(world)` seam in `src/simcore/core/simulation.py` goes in PR 4, when `Simulation` carries the
+  per-tick digest its strangler tests compare. A third, `place` in
   `src/simcore/core/imagination.py`, opens it because the `imagine` intent kind doesn't exist yet; step 5a's intent
   log, where every input joins one pipeline, makes it the applier's stage 2 of that kind.
 - The SEM membrane applies synchronously with no log, a marked band-aid in `src/simcore/adapters/sem/bridge.py`
