@@ -233,14 +233,14 @@ for this line is **step 9**. What I would run:
 
 ```bash
 # orient (read only)
-git -C /Users/dennyschaedig/Scripts/Maxim-Overdrive worktree list
+git -C <home>/Scripts/Maxim-Overdrive worktree list
 git -C .worktrees/design-v2 status --short
 gh pr view 1 --json isDraft,mergedAt,headRefOid   # is step 2 done? the plan can't tell me
 gh pr view 2 --json isDraft,mergedAt,headRefOid   # is step 3 done?
 python3 docs/plans/check_plan.py                  # PASS today, but blind to CS-B3
 
 # step 9, in this worktree only (writes only the ignored .venv/)
-cd /Users/dennyschaedig/Scripts/Maxim-Overdrive/.worktrees/design-v2
+cd <home>/Scripts/Maxim-Overdrive/.worktrees/design-v2
 python3 -m venv .venv && .venv/bin/pip install -e '.[dev,maxim]'
 .venv/bin/pytest
 ```
