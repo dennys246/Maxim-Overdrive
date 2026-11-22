@@ -442,7 +442,7 @@ named where the presentation is built (`client_objects.md` §5.4), so that a per
 the game's split, not to Maxim. For Maxim there is nothing to ask yet. Whether sight needs an albedo or flame
 channel is the NPC fire note's question, against OD-C8.
 
-### 35. A held act's effect lands after Maxim has retired the call, so call-window credit pays the wrong act (2026-11-22)
+### 37. A held act's effect lands after Maxim has retired the call, so call-window credit pays the wrong act (2026-11-22)
 
 **A `kindle` is applied at once, but what it does is decided by physics many steps later.** *Evidence:* in Phase 1
 the torch's pilot is a prescribed flux on fuel strips, and a strip flashes only once its own profile reaches

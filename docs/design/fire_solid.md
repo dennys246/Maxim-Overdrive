@@ -137,8 +137,8 @@ An `imagine` is applied in its own window, between physics steps:
 
 ## 2. Occupancy, regions and the consumers
 
-**Acts and readings stay on cells in 6.0–6.1.** An object-only region is refused by every act but `kindle`
-(TP1) and every reading with one code, `fuel_only_region`, until 6.2 defines them on objects. `temperature_*` and the rest of
+**Acts and readings stay on cells in 6.0–6.1.** An object-only region is refused by every act but `kindle` from 6.1b
+(`torch_pilot.md` §3) and every reading with one code, `fuel_only_region`, until 6.2 defines them on objects. `temperature_*` and the rest of
 `frames.QUANTITIES` keep their cell-only meaning, pinned by a test. An object quantity, when needed, gets a new name
 (F1) as a lab instrument under `tests/`, never in `QUANTITIES` or on an NPC builder (`boundaries.md` §4.4).
 
@@ -242,7 +242,7 @@ grid-free unit tests (Executor S11).
 
 ### 4.4 Ignition, the flame's flux and extinction, in a cone
 
-- **Pilot:** the cone's spark, present by definition (shipped: `torch_pilot.md` §5); unpiloted ignition is refused. It adds no
+- **Pilot:** the cone's spark, present by definition (shipped: `torch_pilot.md` §5). It adds no
   energy, so it has no ledger line (Physics N3).
 - **Flash:** a segment's unignited part attaches a flame when its per-m² mass flux reaches m''_flash.
 - **While flaming,** the part gets a prescribed flame flux q''_fl from the solid law (TP2), as a

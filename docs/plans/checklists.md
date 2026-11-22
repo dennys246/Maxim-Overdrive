@@ -298,7 +298,12 @@ step 8's exit script. Its tests to write (mechanisms deferred here by the review
 - the overlap: its closed form against fine quadrature at asymmetric offsets, and its conservation (§4.3); its cache
   keyed with the object's geometry, or geometry held immutable while referenced (D2-S4);
 - the lifecycle: `end_tick` on and off a physics tick, a `leave` at L ≡ 1 (mod `physics_every`) and one after the
-  last covered step was integrated (D2-S1), and a `kindle` at `end_tick` (§2);
+  last covered step was integrated (D2-S1), a `leave` in the `kindle`'s own tick (W2-S5), and a `kindle` at `end_tick`
+  (§2);
+- the query's layer (`core/fuel_geometry.py` imports nothing above layer 2) and one point ranked alike for both acts,
+  refused by `kindle` and broken by `strike` (A2-N2);
+- the heat-source tests that drive `ignite` or `sources`, each deleted or rehomed by name; `douse` applied and
+  fruitless (§9.4);
 - two pilots on one part, applied in both orders; the digest rebuilt from tables and records equals the running one;
   stepped, unpaced and replay runs bit-identical (§9.3);
 - the format and load refusals, with gate rows: `actions.yaml`, `torch.yaml`, the record (§2, §10); `actions.yaml`'s
@@ -403,7 +408,8 @@ The save round trip and golden of the pilot record are step 9's (`torch_pilot.md
 ## Step 9, save v0
 
 - The actor and pilots tables and `body_key` (BF-N3).
-- The pilot records (`torch_pilot.md` §2): load refusals, a round trip at a mid-pilot tick, and a golden (D-N2).
+- The pilot records (`torch_pilot.md` §2): load refusals, a round trip at a mid-pilot tick, at a cut, and between a
+  record's end tick and its removal, and a golden (D-N2, D2-N2).
 - **Names, not positions:** every index column (`archetype`, `held_item`, `material`) carries a name list in the
   header, and loading remaps by name.
 - **The load rule** is world_model §8's (F5, F14); loading never replays the log; every grid carries its cell size.

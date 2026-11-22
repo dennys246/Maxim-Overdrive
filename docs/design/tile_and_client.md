@@ -144,8 +144,9 @@ Frozen per tick, replaced by `Simulation.step`; column-major, integer keys, no s
 | `energy`, `dose` | i32, i32 | present as zero with a `derivation_version` until Phase 4/5 (DC-N2; F5) |
 
 38 B per actor (derived). **Pilots** are a second per-tick table (DC-S4): `actor_id` (u32), `seq` (u32), `region_id`
-(u16), `object_id` (u32), `centre_mm` (3 × i32) and `end_tick` (u32), 30 B each, showing `torch_pilot.md` §2's
-records (TP5).
+(u16), `object_id` (u32), `centre_mm` (3 × i32) and `end_tick` (u32), 30 B each: one row per live pilot of
+`torch_pilot.md` §2 (TP5), `centre_mm` rounded half to even from its metres. A tick past 2³² − 1 is outside v0; step 7
+names the refusal.
 
 ### 2.3 Movement in integers
 
@@ -203,7 +204,9 @@ fields, the ordering key and `kind_rank` are boundaries §6.2's; `actor_id` come
 - **The torch's physics belongs to the item,** `content/items/torch.yaml`, in world seconds: at 5b the sphere's
   `power_w` and `radius_m` (≥ 0.2 m), `max_duration_s` and `restrike_s`; from 6.1b, `torch_pilot.md` §6's.
 - **Checks:** stage 1 checks types and the ceiling; the item's maximum is a logged stage-2 code, `over_item_max`
-  (DC-S6). Stage 2 derives the target by `torch_pilot.md` §3's rule.
+  (DC-S6). Stage 2 derives the target: at 5b, the named solid cell region whose authored box surface lies within
+  50 mm of `point_mm`, the point no deeper than 50 mm inside, two candidates `ambiguous_point`; from 6.1b,
+  `torch_pilot.md` §3's rule.
 - **A body affordance, not a region one** (DC-S7): an NPC's `kindle` comes through its per-actor body modulator
   (boundaries §7.2), never `crate.kindle`. The log carries `target: null`; the derived region is in the receipt,
   recomputed on replay. The agent-facing parameter is `hold: brief | steady | long`, which the adapter converts to
@@ -412,7 +415,7 @@ adjacent to air.
 | Destroyed concrete within 1.0 m of the crate ≤ V_floor | deposit `plume_convective` into the floor |
 | `crate_far` keeps every cell and rises ≤ 1 °C | resolve the pilot's region as the last wood region in the map |
 | max(burning area) > 0 in (70, `t_gone`); after `t_gone`, burning and `combustion` are zero | never populate burning |
-| `test_a_fire_that_has_burned_its_fuel_stops_heating` flips green; its gate is removed | (the gate itself) |
+| `test_a_fire_that_has_burned_its_fuel_stops_heating` closes at 6.1b (`torch_pilot.md` §9.4) | — |
 
 **V_floor is not circular** (DPH-S3). The contact temperature is fixed before the run at a 900 °C bound (the ember
 balance, §5.3) for the cap's 5,400 s. V_floor is the same `thermal_degrade` law applied to the closed-form profile's

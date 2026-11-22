@@ -42,7 +42,7 @@ by report. Under llvmpipe only the goldens and §7.2's checks ran.
 | `docs/roadmap.md` Phase 1 exit and Phase 2 bullets; `research/solid_spike/results_rerun1.md` §7 | **the exit is the torch-lit slab** ("char, burn and flame out"); 6.2–6.4, the flame object and the crate are Phase 2 (owner, 2026-11-20) |
 | `fire_solid.md` §1.1–§1.3 | the `objects` and `segments` tables; kinds `rod` and `slab`; immutable geometry; 0.02 m strip segments, two parts each; `state` live or burnt out; limits of 2,000 objects and 2×10⁴ segments; no fuel inside a solid footprint |
 | `fire_solid.md` §2, §4.2, §5.6 | acts and `QUANTITIES` stay on cells; residue (char, or the inert fraction); the snapshot requirements this pass settles |
-| `fire_model.md` §2.1, §4.1, §5.4 | `bed` and flames as later kinds and tables; the flame key; `kindle`'s 50 mm nearest-surface rule and `ambiguous_point` |
+| `fire_model.md` §2.1, §4.1; `torch_pilot.md` §3 | `bed` and flames as later kinds and tables; the flame key; `kindle`'s 50 mm nearest-surface rule and `ambiguous_point` |
 | `client_rendering.md` §1, §3, §4, §5, §6, §8 | camera and zoom; input; the frame, channels, bump rules and caps; the raymarch, glow curve and crack pattern; goldens and checks; budgets |
 | `tile_and_client.md` §6.3 | the observed beats G2–G4 key on |
 | `world_model.md` §8 (F1–F4, F15) | a name is a meaning; tables column-major with integer keys; non-default-scale fixtures |

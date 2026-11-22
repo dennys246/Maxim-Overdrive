@@ -99,6 +99,8 @@ solid, or far from everything), the act is `not_on_surface`.
     `fire_solid.md` §1.4);
   - every solid cell region, by its authored solid primitives, minus carved air once world_model §5's CSG lands. It
     is never measured by its cells, whose faces move with dx, nor by `scene.py::footprint_of`'s bounding box.
+  - A cell region with no solid cell left is no candidate. A crater is not seen: the authored primitives stand
+    (§7), which is fruitless in Phase 1, since cells take no deposit.
   - When the sub-cell solids design lands, its objects of every role join, by its own states (TP1).
 - **Distances** are f64 point-to-geometry distances in metres, from `point_mm` ÷ 1000 and the authored geometry
   (fire_solid §1.1 holds it in f64), by one fixed formula per kind. `centre_m` is stored unrounded.
@@ -195,9 +197,9 @@ solid, or far from everything), the act is `not_on_surface`.
 
 - **A strip's mean smears a narrow footprint across its width.** A flash decided on the strip mean is averaging, then
   thresholding (CLAUDE.md). D, over all centre offsets: the most-covered strip gets 0.195–0.199 of q''_t at r = 0.05 m
-  on a 0.5 m plank, and 0.662–0.666 at r = 0.1 m on 0.3 m. A rod's ring gets at most 1/π: 14.3 kW/m² at a 45 kW/m²
+  on a 0.5 m-wide plank, and 0.662–0.666 at r = 0.1 m on 0.3 m. A rod's ring gets at most 1/π: 14.3 kW/m² at a 45 kW/m²
   ceiling, below every graded flux, so every rod `kindle` is an extrapolation.
-  - **A strict red gate** (`raises=AssertionError`): a footprint of r = 0.05 m on a 0.5 m plank flashes within
+  - **A strict red gate** (`raises=AssertionError`): a footprint of r = 0.05 m on a 0.5 m-wide plank flashes within
     max(e_dt, s_floor) (§9.2) of the same footprint on a 0.1 m slab. A never-flash case fails the assertion.
   - **Fixed in the 6.2 design,** which must choose the mechanism: profiles across the width, or a footprint-sized
     sub-profile. 6.2's partial transfer alone doesn't fix it (`fire_solid.md` §1.2). At §6's r ≥ W/2 the exit's
@@ -214,6 +216,7 @@ solid, or far from everything), the act is `not_on_surface`.
   a validation gap, not a verified law.
 - **Energy beyond the face is lost:** none at r = W/2, 22% at r = 0.075 m, and 39% at r = W (D).
 - **A slab's sides and underside take no footprint** (one segmented face in 6.1).
+- **The target rule doesn't see craters:** a cell region is its authored primitives until it has no solid cell left.
 - **The floor, not the cone's Kaowool, backs the exit slab,** so its back-face behaviour is a prediction.
 - **A cone-fitted q''_fl applies to every flaming part** (TP2): an extrapolation beyond the cone.
 - **Torch and flame fluxes add after flash** (§4.2), but two impinging flames share one boundary layer, so their gains
@@ -263,7 +266,7 @@ The residue share is computed by fire_solid §5.6's definition from the store, n
   D, a physics step for a time). The script's D lies above the band's highest measured upper edge by that margin,
   and the cap lies past the latest `t_out` by its margin.
 - **In time:** `t_flash`, `t_char` and `t_out` at `tick_us`, ½ and ¼ (0.5, 0.25 and 0.125 s steps), with
-  |t(dt/2) − t(dt/4)| ≤ |t(dt) − t(dt/2)|. That checks convergence; the scheme's order is fire_solid §6's to verify.
+  |t(dt/2) − t(dt/4)| < |t(dt) − t(dt/2)|, or both zero. That checks convergence; the scheme's order is fire_solid §6's to verify.
   e_dt = |t(dt) − t(dt/2)| at 0.05 m is the shipped step's error.
 - **Across grids:** every beat's class agrees at 0.2, 0.1 and 0.05 m, and each time lies within max(e_dt, s_floor)
   of 0.05 m's. The dx path is the slab's floor contact (`fire_solid.md` §3.2). s_floor is that path's own error
@@ -297,8 +300,11 @@ second pilot on the slab from another actor. Across machines, only the class is 
 
 The pilot touches none of them. At 5b, when `ignite` leaves the vocabulary, their precondition moves to 5b's sphere
 `kindle` on a cell region, which uses the same `HeatSource` path, so each stays red on its own subject. At 6.1b the
-sphere deposit, its last producer, goes, and with it `HeatSource`, `sources` and `_power_field`. Each gate and Known
-gap then closes by that deletion, recorded. That is TP6, under which fire on structural cells leaves Phase 1.
+sphere deposit, its last producer, goes, and with it `HeatSource`, `sources`, `source_exposure` and `_power_field`:
+one recorded digest break with the pilots member (§2). Each gate and Known gap then closes by that deletion, recorded.
+That is TP6, under which fire on structural cells leaves Phase 1. Today's `douse` removes a source, so it loses its
+subject too: until 6.2's water sink (D-N3), a `douse` is applied and fruitless, a Known gap. It has no wire message in
+v0 (T16), and Phase 1 has no NPCs.
 
 ## 10. What this changes elsewhere (TP9)
 
@@ -306,17 +312,19 @@ Documents marked † were edited on this branch; the rest are 6.1b's, with its c
 
 | Document or file | Change |
 |---|---|
-| † `tile_and_client.md` §3.2 | the target sentence, the deposit bullet, the item's fields, `actions.yaml`'s `max_power_w` and the 0.2 m floor become links here; the lifecycle drops "when its region is gone"; the red-gate sentence ("rewritten to use `kindle`") links §9.4; the sphere band-aid's removal names 6.1b |
+| † `tile_and_client.md` §3.2, §6.4 | the target sentence, the deposit bullet, the item's fields, `actions.yaml`'s `max_power_w` and the 0.2 m floor become links here; the lifecycle drops "when its region is gone"; the red-gate sentence ("rewritten to use `kindle`") links §9.4; the sphere band-aid's removal names 6.1b; 5b's interim target rule stays there, for cell regions only; §6.4's burned-fuel control closes with its gate |
 | † `tile_and_client.md` §2.2 | TP5's columns, with `seq` for `cause` |
 | † `fire_model.md` §5.4, §10.2, §12 | the target rule becomes a link; the flame-object pilot is Phase 2's; 6.1b joins the plan; the red-gate bullet links §9.4 |
 | † `fire_solid.md` §1.3, §2, §4.4, §5.1, §5.4, §5.5, §7 | 6.1b uses no `holds_fuel`; `kindle` is excepted from the object-only refusal (TP1); q''_fl moves into the solid law (TP2) and its row says 6.1b; on the shipped path the pilot is §5's; the catalogue refuses slabs ≤ 2 mm; `incident_absorbed` gains the torch; the record joins the save list; the D-S2 row links §9 |
 | † `client_objects.md` §5.4, §7.3 | the torch flame's divergence; the beats link §9, and step 8 maps G1–G5 onto them |
-| † `sim_core.md` §6, §9 | the pilot input and its resolver; its digest member. 6.1b's commit records its digest break (§12's rule) |
+| † `sim_core.md` §6, §9 | the pilot input and its resolver; its digest member |
+| `sim_core.md` §1, §3, §6, §9; `boundaries.md` §5's writer table | at 6.1b, `sources` and `source_exposure` retire (digest members 2 and 3) with `ignite`'s and `douse`'s writer rows; 6.1b's commit records the one break (§12's rule) |
 | `sem_stimuli.md` §6.2's T11 sweep | 6.1b's tests include the off-face and cell-target `applied`-with-no-deposit cases (§4.1) |
 | `data/world/actions.yaml` | `kindle`'s `max_flux_w_m2`, `max_duration_s`, `min_radius_m`; a version bump over 5b's v1, with a refusal test |
 | `content/items/torch.yaml` | the version after 5b's sphere-era file: `flux_w_m2`, `radius_m`, `max_duration_s`, `restrike_s`; its loader checks them against the ceiling at load, with a gate-registry row |
 | `tests/test_act_validation.py` | `test_every_verification_grid_is_at_least_as_fine_as_the_smallest_action`'s 0.2 m floor gives way to §6's two-strip floor |
-| † `docs/roadmap.md` | 6.1b in Phase 1; Phase 1's "must flip the strict red gate" sentences follow §9.4 and TP6; the Phase 0 claim "fire outcomes agree across rigs" is retired for structure (TP6). At 6.1b, Phase 2 lists `core/solid.py` for the `TEMPORARY(phase2/6.2)` markers on the pilot deposit and, under Q2, q''_fl, and the strip-width red gate |
+| `tests/test_cross_tier.py`, `test_determinism.py`, `test_exposure.py`, `test_deposit.py` | the heat-source tests that drive `ignite` or `sources` are deleted with them or rehomed on the pilot, each named in 6.1b's commit |
+| † `docs/roadmap.md` | 6.1b in Phase 1; Phase 1's "must flip the strict red gate" sentences follow §9.4 and TP6; the Phase 0 claim "fire outcomes agree across rigs" is retired for structure (TP6). At 6.1b, Phase 2 lists `core/solid.py` for the `TEMPORARY(phase2/6.2)` markers on the pilot deposit and, under TP2, q''_fl, and the strip-width red gate |
 | `docs/architecture.md` | Known gaps: §7's entries; the four gates' gaps closed by deletion at 6.1b |
 | † `docs/standards_backlog.md` B30 | tile §6.3 item 7's 2× margin listed (TP8) |
 | † `docs/plans/checklists.md` steps 5b, 6, 8, 9 | 5b moves the four gates' precondition to the sphere `kindle` and names 6.1b for its removal; 6.1b's tests; step 8 maps G1–G5 onto §9.1's beats; the record in save v0 |
@@ -350,5 +358,5 @@ route is the roadmap's row (Phase 3, OD-A16), not this note's. Searched Maxim `o
 - from the receipt to the first change in a declared stimulus row: none in Phase 1, since no row carries flame
   (`client_objects.md` §5.4, OD-C8).
 
-Lesson 35 records why this matters. The roadmap's OD-A16 row cites it, and the step 6 checklist records both delays
+Lesson 37 records why this matters. The roadmap's OD-A16 row cites it, and the step 6 checklist records both delays
 at 6.1b.
