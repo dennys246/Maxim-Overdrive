@@ -133,6 +133,10 @@ def test_a_live_run_drawn_narrower_than_its_width_is_found(tmp_path):
     assert any(f.startswith("burn-through (rig): live run") and "px, not 4.00" in f for f in found)
 
 
+def test_no_clear_live_run_has_no_width_to_measure():
+    assert gf._width_findings("rig", np.zeros(SHAPE), _footprints(), []) == []
+
+
 def test_a_live_segment_that_draws_nothing_is_found_away_from_the_run(tmp_path):
     _frames(tmp_path, "rig")
     mask_png = tmp_path / "fuel-rig-fuel_mask.png"

@@ -191,10 +191,10 @@ def burn_through_findings(frames: Path, tier: str, seg: Segments) -> list[str]:
 def _width_findings(tier: str, coverage: NDArray[np.float64], foot: NDArray[np.float64], rows: list[int]) -> list[str]:
     """Each contiguous run of ``rows`` draws its drawn width, less WIDTH_SLACK_PX: its summed coverage within its
     strips widened by AREA_WINDOW_PX, divided by its length on screen."""
+    if not rows:
+        return []  # no live segment clear of the burnt run's ends: nothing to measure
     found = []
     for run in np.split(np.array(rows), np.flatnonzero(np.diff(rows) != 1) + 1):
-        if run.size == 0:
-            continue
         strips = foot[run].copy()
         strips[:, 4] += AREA_WINDOW_PX
         length = float(np.hypot(foot[run, 2] - foot[run, 0], foot[run, 3] - foot[run, 1]).sum())
