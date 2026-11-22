@@ -155,8 +155,8 @@ Each consumer that asks "is something here", read at 396ae10:
 | `bridge.region_parts`, `StructureModulator` | `frame.is_solid`; an instrument per `QUANTITIES` entry; `strike`, `ignite`, `extinguish` | `region_parts` refuses an object-only region; affordances pinned |
 | `frames.Frame.reading` | cell reductions; `region_integrity` is 0.0 with no solid cells | refuses an object-only region, never 0.0 |
 | `Frame.is_solid`, `Observation.is_solid`, `CellFrame.solid` | cells | unchanged |
-| `damage.strike`, `region_integrity`, `region_breached`, `thermal_degrade` | `grid.solid` | unchanged; objects take no damage (6.2) |
-| `grid.destroy` | solid cells become air | bumps `topology_version`, rebuilding `contact` |
+| `damage.strike.loss`, `reductions.region_integrity`, `reductions.region_breached`, `damage.thermal` | `grid.solid` | unchanged; objects take no damage (6.2) |
+| `topology.Destroy` | solid cells become air | its batch bumps `topology_version`, rebuilding `contact` |
 | `scene._check_no_solid_overlaps`, `imagination._within_world_rules`, `_voxelize` | boxes, footprints, cells | plus §1.3's metric rules |
 | `encoding.snapshot` | `* frame.solid` masks | unchanged; no objects on the wire (§5.6) |
 | The digest (today's helper hashes `region.solid`) | cells, regions, sources, clock | plus `FuelStore`; empty tables add no bytes |

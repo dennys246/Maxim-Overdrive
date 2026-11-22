@@ -136,7 +136,8 @@ fails.
     `substep_refine` > 1, and fails with the rerun deleted;
   - the header records the law tuple in order, and a log recorded under the reversed tuple is refused;
   - cadence groups run in §5's order: two strikes on one region in one tick give the second `REGION_GONE`, and
-    `topology_version` rises once per strike record (X-B1, N-B2, DA-S1, X-S2);
+    `topology_version` rises once per strike record that changes the world, and not for one that breaks nothing
+    (X-B1, N-B2, DA-S1, X-S2; sim_core.md §7);
   - `stable_dt` reads only its `bound_reads`: a planted law whose bound reads `temperature` misses the cache after
     heating (Perf S3, DA-S9).
 - **§5.1, the flow (B43):**
@@ -220,9 +221,15 @@ fails.
 
 - **Deferred from PR 1's review (`reviews/sim_shell/fold.md`), each to the PR that owns it:**
   - PR 2: rewrite CLAUDE.md's "only `World.advance` moves time" and "Time comes from `World.advance`" for `Simulation`.
-  - PR 3: a tick an exception interrupts leaves no half-applied state, once the write window moves into the step.
+  - PR 4: a tick an exception interrupts leaves no half-applied state, once the write window moves into the step
+    (`docs/roadmap.md`, Phase 1, names the PR).
   - PR 4: `(actor_id, seq)` unique across ticks, a receipt id on each outcome, and a validated `TickBatch` built by the
     log reader.
+- **Deferred from PR 2's review (`reviews/sim_laws/fold.md`, Exec NIT 5 and Wire N6):**
+  - PR 4: the per-record batch boundary (`sim_core.md` §5.1). A record's stage 2 and its loads are one batch, but
+    `physics.resolve_loads` closes one batch per per-record law; the two agree only while stage 2 emits no topology
+    requests, and `imagine` as stage 2 will. A test: one record whose stage 2 and load both edit cells bumps
+    `topology_version` once.
 ## Step 5b, bodies and movement (`tile_and_client.md` §2, §3, §4.1)
 
 - From step 3b part (b)'s review (Determinism N7): a spawn maps to a cell in integers (`at_mm * 1000 // dx_um`), with

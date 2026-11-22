@@ -155,7 +155,14 @@ SEEDED_CONSTRUCTORS = {"default_rng", "PCG64", "SeedSequence"}
 # under src/ is scanned.
 NOT_SIMULATION: set[str] = set()
 # Non-vacuity: the scan must reach the turn loop and the laws, wherever a move puts them (boundaries §11.2, W14).
-MUST_SCAN = {"simcore/core/world.py", "simcore/core/heat.py", "simcore/core/damage.py", "simcore/core/applier.py"}
+MUST_SCAN = {
+    "simcore/core/world.py",
+    "simcore/core/heat.py",
+    "simcore/core/damage/loads.py",
+    "simcore/core/damage/thermal.py",
+    "simcore/core/damage/strike.py",
+    "simcore/core/applier.py",
+}
 
 
 def _dotted(node: ast.AST) -> str | None:

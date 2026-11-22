@@ -1,9 +1,9 @@
 """The simulation (step 5a, `docs/design/sim_core.md`): an integer clock that runs one tick per `step`.
 
-This is step 5a's first PR, the strangler wrap: `Simulation` drives today's `World` unchanged. A tick applies its
-records through today's applier, in the log's key order, then runs physics on physics ticks through `World.advance`,
-so heat, damage and the substep floor are exactly as before. PRs 2-4 move those pieces inside: the law list and
-registry, the fixed physics step, and the intent log with its per-tick digest.
+This is step 5a's strangler wrap: `Simulation` drives `World`. A tick applies its records through the applier, in
+the log's key order, then runs physics on physics ticks through `World.advance`, which runs the law tuple
+(`simcore.core.physics`, PR 2), so heat, damage and the substep floor are exactly as before. PRs 3-4 move the rest
+inside: the fixed physics step, and the intent log with its per-tick digest.
 
 Interim departures from sim_core.md, each named with the PR that ends it:
 - the `Simulation(world, *, config)` seam beside `from_scene` (marked below; PR 4, when `Simulation` carries the
@@ -11,7 +11,11 @@ Interim departures from sim_core.md, each named with the PR that ends it:
 - frames are still published when a write window closes, so a tick with two records publishes two and a refusal-only
   tick publishes none, and frames carry no tick (§4's cadence, `tile_and_client.md` §4; PR 4, with the record path);
 - the world's time is still `grid.time_s`, a float that `World.advance` accumulates (§2 retires it; PR 3, with the
-  fixed physics step).
+  fixed physics step);
+- `World._power_field` resolves the sources' deposit, not heat's `prepare` (§6, §7; marked; PR 3), and no law has
+  `bound_reads` or `prepare` yet (§5; PR 3);
+- a strike still calls the orchestrator from the applier rather than appending a `Load` for the tick (§5.1; marked in
+  the applier; PR 4), and the log header doesn't yet record the law tuple (§5; PR 4, with the log).
 """
 
 from __future__ import annotations

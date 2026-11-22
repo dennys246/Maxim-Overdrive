@@ -48,7 +48,9 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   (`docs/design/sim_core.md` §8).
 - The write window's two owners until `Simulation.step` owns it, marked band-aids (`docs/design/boundaries.md` §4.1,
   2c): `World.advance` in `src/simcore/core/world.py` and the intent applier in `src/simcore/core/applier.py` open the
-  window themselves; step 5a's PR 2 moves the laws' window into the step, and its PR 4 the applier's. The shell's
+  window themselves; step 5a's PR 4 moves both into the step (PR 2 moved the laws into the tuple, not the window), and
+  with it a strike becomes a `Load` the applier appends. `World._power_field` in the same `world.py` resolves the
+  sources' deposit until PR 3 moves it into heat's `prepare` (`docs/design/sim_core.md` §7). The shell's
   interim `Simulation(world)` seam in `src/simcore/core/simulation.py` goes in PR 4, when `Simulation` carries the
   per-tick digest its strangler tests compare. A third, `place` in
   `src/simcore/core/imagination.py`, opens it because the `imagine` intent kind doesn't exist yet; step 5a's intent

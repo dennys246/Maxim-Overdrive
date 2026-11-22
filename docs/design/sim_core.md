@@ -3,8 +3,8 @@
 **Status:** step 5a's composition note (`foundations_plan.md` row 5a, O34), 2026-11-21, folded from its round-1
 review and its delta round (`reviews/sim_core/`). The owner then stopped the paper rounds (2026-11-21): what remains
 is checked on 5a's code. The note holds only what other modules and tests depend on. Mechanisms that only running can
-check are tests in `docs/plans/checklists.md` ("Step 5a"), each citing its section here. Where another document owns
-a contract, this one links to it. The owner's rulings and the fold tables live in `reviews/sim_core/`.
+check are tests in `docs/plans/checklists.md` ("Step 5a"), each citing its section here. The owner's rulings and the
+fold tables live in `reviews/sim_core/`.
 
 ## 1. What 5a builds, and what it doesn't
 
@@ -41,9 +41,10 @@ short list of named steps (§3).
   from a loaded state start alike.
 - **One owner of time,** `Simulation` (`boundaries.md` §7.3). `World.advance`, `World.turn`, `turn_seconds` and
   `grid.time_s` go.
-- **Where the new types live** (`boundaries.md` §2.2's layers): `FieldSpec`, `Changes`, `Topology` and its request
-  type with the cells, since laws (a layer above) emit requests; `Load` with the laws, so damage can read it and
-  `intents` imports it; `Clock`, `SimConfig`, `TickReport` and `WorkCounters` with the simulation.
+- **Where the new types live** (`boundaries.md` §2.2's layers): `FieldSpec`, `Topology` and its request type with
+  the cells, since laws (a layer above) emit requests; `Load` and `Changes` (with load effects) with
+  the laws (owner, 2026-11-22, `reviews/sim_laws/fold.md`); `Clock`, `SimConfig`, `TickReport` and `WorkCounters` with the
+  simulation.
 
 ## 3. The clock and the tick
 
@@ -97,11 +98,11 @@ Simulation.frames -> FrameView                                   # the latest pu
   registry field names, §6), and:
   - `stable_dt(views) -> float` over `bound_reads`, a declared subset of `reads`, so its cache keys on those fields'
     versions (§7);
-  - `prepare(views)` and a kernel: arrays and scalars in, preallocated outputs, every order-sensitive reduction in
-    `prepare`. That is the numba seam; numba waits for a profile.
-  - `step(views, handles, dt_s) -> Changes`. It receives read-only views of its `reads` and write handles for its
-    `writes` only, so an undeclared read or write is a type error, not a convention. A ledger handle joins when the
-    ledger lands (§2).
+  - later, `prepare(views)` and a kernel: arrays and scalars in, preallocated outputs, every order-sensitive
+    reduction in `prepare`. That is the numba seam; numba waits for a profile, and until then `step` gets the grid.
+  - `step(grid, dt_s, inputs) -> Changes`, run narrowed to the law's writer token: a read outside `reads` or a
+    write outside `writes` raises, and its writable arrays are revoked on return (owner, 2026-11-22,
+    `reviews/sim_laws/fold.md`). A ledger handle joins when the ledger lands (§2).
 - **`Changes`** holds the topology requests the law made (§5.1) and, per load, the effect it resolved.
 - **Cadence** is one of:
   - `per_record`: in the apply phase (D10 step 1), right after each record's stage 2;
@@ -115,7 +116,7 @@ Simulation.frames -> FrameView                                   # the latest pu
   rule 1. In 5a it is `(damage.loads, heat, damage.thermal)`: `damage.loads` per record, heat and thermal degradation
   per substep (owner, 2026-11-21). Damage stops being heat's `on_substep` callback.
 - **After any `Changes` with a topology request,** every law's `prepare` reruns (through the caches) before the next
-  substep. Today `heat.step` refreshes source power after every destroying substep, and that guard stays.
+  substep. Today the orchestrator refreshes source power after every editing substep, and that guard stays.
 - **The header records the tuple in order,** with each law's `name`, `version` and cadence (`sem_stimuli.md` §5's
   slot). A log recorded under another order is refused.
 
@@ -139,8 +140,9 @@ Simulation.frames -> FrameView                                   # the latest pu
   command), construction and destruction produce topology requests: `material`, `original_material`, `region_id`, a
   new cell's `integrity`, and keyed-table rows (`fire_solid.md` §1.4's `pending` and id counter, whose timing §1.4
   owns). A batch is one requester's one invocation: one record's apply (its stage 2 and its loads), one law's one
-  substep, or construction. `Topology` applies a batch's requests in key order and bumps `topology_version` once per
-  batch. It is the choke point `world_v2.md` §2.2 names.
+  substep, or construction. `Topology` applies a batch's requests in key order (an unkeyed request's key is its
+  emission index: where paints overlap, the later wins) and bumps `topology_version` once per
+  batch that changed a cell's value or the region table (owner, 2026-11-22, `reviews/sim_laws/fold.md`). It is `world_v2.md` §2.2's choke point.
 - **Laws couple only through fields.** No law imports or calls another, held by an import contract; an operator two
   laws share lives in a module that is not a law. Contact's exchange with the solid is the declared field
   `contact_exchange`: per coupling row, written by contact each tick it runs, read and reset by the solid law at its
@@ -173,7 +175,7 @@ Simulation.frames -> FrameView                                   # the latest pu
 
 - **Regions become one `region_id` u16 array** (`world_v2.md` §2.4). Id 0 is unowned. `Region` keeps its authored
   footprint.
-- **`topology_version: int`** increments once per topology batch (§5.1).
+- **`topology_version: int`** is Topology's version; §5.1 says when it moves.
 - **A cache's key is the values its result reads.** So:
   - face conductances, per `topology_version`;
   - each law's `stable_dt`, per the versions of its `bound_reads` (heat's are topology fields, so per
