@@ -312,11 +312,7 @@ on a crate packed with cardboard; the player kindles the starter with the torch.
   LLM's prior. Fire learning is measured substrate-side or with a counter-prior (Maxim's Exp 38), under game-native
   pressure (L6 §5).
 
-**Scene v2** carries fuel objects:
-- a recipe by name;
-- `rod` with any axis, `slab` and `bed`;
-- placement inside an owner's footprint, which the overlap rule now allows for fuel objects only;
-- a registered migration from v1, with tests.
+**Fuel objects in the scene** are `fire_solid.md` §5.2's, in the scene version after main's.
 
 ## 8. Numerics and cost
 
@@ -435,7 +431,7 @@ from the Hess solve is caught and re-raised):
 
 | Sub-step | PR content | Before |
 |---|---|---|
-| 6.0 formats | material data v1 and migration; scene v2; the object, segment and coupling tables in the registry; snapshot and grammar entries | step 5's log writer and step 7's grammar freeze |
+| 6.0 formats | material data v1 and migration; the next scene version; the object, segment and coupling tables in the registry; snapshot and grammar entries | step 5's log writer and step 7's grammar freeze |
 | 6.1 solid | §3 with R0 and R1 | — |
 | 6.2 flame | §4 with R2.5, R2a and R2b; the fire budget | — |
 | 6.3 two bodies | R3a–c | — |

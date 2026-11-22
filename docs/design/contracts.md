@@ -4,11 +4,12 @@ Each row names a contract, the one section that owns it, and its kind. The owner
 `<!-- contract: <name>: <members> | not: <spans> -->`, and `scripts/lint_contracts.py` fails when the marker and its
 text disagree either way, when another block in a design, plan, the roadmap or `architecture.md` holds the row's
 "restates at" count of members or the signature, or when a design holds a fold or decision table or a list of rulings
-(CLAUDE.md, "One owner per contract"). "Restates at" is how many members one block must hold to count as a copy: three, or one more than the largest
-reference outside the owner, whichever is greater (owner, 2026-11-21, round 1 ruling 1). The references that set each
-count above three were judged one by one and are listed below, so a reviewer can re-judge them. A copy below a row's
-count passes unseen, and so does a contract this table doesn't list: both stay with review (B36). Marker lines don't
-count toward a design's word budget (round 1 ruling 2).
+(CLAUDE.md, "One owner per contract"). "Restates at" is how many members one block must hold to count as a copy:
+three, or one more than the largest reference outside the owner, whichever is greater (owner, 2026-11-21, round 1
+ruling 1). A list counts item by item, plus the members its items lead with, so mentions scattered through a long list
+don't add up. The references that set each count above three were judged one by one and are listed below, so a
+reviewer can re-judge them. A copy below a row's count passes unseen, and so does a contract this table doesn't list:
+both stay with review (B36). Marker lines don't count toward a design's word budget (round 1 ruling 2).
 
 | Contract | Owner | Kind | Restates at |
 |---|---|---|---|
@@ -18,16 +19,15 @@ count toward a design's word budget (round 1 ruling 2).
 | `intent_result.outcomes` | `design/tile_and_client.md` §3.3 | vocabulary | 3 |
 | `intent.kinds` | `design/tile_and_client.md` §3.2 | vocabulary | 5 |
 | `refusal.codes` | `design/tile_and_client.md` §3.4 | vocabulary | 6 |
-| `record.kinds` | `design/boundaries.md` §6.1 | vocabulary | 6 |
+| `record.kinds` | `design/boundaries.md` §6.1 | vocabulary | 5 |
 | `intent_record.fields` | `design/boundaries.md` §6.2 | vocabulary | 5 |
 | `ordering.key` | `design/boundaries.md` §6.2 | signature | 1 |
 | `codec.kinds` | `design/npcs_and_sem.md` §6.6 | vocabulary | 4 |
 | `server.messages` | `design/client_rendering.md` §4.1 | vocabulary | 5 |
 | `client.messages` | `design/tile_and_client.md` §3.3 | vocabulary | 4 |
+| `agent_failed.reasons` | `design/npcs_and_sem.md` §6.6 | vocabulary | 3 |
 
 Not registered yet, and why:
-- `agent_failed`'s reasons (`npcs_and_sem.md` §6.6) are written inside one code span, so the lint can't see them
-  separately.
 - The snapshot channels (`client_rendering.md` §4.2) wait on #31's ruling.
 - The log header and the tiers are prose and table text, not code-span vocabularies.
 
@@ -36,7 +36,7 @@ The references that set the counts above three (2026-11-21):
   rule or a message carries; `checklists.md` step 5's body motion; `vertical_slice.md` §3's throwaway messages.
 - `refusal.codes` (5): tile §6.3's exit script asserts five stage-2 refusals; tile §3.2's `kindle` names the codes it
   produces.
-- `record.kinds` (5, after #36): `checklists.md` step 5a's 40-item list names five kinds across unrelated tests; (4)
+- `record.kinds` (4): `checklists.md` step 5a's SEM-contract item names the lifecycle records it reserves;
   `sem_stimuli.md` §4.5's lifecycle table; `boundaries.md` §5.3's gate table and §6.2's log-record
   bullets name the kinds they gate or log.
 - `intent_record.fields` (4): `boundaries.md` §5.3's client-frames row and §7.3's cognition rule name the timing fields

@@ -353,3 +353,79 @@ def test_a_design_without_sections_is_exempt_only_by_a_banner_in_its_lead() -> N
     assert len(check(**{"docs/design/old.md": late})) == 1
     early = "# Old\n\n> **Superseded by `x.md`.**\n\nBody `timeout`, `budget`, `parse`.\n"
     assert check(**{"docs/design/old.md": early}) == []
+
+
+def test_mentions_scattered_through_a_list_are_references() -> None:
+    plan = "# Plan\n\n- On `x` it retries a `timeout`.\n- On `y`, `budget` stops it.\n- `z` logs show `parse`.\n"
+    assert check(**{"docs/plans/plan.md": plan}) == []
+
+
+def test_a_list_whose_items_lead_with_members_restates() -> None:
+    plan = "# Plan\n\n- **`budget`**: over\n- `timeout`, late\n- `parse` is bad\n"
+    assert check(**{"docs/plans/plan.md": plan}) == [
+        "docs/plans/plan.md:3: restates outcomes.reasons (`budget`, `timeout`, `parse`); "
+        "link to docs/design/placement.md §2.6 instead"
+    ]
+
+
+def test_one_list_item_holding_the_count_restates() -> None:
+    plan = "# Plan\n\n- First.\n- The reasons are `budget`, `timeout` and `parse`.\n"
+    assert len(check(**{"docs/plans/plan.md": plan})) == 1
+
+
+@pytest.mark.parametrize("count", ["0"])
+def test_a_registry_count_below_one_fails(count: str) -> None:
+    low = REGISTRY.replace("| vocabulary | 3 |", f"| vocabulary | {count} |")
+    assert any("restates at" in p and "at least 1" in p for p in check(**{"docs/design/contracts.md": low}))
+
+
+def test_a_partial_banner_in_the_lead_does_not_exempt_the_design() -> None:
+    part = (
+        "# Live\n\n> **Superseded in part (2026-11-16).** §4.1 only.\n\n## 1. Body\n\n`timeout`, `budget`, `parse`.\n"
+    )
+    assert len(check(**{"docs/design/live.md": part})) == 1
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "# D\n\n## 10. Decisions\n\n- **Ruled 2026-11-20:** **D1** the port.\n",
+        "# D\n\n## 0. Decisions\n\n**D20. One truth.** Rigs are tiers.\n",
+    ],
+)
+def test_a_bulleted_or_bare_ruling_inside_a_design_fails(text: str) -> None:
+    assert any("a list of rulings" in p for p in check(**{"docs/design/d.md": text}))
+
+
+def test_the_lead_of_a_design_without_sections_is_its_first_three_paragraphs() -> None:
+    third = "# Old\n\nOne.\n\n> **Superseded by `x.md`.**\n\nBody `timeout`, `budget`, `parse`.\n"
+    assert check(**{"docs/design/old.md": third}) == []
+    fourth = third.replace("One.\n\n", "One.\n\nTwo.\n\n")
+    assert len(check(**{"docs/design/old.md": fourth})) == 1
+
+
+def test_an_exclusion_outside_a_tables_first_column_is_stale() -> None:
+    table = PLACEMENT.replace(
+        "- **One closed list of `thought_failed` reasons:** `budget`, `timeout`, `parse`, `reloaded`, `unavailable`.\n"
+        "  `call_timeout` is an attempt outcome, not a reason.\n",
+        "| Reason | Then |\n|---|---|\n| `budget` | stop, see `call_timeout` |\n| `timeout` | retry |\n"
+        "| `parse` | log |\n| `reloaded` | end |\n| `unavailable` | wait |\n",
+    ).replace("not: thought_failed call_timeout", "not: call_timeout")
+    assert check(**{"docs/design/placement.md": table}) == [
+        "outcomes.reasons: its marker excludes ['call_timeout'], which its block doesn't hold"
+    ]
+
+
+def test_a_bare_bar_in_a_marker_says_so() -> None:
+    bare = PLACEMENT.replace(" | not: thought_failed call_timeout", " |")
+    assert "outcomes.reasons: its marker has a '|' with nothing after it" in check(**{"docs/design/placement.md": bare})
+
+
+def test_a_list_whose_items_name_a_member_first_restates_even_behind_a_label() -> None:
+    plan = "# Plan\n\n- **Budget** (`budget`): over\n- **Timeout** (`timeout`): late\n- **Parse** (`parse`): bad\n"
+    assert len(check(**{"docs/plans/plan.md": plan})) == 1
+
+
+def test_a_copy_in_nested_bullets_under_one_item_restates() -> None:
+    plan = "# Plan\n\n- The reasons:\n  - `budget`\n  - `timeout`\n  - `parse`\n"
+    assert len(check(**{"docs/plans/plan.md": plan})) == 1
