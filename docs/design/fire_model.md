@@ -419,7 +419,7 @@ from the Hess solve is caught and re-raised):
 |---|---|
 | world_model §5 (one material per cell), §8 (the (cell, face) table, the save), §0/§4 (the planned per-cell latent state) | fuel objects and segments beside one structural owner per cell; phase-split inventories |
 | world_model D23, D26, D29, D30 | laws 6b–6d replaced; pyrolysis and fusion enter Phase 1; the lab returns as the ladder's rigs; 6a kept |
-| CLAUDE.md thin-features rule; `architecture.md` "How the rule is kept"; `code_review.md`'s Physics question; the imagination Known gap | the rule holds for resolved cells; fuel objects are exempt only as `rod`, `slab` or `bed` recipes of fuel, never structure (a plank wall stays cells) |
+| CLAUDE.md thin-features rule; `architecture.md` "How the rule is kept"; `code_review.md`'s Physics question; the imagination Known gap | `world_model.md` §1.1's exemption (docs-contracts ruling 72) |
 | tile T4 (`kindle`'s deposit and 0.2 m radius), T5 (one lumped body), T13 (no more paper rounds), T14 (radiation by point source to bodies only), T17 (accelerant ignition) | §5.4, §5.1, this note, §4.4, §7 |
 | tile §5.1–§5.4 (q''_f, T_p, L_g, the ledger lines) | §3, §4.2, §9.2 |
 | tile §5.3's pre-registered failure path | it fired (the three spikes); this design and §11 are its ruling, not a rescue |

@@ -452,7 +452,7 @@ thought; follow-ups per triggering input; effective dial by cause; under floor-h
   minute, so thoughts without a speech trigger (percepts, idle) are budgeted too, and a new message doesn't reset the
   window; tokens per model call (passed as the generation limit and enforced again as a stream cut-off **before**
   buffering); held-buffer bytes; memory writes and their bytes; `cancel_on` length; a ceiling on `D` per kind; the
-  liveness ceiling per kind (`inference_placement.md` §2.5); and the host's per-park wall ceiling (§6.6). Under
+  liveness ceiling per kind (`inference_placement.md` §2.5); and the host's per-park wall ceiling (this document's §6.6). Under
   floor-holding, holds are rate-limited per triggering speaker, so one guest can't keep an NPC permanently mid-hold.
 - **Exceeding any cap ends the thought** as `thought_failed(reason=budget)`, logged, keeping the spoken prefix as an
   interruption does.

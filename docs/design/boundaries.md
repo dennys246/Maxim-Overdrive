@@ -348,6 +348,9 @@ module sits inside the core (`core/body`, `core/stimuli`) is `sem_stimuli.md` §
 **Actor ids and time authority** (copied from `realtime_lanes_coop.md` §4.2 and §5):
 - **Actor ids are integers from the simulation lane's allocator**, issued when a join is applied, never reused,
   for players and NPCs alike. NPCs are allocated in roster order at load.
+- **Joins and leaves are records** at a tick, in the log. When a guest leaves, its intents that already have a tick
+  apply and the rest are discarded. **When the host leaves, the world pauses** (a logged time decision) until the
+  host token reconnects.
 - **`TimeAuthority`** sees a frozen view of the sessions. `HostOnly` grants the host and refuses guests, with a
   reason; it never returns `pending`. A `vote` message is refused in v0 (TB-17). A future vote needs a timeout and
   a quorum rule, and the "pending" reply is reserved for it.
@@ -433,8 +436,7 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
     never mints or computes one. It is null, never a stand-in (no uuid, no executor `invocation_id`), until Maxim's
     G17 stage builds `PhysicalEventId`; until then any non-null value is refused with a typed code, and once the type
     exists any non-null value that isn't a pid.
-- **The record's `seq`:** `seq` is an integer in `[0, 2^31)` and must increase within a session (W-F5; copied from
-  `realtime_lanes_coop.md` §7).
+- **The record's `seq`** is the client message's (`tile_and_client.md` §3.3).
 - **Derived, never input:** receipts, refusal reasons, destroyed volume, `ModulatorResult`s. Replay recomputes them
   and checks them against a per-tick digest.
 - **What is logged, kind by kind (foundations TB2-S2, DR-S8):**
@@ -568,7 +570,7 @@ inside the simulation lane's tick"):**
 - **Agent isolation** comes from the worker process for real agents; tier A still proves it inside one process
   (OD-EA6), since Maxim's module-level state (global `random`, caches, the de-duplication window) is shared there
   (foundations DR-S5, TB2-B2).
-- **`dt_ticks` is a pure function of the actor's rate divisor and phase,** never of lag (foundations DR-S1).
+- **`dt_ticks`** is as `npcs_and_sem.md` §2.1 states it (foundations DR-S1).
 - **Agent state lives outside `Simulation`.** Save v1 persists the world plus each NPC's agent home, separately.
 - **Lane hand-off is counted inside the modelled latency** (§7.3), so the threading design never decides an NPC's
   biology.

@@ -307,3 +307,45 @@ def test_a_fenced_block_is_one_block_even_with_blank_lines() -> None:
 def test_the_real_tree_passes() -> None:
     tree = {p.relative_to(ROOT).as_posix(): p.read_text() for p in sorted((ROOT / "docs").rglob("*.md"))}
     assert lint.check_contracts(tree) == []
+
+
+@pytest.mark.parametrize(
+    ("marker", "complaint"),
+    [
+        ("not: thought_failed call_timeout ghost", "its marker excludes ['ghost'], which its block doesn't hold"),
+        ("not: thought_failed call_timeout budget", "its marker both names and excludes ['budget']"),
+        ("but: thought_failed call_timeout", "its marker reads 'but:' after '|'; only 'not:' may follow it"),
+    ],
+)
+def test_an_exclusion_is_checked_too(marker: str, complaint: str) -> None:
+    bad = PLACEMENT.replace("not: thought_failed call_timeout", marker)
+    assert check(**{"docs/design/placement.md": bad}) == [f"outcomes.reasons: {complaint}"]
+
+
+def test_a_tables_header_row_is_not_a_member_position() -> None:
+    table = PLACEMENT.replace(
+        "- **One closed list of `thought_failed` reasons:** `budget`, `timeout`, `parse`, `reloaded`, `unavailable`.\n"
+        "  `call_timeout` is an attempt outcome, not a reason.\n",
+        "| `thought_failed` reason | Then |\n|---|---|\n| `budget` | stop |\n| `timeout` | retry |\n"
+        "| `parse` | log |\n| `reloaded` | end |\n| `unavailable` | wait |\n",
+    ).replace(" | not: thought_failed call_timeout", "")
+    assert check(**{"docs/design/placement.md": table}) == []
+
+
+def test_the_registry_is_out_of_scope() -> None:
+    listed = REGISTRY + "\nThe reasons `budget`, `timeout` and `parse` are one example.\n"
+    assert check(**{"docs/design/contracts.md": listed}) == []
+
+
+def test_a_numbered_list_of_rulings_inside_a_design_fails() -> None:
+    text = "# D\n\n## 0. Decisions\n\n1. **O3.** The substrate runs outside.\n"
+    assert check(**{"docs/design/d.md": text}) == [
+        "docs/design/d.md:5: a list of rulings belongs in docs/design/decisions/"
+    ]
+
+
+def test_a_design_without_sections_is_exempt_only_by_a_banner_in_its_lead() -> None:
+    late = "# Old\n\nLead.\n\nMore.\n\nBody `timeout`, `budget`, `parse`.\n\n> **Superseded by `x.md`.**\n"
+    assert len(check(**{"docs/design/old.md": late})) == 1
+    early = "# Old\n\n> **Superseded by `x.md`.**\n\nBody `timeout`, `budget`, `parse`.\n"
+    assert check(**{"docs/design/old.md": early}) == []

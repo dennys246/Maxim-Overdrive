@@ -102,6 +102,8 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 
 ## Step 5a, the simulation core (O34)
 
+- When `imagine` becomes an intent kind, fold `boundaries.md` §6.1's separate `imagine` record kind into `intent`
+  (docs-contracts round 1 ruling 5).
 - Step 4's harness, the three items it left here (`docs/design/verify_harness.md` §7):
   - the scenario agreement studies (`tests/test_cross_tier.py`, the cross-grid tests in `tests/test_act_validation.py`)
     move from `World` to `Simulation` at its fixed physics step, so they refine space alone; until then they refine

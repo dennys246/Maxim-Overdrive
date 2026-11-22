@@ -1,9 +1,10 @@
 # Contracts: the registry B36's lint checks
 
 Each row names a contract, the one section that owns it, and its kind. The owner section marks its defining block with
-`<!-- contract: <name>: <members> -->`, and `scripts/lint_contracts.py` fails when another block in a design, plan,
-the roadmap or `architecture.md` holds three or more of those members, or the signature, or when a design holds a
-fold or decision table (CLAUDE.md, "One owner per contract"). "Restates at" is how many members one block must hold to count as a copy: three, or one more than the largest
+`<!-- contract: <name>: <members> | not: <spans> -->`, and `scripts/lint_contracts.py` fails when the marker and its
+text disagree either way, when another block in a design, plan, the roadmap or `architecture.md` holds the row's
+"restates at" count of members or the signature, or when a design holds a fold or decision table or a list of rulings
+(CLAUDE.md, "One owner per contract"). "Restates at" is how many members one block must hold to count as a copy: three, or one more than the largest
 reference outside the owner, whichever is greater (owner, 2026-11-21, round 1 ruling 1). The references that set each
 count above three were judged one by one and are listed below, so a reviewer can re-judge them. A copy below a row's
 count passes unseen, and so does a contract this table doesn't list: both stay with review (B36). Marker lines don't

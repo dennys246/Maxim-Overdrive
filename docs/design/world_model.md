@@ -178,11 +178,11 @@ Frames are self-describing, and their grammar is `client_rendering.md` §4.1's; 
   Units are part of a channel's identity, from a closed vocabulary, and a lint checks them against the fixtures.
 - **A save has no optional fields** (F5). The code's registry and loaders are authoritative. Embedded copies of the
   registry, scene and specs are compared against them, never executed. A save from a newer build is refused, loudly.
-  The save uses the same grammar, losslessly. It embeds the registry, the material table, the scene with its zones,
-  and the placed imagined specs. Derived fields are recomputed on load and checked against a stored digest (from
-  `world_v2.md` §8, less its retired "tied to one rig's cell size", D20). A content change is refused too, and a save
-  holds no in-flight thoughts, since agent state lives outside
-  `Simulation` (docs-contracts ruling 26, owner, 2026-11-21).
+  A content change is refused too, and a save holds no in-flight thoughts, since agent state lives outside
+  `Simulation` (docs-contracts ruling 26, owner, 2026-11-21). The save uses the same grammar, losslessly. It embeds
+  the registry, the material table, the scene with its zones, and the placed imagined specs. Derived fields are
+  recomputed on load and checked against a stored digest (from `world_v2.md` §8, less its retired "tied to one rig's
+  cell size", D20).
 - **Saves, scene files and replay logs are untrusted input** (F14), under the gate contract (`boundaries.md` §5.4):
   - the memory budget is checked before anything is allocated, from the header's declared shape;
   - shape, sizes and offsets are validated against the scene and rig;

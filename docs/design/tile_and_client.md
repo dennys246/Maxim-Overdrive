@@ -237,6 +237,8 @@ fields, the ordering key and `kind_rank` are boundaries §6.2's; `actor_id` come
   `cancelled`; the last two have no Phase 1 producer), refusal code, measured effect, before and after frame ids,
   and the wire-only `apply_tick` and `path_mm`. The agent-facing receipt is `sem_stimuli.md` §6.2's and carries no
   tick.
+- **Every client message's `seq`** is an integer in `[0, 2^31)` and must increase within a session (W-F5; copied from
+  `realtime_lanes_coop.md` §7).
 - **Server → client** messages are `client_rendering.md` §4.1's.
 
 ### 3.4 Refusals (WT-S1, EX-S8), in check order

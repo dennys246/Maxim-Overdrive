@@ -122,3 +122,46 @@ and not restated.
   host mode as a PR item; there is no text to copy), `checklists.md` items on realtime §7 (to-do items).
 - Excluded: `sem_stimuli.md` §7.1's "`world_v2.md` §2.6" (another session's PR). Not handled: `verify_harness.md` and
   `checklists.md` cite "`world_v2.md` row 2" for the exact work counters.
+
+## Delta 1 fold (author's claims; the delta reports set the statuses)
+
+Correction to "Round 1 fold" above: its "Not copied; for the owner" about `world_v2.md` §8 is out of date. The author
+homed all three items in 7cfea02: the registry hash in `boundaries.md` §6.3, the save's grammar and digest in
+`world_model.md` §8 F5 (less the D20-retired rig cell size), and the heavy-mode test and the six fixtures in
+`checklists.md` steps 9 and 7.
+
+| Finding | Change |
+|---|---|
+| Wire D-S1 | `realtime_lanes_coop.md` §5's joins-and-leaves bullet copied verbatim into `boundaries.md` §5.3 |
+| Wire D-S2 | the `seq` range moves to `tile_and_client.md` §3.3, as every client message's; `boundaries.md` §6.2 links |
+| Wire D-S3 | this correction |
+| Arch NEW-1 | ruling 3 is `sem_stimuli.md` §11.2's Q8; ruling 5 is the first item of `checklists.md` step 5a |
+| Wire D-N1 | F5's sentences reordered so "refused too" follows "refused" |
+| Wire D-N3, Arch NEW-8 | the banner drops its citation of `world_model.md`'s status line |
+| Arch NEW-2 | the registry's intro states the marker's `not:` and the row's count |
+| Arch NEW-3 | numbered lists of rulings are caught |
+| Arch NEW-4 | a design without sections is exempt only by a banner in its lead paragraphs |
+| Arch NEW-5 | a stale exclusion, a span both named and excluded, and any keyword but `not:` fail |
+| Arch NEW-6 | tests for the table header row and for the registry being out of scope; the dead guard is gone |
+| Arch NEW-7 | the docstring says a list owner is its first item |
+| Wire N1 | `fire_model.md` §10.1's row links `world_model.md` §1.1's exemption |
+| Wire N2 | the plan's base reads 5c054f6 |
+| Wire N5 | npcs' bare §6.6 reads "this document's §6.6" |
+| Wire N6 | `boundaries.md` §7.1's `dt_ticks` links `npcs_and_sem.md` §2.1 |
+
+Left, with reasons:
+- Wire S2's `sem_stimuli.md` §7.1 citation of `world_v2.md` §2.6, the ledger exchange, which no live owner holds:
+  `phase1/sim-clock` (#36) edits that phrase. Trigger: the first main merge after #36, then the ledger rule moves to a
+  live owner.
+- `world_v2.md` §2.1's rig-cell text and its air-cell temperature, and §2.2's per-substep topology update, are history.
+  D20 and `world_model.md` §6 and §8 replace them, so nothing is copied.
+- `verify_harness.md` and `checklists.md` step 5a cite "`world_v2.md` row 2" for the exact work counters. That row is a
+  plan step in a superseded design, so a citation of it is provenance; 5a builds the counters.
+- Wire S3's remainder and Arch A7's remainder are the owner's: CLAUDE.md's "Reconstruct" paragraph restates
+  `world_model.md` §3; the decision records repeat a ruling that several designs restated, as moved; an Owner cell is
+  `—` where the source table had no column for it; CLAUDE.md says such tables live in "reviews/ and indexes", and
+  `decisions/` is an index.
+- Executor N5 (the step 4 commit said 42 tests where 43 were collected) is history in a commit message. Executor N6
+  (a signature matches only with its exact spacing) is the lint's stated limit.
+- Wire N3 (headers that say "uncommitted") and N4 (tile §3.2's heading names `kindle`) are left as they are.
+- Wire D-N2 (fire_model §12's "in 6.4" against #34's "6.1") is main's text, inherited.

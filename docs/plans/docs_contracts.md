@@ -154,8 +154,8 @@ retarget it, since it is a tool, not a lens report. Otherwise it stays a record 
 Review records cite design sections more than 600 times. Four scripts cite C §6.2, §6.5, §7.3 and §12.
 - **No renumbering.** A moved section keeps its heading and gains a pointer line. New text joins an existing section,
   or a new last subsection.
-- **`reviews/docs_contracts/moves.md`** maps each old location at dc0e1aa to its owner, with the commit. Records are
-  never edited, and `git show dc0e1aa:<path>` recovers the text they cite.
+- **`reviews/docs_contracts/moves.md`** maps each old location at 5c054f6 (main after #32) to its owner, with the commit. Records are
+  never edited, and `git show 5c054f6:<path>` recovers the text they cite.
 - **Superseded designs stay as records.** `world_v2.md` gains the banner. Their live contracts are copied, not cut.
 - **The reference check:** a script resolves every `<doc> §N` in live documents, scripts and tests against
   headings, before and after. The run is saved with the review.
@@ -206,5 +206,5 @@ which the commit message records. `lint_standards.py` wires it in, and B36 is ma
 5. Review by Executor, Architecture and Wire integrity, with reports in `reviews/docs_contracts/`. Then merge
    `origin/main` and run `prepush.sh` on the Mac mini (asking before the first SSH).
 
-**Budgets:** each design's word count at dc0e1aa is its ceiling. `moves.md` tabulates before and after. Cuts: N
+**Budgets:** each design's word count at 5c054f6 is its ceiling. `moves.md` tabulates before and after. Cuts: N
 −7,343, B −3,498, WM −1,145, T −466, IP −345, C −212. C is tight, so the handshake goes to B §5.3.

@@ -6,11 +6,13 @@ document links to it. ``docs/design/contracts.md`` registers each checked contra
     | `<name>` | `<path under docs/>` §<number> | vocabulary or signature | <restates at> |
 
 and the owner section carries ``<!-- contract: <name>: <members> | not: <spans> -->`` on the line before the block
-that defines it: one list item (with its nested lines), a table or a paragraph.
+that defines it: one list item (with its nested lines), a table or a paragraph. A list owner is its first item, so a
+vocabulary written one member per bullet is owned as a table or as one item that lists it.
 
 - **The marker is tied to its text both ways.** Each member it names is a code span in the block; and every code span
   in the block's member positions (a table's first column, any span of an item or paragraph) is either named or
-  listed after ``not:``. A member the text gains without the marker fails, and an exclusion is said aloud.
+  listed after ``not:``. A member the text gains without the marker fails, and an exclusion is said aloud; a stale
+  exclusion, a span both named and excluded, or anything but ``not:`` after the bar fails too.
 - **A restatement** is any block in scope (a paragraph, a table, or a run of list items, so a copy one member per
   bullet counts) that holds the row's *restates at* count of members outside the contract's own owner lines. A
   signature's one span (an ordering key) restates wherever it appears.
@@ -42,7 +44,9 @@ HEADING = re.compile(r"^(#{1,6}) (.*)$")
 ITEM = re.compile(r"^(?:[-*]|\d+\.) ")
 ROW = re.compile(r"^\| `([a-z0-9_.-]+)` \| `([^`]+)` §(\d+(?:\.\d+)*) \| (\w+) \| (\d+) \|\s*$")
 FOLD = re.compile(r"^#{1,6} Fold table", re.M)
-RULING = re.compile(r"^(?:[-*] \*\*(?:O|OA|D|T|VS)\d+[a-z]?[.:*]|\*\*Ruled\b)", re.M)  # "- **D20.", "**Ruled 2026-…:**"
+RULING = re.compile(
+    r"^(?:(?:[-*]|\d+\.) \*\*(?:O|OA|D|T|VS)\d+[a-z]?[.:*]|\*\*Ruled\b)", re.M
+)  # "- **D20.", "**Ruled 2026-…:**"
 
 
 @dataclass(frozen=True)
@@ -127,7 +131,7 @@ def section_span(text: str, number: str) -> tuple[int, int] | None:
 def header(text: str) -> str:
     """A document's lead, before its first section: where a superseded banner says the whole document is history."""
     m = re.search(r"^## ", text, re.M)
-    return text[: m.start()] if m else text
+    return text[: m.start()] if m else "\n\n".join(text.split("\n\n")[:3])  # no sections: its lead paragraphs
 
 
 def in_scope(files: dict[str, str]) -> dict[str, str]:
@@ -144,11 +148,13 @@ class Marker:
     line: int  # 0-based
     named: tuple[str, ...]  # the members (a signature names its one span)
     excluded: tuple[str, ...]  # code spans in the marked block that are not members, said aloud
+    keyword: str  # what follows the "|": "not:", or "" when there is none
 
 
 def parse_marker(rel: str, line: int, body: str | None) -> Marker:
-    named, _, rest = (body or "").partition("|")
-    return Marker(rel, line, items(named), items(rest.strip().removeprefix("not:")))
+    named, bar, rest = (body or "").partition("|")
+    keyword = rest.split()[0] if rest.split() else bar
+    return Marker(rel, line, items(named), items(rest.strip().removeprefix("not:")), keyword)
 
 
 def items(text: str) -> tuple[str, ...]:
@@ -212,7 +218,7 @@ def restatements(scope: dict[str, str], c: Contract, defined: list[str], owner: 
             kept = [ln for k, ln in enumerate(b.lines) if (rel, b.start + k) not in owner]
             spans = set(SPAN.findall("\n".join(kept)))
             hit = [m for m in defined if m in spans]
-            if kept and len(hit) >= need:
+            if len(hit) >= need:
                 shown = ", ".join(f"`{m}`" for m in hit[:4])
                 out.append(f"{rel}:{b.start + 1}: restates {c.name} ({shown}); link to {c.path} §{c.section} instead")
     return out
@@ -251,20 +257,34 @@ def resolve(
             continue
         marker = found[c.name][0]
         defined = [" ".join(marker.named)] if c.kind == "signature" and marker.named else list(marker.named)
-        spans = SPAN.findall("\n".join(block.lines))
-        absent = [m for m in defined if m not in spans]
-        unaccounted = [] if c.kind == "signature" else unnamed(block, defined, marker.excluded)
-        if not defined:
-            problems.append(f"{c.name}: its marker names no members")
-        elif absent:
-            problems.append(f"{c.name}: its marker names {absent}, which its block doesn't hold as code spans")
-        elif unaccounted:
-            problems.append(f"{c.name}: its block holds {unaccounted}, which its marker neither names nor excludes")
+        problem = marker_problem(c, block, marker, defined)
+        if problem:
+            problems.append(problem)
         elif c.kind == "vocabulary" and len(defined) < 3:
             problems.append(f"{c.name}: a vocabulary needs at least 3 members to check, found {defined}")
         else:
             resolved.append((c, block, defined))
     return resolved, problems
+
+
+def marker_problem(c: Contract, block: Block, marker: Marker, defined: list[str]) -> str | None:
+    """Why a marker doesn't match the text it marks, both ways, or None."""
+    spans = SPAN.findall("\n".join(block.lines))
+    positions = member_positions(block)
+    if not defined:
+        return f"{c.name}: its marker names no members"
+    if marker.keyword not in ("", "not:"):
+        return f"{c.name}: its marker reads {marker.keyword!r} after '|'; only 'not:' may follow it"
+    checks = [
+        ([m for m in defined if m not in spans], "its marker names {}, which its block doesn't hold as code spans"),
+        ([m for m in defined if m in marker.excluded], "its marker both names and excludes {}"),
+        ([x for x in marker.excluded if x not in positions], "its marker excludes {}, which its block doesn't hold"),
+        (
+            [] if c.kind == "signature" else unnamed(block, defined, marker.excluded),
+            "its block holds {}, which its marker neither names nor excludes",
+        ),
+    ]
+    return next((f"{c.name}: " + text.format(found) for found, text in checks if found), None)
 
 
 def unnamed(block: Block, defined: list[str], excluded: tuple[str, ...]) -> list[str]:

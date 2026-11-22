@@ -502,7 +502,8 @@ This document's decisions (20 rulings) are kept as records, with their dates, ow
 
 - **Q1.** The `skin` point count. **Q3.** Face skins (S4). **Q4.** Bodies shading each other: a Known gap when
   irradiance lands. **Q5.** Ventilation's owner. **Q6.** Skin feedforward (L1 §9.1). **Q7.** Whether the embedded
-  build opens the Maxim session in build or at first step (§4.4 assumes it opens before `agent_ready`).
+  build opens the Maxim session in build or at first step (§4.4 assumes it opens before `agent_ready`). **Q8.** Whether a
+  `BoundFrame` push needs a log record (docs-contracts round 1 ruling 3).
 
 ### 11.3 Risks, said plainly
 
