@@ -42,9 +42,6 @@ Nothing 6.0 leans on is built at gates 396ae10:
 migration is needed. It doesn't prevent re-recording: any content change (6.1's fit) refuses older logs
 (boundaries §6.3), by design.
 
-**The plan's step 6 row** still reads "constants cited, never fitted … tile §6.3 passes at three grids". The commit
-that accepts this design revises it and the 5a and 6 checklists (D-N5).
-
 ## 1. Fuel objects (6.0b)
 
 ### 1.1 The store and its tables
@@ -66,8 +63,9 @@ The tables are column-major numpy arrays, registered and sorted by integer key:
 
 - **The object-id counter** is persisted. At 2³² − 1 the next insertion is refused (`object_ids_exhausted`), never
   wrapped.
-- **Geometry per kind:** a `rod` is origin, unit axis, length and radius. A `slab` is origin, two unit edge axes,
-  length, width and thickness. `bed` (6.2) adds its own columns.
+- **Geometry per kind** (owner, 2026-11-22): a `rod` is origin (its axis's start), unit axis, length and radius. A
+  `slab` is origin, two unit edge axes, length, width and thickness; its segments lie on the face at origin +
+  thickness·(length axis × width axis). `bed` (6.2) adds its own columns.
 - **Geometry is immutable in 6.0–6.1.** Regression changes node thickness only, and node thickness never feeds
   `contact`.
 - **Node densities are the one mass truth.** An inventory is a `bincount` over nodes in key order, never stored.
@@ -80,7 +78,7 @@ The tables are column-major numpy arrays, registered and sorted by integer key:
 ### 1.2 Segments and nodes
 
 - **A segment is a strip,** 0.02 m along a rod, or 0.02 m along a slab's length spanning its width, fixed in metres
-  per recipe class. 200 m² of 0.5 m-wide slab is 4.8×10⁵ nodes as strips and 1.2×10⁷ as tiles: 14–25 against
+  per recipe class, from the origin, the last the remainder: ⌈L/ℓ⌉ in whole micrometres (F13), as integers. 200 m² of 0.5 m-wide slab is 4.8×10⁵ nodes as strips and 1.2×10⁷ as tiles: 14–25 against
   350–620 ms per step (D, DP FS-S6).
 - **In 6.1 a segment flips whole at flash.** Its area and node profile move to the ignited part as a copy, so the
   front moves segment by segment. Partial transfer, with an enthalpy merge, is 6.2's (DP FS-S9). A zero-area part

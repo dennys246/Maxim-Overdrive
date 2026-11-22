@@ -263,10 +263,9 @@ fails.
 6.1) and the later rung designs. The list below is kept as the record of what the tile spec asked; each item is
 answered, replaced or carried by those documents (their §10 and §7 tables).
 
-**Added by D-B2 (owner, 2026-11-22), answered before step 7 freezes the fuel tables:** fire_solid's owner states the
-segment-count rule and whether the last segment takes the remainder, which slab face carries the segments, and
-whether a rod's origin is its axis's start (`client_objects.md` §3.2 holds provisional answers); and the torch's Phase 1
-pilot, how `kindle` ignites a slab with no flame object.
+**Added by D-B2 (owner, 2026-11-22):** the fuel geometry's segment rule, slab face and rod origin are answered
+(`fire_solid.md` §1.1–§1.2). Still open, before step 8's exit scenario: the torch's Phase 1 pilot, how `kindle`
+ignites a slab with no flame object.
 
 - A short design note first, reviewed under the Physics lens, answering the final review (`reviews/tile_v1/
   final_physics.md`): FPH-B1 radiative transfer between slats inside the bed, plus the draught's air-supply loss;

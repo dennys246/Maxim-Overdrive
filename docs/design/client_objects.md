@@ -111,11 +111,10 @@ Three consequences:
 
 **`rods`**, keyed by `object_id`, one row per rod: `origin_{x,y,z}_m` (the axis's start, where segment 0 begins),
 `axis_{x,y,z}` (unit, `ratio`), `length_m`, `radius_m`. All are f32 in world metres, in the server's frame. The
-segment span and the origin are provisional until fire_solid's owner answers checklist step 6's questions, before
-step 7 freezes the tables.
+span and the origin are fire_solid §1.1–§1.2's.
 
 **`slabs`**, keyed by `object_id`: `origin_{x,y,z}_m` (a corner), `length_axis_{x,y,z}`, `width_axis_{x,y,z}`,
-`length_m`, `width_m`, `thickness_m`, all f32. Which face carries the segments is checklist step 6's second question.
+`length_m`, `width_m`, `thickness_m`, all f32. The segmented face is fire_solid §1.1's.
 
 Geometry gets a table per kind rather than one table of positional columns. That way each column has one meaning
 (F1), and a new kind is a new table and mesh, never a reinterpretation of old columns.
@@ -128,8 +127,7 @@ run on insertions only. `state` is checked every frame (0 or 1). The decoder ref
 - a geometry row missing, or present in another kind's table;
 - non-finite geometry, a non-positive length, an axis off unit by more than 10⁻⁶ `[engineering]`.
 
-The client never recounts segments from geometry. `segment_count` is the server's, its rule fire_solid's (checklist
-step 6). A recount from f32 columns disagrees with any rule for some lengths: 42 of 1,981 at an absolute tolerance
+The client never recounts segments from geometry. `segment_count` is the server's, its rule fire_solid §1.2's. A recount from f32 columns disagrees with any rule for some lengths: 42 of 1,981 at an absolute tolerance
 (`delta1_wire_integrity.md` N1). The key check catches a misdistributed count, and §4.1's clamp keeps every fragment on
 its own object.
 
