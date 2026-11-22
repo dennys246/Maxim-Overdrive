@@ -1,0 +1,14 @@
+# The alley's boxes (docs/design/tile_and_client.md §1.3), Apache-2.0 like the engine: engine tests and step 5 use this
+# fixture, never content/scenes/alley.yaml (rights reserved, step 8). Scene format v1 (simcore.core.scene.SCENE).
+version: 1
+extent_m: [12.0, 4.0, 4.8]
+ambient_c: 15.0
+spawns:
+  - {name: runner, archetype: human, holding: torch, at_m: [0.6, 2.0, 0.4]}
+primitives:
+  - {kind: box, name: floor,      material: concrete, min_m: [0.0, 0.0, 0.0],   max_m: [12.0, 4.0, 0.4]}
+  - {kind: box, name: wall_south, material: concrete, min_m: [1.2, 0.0, 0.4],   max_m: [12.0, 0.4, 4.4]}
+  - {kind: box, name: wall_north, material: concrete, min_m: [1.2, 3.6, 0.4],   max_m: [12.0, 4.0, 4.4]}
+  - {kind: box, name: wall_end,   material: concrete, min_m: [11.6, 0.4, 0.4], max_m: [12.0, 3.6, 4.4]}
+  - {kind: box, name: crate,      material: wood, min_m: [6.0, 2.6, 0.4], max_m: [6.6, 3.2, 1.0]}
+  - {kind: box, name: crate_far,  material: wood, min_m: [9.0, 0.8, 0.4], max_m: [9.6, 1.4, 1.0]}

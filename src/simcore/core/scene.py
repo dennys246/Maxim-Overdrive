@@ -5,6 +5,9 @@ decides how finely it is sampled. Imagination produces the same specs (``simcore
 object is made of the same cells, burns and breaks like anything else, and needs no special case.
 
 A cell belongs to a primitive when its centre lies inside it; later primitives overwrite earlier ones.
+
+The scene file is format ``SCENE`` (v1: world_model F13's strict reader plus the bodies' ``spawns``, tile §1.3). Its
+fields are declared once, below, and read by ``simcore.core.schema``; the primitives' constructors run the same rules.
 """
 
 from __future__ import annotations
@@ -12,31 +15,51 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from types import MappingProxyType
-from typing import Literal
+from typing import Any, Literal
 
-from simcore.core.checks import finite_real, finite_vector, format_version, known_keys, shown
-from simcore.core.grid import Bounds, Footprint, Mask, MaterialGrid, Point
+from simcore.core.checks import MAXIM_TARGET_ALIASES, entity_key, shown
+from simcore.core.grid import (
+    MAX_LENGTH_M,
+    REGION_NAME,
+    Bounds,
+    Footprint,
+    Mask,
+    MaterialGrid,
+    Point,
+    whole_micrometres,
+)
 from simcore.core.materials import MaterialTable
+from simcore.core.refusals import RefusalCode, Refused
+from simcore.core.schema import Field, Format, Identity, ListOf, Nested, Real, Schema, Tagged, Text, Vector, Whole
+
+# Validity bounds, not tunables: no ambient is hotter than a flame (wood's is about 2000 C), and a scene's air at
+# 1e300 C would overflow the first step. A tile is tens of metres. The extent bound only refuses absurd numbers: a
+# real cell-count budget comes with the memory budget planned for design v2. Coordinates are bounded before any
+# arithmetic: squaring a 1e200 m radius overflowed a float inside the voxelizer (step 3b review, B1).
+MAX_AMBIENT_C = 3000.0
+MAX_EXTENT_M = MAX_LENGTH_M  # grid.MAX_LENGTH_M: one bound for every length a scene or a grid takes
+MAX_PRIMITIVES = 4096  # a list's length is counted before any primitive is built (boundaries §5.4)
+MAX_SPAWNS = 64
+_COORD3, _COORD2 = Vector(3, MAX_EXTENT_M), Vector(2, MAX_EXTENT_M)
+# A primitive's name is a region name, which Maxim strips when it resolves one, so " crate" would answer to "crate".
+_LABELS = (Field("material", Text()), Field("name", REGION_NAME, required=False, nullable=True))
+BOX = Schema((Field("min_m", _COORD3), Field("max_m", _COORD3), *_LABELS))
+CYLINDER = Schema(
+    (
+        Field("center_xy_m", _COORD2),
+        Field("radius_m", Real(lo=0.0, lo_open=True, hi=MAX_EXTENT_M)),
+        Field("z_m", _COORD2),
+        *_LABELS,
+    )
+)
+PRIMITIVE = Tagged("kind", "box", {"box": BOX, "cylinder": CYLINDER})
 
 
-def _coordinates(value: object, n: int, what: str) -> tuple[float, ...]:
-    """``n`` finite coordinates, each within ``MAX_EXTENT_M`` of the origin, or a ValueError (step 3b review, B1).
-
-    Checked before any arithmetic: a tile is at most ``MAX_EXTENT_M`` across, so a larger number is no shape, and
-    squaring one (a 1e200 m radius) overflowed a float inside the voxelizer."""
-    values = finite_vector(value, n, what)
-    if any(abs(v) > MAX_EXTENT_M for v in values):
-        raise ValueError(f"{what} must lie within {MAX_EXTENT_M:g} m of the origin, got {shown(value)}")
-    return values
-
-
-def _check_labels(material: object, name: object) -> None:
-    if not isinstance(material, str) or not material:
-        raise ValueError(f"primitive {shown(name)} needs a material name, got {shown(material)}")
-    if name is not None and (not isinstance(name, str) or not name.strip() or name != name.strip()):
-        # Maxim strips the names it resolves, so " crate" would answer to "crate" and "  " to nothing.
-        raise ValueError(f"a primitive's name must be a non-empty string with no outer spaces, got {shown(name)}")
+def _check_volume(p: Box | Cylinder) -> None:
+    """A shape with no volume has no footprint centroid: a 1e-300 m radius underflows to 0 m³ (step 3b(b) review,
+    Wire S4)."""
+    if not p.volume_m3 > 0:
+        raise Refused(f"a {p.kind}'s volume must be above 0 m³, got {p.volume_m3!r}", code=RefusalCode.TOO_SMALL)
 
 
 @dataclass(frozen=True)
@@ -48,12 +71,15 @@ class Box:
     kind: Literal["box"] = "box"
 
     def __post_init__(self) -> None:
-        lo, hi = _coordinates(self.min_m, 3, "min_m"), _coordinates(self.max_m, 3, "max_m")
-        if not all(a < b for a, b in zip(lo, hi, strict=True)):
-            raise ValueError(f"box max_m must exceed min_m on every axis, got {lo} and {hi}")
-        _check_labels(self.material, self.name)
+        v = BOX.check({"min_m": self.min_m, "max_m": self.max_m, "material": self.material, "name": self.name}, "box")
+        lo, hi = v["min_m"], v["max_m"]
+        if not all(a < b for a, b in zip(lo, hi, strict=True)):  # type: ignore[call-overload]  # two Vectors
+            raise Refused(
+                f"box max_m must exceed min_m on every axis, got {lo} and {hi}", code=RefusalCode.OUT_OF_RANGE
+            )
         object.__setattr__(self, "min_m", lo)
         object.__setattr__(self, "max_m", hi)
+        _check_volume(self)
 
     def mask(self, grid: MaterialGrid) -> Mask:
         x, y, z = grid.mesh()
@@ -87,15 +113,14 @@ class Cylinder:
     kind: Literal["cylinder"] = "cylinder"
 
     def __post_init__(self) -> None:
-        center = _coordinates(self.center_xy_m, 2, "center_xy_m")
-        (radius,) = _coordinates((self.radius_m,), 1, "radius_m")
-        z = _coordinates(self.z_m, 2, "z_m")
-        if radius <= 0 or z[1] <= z[0]:
-            raise ValueError(f"cylinder needs a positive radius and z_m[1] > z_m[0], got {radius} and {z}")
-        _check_labels(self.material, self.name)
-        object.__setattr__(self, "center_xy_m", center)
-        object.__setattr__(self, "radius_m", radius)
-        object.__setattr__(self, "z_m", z)
+        given = {"center_xy_m": self.center_xy_m, "radius_m": self.radius_m, "z_m": self.z_m}
+        v = CYLINDER.check({**given, "material": self.material, "name": self.name}, "cylinder")
+        z: tuple[float, float] = v["z_m"]  # type: ignore[assignment]  # a Vector of 2
+        if z[1] <= z[0]:
+            raise Refused(f"cylinder needs z_m[1] > z_m[0], got {z}", code=RefusalCode.OUT_OF_RANGE)
+        for name in given:
+            object.__setattr__(self, name, v[name])
+        _check_volume(self)
 
     def mask(self, grid: MaterialGrid) -> Mask:
         x, y, z = grid.mesh()
@@ -143,9 +168,10 @@ def _check_no_solid_overlaps(primitives: Sequence[Primitive]) -> None:
             continue
         for earlier in primitives[:i]:
             if earlier.name and earlier.material != "air" and boxes_overlap(earlier.bounds_m, later.bounds_m):
-                raise ValueError(
+                raise Refused(
                     f"primitive {later.name or later.kind} overlaps the named solid {earlier.name}: named objects "
-                    "can't share space with a later solid (air may carve into them)"
+                    "can't share space with a later solid (air may carve into them)",
+                    code=RefusalCode.SPACE_TAKEN,
                 )
 
 
@@ -160,44 +186,97 @@ def footprint_of(primitives: Sequence[Primitive]) -> Footprint:
     return Footprint(((lo[0], lo[1], lo[2]), (hi[0], hi[1], hi[2])), (c[0], c[1], c[2]))
 
 
-# Validity bounds, not tunables: no ambient is hotter than a flame (wood's is about 2000 C), and a scene's air at
-# 1e300 C would overflow the first step. A tile is tens of metres. The extent bound only refuses absurd numbers: a
-# real cell-count budget comes with the memory budget planned for design v2.
-MAX_AMBIENT_C = 3000.0
-MAX_EXTENT_M = 1000.0
+def _primitive(doc: Mapping[str, object]) -> Primitive:
+    v: Mapping[str, Any] = doc
+    if v["kind"] == "box":
+        return Box(v["min_m"], v["max_m"], v["material"], v["name"])
+    return Cylinder(v["center_xy_m"], v["radius_m"], v["z_m"], v["material"], v["name"])
 
 
-# The keys each primitive kind requires when a scene is written as data (Scene.from_dict); "kind" and "name" are
-# optional for both. Read-only, so no caller can widen a schema at run time.
-PRIMITIVE_KEYS: Mapping[str, frozenset[str]] = MappingProxyType(
-    {
-        "box": frozenset({"min_m", "max_m", "material"}),
-        "cylinder": frozenset({"center_xy_m", "radius_m", "z_m", "material"}),
-    }
-)
-
-
-SCENE_VERSION = 0  # the scene file format's version; Scene.from_dict refuses any other
+PRIMITIVES = ListOf(PRIMITIVE, MAX_PRIMITIVES)
 
 
 def primitives_from_data(listed: object) -> tuple[Primitive, ...]:
-    """Primitives from a parsed list of mappings, each held to its kind's keys, or a ValueError that says what was
+    """Primitives from a parsed list of mappings, each held to its kind's schema, or a Refused that says what was
     wrong. Shared by scene files and imagined specs: a spec is not a scene file, so it has no scene version."""
-    if isinstance(listed, (str, bytes, Mapping)) or not isinstance(listed, Sequence):
-        raise ValueError(f"primitives must be a list, got {type(listed).__name__}")
-    prims: list[Primitive] = []
-    for p in listed:
-        if not isinstance(p, Mapping):
-            raise ValueError(f"each primitive must be a mapping, got {shown(p)}")
-        kind = p.get("kind", "box")
-        if not isinstance(kind, str) or kind not in PRIMITIVE_KEYS:  # a list or a mapping isn't hashed
-            raise ValueError(f"unknown primitive kind {shown(kind)}")
-        known_keys(p, f"{kind} primitive", required=PRIMITIVE_KEYS[kind], optional={"kind", "name"})
-        if kind == "box":
-            prims.append(Box(p["min_m"], p["max_m"], p["material"], p.get("name")))
-        else:
-            prims.append(Cylinder(p["center_xy_m"], p["radius_m"], p["z_m"], p["material"], p.get("name")))
-    return tuple(prims)
+    return tuple(_primitive(doc) for doc in PRIMITIVES.convert(listed, "primitives"))
+
+
+MM_PER_M = 1000
+MAX_EXTENT_MM = round(MAX_EXTENT_M * MM_PER_M)
+
+
+def to_mm(value_m: float) -> int:
+    """A length in metres as whole millimetres, so positions are compared in integers (F13). Rounded to the nearest,
+    and an exact tie to the even millimetre: Python's ``round`` on the float product (0.0025 m is 2 mm, 0.0035 m is
+    4). Any other reader of a scene (a client tool) must round the same way, or refuse a position off the millimetre."""
+    return round(value_m * MM_PER_M)
+
+
+ALIGNMENT_M = 0.2  # the coarsest verification grid's cell (CLAUDE.md, the resolution rule): every extent's quantum
+ALIGNMENT_UM = round(ALIGNMENT_M * 1_000_000)
+
+
+# A spawn names a body by an identity key: save v0 maps each body to its persistent body_key (tile §2.1), so a ":"
+# would make Maxim's per-agent stream seeds ambiguous (checks.identity_key).
+SPAWN = Schema(
+    (
+        Field("name", Identity()),
+        Field("archetype", Identity()),
+        Field("at_m", _COORD3),
+        Field("holding", Identity(), required=False, nullable=True),
+    )
+)
+_ON_GRID_MM = Whole(-MAX_EXTENT_MM, MAX_EXTENT_MM)
+
+
+@dataclass(frozen=True)
+class Spawn:
+    """Where a body enters the world: its identity key, its archetype, what it holds, at whole millimetres (tile §1.3).
+
+    The scene's format checks syntax and extent only; clearance is checked when the body is made and at ``join``
+    (step 5b), and ``join`` refuses an archetype with no spawn (AR-S9)."""
+
+    name: str
+    archetype: str
+    at_mm: tuple[int, int, int]
+    holding: str | None = None
+
+    def __post_init__(self) -> None:
+        f = SPAWN.by_name
+        object.__setattr__(self, "name", f["name"].read(self.name, "spawn"))
+        object.__setattr__(self, "archetype", f["archetype"].read(self.archetype, "spawn"))
+        object.__setattr__(self, "holding", f["holding"].read(self.holding, "spawn"))
+        at = self.at_mm
+        if isinstance(at, (str, bytes)) or not isinstance(at, Sequence) or len(at) != 3:
+            raise Refused(f"spawn.at_mm must be three whole numbers, got {shown(at)}", code=RefusalCode.BAD_SHAPE)
+        object.__setattr__(self, "at_mm", tuple(_ON_GRID_MM.convert(c, "spawn.at_mm") for c in at))
+
+    @classmethod
+    def from_document(cls, doc: Mapping[str, Any]) -> Spawn:
+        x, y, z = doc["at_m"]
+        return cls(doc["name"], doc["archetype"], (to_mm(x), to_mm(y), to_mm(z)), doc["holding"])
+
+
+_V0_REFUSED = (
+    "scene files are repo-only, so an old version is refused, never migrated (step 3b): add its spawns and set "
+    "version 1"
+)
+_LATER = "zones, vents and gaps arrive with scene v2 in Phase 2 (world_model F13)"
+SCENE = Format(
+    "scene",
+    1,
+    Schema(
+        (
+            Field("extent_m", Vector(3, MAX_EXTENT_M, positive=True)),
+            Field("ambient_c", Real(lo=-273.15, lo_open=True, hi=MAX_AMBIENT_C), required=False, default=20.0),
+            Field("primitives", PRIMITIVES, required=False, default=()),
+            Field("spawns", ListOf(Nested(SPAWN), MAX_SPAWNS)),
+        ),
+        reserved={"zones": _LATER, "vents": _LATER, "gaps": _LATER},
+    ),
+    refused={0: _V0_REFUSED},
+)
 
 
 @dataclass(frozen=True)
@@ -205,24 +284,61 @@ class Scene:
     extent_m: tuple[float, float, float]
     primitives: tuple[Primitive, ...] = field(default_factory=tuple)
     ambient_c: float = 20.0
+    spawns: tuple[Spawn, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
-        x, y, z = finite_vector(self.extent_m, 3, "a scene's extent_m")
-        if not (min(x, y, z) > 0 and max(x, y, z) <= MAX_EXTENT_M):
-            raise ValueError(
-                f"a scene's extent_m must be between 0 and {MAX_EXTENT_M:g} m on every axis, got {shown(self.extent_m)}"
-            )
-        ambient = finite_real(self.ambient_c, "a scene's ambient_c")
-        if not -273.15 < ambient <= MAX_AMBIENT_C:
-            limit = f"above absolute zero and at most {MAX_AMBIENT_C:g} C"
-            raise ValueError(f"a scene's ambient_c must be {limit}, got {shown(self.ambient_c)}")
-        object.__setattr__(self, "extent_m", (x, y, z))
-        object.__setattr__(self, "ambient_c", ambient)
+        own = SCENE.schema.by_name
+        object.__setattr__(self, "extent_m", own["extent_m"].read(self.extent_m, "scene"))
+        object.__setattr__(self, "ambient_c", own["ambient_c"].read(self.ambient_c, "scene"))
+        object.__setattr__(self, "primitives", tuple(self.primitives))
+        object.__setattr__(self, "spawns", tuple(self.spawns))
+        self._check_alignment()
+        self._check_spawns()
+
+    def _check_alignment(self) -> None:
+        """Every extent is a whole number of ``ALIGNMENT_M`` cells, so a scene that builds at one verification grid
+        builds at all of them (the resolution rule; world_model WT-5, WT-11). Judged in whole micrometres (F13)."""
+        for e in self.extent_m:
+            if whole_micrometres(e, "a scene's extent_m") % ALIGNMENT_UM:
+                raise Refused(
+                    f"a scene's extent_m must be whole multiples of {ALIGNMENT_M:g} m (the coarsest verification "
+                    f"grid's cell), got {shown(self.extent_m)}",
+                    code=RefusalCode.OUT_OF_RANGE,
+                    field="extent_m",
+                )
+
+    def _check_spawns(self) -> None:
+        """Each spawn is a ``Spawn`` inside the extent, compared in whole millimetres (F13), with a name that Maxim
+        can't confuse: unique under its name rule (``checks.entity_key``), not a region's name, and not one of the
+        target aliases Maxim resolves to the calling agent's own body (step 3b(b) review, Bio-faithful S3)."""
+        if len(self.spawns) > MAX_SPAWNS:
+            raise Refused(f"a scene holds at most {MAX_SPAWNS} spawns", code=RefusalCode.OVER_BUDGET)
+        extent_mm = [to_mm(e) for e in self.extent_m]
+        seen = {entity_key(p.name) for p in self.primitives if p.name}
+        for spawn in self.spawns:
+            if not isinstance(spawn, Spawn):
+                raise Refused(f"a scene's spawns must be Spawns, got {shown(spawn)}", code=RefusalCode.BAD_SHAPE)
+            key = entity_key(spawn.name)
+            if key in MAXIM_TARGET_ALIASES:
+                message = f"spawn {shown(spawn.name)} is a name Maxim resolves to the calling agent itself"
+                raise Refused(message, code=RefusalCode.BAD_IDENTITY_KEY, field="name")
+            if key in seen:
+                message = f"spawn {shown(spawn.name)} shares its name with another spawn or a region"
+                raise Refused(message, code=RefusalCode.NAME_TAKEN, field="name")
+            seen.add(key)
+            if not all(0 <= c <= e for c, e in zip(spawn.at_mm, extent_mm, strict=True)):
+                raise Refused(
+                    f"spawn {spawn.name} at {spawn.at_mm} mm lies outside the scene's {extent_mm} mm",
+                    code=RefusalCode.OUTSIDE_EXTENT,
+                )
 
     def build(self, materials: MaterialTable, *, dx_m: float) -> MaterialGrid:
         for p in self.primitives:
             if p.material not in materials:
-                raise ValueError(f"unknown material {shown(p.material)} in primitive {shown(p.name or p.kind)}")
+                raise Refused(
+                    f"unknown material {shown(p.material)} in primitive {shown(p.name or p.kind)}",
+                    code=RefusalCode.UNKNOWN_MATERIAL,
+                )
         _check_no_solid_overlaps(self.primitives)
         grid = MaterialGrid.empty(self.extent_m, materials, dx_m=dx_m, ambient_c=self.ambient_c)
         with grid.writing():  # construction, the window's third owner (boundaries §4.1, §6.4)
@@ -232,12 +348,9 @@ class Scene:
 
     @classmethod
     def from_dict(cls, raw: object) -> Scene:
-        """A scene from parsed YAML or JSON, at ``SCENE_VERSION``. Any malformed shape is a ValueError that says what
-        was wrong."""
-        if not isinstance(raw, Mapping):
-            raise ValueError(f"a scene must be a mapping, got {type(raw).__name__}")
-        format_version(raw, SCENE_VERSION, "scene")
-        known_keys(raw, "scene", required={"version", "extent_m"}, optional={"primitives", "ambient_c"})
-        prims = primitives_from_data(raw.get("primitives", []))
-        e = finite_vector(raw["extent_m"], 3, "extent_m")
-        return cls((e[0], e[1], e[2]), prims, raw.get("ambient_c", 20.0))
+        """A scene from parsed YAML or JSON, at ``SCENE``'s version. Any malformed shape is a Refused (a ValueError)
+        that says what was wrong."""
+        doc: Mapping[str, Any] = SCENE.read(raw, "scene")
+        prims = tuple(_primitive(p) for p in doc["primitives"])
+        spawns = tuple(Spawn.from_document(s) for s in doc["spawns"])
+        return cls(doc["extent_m"], prims, doc["ambient_c"], spawns)

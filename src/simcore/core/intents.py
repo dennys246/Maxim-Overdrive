@@ -14,10 +14,12 @@ from typing import Any
 
 from simcore.core.checks import finite_real, finite_vector, shown
 from simcore.core.limits import ActionLimits
+from simcore.core.refusals import RefusalCode, Refused
 
 
-class ActionRefused(ValueError):
-    """An action broke a rule; the message says which, in words fit for whoever asked. The world is unchanged."""
+class ActionRefused(Refused):
+    """An action broke a rule. Its code (and the schema field, when one is at fault) is what an agent is told; the
+    message, in words, is for logs and tests. The world is unchanged."""
 
 
 # Keys a caller adds to a call itself, which parsing passes over: Maxim's orchestrator-actor tool passes
@@ -28,17 +30,18 @@ CALL_KEYS = frozenset({"target"})
 
 def _within(name: str, value: float, lo: float, hi: float) -> None:
     if not lo <= value <= hi:
-        raise ActionRefused(f"{name} must be between {lo:g} and {hi:g}, got {value:g}")
+        message = f"{name} must be between {lo:g} and {hi:g}, got {value:g}"
+        raise ActionRefused(message, code=RefusalCode.OUT_OF_RANGE, field=name)
 
 
-def _typed(action: object, *names: str) -> None:
+def _typed(action: object, values: Mapping[str, object]) -> None:
     """A hand-built action's numbers become finite floats, or the action is refused: it never reaches the physics."""
-    for name in names:
-        value = action.__dict__[name]
+    for name, value in values.items():
         try:
             object.__setattr__(action, name, finite_real(value, name))
         except ValueError:
-            raise ActionRefused(f"{name} must be a finite number, got {shown(value)}") from None
+            message = f"{name} must be a finite number, got {shown(value)}"
+            raise ActionRefused(message, code=RefusalCode.NOT_FINITE, field=name) from None
 
 
 @dataclass(frozen=True)
@@ -48,12 +51,13 @@ class Strike:
     point_m: tuple[float, float, float] | None  # None: the region's centroid, found when the action applies
 
     def __post_init__(self) -> None:
-        _typed(self, "energy_j", "sigma_m")
+        _typed(self, {"energy_j": self.energy_j, "sigma_m": self.sigma_m})
         if self.point_m is not None:
             try:
                 x, y, z = finite_vector(self.point_m, 3, "point_m")
-            except ValueError:
-                raise ActionRefused(f"point_m must be 3 finite numbers, got {shown(self.point_m)}") from None
+            except Refused as exc:  # its own code: a NaN is not_finite here as in every reader, a pair is bad_shape
+                message = f"point_m must be 3 finite numbers, got {shown(self.point_m)}"
+                raise ActionRefused(message, code=exc.code, field="point_m") from None
             object.__setattr__(self, "point_m", (x, y, z))
 
     def check(self, limits: ActionLimits) -> None:
@@ -67,7 +71,7 @@ class Ignite:
     radius_m: float
 
     def __post_init__(self) -> None:
-        _typed(self, "power_w", "radius_m")
+        _typed(self, {"power_w": self.power_w, "radius_m": self.radius_m})
 
     def check(self, limits: ActionLimits) -> None:
         _within("power_w", self.power_w, 0.0, limits.max_power_w)
@@ -97,12 +101,13 @@ _ALLOWED_PARAMS: Mapping[str, frozenset[str]] = MappingProxyType(
 def _real(params: Mapping[str, Any], name: str, default: float | None = None) -> float:
     if name not in params or params[name] is None:
         if default is None:
-            raise ActionRefused(f"{name} is required")
+            raise ActionRefused(f"{name} is required", code=RefusalCode.MISSING_FIELD, field=name)
         return default
     try:
         return finite_real(params[name], name)
     except ValueError:  # reported, with the parameter's name, as the refusal
-        raise ActionRefused(f"{name} must be a finite number, got {shown(params[name])}") from None
+        message = f"{name} must be a finite number, got {shown(params[name])}"
+        raise ActionRefused(message, code=RefusalCode.NOT_FINITE, field=name) from None
 
 
 def parse_action(affordance: object, params: object, limits: ActionLimits) -> Action:
@@ -114,13 +119,14 @@ def parse_action(affordance: object, params: object, limits: ActionLimits) -> Ac
     world-dependent checks in ``simcore.core.applier``.
     """
     if not isinstance(params, Mapping):
-        raise ActionRefused("params must be a mapping of names to values")
+        raise ActionRefused("params must be a mapping of names to values", code=RefusalCode.BAD_SHAPE)
     allowed = _ALLOWED_PARAMS.get(affordance) if isinstance(affordance, str) else None
     if allowed is None:
-        raise ActionRefused(f"unknown affordance {shown(affordance)}")
+        raise ActionRefused(f"unknown affordance {shown(affordance)}", code=RefusalCode.UNKNOWN_KIND)
     unknown = sorted(shown(k) for k in params if k not in allowed and k not in CALL_KEYS)
     if unknown:
-        raise ActionRefused(f"unknown parameter(s) for {affordance}: {', '.join(unknown[:8])}")
+        message = f"unknown parameter(s) for {affordance}: {', '.join(unknown[:8])}"
+        raise ActionRefused(message, code=RefusalCode.UNKNOWN_FIELD)
     action: Action
     if affordance == "strike":
         action = Strike(
