@@ -715,6 +715,7 @@ prompts:
   expect:
   - steel
   - concrete
+  template: post
 - stratum: mixed
   id: m42
   text: a wooden loft ladder with steel hooks

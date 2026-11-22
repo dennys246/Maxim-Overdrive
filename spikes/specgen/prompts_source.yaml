@@ -181,10 +181,10 @@ mixed:
   - {id: m38, text: "a reception desk with a wooden front and a concrete counter", expect: [wood, concrete], template: sheets}
   - {id: m39, text: "a steel railing on a concrete curb", expect: [steel, concrete]}
   - {id: m40, text: "a wooden shelf bracketed to a concrete block", expect: [wood, concrete]}
-  - {id: m41, text: "a steel grill on a concrete base", expect: [steel, concrete]}
+  - {id: m41, text: "a steel grill on a concrete base", expect: [steel, concrete], template: post}
   - {id: m42, text: "a wooden loft ladder with steel hooks", expect: [wood, steel]}
   - {id: m43, text: "a wooden cabinet with steel hinges and handles", expect: [wood, steel], template: sheets}
-  - {id: m44, text: "a concrete fire pit with a steel rim", expect: [concrete, steel]}
+  - {id: m44, text: "a concrete fire pit with a steel rim", expect: [concrete, steel], template: sheets}
   - {id: m45, text: "a wooden dock post with a steel cleat", expect: [wood, steel], template: post}
   - {id: m46, text: "a steel trolley with a wooden deck", expect: [steel, wood]}
   - {id: m47, text: "a wooden doorframe clad in drywall", expect: [drywall, wood]}

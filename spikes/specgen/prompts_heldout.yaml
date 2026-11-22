@@ -260,6 +260,7 @@ prompts:
   expect:
   - concrete
   - steel
+  template: sheets
 - stratum: impossible
   id: i01
   text: a wooden beam six metres long

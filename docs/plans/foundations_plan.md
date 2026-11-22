@@ -89,6 +89,7 @@ a nit; OD-I6, OD-I7, OD-I8 new.
 | O34 | Step 5 splits into 5a and 5b |
 | O41 | Roadmap exempt |
 | O42 | Checklists exempt from O22 |
+| O57 | World-side imagination |
 
 **both §0:**
 
@@ -134,8 +135,7 @@ a nit; OD-I6, OD-I7, OD-I8 new.
 | O43 | `session_id` from the log header; the seq in the agent home |
 | O44 | Dead workers' pids refused |
 | O45 | A log segment per restore |
-| O46–O55 | Inference: O46, O47, O48, O49, O50, O51, O52, O53, O54, O55, O58 |
-| O56–O57 | Imagination |
+| O46–O55 | Inference, its spike: O46, O47, O48, O49, O50, O51, O52, O53, O54, O55, O56, O58 |
 | OA1 | A thought's kind from the agent's policy, a closed vocabulary; a logged host table sets cost |
 | OA2 | Dilation shown on a three-handed clock |
 | OA3 | No conversational repertoire of our own; proposed to Maxim as OD-H5 |
@@ -156,7 +156,7 @@ a nit; OD-I6, OD-I7, OD-I8 new.
 | D27 | The clinic after the exit; §12 answered |
 | D28 | A grey-box heat-debt prototype before more physics |
 | D29 | Step 6 adds open-air loss, the surface skin, sub-cell recession |
-| D31, D32, D33, D34, D35 | Structure and motion |
+| D31, D32, D33, D34, D35 | Structure |
 
 **tile §0:**
 
