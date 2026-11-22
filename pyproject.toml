@@ -157,7 +157,7 @@ source_modules = ["simcore.adapters.sem"]
 forbidden_modules = [
     "simcore.core.damage", "simcore.core.digest", "simcore.core.grid", "simcore.core.heat",
     "simcore.core.imagination", "simcore.core.materials", "simcore.core.readonly", "simcore.core.scene",
-    "simcore.core.schema", "simcore.core.world", "simcore.adapters.loaders",
+    "simcore.core.schema", "simcore.core.simulation", "simcore.core.world", "simcore.adapters.loaders",
 ]  # fmt: skip
 allow_indirect_imports = true
 
