@@ -1,7 +1,7 @@
 {
  "data": "fuel_ramp.bin.gz",
- "data_gzip_sha256": "721cfb51147cb32d7b06a24c6a8efc59e5e16ee7fbd5c2e99daca71d9aba0492",
- "data_sha256": "f5e37733064fa898537b157c8261187d03b63ff47a1e38d147e68e839ddf840b",
+ "data_gzip_sha256": "d67527016d01fea1fc60c5ffc6a45a33c20ef3937c943e57570b971533aaf4d6",
+ "data_sha256": "0aaf53297c611ddecbb9905be6bdfca065e1d808537c15bfa64f9d2aa3b73858",
  "data_size": 28779,
  "format": "overdrive-client-fuel-fixture",
  "kinds": {

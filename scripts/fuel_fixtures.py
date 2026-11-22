@@ -124,12 +124,14 @@ def slab(region: str, origin: tuple[float, float, float], length_m: float, width
 
 
 def padding() -> list[Fuel]:
-    """Small cold rods in the alley's open west end, enough that every later object starts past row 2,048."""
+    """Small cold rods in the alley's open west end, enough that every later object starts past row 2,048. Three
+    columns of 0.6 m rods, 0.05 m apart and 0.04 m between rows, so none touches another (fire_solid §1.3)."""
     out: list[Fuel] = []
     rows = 0
     while rows <= HALF_EXACT_ROWS:
         i = len(out)
-        out.append(rod("kindling_pile", (1.5 + 0.05 * (i % 20), 0.7 + 0.05 * (i // 20), FLOOR_TOP_M + 0.01), 0.6, 0.01))
+        origin = (1.4 + 0.65 * (i % 3), 0.5 + 0.04 * (i // 3), FLOOR_TOP_M + 0.01)
+        out.append(rod("kindling_pile", origin, 0.6, 0.01))
         rows += len(out[-1].segments)
     return out
 

@@ -322,8 +322,8 @@ ignites a slab with no flame object.
   rows; the structural-glow Known gap in `docs/architecture.md`; the fuel fixture's head-on row readout (C S7).
 - Deferred from D-B2's delta round (mechanism, `reviews/client_objects/`): the stability measure's bins, offsets and
   statistic fixed before measuring (S7); the Burning check run with flames off (S5); the Phase 1 flame pass's
-  instancing path and bound (S8); partial thinning's mechanism and the per-fragment lookup's frame time (N3); the
-  MultiMesh's culling AABB with server-frame transforms (Wire N9); timings reported as median beside minimum (P-N3).
+  instancing path and bound (S8); partial thinning's mechanism and the per-fragment lookup's frame time (N3);
+  timings reported as median beside minimum (P-N3).
 - The exit script (Phase 1's exit is `docs/roadmap.md`'s, Phase 1, "Exit"), run stepped and unpaced; the controls,
   each proven by deletion (PH-S3); the stage-2 refusal scripts.
 - The shader, the cut-away test at ≥ 95%, five scenario goldens per tier, staleness digests, `update_goldens.sh`

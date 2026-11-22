@@ -175,8 +175,8 @@ The join cap counts the tables at the limits (`client_rendering.md` §4.3), whic
   low-poly unit cylinder or box, with its transform built from the object's geometry row.
   - Engine why: a MultiMesh draws every instance in one draw call. A node per object would be 2,000 nodes and 2,000
     draw calls.
-  - Transforms stay in the server's frame. The object shaders include the raymarch's own z-up to y-up mapping, so
-    there is still one mapping site (`client_rendering.md` §4.1).
+  - Transforms are built through `IsoCamera.to_godot`, the one mapping (`client_rendering.md` §4.1), so the
+    MultiMesh's culling box is in Godot's frame where the objects are.
 - **No index travels in custom data.** On Compatibility custom data is half float (§2), so an object's first segment
   row is read from a per-instance texture indexed by `INSTANCE_ID`.
   - That texture holds three RGBA8 texels per instance: the row's three bytes and `state`; `segment_count`; and ℓ's f32
