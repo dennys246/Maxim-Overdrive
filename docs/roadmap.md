@@ -70,6 +70,9 @@ Each new field ships with a closed-form test and a cross-grid test, under the ve
 - **Gas and radiation:** smoke, toxins and Fallout-style rads, as diffusion plus sources.
 - **Convection:** an approximation so rooms heat realistically and fires don't have to sit on a material.
 - **Structural support:** cells left unsupported fall as debris.
+- **Load and moving bodies** (owner, 2026-11-22, D31, D32): objects bear load and fail under it, and intact objects
+  move as physical bodies if that can be done honestly. Research first, in the Structure and motion entry of
+  `docs/plans/long_term_features.md`. Imagined objects meet the support rule when placed (D33).
 - **Scale:** move the hot loops to numba or C if profiling says so (never coarser far cells: world_model D21).
 - **Close the known gap:** the coarsest rig's late-burn lag (`docs/architecture.md`). Its gate closes by deletion at 6.1b
   (TP6), so the 6.2 design restates the crate's bar.
@@ -146,6 +149,8 @@ be opt-in (from `boundaries.md` §9.3).
 | OD-I8 | `Embodiment.evaluate_failures` takes drive drift from `time.time()` (`embodiment/body.py`, about `:293` at `043eab8f`); `world_clock_release_DRAFT.md` names `last_fired` in the same function, not this read. A question to route to #1361's plans, not a fix | new; sent with OD-I7, 2026-11-21 |
 | OD-I9 | **Pushback** against `plans/archive/llm_path_fast_failover.md:43` and `:769` (cloud retries by design) and `docs/architecture/llm_routing.md`'s empty-content legacy path, which breaks Maxim's own rule at `:771` ("Backend failures raise typed exceptions, not return empty content"): the cloud backends turn almost every failure into `LLMResponse(content="")` (`anthropic_backend.py:377`, `:384-409`; `openai_backend.py:358-360`, `:505` at `043eab8f`), retry inside the call (`max_retries`, `capacity_max_retries`, 4 hard-coded gateway retries at `openai_backend.py:391`, and the SDK clients' own, `:450`), and drop cache-write tokens from `LLMResponse` (`anthropic_backend.py:416-422`). Ask: typed `BackendError`s, configurable retry budgets with defaults unchanged, complete usage counts, so a host gets one call, one outcome and can tell load from failure (`inference_placement.md` §1.3, §2.7, §9). Not in O29's subset | new (2026-11-21) |
 | OD-I10 | **Question** to Maxim's 2026-09-28 decision that "the proxy wins for operator paths" (`DECISIONS.md:1150-1192`, `utils/http.py:830`): Overdrive's gateways set `NO_PROXY=*`, which stops httpx's environment lookup from mounting any proxy and urllib's from consulting macOS System Settings (verified with httpx 0.28.1; `inference_gateway.md` §2). Ask: keep that honoured on the backends' path, since it rests on httpx's private `get_environment_proxies` (`DECISIONS.md:1188`), and expose `HTTPEndpoint.strict_address_check` (`utils/http.py:228`, `:875-881`) to backend callers. Not in O29's subset | new (2026-11-21) |
+| OD-I11 | A blocked `base_url` can fail open to the cloud, because the refusal is keyed on the provider's **name**, not its **type**. `_OpenAIBackend._get_base_url` (`models/language/openai_backend.py:231-243` at `b98954f7`) warns "Blocked base_url … (SSRF protection)" and returns `None`. `_ensure_client` (`:273-275`) refuses only when `self._provider_key` is `openai_compatible` or `openai_compat`, while the router dispatches on the provider's type (`router.py:467-474`). So a provider of type `openai` (or `openai_compatible` under any other key) with a blocked URL builds a client with no base URL, and the OpenAI SDK takes `OPENAI_BASE_URL` or its default, api.openai.com. Run on pymaxim 1.3.4, 2026-11-22: a provider keyed `local`, type `openai`, pointing at a loopback llama-server, sent its prompt to api.openai.com, refused 401 (lesson 36). Searched Maxim's issues ("SSRF base_url fallback", "Blocked base_url"): nothing found. The fix is to refuse on the type, so a local-first game's NPC prompt can't leave the machine on one misconfiguration | new (2026-11-22) |
+| OD-I12 | **Question** to the deferred `plans/deferred/vllm_self_hosted_servers.md`, which calls `chat_template_kwargs` a "vLLM-only payload field" justified only by a dedicated backend (`:62`) and treats thinking as a parsing problem: `--reasoning-parser` keeps `<think>` text out of `content` (`:155-156`), but nothing bounds the tokens it spends. llama-server takes the same field. Run on pymaxim 1.3.4, 2026-11-22: `_OpenAIBackend` against llama-server (`--jinja`, build 10621) serving Qwen3.5 4B returned empty content, 512 of 512 tokens, `stop_reason` `length`: the template's thinking went to `reasoning_content` and spent the whole budget. Nothing in the backend can switch it off (`enable_thinking`, or Ollama's `think`). Does a reasoning model on a self-hosted lane need a per-provider thinking switch, and does this meet the plan's revive trigger? Searched issues ("thinking reasoning local qwen"): nothing found | new (2026-11-22) |
 
 ### Tier A: an agent a host drives (Phase 4 waits on a named subset)
 
@@ -336,12 +341,15 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
 ## Phase 6: Imagination as a generative engine (later)
 
 - In-game imagination, bound to the materials table and a power budget. The world validates every spec before the
-  object exists.
+  object exists. A generator on the world's side writes the spec, never the agent's imagination (O57), on local
+  models first (O58). The research line is the spec generator spike (`docs/design/research/specgen_spike/plan.md`,
+  O56). When this phase's design starts, ask Maxim the two questions O57 defers.
 - An IP gate in front of `simcore.core.imagination.place`, shipped with the LLM caller that feeds it, never after it
   (design: `docs/design/ip_and_licensing.md` §3, once reviewed).
 - Assets are derived deterministically from specs: meshes from cells, procedural impact and burn sounds from
   material properties. Image-model art is cached decoration only and never decides physics.
-- **Exit:** a player imagines an object mid-scene and it burns and breaks like an authored one, at every rig.
+- **Exit:** a player imagines an object mid-scene, and it burns, breaks, and stands or falls like an authored one, at
+  every rig (D33).
 
 ## Phase 7: Book to world (later; the pipeline lives in Maxim)
 
