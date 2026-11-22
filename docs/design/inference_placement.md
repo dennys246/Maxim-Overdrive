@@ -314,7 +314,7 @@ ends at its first miss, and a paired analysis estimates d_z, with the seed as th
 - **Recorded, reported and never refused, one entry per log segment:** the placement table's digest and each
   segment cache's digest.
 - **The ledger pins** the functions digest and the placement digest per segment. It also pins that every experiment
-  function uses `single`, so an arm that mixes models is a declared arm (`boundaries.md` §8.4).
+  function uses `single`, so an arm that mixes models is a declared arm (`npcs_and_sem.md` §10).
 
 ## 5. (Consent, egress and credentials: `inference_gateway.md` §6–§8)
 

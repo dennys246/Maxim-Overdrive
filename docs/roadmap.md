@@ -378,7 +378,7 @@ rules) live in `CLAUDE.md`, each with the check that enforces it; unenforced one
 - Energy lands by exact cell average or by volume overlap, never by whether the cell centre is inside.
 - The world server is authoritative. The client never simulates anything that feeds back into the world.
 - Game runs stay off Maxim's results ledger. Only pre-registered experiments go on it.
-- Code is Apache-2.0. Story, characters and assets are all rights reserved.
+- Licences are `docs/design/boundaries.md` §8.2's.
 
 ## Open questions
 

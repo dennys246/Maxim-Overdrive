@@ -60,13 +60,13 @@ Surveyed on `phase1/act-validation` at 2f200b5 (Executor confirmed each item):
 
 ### 2.1 The packages (B-1)
 
-- **Rule:** the engine never imports the game or the experiments. The game may import the engine. Experiments
-  import only the engine and their own Apache-2.0 fixtures.
-- **The engine's name** is open (Q1). Below it is written `engine`, a working name. The reviews recommend a
+- **Rule:** the engine never imports the game or the experiments. The game may import the engine. What experiments
+  import is `npcs_and_sem.md` §10's.
+- **The engine's name** is `simcore` (O23; Q1). Below it is written `engine`, a working name. The reviews recommend a
   Maxim-neutral name, since B-2 says Maxim is swappable and `maxim_*` reads as Maxim's own namespace (Arch N3).
 - **The game package `maxim_overdrive`** is created with the first game content (the lab, `phase1/lab`), not before
   (W1, W4). An empty package now would silently collect new modules from rebased branches.
-- **The experiments package** `maxim_experiments` is the harness for Maxim's pre-registered experiments (S10). It
+- **The experiment harness** for Maxim's pre-registered experiments is Maxim-owned (`npcs_and_sem.md` §10; S10). It
   is distinct from the engine's verification harness (`engine.verify`).
 
 | What | Where |
@@ -74,7 +74,7 @@ Surveyed on `phase1/act-validation` at 2f200b5 (Executor confirmed each item):
 | Cells, geometry, laws, the simulation, intents, formats, the protocol, the SEM membrane and agent adapter, the host, the verification harness | engine |
 | Body grammar and receptor models (physiology is mechanism) | engine (BF-15) |
 | This game's content and rules: the lab tile, its scenes, story, NPC rosters and body instances, cradle arcs, calibrations, tuning | game |
-| Pre-registered Maxim experiments | `maxim_experiments` (§8.4) |
+| Pre-registered Maxim experiments | a Maxim-owned harness (`npcs_and_sem.md` §10) |
 | Godot: the frame decoder and channel bindings | `client/addons/engine/` (S8) |
 | Godot: scenes, art, game UI | `client/game/` |
 
@@ -90,6 +90,21 @@ Surveyed on `phase1/act-validation` at 2f200b5 (Executor confirmed each item):
 
 The rename re-homes modules by layer, so the package cut and the layer cut agree (S5). A layer imports only layers
 below it. Siblings on one line are independent of each other.
+
+**The layers, as built** (docs-contracts ruling 49; `pyproject.toml` `[tool.importlinter]`, contract `layers`): five,
+bottom to top `simcore.core` < `simcore.adapters` < `simcore.protocol` < `simcore.verify` < `maxim_overdrive` (the
+game). This order is the contract; O24 is its record. The table below is the map of where splits are expected to fall
+(O24): its `engine.*` names are working names, and its numbered layers are not import contracts. Built today:
+- layers 0–6 are `simcore.core`: `checks`, `materials`, `grid` (`engine.cells`), `heat` and `damage`
+  (`engine.laws`), `imagination`, `scene`, `intents` and `limits`, and `world`, `applier` and `frames`
+  (`engine.sim`), with `readonly`, `refusals`, `schema` and `digest` beside them;
+- `engine.loaders` and `engine.adapters.sem` are `simcore.adapters`;
+- `engine.tiers` and `engine.encoding` are `simcore.protocol`;
+- `engine.verify` is `simcore.verify`, which imports nothing from the engine (`verify_harness.md` §2).
+
+Not built: `engine.geometry` (primitives and footprints are in `scene`), `Simulation`, `engine.inference_wire`,
+`engine.adapters.inference`, `engine.protocol`'s wire codec, `engine.adapters.agents` and `engine.host`. Where a
+module sits inside the core (`core/body`, `core/stimuli`) is `sem_stimuli.md` §7.1's.
 
 | Layer | Modules | Notes |
 |---|---|---|
@@ -159,9 +174,12 @@ below it. Siblings on one line are independent of each other.
   - IO: `pathlib`, `io`, `yaml`, `json`;
   - concurrency and network: `threading`, `asyncio`, `concurrent`, `multiprocessing`, `subprocess`, `socket`,
     `websockets`;
-  - `maxim` (also held by B-2's protected contract).
-  - **Explicitly allowed:** `hashlib`, `math`, `dataclasses`, `enum`, `typing`, `numpy`, `scipy`, `logging`
-    (output only).
+  - `maxim` (also held by B-2's protected contract);
+  - `logging` (docs-contracts ruling 51): a record carries a wall-clock stamp and a handler can write a file, and the
+    core logs nothing today.
+  - **Explicitly allowed:** `hashlib`, `math`, `dataclasses`, `enum`, `typing`, `numpy`, `scipy`.
+  - **As built,** the list is `pyproject.toml`'s `sealed-core` contract, equal to
+    `tests/test_determinism.py::SEALED_CORE_BANNED`, which bans more than the groups above.
 - **What imports can't show** is held by the AST scan, extended (D-S3, X S-1): `__import__`, `exec`, `eval`, `open(`,
   `id(`, `getenv`/`environ`, iteration over a `set`/`frozenset`, `sorted`/`np.sort`/`np.argsort` without
   `kind="stable"` on non-unique keys, `np.seterr`/`errstate`, BLAS calls (`@`, `dot`, `linalg`, `einsum`). **BLAS is
@@ -208,10 +226,11 @@ below it. Siblings on one line are independent of each other.
 - **Proof tests:** for every outward surface, each of direct write, `flags.writeable = True` then write, write
   through `.base`, ufunc `out=`, and attribute assignment must raise; and **a view unlocked inside a window, written
   after the window closes,** must not change the world (DR-B4).
-- **Before `Simulation` exists (2c; foundations Wire B1).** In `phase1/gates` the window's owners are `World.advance`
-  and the intent applier, each under a TEMPORARY marker scheduled for `phase1/sim-clock`, saying it moves to
-  `Simulation.step`, with
-  the files listed under Phase 1 in `docs/roadmap.md`. Until sim-clock, the applier publishes a frame after each
+- **Before `Simulation` exists (2c; foundations Wire B1).** As built (docs-contracts ruling 50), the window's owners
+  are `World.advance`, the intent applier, scene construction (`Scene.build`) and `imagination.place`.
+  `World.advance` and the intent applier are each under a TEMPORARY marker scheduled for `phase1/sim-clock`, saying
+  it moves to `Simulation.step`, with the files listed under Phase 1 in `docs/roadmap.md`. `place` opens it too
+  (marked for 5a; `imagine` has no intent kind). Until sim-clock, the applier publishes a frame after each
   application, so `tests/test_sem_bridge.py`'s strike-then-read keeps its meaning without an edit.
 
 ### 4.2 Observation reads published frames (B-10, rewritten)
@@ -316,7 +335,7 @@ below it. Siblings on one line are independent of each other.
 | Handshake, per-launch token, `Origin` | network lane | the handshake below | — | the protocol decoder | `phase1/protocol` |
 | Joins and leaves | network lane | session token | — | session to actor id allocation (lanes §4.2) | `phase1/protocol` |
 | Controls: dial, pause, presets | host session | session token | `TimeAuthority` / `HostOnly` (lanes §5) | the protocol decoder | `phase1/protocol` |
-| Client frames (intents) | network lane | session token | per kind | strict JSON decoder (§10), then stage 1; client-supplied `observed_tick`, `issued_tick`, `apply_tick`, `apply_us` and speech timing are refused, with golden rejection frames (foundations TB2-S6) | `phase1/protocol` |
+| Client frames (intents) | network lane | session token | per kind | strict JSON decoder (§9.1), then stage 1; client-supplied `observed_tick`, `issued_tick`, `apply_tick`, `apply_us` and speech timing are refused, with golden rejection frames (foundations TB2-S6) | `phase1/protocol` |
 | Snapshot frames, as the client receives them | server | — | — | the client-side decoder (defence in depth; never crashes on a bad frame) | `phase1/protocol` |
 | Token delivery | env var or a 0600 file | — | — | a host config reader; never echoed or logged. The host owns `os` and `secrets` | `phase1/protocol` |
 | `MAXIM_OVERDRIVE_*` env vars, the rig CLI flag | operator | — | — | a host config reader; the rig name from a closed set | `phase1/boundaries` |
@@ -614,10 +633,16 @@ Fields and tests laid now (detail and test designs in `npcs_and_sem.md` §2–§
 | Agent stepping | `engine.adapters.agents` | host-called `step`, `think` and `settle`, the request/reply values (model calls run by the host, never injected into Maxim), the worker process, the tool-roster check, the per-agent home, clock and RNG injection, the experience driver, agent-state save (foundations Arch B3, DR-B2) |
 | Inference gateways | `engine.adapters.inference` | backends and types of `maxim.models.language`, never calling `LLMRouter` (`inference_gateway.md` §1) |
 | NPC authoring | game, when it exists | `AgentFactory`, seed memory, the arc loader |
-| Experiment harness | `maxim_experiments` | the experiment and ledger tooling |
+| Experiment harness | Maxim-owned (`npcs_and_sem.md` §10) | the experiment and ledger tooling |
 
 - **Enforced** by import-linter's `protected` contract on `maxim` (allowed importers listed; verified on 2.15 without
-  pymaxim installed), plus a lint comparing each adapter's imported symbols against its declared list.
+  pymaxim installed; the gate pins 2.6, `constraints/py3.12.txt`), plus a lint comparing each adapter's imported
+  symbols against its declared list.
+- **As built,** `maxim-through-adapters` allows `simcore.adapters.sem` alone. Each adapter joins `allowed_importers`
+  by name, with its test, when it is built: the worker module (`sem_stimuli.md` §7.3) and `engine.adapters.inference`
+  (`inference_gateway.md` §1). Once the adapter is split, the host imports Maxim's types only through
+  `simcore/adapters/sem/_compat.py`, and `maxim` itself only in workers and inference gateways (`npcs_and_sem.md`
+  §6.6).
 - **New root packages are not covered automatically** (foundations X-12, verified): grimp builds no graph for a root
   not listed in `root_packages`, so an unlisted `game` importing `maxim` passed. A test asserts `root_packages` equals
   the set of top-level packages under `src/`.
@@ -632,6 +657,8 @@ Fields and tests laid now (detail and test designs in `npcs_and_sem.md` §2–§
   S10, MP-S9).
 
 ### 8.2 Content and licence (B-5; S9, X S-9, TB-S8)
+
+Code: Apache-2.0 (`LICENSE`). Story, characters, lore, art and audio: all rights reserved (`ASSETS_LICENSE.md`).
 
 | `data/` file | Owner | Licence |
 |---|---|---|
@@ -660,11 +687,8 @@ The core is forbidden from importing it; `engine.adapters.sem` is too (§2.2).
 
 ### 8.4 Experiments (B-7; S10, BF-9)
 
-- `maxim_experiments` imports only the engine and its own Apache-2.0 fixtures (a fixture body, event pool and
-  scene). Neither the engine nor the game imports it.
+- The experiment harness is Maxim-owned; what it imports and what a ledger record pins are `npcs_and_sem.md` §10's.
 - Experiments that need game content are game runs, which stay off Maxim's ledger.
-- **A ledger record pins** the engine SHA, the pymaxim version, the membrane and agent contract versions (including
-  any interim `neutral` behaviour, which is part of the treatment), the placement digests (`inference_placement.md` §4.3), and the Phase 3 items present.
 - Decided now, because the Exp 64 draft freezes at the Phase 3 exit and will name these paths.
 
 ## 9. Protocol, tests and SEM refinement
@@ -694,23 +718,8 @@ default is non-breaking (precedents: `always_active` #403, `speech_param` #1261)
 alias-plus-deprecation precedent. Only `Modulator.execute`'s signature is a real break, and it can be opt-in. No
 major version is proposed.
 
-| Item | Roadmap | Path |
-|---|---|---|
-| The world clock: a machinery clock and a perceived-time port (planted-render test, prompt-module lint), keyed substreams, stamps, the de-duplication window, dispatch gates, ids, the stepped Default Network | OD-A1–OD-A9 | additive; robots default to the wall clock |
-| The embeddable agent: entry point, closed tool roster, `AgentHome`, the request/reply cut, the stepped `think` and its continuation, the leak closure, the dispatch/settle split | OD-A10–OD-A15, OD-A17, OD-A18 | additive; the stepped `think` after 1.4.0 |
-| Credit for effects measured later: receipts, the cerebellum at settle, exactly-once credit, `stale` and `call_error` kinds promoted through the bridge, a per-modulator valence default | OD-A16 | an amendment to `tool_failure_credit.md` |
-| Drive drift states its time base | OD-C1 | additive; optional rename with an alias |
-| `SensorReading.timestamp` is the body clock | OD-C2 | additive |
-| A declared direction per affordance (`acts_on`, trailing, defaulted) | OD-C3 | additive |
-| The acting entity reaches `execute`, opt-in (`accepts_actor`) | OD-C4 | additive only because opt-in (MP-S12) |
-| `ModulatorResult.settles`, trailing, defaulted | OD-C5 | additive |
-| Reserved membrane metadata keys (BF-10): metadata can't overwrite `success` | OD-C6 | additive |
-| `ModulatorResult` and `SensorReading` are not mutated (§5.1; freezing deferred) | OD-C7 | additive |
-| Percepts and instruments, shrunk: instruments are in-world objects | OD-C8 | additive |
-| A version rule for the SEM vocabulary on `ENTITY_FORMAT_VERSION` | OD-C9 | additive |
-| `world_set_axis` for sub-sensors | OD-C10 | additive (unverified) |
-| A mental-fatigue drive that rises with load; `CouplingSpec` can't carry it | OD-B12 | tier B, earned by OD-X2 |
-| The `x or time.time()` bug at five sites; the pickle-capable load; the stale `ARCHITECTURE.md:182`; the redaction question (a private advisory; its own security issue) | OD-I1, OD-I3, OD-I4, OD-I5 | issues now; OD-I2 (a missing CC3 note on `ModulatorResult`) is a docstring nit |
+The items are roadmap Phase 3's rows OD-A1–OD-A12, OD-A14–OD-A18 (OD-A13 moved to OD-I3), OD-B12, OD-C1–OD-C10 and
+OD-I1–OD-I5; each row's content and path are the roadmap's.
 
 ## 10. Enforcement
 
@@ -738,12 +747,12 @@ major version is proposed.
 **Running import-linter (X-1, W3, W8, X S-6):**
 - **As built in 3a (2026-11-19):** import-linter 2.6 and grimp 3.13 (pymaxim caps `rich<14`), called as
   `lint_imports_command()` with `PYTHONPATH="$PWD/src"` (`-m importlinter.cli` checks nothing). The game package
-  exists from 3a, holding only `data.py`, against §2.1; §3's ban covers `logging` too.
+  exists from 3a, holding only `data.py`, against §2.1; the core's banned list is §3's.
 - **As built in 3b(a) (2026-11-20):** a frame holds the read-only owners, which no window writes in place, so it
   needs no copy, but it pins a whole grid (about 100 MB at 5×10⁶ cells; one pinned per agent is a B5
   row). Stamped by sequence and `time_s` until the tick. A cell window copies all four channels
   twice in every build, even unchanged (O8's switch can't reach the core); a sources-only window
-  copies none but still publishes. `place` opens it too (marked for 5a; `imagine` has no intent kind). The
+  copies none but still publishes. The window's owners are §4.1's. The
   membrane gets an applier and a frame view, never the world: that is the guard; the peek and re-export scans are
   tripwires. Skip-layer covers `encoding`. The registry adds
   `no input` and `partial`. `Budget` values are engine defaults (O23).

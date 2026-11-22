@@ -172,7 +172,7 @@ save), with these rules from the Wire and Trust review.
   registry, scene and specs are compared against them, never executed. A save from a newer build is refused, loudly.
   A content change is refused too, and a save holds no in-flight thoughts, since agent state lives outside
   `Simulation` (docs-contracts ruling 26, owner, 2026-11-21).
-- **Saves, scene files and replay logs are untrusted input** (F14):
+- **Saves, scene files and replay logs are untrusted input** (F14), under the gate contract (`boundaries.md` §5.4):
   - the memory budget is checked before anything is allocated, from the header's declared shape;
   - shape, sizes and offsets are validated against the scene and rig;
   - every saved cell value is validated as the loaders validate data;
@@ -181,9 +181,10 @@ save), with these rules from the Wire and Trust review.
   - loading is all-or-nothing.
 - **Frame rules** (F2, F3, F4, F6) are `client_rendering.md` §4.1's; its fixtures (§4.2) include a non-default
   linear scale, so a decoder that hard-codes 1/255 fails.
-- **Material table v1 uses the strict loader** that `ActionLimits.load` has: versioned, closed keys, repeated keys
-  refused, species keyed by name, never by position (F8). Its reactions close their mass and atom balances. The
-  research's example `wood_flaming` doesn't (2.15 in, 2.40 out), and the loader would rightly refuse it (E-NIT).
+- **Material table v1 uses the strict loader** that `ActionLimits.load` has, under the gate contract
+  (`boundaries.md` §5.4), species keyed by name, never by position (F8). Its reactions close their mass and atom
+  balances. The research's example `wood_flaming` doesn't (2.15 in, 2.40 out), and the loader would rightly refuse it
+  (E-NIT).
 - **The scene format's strict loader** (F13) is `tile_and_client.md` §1.3's. Zone counts are capped, and the zone
   channel's dtype is fixed at u16 (F9).
 - **Per-face state has a container before the grammar freezes** (DLP S-11). Surface skins (§3) are state per exposed

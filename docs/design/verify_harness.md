@@ -15,9 +15,9 @@ in one vocabulary, for every law.
 
 ## 2. Where it lives
 
-- **`simcore.verify`**, `boundaries.md`'s layer 8 (`engine.verify`). It imports nothing from the engine: only
-  `math`, `dataclasses`, `itertools` and `collections.abc`. A layers entry puts it under `maxim_overdrive` and above
-  `simcore.protocol`, and a forbidden contract (`verify-measures-only`) keeps it off `simcore.core`,
+- **`simcore.verify`** (`engine.verify`), in `boundaries.md` §2.2's layer order. It imports nothing from the engine:
+  only `math`, `dataclasses`, `itertools` and `collections.abc`. A forbidden contract (`verify-measures-only`) keeps
+  it off `simcore.core`,
   `simcore.adapters`, `simcore.protocol` and `maxim`. Nothing in `src/` imports it, tests do: the layers contract
   keeps the engine's lower layers off it, and `verify-ships-nowhere` keeps the game off it.
 - **It never builds a `World`.** It receives observables as callables and never constructs state itself. A test

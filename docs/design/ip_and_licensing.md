@@ -126,7 +126,7 @@ than edited into them here.
      one world, "who made it first" is the earliest tick; ticks from different worlds don't compare, so proving
      priority across players needs a timestamp signed at publish (an open question for the design review).
    - Licence reference: one value today, `first-party/all-rights-reserved`. The reader refuses unknown values.
-3. **The spec reader refuses unknown keys,** as every loader does: closed key sets at every level through
+3. **The spec reader refuses unknown keys** (`boundaries.md` §5.4): closed key sets at every level through
    `checks.known_keys` (PR #2, the owner's choice of 2026-11-17), with `imagination.spec.SPEC_KEYS` as the accepted
    set this item names.
 4. **Region identity crosses the wire,** as each region's spec id in `welcome` (`client_rendering.md` §4.1). The

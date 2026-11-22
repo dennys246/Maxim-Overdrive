@@ -373,7 +373,7 @@ takes the prediction error (blocking, Kamin, **S**), so the physical cue is neve
 | `adapters/agents/` | Maxim-side checks, the push, the value and thread checks | adapters |
 
 `core/body` sits beside cells and `core/stimuli` above it; stimuli imports nothing from `intents` (§6.2). This
-supersedes `boundaries.md` §2.2's map by name.
+supersedes `boundaries.md` §2.2's map by name; the layer order stays §2.2's.
 
 **Contact has one owner:** `contact.py` steps touched components in step 3, before `tissue.py` steps the rest,
 writing skin through the store's window and the object through the solid law's exchange API, **against its own
@@ -420,7 +420,7 @@ In import-linter 2.6, `protected` sees direct imports only, and a nonexistent al
 | models allowlist | a grimp test: models import only `stimuli.schema`, the field-reader type, `body.geometry`, `body.sites`, `checks` | the tissue row's PR |
 | `stimuli-independent` | `independence` over `simcore.core.stimuli.models.*` | the tissue row's PR |
 | `agents-reads-body-frames` | `forbidden`, `allow_indirect_imports = false`; its list equals `_core_modules() − AGENTS_SURFACE` plus `adapters.sem.bridge`; `AGENTS_SURFACE` = `stimuli.wire`, `checks`, `readonly`; a grimp test requires the surface, with each member's parent packages, closed under imports | `phase1/agents` |
-| `maxim-through-adapters` | the worker module joins `allowed_importers`, its test with it | `phase1/agents` |
+| `maxim-through-adapters` | the worker module joins `allowed_importers`, its test with it (`boundaries.md` §8.1) | `phase1/agents` |
 
 Every `forbidden` list derived from `_core_modules()` sets `as_packages = false`, and its equality test asserts it;
 a test asserts every allowed importer exists. On toy packages (**D**, rerun for v5): the orders above keep every

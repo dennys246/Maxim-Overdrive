@@ -139,10 +139,10 @@ How the rule is kept, so far:
 generation, affordance gating and prompt formatting work on the environment unchanged. The environment has no drives,
 pain or learning: it is SEM without embodiment.
 
-**The modulator is a trust boundary.** An NPC's tool call, an LLM's output and a client's intent all reach the
-world through it, so it works in two stages. `parse_action` turns the untrusted `(affordance, params)` into a frozen
-`Strike`, `Ignite` or `Extinguish` inside the world's `ActionLimits` (`data/world/actions.yaml`), reading nothing from
-the world, so the protocol layer can run it first. The applier re-checks the action against the
+**The modulator is a trust boundary.** An NPC's tool call reaches the world through it; every gate is listed in
+`docs/design/boundaries.md` §5.3. It works in two stages. `parse_action` turns the untrusted `(affordance, params)`
+into a frozen `Strike`, `Ignite` or `Extinguish` inside the world's `ActionLimits` (`data/world/actions.yaml`),
+reading nothing from the world, so the protocol layer can run it first. The applier re-checks the action against the
 limits, then checks what depends on the world now (the region still has cells, a strike's point is on the region, judged
 from authored footprints in metres so the answer is the same at every spacing). A region is its cells plus its authored
 footprint; named solids can't share space with a later solid, so a footprint never covers another object's cells.
@@ -211,4 +211,4 @@ Image-model assets (textures, portraits) can be added later as cached decoration
 
 ## Licensing
 
-Code: Apache-2.0 (`LICENSE`). Story, characters, lore, art and audio: all rights reserved (`ASSETS_LICENSE.md`).
+The licences are `docs/design/boundaries.md` §8.2's.

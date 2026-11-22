@@ -428,6 +428,8 @@ wall, crack read as crack, glow as heat, burn-out as fuel running out, the dial.
 
 ## 7. Placement (AR-B1, O24's four layers; DC-N7)
 
+The layer order is `boundaries.md` §2.2's; this table places this design's modules in it.
+
 | What | Layer |
 |---|---|
 | Actor and pilots tables, body archetype type, motion, blocked predicate, walk grid, A\*, path walking, body heat (convection and radiation), the bed and laws 6a–6d, intents, the refusal-code enum, receipts, `Frame` | core (motion and navigation as two modules, AR-N3) |
@@ -463,12 +465,5 @@ wall, crack read as crack, glow as heat, burn-out as fuel running out, the dial.
 
 ## 11. Requirements by plan step
 
-| Requirement | Step |
-|---|---|
-| Amend realtime §7 to §3.3's table; architecture.md line 20 | 1 |
-| Scene v1 (+ `spawns`), loader types for archetypes and items, the refusal-code enum | 3b |
-| `Simulation` with actor and pilots tables, body motion, walk grid, A\*, body heat (convection; radiation closed forms), `move`/`move_to`, `cause` and `invocation` (§3.1), vocabulary v1 with the interim `kindle` deposit, `actions.yaml` v1 and its refusal of v0, the `Frame` rule, the alley fixture and its B5 meters | 5 |
-| 6a–6d, the constants' provenance, the ledger lines, the skin deposit for `kindle`, the torch's band, the 0.05 m reference, V_floor, the red gate's flip | 6 |
-| §3.3's messages, `intent_result`, `observed_tick` stamping, `cause` in events, the wire (`client_rendering.md` §4) | 7 |
-| The game package and `content/`, the exit script, the controls by deletion, the stage-2 refusal scripts, the playtest | 8 |
-| Save v0 with the actor and pilots tables and `body_key`; agent homes (O43) are save v1 | 9 |
+This design's requirements by step are `docs/plans/checklists.md`'s (steps 1, 3b, 5a, 5b, 6, 7, 8 and 9), which cite
+its sections.

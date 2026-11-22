@@ -731,8 +731,8 @@ section pins them. Where it and an earlier section differ, this section wins, an
   Deferred by name (O30; roadmap Phase 4): with guests present, real NPCs need the OS sandbox too, and on a platform
   without one (Windows today) guest sessions with real NPCs are refused.
 - **The host never latches itself (TBR-4, TB3-S7).** The host refuses to start with `MAXIM_OFFLINE` set in its own
-  environment (a start-up check, **[now]**), since `import maxim` would latch the world server. Once the adapter is
-  split, the host imports Maxim's types only through `simcore/adapters/sem/_compat.py`, and `maxim` itself only in workers and inference gateways.
+  environment (a start-up check, **[now]**), since `import maxim` would latch the world server. Who
+  imports `maxim`, before and after the adapter is split, is `boundaries.md` §8.1's.
 - **Its cost (Exec S4):** every park is a round trip. 20 NPCs × 200 ticks per wall second × 50–200 µs per round trip
   is 0.2–0.8 wall seconds per second spent on the barrier alone, enough to make 20× unreachable. B5 gets a budget for
   it, and the levers are: only agents due this tick (by rate divisor, §2.1) get a round trip; frames go as deltas;
@@ -926,29 +926,31 @@ Additive first, in 1.x; appending a defaulted field is non-breaking under Maxim'
 `Modulator.execute`'s signature is a real break, and it can be opt-in (MP-B3, X-5). Ids are roadmap Phase 3's
 `OD-` ids (the Phase 3 fold renumbered them; its "Was" column maps the old A, B, C and SEM S-ids).
 
-| Roadmap | What | Here | Path |
-|---|---|---|---|
-| OD-I1 | `x or time.time()` turns world time 0.0 into the wall clock, at five sites | §1 | an issue now |
-| OD-I2 | `ModulatorResult` has no CC3 declaration; downgraded to a docstring nit (it is an in-process value) | §6 | a nit |
-| OD-I3 | the pickle-capable embeddings load, dormant by default, on a global file | §6.1 | an issue now |
-| OD-A1–OD-A9 | the world-clock work: #1361 S3–S6, `AgentTime`, prompt and observation time (with `context_pool`), stamps, the de-duplication window, dispatch gates, ids, the stepped Default Network | §1, §3.1 | additive; defaults reproduce today's values |
-| OD-A10–OD-A12, OD-A14, OD-A15, OD-A17, OD-A18 (OD-A13 moved to OD-I3; OD-A19 withdrawn) | the embeddable agent: the entry point, the closed tool roster, `AgentHome`, the request/reply cut, the stepped `think` and its continuation, the leak closure, the dispatch/settle split | §6.1 | additive; the stepped `think` after 1.4.0 (O15a) |
-| OD-A16 | credit for effects measured later: receipts, the cerebellum at settle, exactly-once credit, `stale` and `call_error` kinds, a per-modulator valence default | §6.4 | an amendment to `tool_failure_credit.md` |
-| OD-B8 | the oscillator steps by elapsed time; light entrains the circadian scale | §3.3 | tier B, earned by OD-X1 |
-| OD-B9, OD-B10 | coarse time for cognition (interim bins, then estimates); an interval sense | §3.2 | tier B, earned by OD-X2 |
-| OD-B12 | a mental-fatigue drive that rises with deliberation load; `CouplingSpec` can't carry it | §2.3, §4.6 | tier B, earned by OD-X2 |
-| OD-B13 | weekly, monthly and annual oscillator scales cue-driven or off | §3.2 | tier B |
-| OD-C1 | drive drift states its time base | §2.2 | additive; optional rename with an alias |
-| OD-C2 | `SensorReading.timestamp` is the body clock, never rendered | §3.1 | additive |
-| OD-C3 | `acts_on` on `AffordanceSchema`, a trailing defaulted field | §6 | additive |
-| OD-C4 | the acting entity reaches `execute`, opt-in through `accepts_actor` | §6.5 | additive |
-| OD-C5 | `ModulatorResult.settles`, a trailing defaulted field | §6.4 | additive |
-| OD-C6 | reserved membrane metadata keys | §6 | additive |
-| OD-C7 | `ModulatorResult` and `SensorReading` are not mutated (freezing deferred) | `boundaries.md` §5.1 | additive |
-| OD-C8 | percepts and instruments, shrunk: instruments are in-world objects | §7.1 | additive |
-| OD-C9 | a version rule for the SEM vocabulary on `ENTITY_FORMAT_VERSION` | §6 | additive |
-| OD-C10 | `world_set_axis` for sub-sensors | §7.2 | additive (unverified) |
-| OD-H1–OD-H3, OD-H5 | the hybrid line as a test bed; modelled latency for the hold; the G4 re-key; the turn-taking substrate, which folds in OD-H4 (deliberation during the other speaker's turn) | §5.1 | Maxim's hybrid plans |
+| Roadmap | Here |
+|---|---|
+| OD-I1 | §1 |
+| OD-I2 | §6 |
+| OD-I3 | §6.1 |
+| OD-A1–OD-A9 | §1, §3.1 |
+| OD-A10–OD-A12, OD-A14, OD-A15, OD-A17, OD-A18 (OD-A13 moved to OD-I3; OD-A19 withdrawn) | §6.1 |
+| OD-A16 | §6.4 |
+| OD-B8 | §3.3 |
+| OD-B9, OD-B10 | §3.2 |
+| OD-B12 | §2.3, §4.6 |
+| OD-B13 | §3.2 |
+| OD-C1 | §2.2 |
+| OD-C2 | §3.1 |
+| OD-C3 | §6 |
+| OD-C4 | §6.5 |
+| OD-C5 | §6.4 |
+| OD-C6 | §6 |
+| OD-C7 | `boundaries.md` §5.1 |
+| OD-C8 | §7.1 |
+| OD-C9 | §6 |
+| OD-C10 | §7.2 |
+| OD-H1–OD-H3, OD-H5 | §5.1 |
+
+Each row's content and path are the roadmap's; "Here" is the section that uses it.
 
 ### 8.2 Upstream asks this fold reveals
 
@@ -1011,6 +1013,13 @@ Pre-registered in Maxim's process, run as cradles with an engine-only fixture bo
 ledger. Ids are Overdrive-scoped, since T1, T2, E1–E3 and B1–B4 already name Maxim's own release thresholds,
 experiments and floor chain (MP-S9). Vocabulary is Maxim's: these are `[behavioral]` claims, and rows go to
 `behavioral_graduation_candidates.md`.
+
+**The harness is Maxim-owned** (docs-contracts ruling 55; moved from `boundaries.md` §8.4):
+- it imports only the engine and its own Apache-2.0 fixtures (a fixture body, event pool and scene). Neither the
+  engine nor the game imports it.
+- **A ledger record pins** the engine SHA, the pymaxim version, the membrane and agent contract versions (including
+  any interim `neutral` behaviour, which is part of the treatment), the placement digests (`inference_placement.md`
+  §4.3), and the Phase 3 items present.
 
 | Exp | Question | Arms | Kill criterion |
 |---|---|---|---|

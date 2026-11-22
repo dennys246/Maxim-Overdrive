@@ -337,8 +337,8 @@ persist to about 1 g/m²s (D, Executor S1, ±30 s mass differences over 0.01 m²
 
 ### 5.1 Data files and loaders (6.0a)
 
-All loaders are in `adapters/loaders.py`, the one input gate. New formats start at `version: 0`, as every format here
-did.
+All loaders are in `adapters/loaders.py` (`boundaries.md` §5.3). New formats start at `version: 0`, as every format
+here did.
 
 | File | Format | Loader | Holds |
 |---|---|---|---|

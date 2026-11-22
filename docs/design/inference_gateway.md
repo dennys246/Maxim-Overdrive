@@ -27,8 +27,8 @@ the cited line there, or ran the stated command.
 
 | Module | Layer (`boundaries.md` §2.2) | Imports | Imported by |
 |---|---|---|---|
-| `engine.inference_wire` | 7a, beside `engine.loaders` | `engine.checks` only | the host lane and the gateway |
-| `engine.adapters.inference` | 7b, beside `engine.adapters.sem` | `engine.inference_wire`, `maxim.models.language` (backends and types, never `LLMRouter`'s methods) | nobody: it is spawned, never imported |
+| `engine.inference_wire` | beside `engine.loaders` | `engine.checks` only | the host lane and the gateway |
+| `engine.adapters.inference` | beside `engine.adapters.sem` | `engine.inference_wire`, `maxim.models.language` (backends and types, never `LLMRouter`'s methods) | nobody: it is spawned, never imported |
 
 - **What `engine.inference_wire` holds:** the channel's frame types and codec, the outcome and classification
   values, and the provenance type. It holds no `maxim` import.
