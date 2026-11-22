@@ -21,6 +21,7 @@ class WindowOwner[Saved]:
         self._open = False
         self._held = False  # the world's sources-only window: the same one owner as the cells' window
         self._on_close: list[Callable[[], None]] = []
+        self._on_roll_back: list[Callable[[], None]] = []
 
     @property
     def is_writing(self) -> bool:
@@ -33,6 +34,14 @@ class WindowOwner[Saved]:
         window (a law's step) can't leave a listener behind (PR 2 delta N3)."""
         self._refuse_a_second_owner()
         self._on_close.append(callback)
+
+    def on_roll_back(self, callback: Callable[[], None]) -> None:
+        """Call ``callback`` after each window that rolls back, before its exception propagates: a cache built from
+        the window's state (the deposit's weights, sim_core.md §7) forgets it, since a rollback restores
+        ``topology_version`` and a different later edit would reach the same version. Registered at rest only, as
+        ``on_close`` is."""
+        self._refuse_a_second_owner()
+        self._on_roll_back.append(callback)
 
     def _refuse_a_second_owner(self) -> None:
         if self._open or self._held:
@@ -62,6 +71,8 @@ class WindowOwner[Saved]:
             commit = self._prepare_commit()
         except BaseException:
             self._roll_back(saved)
+            for forget in self._on_roll_back:
+                forget()
             raise
         else:
             commit()

@@ -65,8 +65,9 @@ the measured checks, advisory.
   rest, written only inside `writing()`), `topology.py` (the one owner of world edits: paint, name and destroy
   requests, applied per batch), `scene.py` (authoring in metres; `constructing`, construction's window), `law.py`
   (what a law is: cadence, reads, writes, `step`), `stepping.py` (the substep loop), `heat.py` and `damage/` (the
-  laws, one module each, and damage's load resolvers; no law imports another), `reductions.py` (region readings
-  observers take), `physics.py` (the law tuple and its orchestrator, which runs each law as itself), `intents.py`
+  laws, one module each, and damage's load resolvers; no law imports another), `exposure.py` (`source_exposure`:
+  which value of each heat source stood each tick), `deposit.py` (where a source's power lands, and its caches),
+  `reductions.py` (region readings observers take), `physics.py` (the law tuple and its orchestrator, which runs each law as itself), `intents.py`
   (typed actions, stage-1 parsing and the log record), `frames.py` (published frames and the `Observation` protocol
   observers read), `world.py` (turn loop, heat sources, the world's window, frame publication), `simulation.py` (`Simulation`, the integer clock and `step`; step 5a), `applier.py` (stage 2: the
   only code that applies an action), `imagination.py` (imagined objects as validated specs that become cells)
@@ -101,8 +102,8 @@ the measured checks, advisory.
   machine simulates one truth; rig profiles are rendering tiers only, with no physics
   (world_model D20). Any new physics ships with a closed-form test, through `simcore.verify` with space and time
   refined apart (`tests/test_heat.py` is the pattern), and a cross-grid test (`tests/test_cross_tier.py`), whose
-  scenarios refine both together until step 5a's fixed physics step. If a cross-grid test fails, fix the physics;
-  never loosen the test to pass.
+  scenarios refine space alone at the fixed physics step and are held time-converged (`docs/design/sim_core.md` §11
+  bar 2b). If a cross-grid test fails, fix the physics; never loosen the test to pass.
 - Author scenes in metres. Keep physics parameters per unit volume. Deposit energy by exact cell average or volume
   overlap, never by whether the cell centre is inside.
 - **Reconstruct, decide at the point, integrate upward** (owner: `docs/design/world_model.md` §3). Never apply a threshold or a non-linear law to a cell's
@@ -124,7 +125,7 @@ the measured checks, advisory.
   directly from LLM output.
 - Actions change cells through `simcore.core.applier`, and imagined objects through `place`, until step 5a makes
   `imagine` an intent kind. Only `Simulation.step` moves the integer clock; `World.advance`, which it calls on
-  physics ticks, still advances the float `time_s` until step 5a's PR 3 retires it (PR 4 retires `World.advance`).
+  physics ticks, moves the world's time in whole microseconds (`time_s` is derived; PR 4 retires `World.advance`).
   Every write happens inside the write window, as a writer the field registry declares, holding its token. The SEM
   membrane is handed an applier and a frame view, never the world, and the import contracts and the ownership scans
   hold it to them.
@@ -251,8 +252,8 @@ only review holds.
 
 - **Determinism.** The same scene, grid spacing and intents give bit-identical state on one machine. Across machines
   only the outcome class is promised, as across grid spacings. Randomness, when it arrives, comes from one seeded
-  `numpy.random.Generator` owned by `World`. Time comes from `Simulation.step`'s integer tick (and the interim float
-  `time_s`, until step 5a's PR 3), never the wall clock. No builtin `hash()` in the simulation. Guard:
+  `numpy.random.Generator` owned by `World`. Time comes from `Simulation.step`'s integer tick (and the world's whole
+  microseconds, until step 5a's PR 4), never the wall clock. No builtin `hash()` in the simulation. Guard:
   `tests/test_determinism.py::test_runs_in_processes_with_different_hash_seeds_agree`,
   `tests/test_determinism.py::test_the_simulation_and_tests_have_no_hidden_sources_of_nondeterminism`
 - **Replays are first-class.** The intent log plus the scene and grid spacing reproduce any session. It is the bug

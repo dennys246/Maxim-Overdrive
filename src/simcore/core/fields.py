@@ -4,8 +4,9 @@ Each field lists its writers, the one owner of who may write it (§5.1): the wri
 a declared writer holding its token (`simcore.core.writers`). Each input names its appender and its one resolving law.
 `render()` is the committed artifact `docs/generated/fields.md`, compared byte for byte by `tests/test_fields.py`.
 
-Step 5a's PR 2 registers the cell fields and the two inputs that exist; `source_exposure` (PR 3), the body and keyed
-fuel tables (5b, 6.0a) and the snapshot, digest and save columns' readers (PR 4) join as their PRs land.
+Step 5a's PR 2 registers the cell fields and the inputs; PR 3 adds `source_exposure` (sim_core.md §3), which
+`Simulation.step` records at the end of each tick. The body and keyed fuel tables (5b, 6.0a) and the snapshot, digest
+and save columns' readers (PR 4) join as their PRs land.
 """
 
 from __future__ import annotations
@@ -19,6 +20,11 @@ CONSTRUCTION = "construction"
 # because the registry sits below the laws (tests hold the two to each other).
 LAW_NAMES = ("damage.loads", "heat", "damage.thermal")
 WRITERS = (*LAW_NAMES, TOPOLOGY, CONSTRUCTION)
+# Who appends an input (§5.1): the applier, from a record's stage 2, and Simulation, which records which source value
+# stood at the end of each tick (§3). Each names the `simcore.core` module that appends; tests hold them to that.
+APPLIER = "applier"
+SIMULATION = "simulation"
+APPENDERS = (APPLIER, SIMULATION)
 
 
 @dataclass(frozen=True)
@@ -54,8 +60,9 @@ FIELDS = (
 )
 
 INPUTS = (
-    InputSpec("sources", "applier", "heat"),
-    InputSpec("loads", "applier", "damage.loads"),
+    InputSpec("sources", APPLIER, "heat"),
+    InputSpec("source_exposure", SIMULATION, "heat"),
+    InputSpec("loads", APPLIER, "damage.loads"),
 )
 
 _WRITERS_OF = {f.name: f.writers for f in FIELDS}

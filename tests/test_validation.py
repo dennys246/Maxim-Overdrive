@@ -23,6 +23,7 @@ from simcore.adapters.loaders import DataPath, load_action_limits, load_material
 from simcore.adapters.sem import bridge
 from simcore.core import damage, physics, reductions
 from simcore.core.applier import Applier
+from simcore.core.exposure import Exposure, standing
 from simcore.core.grid import Footprint, MaterialGrid
 from simcore.core.imagination import Budget, SpecRejected, place
 from simcore.core.law import LawInputs
@@ -190,7 +191,7 @@ def test_a_source_smaller_than_a_cell_still_delivers_its_full_power(dx_m, materi
     # arrives the one other way, at construction.
     spark = HeatSource((0.5, 0.5, 0.5), radius_m=1e-4, power_w=100.0)
     w = World(Scene((1.0, 1.0, 1.0)).build(materials, dx_m=dx_m), limits=LIMITS, sources={"spark": spark})
-    power = w._power_field()
+    power = w._power_field(Exposure(standing(w.sources, 1), 1))
     assert power is not None
     assert power.sum() == pytest.approx(100.0)
     assert power[w.grid.cell_of((0.5, 0.5, 0.5))] == pytest.approx(100.0)

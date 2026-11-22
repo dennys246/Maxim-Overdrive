@@ -408,3 +408,15 @@ an NPC-facing path writes is held to the registry by the same tokens. Python can
 code that reaches into private names, so a scan holds the tokens to their owners' modules; that is the residual, and
 it is named. For Maxim: none yet; this is the engine's half of the SEM contract (`sem_stimuli.md` §7.1), where a body
 law's writes must be as checkable as a physics law's.
+
+### 33. An event shorter than the physics step must still reach the physics, or the NPC never feels it (2026-11-22)
+
+**A world that reads its sources only at the physics tick loses every event that starts and ends between two
+ticks.** *Evidence:* before step 5a's PR 3, physics read the heat sources standing at the physics tick, so a fire lit
+at tick 2 and doused at tick 4 (at T3, ticks of 0.1 s and a physics step every 5) put no energy into the world, and
+fires lit at ticks 66 and 69 gave bit-identical states. `source_exposure` (sim_core.md §3) records which value stood
+at the end of each tick and deposits each its integer ticks' share; `tests/test_exposure.py` holds it to
+`k · tick_us · power` for k = 1 to 5, a douse, a re-ignite at a new power and a replacement. *Consequence:* the
+stimulus an NPC can sense (a brief flare's heat) exists in the world at all; the per-tick digest and the save must
+carry the exposure too (PR 4), or a replay from a mid-step save would lose it again. For Maxim: none yet; it is the
+engine's precondition for any stimulus shorter than a physics step reaching the SEM sensors.

@@ -166,7 +166,8 @@ Simulation.frames -> FrameView                                   # the latest pu
   - its writers, ordered: laws in cadence and tuple order, `Topology`, construction (and the save's loader), or an
     input appender (§5.1). This column is the writers' one owner.
 - **Inputs are declared beside fields:** `sources`, `source_exposure` (§3) and the tick's `loads`, each with its
-  appender (the applier) and its one resolving law: heat for heat sources, damage for loads.
+  appender (the applier; `Simulation` for `source_exposure`) and its one resolving law: heat for sources, damage for
+  loads.
 - **Every reader takes it from there:** storage, the snapshot, the per-tick digest, the save and sem_stimuli §5's
   producer closure, computed over every law in the tuple whatever its cadence.
 - **A generated artifact,** `docs/generated/fields.md`, is committed and compared byte for byte by a test.
@@ -185,32 +186,31 @@ Simulation.frames -> FrameView                                   # the latest pu
     under the same id then misses the cache, as it must;
   - region reductions, per `topology_version` and the write tick of each field they read.
 - **A cache holds only what the current state needs:** entries for the current sources at the current
-  `topology_version`. Replacing, removing or bumping evicts, so a cache's contents are a function of state, and the
-  eager build reproduces them on load.
+  `topology_version`. Replacing, removing or bumping evicts, and so does a window's rollback, which restores the
+  version a later edit can reach again (proposed, for the owner, `reviews/sim_step/fold.md` S1). So a cache's
+  contents are a function of state, and the eager build reproduces them on load.
 - **The overlap is computed over the source's bounding box, padded by one cell.** That is bit-identical to the
   whole-grid computation while `sphere_overlap`'s values are multiples of 1/64, which its 4³ sub-sample guarantees:
   their sums are exact in any order (verified, `reviews/sim_core/fold.md`). An exact-overlap replacement would break
   that and must be recorded as a digest break (§12).
-- **The caches are 5a's precondition, not an optimisation.** Performance's re-measurement on the T3 tile
-  (`reviews/sim_core/delta1_perf.md`): today's `advance(6.0)` takes about 115 ms at 0.1 m; 5a at `P` = 0.5 s is
-  about 4.2× that without the caches and about 0.7× with them. At 0.2 m the fixed step runs 12 heat substeps per 6 s
-  against today's 4, so 5a costs 1.4–1.6× today there, an expected cost that bar 7 records.
+- **Cost, measured at PR 3 on the T3 tile** (`reviews/sim_step/round1_det_perf.md`), per 6 world seconds, against
+  PR 2's `advance(6.0)`, with only the deposit's cache: 0.88–0.96× at 0.1 m and 2.4× at 0.2 m. At 0.1 m a step is
+  42% `stable_dt` and 24% face conductances; with those caches, an estimate gives 0.35× and 0.75×.
 - **Accumulations over named collections iterate in sorted-key order** (`boundaries.md` §6.2; string keys by code
-  point). Today `World._power_field` iterates `sources` in insertion order; 5a moves source power into heat's
-  `prepare`, sorted.
+  point).
 
 ## 8. The fixed physics step, replacing the substep floor
 
 - **The rule** is `splitting.md` §6 rule 3's, with its safety factor: at the start of each physics step,
   `n = substep_refine · max(1, ceil(P_s / min over laws of stable_dt))`, `dt = P_s / n`. `substep_refine` is hashed
   config, 1 in shipped play; tests raise it to refine time on the shipped path (§11).
-- **Replan when a change tightens the bound** (owner, 2026-11-21): the rest of the step is split evenly at the new
-  bound. What remains is computed from counts, `(planned − taken) · dt`, never from a running float sum.
+- **Replan when a change tightens the bound** below `substep_refine · dt` (owner, 2026-11-21; the refined trigger
+  proposed, for the owner, `reviews/sim_step/fold.md` N3): the rest is split evenly by the same rule. What remains
+  is computed from counts, `(planned − taken) · dt`, never from a running float sum.
 - **On shipped data `n` is 1** at every verification grid (heat's bound is 240, 60 and 15 s at 0.2, 0.1 and 0.05 m,
   measured), so the new substep is coarser than today's at 0.1 and 0.05 m, and the replan is reachable only from a
   constructed material table.
-- **The substep floor goes:** `heat.min_substeps`, `FLOOR_AREA_M2`, its `TEMPORARY` marker and
-  `tests/test_determinism.py::TURN_SUBSTEPS`. Only if bar 1 fails does a measured accuracy floor join the rule, as a
+- **No substep floor** (PR 3 removed it). Only if bar 1 fails does a measured accuracy floor join the rule, as a
   truth constant (owner, 2026-11-21).
 
 ## 9. The per-tick digest

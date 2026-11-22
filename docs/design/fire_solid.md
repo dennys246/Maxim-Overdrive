@@ -23,7 +23,7 @@ Nothing 6.0 leans on is built at gates 396ae10:
 | 6.0 needs | At 396ae10 | Comes from |
 |---|---|---|
 | Field registry | none | step 5a |
-| Fixed physics step | a 6 s turn of 4, 16 or 64 heat substeps, `TEMPORARY(phase1/sim-clock)` | step 5a: 0.5 s (tile T3) |
+| Fixed physics step | stability's count, no floor (5a PR 3) | step 5a: 0.5 s (tile T3) |
 | Intent log and header | none; no SHA-256 in `src/` | step 5a; field list in boundaries §6.3 |
 | Digest | a test helper, `tests/test_determinism.py::digest`; no golden committed | step 5a's registry digest and replay goldens |
 | Region ids | `CellStore._regions`, a dict of `Region` (mask, footprint, `solid`) | the u16 id array in world_model §10 row 4 (sim-clock = step 5a); the 5a checklist must add it |

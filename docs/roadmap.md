@@ -43,14 +43,12 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   red gate `tests/test_act_validation.py::test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn`,
   and it removes the marked band-aid in `data/world/actions.yaml`, whose ceilings keep fires at the powers the
   current physics has been measured at.
-- The substep floor in `src/simcore/core/heat.py`, a marked band-aid kept for bit-identity when resolution left the
-  rig: plan step 5a's fixed physics step replaces it, with an accuracy floor only if one is measured necessary
-  (`docs/design/sim_core.md` §8).
 - The write window's two owners until `Simulation.step` owns it, marked band-aids (`docs/design/boundaries.md` §4.1,
   2c): `World.advance` in `src/simcore/core/world.py` and the intent applier in `src/simcore/core/applier.py` open the
   window themselves; step 5a's PR 4 moves both into the step (PR 2 moved the laws into the tuple, not the window), and
-  with it a strike becomes a `Load` the applier appends. `World._power_field` in the same `world.py` resolves the
-  sources' deposit until PR 3 moves it into heat's `prepare` (`docs/design/sim_core.md` §7). The shell's
+  with it a strike becomes a `Load` the applier appends. `World._power_field` in the same `world.py` holds the
+  sources' deposit (sorted and cached since PR 3, `src/simcore/core/deposit.py`) until PR 4 hands the sources to
+  heat's `prepare` (`docs/design/sim_core.md` §7). The shell's
   interim `Simulation(world)` seam in `src/simcore/core/simulation.py` goes in PR 4, when `Simulation` carries the
   per-tick digest its strangler tests compare. A third, `place` in
   `src/simcore/core/imagination.py`, opens it because the `imagine` intent kind doesn't exist yet; step 5a's intent

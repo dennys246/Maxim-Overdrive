@@ -26,11 +26,12 @@ from simcore.adapters.loaders import load_action_limits, read_yaml
 from simcore.adapters.sem.bridge import region_parts
 from simcore.core import damage, physics
 from simcore.core.applier import Applier
+from simcore.core.deposit import sphere_overlap
 from simcore.core.intents import CALL_KEYS, ActionRefused, Extinguish, Ignite, Strike, parse_action
 from simcore.core.limits import ActionLimits
 from simcore.core.refusals import RefusalCode
 from simcore.core.scene import Box, Scene, constructing
-from simcore.core.world import HeatSource, World, sphere_overlap
+from simcore.core.world import HeatSource, World
 from simcore.verify import agrees, same_class
 from tests._cells import paint
 from tests.conftest import COARSEST_M, FAST_SPACINGS

@@ -23,8 +23,8 @@ from simcore.core.writers import WriterToken, claim
 
 DEFAULT_LAWS: tuple[Law, ...] = (damage.LOADS, heat.HEAT, damage.THERMAL)
 
-# The cadences the orchestrator runs today. per_tick and per_physics_step laws join with step 5a's PR 3 and later
-# (the fixed physics step); a tuple holding one is refused rather than silently never run.
+# The cadences the orchestrator runs today. per_tick and per_physics_step laws join with step 5a's PR 4 and later
+# (with heat's prepare); a tuple holding one is refused rather than silently never run.
 _RUN = (Cadence.PER_RECORD, Cadence.PER_SUBSTEP)
 
 _TOKENS = {name: claim(name) for name in LAW_NAMES}
@@ -53,8 +53,7 @@ check_laws(DEFAULT_LAWS)
 
 
 def _group(laws: Sequence[Law], cadence: Cadence) -> tuple[Law, ...]:
-    if laws is not DEFAULT_LAWS:  # the default tuple was checked once, at import
-        check_laws(laws)
+    check_laws(laws)  # every tuple alike, the default too: no identity special case (PR 3 review, Architecture N5)
     return tuple(law for law in laws if law.cadence is cadence)
 
 
@@ -102,11 +101,13 @@ def run_physics(
     grid: MaterialGrid,
     seconds: float,
     *,
-    min_substeps: int,
+    refine: int,
     power: Callable[[], Field | None],
     laws: Sequence[Law] = DEFAULT_LAWS,
 ) -> int:
-    """Advance the per-substep laws by ``seconds``, inside the window, and move time. Returns the substeps taken.
+    """Advance the per-substep laws by ``seconds`` as one fixed physics step (sim_core.md §8; ``refine`` is
+    ``SimConfig.substep_refine``), inside the window. Returns the substeps taken. It moves no clock: the caller
+    that owns the interval moves time, in whole microseconds (sim_core.md §3).
 
     ``power()`` is the sources' power per cell, recomputed on the first substep and after one whose batches edited
     the world (a destroyed cell is air, and a fire heats solids), when the stability bound, the tuple's tightest, is
@@ -128,9 +129,7 @@ def run_physics(
             run_law(grid, law, dt, inputs)
         return grid.topology_version != before  # an edit moves the stability bound and where sources deposit
 
-    taken = substep_loop(seconds, min_substeps, bound, once)
-    grid.time_s += seconds
-    return taken
+    return substep_loop(seconds, refine, bound, once)
 
 
 def strike(grid: MaterialGrid, point_m: Point, energy_j: float, sigma_m: float) -> LoadEffect:
