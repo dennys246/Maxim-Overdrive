@@ -44,9 +44,9 @@ How the rule is kept, so far:
   cooler at 0.2 m cells than at 0.05 m, and the crate burned at one rig and not another.
 - SEM sensors are **reductions over cells** (mean integrity, mean and max temperature). Means converge with
   resolution; a max doesn't have to (`temperature_max` mid-burn differs across rigs, see Known gaps), so decisions
-  are taken on means or integrals, as the "reconstruct, decide, integrate" rule in CLAUDE.md requires.
-- Thin features must be at least two of the coarsest rig's cells thick, or one cell becomes the whole feature and a
-  scratch becomes a breach.
+  are taken on means or integrals, as the "reconstruct, decide, integrate" rule (`docs/design/world_model.md` §3)
+  requires.
+- Thin features: the rule and its fuel-object exemption are `docs/design/world_model.md` §1.1's.
 
 **Known gaps (tracked, not gated yet):**
 - NPC inference (no streaming yet, load versus failure, first hops, spend): `docs/design/inference_placement.md` §6.3.
@@ -104,12 +104,13 @@ How the rule is kept, so far:
 - **A destroyed region still claims its space,** for strikes and for imagined objects alike (`spec.place` refuses
   a new object inside a burnt-out crate's old box). A crate burned to nothing still owns its authored box: a strike there
   is "on the crate", and `ignite` puts the fire into air. "Gone" only means a later paint took every cell. Ownership per cell (the region id array planned
-  for design v2) removes it.
+  for design v2) removes it. Decided by the flames design (after R0–R1); `docs/design/world_model.md` §5
+  disagrees.
 - **Overlap is judged on bounding boxes, and it has an authoring cost.** Named solids may not overlap a later solid
   (`scene._check_no_solid_overlaps`, and `imagination.place` for imagined objects), and a cylinder's box corners
   count as its own, so two barrels close together can be refused although they don't touch. A solid window, sign or
   vent inside a named wall is refused too, so such a wall must be split into pieces or left unnamed. Per-cell
-  ownership (design v2's region id array) removes both.
+  ownership (design v2's region id array) removes both. Decided by the flames design (after R0–R1).
 - **A region carved hollow keeps its authored centroid.** Air may carve into a named solid (a doorway), but the
   solid's footprint and centroid stay those of the authored box. With a doorway through a wall's middle, the
   centroid is in air: `ignite` puts the fire in the doorway, where it heats only air, and an aimless strike lands
@@ -120,7 +121,7 @@ How the rule is kept, so far:
 - **Whether an imagined object fits in the world can depend on the rig.** `imagination.place` refuses an object
   "smaller than one cell at this resolution" when it covers no cell centre, which can happen at the coarse rig and
   not at a finer one. Its size and mass budgets are rig-independent; this check
-  isn't. The thin-features rule (two coarse cells) as a minimum authored size
+  isn't. The thin-features rule (`docs/design/world_model.md` §1.1) as a minimum authored size
   would remove it.
 - **A region's temperature reading can leave its declared range.** `RegionInstrument` declares
   `temperature_max` as [-273, 6000] °C, but the fuel gap lets legal fires drive cells far past that (about 4×10⁵ °C
@@ -139,10 +140,10 @@ How the rule is kept, so far:
 generation, affordance gating and prompt formatting work on the environment unchanged. The environment has no drives,
 pain or learning: it is SEM without embodiment.
 
-**The modulator is a trust boundary.** An NPC's tool call, an LLM's output and a client's intent all reach the
-world through it, so it works in two stages. `parse_action` turns the untrusted `(affordance, params)` into a frozen
-`Strike`, `Ignite` or `Extinguish` inside the world's `ActionLimits` (`data/world/actions.yaml`), reading nothing from
-the world, so the protocol layer can run it first. The applier re-checks the action against the
+**The modulator is a trust boundary.** An NPC's tool call reaches the world through it; every gate is listed in
+`docs/design/boundaries.md` §5.3. It works in two stages. `parse_action` turns the untrusted `(affordance, params)`
+into a frozen `Strike`, `Ignite` or `Extinguish` inside the world's `ActionLimits` (`data/world/actions.yaml`),
+reading nothing from the world, so the protocol layer can run it first. The applier re-checks the action against the
 limits, then checks what depends on the world now (the region still has cells, a strike's point is on the region, judged
 from authored footprints in metres so the answer is the same at every spacing). A region is its cells plus its authored
 footprint; named solids can't share space with a later solid, so a footprint never covers another object's cells.
@@ -168,29 +169,29 @@ The client and server talk over one WebSocket. Snapshots go as binary messages (
 arrays), and intents go as JSON text messages. The protocol is defined apart from the transport, so swapping the
 transport later means replacing one adapter on each side, not the message format or its tests.
 
-**Why not a raw TCP socket.** At 5 bytes per cell, a 16×10×4 m tile is about 0.4 MB at 0.2 m cells, 3.2 MB at
-0.1 m and 26 MB at 0.05 m. On localhost either transport moves that in tens of milliseconds, far less than a turn of
-physics. WebSocket frames each message for us (raw TCP means hand-written length-prefix reassembly in GDScript),
-is inspectable with `websocat`, is built into Godot 4 (`WebSocketPeer`), and alone suits a web export or `wss://`.
+**Why not a raw TCP socket.** A frame's size is `docs/design/client_rendering.md` §4.2's (bytes per cell × cells).
+On localhost either transport moves it in tens of milliseconds, far less than a turn of physics. WebSocket frames
+each message for us (raw TCP means hand-written length-prefix reassembly in GDScript), is inspectable with
+`websocat`, is built into Godot 4 (`WebSocketPeer`), and alone suits a web export or `wss://`.
 
 **What it costs, and what we do about it:**
 - *Any web page can open `ws://localhost`.* Browsers allow cross-origin WebSockets, which a raw socket would not.
-  The server binds to `127.0.0.1` only, refuses any handshake that carries an `Origin` header (browsers always send
-  one; Godot's native `WebSocketPeer` sends none unless told to, to be confirmed in step 2), and requires a
-  per-launch token. Each refusal has a test (`docs/standards_backlog.md` B14). A web export would send its page's
-  `Origin`, so supporting one would mean an Origin allow-list, which is a protocol change made deliberately, not a
-  relaxed check.
+  The handshake (`docs/design/boundaries.md` §5.3) refuses what a browser sends: browsers always send an `Origin`
+  header, and Godot's native `WebSocketPeer` sends none unless told to (to be confirmed in step 2). Each refusal has
+  a test (`docs/standards_backlog.md` B14). A web export would send its page's `Origin`, so supporting one would
+  mean an Origin allow-list, which is a protocol change made deliberately, not a relaxed check.
 - *Head-of-line blocking.* WebSocket runs over TCP, so a large snapshot delays any small message queued behind it.
-  That is harmless for a turn-based game. Continuous streaming would need delta snapshots or chunking.
-- *Whole messages are buffered.* Both ends must raise their default caps (Godot's `inbound_buffer_size` is 64 KiB;
-  Python `websockets`' `max_size` is 1 MiB). Multi-tile worlds at 0.05 m would need deltas, as any transport would.
+  `docs/design/client_rendering.md` §4.3 bounds the wait. Continuous streaming would need delta snapshots or
+  chunking.
+- *Whole messages are buffered.* Each end's cap is `docs/design/client_rendering.md` §4.3's. Multi-tile worlds at
+  0.05 m would need deltas, as any transport would.
 - *Not for real-time internet play.* Fast multiplayer would want UDP (Godot's ENet). Out of scope.
 - *The faster local option is shared memory, not raw TCP.* Godot needs a GDExtension for it. A Phase 2 "Scale"
   item only if profiling asks for it.
 
-The snapshot header reserves a compression field from v0, plus each array's uncompressed byte size, which Godot's
-`PackedByteArray.decompress(buffer_size, FileAccess.COMPRESSION_ZSTD)` needs. Most cells are air, so zstd should
-shrink snapshots by 10× or more.
+The frame header (`docs/design/client_rendering.md` §4.1) reserves compression and gives each array's uncompressed
+size, which Godot's `PackedByteArray.decompress(buffer_size, FileAccess.COMPRESSION_ZSTD)` needs. Most cells are air,
+so zstd should shrink snapshots by 10× or more.
 
 ## Imagination: specs, not assets
 
@@ -211,4 +212,4 @@ Image-model assets (textures, portraits) can be added later as cached decoration
 
 ## Licensing
 
-Code: Apache-2.0 (`LICENSE`). Story, characters, lore, art and audio: all rights reserved (`ASSETS_LICENSE.md`).
+The licences are `docs/design/boundaries.md` §8.2's.

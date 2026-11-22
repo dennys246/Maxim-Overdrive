@@ -25,8 +25,13 @@ SOURCES = {
     "docs/roadmap.md": "| OD-A1 | decay |\n\n## Open questions\n\n- Turn length?\n- Copyright?\n",
     "docs/design/tile_and_client.md": "| T1 | camera |\n\n## 9. Open questions\n\n1. Tick?\n\n## 10. Not\n",
     "docs/design/client_rendering.md": "| T2 | moves |\n\n## 10. Open questions for the owner\n\n1. Renderer?\n",
+    "docs/design/decisions/boundaries.md": "| O3 | substrate | owner, 2026-11-16 | — | live |\n",
+    "docs/design/decisions/npcs_and_sem.md": "| O12 | speed | owner, 2026-11-16 | §4.2 | live |\n",
+    "docs/design/decisions/world_model.md": "| D21 | resolution | owner, 2026-11-16 | — | live |\n",
+    "docs/design/decisions/tile_and_client.md": "| T3 | tick | owner, 2026-11-18 | §6.1 | live |\n",
+    "docs/design/decisions/client_rendering.md": "| T8 | renderer | owner, 2026-11-18 | §7.4 | live |\n",
 }
-PLAN = """O1, O11a, D20, T1, T2 and OD-A1.
+PLAN = """O1, O3, O11a, O12, D20, D21, T1, T2, T3, T8 and OD-A1.
 
 ### Open: boundaries §12
 1. Name.
@@ -67,10 +72,15 @@ def test_a_complete_plan_passes(repo: Path, capsys: pytest.CaptureFixture[str]) 
     ("drop", "complaint"),
     [
         ("O1, ", "O1 is in the sources"),
+        ("O3, ", "O3 is in the sources"),
+        ("O12, ", "O12 is in the sources"),
+        ("D21, ", "D21 is in the sources"),
+        ("T3, ", "T3 is in the sources"),
+        ("T8 and", "T8 is in the sources"),
         ("O11a, ", "O11a is in the sources"),
         ("D20, ", "D20 is in the sources"),
         ("T1, ", "T1 is in the sources"),
-        ("T2 and", "T2 is in the sources"),
+        ("T2, ", "T2 is in the sources"),
         ("### Open: tile §9\n1. Tick.\n", "tile §9 question 1"),
         ("### Open: client §10\n1. Renderer.\n", "client §10 question 1"),
         (" and OD-A1", "OD-A1 is in the sources"),
@@ -120,3 +130,12 @@ def test_a_section_ends_at_the_next_heading_of_its_level() -> None:
 
 def test_the_real_plan_passes() -> None:
     assert check.findings() == []
+
+
+def test_the_required_ids_never_shrink() -> None:
+    """A decision table that moves, or a source dropped, must not quietly stop the plan from being held to its ids."""
+    recorded = (ROOT / "tests/fixtures/check_plan/required_ids.txt").read_text().splitlines()
+    floor = {line for line in recorded if line and not line.startswith("#")}
+    sources = {s: (ROOT / s).read_text() for s in check.ID_SOURCES}
+    required = {f.split()[0] for f in check.missing_ids("", sources)}
+    assert floor - required == set()

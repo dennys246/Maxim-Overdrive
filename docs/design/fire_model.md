@@ -51,7 +51,7 @@ runs unchecked for slivers).
 | **Cell** (dense) | as today | structural owner material, region, temperature, integrity |
 | **Fuel object** | persisted object id (u32), sorted | recipe (by name), region id, geometry in metres (`rod`: a cylinder with any axis; `slab`; `bed`: an authored porous box with φ and σ), component inventories in kg |
 | **Segment** | (object id, segment index), sorted | a piece of the object's surface of fixed size in metres per recipe class (along the object's length or area, never by cell). It holds two **parts**, ignited and unignited, each with its own 1D in-depth profile, plus the front position between them (§3.2) |
-| **Coupling row** | (cell index, object id, segment), sorted, CSR | the overlap weights of a segment in the cells it touches, recomputed in the topology batch |
+| **Coupling row** | `fire_solid.md` §1.1's `contact` table | the coupling is `fire_solid.md` §1.1 and §3.1's |
 
 - **Any number of objects per cell.** A 0.2 m cell can hold the crate's bed, its cardboard, a stick and the starter.
   Capacity never depends on dx.
@@ -64,16 +64,9 @@ runs unchecked for slivers).
 - **Occupancy** becomes `solid | holds_fuel` (from the coupling rows). Each consumer switches, with a test:
   `applier._check_region`, `StructureModulator.__init__`, `region_parts`, `snapshot`'s `× solid` masks,
   `imagination`'s overlap rule and `kindle`'s target derivation (§5.4).
-- **Region membership** is cells ∪ objects (each object carries its region id).
-- **Heat between an object and the grid** happens only through the coupling rows:
-  - convection h(T_s − T_cell) with each overlapped cell, by overlap weight;
-  - contact conduction into any solid cell the object touches (the crate on the concrete floor), which keeps the
-    floor-damage control V_floor meaningful;
-  - radiation to the surroundings, at the overlapped cells' temperature for an exposed segment, or by exchange with
-    other segments (§3.3).
-
-  This is where dx enters, so the cross-grid tests are aimed at it (§6.1). A segment's convective and contact power
-  is deposited into cells by overlap weight, and the ledger books it on both sides.
+- **Region membership** is `fire_solid.md` §1.3's.
+- **Heat between an object and the grid** is `fire_solid.md` §1.1 and §3.1's. This is where dx enters, so the
+  cross-grid tests are aimed at it (§6.1).
 - **Cells keep one temperature.** An air cell holding a burning stick reads the air; the stick's temperature lives
   on its segments, which glow, SEM and the client read (§9.2).
 
@@ -102,15 +95,14 @@ stays in Phase 2 (D26); the loader's atom and energy closure checks run anyway (
 Each segment's ignited and unignited parts carry a 1D profile in depth, with nodes sized in millimetres per recipe
 and allocated from authoring, so preheating before ignition is kept (DP-S7). Each profile has:
 - finite-slab conduction with the object's own back boundary (a rod's centre line; a slab's far face);
-- pyrolysis at an intrinsic L_g, leaving char at χ;
+- pyrolysis by `fire_solid.md` §4.2's rate law, leaving char at χ;
 - a char layer with ρ_c, c_c and k_c(T);
 - a surface balance: absorbed flux = εσ(T_s⁴ − T_env⁴) + h(T_s − T_env) + conduction inward (+ char oxidation when
   not under flame).
 
-**The rate law is R0's choice, graded on fit and cost.** The choice is between a threshold (pyrolysis at T_p with
-L_g, exactly zero below T_p) and one-step Arrhenius with a written cutoff below which the rate is exactly zero.
-Without that cutoff, Arrhenius removes 18 ulp per step even at 20 °C, so no fuel could ever sleep (DP-S1). FDS's
-`REFERENCE_TEMPERATURE` derives Arrhenius A and E; it is not precedent for a threshold law (Executor S12, M).
+**The rate law is `fire_solid.md` §4.2's.** Without a written cutoff, Arrhenius removes 18 ulp per step even at 20 °C, so no fuel could ever
+sleep (DP-S1). FDS's `REFERENCE_TEMPERATURE` derives Arrhenius A and E; it is not precedent for a threshold law
+(Executor S12, M).
 
 ### 3.2 Ignition, the front and the pilot
 
@@ -197,8 +189,8 @@ in Phase 1.
 
 ### 5.1 The split
 
-The world computes the stimulus at the receptor. Maxim transduces it (L6b §3). The world also owns tissue: skin
-conduction and damage are physics of the body's matter (Bio S4).
+The split and its leak tests are `sem_stimuli.md` §1's. The world also owns tissue: skin conduction and damage are
+physics of the body's matter (Bio S4).
 
 | Quantity | World | Maxim |
 |---|---|---|
@@ -207,24 +199,19 @@ conduction and damage are physics of the body's matter (Bio S4).
 | Airway, smell, sound | concentrations and transients at the receptor (Phase 2) | chemical, olfactory and auditory receptors |
 | Sight | luminance, angular size and flicker of **whatever is in view**, after line of sight: a lamp excites it too | the percept |
 
-Two leak tests:
-1. Could an instrument at that spot measure it with no nervous system? Then it is the world's.
-2. Is it transduction (a threshold, gain, adaptation, latency)? Then it is the receptor's.
-
-Tissue properties (skin k, ρc, Henriques constants) are world physics. Core temperature has one owner: world-written
-with `drift_rate: 0`, or Maxim-drifted.
+Tissue properties (skin k, ρc, Henriques constants) are world physics. Core temperature is `sem_stimuli.md` §3.1's.
 
 **Body shape.** On Maxim's humanoid bodies `health` is derived: `world_set_axis` can't write it, and a direct
 `health` sensor is refused (Bio S1, `base_humanoid.yaml`, `spec.py` C5). So per-part burns need `world_set_axis` for
-sub-sensors (OD-C10, world_v2 P4), or a flat body with that divergence named. Until GL2b, an NPC learns fire only
-from injury, never from the pain that comes first.
+sub-sensors (`sem_stimuli.md` §4.4; world_v2 P4), or a flat body with that divergence named. Until GL2b, an NPC
+learns fire only from injury, never from the pain that comes first.
 
 **Divergences (Maxim's intents):**
-- the root-sensor skin stopgap: **ANALOG**;
-- generic in-view luminance: **ANALOG**, a stand-in for vision until OD-C8;
+- the root-sensor skin stopgap, tagged in `sem_stimuli.md` §3.3;
+- generic in-view luminance, a stand-in for vision until OD-C8, tagged in `sem_stimuli.md` §2.2;
 - credit for `kindle`'s delayed ignition: **OPEN** until OD-A16;
-- the fractions (burning, charred, soaked, melting) stay **lab instruments** until a percept channel exists
-  (OD-C8). They never reach an NPC through a region instrument.
+- the fractions (burning, charred, soaked, melting) stay **lab instruments** (`boundaries.md` §4.4) until a percept
+  channel exists (OD-C8).
 
 ### 5.2 Why radiation matters to the agents
 
@@ -253,7 +240,7 @@ zero.
 - **The bridge gets two builders.**
   - The **NPC builder** exposes no `ignite`, `extinguish`, `strike(energy_j)` or `RegionInstrument`. A golden test
     pins its tool surface, and `strike` becomes a body act with a held thing.
-  - The **lab builder** lives in tests only.
+  - The **lab builder** lives in tests only (`boundaries.md` §4.4).
   - `ignite` and `extinguish` leave `parse_action`, and a test refuses both through `execute`.
 - **A fruitless act succeeds as an act.** `requires` names only sensors the body exposes (holding, reach), never an
   outcome. Fire acts carry no `target_effect` or `self_effect`, and a test refuses one that does.
@@ -287,8 +274,8 @@ heat path into the body.
 
 | Rung | Setup | Graded against | Pass |
 |---|---|---|---|
-| **R0 ignition** | one slab under fixed flux; PMMA, then white pine | MaCFP-2 PMMA (t_ig lab means 76–148 s at 25 kW/m², the 76 s lab flagged; 12–29 s at 65); MaCFP-4 pine (25–75 kW/m²) | fit at 30 and 60 kW/m², grade t_ig at 25, 50 and 75 inside the envelope; PMMA fitted at 25, graded at 65, and the reverse; thick and thin closed forms; the rate-law choice (§3.1) |
-| **R1 burning** | that slab burning, then the heater removed | MaCFP-4 pine at 30–60 kW/m² (first peak 161–235 kW/m² at 50, 4 labs), backing specified | first peak, plateau and second peak in the envelope on held-out fluxes; sustained at 25 kW/m², as MaCFP-4 measures (about 3.8 g/m²s); no sustained flaming once the heater is removed. The apparent L_g (about 15 kJ/g, D) is reported, not graded |
+| **R0 ignition** | one slab under fixed flux; PMMA, then white pine | `fire_solid.md` §4.5–§4.6 | `fire_solid.md` §4.5–§4.6 |
+| **R1 burning** | that slab burning, then the heater removed | `fire_solid.md` §4.5–§4.6 | `fire_solid.md` §4.5–§4.6 |
 | **R2a opposed spread** | PMMA lit at one edge, downward | a measured downward-spread dataset for cold PMMA, to find (Fernandez-Pello and Williams, of order 0.05 mm/s, M) | the front advances at the measured rate within its scatter; same class and time tolerance across grids |
 | **R2b upward spread** | a base-lit vertical PMMA slab | a measured upward-spread dataset (FDS-validated PMMA panels, or Leventon), to name before pre-registration | pyrolysis-front position against time and its acceleration, which the correlations don't fix |
 | **R2.5 flame object** (verification) | prescribed Q; receivers at distances; the base offset by dx/3 and 2dx/3 | analytic view factors | a closed shell of receivers absorbs χ_r·Q to round-off, with reciprocity per patch, and goes red when one cylinder face is deleted; absorbed power within a gated error on every grid; counted as a unit test, not physics |
@@ -307,6 +294,8 @@ LIFT's plywood speeds (V7 6) and Jiang's unverified timings (V7 5) are not used 
 - deterministic work counters (§8.3).
 
 ## 7. The Phase 1 exit
+
+Phase 1's exit is the roadmap's (`docs/roadmap.md`, Phase 1, "Exit"). This scenario is the crate's, Phase 2.
 
 **The player lights a built fire.** The scene authors a wax-and-sawdust starter under three or four sticks leaned
 on a crate packed with cardboard; the player kindles the starter with the torch.
@@ -381,17 +370,9 @@ on a crate packed with cardboard; the player kindles the starter with the torch.
 
 ### 9.1 The material data, split by owner
 
-| Part | Owner, file | Holds |
-|---|---|---|
-| Structural materials | engine, `data/materials/core.yaml` v1 | today's concrete, steel, glass, drywall and wood cells with their fields; u8 ids stable |
-| Chemistry | engine, `data/materials/chemistry.yaml` | species and components keyed **by name** with stable integer ids (world_model F8); every reacting component has a formula or elemental mass fractions; reactions; transitions |
-| Recipes | game content | components, void fraction, bulk density, admitted geometry kinds and ranges |
-| Variants | read by `imagination` | the only knobs an imagined object may set, per recipe, bounded and cited |
+The files, their versions, loaders and split are `fire_solid.md` §5.1's, and the landing order its §0's.
 
 - **Validation materials** (PMMA, birch, TN 2102's pine) are test fixtures.
-- **v0 fixtures** migrate through a registered `materials_v0_to_v1`.
-- **Landing order.** Material data v1 and the object tables land before step 5's first log writer, so no replay
-  golden is recorded on v0.
 
 **The loader refuses**, each with a test, and every refusal raises the gate's one exception type (a `LinAlgError`
 from the Hess solve is caught and re-raised):
@@ -416,15 +397,8 @@ from the Hess solve is caught and re-raised):
   - `burning`, the ignited area fraction.
 
   Godot decoder fixtures accompany both. These enter the protocol v0 grammar before step 7 freezes it.
-- **Save and digest** carry everything that is state:
-  - object and segment rows with their profiles and node counts (budget checked before allocation, F14);
-  - inventories, front positions and latches;
-  - the held radiation field;
-  - cap and retirement counters;
-  - a recipe name map;
-  - the material-data hash in the header (refuse or migrate).
-
-  Flames are derived, with a `derivation_version` (F15).
+- **Save and digest** are `fire_solid.md` §5.5's and §5.4's; where it is silent, they also carry latches, the held
+  radiation field and the cap and retirement counters. Flames are derived, with a `derivation_version` (F15).
 - **The imagined-object spec is versioned (v1).** It names a recipe, a geometry kind the recipe admits, metric
   geometry within the recipe's ranges, and closed variant keys. Out of range is refused, never clamped.
   - **Budgets before allocation:** objects, segments, nodes and surface area per spec.
@@ -435,7 +409,7 @@ from the Hess solve is caught and re-raised):
   evaporation; the flame partition (§4.2), each term on both sides; the coupling exchange; open-air loss (6a); the
   fines transfer; radiation dropped by any cutoff.
 
-  Tile §5.4's `Δ(skins)` and `flame_radiative.unreceived` are replaced.
+  Tile §5.4's `Δ(skins)` stays, as `fire_solid.md` §5.4 says. Its `flame_radiative.unreceived` is replaced.
 
 ## 10. Scope and revisions
 
@@ -445,7 +419,7 @@ from the Hess solve is caught and re-raised):
 |---|---|
 | world_model §5 (one material per cell), §8 (the (cell, face) table, the save), §0/§4 (the planned per-cell latent state) | fuel objects and segments beside one structural owner per cell; phase-split inventories |
 | world_model D23, D26, D29, D30 | laws 6b–6d replaced; pyrolysis and fusion enter Phase 1; the lab returns as the ladder's rigs; 6a kept |
-| CLAUDE.md thin-features rule; `architecture.md` "How the rule is kept"; `code_review.md`'s Physics question; the imagination Known gap | the rule holds for resolved cells; fuel objects are exempt only as `rod`, `slab` or `bed` recipes of fuel, never structure (a plank wall stays cells) |
+| CLAUDE.md thin-features rule; `architecture.md` "How the rule is kept"; `code_review.md`'s Physics question; the imagination Known gap | `world_model.md` §1.1's exemption (docs-contracts ruling 72) |
 | tile T4 (`kindle`'s deposit and 0.2 m radius), T5 (one lumped body), T13 (no more paper rounds), T14 (radiation by point source to bodies only), T17 (accelerant ignition) | §5.4, §5.1, this note, §4.4, §7 |
 | tile §5.1–§5.4 (q''_f, T_p, L_g, the ledger lines) | §3, §4.2, §9.2 |
 | tile §5.3's pre-registered failure path | it fired (the three spikes); this design and §11 are its ruling, not a rescue |
@@ -473,11 +447,7 @@ from the Hess solve is caught and re-raised):
 
 ## 11. Decisions
 
-**Ruled (owner, 2026-11-20):**
-1. **Cost model:** one flame per cluster with analytic view factors and coarse occlusion, plus multi-rate radiation
-   on a fixed schedule; honest dilation is the fallback.
-2. **Cross-grid grading keeps tile §6.3's tolerances.**
-3. **Step 6 becomes the ladder,** with a time-box on R0–R2.5 and the fallback exit.
+Items 1–3 were ruled (owner, 2026-11-20) and are kept in `decisions/fire_model.md`.
 
 **Open, recommended as written:**
 
@@ -499,6 +469,7 @@ from the Hess solve is caught and re-raised):
 | MP-5 | is world_v2 P4 / OD-C10: `world_set_axis` for sub-sensors; a prerequisite of per-part burns |
 | MP-4 | is world_v2 P3 / OD-A16: delayed credit |
 | MP-3, MP-6 | the proximity plan's amendment and receptor adaptation, later (L6b §5) |
+
 
 ## 12. Open questions and risks
 

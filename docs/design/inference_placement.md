@@ -28,19 +28,7 @@ means a round's reader or the author read the line there. The locked release is 
 
 ## 0. Decisions (owner, 2026-11-21)
 
-| # | Decision | Where |
-|---|---|---|
-| O46 | **The host's thinking lane owns placement.** It decides which model serves each request, by function, consent, health, capacity and budget. Maxim's `LLMRouter` is not built on the NPC path, and Maxim's backends are the transports. This argues against Maxim's rule that placement "rides on `LLMRouter`" (§1.2); the pushback is OD-A24. | §1, §2 |
-| O47 | **The calls run in host-owned inference gateway processes, not in the world server.** O13's "the LLM gateway stays in the host" reads as host-side. | IG §2 |
-| O48 | **Each function is pinned to its first eligible placement by default; `spill` is an opt-in per function. Load never moves a pinned function (§2.7).** | §2.4, §2.7 |
-| O49 | **A model on another of the player's machines counts as remote under O18.** | IG §6 |
-| O50 | **No streaming until Maxim's backends can stream to their caller.** The gateway calls with `stream=False`, and the first word arrives with the whole reply (§6.3). | IG §3, §6.3 |
-| O51 | **Consent is per speaker and outlives the session.** Taint covers every guest-supplied string, by any channel. | IG §6 |
-| O52 | **O46 goes to Maxim as a pushback** (OD-A24). | §9 |
-| O53 | **One gateway process per placement.** | IG §2 |
-| O54 | **Either the speaker or the save's owner may purge a speaker's words; only the speaker may release them to a remote class.** | IG §6 |
-| O55 | **A speaker is the guest's persistent identity, not a session:** a key the guest's client keeps, proven at the handshake, so consent, purge and release follow the person across sessions. | IG §6 |
-| — | Kept by the owner: an `owner_lan` endpoint must have a private, link-local or CGNAT address, and `http://` to one needs `cleartext: true` (IG §7). Load failures wait on the same placement (§2.7). Cache pairing covers only the shared prefix (§4.2). | |
+This document's decisions (11 rulings) are kept as records, with their dates, owner sections and status, in `decisions/inference_placement.md`.
 
 ## 1. What Maxim offers, and what this pushes against
 
@@ -101,6 +89,8 @@ decision.
     and `_complete_text` takes no function. So the field is a new ask (OD-A14).
   - Until it lands, the test double's functions stand in.
   - The vocabulary is closed, the table must cover every function, and the loader refuses one it doesn't.
+- **Model requests carry a deadline, not a priority.** The host stamps the deadline from the request's kind, outside
+  the cache key (§4.2).
 - **A function keeps its spec's restriction on degrading.** Each function declares its tier, and each placement
   declares the tier of its model. A function whose spec has an empty fallback (`agent_inference`: "never degrade",
   `function_router.py:57-58`) may list only placements of its own tier, and the loader checks this.
@@ -224,9 +214,11 @@ The gateway classifies each backend result (IG §5), and the lane decides what i
   `prefix` is always what was delivered.
 
   Text beyond the delivered speech never reaches cognition (TB3-S5).
+<!-- contract: thought_failed.reasons: budget timeout parse reloaded unavailable model_error refused context_overflow | not: thought_failed call_timeout -->
 - **One closed list of `thought_failed` reasons**, owned here: `budget`, `timeout`, `parse`, `reloaded`, `unavailable`,
   `model_error`, `refused`, `context_overflow`. `call_timeout` is an attempt outcome, not a reason. A thought's tier
   is decided by its final outcome only: attempts that a later attempt recovered flag nothing.
+<!-- contract: truncated.reasons: validation length transport | not: truncated npcs_and_sem.md `truncated(prefix, reason=transport)` -->
 - **One closed list of `truncated` reasons**, owned here:
   - `validation` (the guest-text gate, `npcs_and_sem.md` §6.6);
   - `length`;
@@ -234,7 +226,8 @@ The gateway classifies each backend result (IG §5), and the lane decides what i
     `truncated(prefix, reason=transport)` and is never retried.
 - **Retries** run under every latency policy, bounded by the liveness ceiling, as new attempts. This replaces
   `npcs_and_sem.md` §1's "a timeout retries". Request-attributed outcomes never retry. Outcome names are
-  lane-internal; receipt kinds (`tile_and_client.md` §3.3) are a separate vocabulary.
+  lane-internal; receipt kinds (`sem_stimuli.md` §6.2 for agents, `tile_and_client.md` §3.3 on the wire) are a separate
+  vocabulary.
 
 ### 2.7 Health **[now]; the law is swappable**
 
@@ -289,7 +282,8 @@ because without it the next request depends on thread timing.
   - the prompt-template and pymaxim versions;
   - an assertion that `tools is None`.
 - **Occurrences** are keyed `(content hash, occurrence index)`. The index is assigned when the request is created, in
-  canonical order by thought request id (`npcs_and_sem.md` §6.6), whether or not an entry is ever written.
+  canonical order by thought request id (`boundaries.md` §6.1), not execution order, whether or not an entry is ever
+  written, so two NPCs with byte-identical requests can't swap answers on a rerun (DET-S2).
 - **An entry** holds the raw output (the `reply` text), the canonical request and the provenance, for the final
   outcome only. On read, the gate recomputes the hash and refuses a mismatch. Actor, kind, timing and targets are
   recomputed, never read from the entry.
@@ -322,7 +316,7 @@ ends at its first miss, and a paired analysis estimates d_z, with the seed as th
 - **Recorded, reported and never refused, one entry per log segment:** the placement table's digest and each
   segment cache's digest.
 - **The ledger pins** the functions digest and the placement digest per segment. It also pins that every experiment
-  function uses `single`, so an arm that mixes models is a declared arm (`boundaries.md` §8.4).
+  function uses `single`, so an arm that mixes models is a declared arm (`npcs_and_sem.md` §10).
 
 ## 5. (Consent, egress and credentials: `inference_gateway.md` §6–§8)
 
@@ -356,7 +350,7 @@ Owned here, and listed in `docs/architecture.md`'s Known gaps:
   - the vertical slice measured 0.23 s warm on a quiet Mac mini, and 8 s warm (48 s cold) with other processes loading the machine
     to 125–142 (`lessons_maxim_in_games.md` 30, "A local model's latency is the machine's").
 
-  On the loaded figures, a reply passes O11a's account (600–700 ms) and its yield (about 1 s). §4.5's lever 3 is
+  On the loaded figures, a reply passes the account and the yield (`npcs_and_sem.md` §4.4). §4.5's lever 3 is
   unavailable until OD-A25.
 - **Load versus failure (F2).** On the cloud and OpenAI-compatible transports, a hard-down server looks like load
   until OD-I9 (§2.7).

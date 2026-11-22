@@ -1,4 +1,4 @@
-"""Build npcs_and_sem.md's last fold table from the ids in two review rounds' lens files.
+"""Build the last fold table of npcs_and_sem.md, kept in reviews/npcs_v3/fold.md, from two rounds' lens files.
 
 Covers `reviews/maxim_response_1/` (the review of Maxim's answers) and `reviews/npcs_v3/` (the review of v3). It
 refuses, and writes nothing, when:
@@ -17,7 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[4]
 R1 = ROOT / "docs/design/reviews/maxim_response_1"
 R3 = ROOT / "docs/design/reviews/npcs_v3"
-TARGET = ROOT / "docs/design/npcs_and_sem.md"
+TARGET = ROOT / "docs/design/reviews/npcs_v3/fold.md"  # moved out of the design (B36)
 MARKERS = ("\n## Fold table: Maxim's answers and their review", "\n## Fold table: the last two review rounds")
 
 
