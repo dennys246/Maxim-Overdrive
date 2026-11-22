@@ -695,7 +695,8 @@ Code: Apache-2.0 (`LICENSE`). Story, characters, lore, art and audio: all rights
 
 ### 8.3 Presentation (B-6)
 
-Display quantization (`crack`, `glow`, uint8, float16 temperature) moves to `engine.encoding` in the protocol PR.
+Display quantization (`client_rendering.md` §4.2, `client_objects.md` §3) moves to `engine.encoding` in the
+protocol PR.
 The core is forbidden from importing it; `engine.adapters.sem` is too (§2.2).
 
 ### 8.4 Experiments (B-7; S10, BF-9)

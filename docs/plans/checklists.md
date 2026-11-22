@@ -289,6 +289,10 @@ fails.
 6.1) and the later rung designs. The list below is kept as the record of what the tile spec asked; each item is
 answered, replaced or carried by those documents (their §10 and §7 tables).
 
+**Added by D-B2 (owner, 2026-11-22):** the fuel geometry's segment rule, slab face and rod origin are answered
+(`fire_solid.md` §1.1–§1.2). Still open, before step 8's exit scenario: the torch's Phase 1 pilot, how `kindle`
+ignites a slab with no flame object.
+
 - A short design note first, reviewed under the Physics lens, answering the final review (`reviews/tile_v1/
   final_physics.md`): FPH-B1 radiative transfer between slats inside the bed, plus the draught's air-supply loss;
   FPH-B2 the char-surface product (CO or CO₂) from a cited source, never chosen to make glow pass; FPH-B3 ignition
@@ -321,7 +325,12 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
   this PR (TB-B2).
 - `intent_result`, `seq`, `observed_tick` and events' `cause`; the catalogue with non-default-scale fixtures and its hash check on
   every frame (WT-B3, WT-S13).
-- `region` as u16 `region_id`, the `regions` message and `regions_version` (DC-B1); `surface_glow` and `burning`;
+- `region` as u16 `region_id`, the `regions` message and `regions_version` (DC-B1); the fuel tables and fuel view
+  (`client_objects.md` §3, `fire_solid.md` §5.6) with u32 and f32 in v0's dtypes, a cell channel's fixtures at a
+  non-default scale (`client_objects.md` §7.1), the join cap counting fuel, the fuel view's leak test (`Observation`'s
+  members pinned; `adapters.sem` never imports or reads it), the decoder filling `CellSnapshot` with v0's channels and
+  the renderer's provisional `surface_glow` and `burning` reads deleted (B42; glow from `client_objects.md` §5.1's
+  input), and `encoding`'s `glow` key retired with `docs/architecture.md`'s and the roadmap's mentions of it;
   `tick` as JSON with integer columns (DC-S9); events accumulated with a resync (DC-S4); `tile_and_client.md`
   §3.3's message table; `welcome`'s maps; a `snapshot` on join (WT-S6).
 - Decode and stage-1 rejection fixtures; `HostOnly` tested directly with a guest-role view (WT-S9).
@@ -333,6 +342,14 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 ## Step 8, the tile (`tile_and_client.md` §6; `client_rendering.md` §4–§6)
 
 - The game package and its `content/` (AR-S6).
+- The fuel-object pass (`client_objects.md` §4–§7), about one more #31-sized PR: the per-instance row texture with
+  fixture rows past 2,048; the per-fragment segment lookup; the 2 px output floor and anti-aliasing (its owner
+  question 3); picking objects with no snap; Phase 1 flames; §7.2's checks, each proved by deletion; the fuel B5
+  rows; the structural-glow Known gap in `docs/architecture.md`; the fuel fixture's head-on row readout (C S7).
+- Deferred from D-B2's delta round (mechanism, `reviews/client_objects/`): the stability measure's bins, offsets and
+  statistic fixed before measuring (S7); the Burning check run with flames off (S5); the Phase 1 flame pass's
+  instancing path and bound (S8); partial thinning's mechanism and the per-fragment lookup's frame time (N3); the
+  MultiMesh's culling AABB with server-frame transforms (Wire N9); timings reported as median beside minimum (P-N3).
 - The exit script (Phase 1's exit is `docs/roadmap.md`'s, Phase 1, "Exit"), run stepped and unpaced; the controls,
   each proven by deletion (PH-S3); the stage-2 refusal scripts.
 - The shader, the cut-away test at ≥ 95%, five scenario goldens per tier, staleness digests, `update_goldens.sh`

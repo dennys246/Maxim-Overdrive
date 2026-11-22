@@ -53,6 +53,9 @@ How the rule is kept, so far:
 - Late in a burn the coarsest rig lags (crate integrity 0.539 at 0.2 m vs 0.370 and 0.381 at 0.1 and 0.05 m after 150
   turns): a coarse cell degrades as one block. Onset agrees to within 5%. It falls below 0.7 at turn 137 at 0.2 m
   against 104 at 0.1 m (one substep per 6 s turn, 2026-11-22). Red gate: `tests/test_cross_tier.py::test_the_crate_is_badly_burned_at_the_same_turn_at_every_rig`.
+- Structural glow reads the cell-mean temperature, not the face's: a heated face glows late and dim, by up to
+  q·(dx/2)/k in steady state (29 K per kW/m² for concrete at 0.1 m). Face skins would fix it
+  (`docs/design/client_objects.md` §5.1; owner, 2026-11-22).
 - No convection or radiation: air only conducts, so rooms heat too slowly and fires must sit on a material.
 - Destroying a cell removes its heat (it becomes air at air's heat capacity). Measured: a 5.4-minute crate-and-pallet
   burn lost 42.2 of 84.0 MJ to 14 destroyed cells (commit 6e8f037).
@@ -157,8 +160,8 @@ Actions change cells; only `World.advance` moves time.
 
 ## Fine-scale state drives graphics
 
-`encoding.snapshot` quantizes per-cell state into arrays a client uploads as 3-D textures: `material`, `crack`
-(1 − integrity), `glow` (from 525 °C, near the Draper point, to 1500 °C) and `temperature_c`. Shaders read them
+`encoding.snapshot` quantizes per-cell state into arrays a client uploads as 3-D textures, the channels
+`client_rendering.md` §4.2 lists; its interim `glow` channel retires at step 7 (`client_objects.md` §5.1). Shaders read them
 directly, so the finest physical state shows up as cracks, scorch and glowing metal without the renderer knowing
 any physics. The cell size sets the finest detail physics can drive; the client can add sub-cell detail (noise,
 decals) that is purely visual.

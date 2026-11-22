@@ -420,3 +420,18 @@ at the end of each tick and deposits each its integer ticks' share; `tests/test_
 stimulus an NPC can sense (a brief flare's heat) exists in the world at all; the per-tick digest and the save must
 carry the exposure too (PR 4), or a replay from a mid-step save would lose it again. For Maxim: none yet; it is the
 engine's precondition for any stimulus shorter than a physics step reaching the SEM sensors.
+
+### 34. When the world models something below its grid, the renderer and the NPCs' senses both have to follow it, and they become two producers of what the fire looks like (2026-11-21)
+
+**A sub-grid representation (fuel as objects in metres, not cells) breaks every consumer built on cells, and the
+renderer and the stimulus path each have to be rebuilt on it separately.** *Evidence:* the shader branch (#31) drew
+glow and flames from per-cell channels (`surface_glow`, `burning`) after the fire build spec had moved fuel into
+sub-grid objects (B42). The cell raymarch walks straight through fuel sitting in air cells, and a 20 mm stick is
+0.6–2.4 px across the zoom range, so the client needs a second pass of instanced meshes and a pixel floor
+(`docs/design/client_objects.md` §2, §4). Once rebuilt, the presentation path shows the player three cues no stimulus
+row carries: burning brightness from the solid model's ignition latch, char darkening, and a client-drawn Phase 1
+flame. An NPC's sight row reads radiance from surface temperatures only (`sem_stimuli.md` §2.2), so a just-ignited
+stick looks to an NPC like unburnt wood at the same temperature. *Consequence:* for the world, each divergence is
+named where the presentation is built (`client_objects.md` §5.4), so that a perception bar that misses is traced to
+the game's split, not to Maxim. For Maxim there is nothing to ask yet. Whether sight needs an albedo or flame
+channel is the NPC fire note's question, against OD-C8.
