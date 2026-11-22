@@ -50,8 +50,14 @@ def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def read_manifest(base: Path = HERE) -> tuple[dict[str, str], dict[str, str]]:
+def _base(base: Path | None) -> Path:
+    """Where the spike's files are: ``HERE`` unless a test points it at a copy (read at call time, not at import)."""
+    return HERE if base is None else base
+
+
+def read_manifest(base: Path | None = None) -> tuple[dict[str, str], dict[str, str]]:
     """freeze.sha256 as (file hashes by name, weights hashes by model id)."""
+    base = _base(base)
     files: dict[str, str] = {}
     weights: dict[str, str] = {}
     for line in (base / "freeze.sha256").read_text(encoding="utf-8").splitlines():
@@ -65,8 +71,9 @@ def read_manifest(base: Path = HERE) -> tuple[dict[str, str], dict[str, str]]:
     return files, weights
 
 
-def check_frozen(base: Path = HERE) -> dict[str, str]:
+def check_frozen(base: Path | None = None) -> dict[str, str]:
     """The five frozen files' hashes, or FrozenMismatch naming every file that differs from the manifest."""
+    base = _base(base)
     files, _ = read_manifest(base)
     if set(files) != set(FROZEN):
         raise FrozenMismatch(f"freeze.sha256 lists {sorted(files)}, expected {sorted(FROZEN)}")
@@ -76,8 +83,20 @@ def check_frozen(base: Path = HERE) -> dict[str, str]:
     return files
 
 
-def load_arms(base: Path = HERE) -> dict[str, Any]:
-    arms: dict[str, Any] = yaml.safe_load((base / "arms.yaml").read_text(encoding="utf-8"))
+def spike_tree(base: Path | None = None) -> str:
+    """One digest of the spike's own code (every ``*.py`` and ``*.sh`` beside it, by name): a resumed run must be the
+    same code as the run it continues."""
+    base = _base(base)
+    h = hashlib.sha256()
+    for path in sorted([*base.glob("*.py"), *base.glob("*.sh")]):
+        h.update(path.name.encode() + b"\0" + path.read_bytes() + b"\0")
+    return h.hexdigest()
+
+
+def load_arms(base: Path | None = None) -> dict[str, Any]:
+    arms: dict[str, Any] = yaml.safe_load((_base(base) / "arms.yaml").read_text(encoding="utf-8"))
+    if arms["sampling"]["thinking"] is not False:  # arms.yaml's `thinking: off`, which YAML reads as False
+        raise FrozenMismatch(f"arms.yaml's thinking is {arms['sampling']['thinking']!r}; this code sends only off")
     if arms["sampling"]["retry_seed"] != RETRY_SEED:
         raise FrozenMismatch(
             f"arms.yaml's retry_seed is {arms['sampling']['retry_seed']!r}, this code implements {RETRY_SEED!r}"
@@ -85,8 +104,8 @@ def load_arms(base: Path = HERE) -> dict[str, Any]:
     return arms
 
 
-def load_prompts(split: str, base: Path = HERE) -> list[dict[str, Any]]:
-    doc = yaml.safe_load((base / SPLITS[split]).read_text(encoding="utf-8"))
+def load_prompts(split: str, base: Path | None = None) -> list[dict[str, Any]]:
+    doc = yaml.safe_load((_base(base) / SPLITS[split]).read_text(encoding="utf-8"))
     prompts: list[dict[str, Any]] = doc["prompts"]
     return prompts
 

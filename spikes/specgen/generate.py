@@ -9,7 +9,9 @@ The endpoint is given on the command line and never written to any file (its add
 repository root, on the machine that can reach the server:
 
     python spikes/specgen/generate.py --endpoint http://<host>:<port> --model S --arm A3 --split dev \
-        --machine mac-mini-m4pro --out spikes/specgen/runs/S_A3_dev.jsonl
+        --weights-sha256 "$(shasum -a 256 <the gguf> | cut -d' ' -f1)" --machine mini --out runs/S-A3-dev.jsonl
+
+``spikes/specgen/run_window.sh`` runs every cell of one model inside the owner's nightly window.
 """
 
 from __future__ import annotations
@@ -31,7 +33,24 @@ import protocol
 
 from simcore.core.digest import digest
 
-HEADER_KEYS_THAT_MUST_MATCH = ("frozen", "src_tree", "model", "arm", "split", "engine", "scene", "offsets_m")
+# A resumed run must be this run: the same frozen inputs, code, data, lockfile, server and cell.
+HEADER_KEYS_THAT_MUST_MATCH = (
+    "frozen",
+    "src_tree",
+    "spike_tree",
+    "simcore_commit",
+    "data_sha256",
+    "lockfile",
+    "runtime",
+    "model",
+    "arm",
+    "split",
+    "engine",
+    "scene",
+    "offsets_m",
+)
+OVERFLOW_TYPE = "exceed_context_size_error"  # llama-server's error.type for a request past its context (errata E14)
+FROZEN_N_CTX, FROZEN_SLOTS = 16384, 1  # arms.yaml engine.server_flags: -c 16384 --parallel 1 (errata E15)
 
 
 class RunRefused(RuntimeError):
@@ -73,7 +92,7 @@ class Server:
         except urllib.error.HTTPError as exc:
             with exc:  # the error's response holds the connection; close it on every path
                 text = exc.read().decode("utf-8", "replace")
-            if exc.code == 400 and "context" in text.lower():  # arms.yaml::protocol.context_overflow
+            if exc.code == 400 and _error_type(text) == OVERFLOW_TYPE:  # arms.yaml::protocol.context_overflow
                 return Reply("", None, 0, None, None, context_overflow=True)
             raise
         choice = payload["choices"][0]
@@ -86,6 +105,17 @@ class Server:
             usage.get("prompt_tokens"),
             usage.get("completion_tokens"),
         )
+
+
+def _error_type(text: str) -> str | None:
+    """llama-server's ``error.type``, or None when the body isn't its error shape."""
+    try:
+        body = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    err = body.get("error") if isinstance(body, dict) else None
+    kind = err.get("type") if isinstance(err, dict) else None
+    return kind if isinstance(kind, str) else None
 
 
 def compact(value: object) -> str:
@@ -119,7 +149,8 @@ def request_body(arms: Mapping[str, Any], arm: str, messages: list[dict[str, str
     return body
 
 
-def grammar_hash(arms: Mapping[str, Any], arm: str) -> str | None:
+def schema_digest(arms: Mapping[str, Any], arm: str) -> str | None:
+    """The digest of the JSON schema a grammar arm sends (llama.cpp compiles the grammar from it), or None."""
     return digest(arms["schema"]) if arms["arms"][arm]["grammar"] else None
 
 
@@ -194,20 +225,37 @@ def _engine_build(arms: Mapping[str, Any]) -> str:
 
 
 def check_server(props: Mapping[str, Any], arms: Mapping[str, Any], model: str) -> str:
-    """The server's build and model must be the frozen ones; returns its build_info."""
+    """The server must be the frozen one: its build, its model file, and the context and slots arms.yaml's flags set.
+    Returns its build_info. The model path is checked, never recorded: it names a private home directory."""
     build = str(props.get("build_info", ""))
     if build != _engine_build(arms):
         raise RunRefused(f"the server is build {build!r}, arms.yaml freezes {arms['engine']['llama_cpp']!r}")
     wanted = arms["engine"]["models"][model]["file"]
-    if not str(props.get("model_path", "")).endswith(wanted):
-        raise RunRefused(f"the server serves {props.get('model_path')!r}, model {model} is {wanted!r}")
+    if Path(str(props.get("model_path", ""))).name != wanted:
+        raise RunRefused(f"the server serves another model file; model {model} is {wanted!r}")
+    settings = props.get("default_generation_settings")
+    n_ctx = settings.get("n_ctx") if isinstance(settings, dict) else None
+    if n_ctx != FROZEN_N_CTX:
+        raise RunRefused(f"the server's context is {n_ctx!r} tokens; arms.yaml's flags set {FROZEN_N_CTX} (-c)")
+    if props.get("total_slots") != FROZEN_SLOTS:
+        raise RunRefused(f"the server has {props.get('total_slots')!r} slots; arms.yaml's flags set 1 (--parallel)")
     return build
 
 
-def header(arms: Mapping[str, Any], *, model: str, arm: str, split: str, runtime: str, machine: str) -> dict[str, Any]:
-    """Plan §7's run header. The flags keep arms.yaml's placeholder for the host, so they compare byte for byte."""
+def check_weights(measured: str, model: str) -> str:
+    """The SHA-256 measured on the server's machine must be freeze.sha256's; returns it."""
+    _, frozen = protocol.read_manifest()
+    if measured.strip().lower() != frozen[model]:
+        raise RunRefused(f"the measured weights of {model} are {measured!r}; freeze.sha256 has {frozen[model]!r}")
+    return frozen[model]
+
+
+def header(
+    arms: Mapping[str, Any], *, model: str, arm: str, split: str, runtime: str, machine: str, weights: str
+) -> dict[str, Any]:
+    """Plan §7's run header. The flags keep arms.yaml's placeholder for the host, so they compare byte for byte.
+    ``weights`` is the SHA-256 measured on the server's machine and checked against freeze.sha256."""
     frozen = protocol.check_frozen()
-    _, weights = protocol.read_manifest()
     data = protocol.ROOT / "data"
     half = protocol.TRUTH_DX_M / 2
     return {
@@ -215,6 +263,7 @@ def header(arms: Mapping[str, Any], *, model: str, arm: str, split: str, runtime
         "version": 0,
         "simcore_commit": _git("rev-parse", "HEAD"),
         "src_tree": _git("rev-parse", "HEAD:src"),
+        "spike_tree": protocol.spike_tree(),
         "lockfile": _lockfile(),
         "data_sha256": {p: protocol.sha256_file(data / p) for p in ("materials/core.yaml", "world/actions.yaml")},
         "scene": {"extent_m": list(protocol.SCENE_EXTENT_M), "truth_dx_m": protocol.TRUTH_DX_M},
@@ -222,23 +271,43 @@ def header(arms: Mapping[str, Any], *, model: str, arm: str, split: str, runtime
         "frozen": frozen,
         "engine": {"llama_cpp": arms["engine"]["llama_cpp"], "server_flags": arms["engine"]["server_flags"]},
         "runtime": runtime,
-        "model": {"id": model, **arms["engine"]["models"][model], "weights_sha256": weights[model]},
+        "model": {"id": model, **arms["engine"]["models"][model], "weights_sha256": weights, "weights_measured": True},
         "arm": arm,
         "split": split,
         "machine": machine,
     }
 
 
+def repair_tail(out: Path) -> int:
+    """Cut a torn last line, left by a stop mid-write, back to the last newline, so the next record starts on a line
+    of its own. Returns the bytes cut. An empty file stays empty and is treated as new."""
+    if not out.exists():
+        return 0
+    data = out.read_bytes()
+    keep = data.rfind(b"\n") + 1  # 0 when no line was ever finished
+    if keep == len(data):
+        return 0
+    with out.open("r+b") as f:
+        f.truncate(keep)
+    return len(data) - keep
+
+
 def done_samples(out: Path, head: Mapping[str, Any]) -> set[tuple[str, int]]:
     """The (prompt, seed) pairs already in ``out``, after checking its header is this run's."""
-    if not out.exists():
+    if not out.exists() or out.stat().st_size == 0:
         return set()
     lines = out.read_text(encoding="utf-8").splitlines()
-    first = json.loads(lines[0])
+    rows = []
+    for number, line in enumerate(lines, start=1):
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError as exc:
+            raise RunRefused(f"{out} has a malformed line {number}: not a run file this code wrote") from exc
+    first = rows[0]
     for key in HEADER_KEYS_THAT_MUST_MATCH:
         if first.get(key) != head.get(key):
             raise RunRefused(f"{out} belongs to another run: its {key} differs")
-    return {(r["prompt_id"], r["seed"]) for r in map(json.loads, lines[1:]) if r.get("kind") == "sample"}
+    return {(r["prompt_id"], r["seed"]) for r in rows[1:] if r.get("kind") == "sample"}
 
 
 def sample_record(
@@ -253,6 +322,7 @@ def sample_record(
         "kind": "sample",
         "prompt_id": prompt["id"],
         "stratum": prompt["stratum"],
+        "split": head["split"],
         "arm": head["arm"],
         "model": head["model"]["id"],
         "weights_sha256": head["model"]["weights_sha256"],
@@ -260,7 +330,7 @@ def sample_record(
         "machine": head["machine"],
         "sampling": sampling(arms),
         "seed": seed,
-        "grammar_hash": grammar_hash(arms, head["arm"]),
+        "schema_digest": schema_digest(arms, head["arm"]),
         "attempts": attempts,
     }
 
@@ -271,14 +341,20 @@ def run(server: Server, args: argparse.Namespace) -> int:
     if not set(seeds) <= set(arms["sampling"]["seeds"]):
         raise RunRefused(f"seeds {seeds} are not all among arms.yaml's {arms['sampling']['seeds']}")
     runtime = check_server(server.props(), arms, args.model)
-    head = header(arms, model=args.model, arm=args.arm, split=args.split, runtime=runtime, machine=args.machine)
+    weights = check_weights(args.weights_sha256, args.model)
+    head = header(
+        arms, model=args.model, arm=args.arm, split=args.split, runtime=runtime, machine=args.machine, weights=weights
+    )
     out = Path(args.out)
+    cut = repair_tail(out)
+    if cut:
+        print(f"generate: cut a torn last line of {cut} bytes from {out}", file=sys.stderr)
     done = done_samples(out, head)
     prompts = _chosen(protocol.load_prompts(args.split), args.prompt_ids)
     out.parent.mkdir(parents=True, exist_ok=True)
     written = 0
     with out.open("a", encoding="utf-8") as f:
-        if not done and out.stat().st_size == 0:
+        if out.stat().st_size == 0:
             f.write(json.dumps(head) + "\n")
         for prompt in prompts:
             for seed in seeds:
@@ -308,6 +384,12 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap.add_argument("--arm", required=True, choices=("A0", "A1", "A2", "A3"))
     ap.add_argument("--split", required=True, choices=tuple(protocol.SPLITS))
     ap.add_argument("--out", required=True)
+    ap.add_argument(
+        "--weights-sha256",
+        required=True,
+        help="the SHA-256 of the served GGUF, measured on the server's machine (shasum -a 256); checked against"
+        " freeze.sha256",
+    )
     ap.add_argument(
         "--machine",
         default=f"{platform.system()}-{platform.machine()}",

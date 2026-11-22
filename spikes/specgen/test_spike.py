@@ -10,6 +10,7 @@ import json
 import shutil
 import sys
 import threading
+import urllib.error
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -43,14 +44,24 @@ OUTSIDE = spec(  # reaches 450 cm from its origin, past the 4 m world, and weigh
 HEAVY = spec("block", box([0, 0, 0], [100, 100, 100], "concrete"))  # 2,400 kg: over_budget
 THIN = spec("plate", box([0, 0, 0], [100, 100, 1]))  # 1 cm thick at z 0.003-0.013 m: no cell centre, too_small
 
-PROPS = {"build_info": "b10621-c1d0e7a00", "model_path": "/models/Qwen3.5-4B-Q8_0.gguf"}
+# What build 10621 reports with arms.yaml's flags (-c 16384 --parallel 1), checked on the mini.
+PROPS: dict[str, Any] = {
+    "build_info": "b10621-c1d0e7a00",
+    "model_path": "/models/Qwen3.5-4B-Q8_0.gguf",
+    "default_generation_settings": {"n_ctx": 16384, "params": {}},
+    "total_slots": 1,
+}
+S_WEIGHTS = protocol.read_manifest()[1]["S"]
 
 
 class Fake:
     """A fake llama-server: ``reply(body)`` returns (status, payload). Every request body is kept."""
 
-    def __init__(self, reply: Callable[[dict[str, Any]], tuple[int, dict[str, Any]]]) -> None:
+    def __init__(
+        self, reply: Callable[[dict[str, Any]], tuple[int, dict[str, Any]]], props: dict[str, Any] | None = None
+    ) -> None:
         self.reply = reply
+        self.props = PROPS if props is None else props
         self.bodies: list[dict[str, Any]] = []
 
     @contextmanager
@@ -67,7 +78,7 @@ class Fake:
                 self.wfile.write(data)
 
             def do_GET(self) -> None:
-                self._send(200, PROPS)
+                self._send(200, fake.props)
 
             def do_POST(self) -> None:
                 body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
@@ -99,7 +110,7 @@ def by_seed(table: dict[int, tuple[int, dict[str, Any]]]) -> Callable[[dict[str,
     return lambda body: table[body["seed"]]
 
 
-def run_cell(fake: Fake, out: Path, arm: str, seeds: list[int], prompts: list[str]) -> int:
+def run_cell(fake: Fake, out: Path, arm: str, seeds: list[int], prompts: list[str], *, weights: str = S_WEIGHTS) -> int:
     with fake.serve() as url:
         args = generate.parse_args(
             [
@@ -115,6 +126,8 @@ def run_cell(fake: Fake, out: Path, arm: str, seeds: list[int], prompts: list[st
                 str(out),
                 "--machine",
                 "test",
+                "--weights-sha256",
+                weights,
                 "--seeds",
                 *map(str, seeds),
                 "--prompt-ids",
@@ -230,8 +243,14 @@ def test_the_server_must_be_the_frozen_build_and_model() -> None:
     assert generate.check_server(PROPS, arms, "S") == PROPS["build_info"]
     with pytest.raises(generate.RunRefused, match="build"):
         generate.check_server({**PROPS, "build_info": "b9999"}, arms, "S")
-    with pytest.raises(generate.RunRefused):  # a near miss: a substring test once passed this
-        generate.check_server({**PROPS, "build_info": "b106210-c1d0e7a00"}, arms, "S")
+    with pytest.raises(generate.RunRefused, match="build"):  # contains the frozen build: a substring test passes it
+        generate.check_server({**PROPS, "build_info": "b10621-c1d0e7a00-dirty"}, arms, "S")
+    with pytest.raises(generate.RunRefused, match="context"):
+        generate.check_server({**PROPS, "default_generation_settings": {"n_ctx": 8192}}, arms, "S")
+    with pytest.raises(generate.RunRefused, match="context"):
+        generate.check_server({k: v for k, v in PROPS.items() if k != "default_generation_settings"}, arms, "S")
+    with pytest.raises(generate.RunRefused, match="slots"):
+        generate.check_server({**PROPS, "total_slots": 4}, arms, "S")  # what the server reports without --parallel 1
     with pytest.raises(generate.RunRefused, match="serves"):
         generate.check_server(PROPS, arms, "R")
 
@@ -261,6 +280,139 @@ def test_whole_centimetres_become_metres_by_exact_division() -> None:
     assert "intent" not in out
     floats = protocol.convert({"primitives": [{"kind": "box", "min_cm": [0.5, 0, 0]}]}, arms)
     assert floats["primitives"][0] == {"kind": "box", "min_cm": [0.5, 0, 0]}  # not whole: passed as written
+
+
+def test_a_torn_last_line_is_cut_and_the_run_resumes(tmp_path: Path, dev_ids: list[str]) -> None:
+    out = tmp_path / "run.jsonl"
+    run_cell(Fake(lambda body: ok(GOOD)), out, "A1", [0], dev_ids[:1])
+    with out.open("ab") as f:
+        f.write(b'{"kind": "sample", "prompt_id": "f0')  # a stop mid-write
+    again = Fake(lambda body: ok(GOOD))
+    assert run_cell(again, out, "A1", [0, 1], dev_ids[:1]) == 1  # the torn sample is redone with the new one
+    rows = [json.loads(line) for line in out.read_text().splitlines()]  # every line whole
+    assert [r["kind"] for r in rows] == ["header", "sample", "sample"]
+
+
+def test_an_empty_or_header_torn_file_starts_a_new_run(tmp_path: Path, dev_ids: list[str]) -> None:
+    for content in (b"", b'{"kind": "header", "vers'):
+        out = tmp_path / f"run{len(content)}.jsonl"
+        out.write_bytes(content)
+        assert run_cell(Fake(lambda body: ok(GOOD)), out, "A1", [0], dev_ids[:1]) == 1
+        assert [json.loads(line)["kind"] for line in out.read_text().splitlines()] == ["header", "sample"]
+
+
+@pytest.mark.parametrize(
+    ("status", "payload"),
+    [
+        (400, {"error": {"code": 400, "message": "invalid chat template context", "type": "invalid_request_error"}}),
+        (400, {"detail": "context"}),
+        (500, {"error": {"code": 500, "message": "context", "type": "exceed_context_size_error"}}),
+    ],
+)
+def test_only_llama_servers_overflow_error_is_the_class_truncated(
+    tmp_path: Path, dev_ids: list[str], status: int, payload: dict[str, Any]
+) -> None:
+    with pytest.raises(urllib.error.HTTPError):
+        run_cell(Fake(lambda body: (status, payload)), tmp_path / "e.jsonl", "A3", [0], dev_ids[:1])
+
+
+def test_the_run_refuses_weights_that_differ_from_the_manifest(tmp_path: Path, dev_ids: list[str]) -> None:
+    with pytest.raises(generate.RunRefused, match="weights"):
+        run_cell(Fake(lambda body: ok(GOOD)), tmp_path / "w.jsonl", "A1", [0], dev_ids[:1], weights="0" * 64)
+
+
+@pytest.mark.parametrize(
+    ("change", "match"),
+    [
+        ({"build_info": "b10621-c1d0e7a00-dirty"}, "build"),
+        ({"model_path": "/models/Qwen3.5-27B-Q8_0.gguf"}, "model file"),
+        ({"default_generation_settings": {"n_ctx": 4096}}, "context"),
+        ({"total_slots": 4}, "slots"),
+    ],
+)
+def test_the_run_refuses_a_server_that_is_not_the_frozen_one(
+    tmp_path: Path, dev_ids: list[str], change: dict[str, Any], match: str
+) -> None:
+    fake = Fake(lambda body: ok(GOOD), props={**PROPS, **change})
+    with pytest.raises(generate.RunRefused, match=match):
+        run_cell(fake, tmp_path / "p.jsonl", "A1", [0], dev_ids[:1])
+    assert fake.bodies == []  # refused before any request
+
+
+def test_the_run_refuses_a_tree_whose_frozen_files_differ(
+    tmp_path: Path, dev_ids: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    copy = tmp_path / "specgen"
+    shutil.copytree(protocol.HERE, copy, ignore=shutil.ignore_patterns("__pycache__", "runs"))
+    path = copy / "prompts_dev.yaml"
+    path.write_text(path.read_text() + "\n")
+    monkeypatch.setattr(protocol, "HERE", copy)
+    fake = Fake(lambda body: ok(GOOD))
+    with pytest.raises(protocol.FrozenMismatch, match=r"prompts_dev\.yaml"):
+        run_cell(fake, tmp_path / "f.jsonl", "A1", [0], dev_ids[:1])
+    assert fake.bodies == []
+
+
+# Pinned here, not read from generate.py, so cutting a key from the code turns its case red (code round 1, exec S5).
+RESUME_KEYS = (
+    "frozen",
+    "src_tree",
+    "spike_tree",
+    "simcore_commit",
+    "data_sha256",
+    "lockfile",
+    "runtime",
+    "model",
+    "arm",
+    "split",
+    "engine",
+    "scene",
+    "offsets_m",
+)
+
+
+@pytest.mark.parametrize("key", RESUME_KEYS)
+def test_a_resume_refuses_a_header_that_differs_in_any_key(tmp_path: Path, dev_ids: list[str], key: str) -> None:
+    out = tmp_path / "run.jsonl"
+    run_cell(Fake(lambda body: ok(GOOD)), out, "A1", [0], dev_ids[:1])
+    lines = out.read_text().splitlines()
+    head = json.loads(lines[0])
+    assert key in head
+    head[key] = "something else"
+    out.write_text("\n".join([json.dumps(head), *lines[1:]]) + "\n")
+    with pytest.raises(generate.RunRefused, match=key):
+        run_cell(Fake(lambda body: ok(GOOD)), out, "A1", [0, 1], dev_ids[:1])
+
+
+def test_the_header_records_measured_weights_and_no_private_path(tmp_path: Path, dev_ids: list[str]) -> None:
+    out = tmp_path / "run.jsonl"
+    run_cell(Fake(lambda body: ok(GOOD)), out, "A1", [0], dev_ids[:1])
+    head = json.loads(out.read_text().splitlines()[0])
+    (rec,) = samples(out)
+    assert (head["split"], rec["split"]) == ("dev", "dev")  # the scorer reads each sample's split
+    assert (head["model"]["weights_sha256"], head["model"]["weights_measured"]) == (S_WEIGHTS, True)
+    text = out.read_text()
+    assert "/models/" not in text  # the served path names a home directory on the mini
+    assert "127.0.0.1" not in text  # nor the endpoint
+
+
+def test_a3_ends_at_a_parse_failure_without_feedback(tmp_path: Path, dev_ids: list[str]) -> None:
+    fake = Fake(lambda body: ok("not an object"))
+    run_cell(fake, tmp_path / "pf.jsonl", "A3", [0], dev_ids[:1])
+    (rec,) = samples(tmp_path / "pf.jsonl")
+    assert [(a["klass"], a["fed_back"]) for a in rec["attempts"]] == [("parse_failure", None)]
+    assert len(fake.bodies) == 1
+
+
+def test_arms_yaml_must_switch_thinking_off(tmp_path: Path) -> None:
+    copy = tmp_path / "specgen"
+    shutil.copytree(protocol.HERE, copy, ignore=shutil.ignore_patterns("__pycache__", "runs"))
+    path = copy / "arms.yaml"
+    text = path.read_text()
+    assert "  thinking: off\n" in text
+    path.write_text(text.replace("  thinking: off\n", "  thinking: true\n"))
+    with pytest.raises(protocol.FrozenMismatch, match="thinking"):
+        protocol.load_arms(copy)
 
 
 # --- score.py and geometry.py on hand-made records -------------------------------------------------------------
