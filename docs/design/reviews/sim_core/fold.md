@@ -46,7 +46,7 @@ after all of the tick's records, so a later record's stage 2 sees the crater (X-
 |---|---|
 | A-B1 | R1: §5.1 declared ordered writers; splitting and contact (`fire_solid.md` §3.2) as declared writers; `radiant_emitters` keyed rows; `Topology` for `imagine`, `set_material`, construction and destruction |
 | A-B2 | R2: §5.1, loads resolve on their own tick in the apply phase; no carried state |
-| A-B3 | §4 links `boundaries.md` §4.2, amended to "at most one frame per tick, when a cell or a source changed" |
+| A-B3 | §4 links `tile_and_client.md` §4, the cadence owner. *Corrected in the delta fold:* this row first said `boundaries.md` §4.2 was amended; that edit was reverted in 1270564, and §4.2's copy is the docs-contracts line's to replace with a link |
 | A-S1 | §5 `cadence`: per tick, per physics step, per substep |
 | A-S2 | §5: a law is anything in the tuple at any cadence; sem §7.1's exchange API becomes an exchange field (sem edited) |
 | A-S3 | §5: views of `reads`, handles for `writes` only |
@@ -123,7 +123,7 @@ after all of the tick's records, so a later record's stage 2 sees the crater (X-
 | Perf P3 | §7 (caches are the precondition), §11 bar 7 |
 | Perf P4 | §5, §7: `stable_dt` cached per `topology_version` |
 | Perf P5 | §10 counters added |
-| Perf P6 | §4 cadence (no frame when nothing changed); §10 counts windows and copies |
+| Perf P6 | §4 links tile §4's cadence (*corrected in the delta fold:* a refusal-only tick publishes); §10 counts windows and copies |
 | Perf P7 | proposed deferral above |
 | Perf P8 | §2, §10: caches built eagerly |
 | Perf P9 | §11 bar 7 names the tile, grid and gate |
