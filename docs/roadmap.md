@@ -33,10 +33,10 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   lenses.
 - Fires that go out when their fuel is gone, so a burnt-out crate's fire stops instead of heating air to millions of
   degrees (`docs/architecture.md`, Known gaps; the red gate is
-  `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`). Needed before the tile's crate
-  scenario is gated. **Requirement:** a cell's burn rate must estimate the integral of the point-wise rate over the
-  cell, from a reconstructed sub-cell profile, well enough at the coarsest rig to pass the gate
-  (`docs/design/world_model.md` §3). Converging is not enough: today's law converges, slowly,
+  `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`). Needed before the Phase 1 exit
+  (the slab) is gated. **Requirement:** fuel burns as sub-grid objects with geometry in metres, coupled to the cells
+  by overlap (`docs/design/fire_model.md` §0, point 3; `docs/design/fire_solid.md` §1), well enough at the coarsest
+  rig to pass the gate. Converging is not enough: today's law converges, slowly,
   and the coarse rig still sits far off, because the measured cause is a threshold on a cell's mean temperature
   (the crate's mean temperature agrees across rigs within 1 °C while the degradation driver differs 1.3–1.5×). A
   per-cell ignition or pyrolysis threshold would inherit it. It must flip the strict
@@ -76,8 +76,9 @@ Each new field ships with a closed-form test and a cross-grid test, under the ve
 - **Close the known gap:** the coarsest rig's late-burn lag (`docs/architecture.md`).
 - **Moved from Phase 1 by the fire fallback (2026-11-20; after VS5):** crate and rungs 6.2–6.4 (flame object,
   two bodies, crib).
-- **Moved from Phase 1 by D26:** zones and vents, combustion per zone and its products, fuel recession and pyrolysis,
-  phase change, the CSG footprints, and the lab as Phase 2's benchmark tile.
+- **Moved from Phase 1 by D26:** zones and vents, combustion per zone and its products, phase change other than
+  fusion, and the CSG footprints. Pyrolysis, the fuel's regression, fusion and the lab (as the ladder's rigs) came
+  back to Phase 1 with the fire ladder (`docs/design/fire_model.md` §10.1; `docs/design/fire_solid.md` §4.2–§4.3).
 - **Plasma, slowly, aiming at plasma as a state of matter** (owner, 2026-11-19). The reason is what Maxim's NPCs can
   sense, learn and use from environmental effects:
   - an arc is a flash in the light field, a crackle in the sound field and ozone in the gas field;
@@ -397,7 +398,7 @@ rules) live in `CLAUDE.md`, each with the check that enforces it; unenforced one
 
 ## Open questions
 
-- Turn length: 6 s is a placeholder. What does combat feel like at 3 s or 10 s?
+- Turn length: answered by T3 (owner, 2026-11-18): a 0.1 s tick, and the 6 s turn is retired.
 - Does the world server become a pip-installable dependency of Maxim experiments (cradles in real physics), or stay
   game-only?
 - Who holds copyright: Denny or RMDig LLC?

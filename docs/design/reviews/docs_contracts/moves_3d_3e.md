@@ -191,3 +191,14 @@ The gate's coverage floor caught `blocks`'s final flush (line 88), which no test
 - `record.kinds`' count goes from 5 to 6 under round 1 ruling 1. Main's new step 5a list names five kinds across
   unrelated items, judged a reference. Proposed follow-up, the author's: count a list run only by its items' heads,
   plus each item whole, so scattered mentions stop adding up.
+
+## Roadmap leftovers, closed on `phase1/roadmap-stale` (owner, 2026-11-22: "fix the three roadmap lines")
+
+- Phase 1's fire requirement now cites the sub-grid fuel objects (`fire_model.md` §0, point 3; `fire_solid.md` §1),
+  which the fire ladder put in place of "a cell's burn rate must estimate the integral". Its "the tile's crate
+  scenario" is now "the Phase 1 exit (the slab)", per round 1 ruling 59.
+- Phase 2's "Moved from Phase 1 by D26" drops what `fire_model.md` §10.1 brought back to Phase 1: pyrolysis, the fuel's
+  regression (`fire_solid.md` §4.2–§4.3), fusion and the lab.
+- The turn-length open question is marked answered by T3 rather than deleted, so `check_plan.py`'s numbered list stays
+  aligned with the foundations plan.
+- The clinic line was already a link to D27, done in step 3e.
