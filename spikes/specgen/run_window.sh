@@ -26,10 +26,14 @@ case $model in
 esac
 mkdir -p "$runs"
 
-in_window() {  # the window crosses midnight: start_hour..23 and 0..stop_hour-1
+in_window() {  # start_hour inclusive to stop_hour exclusive; it crosses midnight when start_hour > stop_hour
   local h
   h=$((10#$(date +%H)))
-  [ "$h" -ge "$start_hour" ] || [ "$h" -lt "$stop_hour" ]
+  if [ "$start_hour" -gt "$stop_hour" ]; then
+    [ "$h" -ge "$start_hour" ] || [ "$h" -lt "$stop_hour" ]
+  else
+    [ "$h" -ge "$start_hour" ] && [ "$h" -lt "$stop_hour" ]
+  fi
 }
 
 until in_window; do sleep 60; done
@@ -40,9 +44,12 @@ host=$(tailscale ip -4 | head -n 1)
 [ -n "$host" ] || { echo "no Tailscale address" >&2; exit 2; }
 port=$("$py" -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
 
-# The frozen flags (arms.yaml engine.server_flags), with the host filled in here.
+# The frozen flags (arms.yaml engine.server_flags), with the host filled in here. The server prints its listening
+# address and the model's full path, so its log is filtered: the address and the home directory never reach a file.
+host_re=$(printf '%s' "$host" | sed 's/[.]/[.]/g')
+mask() { sed -u -e "s/${host_re}/<host>/g" -e "s#${HOME}#<home>#g"; }
 llama-server -m "$gguf" --host "$host" --port "$port" --jinja -ngl 999 -c 16384 --parallel 1 \
-  > "$runs/server-$model.log" 2>&1 &
+  > >(mask > "$runs/server-$model.log") 2>&1 &
 server=$!
 trap 'kill "$server" 2>/dev/null || true' EXIT
 ready=0
@@ -68,7 +75,7 @@ for split in dev heldout; do
       fi
       sleep 30
     done
-    wait "$gen"
+    wait "$gen" || { rc=$?; echo "generate.py stopped ($rc) in $model $arm $split; nothing later runs" >&2; exit "$rc"; }
   done
 done
 echo "all cells of $model done: $(date +%Y-%m-%dT%H:%M)"

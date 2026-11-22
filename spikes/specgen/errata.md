@@ -4,10 +4,11 @@
 places where the frozen text is wrong, vacuous or silent. This file records how the spike reads each one. It is
 committed before any data exists, so no reading can be chosen to rescue a result.
 
-The owner accepted this process on 2026-11-22, and confirmed every reading below the same day, including the four
+The owner accepted this process on 2026-11-22, and confirmed E1 to E9 the same day, including the four
 that were choices: E4 (turns of 6 s), E6 (largest remainder), E7 (trend prompts from the labelling set) and E8 (M9
 on the labelled set). A later change is a changed line here with the owner's ruling, never a change to a frozen
-file, and only before the first run.
+file, and only before the first run. E10 to E17 came from code round 1, and the owner confirmed them on 2026-11-22,
+before the first run.
 
 | # | Frozen text | What is wrong or missing | The spike's reading |
 |---|---|---|---|
@@ -22,3 +23,9 @@ file, and only before the first run.
 | E9 | plan §7, "the runtime version" | The field is unnamed | llama-server's `/props` `build_info`, which reads `b10621-c1d0e7a00` on the mini (checked 2026-11-22). The run refuses any other value |
 | E14 | `arms.yaml` `protocol.context_overflow`: "a request the server refuses for exceeding its 16,384-token context" | How a refusal is recognised is unstated | A 400 whose `error.type` is `exceed_context_size_error`, the shape build 10621 returns (checked on the mini, 2026-11-22); any other error is not a sample and the run stops. Author's reading, for the owner to confirm |
 | E15 | `arms.yaml` `engine`: the flags `-c 16384 --parallel 1` and the weights' SHA-256 | The frozen text names the flags and hashes but not how a run proves it used them | Before any request the run reads `/props` and refuses unless `default_generation_settings.n_ctx` is 16384 and `total_slots` is 1 (both read on the mini with those flags), and refuses unless the served file's SHA-256, measured on the mini at the window's start, equals `freeze.sha256`'s. The header records the measured hash. Author's reading, for the owner to confirm |
+| E10 | plan §7, "one seeded Generator" | With one stream, every interval depends on how many other statistics were drawn before it: adding the A0 files moved Δ's bound (code round 1, a measured BLOCKER) | The labelling sets are still drawn first from `numpy.random.default_rng(0)` (E6, E7). Every other draw (the blinding, each bootstrap) has a generator of its own, `default_rng([0, *sha256(name)[:16] as four u32])`, named by the statistic, so an interval is the same whatever else is scored. Author's reading, for the owner to confirm |
+| E11 | plan §5 M6, "300 renders" | The labelling items are 240 paired, 60 trend and 20 for M8 (E7), 320 in all, and only samples passing M1 are rendered | Up to 320 items; the sheet holds one render per item that passes M1. The M8 items carry the question "closest fit"; the sheet names no other set. Author's reading, for the owner to confirm |
+| E12 | E4's premise, "T3 retired the 6 s turn" | T3 retired the turn in the design; `World` still defaults to 6 s in code | E4's reading stands, now with a true premise: the spike pins 6 s itself, so the coming change to `World` can't move M5. Author's reading, for the owner to confirm |
+| E13 | plan §6 and §5, silent on incomplete data | A missing sample or label was scored as "not good" without a word (a measured BLOCKER: with R's file absent, H read 0.0 over n = 120) | §6 is refused unless the whole paired set is present once and every sample passing M1 is labelled, on the complete dev split. Every metric refuses a cell missing samples unless `--allow-partial`, which watches a run and is never a result. Each run file's header must be of the split scored and of the current frozen files and data, and no (model, arm, prompt, seed) may appear twice. Author's reading, for the owner to confirm |
+| E16 | plan §5 M6 and M8, the label rates | Which rates are reported is unstated | M6: the share labelled "yes" per set (paired per model, trend per arm), with `hard: shape` prompts reported apart, each with its prompt-clustered interval, and the counts of yes, partly and no. M8's closest-fit rate: the share of its labelled specs marked "yes". Author's reading, for the owner to confirm |
+| E17 | plan §5 M9, "tokens" | Prompt or completion tokens is unstated; A2 and A3 resend the examples with each attempt | Prompt and completion tokens are both counted, and reported apart and summed, with wall time, in total, per sample and per M1 pass (E8's ratios), and per good spec on the labelled set. Author's reading, for the owner to confirm |

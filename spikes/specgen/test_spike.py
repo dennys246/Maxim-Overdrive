@@ -22,6 +22,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import burn
 import generate
 import geometry
 import labelling
@@ -301,6 +302,15 @@ def test_an_empty_or_header_torn_file_starts_a_new_run(tmp_path: Path, dev_ids: 
         assert [json.loads(line)["kind"] for line in out.read_text().splitlines()] == ["header", "sample"]
 
 
+def test_a_malformed_middle_line_refuses_the_resume(tmp_path: Path, dev_ids: list[str]) -> None:
+    out = tmp_path / "run.jsonl"
+    run_cell(Fake(lambda body: ok(GOOD)), out, "A1", [0, 1], dev_ids[:1])
+    lines = out.read_text().splitlines()
+    out.write_text("\n".join([lines[0], lines[1][:-5], lines[2]]) + "\n")  # line 2 corrupted, not the last
+    with pytest.raises(generate.RunRefused, match="malformed line 2"):
+        run_cell(Fake(lambda body: ok(GOOD)), out, "A1", [0, 1, 2], dev_ids[:1])
+
+
 @pytest.mark.parametrize(
     ("status", "payload"),
     [
@@ -327,6 +337,7 @@ def test_the_run_refuses_weights_that_differ_from_the_manifest(tmp_path: Path, d
         ({"build_info": "b10621-c1d0e7a00-dirty"}, "build"),
         ({"model_path": "/models/Qwen3.5-27B-Q8_0.gguf"}, "model file"),
         ({"default_generation_settings": {"n_ctx": 4096}}, "context"),
+        ({"default_generation_settings": {"n_ctx": 32768}}, "context"),  # larger is wrong too: overflow moves
         ({"total_slots": 4}, "slots"),
     ],
 )
@@ -417,14 +428,17 @@ def test_arms_yaml_must_switch_thinking_off(tmp_path: Path) -> None:
 
 # --- score.py and geometry.py on hand-made records -------------------------------------------------------------
 
+TWO = spec("stool", box([0, 0, 0], [40, 40, 40]), box([0, 0, 40], [40, 40, 50]))  # two touching parts: not degenerate
 
-def record(prompt: dict[str, Any], seed: int, content: str, arm: str = "A1") -> dict[str, Any]:
+
+def record(prompt: dict[str, Any], seed: int, content: str, arm: str = "A1", model: str = "S") -> dict[str, Any]:
     verdict, _ = protocol.classify(content, "stop", arm, protocol.load_arms())
     attempt = {
         "raw": content,
         "finish": "stop",
         "context_overflow": False,
         "klass": verdict.klass,
+        "prompt_tokens": 10,
         "completion_tokens": 20,
         "wall_s": 1.0,
     }
@@ -432,74 +446,214 @@ def record(prompt: dict[str, Any], seed: int, content: str, arm: str = "A1") -> 
         "kind": "sample",
         "prompt_id": prompt["id"],
         "stratum": prompt["stratum"],
+        "split": "dev",
         "arm": arm,
-        "model": "S",
+        "model": model,
         "seed": seed,
         "attempts": [attempt],
     }
 
 
+def write_run(path: Path, rows: list[dict[str, Any]], *, model: str = "S", arm: str = "A1", split: str = "dev") -> Path:
+    head = generate.header(
+        protocol.load_arms(),
+        model=model,
+        arm=arm,
+        split=split,
+        runtime=PROPS["build_info"],
+        machine="test",
+        weights=protocol.read_manifest()[1][model],
+    )
+    path.write_text("".join(json.dumps(r) + "\n" for r in [head, *rows]))
+    return path
+
+
+def furniture(n: int) -> list[dict[str, Any]]:
+    """The first ``n`` dev furniture prompts with one expected material, none `single_ok` or `hard`."""
+    picked = [
+        p
+        for p in protocol.load_prompts("dev")
+        if p["stratum"] == "furniture" and p["expect"] == ["wood"] and not p.get("single_ok") and not p.get("hard")
+    ]
+    return picked[:n]
+
+
+def args_for(path: Path, out: Path, *extra: str) -> Any:
+    return score.parse_args(["--split", "dev", "--runs", str(path), "--out", str(out), *extra])
+
+
 def test_m1_and_its_prompt_clustered_interval_match_hand_values(tmp_path: Path) -> None:
-    p1, p2 = [p for p in protocol.load_prompts("dev") if p["stratum"] == "furniture"][:2]
+    p1, p2 = furniture(2)
     rows = [record(p1, 0, GOOD), record(p1, 1, GOOD), record(p2, 0, GOOD), record(p2, 1, HEAVY)]
-    path = tmp_path / "r.jsonl"
-    path.write_text("".join(json.dumps(r) + "\n" for r in rows))
-    samples_ = score.load([path], protocol.load_arms())
-    got = score.m1(samples_, np.random.default_rng(0))
+    samples_ = score.load([write_run(tmp_path / "r.jsonl", rows)], protocol.load_arms(), "dev")
+    got = score.m1(samples_)
     # Prompt rates 1.0 and 0.5: resampling two prompts gives 1.0, 0.75 or 0.5, each extreme with probability 1/4.
     assert got["rate"]["S/A1"] == {"rate": 0.75, "lo": 0.5, "hi": 1.0, "n": 4, "prompts": 2}
     assert got["classes"]["S/A1"] == {"accepted": 3, "refused:over_budget": 1}
     assert got["recorded_class_disagrees"] == 0
 
 
-def test_degeneracy_flags_one_part_and_a_floating_part() -> None:
-    p = next(p for p in protocol.load_prompts("dev") if p["stratum"] == "furniture" and not p.get("single_ok"))
-    arms = protocol.load_arms()
-    lone = score.from_record(record(p, 0, GOOD), arms, p)
-    assert lone.degenerate == {"a_single": True, "b_one_material": False, "c_floating": False}
-    floating = spec("shelf", box([0, 0, 0], [40, 40, 50]), box([0, 0, 60], [40, 40, 70]))
-    two = score.from_record(record(p, 0, floating), arms, p)
-    assert two.degenerate["c_floating"]
+@pytest.mark.parametrize("fault", ["no_header", "other_split", "duplicate", "frozen", "data"])
+def test_load_refuses_a_run_it_cannot_trust(tmp_path: Path, fault: str) -> None:
+    (p,) = furniture(1)
+    rows = [record(p, 0, GOOD)]
+    path = write_run(tmp_path / "r.jsonl", rows)
+    lines = path.read_text().splitlines()
+    head = json.loads(lines[0])
+    if fault == "no_header":
+        path.write_text("\n".join(lines[1:]) + "\n")
+    elif fault == "duplicate":
+        path.write_text("\n".join([*lines, lines[1]]) + "\n")
+    else:
+        key = {"other_split": "split", "frozen": "frozen", "data": "data_sha256"}[fault]
+        head[key] = "heldout" if key == "split" else {"x": "y"}
+        path.write_text("\n".join([json.dumps(head), *lines[1:]]) + "\n")
+    with pytest.raises(score.ScoreRefused):
+        score.load([path], protocol.load_arms(), "dev")
 
 
-def test_contact_is_exact_at_a_tangent_face() -> None:
-    # In floats 0.23 - 0.12 is 0.11000000000000001, past the 0.11 m radius, so a float comparison misses this tangent;
-    # in micrometres the cylinder's side touches the box's face (found by searching every whole-cm tangent).
+def test_an_incomplete_cell_is_refused_unless_watching(tmp_path: Path) -> None:
+    (p,) = furniture(1)
+    path = write_run(tmp_path / "r.jsonl", [record(p, 0, GOOD)])
+    with pytest.raises(score.ScoreRefused, match="missing"):
+        score.score(args_for(path, tmp_path / "o.json"))
+    watched = score.score(args_for(path, tmp_path / "o.json", "--allow-partial"))
+    assert watched["partial"] is True
+    assert watched["completeness"]["S/A1"] == {"expected": 150 * 8, "missing": 150 * 8 - 1}
+
+
+def _paired(table: dict[str, dict[str, list[str]]]) -> tuple[list[Any], labelling.Draws, Any]:
+    """Samples for S and R under A3 from ``table[model][prompt] = [content per seed 0-3]``, with "yes" labels for every
+    sample passing M1."""
+    meta = score.prompt_meta()
     arms = protocol.load_arms()
-    s = protocol.convert(
-        json.loads(
-            spec(
-                "t",
-                box([23, 0, 0], [60, 60, 10]),
-                {"kind": "cylinder", "center_xy_cm": [12, 12], "radius_cm": 11, "z_cm": [0, 10], "material": "wood"},
-            )
-        ),
-        arms,
+    samples_, label, sets = [], {}, {}
+    for model, prompts in table.items():
+        for pid, contents in prompts.items():
+            for seed, content in enumerate(contents):
+                s = score.from_record(record(meta[pid], seed, content, "A3", model), arms, meta[pid])
+                samples_.append(s)
+                if s.verdict.m1_pass:
+                    label[s.key], sets[s.key] = "yes", "paired"
+    pids = tuple(next(iter(table.values())))
+    return samples_, labelling.Draws(pids, (), ()), score.Labels(label, sets)
+
+
+def test_rule_1_when_the_small_models_lower_bound_reaches_p() -> None:
+    a, b = (p["id"] for p in furniture(2))
+    s, d, lab = _paired({"S": {a: [TWO] * 4, b: [TWO] * 4}, "R": {a: [TWO] * 4, b: [TWO] * 4}})
+    assert score.decision(s, d, lab)["rule"] == 1
+
+
+def test_rule_2_when_the_reference_reaches_p_and_delta_excludes_zero() -> None:
+    a, b = (p["id"] for p in furniture(2))
+    s, d, lab = _paired({"S": {a: [HEAVY] * 4, b: [HEAVY] * 4}, "R": {a: [TWO] * 4, b: [TWO] * 4}})
+    got = score.decision(s, d, lab)
+    assert (got["rule"], got["L"]["rate"], got["H"]["rate"], got["delta"]["lo"]) == (2, 0.0, 1.0, 1.0)
+
+
+def test_rule_3_when_delta_reaches_zero_even_though_h_reaches_p() -> None:
+    a, b = (p["id"] for p in furniture(2))
+    s, d, lab = _paired({"S": {a: [TWO] * 4, b: [TWO, TWO, HEAVY, HEAVY]}, "R": {a: [TWO] * 4, b: [TWO] * 4}})
+    got = score.decision(s, d, lab)
+    # L = 0.75 (lo 0.5), H = 1 (lo 1); Δ per resample is 0, 0.25 or 0.5, so its lower bound is 0 and rule 2 fails.
+    assert (got["L"]["lo"], got["H"]["lo"], got["delta"]["lo"], got["rule"]) == (0.5, 1.0, 0.0, 3)
+
+
+@pytest.mark.parametrize("gap", ["sample", "label"])
+def test_the_decision_refuses_a_missing_sample_or_label(gap: str) -> None:
+    a, b = (p["id"] for p in furniture(2))
+    s, d, lab = _paired({"S": {a: [TWO] * 4, b: [TWO] * 4}, "R": {a: [TWO] * 4, b: [TWO] * 4}})
+    if gap == "sample":
+        s = [x for x in s if x.key != ("R", "A3", b, 3)]
+    else:
+        lab = score.Labels({k: v for k, v in lab.label.items() if k != ("R", "A3", b, 3)}, lab.sets)
+    with pytest.raises(score.ScoreRefused, match="paired set"):
+        score.decision(s, d, lab)
+
+
+def test_an_interval_never_depends_on_what_else_was_scored() -> None:
+    a, b = (p["id"] for p in furniture(2))
+    s, d, lab = _paired({"S": {a: [TWO, HEAVY] * 2, b: [TWO] * 4}, "R": {a: [TWO] * 4, b: [TWO, HEAVY] * 2}})
+    first = score.decision(s, d, lab)
+    score.m1(s)  # other statistics drawn first
+    score.m2_m4(s)
+    assert score.decision(s, d, lab) == first
+    # Prompts of differing sizes and rates make the interval's bounds fine-grained, so they move with the stream: a
+    # stream shared between statistics would give a second call different bounds.
+    by_prompt = {f"p{i}": [1.0] * (i % 5) + [0.0] * (i % 7 + 1) for i in range(23)}
+    once = score.cluster_rate(by_prompt, "test.rate")
+    score.cluster_rate(by_prompt, "test.other")
+    assert score.cluster_rate(by_prompt, "test.rate") == once
+
+
+def test_paired_delta_matches_hand_values() -> None:
+    got = score.paired_delta({"a": [1.0], "b": [1.0]}, {"a": [1.0], "b": [0.0]}, "test")
+    # Resamples (a, a), (b, b) and the mixes give Δ of 0, 1 and 0.5, each extreme with probability 1/4.
+    assert got == {"delta": 0.5, "lo": 0.0, "hi": 1.0}
+
+
+def test_m3_reports_voxel_fidelity_and_counts_refusals() -> None:
+    (p,) = furniture(1)
+    arms = protocol.load_arms()
+    whole = score.from_record(record(p, 0, GOOD), arms, p)  # whole cells at both offsets and at 0.2 m
+    thin = score.from_record(record(p, 1, THIN), arms, p)  # too_small: passes M1, refused when placed
+    got = score.m3([whole, thin])["S/A1"]
+    assert got == {
+        "ratio_offset": 0.5,
+        "ratio_half_cell": 0.5,
+        "accepted_at_0.2m": 0.5,
+        "refused_at_an_offset": 2,
+        "n": 2,
+    }
+
+
+def test_m5_burns_an_accepted_spec_at_turns_of_6_s() -> None:
+    arms = protocol.load_arms()
+    got = burn.burn(protocol.convert(json.loads(GOOD), arms))
+    assert (got["ignited"], got["fire_on_air"]) == (True, False)
+    assert sorted(got["integrity"]) == [10, 20, 30]
+    assert burn.TURN_S == 6.0
+
+
+def test_m6_and_m8_rates_come_from_the_labels() -> None:
+    (p,) = furniture(1)
+    impossible = next(x for x in protocol.load_prompts("dev") if x["stratum"] == "impossible")
+    arms = protocol.load_arms()
+    rows = [
+        score.from_record(record(p, 0, TWO, "A3", "S"), arms, p),
+        score.from_record(record(p, 1, TWO, "A3", "S"), arms, p),
+        score.from_record(record(impossible, 0, TWO, "A3", "S"), arms, impossible),
+    ]
+    lab = score.Labels(
+        {rows[0].key: "yes", rows[1].key: "no", rows[2].key: "partly"},
+        {rows[0].key: "paired", rows[1].key: "paired", rows[2].key: "m8"},
     )
-    a, b = (geometry.shape(p) for p in protocol.authored(s) or ())
-    assert geometry.touches(a, b)
+    got = score.m6_m8_labels(rows, lab)
+    assert got["m6"]["paired/S/plain"]["counts"] == {"no": 1, "yes": 1}
+    assert got["m6"]["paired/S/plain"]["yes_rate"]["rate"] == 0.5
+    assert got["m8_closest_fit"]["m8/plain"]["counts"] == {"partly": 1}
 
 
-def test_vendi_counts_identical_specs_as_one_and_disjoint_as_two() -> None:
+def test_m9_counts_prompt_tokens_and_its_ratios() -> None:
+    (p,) = furniture(1)
     arms = protocol.load_arms()
-    one = protocol.authored(protocol.convert(json.loads(GOOD), arms)) or ()
-    far = protocol.authored(protocol.convert(json.loads(spec("f", box([0, 0, 0], [10, 10, 10]))), arms)) or ()
-    same = geometry.vendi([geometry.raster(one), geometry.raster(one)])
-    assert same == pytest.approx((1.0, 1.0))
-    # Moved to the origin, a 10 cm cube sits inside the 40 x 40 x 50 cm crate: IoU 1000 / 80000.
-    k = 1000 / 80000
-    lam = np.array([1 - k, 1 + k]) / 2
-    assert geometry.vendi([geometry.raster(one), geometry.raster(far)]) == pytest.approx(
-        (float(np.sum(np.sqrt(lam)) ** 2), float(1 / lam.max()))
-    )
+    rows = [score.from_record(record(p, 0, GOOD), arms, p), score.from_record(record(p, 1, HEAVY), arms, p)]
+    got = score.m9(rows, None)["S/A1"]
+    assert (got["prompt_tokens"], got["completion_tokens"]) == (20, 40)
+    assert got["per_sample"] == {"tokens": 30.0, "wall_s": 1.0}
+    assert got["per_m1_pass"] == {"tokens": 60.0, "wall_s": 2.0}
 
 
-def test_a_spec_id_ignores_names() -> None:
+def test_a_spec_id_ignores_names_and_nothing_else() -> None:
     a = json.loads(spec("one", box([0, 0, 0], [40, 40, 50])))
     b = json.loads(spec("two", box([0, 0, 0], [40, 40, 50])))
     b["primitives"][0]["name"] = "lid"
     assert geometry.spec_id(a) == geometry.spec_id(b)
-    assert geometry.spec_id(a) != geometry.spec_id(json.loads(HEAVY))
+    other_material = json.loads(spec("one", box([0, 0, 0], [40, 40, 50], "steel")))
+    other_corner = json.loads(spec("one", box([0, 0, 0], [40, 40, 51])))
+    assert geometry.spec_id(a) != geometry.spec_id(other_material)
+    assert geometry.spec_id(a) != geometry.spec_id(other_corner)
 
 
 def test_the_labelling_sets_are_stratified_and_deterministic() -> None:
@@ -515,3 +669,39 @@ def test_the_labelling_sets_are_stratified_and_deterministic() -> None:
     assert sum(q.values()) == 30
     strata = {p["id"]: p["stratum"] for p in dev}
     assert {s: sum(strata[i] == s for i in d1.paired) for s in labelling.POSSIBLE} == q
+
+
+def test_the_labelling_sheet_is_never_rewritten(tmp_path: Path) -> None:
+    draws = labelling.draw(np.random.default_rng(score.SEED), protocol.load_prompts("dev"))
+    p = score.prompt_meta()[draws.paired[0]]  # an item the owner labels
+    path = write_run(tmp_path / "r.jsonl", [record(p, 0, TWO, "A3")], arm="A3")
+    out = tmp_path / "labelling"
+    score.score(args_for(path, tmp_path / "o.json", "--allow-partial", "--labelling-dir", str(out)))
+    (row,) = map(json.loads, (out / "sheet.jsonl").read_text().splitlines())
+    assert sorted(row) == ["id", "label", "prompt"]  # blind: the sheet doesn't say which set, model or arm
+    with pytest.raises(FileExistsError):
+        score.score(args_for(path, tmp_path / "o.json", "--allow-partial", "--labelling-dir", str(out)))
+
+
+def test_check_scores_twice_in_separate_processes(tmp_path: Path) -> None:
+    (p,) = furniture(1)
+    path = write_run(tmp_path / "r.jsonl", [record(p, 0, GOOD)])
+    out = tmp_path / "o.json"
+    argv = ["--split", "dev", "--runs", str(path), f"--out={out}", "--allow-partial"]
+    assert score.main([*argv, "--labelling-dir", str(tmp_path / "lab"), "--check"]) == 0
+    assert not (tmp_path / "lab").exists()  # each process drew its own sheet in the temporary directory
+
+
+# The digest of score()'s whole output on a fixed set of runs. It changes when any statistic, seed, percentile or
+# exclusion changes; update it only for a change the errata or a review records.
+SCORE_DIGEST = "8357e82517ff72a8bd1694094f8dc83e61bff85723ce8881526a4bfa2ad2f143"
+
+
+def test_scores_output_is_pinned(tmp_path: Path) -> None:
+    prompts = [*furniture(3), next(x for x in protocol.load_prompts("dev") if x["stratum"] == "impossible")]
+    contents = [GOOD, TWO, HEAVY, THIN, OUTSIDE]
+    rows = [record(p, s, contents[(i + s) % len(contents)]) for i, p in enumerate(prompts) for s in range(8)]
+    path = write_run(tmp_path / "r.jsonl", rows)
+    got = score.score(args_for(path, tmp_path / "o.json", "--allow-partial", "--m3"))
+    digest_ = __import__("hashlib").sha256(json.dumps(got, sort_keys=True).encode()).hexdigest()
+    assert digest_ == SCORE_DIGEST

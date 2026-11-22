@@ -175,6 +175,9 @@ def svg(prims: Sequence[Primitive]) -> str:
 def write_sets(out_dir: Path, rng: np.random.Generator, entries: list[dict[str, Any]], texts: Mapping[str, str]) -> int:
     """Blind the entries with ``rng``, write each passing spec's render and the owner's sheet, and the key apart.
     Each entry carries its item, `m1_pass` and `prims` (authored primitives, or None). Returns the renders written."""
+    for existing in (out_dir / "sheet.jsonl", out_dir / "key" / "key.jsonl"):
+        if existing.exists():  # the owner may be labelling this sheet: never rewrite it
+            raise FileExistsError(f"{existing} exists; label it, or move it aside to draw a new sheet")
     order = rng.permutation(len(entries)).tolist()
     (out_dir / "renders").mkdir(parents=True, exist_ok=True)
     (out_dir / "key").mkdir(parents=True, exist_ok=True)
@@ -184,7 +187,10 @@ def write_sets(out_dir: Path, rng: np.random.Generator, entries: list[dict[str, 
         key.append({"id": rid, **e["item"], "m1_pass": e["m1_pass"]})
         if e["m1_pass"] and e["prims"]:
             (out_dir / "renders" / f"{rid}.svg").write_text(svg(e["prims"]), encoding="utf-8")
-            sheet.append({"id": rid, "set": e["item"]["set"], "prompt": texts[e["item"]["prompt_id"]], "label": None})
+            row: dict[str, Any] = {"id": rid, "prompt": texts[e["item"]["prompt_id"]], "label": None}
+            if e["item"]["set"] == "m8":  # M8 asks a different question: is this the closest object that fits?
+                row["question"] = "closest fit"
+            sheet.append(row)
             rendered += 1
     _jsonl(out_dir / "sheet.jsonl", sheet)
     _jsonl(out_dir / "key" / "key.jsonl", key)
