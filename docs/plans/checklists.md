@@ -61,23 +61,39 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
     (`pyproject.toml` `skip-layer`, proven by a planted import in `tests/test_tooling_config.py`);
   - done: §3's writer non-vacuity test: every function assigning into a cell array, `regions` or `sources` is in the
     core (`tests/test_ownership.py`);
-  - done: B-4's input-primitive allowlist and banned unsafe calls (`tests/test_input_allowlist.py`, `scripts/lint_inputs.py`);
-    B-10's `Observation` protocol and frame tests (`simcore/core/frames.py`, `tests/test_frames.py`); B-13's import
-    half (`membrane-reads-frames`; the field registry joins its allowed list in step 5a).
-- Scene v1: F13 plus a required `spawns`; scene v0 is refused by version, not migrated (it would migrate to a
-  scene `join` refuses); golden v0 and v1 fixtures (WT-S8).
-- One schema and one reader per data format; `MaterialTable`'s lookup arrays and every rejection test generated
-  from it.
-- One small migration mechanism (`read_version` plus a registry keyed by format and version), used only for
-  formats other people hold: saves, logs, bug reports, later mods. Repo-only files get a version bump and a
-  refusal test instead.
-- Digests stored versioned, as `sha256/c14n-1:<hex>`.
-- Content stores time in world units (m/s, seconds), never ticks; ticks are derived at load.
-- Loader types for body archetypes and items; the refusal-code enum (WT-S1).
-- Identity keys contain no `:` (Maxim's owner, 2026-11-19: `make_agent_rng` joins `f"{base_seed}:{agent_id}"`, so a
-  `:` would make streams ambiguous). Every loader that reads one (`body_key`, NPC keys, stream names; later save v0)
-  refuses it with a typed code, and each has a rejection test (`npcs_and_sem.md` §3.4).
-- Fuel-bed fields (φ, σ) on primitives, validated where made.
+  - done: B-4's input-primitive allowlist and banned unsafe calls (`tests/test_input_allowlist.py`,
+    `scripts/lint_inputs.py`); B-10's `Observation` protocol and frame tests (`simcore/core/frames.py`,
+    `tests/test_frames.py`); B-13's import half (`membrane-reads-frames`; the field registry joins its allowed list in
+    step 5a).
+- Part (b), on `phase1/formats`:
+  - done, no shipped caller until step 5b (spawns) and step 8 (the shipped scene, with a scene file loader in
+    `loaders.py`): scene v1, v0's refusal, the extent rule (world_model WT-5, WT-11) and the spawn-name rule, as
+    `tile_and_client.md` §1.3 states them; golden v0 and v1 fixtures (WT-S8) (`simcore/core/scene.py`, `grid.py`;
+    `tests/fixtures/formats/v0/scene.yaml`, `v1/scene.yaml`, `tests/fixtures/scenes/alley_box.yaml`;
+    `tests/test_scene_v1.py`).
+  - done: one schema and one reader per data format; `MaterialTable`'s lookup arrays and every rejection test
+    generated from it (`simcore/core/schema.py`; `tests/test_formats.py` finds every `Format`, fail closed, walks
+    every tagged kind, and pins each schema in `tests/fixtures/formats/schemas.txt`). Not built: units and provenance
+    on `Field` (flexibility review row 7), which land with 6.0a's material table v1 (tile §5.1's provenance rows);
+    stage-1 intent parsing (`intents.py`) stays its own idiom until step 7 moves the wire format onto the schema.
+  - done: one small migration mechanism (`read_version` plus `Format.migrations`, keyed by format and version),
+    refused for a repo-only format at declaration; no shipped format is held by others yet, so none migrates.
+  - done, no shipped caller until step 5a's log header: digests stored versioned, in `boundaries.md` §6.3's form
+    (`simcore/core/digest.py`).
+  - done: content stores time in world units, never ticks: a schema field named for ticks is refused where it is
+    declared. When ticks are derived is `npcs_and_sem.md` §9's.
+  - done: the refusal-code enum (WT-S1, `simcore/core/refusals.py`), append-only and pinned; every gate's refusal
+    carries a code, and the SEM membrane answers an agent with the code alone.
+  - done: identity keys contain no `:` (`npcs_and_sem.md` §3.4), refused as `bad_identity_key`
+    (`checks.identity_key`). Today's one loader of them, the scene's spawns (name, archetype, held item), has a
+    rejection test per key; NPC keys and stream names get theirs with their loaders (`phase1/agents`), save v0's
+    `body_key` at step 9 (`npcs_and_sem.md` §3.4).
+  - done: B29 (`loaders.DataPath`; `scripts/lint_inputs.py`'s routes through a value; the four corpus rows).
+  - not built: loader types for body archetypes (the body contract is being redesigned, `sem_stimuli.md` v4 on
+    `phase1/sem-stimulus`; owner, 2026-11-21) and for items, which travel with them (owner, 2026-11-21: skipped for
+    now).
+  - superseded: fuel-bed fields (φ, σ) on primitives. `fire_solid.md` (accepted 2026-11-20) makes a fuel an object,
+    never a cell field, and dropped `bed:` from tile §1.3.
 
 ## Step 4, verify
 
@@ -86,42 +102,126 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
 
 ## Step 5a, the simulation core (O34)
 
-- Retire `imagination.place`'s write window (its `TEMPORARY(phase1/sim-clock)` marker): owner confirmed 2026-11-20.
+The contract is `docs/design/sim_core.md`; its reviews and fold tables are in `docs/design/reviews/sim_core/`. The
+owner stopped the paper rounds (2026-11-21), so the delta round's mechanism findings are tests here, each with its
+finding id, and 5a's code reviewers set their statuses. Each item cites the section it serves, and says how its test
+fails.
 
-- The substep floor (from 3a, marked `TEMPORARY(phase1/sim-clock)` in `src/simcore/core/heat.py`): `World.advance`
-  takes `max(heat.min_substeps(dx), stability)` substeps per call, the retired rigs' 4/16/64 as 0.16 m² / dx²,
-  whatever the call's length. On every 6 s turn the floor, not stability, sets the count; stability alone changes
-  every determinism digest (measured in 3a). Replace it with an accuracy floor per step length, with new goldens
-  and `tests/test_determinism.py::TURN_SUBSTEPS` updated, and rework its other callers:
-  `tests/test_heat.py::_error` and `::test_insulated_world_conserves_heat` pass it to 3,600 s calls, where it means
-  nothing, and `::test_the_substep_floor_follows_the_grid_spacing_as_the_rig_profiles_did` pins it.
-- A short composition note first: cell state, body state, ledger, clock, intent log; no god object.
-- The step as a fixed, ordered tuple of laws, each with `stable_dt(state)` and `step(state, dt, ledger)`;
-  topology changes read from `topology_version`. No discovery.
-- **The field registry:** one list in code that the grid's storage, the snapshot, the determinism digest, the
-  memory budget and the save all read. Step 6's fields join it, and step 7's catalogue is generated from it.
-- Each law split into `prepare` and an array-only kernel, with a bit-identity parity test (the numba seam; no
-  numba until a profile asks).
-- Intent kinds ranked 0/10/20/30, leaving room; a `retired:` list of verbs, and refusal codes append-only, tested.
-- Replay goldens keyed by an environment digest; the log header's field list as merged in step 1.
-- The u16 region-id array (world_model §10 row 4), which `fire_solid.md` §0 leans on.
-- **6.0a rides this line** (`fire_solid.md` §0, §5): the split material data, its loaders and versions, and the
-  fuel tables' registry entries, before the log writer records the first golden.
-- **The SEM stimulus contract's 5a half** (`sem_stimuli.md` v5 §5, §7.1, §11.1; the composition note cites §11.1,
-  A-S10): reserve lane chains (row lanes keyed `(name, derivation_version, producers)` with producers the transitive
-  closure over every law's declared reads and writes, an events lane and a per-tick bound lane per NPC; A3-S5, W11,
-  DP3-N2, S-F3, N3), header slots (schema, `BoundFrame` and receipt versions, each law's version, truth constants
-  including the per-tick event budget, the largest cognition divisor and the maximum emitter count; DP3-N3, DP-F-S3) and
-  the `join`, `leave`, `agent_ready`, `agent_failed` records; the per-tick law slot, the two-rate contact exchange,
-  the `body_points` container (A3-S4) and `radiant_emitters` keyed `(writer law, source object id, primitive id)`
-  (DP-F-N1); every `forbidden` list from `_core_modules()` with `as_packages = false`, asserted by its equality test
-  (N-S3, verified on a toy).
-- **Digest plants 5a can build, on a toy row** (§5; Y7, S-F4): a toy law change moving a digested value by at least
-  one rounding quantum, requiring a first differing tick named by the per-tick lanes (the tissue numbers, 10⁻¹²
-  relative at tick 0 and one ulp at tick 120–152, were measured before rounding, N-F5); a toy producer two hops
+- When `imagine` becomes an intent kind, fold `boundaries.md` §6.1's separate `imagine` record kind into `intent`
+  (docs-contracts round 1 ruling 5).
+
+- **The SEM fold rows 5a settles** (owner, 2026-11-21: each build step names them; 5a's reviewers set each status):
+  round 1 Executor S2 and A-S3; delta 1 X2, A-S10 and A2-S4; delta 2 A-S10 (the composition note cites §11.1), Y5, Y7,
+  A3-S4, A3-S5, A3-N3, DP3-N2, DP3-N3 and W11; final S-F3, S-F4, N-F5, N-S2, N-S3, A3-S5 (final), DP-F-S3 and DP-F-N1.
+- **Step 4's three items** (`verify_harness.md` §7): the scenario studies move to `Simulation` (§11 bars 2, 2b); the
+  reversed-order test (§11 bar 3); the work counters (§10).
+- **§2:** `World` keeps cell state only; `from_scene`, publication and source power leave it, and `World.advance`,
+  `World.turn`, `turn_seconds` and `grid.time_s` go. The caches are built eagerly, and a replay from a loaded state
+  gives the same `WorkCounters` as the live run from its first tick (fails if a cache builds lazily). The log writer
+  and replay reader live in `engine.host`.
+- **§3:**
+  - a closed form: a source on for k ticks delivers `k · tick_us · power` in its physics step, for k = 1 to 5 (fails
+    under today's whole-interval rule, where an ignite at tick 66 and one at 69 give identical bits);
+  - the same closed form for a source doused inside an interval, and for one re-ignited under its key at a new power
+    (each tick at its own value), with a save and restore mid-interval matching the live run (X-B2, D-N-S1);
+  - `from_scene` publishes frame 0, the first `step` runs tick 1, and tick T's physics covers `(T − 5, T]` (BF-5a-S4);
+  - frames carry `tick: int`, and seconds are derived (no float time stored).
+- **§4:** `step` validates the whole batch first: a batch with one bad record changes nothing (plant a valid record
+  before the bad one); publication follows `tile_and_client.md` §4's cases: a refusal-only tick publishes, and a tick
+  with no record and no physics publishes nothing (counted, §10; X-S4, N-S3, DA-S8).
+- **§5:**
+  - laws receive views of their reads and handles for their writes only: a planted law touching an undeclared field
+    raises;
+  - `prepare` reruns after a topology change: `test_a_cell_destroyed_mid_turn_gets_no_more_source_power` runs with
+    `substep_refine` > 1, and fails with the rerun deleted;
+  - the header records the law tuple in order, and a log recorded under the reversed tuple is refused;
+  - cadence groups run in §5's order: two strikes on one region in one tick give the second `REGION_GONE`, and
+    `topology_version` rises once per strike record (X-B1, N-B2, DA-S1, X-S2);
+  - `stable_dt` reads only its `bound_reads`: a planted law whose bound reads `temperature` misses the cache after
+    heating (Perf S3, DA-S9).
+- **§5.1, the flow (B43):**
+  - an import contract that no law module imports another, proven by a planted import;
+  - the write window refuses an undeclared writer, tested with one;
+  - the applier writes no outcome field (the ownership scan);
+  - `Topology` is the only path to `material`, `original_material` and `region_id`; `imagine` and `set_material`
+    produce requests;
+  - a strike resolves as a `Load` in the apply phase, on its own tick: its crater is in that tick's frame, its effect
+    in that tick's `TickReport`, and a second strike on the destroyed region is refused `REGION_GONE`;
+  - `radiant_emitters` rows are keyed `(writer, …)` and summed in sorted key order;
+  - every declared input kind names exactly one resolving law, held by a test over the registry (DA-B1);
+  - `integrity`'s writers are `damage.loads`, `damage.thermal` and `Topology`, and a planted law outside damage is
+    refused (DA-S4, X-N1);
+  - `contact_exchange` is reset by the solid law at its physics step and saved; contact and tissue share their
+    operator through a module that is not a law, and `sem_stimuli.md` §7.1's module table is edited by name (DA-S6,
+    DA-S7);
+  - keyed-table rows (`fire_solid.md` §1.4's `pending`, the id counter) go through `Topology` (DA-S3);
+  - then cite these checks in CLAUDE.md's rule in place of B43.
+- **§6:** `simcore/core/fields.py` holds the registry; `docs/generated/fields.md` matches it byte for byte (name the
+  regeneration command, LF endings; W-N6, deferred to this test); a planted field appears in storage, the snapshot
+  and the digest; construction and the save's loader are declared writers, so `from_scene`'s `temperature` write
+  passes without a carve-out (DA-S2).
+- **§7:**
+  - a re-ignite with a new radius under the same id gives the uncached result (fails with today's
+    `(source id, topology_version)` key);
+  - the bounding-box overlap, padded one cell, equals the whole-grid one bit for bit over random sources (it rests
+    on `sphere_overlap`'s 1/64 values);
+  - three overlapping sources inserted out of key order accumulate in sorted order, with a planted insertion-order
+    loop that turns it red (two sources can't fail: IEEE addition commutes);
+  - each cache equals its uncached path;
+  - a region reduction reads the current temperature after a physics step with no topology change (X-S1 delta);
+  - caches hold only the current sources' entries: re-ignite at 0.3 m, then 0.5 m, checkpoint, then 0.3 m, and the
+    replay's `rebuilds` equal the live run's (Perf S4);
+  - a quiet tick opens no cell window (`windows opened == 0`; Perf S4, P6);
+  - the bounding box builds its coordinates with `sphere_overlap`'s expression, `np.arange(i0, i1) * dx + off`
+    (D-N-N2).
+- **§8:** a constructed material table that tightens the bound mid-step replans from counts; the floor,
+  `FLOOR_AREA_M2` and `TURN_SUBSTEPS` are gone, and `test_heat.py`'s floor callers are reworked; bar 1 measured, and
+  an accuracy floor added only if it fails.
+- **§9:** the two-level digest and its byte form, with golden bytes for one tick; a run that differs only in a
+  zero-power source, only in a refusal, or only in a source's key has a different digest on that tick; an unchanged
+  member reuses its digest, and a replay from a loaded state hashes the same bytes as the live run (D-N-B1, Perf S1).
+- **§10:** counters hold exact expected values (for example `physics_steps == N // physics_every` after N steps
+  from construction; D-N-S4).
+- **§11:** bars 1 to 7 as stated; bar 3 reverses within each cadence group and its planted order-sensitive pair turns
+  it red (DA-S5, X-N2); bar 5's reference path is today's `heat.step` and damage callback, frozen as test fixtures
+  (X-N5); bar 7 records 0.2 m and 0.1 m and gates 0.1 m (Perf S2).
+- **§12:** each break named in the commit; the first replay golden committed in 5a, regenerated in 6.0a.
+- **§13:**
+  - the SEM bridge keeps its `TEMPORARY(phase1/agents)` synchronous path through a submit-and-step port its test or
+    host owns, one tick per `execute`; the marker's reason is rewritten to the interim rules (`sim_core.md` §13); its
+    `ModulatorResult` stops carrying the destroyed volume and absorbed energy (X-S3, DA-S10, D-N-N3);
+  - the `Applier(`/`region_parts` call sites (61 in `src/` and `tests/` at review) move to `Simulation`;
+  - `tests/test_ownership.py`'s writer scan names the new owners; the three `TEMPORARY(phase1/sim-clock)` window
+    markers and `heat.py`'s floor marker go, and the roadmap's Phase 1 list with them;
+  - CLAUDE.md's "only `World.advance` moves time", the membrane's "handed an applier and a frame view", the
+    verification rule's "until step 5a's fixed physics step" and the determinism rule's "Time comes from
+    `World.advance`" change in the same PR (X-S3);
+  - `boundaries.md` §6.4's rows follow §6's writer roles: "the laws in `advance`" goes, construction writes through
+    `Topology`, and a `Topology` row joins (X-N4).
+- **§14:** the intent log's `Format` (version 0, held by others), its reader, gate-registry row and golden fixtures,
+  including a `tick_digest` line (D-N-S5); `kind_rank` from `boundaries.md` §6.2, now ranking `ignite` and host
+  commands (D-N-S2); vocabulary v0 in 5a's logs (tile §3.2 amended; W-S2); the refusal codes produced today get their
+  stage, reply and logging class beside tile §3.4's (from step 3b part (b)'s review, Wire N6).
+- **6.0a rides this line** (`fire_solid.md` §0, §5): the split material data, its loaders and versions, and the fuel
+  tables' registry entries, before the first golden is regenerated.
+- **The SEM stimulus contract's 5a half** (`sem_stimuli.md` v5 §5, §7.1, §11.1): reserve lane chains (row lanes keyed
+  `(name, derivation_version, producers)`, producers the closure over every law's declared reads and writes at any
+  cadence, an events lane and a per-tick bound lane per NPC; A3-S5, W11, DP3-N2, S-F3, A3-N3), header slots (schema,
+  `BoundFrame` and receipt versions, each law's version, truth constants including the per-tick event budget, the
+  largest cognition divisor and the maximum emitter count; DP3-N3, DP-F-S3) and the `join`, `leave`, `agent_ready`,
+  `agent_failed` records; the per-tick law slot, the two-rate contact exchange, the `body_points` container (A3-S4)
+  and `radiant_emitters` (DP-F-N1); every `forbidden` list from `_core_modules()` with `as_packages = false`,
+  asserted by its equality test (N-S3).
+- **Digest plants 5a can build, on a toy row** (§9; Y7, S-F4): a toy law change moving a digested value by at least
+  one rounding quantum, requiring a first differing tick named by the per-tick lanes (N-F5); a toy producer two hops
   upstream bumped alone changes the row's key (A3-S5); an unbound row added stays green.
+- **Deferred** (owner, 2026-11-21, `reviews/sim_core/fold.md`): preallocated temporaries and the memory budget
+  (`world_v2.md` row 3), to B5's memory item, before step 9 (Perf P7).
 
 ## Step 5b, bodies and movement (`tile_and_client.md` §2, §3, §4.1)
+
+- From step 3b part (b)'s review (Determinism N7): a spawn maps to a cell in integers (`at_mm * 1000 // dx_um`), with
+  a stated side for a point on a cell face; the alley's spawn sits on the floor's top face at every grid.
 
 - The actor table, body motion, the walk grid and A*, the "move bodies" stage (AR-B1).
 - Body heat exchange as a reduction over a volume in metres, with closed-form and cross-grid tests (BF-B2).
@@ -133,13 +233,12 @@ authenticated for the private repository; Godot 4.7.2 at `/Applications/Godot.ap
   and a fixed point source (DPH-S4).
 - `join` records carry `body_key`, the archetype name and the held item's name.
 - The efference-copy fields (`tile_and_client.md` §3.1): bodies-part events and pilots rows carry `cause = (actor_id,
-  seq)`; the intent record carries an optional, opaque `invocation`. A test: a `move_to`'s `arrived` and a
+  seq)`; the intent record carries `invocation` (`boundaries.md` §6.2). A test: a `move_to`'s `arrived` and a
   `kindle`'s pilot row name their intent.
-- `invocation` is reserved and unfilled until Maxim's G17 stage (autonomic plan, post-fence resume) builds
-  `PhysicalEventId` (Maxim's review of v5, SHOULD-FIX 1). A test: null is accepted, and a stand-in is refused with a
-  typed code: a uuid string, an executor-style `invocation_id` and any other non-null value. The host copies the
-  field and never mints or computes one. When the type exists, the refusal narrows to any non-null value that isn't
-  a pid, with its own test.
+- `invocation` stays unfilled as `boundaries.md` §6.2 says until Maxim's G17 stage (autonomic plan, post-fence
+  resume) (Maxim's review of v5, SHOULD-FIX 1). A test: null is accepted, and a stand-in is refused with a typed
+  code: a uuid string, an executor-style `invocation_id` and any other non-null value. When the type exists, the
+  refusal narrows, with its own test.
 - Action vocabulary v1 with `actions.yaml` v1, refused at v0 by version, not migrated (DC-S5), and an interim sphere-overlap
   `kindle` deposit: a marked band-aid, its file listed under Phase 1 in the roadmap, removed by step 6's skin.
 
@@ -182,12 +281,14 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 
 ## Step 7, `phase1/protocol`
 
-- The frame grammar's extension rule restored (world_v2 §8): a `required` flag per channel, `compression: none`,
-  `axis_order`; fixtures for an unknown optional channel (ignored) and an unknown required channel (refused).
-- `welcome` and the version `error` carry the engine `build`.
+- The frame grammar's extension rule (`client_rendering.md` §4.1); six golden fixtures (`world_v2.md` §8), among them an
+  asymmetric grid and ones for an unknown optional channel
+  (ignored) and an unknown required channel (refused).
+- The engine `build` in `welcome` (`client_rendering.md` §4.1) and the version `error`.
 - A refusal for exhausted u16 region ids.
-- JSON reads floats (`client_rendering.md` §4.1): decoder fixtures with an integer at 2^53 and at 2^53 + 1 (refused);
-  stage 1 refuses `5500.0` and `true` where an integer is expected (Python reads a float, and `bool` is an `int`).
+- JSON reads floats (`client_rendering.md` §4.1; the pin is `boundaries.md` §9.1's): decoder fixtures with an integer
+  at 2^53 and at 2^53 + 1 (refused); stage 1 refuses `5500.0` and `true` where an integer is expected (Python reads a
+  float, and `bool` is an `int`).
 - B25's engine/game check, with the second engine file.
 
 - The strict red gate that refuses guest joins while real-Maxim NPCs are live, as the roadmap's Phase 4 assigns
@@ -206,8 +307,8 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 ## Step 8, the tile (`tile_and_client.md` §6; `client_rendering.md` §4–§6)
 
 - The game package and its `content/` (AR-S6).
-- The exit script, run stepped and unpaced; the controls, each proven by deletion (PH-S3); the stage-2 refusal
-  scripts.
+- The exit script (Phase 1's exit is `docs/roadmap.md`'s, Phase 1, "Exit"), run stepped and unpaced; the controls,
+  each proven by deletion (PH-S3); the stage-2 refusal scripts.
 - The shader, the cut-away test at ≥ 95%, five scenario goldens per tier, staleness digests, `update_goldens.sh`
   (EX-S13).
 - CR-B3's open half: a shaded golden that differs at 128 and 256 bits and agrees across Intel and AMD runners (the
@@ -219,9 +320,8 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 - The actor and pilots tables and `body_key` (BF-N3).
 - **Names, not positions:** every index column (`archetype`, `held_item`, `material`) carries a name list in the
   header, and loading remaps by name.
-- **The load rule:** a save is state, and loading never replays the log; it stores a region table, not the scene
-  file; a content change loads with a `content_changed` flag instead of refusing; every grid carries its cell size.
-  This supersedes world_model §8 F5's refuse-on-mismatch for saves (F5 and F14 contradict on embedded scenes).
+- **The load rule** is world_model §8's (F5, F14); loading never replays the log; every grid carries its cell size.
+- A "heavy mode" test saves, loads and continues, and must match an uninterrupted run bit for bit (`world_v2.md` §8).
 - No zero-valued `energy` or `dose` columns: they arrive in Phase 4 with defaults.
 - No agent state: the `EventSequencer`'s high-water seq in each agent home is save v1, Phase 4 (O43).
 
@@ -299,11 +399,31 @@ contradicts (TB-S5). Before the codec's fixtures freeze, each of these is a test
 - Windows NPCs before Phase 8 need a Phase 3 item; the owner decides whether they are wanted. Until then, a Known
   gap: real NPCs on macOS and Linux only.
 
-**The lane's model (MS-S8, O18).**
-- Build the router with `models/download.py::consented_router`, with no cloud or peer tail when guests are present,
-  the model provisioned before play, and stdin not a terminal.
-- A gate test: a missing local model with guests present refuses (typed, and shown in the client). It never falls
-  through to a remote tail.
+**The lane's model (MS-S8, O18; `docs/design/inference_placement.md` and `inference_gateway.md`, O46–O54).**
+- The lane dispatches through one inference gateway per placement on a scripted transport; Maxim's router is never
+  built on this path. A missing local model with guests present refuses the session at start (typed, shown in the
+  client); it never falls through to a remote placement.
+- Tests (IP §2–§6, IG §1–§9): every rejection of the three files (an uncovered function, an unfitting envelope, a
+  tier a no-degrade function forbids, an uncovered tokenizer family, `call_ceiling_s` not below the liveness ceiling,
+  a `server` member declaring `max_in_flight`, mismatched endpoint ids); per-placement and per-group queues; `single`,
+  `pinned` and `spill`; a load delay never moving a pinned function; cooldown, probe re-issue and down-for-session on
+  failed starts only; the ceiling kill's trigger and collateral; each classification row (IG §5) and each outcome
+  row (IP §2.6), with no reason or outcome crossing `AgentPort`; one `reply` per attempt and late replies after a
+  cancel; one cache entry per occurrence; a poisoned entry ignored live; a rerun that never looks up a request
+  cancelled before landing; a branch cache cut at the save point; a held reply across save and load; taint from
+  every guest-string channel and its clearing by `purge`; `NO_PROXY=*` in the gateway's environment; provenance
+  bounds; the transitive import set and the no-effect allowed set; the gateway log as the only place an endpoint may
+  appear, and no credential anywhere; the dial-invisibility test of IP §6.4.
+- **Deferred from the delta round (mechanism; trigger: writing that test in this step, unless Phase 4 is named):**
+  probe outcomes that are neither success nor fault (delta concurrency D8); a start ceiling (D9); outbox overflow per
+  kind (D11); the gateway's own sleeps on the injected clock (D12, Phase 4); disconnect behaviour of a non-streamed
+  call (D6, Phase 4); collateral cost per kill and a ceiling rule from the reply tail (performance D-5); the instance
+  model under concurrency (C7, Phase 4); per-transport stop reasons, refusal values and `allow_local_endpoints`
+  (wire S-4, executor E-N6, Phase 4); the HTTPS `owner_lan` address check (executor D-S6b, Phase 4); the proxy re-read
+  at each client build (trust D-S3); the no-effect allowed set (trust D-S5); call-time import capture (E-S9); slot
+  reservation per function (C12, on the slot-wait meter); a dial-test failure schedule that stays recoverable and
+  waits per reply (determinism N1); a probe of each server's real parallelism against its declared `max_in_flight`
+  (performance S-3, Phase 4).
 
 **Coverage of the worker (ST-S2).** Coverage follows the child: `patch = ["subprocess"]`, or
 `COVERAGE_PROCESS_START` with `parallel` and `combine`. Admit coverage's variables through test 2's allowlist, by
@@ -420,8 +540,8 @@ measured in the research (L3) or the reviews, **M** are from memory and must be 
   rest is low by 28% at 100 °C, 2.2× at 200 °C, **D**). Test: a two-region body, one region in a hot gas region of a
   fixture gas field, burns only that region; on the shipped path it waits for zones (P-N3).
 - **Immersion and plume** (PH2-S3): a continuous gas-temperature field per flame (flame, intermittent and plume
-  regions from a cited correlation), h(d)·(T_gas − T_s) per point; a cross-tier test with an outcome margin for a
-  hand at the flame edge; until then "plume gas doesn't heat" is a Known gap with a number.
+  regions from a cited correlation), h(d)·(T_gas − T_s) per point; a cross-tier test with an outcome margin
+  (`world_model.md` §3) for a hand at the flame edge; until then "plume gas doesn't heat" is a Known gap with a number.
 - **Contact** (PH2-B1): the object-side sub-mesh, refined to the substep's penetration depth, persists for the whole
   contact, read by the solid law through a conservative remap and remapped once at release. Outcome gate, with a
   horizon and a margin (P-S2): wood at 90 °C stays painless for 10 s with at least 1.9 K to threshold at the basal

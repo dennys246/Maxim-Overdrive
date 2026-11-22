@@ -24,6 +24,7 @@ from simcore.core.frames import CellFrame, Frame, FrameFeed, FrameView
 from simcore.core.grid import Field, MaterialGrid
 from simcore.core.limits import ActionLimits
 from simcore.core.materials import MaterialTable
+from simcore.core.refusals import RefusalCode, Refused
 from simcore.core.scene import Scene
 
 
@@ -40,8 +41,9 @@ class HeatSource:
         radius = finite_real(self.radius_m, "a heat source's radius_m")
         power = finite_real(self.power_w, "a heat source's power_w")
         if radius <= 0 or power < 0:
-            raise ValueError(
-                f"a heat source needs a positive radius and non-negative power, got {radius!r} m, {power!r} W"
+            raise Refused(
+                f"a heat source needs a positive radius and non-negative power, got {radius!r} m, {power!r} W",
+                code=RefusalCode.OUT_OF_RANGE,
             )
         object.__setattr__(self, "radius_m", radius)
         object.__setattr__(self, "power_w", power)

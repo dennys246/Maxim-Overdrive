@@ -248,7 +248,14 @@ def test_a_runner_that_exits_non_zero_after_pass_fails(godot, project, tmp_path)
 
 def test_the_golden_scene_refuses_a_headless_run_instead_of_hanging(godot, project, tmp_path):
     """Under --headless the capture's await never returns; the scene must refuse at once (S2E-S2)."""
-    args = ["--headless", "--path", str(project), "res://tests/golden.tscn", "--", f"--out={tmp_path / 'x.png'}"]
+    args = [
+        "--headless",
+        "--path",
+        str(project),
+        "res://tests/golden.tscn",
+        "--",
+        f"--shot=alley_fire:rig:shaded:{tmp_path / 'x.png'}",
+    ]
     run = gc.run_godot(godot, "golden", args, home=tmp_path / "home", timeout_s=HANG_TIMEOUT_S)
     assert run.returncode == 1, run.lines
     assert any("golden: --headless draws nothing" in line for line in run.lines), run.lines

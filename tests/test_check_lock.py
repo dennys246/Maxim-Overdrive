@@ -8,6 +8,7 @@ import sys
 import tomllib
 from importlib import metadata
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -137,6 +138,38 @@ def test_the_drift_job_runs_on_a_schedule_and_unpinned() -> None:
     assert drift[True]["schedule"]  # PyYAML reads the bare key `on` as True
     install = next(s["run"] for s in drift["jobs"]["drift"]["steps"] if s.get("name") == "Install, unpinned")
     assert "-c " not in install
+
+
+def _workflow(name: str) -> dict[Any, Any]:
+    loaded: dict[Any, Any] = yaml.safe_load((ROOT / ".github" / "workflows" / name).read_text())
+    return loaded
+
+
+def test_ci_runs_on_pull_requests_and_pushes_to_main_only() -> None:
+    # A branch push without a PR is gated locally before hand-off; running on both doubled every PR's minutes.
+    for name in ("test.yml", "golden.yml"):
+        assert _workflow(name)[True] == {"push": {"branches": ["main"]}, "pull_request": None}, name
+
+
+def test_macos_runs_on_githubs_runners_only_for_pushes_to_main_and_the_weekly_drift() -> None:
+    # Private-repo macOS minutes bill at 10x Linux's (owner, 2026-11-21, option B). A PR's macOS check at Python 3.12
+    # is the mini's prepush PASS; 3.14 on macOS waits for main. No job runs off GitHub's runners.
+    gate = _workflow("test.yml")["jobs"]["prepush"]
+    assert gate["runs-on"] == "${{ matrix.os }}"
+    both, linux = '["ubuntu-latest", "macos-latest"]', '["ubuntu-latest"]'
+    assert (
+        gate["strategy"]["matrix"]["os"] == f"${{{{ fromJSON(github.event_name == 'push' && '{both}' || '{linux}') }}}}"
+    )
+    drift = _workflow("drift.yml")["jobs"]["drift"]
+    assert drift["strategy"]["matrix"]["os"] == ["ubuntu-latest", "macos-latest"]
+    hosted = {"ubuntu-latest", "macos-latest"}
+    for name in ("test.yml", "drift.yml", "golden.yml"):
+        for job in _workflow(name)["jobs"].values():
+            labels = {job["runs-on"]} if job["runs-on"] != "${{ matrix.os }}" else set()
+            matrix_os = job.get("strategy", {}).get("matrix", {}).get("os", [])
+            labels |= set(re.findall(r'"([^"]+)"', matrix_os)) if isinstance(matrix_os, str) else set(matrix_os)
+            assert labels, name
+            assert labels <= hosted, (name, labels)  # GitHub-hosted only: no custom or self-hosted label
 
 
 def test_installed_names_lists_this_environment() -> None:

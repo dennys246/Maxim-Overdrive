@@ -10,15 +10,14 @@ Godot client (render, input, UI)  ──intents──▶  World server (Python, 
                                   ◀─snapshots──    ├── material grid (cells)
                                                    ├── physics fields (heat today)
                                                    ├── damage
-                                                   ├── SEM bridge  ──▶  Maxim agents (AgentPool)
+                                                   ├── SEM bridge  ──▶  Maxim agents (a worker each)
                                                    └── imagination specs → cells
 ```
 
 - The world server owns all state and all physics. The client never simulates anything that feeds back into the
   world. It may add purely visual effects (particles, debris, interpolation between frames).
 - Cradles and experiments run the same server headless. The physics an NPC grows up in is the game's physics.
-- The game runs in real time with pause (`docs/design/realtime_lanes_coop.md`); neither the world nor an NPC
-  waits for a thought.
+- Real time with pause; late thoughts dilate, hold the floor or land late (`npcs_and_sem.md` §4.4).
 
 ## The world is material cells
 
@@ -29,17 +28,15 @@ is given (`dx_m`). Nothing is authored in cells.
 Materials (`data/materials/core.yaml`) carry textbook thermal properties plus two gameplay calibrations that are
 always **per unit volume** (`fracture_energy_j_m3`, `degrade_*`), so they mean the same thing at every resolution.
 
-## The resolution rule
+## The verification rule
 
-> **A rig profile may change precision, never the outcome class.**
+The rule is stated in `docs/design/world_model.md` §1.1. Two tests per module, through `simcore.verify`
+(`docs/design/verify_harness.md`):
 
-The same scene at two profiles must agree on every gameplay outcome: did the wall breach, did the crate burn, did the
-room get hot enough. Each physics module ships two kinds of test:
-
-1. **Against a closed form.** Heat: a Gaussian pulse in a steel bar against the 1-D heat equation (error 1% / 0.1% /
-   0.01% at 0.2 / 0.1 / 0.05 m cells, second-order convergence). Damage: crater volume against
-   `analytic_crater_radius_m` (within 5%).
-2. **Across tiers.** The same scenario at every profile, gated on the outcome (`tests/test_cross_tier.py`).
+1. **Against a closed form,** space and time refined apart (E2). Heat: a steel bar's Gaussian pulse, second
+   order in space (errors 1.29% / 0.34% / 0.085% at 0.2 / 0.1 / 0.05 m) and first in time. Damage: crater volume
+   against `analytic_crater_radius_m` (within 5%).
+2. **Across grids,** gated on agreement and convergence (`tests/test_cross_tier.py`).
 
 How the rule is kept, so far:
 - Energy lands by **exact cell average** (a strike's Gaussian integrated over each cell) or by **volume overlap**
@@ -47,22 +44,24 @@ How the rule is kept, so far:
   cooler at 0.2 m cells than at 0.05 m, and the crate burned at one rig and not another.
 - SEM sensors are **reductions over cells** (mean integrity, mean and max temperature). Means converge with
   resolution; a max doesn't have to (`temperature_max` mid-burn differs across rigs, see Known gaps), so decisions
-  are taken on means or integrals, as the "reconstruct, decide, integrate" rule in CLAUDE.md requires.
-- Thin features must be at least two of the coarsest rig's cells thick, or one cell becomes the whole feature and a
-  scratch becomes a breach.
+  are taken on means or integrals, as the "reconstruct, decide, integrate" rule (`docs/design/world_model.md` §3)
+  requires.
+- Thin features: the rule and its fuel-object exemption are `docs/design/world_model.md` §1.1's.
 
 **Known gaps (tracked, not gated yet):**
+- NPC inference (no streaming yet, load versus failure, first hops, spend): `docs/design/inference_placement.md` §6.3.
 - Late in a burn the coarsest rig lags (crate integrity 0.55 at 0.2 m vs 0.37–0.38 at 0.1 and 0.05 m after 150
   turns): a coarse cell degrades as one block. Onset agrees to within 5%. It falls below 0.7 at turn 138 at 0.2 m
   against 104 at 0.1 m. Red gate: `tests/test_cross_tier.py::test_the_crate_is_badly_burned_at_the_same_turn_at_every_rig`.
 - No convection or radiation: air only conducts, so rooms heat too slowly and fires must sit on a material.
-- Destroying a cell removes its heat with it (the cell becomes air at the air's heat capacity).
+- Destroying a cell removes its heat (it becomes air at air's heat capacity). Measured: a 5.4-minute crate-and-pallet
+  burn lost 42.2 of 84.0 MJ to 14 destroyed cells (commit 6e8f037).
 - **Fires don't consume fuel: once nothing solid is left under a fire, it heats air.** `World._power_field` spreads a
   fire's power over the solid cells its sphere overlaps, and falls back to the air cells when there are none. Air has
   about 1/1000 of wood's ρc, so the runaway is enormous. On the 3×3×2 m crate scene at 500 kW, radius 0.3 m: the
   crate is gone by turn 50 at 0.2 m cells, and the peak is 207,350 °C at turn 50 and 2.67 million °C at turn 200;
-  at 0.1 m it is 361,913 °C at turn 50 and 2.67 million °C at turn 200. The snapshot clamps temperature at 6000 °C,
-  so the client never sees the overshoot, but the heat is real and conducts onward. The fix is a fire that goes out
+  at 0.1 m it is 361,913 °C at turn 50 and 2.67 million °C at turn 200. The snapshot clamps at 6000 °C; the heat
+  still conducts. The fix is a fire that goes out
   when it has nothing to burn. It blocks the exit test's "burn away", so it lands before the tile's crate scenario
   is gated. Red gate: `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`
   (`xfail(strict=True)`).
@@ -75,7 +74,7 @@ How the rule is kept, so far:
   have a radius of at least 0.3 m and a `strike` a width of at least 0.2 m, the coarsest rig's cell
   (`data/world/actions.yaml`, held by `tests/test_act_validation.py`). A `HeatSource` built directly in code can
   still be smaller.
-- **Fires diverge across rigs mid-burn, so fire outcomes don't yet keep the resolution rule.** Measured at the
+- **Fires diverge across rigs mid-burn, so fire outcomes don't yet keep the verification rule.** Measured at the
   largest fire actions allow (500 kW, 0.3 m radius) on the 3×3×2 m crate scene, recording crate integrity every
   turn: the spread across laptop / rig / max exceeds 0.1 on every turn from 18 to 27 and peaks at 0.19 at turn 22
   (0.70 / 0.57 / 0.51). It narrows near turn 30 only because the curves cross, and from about turn 30 the fuel gap
@@ -105,12 +104,13 @@ How the rule is kept, so far:
 - **A destroyed region still claims its space,** for strikes and for imagined objects alike (`spec.place` refuses
   a new object inside a burnt-out crate's old box). A crate burned to nothing still owns its authored box: a strike there
   is "on the crate", and `ignite` puts the fire into air. "Gone" only means a later paint took every cell. Ownership per cell (the region id array planned
-  for design v2) removes it.
+  for design v2) removes it. Decided by the flames design (after R0–R1); `docs/design/world_model.md` §5
+  disagrees.
 - **Overlap is judged on bounding boxes, and it has an authoring cost.** Named solids may not overlap a later solid
   (`scene._check_no_solid_overlaps`, and `imagination.place` for imagined objects), and a cylinder's box corners
   count as its own, so two barrels close together can be refused although they don't touch. A solid window, sign or
   vent inside a named wall is refused too, so such a wall must be split into pieces or left unnamed. Per-cell
-  ownership (design v2's region id array) removes both.
+  ownership (design v2's region id array) removes both. Decided by the flames design (after R0–R1).
 - **A region carved hollow keeps its authored centroid.** Air may carve into a named solid (a doorway), but the
   solid's footprint and centroid stay those of the authored box. With a doorway through a wall's middle, the
   centroid is in air: `ignite` puts the fire in the doorway, where it heats only air, and an aimless strike lands
@@ -121,7 +121,7 @@ How the rule is kept, so far:
 - **Whether an imagined object fits in the world can depend on the rig.** `imagination.place` refuses an object
   "smaller than one cell at this resolution" when it covers no cell centre, which can happen at the coarse rig and
   not at a finer one. Its size and mass budgets are rig-independent; this check
-  isn't. The thin-features rule (two coarse cells) as a minimum authored size
+  isn't. The thin-features rule (`docs/design/world_model.md` §1.1) as a minimum authored size
   would remove it.
 - **A region's temperature reading can leave its declared range.** `RegionInstrument` declares
   `temperature_max` as [-273, 6000] °C, but the fuel gap lets legal fires drive cells far past that (about 4×10⁵ °C
@@ -140,10 +140,10 @@ How the rule is kept, so far:
 generation, affordance gating and prompt formatting work on the environment unchanged. The environment has no drives,
 pain or learning: it is SEM without embodiment.
 
-**The modulator is a trust boundary.** An NPC's tool call, an LLM's output and a client's intent all reach the
-world through it, so it works in two stages. `parse_action` turns the untrusted `(affordance, params)` into a frozen
-`Strike`, `Ignite` or `Extinguish` inside the world's `ActionLimits` (`data/world/actions.yaml`), reading nothing from
-the world, so the protocol layer can run it first. The applier re-checks the action against the
+**The modulator is a trust boundary.** An NPC's tool call reaches the world through it; every gate is listed in
+`docs/design/boundaries.md` §5.3. It works in two stages. `parse_action` turns the untrusted `(affordance, params)`
+into a frozen `Strike`, `Ignite` or `Extinguish` inside the world's `ActionLimits` (`data/world/actions.yaml`),
+reading nothing from the world, so the protocol layer can run it first. The applier re-checks the action against the
 limits, then checks what depends on the world now (the region still has cells, a strike's point is on the region, judged
 from authored footprints in metres so the answer is the same at every spacing). A region is its cells plus its authored
 footprint; named solids can't share space with a later solid, so a footprint never covers another object's cells.
@@ -169,30 +169,29 @@ The client and server talk over one WebSocket. Snapshots go as binary messages (
 arrays), and intents go as JSON text messages. The protocol is defined apart from the transport, so swapping the
 transport later means replacing one adapter on each side, not the message format or its tests.
 
-**Why not a raw TCP socket.** At 5 bytes per cell, a 16×10×4 m tile is about 0.4 MB at 0.2 m cells, 3.2 MB at
-0.1 m and 26 MB at 0.05 m. On localhost either transport moves that in tens of milliseconds, far less than a turn of
-physics. WebSocket frames each message for us (raw TCP means hand-written length-prefix reassembly in GDScript),
-can be inspected with `websocat` or a few lines of Python, is built into Godot 4 (`WebSocketPeer`), and is the only
-one of the two that a web export or `wss://` remote play could use.
+**Why not a raw TCP socket.** A frame's size is `docs/design/client_rendering.md` §4.2's (bytes per cell × cells).
+On localhost either transport moves it in tens of milliseconds, far less than a turn of physics. WebSocket frames
+each message for us (raw TCP means hand-written length-prefix reassembly in GDScript), is inspectable with
+`websocat`, is built into Godot 4 (`WebSocketPeer`), and alone suits a web export or `wss://`.
 
 **What it costs, and what we do about it:**
 - *Any web page can open `ws://localhost`.* Browsers allow cross-origin WebSockets, which a raw socket would not.
-  The server binds to `127.0.0.1` only, refuses any handshake that carries an `Origin` header (browsers always send
-  one; Godot's native `WebSocketPeer` sends none unless told to, to be confirmed in step 2), and requires a
-  per-launch token. Each refusal has a test (`docs/standards_backlog.md` B14). A web export would send its page's
-  `Origin`, so supporting one would mean an Origin allow-list, which is a protocol change made deliberately, not a
-  relaxed check.
+  The handshake (`docs/design/boundaries.md` §5.3) refuses what a browser sends: browsers always send an `Origin`
+  header, and Godot's native `WebSocketPeer` sends none unless told to (to be confirmed in step 2). Each refusal has
+  a test (`docs/standards_backlog.md` B14). A web export would send its page's `Origin`, so supporting one would
+  mean an Origin allow-list, which is a protocol change made deliberately, not a relaxed check.
 - *Head-of-line blocking.* WebSocket runs over TCP, so a large snapshot delays any small message queued behind it.
-  That is harmless for a turn-based game. Continuous streaming would need delta snapshots or chunking.
-- *Whole messages are buffered.* Both ends must raise their default caps (Godot's `inbound_buffer_size` is 64 KiB;
-  Python `websockets`' `max_size` is 1 MiB). Multi-tile worlds at 0.05 m would need deltas, as any transport would.
+  `docs/design/client_rendering.md` §4.3 bounds the wait. Continuous streaming would need delta snapshots or
+  chunking.
+- *Whole messages are buffered.* Each end's cap is `docs/design/client_rendering.md` §4.3's. Multi-tile worlds at
+  0.05 m would need deltas, as any transport would.
 - *Not for real-time internet play.* Fast multiplayer would want UDP (Godot's ENet). Out of scope.
 - *The faster local option is shared memory, not raw TCP.* Godot needs a GDExtension for it. A Phase 2 "Scale"
   item only if profiling asks for it.
 
-The snapshot header reserves a compression field from v0, plus each array's uncompressed byte size, which Godot's
-`PackedByteArray.decompress(buffer_size, FileAccess.COMPRESSION_ZSTD)` needs. Most cells are air, so zstd should
-shrink snapshots by 10× or more.
+The frame header (`docs/design/client_rendering.md` §4.1) reserves compression and gives each array's uncompressed
+size, which Godot's `PackedByteArray.decompress(buffer_size, FileAccess.COMPRESSION_ZSTD)` needs. Most cells are air,
+so zstd should shrink snapshots by 10× or more.
 
 ## Imagination: specs, not assets
 
@@ -213,4 +212,4 @@ Image-model assets (textures, portraits) can be added later as cached decoration
 
 ## Licensing
 
-Code: Apache-2.0 (`LICENSE`). Story, characters, lore, art and audio: all rights reserved (`ASSETS_LICENSE.md`).
+The licences are `docs/design/boundaries.md` §8.2's.

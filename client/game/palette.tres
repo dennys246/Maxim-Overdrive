@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="MaterialPalette" format=3]
+
+[ext_resource type="Script" path="res://addons/engine/render/material_palette.gd" id="1_pal"]
+
+[resource]
+script = ExtResource("1_pal")
+colours = Dictionary[String, Color]({
+"concrete": Color(0.59, 0.59, 0.57, 1),
+"drywall": Color(0.88, 0.87, 0.84, 1),
+"glass": Color(0.7, 0.86, 0.9, 1),
+"steel": Color(0.47, 0.49, 0.53, 1),
+"wood": Color(0.55, 0.37, 0.22, 1)
+})

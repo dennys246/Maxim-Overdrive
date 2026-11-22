@@ -19,28 +19,7 @@ in §5.1.
 
 ## 0. Decisions this document rests on
 
-| Id | Decision | Owner, date | Source |
-|---|---|---|---|
-| T1 | Camera: isometric 3/4, fixed elevation, 90° steps, bounded zoom, a cut-away rule | owner, 2026-11-18 | `client_rendering.md` |
-| T2 | Movement: click-to-move and WASD, both validated intents through the one door, logged; the client never moves the player | owner, 2026-11-18 | §2, §3 |
-| T3 | Tick 0.1 s, physics every 0.5 s; the 6 s turn is retired | owner, 2026-11-18 | §6.1 |
-| T4 | `kindle`, with power from a held item; `ignite` retired | owner, 2026-11-18 | §3.2 |
-| T5 | A body heat state from Phase 1 | owner, 2026-11-18 | §2.1 |
-| T6 | File OD-C11 (egocentric locomotion) with Maxim | owner, 2026-11-18 | §3.1 |
-| T7 | The walk direction is an integer vector, canonicalised at stage 1 | owner, 2026-11-18 | §2.3 |
-| T13 | Frozen at v3; no more paper rounds on the fire physics. Step 6's PR carries a short design note under the Physics lens, the final review's FPH-B1 to B3 are its requirements, and its convergence tests and pre-registered failure path decide | owner, 2026-11-18 | §5 |
-| T14 | The flame radiates into bodies by a point source in Phase 1; into walls in Phase 2 | owner, 2026-11-19 | §9 |
-| T15 | The crate: 20 mm slats at φ = 0.25 | owner, 2026-11-19 | §9 |
-| T16 | Protocol v0 freezes only the kinds a Phase 1 client sends | owner, 2026-11-19 | §3.3, §9 |
-| T17 | An accelerant lights the crate, not the pilot alone; step 6 researches char oxidation first (`physics_spike.md`) | owner, 2026-11-20 | §5, §6.3 |
-| T18 | The accelerant is a pore-loading field the SEM bridge reads, never an SEM rule (`physics_spike.md`) | owner, 2026-11-20 | §5, §9 |
-| RT1–4 | Real time with pause on a fixed tick; a dial; pause a state; host-only time control | owner, 2026-11-15 | realtime decisions 1–4 |
-| D20, D25 | One truth at 0.1 m, rigs are rendering tiers; reconstruct, decide at the point, integrate | owner, 2026-11-16 | world_model §0 |
-| D26–D28 | Tile first, exit as written; clinic after; heat-debt prototype after the tile | owner, 2026-11-17 | world_model §0 |
-| D29, D30 | Step 6 = 6a open-air loss, 6b surface skin, 6c porous fuel bed, 6d char oxidation; solid sub-cell recession moves to Phase 2 | owner, 2026-11-18 | world_model §0 |
-| O23, O24, O31 | Frames publish on change; `simcore` in four layers (core, adapters, game, client protocol); this split | owner, 2026-11-17/18 | boundaries §0 |
-
-T8–T12 are client decisions (`client_rendering.md` §0).
+This document's decisions (18 rulings) are kept as records, with their dates, owner sections and status, in `decisions/tile_and_client.md`.
 
 ## 1. The alley in metres
 
@@ -61,8 +40,8 @@ T8–T12 are client decisions (`client_rendering.md` §0).
 
 - **The crate is a porous fuel bed** (D30): slats around air, authored as a 0.6 m box whose cells carry a fuel volume
   fraction φ and a surface area per volume σ. Content values `[engineering]`: 20 mm slats, φ = 0.25, so σ = 2φ/δ =
-  **25 m²/m³**; 0.054 m³ of wood, **32.4 kg**, **5.4 m²** of fuel surface (derived). The thin-feature rule applies to
-  the box, not the slats, which live inside the cell's state.
+  **25 m²/m³**; 0.054 m³ of wood, **32.4 kg**, **5.4 m²** of fuel surface (derived). The thin-feature rule and its fuel
+  exemption are `world_model.md` §1.1's.
 - **`crate_far` is a placement guard,** not a fire-spread control (PH-S3): heat can't reach it 2.68 m away through
   air (diffusion length √(αt) = 0.34 m over the 5,400 s cap, α_air 2.2×10⁻⁵ m²/s, PH's value).
 - **No bounding-box overlaps between named solids** (`scene._check_no_solid_overlaps`); no other props until D27.
@@ -76,10 +55,14 @@ T8–T12 are client decisions (`client_rendering.md` §0).
 
 ### 1.3 Scene format and files
 
-- **Scene v1 = world_model F13's strict loader plus a required `spawns` list** (WT-S8), in step 3b; zones become v2
-  in Phase 2. v0 migrates by the literal `spawns: []` (F12); `join` with no spawn for its archetype is refused.
+- **Scene v1 = a strict loader (F13) plus a required `spawns` list** (WT-S8), in step 3b: zones, vents and gaps
+  refused by path; grid alignment checked in integers (0.6 / 0.2 is 2.9999999999999996 in floats), every extent a
+  whole number of 0.2 m cells, judged in whole micrometres, so a scene builds at every verification grid or none.
+  Zones become v2 in Phase 2. v0 is refused by version, never migrated, since scenes are repo-only (step 3b); `join`
+  with no spawn for its archetype is refused.
 - **The format checks syntax and extent only;** clearance is checked at construction and `join` (AR-S9); spawns
-  convert to integer mm by F13's rule; a bed's φ and σ are validated (0 < φ < 1, σ > 0) where the primitive is made.
+  convert to integer mm by F13's rule. Spawn names are unique under Maxim's name rule, never a region's name nor one
+  of Maxim's target aliases (`self`, `aut`, `player`).
 - **Files:** `content/scenes/alley.yaml` (rights reserved, step 8); engine tests and step 5 use an Apache fixture
   with the same boxes, `tests/fixtures/scenes/alley_box.yaml`. Cut-away walls are client data (DC-N4).
 
@@ -88,7 +71,7 @@ version: 1
 extent_m: [12.0, 4.0, 4.8]
 ambient_c: 15.0
 spawns:
-  - {name: player, archetype: human, holding: torch, at_m: [0.6, 2.0, 0.4]}
+  - {name: runner, archetype: human, holding: torch, at_m: [0.6, 2.0, 0.4]}
 primitives:
   - {kind: box, name: floor,      material: concrete, min_m: [0.0, 0.0, 0.0],   max_m: [12.0, 4.0, 0.4]}
   - {kind: box, name: wall_south, material: concrete, min_m: [1.2, 0.0, 0.4],   max_m: [12.0, 0.4, 4.4]}
@@ -128,9 +111,8 @@ measurement. `stable_dt` is 46.9 s at 0.1 m: one substep per 0.5 s physics step.
 - **Convection** is superseded by `sem_stimuli.md` §3.1 (2026-11-21): per skin point, against a fixed reservoir in
   Phase 1. The exchange volume's air (1.53 kJ/K) reaches the body's temperature in about 80 s (DPH, derived), so a
   volume-mean sink makes the body fire-blind.
-- **So the body also receives radiation** (§9 Q1): from each hot exposed skin face by a view factor computed in
-  metres, debiting that face's 6a loss; and from the flame by the point-source model q'' = χ_r·Q̇/(4πd²) (*from memory,
-  to verify*), debiting the unreceived flame line (§5.4). It radiates to ambient at εσ(T_b⁴ − T_amb⁴): about 240 W at
+- **So the body also receives radiation** (§9 Q1): the flame's emission is `fire_model.md` §4.4's, and the body
+  side `sem_stimuli.md` §2.3's. It radiates to ambient at εσ(T_b⁴ − T_amb⁴): about 240 W at
   37 °C in 15 °C surroundings (derived). Metabolism and regulation: `sem_stimuli.md` §3.1.
 - **What it feels near the fire (derived from §5's numbers):** in the flaming phase (Q̇ ≈ 780 kW, χ_r 0.3), 18.5 kW/m²
   at 1 m and 2.1 kW/m² at 3 m; absorbed over 0.5 m², 9.3 kW (+2.3 K/min) and 1.0 kW (+0.25 K/min). In the ember phase,
@@ -166,8 +148,7 @@ Frozen per tick, replaced by `Simulation.step`; column-major, integer keys, no s
 
 ### 2.3 Movement in integers
 
-- **Tick order** (realtime §2.1): records, **move bodies**, agents, physics, outputs; stage 2 reads the body as of the
-  tick's start.
+- **Tick order** is `sem_stimuli.md` §4.1's; stage 2 reads the body as of the tick's start.
 - **Direction (T7; DC-S8):** stage 1 canonicalises `dir` = (dx, dy), integers, not both zero, to m = max(|dx|, |dy|)
   = 1000: d'_i = sign(d_i)·((2000·|d_i| + m) // (2m)). Only the canonical form is logged, so (1, 1) and (1000, 1000)
   are one record. The core's step: n = isqrt((dx'² + dy'²)·10⁶), step_i = sign·(140·|d'_i|·1000 // n); axis steps
@@ -191,19 +172,15 @@ Frozen per tick, replaced by `Simulation.step`; column-major, integer keys, no s
 
 ### 3.1 The pipeline (AR-B2, WT-B1)
 
-Decode → stage 1 (`simcore` core intents) → log → stage 2 against the world at apply → one receipt. The record is boundaries §6.2's: `schema_version`, `kind`, `actor_id` (from the session token),
-`seq`, `observed_tick`, `issued_tick`, `apply_tick`, `apply_us`, canonical `params`, `target`. Ordering key
-`(apply_tick, kind_rank, apply_us, actor_id, seq)`.
+Decode → stage 1 (`simcore` core intents) → log → stage 2 against the world at apply → one receipt. The record, its
+fields, the ordering key and `kind_rank` are boundaries §6.2's; `actor_id` comes from the session token.
 - **Cause (the efference copy, npcs §6.6).** Receipts carry the intent's id, `(actor_id, seq)`; each bodies-part
-  event and pilots row also carries it as `cause`. An agent's intent logs Maxim's invocation pid as opaque
-  `invocation` (null for players), which its adapter maps `cause` to. The host copies it and never mints one; it is null, never a
-  stand-in, until Maxim's G17 stage (npcs §6.6). Step 5b owns both; step 7
-  freezes `cause`.
+  event and pilots row also carries it as `cause`. An agent's intent logs its invocation pid as `invocation`
+  (boundaries §6.2), which its adapter maps `cause` to. Step 5b owns both; step 7 freezes `cause`.
 - **`observed_tick`** is the tick of the last cell frame sent to that session (DC-S1, boundaries §4.2), not the last
   `tick` message. Phase 1 has no stale rule, so it has no caller; it is logged for Phase 4 (DC-N8).
 - **Authority** (boundaries §6.1): `move`, `move_to`, `kindle` are "any actor"; a body or an igniter is capability,
   checked at stage 2 (DC-N1).
-- **`kind_rank`** `[engineering]`: join/leave 0, `time` 1, moves 2, `kindle`, `strike`, `douse`, `imagine` 3.
 - **A held direction applies every tick until replaced.**
 - **Walking is a body affordance NPCs will share** (T6, OD-C11). Maxim's bodies (6fee7377, `fold.md` Check 1):
   `base_humanoid.yaml`'s `legs.move {direction: str, speed: str}` takes any string, `minecraft_player.yaml`'s
@@ -212,16 +189,18 @@ Decode → stage 1 (`simcore` core intents) → log → stage 2 against the worl
 
 ### 3.2 `kindle` (T4; WT-B2, BF-S4, BF-S5, PH-S4, DC-S5–S7)
 
-- **Action vocabulary v1** adds `kindle` (a bounded pilot) and retires `ignite`, as F7 retired `extinguish`. It ships
-  with the first log writer (step 5), so no v0 intent log ever exists and the v0-log refusal test is moot (DC-S5).
+<!-- contract: intent.kinds: move move_to kindle strike douse imagine | not: ignite extinguish test_a_fire_that_has_burned_its_fuel_stops_heating -->
+- **Action vocabulary v1** is `move`, `move_to`, `kindle`, `strike`, `douse`, `imagine`. It adds `kindle` (a bounded
+  pilot) and retires `ignite`, as F7 retired `extinguish` for `douse` (water as a heat and O₂ sink, with caps). It
+  ships with 5b; 5a's logs carry v0, so the v0-log refusal test returns with 5b (owner, 2026-11-21; DC-S5).
   Until step 6's skin exists, step 5's `kindle` deposits by sphere volume overlap at the point with the item's radius,
   a marked, scheduled band-aid that step 6 removes. The red gate
   `test_a_fire_that_has_burned_its_fuel_stops_heating` is rewritten to use `kindle` when step 6 flips it.
-- **`data/world/actions.yaml` v1** carries `kindle`'s physics-safety ceiling (`max_power_w`, `max_duration_ticks`,
-  `min_radius_m` = 0.2) and drops `ignite`. A registered migration `actions_v0_to_v1` loads the committed v0 fixture
-  to its expected v1 value. Limits are the ceiling intersected with the item's capability (boundaries §6.1 rule 3).
+- **`data/world/actions.yaml` v1** carries `kindle`'s physics-safety ceiling (`max_power_w`, `max_duration_s`,
+  `min_radius_m` = 0.2) and drops `ignite`. It is repo-only, so v0 is refused by version with a test, never migrated (step
+  3b). Limits are the ceiling intersected with the item's capability (boundaries §6.1 rule 3).
 - **Power belongs to the item.** `content/items/torch.yaml`: `power_w`, footprint `radius_m` (≥ 0.2 m),
-  `max_duration_ticks`, `restrike_ticks` (world time). Phase 1's torch is a propane pilot of order 2 kW, 15.9 kW/m²
+  `max_duration_s`, `restrike_s` (world time, seconds). Phase 1's torch is a propane pilot of order 2 kW, 15.9 kW/m²
   over its 0.2 m disc (*from memory*); its values come from step 6's band measurement (§6.3).
 - **Checks:** stage 1 checks types and the ceiling; the item's maximum is a logged stage-2 code, `over_item_max`
   (DC-S6). Stage 2 derives the region: the named solid whose authored box surface lies within 50 mm of `point_mm`
@@ -240,6 +219,7 @@ Decode → stage 1 (`simcore` core intents) → log → stage 2 against the worl
 
 ### 3.3 Protocol v0's client messages (DC-B2)
 
+<!-- contract: client.messages: hello move move_to kindle time snapshot -->
 | Client → server | Fields | Final reply |
 |---|---|---|
 | `hello` | `protocol: 0`, `token` | `welcome`, or `error` then close |
@@ -252,14 +232,18 @@ Decode → stage 1 (`simcore` core intents) → log → stage 2 against the worl
 - **No client message names a region or actor.**
 - **`strike`, `douse` and `imagine` have no wire message in v0** (T16); they join as versioned additions when a
   client caller exists. NPCs reach them through the adapter.
-- **One receipt shape for every intent** (boundaries §7.2): `(actor_id, seq)`, outcome (`applied`, `refused`, `stale`,
-  `cancelled`; the last two have no Phase 1 producer), refusal code, measured effect, before and after frame ids.
-  `intent_result` wraps it with wire-only `apply_tick` and `path_mm`. Agent-facing receipts carry no tick.
-- **Server → client** messages (`welcome`, `regions`, `tick`, cell frames, `error`) are specified in
-  `client_rendering.md` §4.
+<!-- contract: intent_result.outcomes: applied refused stale cancelled | not: intent_result `(actor_id, seq)` apply_tick path_mm sem_stimuli.md -->
+- **`intent_result`, one wire receipt for every intent:** `(actor_id, seq)`, outcome (`applied`, `refused`, `stale`,
+  `cancelled`; the last two have no Phase 1 producer), refusal code, measured effect, before and after frame ids,
+  and the wire-only `apply_tick` and `path_mm`. The agent-facing receipt is `sem_stimuli.md` §6.2's and carries no
+  tick.
+- **Every client message's `seq`** is an integer in `[0, 2^31)` and must increase within a session (W-F5; copied from
+  `realtime_lanes_coop.md` §7).
+- **Server → client** messages are `client_rendering.md` §4.1's.
 
 ### 3.4 Refusals (WT-S1, EX-S8), in check order
 
+<!-- contract: refusal.codes: bad_json unknown_kind unknown_field busy not_int bad_shape out_of_range outside_extent rate_limited coalesced out_of_reach not_on_surface ambiguous_point region_gone no_igniter over_item_max pilot_live restrike_wait no_body no_path unreachable | not: 5500.0 1e3 dir kindle move_to -->
 | Code | Stage | Reply | Logged | Step |
 |---|---|---|---|---|
 | `bad_json`, `unknown_kind`, `unknown_field`, `busy` | decode | `error` | no | 7 |
@@ -277,14 +261,14 @@ Decode → stage 1 (`simcore` core intents) → log → stage 2 against the worl
 
 ### 3.5 The log header
 
-Its content digests (boundaries §6.3) gain the body archetypes, items, spawns, the vocabulary and `actions.yaml`
-versions, and the navigation constants (WT-S3). Rate limits are pre-log and stay out.
+Its fields are boundaries §6.3's (WT-S3).
 
 ## 4. The simulation `Frame` (BF-B1, AR-S2, DC-S2–S4)
 
-- **Two parts, one tick stamp; frame ids are ticks.** The cells part is a copy published when cells' version changes,
-  shared by reference otherwise. The bodies part holds the actor table, the pilots table and that tick's events
-  (`arrived`, `path_blocked`, `pilot_ended`, each with its new state).
+- **Two parts, one tick stamp; frame ids are ticks.** The cells part is a copy published when cells' version changes
+  (cells change at physics steps, every 0.5 s, and at intent apply), shared by reference otherwise. The bodies part
+  holds the actor table, the pilots table and that tick's events (`arrived`, `path_blocked`, `pilot_ended`, each with
+  its new state).
 - **A `Frame` is published every tick on which any intent was applied or refused, or any actor or pilot changed**
   (DC-S2; O23), usually the bodies part plus a reference to the unchanged cells. So a receipt's after-frame
   always exists.
@@ -296,8 +280,8 @@ versions, and the navigation constants (WT-S3). Rate limits are pre-log and stay
 
 ### 5.1 Constants, each with provenance (DPH-B1)
 
-Each goes into material table v1 with a provenance row. **No constant is fitted to make the exit pass:** one changes
-only with a new citation, and the exit's outcome follows from it.
+Each goes into the material data (`fire_solid.md` §5.1) with a provenance row. **No constant is fitted to make the
+exit pass:** one changes only with a new citation, and the exit's outcome follows from it.
 
 | Constant | Value | Tag |
 |---|---|---|
@@ -319,9 +303,9 @@ only with a new citation, and the exit's outcome follows from it.
 - **6b the skin:** a 1 mm surface layer `[engineering]` on every exposed face and on each bed cell's fuel surface,
   carrying its own temperature and stored energy. Explicit stability at 0.5 s: ρc·δ/h_r = 600 × 1,700 × 0.001 / 420 =
   2.4 s (derived; h_r at 1,000 °C ≈ 420 W/m²·K, DPH-N3). Ignition is by area overlap with a critical heat flux.
-- **6c the porous bed:** pyrolysis per m² of burning fuel surface is **m'' = q''_net / L_g**, with q''_net = q''_f +
-  q''_pilot − the 6a envelope loss per m² of fuel surface. Volatiles burn at ΔH_c,eff; the flame deposits q''_f per m²
-  of burning surface; the rest of the release leaves as plume. Char accumulates at χ per kg pyrolysed.
+- **6c the porous bed:** pyrolysis's rate law is `fire_solid.md` §4.2's. Volatiles burn at ΔH_c,eff; the flame
+  deposits q''_f per m² of burning surface; the rest of the release leaves as plume. Char accumulates at χ per kg
+  pyrolysed.
 - **6d char oxidation:** diffusion-limited, m''_c = h_m·Y_O₂·ρ_air·(12/32), with h_m = h_c/(ρ_air·c_p) = 8.3 mm/s
   (derived): **0.86 g/m²s, 28 kW/m²** of char surface (derived, CO₂ assumed).
 - **Thresholds on cell means:** `thermal_degrade` no longer drives fuel. It still drives concrete, a recorded D25
@@ -359,6 +343,7 @@ doesn't reach 625 °C, the exit fails, and the measured balance goes to the owne
 **Inputs** `sources` (the pilot's P·D·0.1 s) + `combustion` (volatiles and char) = **storage** Δ(cells) + Δ(skins) +
 Δ(bodies) + **outputs** `open_air_loss` + `plume_convective` + `flame_radiative` (received by bodies, and
 `unreceived`) + `removed_with_mass`. Relative tolerance per substep and cumulatively (world_model §4).
+`unreceived` is decided by the flames design (after R0–R1).
 - **The deposit test is not an identity:** Σ deposited = q''_f × A_burning × dt, with A_burning taken independently
   from the bed state.
 - **Known gap, metered:** the flame's radiation is exported unreceived except by bodies: 0.3 × 777 kW = 233 kW for
@@ -375,6 +360,8 @@ doesn't reach 625 °C, the exit fails, and the measured balance goes to the owne
   charring shows as cracking and shape change.
 
 ## 6. The exit scenario
+
+Phase 1's exit is the roadmap's (`docs/roadmap.md`, Phase 1, "Exit"). This scenario is the crate's, Phase 2.
 
 ### 6.1 The clock
 
@@ -411,12 +398,12 @@ adjacent to air.
 4. **Glow:** `t_glow` = first tick with ≥ 0.08 m² of envelope whose envelope-layer skin is ≥ 625 °C.
 5. **Burned away:** `t_gone` (§5.5), before the cap.
 6. **Order:** all exist, and `t_crack` < `t_gone`, `t_glow` < `t_gone`.
-7. **Binary outcomes are band-gated** (S4): ignited, glow reached, burned away, `crate_far` intact. Step 6 measures
-   the band in D (the torch's P fixed) at 0.2, 0.1 and 0.05 m and records its width in Known gaps. The script's D is
-   ≥ 2× the band's upper edge at every grid `[engineering]`.
+7. **Binary outcomes are band-gated** (`world_model.md` §3; S4): ignited, glow reached, burned away, `crate_far`
+   intact. Step 6 measures the band in D (the torch's P fixed) at 0.2, 0.1 and 0.05 m and records its width in Known
+   gaps. The script's D is ≥ 2× the band's upper edge at every grid `[engineering]`.
 8. **Times converge** (DPH-S5), with absolute errors e against the 0.05 m reference and tol = 15% (`t_crack`,
-   `t_glow`) or 10% (`t_gone`) of the reference value. Pass when |e₀.₁| ≤ tol, and (|e₀.₂| ≥ |e₀.₁| or |e₀.₁| ≤ tol/4).
-   Tightened by measurement, never loosened.
+   `t_glow`) or 10% (`t_gone`) of the reference value. Pass when |e₀.₁| ≤ tol, and the times converge by
+   `verify_harness.md` §4's `agrees` (`world_model.md` §1.1). Tightened by measurement, never loosened.
 9. **Determinism, on one machine:** two stepped runs, the unpaced run and the replay are bit-identical at every
    physics tick.
 
@@ -449,6 +436,8 @@ wall, crack read as crack, glow as heat, burn-out as fuel running out, the dial.
 
 ## 7. Placement (AR-B1, O24's four layers; DC-N7)
 
+The layer order is `boundaries.md` §2.2's; this table places this design's modules in it.
+
 | What | Layer |
 |---|---|
 | Actor and pilots tables, body archetype type, motion, blocked predicate, walk grid, A\*, path walking, body heat (convection and radiation), the bed and laws 6a–6d, intents, the refusal-code enum, receipts, `Frame` | core (motion and navigation as two modules, AR-N3) |
@@ -460,12 +449,12 @@ wall, crack read as crack, glow as heat, burn-out as fuel running out, the dial.
 ## 8. Bio-faithful note
 
 - **Perceivers read the simulation `Frame`,** never the wire or the log. The fire is perceived through physical
-  channels at the perceiver: heat now (§2.1), light and sound in Phase 2 (BF-S1).
+  channels at the perceiver (B-13, `boundaries.md` §4.4): heat now (§2.1), light and sound in Phase 2 (BF-S1).
 - **One world-owned body model.** Regions in metres are what Phase 4's surface percepts reduce over (world_model §9).
 - **Divergences named:** the actor table as a direct view (ANALOG); receptors under two coarse cells (Known gap);
-  `kindle` credit (OPEN, OD-A16/OD-C5); allocentric locomotion (OD-C11); no metabolism (Maxim's drives).
-- **The world's day** is realtime §2.2's `epoch_us` and `day_length_ticks`. An SCN entrains on Phase 2 light at the
-  perceiver, never on a time-of-day number or the client's sky.
+  `kindle` credit (OPEN, OD-A16/OD-C5); allocentric locomotion (OD-C11). Metabolism is `sem_stimuli.md` §3.1's.
+- **The world's day** is the world config's `epoch_us` and `day_length_ticks` (`npcs_and_sem.md` §9). An SCN
+  entrains on Phase 2 light at the perceiver, never on a time-of-day number or the client's sky.
 
 ## 9. Open questions for the owner
 
@@ -480,16 +469,9 @@ wall, crack read as crack, glow as heat, burn-out as fuel running out, the dial.
 - **Step 6's measurements:** constants, torch values, band widths, the three times, ember temperature.
 - **Phase 2:** flame radiation to surfaces, convection, zones, solid sub-cell recession, non-box fuel (CSG), ash.
 - **Phase 4/5:** receptors, damage and pain, metabolism, line of sight, `turn`, egocentric locomotion (OD-C11).
-- **The boundaries PR:** `cell_size_m` leaves the bridge's readings and metadata (BF-N4).
+- **The boundaries PR:** `cell_size_m` leaves the bridge (`boundaries.md` §4.4; BF-N4).
 
 ## 11. Requirements by plan step
 
-| Requirement | Step |
-|---|---|
-| Amend realtime §7 to §3.3's table; architecture.md line 20 | 1 |
-| Scene v1 (+ `spawns`, bed fields), loader types for archetypes and items, the refusal-code enum | 3b |
-| `Simulation` with actor and pilots tables, body motion, walk grid, A\*, body heat (convection; radiation closed forms), `move`/`move_to`, `cause` and `invocation` (§3.1), vocabulary v1 with the interim `kindle` deposit, `actions.yaml` v1 and its migration, the `Frame` rule, the alley fixture and its B5 meters | 5 |
-| 6a–6d, the constants' provenance, the ledger lines, the skin deposit for `kindle`, the torch's band, the 0.05 m reference, V_floor, the red gate's flip | 6 |
-| §3.3's messages, `intent_result`, `observed_tick` stamping, `cause` in events, the wire (`client_rendering.md` §4) | 7 |
-| The game package and `content/`, the exit script, the controls by deletion, the stage-2 refusal scripts, the playtest | 8 |
-| Save v0 with the actor and pilots tables and `body_key`; agent homes (O43) are save v1 | 9 |
+This design's requirements by step are `docs/plans/checklists.md`'s (steps 1, 3b, 5a, 5b, 6, 7, 8 and 9), which cite
+its sections.

@@ -27,6 +27,11 @@ the Maxim repo), where the record shows that the catches came from a *different*
 6. **Record.** The fold commit's message lists each finding and what was done. The hand-off note (and the PR
    description) carries the round summary: the lenses run, the counts by severity, and anything deferred.
 
+**The input lint's threat model** (owner, 2026-11-21): `scripts/lint_inputs.py` guards mistakes, not adversaries. A
+reader who finds a further deliberate spelling in `src/` that reaches a namespace or the filesystem through a value
+records it in `docs/standards_backlog.md` B39 as a corpus row to add when untrusted code can reach `src/`, not as a
+SHOULD-FIX against the branch.
+
 A docs-only change that makes no new claim about the code needs no round. A docs change that says something works
 gets a round, because a claim is a contract.
 
@@ -64,6 +69,9 @@ The contract types, with this codebase's examples:
 | **Mirror** | `simcore/adapters/sem/_compat.py` vs Maxim's SEM types; any Python/GDScript pair that decodes the same bytes |
 | **Claims** | CLAUDE.md, `docs/`, docstrings and commit messages saying a thing works: is it true on the shipped path? |
 
+**One owner per contract** (CLAUDE.md, B36). For each row, name the section that owns the contract. A contract the
+diff states, or restates, in a second place is a finding: the copy that an edit misses is the stale one.
+
 An **empty table** is valid only when the diff changes function bodies alone: no signature, field, key, default,
 dtype, vocabulary word or file format changes. State it as the list of changed functions, each with the search that
 found no other reader.
@@ -74,7 +82,7 @@ Add each lens whose trigger the diff hits. More readers are cheap next to a defe
 
 | Lens | Trigger | Asks |
 |---|---|---|
-| **Physics and resolution** | `simcore/core/`, `simcore/adapters/sem/`, materials, grid spacings, scenes | Is there a closed-form test and a cross-tier test? Is energy deposited by cell average or volume overlap? Are parameters per unit volume, and scenes in metres? Are thin features at least two coarse cells thick? Is it deterministic? Are new gaps recorded with numbers? Does any law apply a threshold or a non-linear rate to a cell's mean where the outcome depends on structure inside the cell (CLAUDE.md, "Reconstruct, decide at the point, integrate upward")? Does any consumer read raw cells instead of a reduction at its own scale? |
+| **Physics and resolution** | `simcore/core/`, `simcore/adapters/sem/`, materials, grid spacings, scenes | Is there a closed-form test, through `simcore.verify` with space and time refined apart, and a cross-grid test that meets the verification rule (`docs/design/world_model.md` §1.1)? Is energy deposited by cell average or volume overlap? Are parameters per unit volume, and scenes in metres? Are thin features at least two coarse cells thick? Is it deterministic? Are new gaps recorded with numbers? Does any law apply a threshold or a non-linear rate to a cell's mean where the outcome depends on structure inside the cell (CLAUDE.md, "Reconstruct, decide at the point, integrate upward")? Does any consumer read raw cells instead of a reduction at its own scale? |
 | **Trust boundary** | the protocol, intent handling, `simcore.core.imagination`, any file or YAML loader, anything that parses input | Can malformed, hostile or oversized input crash the server, change state partially, or reach the cells unvalidated? Is every rejection path tested? Is the localhost, Origin and token check intact? |
 | **Performance** | hot loops, snapshot encoding, the turn loop, shaders, texture uploads | What does it cost at the max profile (about 5×10⁶ cells)? Is anything O(cells) done per message that could be done per turn? Does it stay inside the budgets in `docs/standards_backlog.md` B5? |
 | **Client and rendering** | `client/` | Does the client only draw and send intents, computing nothing that feeds back into the world? Is GDScript typed? Do visuals come from the snapshot channels rather than art? Does it read the same at both profiles apart from detail? Is state shown by more than colour? |

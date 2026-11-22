@@ -1,19 +1,25 @@
 # Runs the same gate as a local push: scripts/prepush.sh (docs/standards_backlog.md B11).
 name: prepush
 
+# Pull requests, and pushes to main: a branch push without a PR is gated locally (scripts/prepush.sh) before hand-off,
+# and running both doubled every PR's minutes.
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
   contents: read
 
 jobs:
+# Linux on every run; macOS (billed at 10x Linux on a private repo) only on pushes to main. A PR's macOS check at
+# Python 3.12 is the prepush PASS from the owner's Mac mini that every hand-off carries; macOS at 3.14 is checked only
+# on main. Untrusted PR code never runs on that machine.
   prepush:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: ${{ fromJSON(github.event_name == 'push' && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
         python-version: ["3.12", "3.14"]
     runs-on: ${{ matrix.os }}
     steps:

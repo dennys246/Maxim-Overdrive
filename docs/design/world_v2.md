@@ -1,5 +1,7 @@
 # World, time and states of matter (design v2, 2026-11-16)
 
+> **Superseded 2026-11-16 by `world_model.md`, `npcs_and_sem.md` and the tile documents,** which replace it. Kept as the record of how the decisions were reached.
+
 **Status:** DRAFT, for a design review before any code. It supersedes `realtime_lanes_coop.md` (v1), which stays as
 the record of the decisions and reviews that led here. Sources:
 - v1 and its two review rounds (`reviews/realtime_lanes_coop/`, including the four `delta1_*.md` files on v1,
@@ -114,7 +116,7 @@ Today each region is a full-grid bool mask: 5.1 MB per region at the max rig, so
 
 ### 2.5 The field registry and the material table
 
-- **`data/world/fields.yaml`, a declaration, not a plugin framework.** For each field it declares:
+- **Superseded by `sim_core.md` §6's code registry (D2).** For each field it declares:
   - container, grid (rig cell, fixed metres or zone) and phase;
   - units (intensive per unit volume for cells, extensive for zones) and dtype;
   - conservation law and ledger;

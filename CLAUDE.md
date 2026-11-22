@@ -46,46 +46,57 @@ install the pinned build with `ci/install_godot.sh` (CI does). The gate needs it
 it, and its fixture tests (`tests/test_godot_gate_fixtures.py`, `slow`) run Godot under `MAXIM_OVERDRIVE_GODOT=1`; the
 gate sets both switches. The golden job runs in Docker: `docker build --platform linux/amd64 -f
 ci/godot-golden/Dockerfile -t overdrive-golden .`, then `ci/godot-golden/run.sh` in it (its header has the command); its
-result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` draws the same frame on a Mac, advisory.
+result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` draws the same frames on a Mac and runs
+the measured checks, advisory.
 
 ## Layout
 
 - `src/simcore/`: the engine, in layers that import only downward (`docs/design/boundaries.md` O24; the contracts are
-  `[tool.importlinter]` in `pyproject.toml`): game > protocol > adapters > core
+  `[tool.importlinter]` in `pyproject.toml`): game > verify > protocol > adapters > core
 - `src/simcore/core/` (the sealed core: no IO, no clock, no `maxim`): `checks.py` (every untrusted number becomes a
   finite float or a whole number there, and every mapping is held to its reader's keys, `known_keys`, or is
-  refused; `shown`, the bounded echo; `entity_key`, Maxim's name rule), `materials.py` (the material table's types),
+  refused; `shown`, the bounded echo; `entity_key`, Maxim's name rule; `identity_key`, no `:`), `refusals.py` (the
+  append-only refusal codes every refusal carries), `schema.py` (one declarative schema per data format, the one
+  reader that applies it, versions and migrations), `digest.py` (`sha256/c14n-1:` digests), `materials.py` (the material table's types),
   `readonly.py` (arrays nothing can make writable), `limits.py` (`ActionLimits`), `grid.py` (cells, and the write
   window: read-only at rest, written only inside `writing()`), `scene.py` (authoring in metres), `heat.py`,
   `damage.py`, `intents.py` (typed actions and stage-1 parsing), `frames.py` (published frames and the
   `Observation` protocol observers read), `world.py` (turn loop, heat sources, the world's window, frame
   publication), `applier.py` (stage 2: the only code that applies an action), `imagination.py` (imagined objects as
   validated specs that become cells)
-- `src/simcore/adapters/`: `loaders.py` (the file gates: material table, action limits, strict YAML) and
+- `src/simcore/adapters/`: `loaders.py` (the file gates: material table, action limits, strict YAML, and `DataPath`,
+  the only kind of path the game's data locator hands out) and
   `sem/bridge.py` (the membrane's gate half: environment regions as Maxim SEM Entities, reading frames and writing
   through the applier; the only engine code that imports `maxim`)
 - `src/simcore/protocol/`: what the client receives: `tiers.py` (rig profiles as rendering tiers, no physics),
   `encoding.py` (`snapshot` of a published frame, display quantization)
+- `src/simcore/verify/`: the verification harness (`docs/design/verify_harness.md`): convergence studies, agreement
+  across grids, bands and splitting. It measures callables and imports nothing from the engine; only tests use it
 - `src/maxim_overdrive/`: the game. `data.py` says where its data lives (`data/rigs/`, `data/materials/`,
   `data/world/`) and loads it
-- `client/`: the Godot 4.7.2 client (`docs/design/client_rendering.md` §7): `addons/engine/` (the engine half),
-  `game/` (this game), `tests/` (`run.gd` the runner, `unit/`, `load_all.gd`, the golden scene and `goldens/`);
+- `client/`: the Godot 4.7.2 client (`docs/design/client_rendering.md` §7): `addons/engine/` (the engine half;
+  `render/` holds the cell raymarch shader and its inputs), `game/` (this game: tiers, palette, cut-away walls),
+  `tests/` (`run.gd` the runner, `unit/`, `load_all.gd`, `support/`, the snapshot `fixtures/`, the golden and
+  cut-away scenes and `goldens/`);
   `tools/godot_probes/`: the §9 probes, a separate Godot project rerun on an upgrade (B26); `ci/`: the Godot pin
   (`godot.env`), `install_godot.sh` and the golden image (`godot-golden/`)
 - `scripts/`: `prepush.sh` (the gate), `lint_standards.py` (with one `lint_*.py` module per check, the input sources
   in `lint_inputs.py` and the gate registry in `lint_gates.py` among them), `check_lock.py`,
-  `godot_check.py` (the gate's Godot step), `golden_run.py` (the golden job) and `golden_compare.py` (the golden
-  tolerance); `constraints/`: the lockfiles
+  `godot_check.py` (the gate's Godot step), `golden_run.py` (the golden job), `golden_compare.py` (the golden
+  tolerance), `golden_measures.py` (the cut-away, never-colour-alone and tier checks) and `client_fixtures.py` (the
+  snapshot fixtures); `constraints/`: the lockfiles
 - `docs/code_review.md`: the pre-push review charter. `docs/standards_backlog.md`: rules waiting for a check
 - `docs/maxim_upstream/`: drafts that belong in the Maxim repo (the Exp 64 pre-registration)
 - `docs/lessons_maxim_in_games.md`: what building this game teaches about applying Maxim to games, kept current
 
 ## Rules that matter here
 
-- **The resolution rule:** a grid spacing may change precision, never the outcome class. Every machine simulates one
-  truth; rig profiles are rendering tiers only, with no physics (world_model D20). Any new physics ships with a
-  closed-form test and a cross-tier test (`tests/test_heat.py` and `tests/test_cross_tier.py` are the patterns). If
-  a cross-tier test fails, fix the physics; never loosen the test to pass.
+- **The verification rule** is stated in `docs/design/world_model.md` §1.1, its one owner; follow it there. Every
+  machine simulates one truth; rig profiles are rendering tiers only, with no physics
+  (world_model D20). Any new physics ships with a closed-form test, through `simcore.verify` with space and time
+  refined apart (`tests/test_heat.py` is the pattern), and a cross-grid test (`tests/test_cross_tier.py`), whose
+  scenarios refine both together until step 5a's fixed physics step. If a cross-grid test fails, fix the physics;
+  never loosen the test to pass.
 - Author scenes in metres. Keep physics parameters per unit volume. Deposit energy by exact cell average or volume
   overlap, never by whether the cell centre is inside.
 - **Reconstruct, decide at the point, integrate upward.** Never apply a threshold or a non-linear law to a cell's
@@ -95,7 +106,8 @@ result counts only on CI (T12). `scripts/golden_run.py --out <dir> --no-xvfb` dr
   own scale: NPC sensors as reductions over volumes in metres, zones as integrals, the client at its own level of
   detail; none of them reads "a cell". Fineness is spent where the gradients are. Binary outcomes (breached,
   ignited) keep a band near their threshold however fine the cells are, so they are gated with an outcome margin.
-- Thin features must be at least two cells of the coarsest verification grid (0.2 m) thick.
+- Thin features must be at least two cells of the coarsest verification grid (0.2 m) thick (fuel objects excepted,
+  `docs/design/world_model.md` §1.1).
 - The world server is authoritative. The client never computes anything that feeds back into the world; it may add
   purely visual effects.
 - The SEM bridge uses Maxim's frozen types (`SensorReading`, `ModulatorResult`, `AffordanceSchema`, `Entity`).
@@ -141,7 +153,7 @@ only review holds.
 - **Every behaviour change ships with its tests in the same commit.** A bug fix starts with a test that reproduces the
   bug and fails. Guard: `scripts/prepush.sh::diff_cover` (changed lines must run under a test), B1 (same commit,
   red first)
-- **Critical functionality is tested exhaustively, by kind.** Physics: a closed-form test and a cross-tier test.
+- **Critical functionality is tested exhaustively, by kind.** Physics: a closed-form test and a cross-grid test.
   Trust boundaries (protocol, intents, `simcore.core.imagination`, every loader): every rejection path, aiming at
   100% branch coverage, and a row in the gate registry. Wire and save formats: a round trip plus committed golden
   fixtures. Determinism: a bit-identical rerun.
@@ -203,6 +215,13 @@ only review holds.
   and stays in the design, where a number may read "measured at step N". A mechanism nothing else depends on and
   only running can check (a test plant's size, a mesh's lifetime) goes to its build step's checklist as a test to
   write, citing the design section it serves. Laws stay simple and swappable behind the contract. Guard: B32
+- **One owner per contract** (owner, 2026-11-21). Each contract (a format, interface, closed vocabulary or rule that
+  another module depends on) is stated in exactly one section of one design document, its owner. Every other
+  document links to that section and never restates it, so an edit can't leave a stale copy behind. Decision tables
+  and fold tables are kept in `docs/design/reviews/` and indexes, not inside design documents, so design budgets go to
+  contract. When a change touches a contract stated in two places, move it to one owner in the same branch.
+  Guard: `scripts/lint_contracts.py::check_contracts` (the registered vocabularies and signatures, and no fold or
+  decision table in a design), B36 (prose restatements)
 - **Review finds; it doesn't design** (owner, 2026-11-21). A finding is a defect and its failure scenario. A fix a
   reviewer proposes is marked verified, with what they ran, or unverified, and the author verifies it before folding.
   A delta round reviews the diff. When a second paper round on a design finds new blockers in text the folds added,
@@ -232,7 +251,7 @@ only review holds.
 - **Every format is versioned:** wire protocol, saves, scene files and every data file. Readers refuse versions they
   don't know, loudly. Old fixtures stay committed, and a format change that breaks one needs a migration or a version
   bump. Guard: `tests/test_validation.py::test_every_shipped_data_file_is_at_its_formats_current_version`,
-  `tests/test_validation.py::test_a_scene_refuses_a_version_it_does_not_know`, B3, B4
+  `tests/test_formats.py::test_every_format_refuses_a_version_it_does_not_know`, B3, B4
 - **The client is untrusted input.** Every intent is validated at the protocol layer. Malformed input gets an error
   reply, never a crash or a half-applied change. The server binds to 127.0.0.1, refuses any handshake carrying an
   `Origin` header, and requires the per-launch token. Imagined and authored geometry is validated where primitives
@@ -279,6 +298,10 @@ only review holds.
   `tests/test_tooling_config.py::test_every_package_under_src_is_a_root_of_the_import_graph`,
   `tests/test_ownership.py::test_every_function_that_writes_the_world_is_in_the_core`,
   `docs/code_review.md` (the Architecture lens asks it of every diff), B19
+- **Flow runs one way: declared, ordered writers, and one resolver per input kind** (owner, 2026-11-21). Inputs
+  never write outcomes, every write to a field is declared, every input kind (each kind of damage, say) resolves in
+  one law, and laws couple only through fields. The contract is stated in `docs/design/sim_core.md` §5.1, its one
+  owner; follow it there. Guard: B43
 - **Size tripwires.** Hard limits in `src/` and `scripts/`: a 40-line function body (code lines: the docstring,
   comments and blank lines don't count), a 500-line module and 12 public methods per class, properties included
   (`[tool.maxim_overdrive.size_limits]`). Ruff caps cyclomatic complexity at 10, plus branches, returns and

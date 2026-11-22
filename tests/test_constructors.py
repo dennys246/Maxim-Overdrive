@@ -19,13 +19,13 @@ import pytest
 
 from maxim_overdrive import data
 from simcore.core.applier import Applier
-from simcore.core.checks import finite_real, finite_vector, format_version, known_keys, shown, whole_number
+from simcore.core.checks import finite_real, finite_vector, known_keys, shown, whole_number
 from simcore.core.imagination import Budget, SpecRejected, place
 from simcore.core.intents import Extinguish, Ignite, Strike
 from simcore.core.materials import MaterialTable
 from simcore.core.scene import Box, Scene
 from simcore.core.world import World
-from simcore.protocol.tiers import RigProfile
+from simcore.protocol.tiers import RIG_PROFILE, RigProfile
 
 ROOT = Path(__file__).resolve().parents[1]
 LIMITS = data.action_limits()
@@ -36,20 +36,20 @@ WOOD = MATERIALS["wood"]
 @pytest.mark.parametrize(
     ("change", "message"),
     [
-        ({"density_kg_m3": 0.0}, "density_kg_m3 must be positive"),  # it divides: rho*cp
-        ({"specific_heat_j_kgk": -1.0}, "specific_heat_j_kgk must be positive"),
-        ({"conductivity_w_mk": -0.1}, "conductivity_w_mk must be non-negative"),
-        ({"fracture_energy_j_m3": -1.0}, "fracture_energy_j_m3 must be non-negative"),
-        ({"degrade_rate_per_s_per_100c": -1.0}, "degrade_rate_per_s_per_100c must be non-negative"),
+        ({"density_kg_m3": 0.0}, "density_kg_m3 must be at least 0.05"),  # it divides: rho*cp
+        ({"specific_heat_j_kgk": -1.0}, "specific_heat_j_kgk must be at least 100"),
+        ({"conductivity_w_mk": -0.1}, "conductivity_w_mk must be at least 0"),
+        ({"fracture_energy_j_m3": -1.0}, "fracture_energy_j_m3 must be at least 0"),
+        ({"degrade_rate_per_s_per_100c": -1.0}, "degrade_rate_per_s_per_100c must be at least 0"),
         ({"density_kg_m3": math.nan}, "density_kg_m3 must be a finite number"),
         ({"degrade_above_c": math.inf}, "degrade_above_c must be a finite number"),
-        ({"id": 256}, r"id must fit in uint8 \(0 to 255\), got 256"),
-        ({"id": -1}, "id must fit in uint8"),
+        ({"id": 256}, "id must be from 0 to 255, got 256"),
+        ({"id": -1}, "id must be from 0 to 255"),
         ({"id": 1.5}, "id must be a whole number"),
-        ({"name": ""}, "a material needs a name"),
-        ({"color_rgb": (0, 0, 256)}, "color_rgb must be three values from 0 to 255"),
-        ({"color_rgb": (0, 0)}, "color_rgb must be three values from 0 to 255"),
-        ({"color_rgb": "red"}, "color_rgb must be three values from 0 to 255"),
+        ({"name": ""}, "a material.s name must be a printable string"),
+        ({"color_rgb": (0, 0, 256)}, "color_rgb must be from 0 to 255"),
+        ({"color_rgb": (0, 0)}, "color_rgb must be three whole numbers"),
+        ({"color_rgb": "red"}, "color_rgb must be three whole numbers"),
     ],
 )
 def test_a_material_refuses_what_no_physics_can_use(change, message):
@@ -73,9 +73,9 @@ def test_a_built_material_is_normalized_to_plain_values():
     ("kwargs", "message"),
     [
         ({"max_mass_kg": math.nan}, "max_mass_kg must be a finite number"),  # nan once removed the mass limit
-        ({"max_mass_kg": 0.0}, "max_mass_kg must be positive"),
-        ({"max_extent_m": -1.0}, "max_extent_m must be positive"),
-        ({"max_primitives": 0}, "max_primitives must be at least 1"),
+        ({"max_mass_kg": 0.0}, "max_mass_kg must be above 0"),
+        ({"max_extent_m": -1.0}, "max_extent_m must be above 0"),
+        ({"max_primitives": 0}, "max_primitives must be from 1 to 4096"),
         ({"max_primitives": 2.5}, "max_primitives must be a whole number"),
         ({"max_name_chars": True}, "max_name_chars must be a whole number"),
     ],
@@ -87,7 +87,7 @@ def test_a_budget_refuses_a_limit_that_is_no_limit(kwargs, message):
 
 @pytest.mark.parametrize("name", ["", "   ", 7, None])
 def test_a_rig_profile_needs_a_name(name):
-    with pytest.raises(ValueError, match="a rig profile needs a name"):
+    with pytest.raises(ValueError, match=r"a rig profile\.name must be a printable string"):
         RigProfile(name)
 
 
@@ -119,7 +119,7 @@ def test_every_check_echoes_a_hostile_value_bounded(value):
     calls = [
         lambda: finite_real(value, "v"),
         lambda: finite_vector(value, 3, "v"),
-        lambda: format_version({"version": value}, 0, "v"),
+        lambda: RIG_PROFILE.read({"version": value}, "v"),
     ]
     if not isinstance(value, int):  # a huge int is a whole number, rightly
         calls.append(lambda: whole_number(value, "v"))
@@ -284,7 +284,7 @@ def test_a_point_too_long_to_count_is_refused_as_an_action():
 def test_a_material_built_directly_refuses_a_zero_density():
     from simcore.core.materials import Material  # noqa: PLC0415
 
-    with pytest.raises(ValueError, match="density_kg_m3 must be positive"):
+    with pytest.raises(ValueError, match=r"density_kg_m3 must be at least 0\.05"):
         Material("x", 9, 0.0, 1.0, 1.0, 1.0, None, 0.0, (0, 0, 0))
 
 
@@ -317,3 +317,39 @@ def test_size_and_mass_refusals_read_as_plain_numbers():
     ]  # 1,999.8 m apart: ".3g" read it as "2e+03" (delta review, Trust D-N2)
     with pytest.raises(SpecRejected, match=r"too large: 1999\.80 m across"):
         place(_grid(), {"name": "x", "primitives": ends}, (0.0, 0.0, 0.0))
+
+
+def test_a_material_built_in_code_keeps_the_files_name_rule():
+    """Architecture A9, Wire N4: " wood" built directly but couldn't be loaded from a file."""
+    from simcore.core.materials import Material  # noqa: PLC0415
+    from simcore.core.refusals import RefusalCode, Refused  # noqa: PLC0415
+
+    with pytest.raises(Refused) as caught:
+        Material(" wood", 9, 1.0, 1.0, 1.0, 1.0, None, 0.0, (0, 0, 0))
+    assert caught.value.code is RefusalCode.BAD_NAME
+
+
+def test_the_gates_that_were_left_uncoded_now_answer_with_a_code():
+    """Architecture A4, Trust T1-N4."""
+    from maxim_overdrive import data  # noqa: PLC0415
+    from simcore.core.refusals import RefusalCode, Refused  # noqa: PLC0415
+    from simcore.core.world import HeatSource  # noqa: PLC0415
+
+    with pytest.raises(Refused) as caught:
+        HeatSource((0.0, 0.0, 0.0), 0.0, 1.0)
+    assert caught.value.code is RefusalCode.OUT_OF_RANGE
+    with pytest.raises(Refused) as caught:
+        data.rig_profile("../x")
+    assert caught.value.code is RefusalCode.BAD_NAME
+
+
+def test_a_material_whose_heat_diffusivity_no_real_solid_reaches_is_refused():
+    """Delta D1: low density and heat capacity with a high conductivity made the stable step 6e-13 s."""
+    from simcore.core.materials import MAX_DIFFUSIVITY_M2_S, Material  # noqa: PLC0415
+    from simcore.core.refusals import RefusalCode, Refused  # noqa: PLC0415
+
+    with pytest.raises(Refused, match="diffusivity") as caught:
+        Material("aerogel", 9, 0.05, 100.0, 1e4, 1.0, None, 0.0, (0, 0, 0))
+    assert (caught.value.code, caught.value.field) == (RefusalCode.OUT_OF_RANGE, "conductivity_w_mk")
+    ok = Material("graphite", 9, 2200.0, 700.0, 1500.0, 1.0, None, 0.0, (0, 0, 0))  # about 1e-3 m^2/s
+    assert ok.diffusivity_m2_s < MAX_DIFFUSIVITY_M2_S

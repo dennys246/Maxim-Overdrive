@@ -1,21 +1,19 @@
 # Foundations plan: from here to the first visible tile
 
-Where things stand, what comes next, what is open. Paths are on
-`phase1/design-v2` unless a branch is named. `scripts/check_plan.py` checks that every decision, Phase 3 id and open
+Where things stand, what comes next, what is open. `scripts/check_plan.py` checks that every decision, Phase 3 id and open
 question is present (not true) and the 2,500-word budget. Source: the review in `docs/plans/reviews/`;
 `reviews/fold.md` maps each finding to where it went and keys the ids; `checklists.md` holds the steps' items.
 
 ## 1. Status, as of 2026-11-20
 
-PRs #1–#13 are merged into `main`; open PRs are on GitHub. Each branch has a same-named worktree under `.worktrees/`.
+PRs #1–#13 are merged; open PRs are on GitHub. Each branch has a same-named worktree under `.worktrees/`.
 
 **Security gate.** Private since 2026-11-17. design-v2's history and PR #4 hold OD-I5's details; before going
 public, the owner decides on a force-push plus GitHub support for PR #4's refs. Security findings go to private notes.
 
 ## 2. The order: tile first (D26)
 
-Phase 1's exit (`docs/roadmap.md`): walk into the alley, set a crate on fire, watch it crack, glow and burn away by a
-fuel-mass law, the same apart from detail at each rendering tier.
+Phase 1's exit is the roadmap's (`docs/roadmap.md`, Phase 1, "Exit").
 
 | # | Step | Blocked by | Owner | First action | Done when | Extra lenses | Closes |
 |---|---|---|---|---|---|---|---|
@@ -30,11 +28,11 @@ fuel-mass law, the same apart from detail at each rendering tier.
 | 4 | `phase1/verify`, slim: refine space and time separately; heat retrofitted; the resolution rule becomes the verification rule (D20) | 3b | this line | the harness | heat's order-of-accuracy test passes for the right reason | Physics and resolution | |
 | 5a | `phase1/sim-clock` (O34): `Simulation`, tick (T3), 0.1 m truth, law list, field registry, intent log | 4, 3b | this line | a composition note | bit-identical replay; CPU time measured | Physics, Determinism, Performance | B2, B5 |
 | 5b | `phase1/bodies`: bodies, `move`/`move_to`, vocabulary v1 | 5a | this line | the actor table | replay of a movement script | Determinism, Wire | |
-| 6 | Fire as the ladder (2026-11-20; D30, T13, T17 superseded by `fire_model.md`, `fire_solid.md`): 6.0a data files on step 5a's line, 6.0b fuel objects, 6.1 the solid (R0, R1), 6.2–6.4 long term (fallback, 2026-11-20); fits within cited ranges, graded held out | 5a (6.0a), 5b | this line | flip `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating` red-first (6.4) | each rung's gates at three grids (tile §6.3); R0–R2.5 time-boxed, else the fallback | Physics, Determinism, Bio-faithful | fire burnout gap |
-| 7 | `phase1/protocol` v0: versioned `welcome`, `intent_result`, `regions`; WebSocket on 127.0.0.1 with the token and `Origin` refusal; golden fixtures read by Python and Godot; the guest-join red gate | 5b, 2, 0d | this line | `tests/fixtures/wire/` | both readers pass the fixtures | Wire, Trust, Concurrency, Determinism | B3, B14 |
+| 6 | Fire as the ladder (2026-11-20; D30, T13, T17 superseded by `fire_model.md`, `fire_solid.md`): 6.0a data files on step 5a's line, 6.0b fuel objects, 6.1 the solid (R0, R1), 6.2–6.4 long term (fallback, 2026-11-20); fits within cited ranges, graded held out | 5a (6.0a), 5b | this line | flip `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating` red-first (6.1) | each rung's gates at three grids (tile §6.3); R0–R2.5 time-boxed, else the fallback | Physics, Determinism, Bio-faithful | fire burnout gap |
+| 7 | `phase1/protocol` v0: `client_rendering.md` §4.1's and `tile_and_client.md` §3.3's messages, versioned; WebSocket with `boundaries.md` §5.3's handshake; golden fixtures read by Python and Godot; the guest-join red gate | 5b, 2, 0d | this line | `tests/fixtures/wire/` | both readers pass the fixtures | Wire, Trust, Concurrency, Determinism | B3, B14 |
 | 8 | The tile: the alley, movement, the client drawing snapshots, one crack-and-glow shader (never colour alone), golden screenshots per tier | 6, 7, 0d | this line | the alley scene | the exit scenario passes automatically, then a playtest | Client and rendering, Physics | B7 |
 | 9 | Save v0: grid, scene, actor and pilots tables | 8 | this line | save fixture | round trip, golden save | Wire, Determinism | B4 |
-| 10 | Grey-box heat-debt prototype (D28), then the clinic (D27) | 8 | this line | a one-page design note | a playtest verdict: fun or not, and why | Client and rendering | |
+| 10 | Heat-debt prototype (D28): the slice (VS5), before 8; then clinic (D27) | 2 | this line | `spikes/slice/` | verdict by 2026-12-18: fun or not, and why | Client and rendering | |
 
 **In parallel, off the path:**
 - **The LLM spike (O20):** a throwaway `spikes/llm/` script, no Maxim: latency, tokens, cost, NPCs per local
@@ -42,7 +40,7 @@ fuel-mass law, the same apart from detail at each rendering tier.
 - **The agent line, as tests (O19),** against the scripted double behind the real worker channel, after steps 5a and 7: types,
   codec, `data/agents/` gates; the worker channel; `AgentPort`, the double, the membrane. Red-first tests:
   1. a hash probe in the worker's first frame (`-I` ignores `PYTHONHASHSEED`);
-  2. the worker's `HOME`, `XDG_*`, `TMPDIR`, `HF_HOME` under the agent home, probed, with a planted real-home read;
+  2. the worker's environment (`npcs_and_sem.md` §6.6), probed, with a planted real-home read;
   3. the codec refuses a pickle;
   4. resume at the modelled landing tick, with a state digest that can go red;
   5. credit shares at two step rates, a strict red gate against pymaxim;
@@ -60,7 +58,7 @@ fuel-mass law, the same apart from detail at each rendering tier.
 a nit; OD-I6, OD-I7, OD-I8 new.
 
 **Exchanged:** `erratum_1.md` sent 2026-11-18 (OD-A20, OD-A21; OD-A19 withdrawn). Maxim's answer
-(`response_4.md`): 1.4.0 planned March–May 2027; the world-seam front gate accepted. Its reviews of O35's draft: v4–v6 fold them.
+(`response_4.md`): 1.4.0 planned March–May 2027; the world-seam front gate accepted.
 
 **Phase 3 ids, by where Maxim put them** (detail: `docs/plans/reviews/maxim_side.md` §1):
 - Tier A: OD-A1 (#1361), OD-A20 (declined), OD-A21 (#1361 Q1), OD-A2, OD-A3, OD-A4, OD-A8 (A3); OD-A5 (split with #1361); OD-A7 (A2, a gate item after 1.4.0); OD-A12 (A1,
@@ -69,7 +67,7 @@ a nit; OD-I6, OD-I7, OD-I8 new.
 - Tier C: OD-H2 (C2), OD-H4 and OD-H5 (C5), OD-H6 (C3, disagreeing), OD-H1, OD-HX1, OD-HX5 (cautions).
 - Not in it yet: OD-C11 (proposed, tile §9), OD-A6, OD-A9, OD-H3, OD-X1, OD-X2; OD-B1, OD-B2, OD-B3, OD-B4, OD-B5, OD-B6, OD-B7 (Exp 64a's
   prerequisites), OD-B8, OD-B9, OD-B10, OD-B11, OD-B12, OD-B13; OD-C1, OD-C2, OD-C3, OD-C4, OD-C5, OD-C6, OD-C7,
-  OD-C8, OD-C9, OD-C10, OD-C12; OD-A22.
+  OD-C8, OD-C9, OD-C10, OD-C12; OD-A22; OD-I9, OD-I10, OD-A23, OD-A24, OD-A25.
 - Exit tests: OD-WC1, OD-EA4, OD-EA5, OD-EA6, OD-EA7, OD-EA9, OD-EA10, OD-EA11, OD-EA12, OD-EA14, OD-EA15, OD-EA16.
 
 ## 4. Decisions
@@ -136,6 +134,7 @@ a nit; OD-I6, OD-I7, OD-I8 new.
 | O43 | `session_id` from the log header; the seq in the agent home |
 | O44 | Dead workers' pids refused |
 | O45 | A log segment per restore |
+| O46–O55 | Inference: O46, O47, O48, O49, O50, O51, O52, O53, O54, O55 |
 | OA1 | A thought's kind from the agent's policy, a closed vocabulary; a logged host table sets cost |
 | OA2 | Dilation shown on a three-handed clock |
 | OA3 | No conversational repertoire of our own; proposed to Maxim as OD-H5 |

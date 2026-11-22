@@ -11,20 +11,7 @@ probes (`research/godot_probes.md`).
 
 ## 0. Decisions this document rests on
 
-| Id | Decision | Owner, date | Source |
-|---|---|---|---|
-| T1 | Camera: isometric 3/4, fixed elevation, 90° steps, bounded zoom, a cut-away rule | owner, 2026-11-18 | §1, §2 |
-| T2 | Click-to-move and WASD, both validated intents; the client never moves the player | owner, 2026-11-18 | §3; world §3 |
-| T8 | The Compatibility renderer for Phase 1 | owner, 2026-11-18 | §7.4 |
-| T9 | No client-side prediction in Phase 1 | owner, 2026-11-18 | §3.1 |
-| T10 | Camera elevation 40° | owner, 2026-11-18 | §1 |
-| T11 | Walls-down by region, with stumps | owner, 2026-11-18 | §2 |
-| T12 | Goldens gated in Linux CI only; the owner's Mac is advisory | owner, 2026-11-18 | §6.5 |
-| D20 | Rigs are rendering tiers only; every tier receives the same 0.1 m channels | owner, 2026-11-16 | world_model §0 |
-| O31 | The tile spec's split into this document and `tile_and_client.md` | owner, 2026-11-18 | boundaries §0 |
-| CLAUDE.md | Godot 4.7.2 pinned; typed GDScript, warnings as errors; visuals from channels; never colour alone; nothing fed back | standing | CLAUDE.md |
-
-T3–T7 are world decisions (world §0).
+This document's decisions (10 rulings) are kept as records, with their dates, owner sections and status, in `decisions/client_rendering.md`.
 
 ## 1. The camera (T1, T10)
 
@@ -40,19 +27,17 @@ T3–T7 are world decisions (world §0).
 ## 2. The cut-away (T11; CR-S3, CR-N2)
 
 - **Which regions:** walls, as named in client data (`client/game/cutaway.tres`, keyed by region name; DC-N4).
-- **When:** a flagged region is cut when its authored box centre lies on the camera's side of the player:
-  dot(c − p, f) < 0, where f is the camera's horizontal forward at the **target** yaw.
-- **Stumps:** cut regions keep a 0.3 m stump, the cells whose top is ≤ feet + 0.3 m. With the body's axis 0.25 m from
-  a wall face, the sightline at 40° rises 0.30 m by the face (0.25/sin 45° × tan 40°, derived). So the stump hides at
-  most the feet's edge.
+- **When:** a flagged region is cut when a sightline from the body towards the camera, at the **target** yaw, meets
+  its box before climbing over it: within (top − feet)/tan 40° in plan (owner, 2026-11-21).
+- **Stumps:** cut regions keep a 0.2 m stump, the cells whose top is ≤ feet + 0.2 m. With the body's axis 0.25 m from
+  a wall face, the sightline at 40° rises 0.30 m by the face (derived); two stumps in a corner hide 1.3% (measured).
 - **Hatching:** cut faces are hatched, a shape rather than a colour, so a cut wall never reads as burned away.
 - **Never cut:** the crate and other non-wall regions, so the fire stays visible from anywhere.
-- **No pops:** a side wall's centre line is never crossed, and the flag flips only at tween start. The end wall's
-  centre (x = 11.8 m) is out of the body's reach.
+- **No pops:** the flag changes at tween start, or where the body enters a wall's shadow; a 0.25 m hold (built,
+  wired in play with `main.tscn`, B40) stops flicker.
 - **Visual only:** uniforms, never fed back.
-- **Test (step 8):** the player's ID-mask pixels with world geometry drawn, divided by the same with the cell volume
-  hidden, must be **≥ 95%** (v1's and CR-S3's threshold; `fold.md` Check 2b). It is checked at sampled positions along
-  both walls and at the crate, at all four yaws. Proved by deletion: with the cut off, the yaws facing a wall fail.
+- **Test (step 8):** the player's ID-mask pixels as cut, divided by the same with every flagged wall removed, must be
+  **≥ 95%** (CR-S3; `fold.md` Check 2b), along walls, pavement and crate, all yaws. Proved by deletion: no cut fails.
 
 ## 3. Input to intents (T2; world §3.3 has the messages)
 
@@ -89,26 +74,36 @@ T3–T7 are world decisions (world §0).
 
 ### 4.1 Server → client messages
 
+<!-- contract: server.messages: welcome regions tick intent_result time_decision error -->
 | Message | Carries |
 |---|---|
-| `welcome` | `session`, `role`, the world config, `shape`, the channel catalogue, the region map, 1-based archetype and item lists, `regions_version`, the time state |
+| `welcome` | `session`, `role`, its own `actor` id (the body the camera follows), the world config, `shape`, the channel catalogue, the region map with each region's spec id, the zone list, material table v1 (ids to names and colours), the recipe name↔id map, 1-based archetype and item lists, `regions_version`, the time state, `bindings_digest`, the engine `build` |
 | `regions` | new region-map entries and the new `regions_version`, sent before the first frame that uses them (DC-B1) |
 | `tick` | JSON with integer columns only (DC-S9): `tick`, scales, paused; the actor and pilots tables (world §2.2); events since the last delivery; `path_mm` for each actor whose `path_version` changed |
-| cell frame (binary) | `[u32 header length][JSON header][arrays]`, little-endian; the header has `protocol`, `kind`, `tick`, `shape: [nz, ny, nx]`, `regions_version`, the catalogue hash, and per array name, dtype, offset and size |
+| cell frame (binary) | `[u32 header length][JSON header][arrays]`, little-endian; the header has `protocol`, `kind`, `tick`, `shape: [nz, ny, nx]`, its grids (each with shape, cell size and origin), `regions_version`, the catalogue hash, `compression` (off in v0), and per array name, dtype, offset, size and uncompressed size |
 | `intent_result`, `time_decision`, `error` | world §3.3, §3.4 |
 
-- **The catalogue** gives each channel's `unit` (from the closed vocabulary), `dtype`, and `scale` and `offset` as
-  integer rationals (`scale_num` / `scale_den`), so 975/255 needs no float format (DC-N5).
+- **The catalogue** gives each channel's `unit` (from the closed vocabulary), `dtype`, an encoding from a closed list,
+  `required`, and `scale` and `offset` as integer rationals (`scale_num` / `scale_den`), so 975/255 needs no float
+  format (DC-N5). Tables have typed columns: column-major, a per-column offset, an integer key column, no strings.
+- **Extension and bumps** (F2–F4, F6, W-F6): readers refuse, loudly, an unknown protocol version, `kind`, dtype or
+  compression, a missing required channel, and an unknown required channel, table or grid; they ignore unknown
+  optional ones. An optional channel bumps the registry version, not the protocol; a new encoding, dtype, `kind` or
+  compression bumps the protocol. `kind: delta` is reserved, not built.
+- **Axis order is Godot's** (W-F4): z, y, x, x fastest, one `Image` per z-slice; only the shader maps the server's
+  z-up to Godot's y-up.
 - **The catalogue hash** uses boundaries §6.3's one canonicaliser, in the core's checks. The region map is outside the
   hash, so `imagine` doesn't churn it.
 - **The decoder refuses** a frame whose `regions_version` is ahead of its map, or whose hash differs from `welcome`'s.
-- **JSON numbers read back as floats** [ran]: integers from `tick` or a frame header are cast with `int()`; one over
-  2^53 is refused.
+- **JSON numbers read back as floats** [ran]: integers from `tick` or a frame header are cast with `int()`, within
+  boundaries §9.1's 2⁵³ pin.
 - **Events accumulate per session** until delivered, bounded at 256 `[engineering]`. An overflow forces a resync: the
   server sends a full `tick` state and the client requests `snapshot`. State tables carry everything an event
   announces, so a skipped tick at 20× loses nothing (DC-S4).
-- **Cell frames** go only on cells' version change, at most `snapshot_hz`, plus a `snapshot` reply after `welcome`
-  and after a reconnect (WT-S6).
+- **Cell frames** go only on cells' version change, at most `snapshot_hz` (2 Hz during any fire), plus a `snapshot`
+  reply after `welcome` and after a reconnect (WT-S6). A `snapshot` request is served from the last published frame,
+  coalesced and rate-limited per session; each frame is encoded once per published tick, shared across sessions,
+  arrays read-only.
 
 ### 4.2 Channels
 
@@ -172,16 +167,16 @@ T3–T7 are world decisions (world §0).
   has a capsule half inside a wall (CR-S1).
 - **Lighting** (`render_mode unshaded`): a fixed key light, three-tone face shading, neighbour AO, a fixed night
   ambient. No dynamic shadows.
-- **Glow:** T = offset + scale·g, both from the catalogue. Emission = 4.0 × (T_K/1773)⁴ in HDR `[engineering]`, a
+- **Glow:** T = offset + scale·g, both from the catalogue. Emission = 7.0 × ((T_K/1773)⁴ − (T₀/1773)⁴) `[engineering]`, T₀ the offset, a
   **stylisation**: T⁴ is total radiance, not visible radiance (PH-N2, CR-N4). Hue goes dull red → orange →
-  yellow-white. Ember envelopes near 920 °C (world §5.3) read bright yellow-orange. Output above 1.0 drives glow
+  yellow-white; above ~1,230 °C it clips white and bloom carries the rest. Embers near 920 °C bloom. Output above 1.0 drives glow
   [ran].
 - **Flames from `burning`:** emissive flicker plus `GPUParticles3D` at burning cells. Visual only, and off in goldens.
 
 ### 5.4 Crack changes shape (EX-S10, CR-S4)
 
-- **The pattern:** each cell carries 3-D Voronoi edges from an integer hash of its index. With c = `crack` in [0, 1],
-  points within w = max(0.02 m × c, the metres that 0.75 px spans at the current zoom) of an edge are empty when
+- **The pattern:** 3-D Voronoi edges, ~12 px polygons (cell × 2ⁿ, held), from an integer hash. With c = `crack` in [0, 1],
+  points within w = max(0.02 m × c, the metres 0.75 px spans, ÷ the face's slant) of an edge are empty when
   c > 0, so a groove is never narrower than 1.5 px `[engineering]`. The march goes `crack_substeps` into the cell.
   Fissure walls darken with depth, and the normal tilts towards the edge.
 - **Worked numbers (derived):** at 72 px/m, c = 0.25 gives 0.72 px from the metre term, so the floor applies. At
@@ -197,7 +192,7 @@ A typed `Resource` in `client/game/tiers/`:
 |---|---|---|---|---|---|---|
 | laptop | 0.5 | 2 | nearest | off | off | 64 |
 | rig | 1.0 | 4 | linear | on | 4-tap | 256 |
-| max | 1.0 | 8 | linear | on | 6-tap | 1,024 |
+| max | 1.0 | 8 | linear | on | 8-tap | 1,024 |
 
 Filters are compile-time hints [ran], so the glow sampler is a `#define` variant (CR-N1, EX-N3).
 
@@ -265,8 +260,8 @@ Each tier's frame is box-filtered to 160 × 90, then laptop and max are each com
   surfaceless mode.
 - **Golden paths** are `client/tests/goldens/compat-llvmpipe-mesa<package>-llvm<v>-godot<v>/<tier>/`, keyed from the
   run's log. A new build regenerates them in a commit of its own.
-- **The Mac is advisory:** `prepush` runs the B6 gate, plus the tier-agreement and greyscale checks when a GPU
-  context exists. B7 passes only when the CI job is green.
+- **The Mac is advisory:** `golden_run.py --no-xvfb` runs the tier-agreement and greyscale checks by hand; `prepush`
+  doesn't. B7 passes only when the CI job is green.
 - **Updates go through** `scripts/update_goldens.sh <reason>`: it refuses a dirty tree, renders in the CI image, and
   writes a diff image for each golden.
 
@@ -335,11 +330,13 @@ deletion. Godot's exit status is never trusted alone.
 
 ### 7.5 Connecting
 
-- **The token** arrives by environment variable (`OS.get_environment`) or a 0600 file, never argv (realtime §5).
+- **The token** (boundaries §5.3) is read with `OS.get_environment` or from its file.
 - **The connection** is `WebSocketPeer.connect_to_url("ws://127.0.0.1:<port>")` [ran], polled each `_process`.
   `was_string_packet()` separates JSON from frames [ran].
-- **No `Origin` header:** `handshake_headers` is never set. A Python listener test fails if the header appears.
-- **The order** is `hello`, then `welcome`, then `snapshot`. Anything unknown is refused loudly, with the reason shown.
+- **No `Origin` header** (boundaries §5.3): `handshake_headers` is never set. A Python listener test fails if one
+  appears.
+- **The order** is the handshake (boundaries §5.3), then `snapshot`. Anything unknown is refused loudly, with the
+  reason shown.
 
 ## 8. Client budgets (EX-S12, CR-S5)
 
@@ -347,7 +344,7 @@ Client meters take the minimum of N ≥ 50 `Time.get_ticks_usec()` intervals, an
 
 | Meter | Target | Status |
 |---|---|---|
-| Decode + upload, all seven textures (six channels, `region` at 2 B/cell, bricks) | ≤ 3 ms (1.4–2.4 ms from 173–294 µs per channel-equivalent [ran]) | B5, gated in CI |
+| Decode + upload, all seven textures (six channels, `region` at 2 B/cell, bricks) | ≤ 3 ms (1.4–2.4 ms from 173–294 µs per channel-equivalent [ran]) | no meter; broken as built (B5) |
 | First upload | warmed on `welcome` (the first `update` took 10.9 ms [ran]) | test |
 | Frame time, rig and laptop tiers, golden view | ≤ 16.7 ms with `--disable-vsync` | reported, as the uncapped minimum frame interval: the GPU meter reads 0 [ran] |
 | `tick` delay behind a frame | ≤ 5 ms | reported |
@@ -371,7 +368,7 @@ Results: `research/godot_probes.md`; an upgrade reruns `tools/godot_probes/`. Th
 
 ## 10. Open questions for the owner
 
-None open. v2's five were answered as recommended (T8–T12).
+None: step 8's seven were decided 2026-11-21 (`reviews/step8_shader/fold.md`).
 
 ## 11. What this does not settle
 
