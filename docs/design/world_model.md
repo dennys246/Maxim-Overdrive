@@ -115,6 +115,8 @@ with a ramp from 15% to 10% (*from memory*; the sources conflict, so both are ci
     difference (DLP S-9, measured).
 - **Air leaves the conduction solve only when the solve runs over solids or active chunks** (DLP). Removing air cells
   saves nothing while the solve still sweeps the whole grid.
+- **Every process is one transfer:** limited by what the donor holds, applied antisymmetrically, never clamped
+  afterwards (clamping created mass in SS13; from `world_v2.md` §2.6).
 - **The ledger's tolerance is relative,** not 1e-10 absolute, because a tile holds about 1e11 J (DLP S-3): changes
   close to 1e-12 of the tile's total energy, per substep.
 

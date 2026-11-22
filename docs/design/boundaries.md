@@ -518,9 +518,9 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
 | Writer | Writes | Class |
 |---|---|---|
 | `Simulation.from_scene`, the save's construction half | cells, regions | construction (opens the window before the clock starts) |
-| the applier: strike | cells, through the strike law | intent application |
+| the applier: strike | a damage `Load` (`sim_core.md` §5.1) | intent application |
 | the applier: ignite, douse | `sources` | intent application |
-| the applier: `imagine` (today's `place`) | cells, regions | intent application |
+| the applier: `imagine` (today's `place`) | topology requests | intent application |
 | the laws in `advance` | cells | advance |
 
 - `StructureModulator.apply` stops being public. Its world-writing half becomes the applier; its gate half stays in

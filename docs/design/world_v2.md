@@ -116,7 +116,7 @@ Today each region is a full-grid bool mask: 5.1 MB per region at the max rig, so
 
 ### 2.5 The field registry and the material table
 
-- **`data/world/fields.yaml`, a declaration, not a plugin framework.** For each field it declares:
+- **Superseded by `sim_core.md` §6's code registry (D2).** For each field it declares:
   - container, grid (rig cell, fixed metres or zone) and phase;
   - units (intensive per unit volume for cells, extensive for zones) and dtype;
   - conservation law and ledger;

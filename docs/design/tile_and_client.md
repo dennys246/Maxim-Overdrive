@@ -192,9 +192,9 @@ fields, the ordering key and `kind_rank` are boundaries §6.2's; `actor_id` come
 <!-- contract: intent.kinds: move move_to kindle strike douse imagine | not: ignite extinguish test_a_fire_that_has_burned_its_fuel_stops_heating -->
 - **Action vocabulary v1** is `move`, `move_to`, `kindle`, `strike`, `douse`, `imagine`. It adds `kindle` (a bounded
   pilot) and retires `ignite`, as F7 retired `extinguish` for `douse` (water as a heat and O₂ sink, with caps). It
-  ships with the first log writer (step 5), so no v0 intent log ever exists and the v0-log refusal test is moot
-  (DC-S5). Until step 6's skin exists, step 5's `kindle` deposits by sphere volume overlap at the point with the
-  item's radius, a marked, scheduled band-aid that step 6 removes. The red gate
+  ships with 5b; 5a's logs carry v0, so the v0-log refusal test returns with 5b (owner, 2026-11-21; DC-S5).
+  Until step 6's skin exists, step 5's `kindle` deposits by sphere volume overlap at the point with the item's radius,
+  a marked, scheduled band-aid that step 6 removes. The red gate
   `test_a_fire_that_has_burned_its_fuel_stops_heating` is rewritten to use `kindle` when step 6 flips it.
 - **`data/world/actions.yaml` v1** carries `kindle`'s physics-safety ceiling (`max_power_w`, `max_duration_s`,
   `min_radius_m` = 0.2) and drops `ignite`. It is repo-only, so v0 is refused by version with a test, never migrated (step

@@ -178,3 +178,16 @@ them now would be another code change and another delta round. They are D2-1 to 
 - **a registry count of 0 is accepted, which would report every block on the tree**;
 - the commit didn't state the mutation proof. The delta report holds it: 9 of 12 mutants killed.
 The gate's coverage floor caught `blocks`'s final flush (line 88), which no test reached; a test now covers it.
+
+## Merge with #36 (`phase1/sim-clock`), this branch second
+
+- `tile_and_client.md` §3.2: #36's "ships with 5b; 5a's logs carry v0, so the v0-log refusal test returns with 5b
+  (owner, 2026-11-21; DC-S5)" goes into the owner bullet beside its kinds list and marker.
+- `sim_core.md` §14's `kind_rank` line links `boundaries.md` §6.2, which holds the two values it restated.
+- `checklists.md` step 5a: main's rewrite is taken, ruling 5's item is kept as its own list, and §14's `kind_rank`
+  pointer moves from tile §3.1 to `boundaries.md` §6.2.
+- World_v2 §2.6's transfer rule (donor-limited, antisymmetric, never clamped) now has a live owner, `world_model.md`
+  §4, copied verbatim. `sem_stimuli.md` §7.1 cites it there, which closes delta 1's deferred S2 item.
+- `record.kinds`' count goes from 5 to 6 under round 1 ruling 1. Main's new step 5a list names five kinds across
+  unrelated items, judged a reference. Proposed follow-up, the author's: count a list run only by its items' heads,
+  plus each item whole, so scattered mentions stop adding up.

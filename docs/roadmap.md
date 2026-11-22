@@ -44,7 +44,8 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   and it removes the marked band-aid in `data/world/actions.yaml`, whose ceilings keep fires at the powers the
   current physics has been measured at.
 - The substep floor in `src/simcore/core/heat.py`, a marked band-aid kept for bit-identity when resolution left the
-  rig: plan step 5a's fixed physics step replaces it with an accuracy floor per step length.
+  rig: plan step 5a's fixed physics step replaces it, with an accuracy floor only if one is measured necessary
+  (`docs/design/sim_core.md` §8).
 - The write window's two owners before `Simulation` exists, marked band-aids (`docs/design/boundaries.md` §4.1, 2c):
   `World.advance` in `src/simcore/core/world.py` and the intent applier in `src/simcore/core/applier.py` open the
   window themselves; `phase1/sim-clock` moves both into `Simulation.step`. A third, `place` in

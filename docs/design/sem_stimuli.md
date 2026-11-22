@@ -380,14 +380,14 @@ takes the prediction error (blocking, Kamin, **S**), so the physical cue is neve
 supersedes `boundaries.md` §2.2's map by name; the layer order stays §2.2's.
 
 **Contact has one owner:** `contact.py` steps touched components in step 3, before `tissue.py` steps the rest,
-writing skin through the store's window and the object through the solid law's exchange API, **against its own
+writing skin through the store's window and the object through an exchange field (`sim_core.md` §5.1), **against its own
 carried sub-mesh**, kept from onset to release (rebuilt each tick, painless 90 °C wood hurts at 0.4–2.35 s, **D**).
 **The store's writers** are an allowlist in `boundaries.md` §6.4's table, held by an ownership scan: load, motion, the
 applier, `tissue.py`, `irradiance.py`, `contact.py`.
 
 **Stimuli sit above the laws** (L7): tissue reaches models only through the `FieldReader`; the laws run every tick,
 whatever an agent's cadence. **5a's composition note gets three seams:** a per-tick law slot;
-the two-rate contact exchange, ledgered antisymmetrically (`world_v2.md` §2.6); the `body_points` container and a
+the two-rate contact exchange, ledgered antisymmetrically (`world_model.md` §4); the `body_points` container and a
 multi-writer `radiant_emitters` table, each row keyed `(writer law, source object id, primitive id)`, the key that
 orders sums and refresh.
 

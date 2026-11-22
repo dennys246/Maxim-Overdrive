@@ -18,7 +18,7 @@ count toward a design's word budget (round 1 ruling 2).
 | `intent_result.outcomes` | `design/tile_and_client.md` §3.3 | vocabulary | 3 |
 | `intent.kinds` | `design/tile_and_client.md` §3.2 | vocabulary | 5 |
 | `refusal.codes` | `design/tile_and_client.md` §3.4 | vocabulary | 6 |
-| `record.kinds` | `design/boundaries.md` §6.1 | vocabulary | 5 |
+| `record.kinds` | `design/boundaries.md` §6.1 | vocabulary | 6 |
 | `intent_record.fields` | `design/boundaries.md` §6.2 | vocabulary | 5 |
 | `ordering.key` | `design/boundaries.md` §6.2 | signature | 1 |
 | `codec.kinds` | `design/npcs_and_sem.md` §6.6 | vocabulary | 4 |
@@ -36,7 +36,8 @@ The references that set the counts above three (2026-11-21):
   rule or a message carries; `checklists.md` step 5's body motion; `vertical_slice.md` §3's throwaway messages.
 - `refusal.codes` (5): tile §6.3's exit script asserts five stage-2 refusals; tile §3.2's `kindle` names the codes it
   produces.
-- `record.kinds` (4): `sem_stimuli.md` §4.5's lifecycle table; `boundaries.md` §5.3's gate table and §6.2's log-record
+- `record.kinds` (5, after #36): `checklists.md` step 5a's 40-item list names five kinds across unrelated tests; (4)
+  `sem_stimuli.md` §4.5's lifecycle table; `boundaries.md` §5.3's gate table and §6.2's log-record
   bullets name the kinds they gate or log.
 - `intent_record.fields` (4): `boundaries.md` §5.3's client-frames row and §7.3's cognition rule name the timing fields
   they refuse or strip; tile §3.1's pipeline.
