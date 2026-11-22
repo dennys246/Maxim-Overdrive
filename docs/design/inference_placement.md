@@ -296,6 +296,7 @@ because without it the next request depends on thread timing.
   looked up. The rule is keyed to the log: a request whose thought has a terminal record (`thought_cancelled`
   or `thought_failed`) is never looked up, whatever the ticks. Any other miss is a loud error.
 - **Replay never opens the cache.** Tested with the cache deleted, or poisoned.
+- **A rerun never re-runs a model on purged text:** it reads the recorded replies (O26; follow-up ruling 3).
 
 **Pairing.** Two runs that differ in one variable stay paired through the cache only over their shared prefix. An arm
 ends at its first miss, and a paired analysis estimates d_z, with the seed as the unit (BD-16, Arch 4.5).

@@ -80,3 +80,21 @@ target-independent subset until a row defines "perceived". So the split stands: 
 5. **`imagine`:** `boundaries.md` §6.1's separate `imagine` record kind folds into `intent` when step 5a makes
    `imagine` an intent kind. This is recorded here; §6.1 changes with 5a.
 6. **Superseded banners** may add their words to a record: `world_v2.md`'s 25.
+
+## Follow-up rulings (owner, 2026-11-21: "agreed with all six")
+
+These answer the six questions left under "Not decided", on `phase1/b36-followup`:
+1. **Stale credit** is host-side. The host withholds credit from a stale intent, which its log names, so v1 receipts
+   need no `stale` kind, and the "goes to the next thought's context" clauses in `boundaries.md` §7.2 and
+   `npcs_and_sem.md` §6.4 are dropped. Owner: `sem_stimuli.md` §6.2.
+2. **The root id and the run seed are two fields:** identity and randomness. `npcs_and_sem.md` §3.4's "root seed"
+   now reads "run seed".
+3. **O26 is about the tier-2 rerun:** a rerun reads the recorded replies and never re-runs a model on purged text.
+   Owner: `inference_placement.md` §4.2. Tier-1 replay calls nothing.
+4. **Scene versions go to whichever change lands first.** Fuel entries take the version after main's with 6.0b
+   (`fire_solid.md` §5.2), and zones a later one in Phase 2. `fire_model.md` §7's fuel list, which `fire_solid.md`
+   overrides, is now a link to it.
+5. **A `BoundFrame` push needs no log record:** frames are derived per tick and digested (`sem_stimuli.md` Q8). The
+   test that proves it is in `checklists.md`'s agent-line PR.
+6. **CLAUDE.md's restated rules name their owners:** "Reconstruct, decide at the point" names `world_model.md` §3,
+   and the handshake line names `boundaries.md` §5.3.

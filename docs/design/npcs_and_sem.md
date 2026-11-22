@@ -261,7 +261,7 @@ roster), not through the SCN work (BF2-7, X-9).
   `(tick, event)` goes in the high counter words, or a bit generator is built per `(tick, event)` key. Percept noise is
   keyed by `(npc, stream, tick, sensor)`, never by a running counter, so it can't depend on how often Maxim pulls a
   sensor.
-- **Who owns the seed path:** the host derives the agent namespace from the log header's root seed and hands each
+- **Who owns the seed path:** the host derives the agent namespace from the log header's run seed and hands each
   stream to `engine.adapters.agents`; the game's NPC-authoring code never touches it. Stream state that must persist
   is saved with the agent home (save v1).
 - **Two kinds of stream, and one accepted cost (DET-S8, BD-13).** Overdrive's own streams (percept noise, the speed
@@ -649,7 +649,7 @@ agents)" and "agents step inside the simulation lane's tick" (§11).
 
 - **The engine's contract:** an intent produces one receipt, `sem_stimuli.md` §6.2's for the agent and
   `tile_and_client.md` §3.3's `intent_result` on the wire.
-- **Each receipt is credited exactly once,** through `settle`, and zero times when `stale`. A test asserts it. Under
+- **Each receipt is credited exactly once,** through `settle` (stale: `sem_stimuli.md` §6.2). A test asserts it. Under
   O6 there is no second path (`execute`'s return) to double-book, once Maxim folds its parallel and agent-fallback
   dispatch into the same split (`tool_dispatch.py:1290-1291`; TBR-6).
 - **Every minted pid settles exactly once (Maxim's review of v5; OD-EA16).** Each invocation pid an agent mints
@@ -672,8 +672,7 @@ agents)" and "agents step inside the simulation lane's tick" (§11).
 - **Stale is context, never credit** (lesson 9). Maxim books every `success=False` as NEGATIVE. The refusal-kind key
   (OD-A16) must be **promoted** through the bridge, because `agents/tool_bridge.py:580-582` drops `result.metadata` on
   failure and `runtime/tool_dispatch.py:370` books NEGATIVE before any valence is read; the same holds for any settle key
-  (X-6). Until then, stale refusals are an OPEN divergence, to be held by a strict red gate once the agent PR lands it,
-  and the receipt goes to the next thought's context.
+  (X-6). Until then, stale refusals are an OPEN divergence, to be held by a strict red gate once the agent PR lands it.
 - **A malformed call is a cognitive error, not a tool failure** (lesson 7).
 
 ### 6.5 Per-actor binding and identity (TB2-S8, MP-S12, Arch S3)

@@ -372,7 +372,7 @@ class Field:
 @dataclass(frozen=True)
 class Schema:
     """A closed set of fields. ``reserved`` names keys a later version of the format will take, each refused with
-    its reason (scene v1 refuses ``zones``: zones are scene v2, Phase 2)."""
+    its reason (scene v1 refuses ``zones``: zones arrive with a later scene version, Phase 2)."""
 
     fields: tuple[Field, ...]
     reserved: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))

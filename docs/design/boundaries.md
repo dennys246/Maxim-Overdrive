@@ -588,14 +588,14 @@ inside the simulation lane's tick"):**
   deadlocked with the dilate policy on one worker (foundations Arch B2), raced the tick (DR-B1), had no route into the
   pipeline and no second lane to wait across (Wire B2), and credited only instant effects (Arch S13). Under O6 the
   agent returns intents as values and receives receipts through `settle`.
-- **Each receipt is credited exactly once,** through `settle`, and zero times when `stale`; a test asserts it.
+- **Each receipt is credited exactly once,** through `settle`; a stale intent's credit is `sem_stimuli.md` §6.2's. A
+  test asserts it.
 - **Valence per D53:** the adapter always self-reports. `neutral` when the measured effect is nil or unverifiable,
   drive deltas through `measured_drive_transitions`; absent a report, Maxim books mechanical success as POSITIVE.
 - **Credit reads declared sensors only,** the ones the affordance declares it affects, and never instruments.
   Slow-effect credit (ignite) is an OPEN divergence with a red gate until settle can carry a horizon (OD-A16).
 - **Stale is context, never credit** (lesson 9). Until Maxim promotes a refusal-kind key through the bridge's failure
-  path (OD-A16), stale refusals are an OPEN divergence with a strict red gate, and the receipt goes to
-  the next thought's context.
+  path (OD-A16), stale refusals are an OPEN divergence with a strict red gate.
 - **Per-actor binding (BF-6; foundations TB2-S8):** each NPC gets its own entity and modulator, bound to its actor.
   `name` and `full_path` stay identical across actors (lesson 10). The adapter refuses a call whose bound actor isn't
   the agent it is stepping.
@@ -818,7 +818,7 @@ harness is born in `engine.verify`:
 - **Docs:** README's quick start, `docs/code_review.md`, CLAUDE.md (Layout, Commands, the SEM rule's paths, the new
   rule) and `docs/architecture.md` are updated by hand. When the agent foundations land, CLAUDE.md's determinism
   rule ("one seeded `numpy.random.Generator` owned by `World`") becomes "the World's generator plus keyed per-NPC
-  streams from one root seed", `tests/test_determinism.py::NUMPY_RANDOM_ALLOWED` admits `Philox`, and the replay
+  streams from one run seed", `tests/test_determinism.py::NUMPY_RANDOM_ALLOWED` admits `Philox`, and the replay
   sentence is scoped to the world (§6.2) (foundations Wire S3, DR-S7, BF2-15). `docs/design/reviews/` and
   `docs/design/research/` are kept
   verbatim and excluded (W7, W11).
