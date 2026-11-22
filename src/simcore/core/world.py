@@ -158,6 +158,9 @@ class World:
             self._publish()
 
     def _power_field(self) -> Field | None:
+        # TEMPORARY(phase1/sim-clock): the world resolves its sources' deposit and heat consumes the power, while the
+        # registry names heat as the sources' resolver (sim_core.md §6, §7): step 5a's PR 3 moves this into heat's
+        # prepare, sorted by source id, which is a recorded digest break (§12).
         if not self._sources:
             return None
         power = np.zeros(self._grid.shape, dtype=np.float64)

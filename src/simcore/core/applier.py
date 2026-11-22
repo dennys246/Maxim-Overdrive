@@ -76,8 +76,9 @@ class Applier:
             self._check_region(region)
         except ActionRefused as exc:
             return _refused(affordance, params, exc)
-        # TEMPORARY(phase1/sim-clock): the applier opens the world's write window itself, synchronously, until
-        # Simulation.step owns the window (boundaries §4.1, 2c; sim_core.md §12): step 5a's PR 4 moves it there.
+        # TEMPORARY(phase1/sim-clock): the applier opens the world's write window itself, synchronously, and a strike
+        # calls the orchestrator (physics.strike) instead of appending a Load for the tick, until Simulation.step owns
+        # the window (boundaries §4.1, 2c; sim_core.md §5.1, §12): step 5a's PR 4 moves both there.
         if isinstance(action, Strike):
             return self._strike(region, action, params)
         if isinstance(action, Ignite):

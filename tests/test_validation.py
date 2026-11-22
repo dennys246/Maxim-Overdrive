@@ -21,7 +21,7 @@ from hypothesis import strategies as st
 from maxim_overdrive import data
 from simcore.adapters.loaders import DataPath, load_action_limits, load_materials, read_yaml
 from simcore.adapters.sem import bridge
-from simcore.core import damage, heat, physics
+from simcore.core import damage, physics, reductions
 from simcore.core.applier import Applier
 from simcore.core.grid import Footprint, MaterialGrid
 from simcore.core.imagination import Budget, SpecRejected, place
@@ -29,9 +29,10 @@ from simcore.core.law import LawInputs
 from simcore.core.limits import ACTION_LIMITS
 from simcore.core.materials import MATERIAL, MATERIAL_TABLE, MaterialTable
 from simcore.core.refusals import RefusalCode, Refused
-from simcore.core.scene import Box, Cylinder, Scene, Spawn
+from simcore.core.scene import Box, Cylinder, Scene, Spawn, constructing
 from simcore.core.world import HeatSource, World
 from simcore.protocol.tiers import RIG_PROFILE, RigProfile
+from tests._cells import heat_alone, name_region, paint
 from tests._gitutil import git
 
 LIMITS = data.action_limits()
@@ -102,15 +103,17 @@ def test_a_point_outside_the_grid_has_no_cell(dx_m, materials):
 def test_region_names_are_unique(dx_m, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
-    with g.writing(writer="construction"):
-        g.paint(
+    with constructing(g):
+        paint(
+            g,
             np.broadcast_to(x < 0.5, g.shape),
             "wood",
             region="crate",
             footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
         )
         with pytest.raises(ValueError, match="already exists"):
-            g.paint(
+            paint(
+                g,
                 np.broadcast_to(x >= 0.5, g.shape),
                 "wood",
                 region="crate",
@@ -140,12 +143,12 @@ def test_a_scene_refuses_unknown_primitive_kinds():
 
 def test_no_time_means_no_substeps_and_no_change(dx_m, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
-    with g.writing(writer="construction"):
+    with constructing(g):
         g.temperature[0, 0, 0] = 500.0
     before = g.temperature.copy()
-    with g.writing(writer="construction"):
-        assert heat.step(g, 0.0) == 0
-        assert heat.step(g, -5.0) == 0
+    with g.writing(writer=None):
+        assert heat_alone(g, 0.0) == 0
+        assert heat_alone(g, -5.0) == 0
     assert np.array_equal(g.temperature, before)
 
 
@@ -159,14 +162,15 @@ def test_a_strike_refuses_negative_energy_and_non_positive_width(dx_m, materials
 def test_a_region_with_no_solid_cells_cannot_be_breached(dx_m, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
-    with g.writing(writer="construction"):
-        g.paint(
+    with constructing(g):
+        paint(
+            g,
             np.broadcast_to(x < 0.5, g.shape),
             "air",
             region="doorway",
             footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
         )
-    assert damage.region_breached(g, "doorway") is False
+    assert reductions.region_breached(g, "doorway") is False
 
 
 def test_a_world_with_no_fire_stays_at_ambient(dx_m, materials):
@@ -232,8 +236,8 @@ def test_every_sensor_reports_its_schema_and_unit(dx_m, materials):
 def test_a_region_that_lost_all_its_cells_reads_nan_and_cannot_burn(dx_m, materials):
     w = _world(dx_m, materials)
     sensors, mods = bridge.region_parts(Applier(w), w.frames, "wall")
-    with w.grid.writing(writer="construction"):  # a later paint takes every cell
-        w.grid.paint(w.grid.regions["wall"].cells, "air")
+    with constructing(w.grid):  # a later paint takes every cell
+        paint(w.grid, w.grid.regions["wall"].cells, "air")
     assert math.isnan(sensors["temperature_max"].value())
     res = mods["structure"].execute("ignite", {"power_w": 1000.0})
     assert not res.success
@@ -340,19 +344,21 @@ def test_a_scenes_ambient_bounds_are_exact(ambient, ok):
 def test_a_named_region_needs_its_authored_bounds(dx_m, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
-    with pytest.raises(ValueError, match="needs its authored footprint"):
-        g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate")
+    with pytest.raises(ValueError, match="needs its authored footprint"), constructing(g):
+        paint(g, np.broadcast_to(x < 0.5, g.shape), "wood", region="crate")
     assert "crate" not in g.regions
     assert (g.material == 0).all()  # refused before anything was painted
-    with g.writing(writer="construction"):
-        g.paint(
+    with constructing(g):
+        paint(
+            g,
             np.broadcast_to(x < 0.5, g.shape),
             "wood",
             region="crate",
             footprint=Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
         )
-    with pytest.raises(ValueError, match="already exists"):
-        g.name_region(
+    with pytest.raises(ValueError, match="already exists"), constructing(g):
+        name_region(
+            g,
             "crate",
             np.broadcast_to(x < 0.5, g.shape),
             Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5)),
@@ -393,13 +399,13 @@ def test_a_later_paint_takes_cells_from_earlier_regions_and_a_refused_paint_chan
     g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
     left = np.broadcast_to(x < 0.6, g.shape)
-    with g.writing(writer="construction"):
-        g.paint(left, "wood", region="left", footprint=Footprint(((0, 0, 0), (0.6, 1, 1)), (0.3, 0.5, 0.5)))
-        g.paint(np.broadcast_to(x >= 0.4, g.shape), "concrete")  # unnamed, and it overlaps "left"
+    with constructing(g):
+        paint(g, left, "wood", region="left", footprint=Footprint(((0, 0, 0), (0.6, 1, 1)), (0.3, 0.5, 0.5)))
+        paint(g, np.broadcast_to(x >= 0.4, g.shape), "concrete")  # unnamed, and it overlaps "left"
     assert not (g.regions["left"].cells & np.broadcast_to(x >= 0.4, g.shape)).any()
     before = g.material.copy()
-    with pytest.raises(ValueError, match="already exists"):
-        g.paint(np.ones(g.shape, dtype=bool), "steel", region="left", footprint=g.regions["left"].footprint)
+    with pytest.raises(ValueError, match="already exists"), constructing(g):
+        paint(g, np.ones(g.shape, dtype=bool), "steel", region="left", footprint=g.regions["left"].footprint)
     assert np.array_equal(g.material, before)  # refused before anything was painted
 
 
@@ -439,9 +445,10 @@ def test_thermal_degradation_follows_its_closed_form_at_every_rig(spacings, mate
     excess, dt = 150.0, 0.5
     for dx_m in spacings:
         g = Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (1, 1, 1), "wood", "block"),)).build(materials, dx_m=dx_m)
-        with g.writing(writer="construction"):
+        with constructing(g):
             g.temperature[:] = wood.degrade_above_c + excess
-            damage.THERMAL.step(g, dt, LawInputs())
+        with g.writing(writer=None):
+            physics.run_law(g, damage.THERMAL, dt, LawInputs())
         expected = 1.0 - wood.degrade_rate_per_s_per_100c * dt * excess / 100.0
         assert g.integrity == pytest.approx(np.full(g.shape, expected), rel=1e-6), dx_m
 
@@ -489,9 +496,10 @@ def test_thermal_degradation_is_proportional_to_the_excess(spacings, materials):
         g = Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (1, 1, 1), "wood", "block"),)).build(materials, dx_m=dx_m)
         x, _, _ = g.mesh()
         excess = np.where(np.broadcast_to(x < 0.5, g.shape), 150.0, 50.0)
-        with g.writing(writer="construction"):
+        with constructing(g):
             g.temperature[:] = wood.degrade_above_c + excess
-            damage.THERMAL.step(g, 0.5, LawInputs())
+        with g.writing(writer=None):
+            physics.run_law(g, damage.THERMAL, 0.5, LawInputs())
         expected = 1.0 - wood.degrade_rate_per_s_per_100c * 0.5 * excess / 100.0
         assert g.integrity == pytest.approx(expected, rel=1e-6), dx_m
 
@@ -510,8 +518,8 @@ def test_name_region_itself_refuses_a_name_maxim_would_confuse(dx_m, materials):
     # Its callers check first; this is the second line, for any future caller that doesn't.
     g = Scene((3.0, 3.0, 2.0), (Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", "crate"),)).build(materials, dx_m=dx_m)
     footprint = g.regions["crate"].footprint
-    with pytest.raises(ValueError, match=r"region 'Crate' already exists \(as 'crate'\)"):
-        g.name_region("Crate", g.regions["crate"].cells, footprint, solid=True)
+    with pytest.raises(ValueError, match=r"region 'Crate' already exists \(as 'crate'\)"), constructing(g):
+        name_region(g, "Crate", g.regions["crate"].cells, footprint, solid=True)
 
 
 def test_an_imagined_object_may_sit_in_a_named_air_room_but_no_primitive_may_enter_a_solids_footprint(dx_m, materials):
@@ -535,11 +543,11 @@ def test_paint_refuses_a_confusable_name_before_painting(dx_m, materials):
     g = MaterialGrid.empty((1.0, 1.0, 1.0), materials, dx_m=dx_m)
     x, _, _ = g.mesh()
     footprint = Footprint(((0, 0, 0), (0.5, 1, 1)), (0.25, 0.5, 0.5))
-    with g.writing(writer="construction"):
-        g.paint(np.broadcast_to(x < 0.5, g.shape), "wood", region="crate", footprint=footprint)
+    with constructing(g):
+        paint(g, np.broadcast_to(x < 0.5, g.shape), "wood", region="crate", footprint=footprint)
     before = g.material.copy()
-    with pytest.raises(ValueError, match="already exists"):
-        g.paint(np.ones(g.shape, dtype=bool), "steel", region="Crate", footprint=footprint)
+    with pytest.raises(ValueError, match="already exists"), constructing(g):
+        paint(g, np.ones(g.shape, dtype=bool), "steel", region="Crate", footprint=footprint)
     assert np.array_equal(g.material, before)
 
 

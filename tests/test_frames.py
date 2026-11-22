@@ -17,8 +17,9 @@ from simcore.adapters.sem import bridge
 from simcore.core import frames
 from simcore.core.applier import Applier
 from simcore.core.grid import MaterialGrid
-from simcore.core.scene import Box, Scene
+from simcore.core.scene import Box, Scene, constructing
 from simcore.core.world import World
+from tests._cells import paint
 
 LIMITS = data.action_limits()
 MATERIALS = data.materials()
@@ -63,8 +64,8 @@ def test_a_frame_is_stamped_with_the_time_it_was_published_at():
 def test_a_frames_regions_do_not_follow_a_later_paint():
     w = _world()
     frame = w.frames.latest
-    with w.grid.writing(writer="construction"):
-        w.grid.paint(w.grid.regions["crate"].cells, "air")
+    with constructing(w.grid):
+        paint(w.grid, w.grid.regions["crate"].cells, "air")
     assert frame.reading("crate", "integrity") == 1.0
     assert w.frames.latest.reading("crate", "integrity") == 0.0  # the paint published a frame of its own
     assert math.isnan(w.frames.latest.reading("crate", "temperature_mean"))
@@ -138,7 +139,7 @@ def test_a_frame_refuses_writable_arrays_and_a_grid_whose_window_is_open():
     cells = w.frames.latest.cells
     with pytest.raises(ValueError, match="read-only"):
         dataclasses.replace(cells, temperature=np.zeros(cells.shape))
-    with w.grid.writing(writer="construction"), pytest.raises(WindowClosed, match="open"):
+    with constructing(w.grid), pytest.raises(WindowClosed, match="open"):
         frames.CellFrame.of(w.grid, 1)
 
 

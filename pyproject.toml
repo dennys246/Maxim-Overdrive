@@ -67,14 +67,14 @@ line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "RUF", "SIM", "BLE", "S110", "PT", "NPY", "PL", "C90"]
+select = ["E", "F", "W", "I", "B", "UP", "RUF", "SIM", "BLE", "S110", "PT", "NPY", "PL", "C90", "SLF001"]
 ignore = [
     "PLR2004",  # magic numbers: physics constants are named where they mean something, literal where they don't
     "PLR0913",  # many arguments: physics functions take their parameters explicitly
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["PLR0915"]
+"tests/**" = ["PLR0915", "SLF001"]  # tests reach private names to plant and probe; src and scripts never do
 
 # Separation of concerns (CLAUDE.md, "Code"). Ruff's PL rules already cap returns, branches and statements per function;
 # mccabe caps the paths through it. scripts/lint_sizes.py::check_sizes holds the limits ruff has no rule for, and
@@ -142,8 +142,8 @@ type = "forbidden"
 source_modules = ["simcore.adapters", "simcore.protocol"]
 forbidden_modules = [
     "simcore.core.damage", "simcore.core.grid", "simcore.core.heat", "simcore.core.imagination", "simcore.core.law",
-    "simcore.core.physics", "simcore.core.readonly", "simcore.core.scene", "simcore.core.stepping",
-    "simcore.core.topology", "simcore.core.writers",
+    "simcore.core.physics", "simcore.core.readonly", "simcore.core.reductions", "simcore.core.scene",
+    "simcore.core.stepping", "simcore.core.topology", "simcore.core.window", "simcore.core.writers",
 ]  # fmt: skip
 allow_indirect_imports = true
 
@@ -158,8 +158,10 @@ source_modules = ["simcore.adapters.sem"]
 forbidden_modules = [
     "simcore.core.damage", "simcore.core.digest", "simcore.core.grid", "simcore.core.heat",
     "simcore.core.imagination", "simcore.core.law", "simcore.core.materials", "simcore.core.physics",
-    "simcore.core.readonly", "simcore.core.scene", "simcore.core.schema", "simcore.core.simulation",
-    "simcore.core.stepping", "simcore.core.topology", "simcore.core.world", "simcore.core.writers",
+    "simcore.core.readonly", "simcore.core.reductions", "simcore.core.scene", "simcore.core.schema",
+    "simcore.core.simulation",
+    "simcore.core.stepping", "simcore.core.topology", "simcore.core.window", "simcore.core.world",
+    "simcore.core.writers",
     "simcore.adapters.loaders",
 ]  # fmt: skip
 allow_indirect_imports = true
@@ -193,7 +195,7 @@ forbidden_modules = ["simcore.verify"]
 id = "laws-independent"
 name = "no law imports another: laws couple only through fields (sim_core.md §5.1, B43)"
 type = "independence"
-modules = ["simcore.core.damage", "simcore.core.heat"]
+modules = ["simcore.core.damage.loads", "simcore.core.damage.thermal", "simcore.core.heat"]
 
 [[tool.importlinter.contracts]]
 id = "maxim-through-adapters"

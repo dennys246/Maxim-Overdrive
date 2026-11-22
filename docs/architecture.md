@@ -83,7 +83,7 @@ How the rule is kept, so far:
   0.00 / 0.26 / 0.34. `temperature_max` diverges too (540 / 614 / 978 °C at turn 27). **The cause is measured:**
   the crate's mean temperature agrees between laptop and rig to within 1 °C through turn 22, so the crate's heat content agrees, but
   the degradation driver (the mean of the excess of each cell's temperature over the limit, in
-  `damage.thermal_degrade`) is 1.3–1.5× larger at rig. The law does converge, slowly (integrity at turn 22 is 0.703 /
+  `damage/thermal.py`) is 1.3–1.5× larger at rig. The law does converge, slowly (integrity at turn 22 is 0.703 /
   0.567 / 0.514, roughly first order), but the coarse rig sits far off, because a threshold is applied to cell means
   (CLAUDE.md, "Reconstruct, decide at the point, integrate upward"). Scaling the rate by cell size would make the gate pass and is a band-aid; the law itself is held by a
   closed-form test at every rig (`tests/test_validation.py::test_thermal_degradation_follows_its_closed_form_at_every_rig`). The fix is the Phase 1 fuel model, with burning as a
@@ -149,7 +149,7 @@ from authored footprints in metres so the answer is the same at every spacing). 
 footprint; named solids can't share space with a later solid, so a footprint never covers another object's cells.
 Parameters are a closed set per affordance, plus the keys Maxim adds itself (`target`). Every number is a finite real
 number: NaN, infinities, bools and numeric strings are refused, never guessed. A refusal names the parameter in plain
-words and changes nothing. The physics checks again underneath: `HeatSource` and `damage.strike` refuse non-finite
+words and changes nothing. The physics checks again underneath: `HeatSource` and `law.Load` refuse non-finite
 and negative values, whoever calls them. The limits are physics-safety ceilings, not what a body can do; an NPC's
 capability will come from its body and energy (`docs/roadmap.md`, Phase 5).
 

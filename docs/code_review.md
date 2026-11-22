@@ -58,7 +58,7 @@ The contract types, with this codebase's examples:
 
 | Type | Examples |
 |---|---|
-| **Call** | `World.advance`, `heat.step`, `damage.strike`, `imagination.place`; every caller, including tests and scripts |
+| **Call** | `World.advance`, `physics.run_physics`, `physics.strike`, `imagination.place`; every caller, including tests and scripts |
 | **Payload / field** | `snapshot()` keys and dtypes, `ModulatorResult.metadata` keys, `HeatSource` fields |
 | **Wire format** | the protocol header, array order and dtypes, intent JSON; the Python server *and* the GDScript client |
 | **Persisted state** | save files, scene YAML, rig and material YAML: the writer, the loader and every version check |

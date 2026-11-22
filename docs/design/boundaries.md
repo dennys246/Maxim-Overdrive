@@ -50,7 +50,8 @@ Surveyed on `phase1/act-validation` at 2f200b5 (Executor confirmed each item):
   (spec) and `sem_env/` (bridge, `_compat`), plus a root `__init__` that re-exports config, grid, scene and world.
 - Only `sem_env/bridge.py` imports `maxim`.
 - No module imports `time`, `random`, `os` or `importlib`, but the core reached `pathlib` and `yaml` (`config.py`)
-  and `scipy` (`damage.py`), which bear on determinism (D-N1, D-B2; the IO left the core in 3a).
+  and `scipy` (`damage.py`, now `damage/strike.py` and `reductions.py`), which bear on determinism (D-N1, D-B2; the
+  IO left the core in 3a).
 - The world's writers lived outside `world/`, in the bridge and `place` (D-B1); objects called frozen were neither
   deeply frozen nor validated (TB-B2). Both fixed in 3b.
 - `data/` holds rigs, the material table (physical properties mixed with calibrations the file itself labels

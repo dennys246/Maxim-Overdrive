@@ -2,9 +2,10 @@
 `step`. Not a law itself: the laws (`heat`, `damage`) import this, and no law imports another (§5.1, held by the
 `laws-independent` import contract), so what two laws share lives here.
 
-A law writes only as itself: `step` runs inside `grid.as_writer(law.name)`, so the write window refuses a write to a
-field the registry doesn't list it as a writer of (`simcore.core.fields`). World edits are requests in `Changes`, which
-Topology applies per batch (`simcore.core.topology`).
+A law writes only as itself, and never narrows itself: the orchestrator runs `step` narrowed to the law's token
+(`simcore.core.physics.run_law`), so the window refuses a read of a field outside `reads` and a write to a field the
+registry doesn't list the law as a writer of (`simcore.core.fields`), and revokes the law's writable arrays when its
+step ends. World edits are requests in `Changes`, which Topology applies per batch (`simcore.core.topology`).
 """
 
 from __future__ import annotations

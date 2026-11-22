@@ -21,7 +21,7 @@ from typing import Protocol
 import numpy as np
 import numpy.typing as npt
 
-from simcore.core import damage
+from simcore.core import reductions
 from simcore.core.checks import shown
 from simcore.core.grid import Field, Mask, MaterialGrid, Region
 from simcore.core.materials import AIR_ID
@@ -134,9 +134,9 @@ class Frame:
             raise ValueError(f"unknown region quantity {shown(quantity)}")
         cells = self._region(region).cells
         if quantity == "integrity":
-            return damage.region_integrity(self.cells, region)
+            return reductions.region_integrity(self.cells, region)
         if quantity == "breached":
-            return 1.0 if damage.region_breached(self.cells, region) else 0.0
+            return 1.0 if reductions.region_breached(self.cells, region) else 0.0
         temps = self.cells.temperature[cells]
         if temps.size == 0:
             return float("nan")

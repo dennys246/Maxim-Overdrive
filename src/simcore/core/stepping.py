@@ -1,7 +1,7 @@
 """The substep loop: how one interval is cut into stable explicit substeps (`docs/design/sim_core.md` §8).
 
-Shared by `heat.step` (heat alone, for its closed-form and convergence studies) and the physics orchestrator (every
-per-substep law in the tuple), so there is one loop. Not a law: laws don't import each other, and this is no law.
+The physics orchestrator runs every per-substep law in the tuple through it (`simcore.core.physics.run_physics`; heat
+alone is the one-law tuple), so there is one loop. Not a law: laws don't import each other, and this is no law.
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 """The field registry (`docs/design/sim_core.md` §6), code-primary: a `FieldSpec` per field, an `InputSpec` per input.
 
 Each field lists its writers, the one owner of who may write it (§5.1): the write window hands a writable array only to
-a declared writer (`simcore.core.grid.CellStore.as_writer`). Each input names its appender and its one resolving law.
+a declared writer holding its token (`simcore.core.writers`). Each input names its appender and its one resolving law.
 `render()` is the committed artifact `docs/generated/fields.md`, compared byte for byte by `tests/test_fields.py`.
 
 Step 5a's PR 2 registers the cell fields and the two inputs that exist; `source_exposure` (PR 3), the body and keyed
@@ -15,7 +15,8 @@ from dataclasses import dataclass
 # Writers that are not laws: Topology applies world-edit requests (§5.1), and construction sets the authored state.
 TOPOLOGY = "topology"
 CONSTRUCTION = "construction"
-# The laws' names, in the law tuple's order (`simcore.core.physics.DEFAULT_LAWS`; tests hold the two to each other).
+# The laws' names, in the law tuple's order: a mirror of `simcore.core.physics.DEFAULT_LAWS`, its owner, kept here
+# because the registry sits below the laws (tests hold the two to each other).
 LAW_NAMES = ("damage.loads", "heat", "damage.thermal")
 WRITERS = (*LAW_NAMES, TOPOLOGY, CONSTRUCTION)
 

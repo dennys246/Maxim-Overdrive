@@ -8,21 +8,20 @@ boundary is insulated (zero flux), so with no sources total heat energy is conse
 
 The step is explicit, so stability bounds its length. The shipped path runs ``HEAT``, this law, in the law tuple
 (``simcore.core.physics``), which takes as many substeps as stability needs and never fewer than its caller's floor;
-``World`` passes ``min_substeps(dx)``, a per-call floor set by the grid spacing. ``step`` runs heat alone.
+``World`` passes ``min_substeps(dx)``, a per-call floor set by the grid spacing. Heat alone is the one-law tuple
+``(HEAT,)`` through the same orchestrator, so time has one mover.
 Convection and radiation are not modelled yet: air here only conducts, which understates how fast a room heats.
 """
 
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
 
 from simcore.core.grid import Field, MaterialGrid
 from simcore.core.law import Cadence, Changes, LawInputs
-from simcore.core.stepping import substep_loop
 
 STABILITY_SAFETY = 0.9
 
@@ -112,33 +111,11 @@ class HeatLaw:
         return stable_dt(grid)
 
     def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs) -> Changes:
-        with grid.as_writer(self.name):
-            substep(grid, dt_s, inputs.power_w)
+        substep(grid, dt_s, inputs.power_w)  # the orchestrator runs this as heat (simcore.core.physics)
         return Changes()
 
 
 HEAT = HeatLaw()
-
-
-def step(
-    grid: MaterialGrid, seconds: float, min_substeps: int = 1, power: Callable[[], Field | None] | None = None
-) -> int:
-    """Advance heat alone by ``seconds``, inside the window. Returns the number of substeps taken.
-
-    For heat's own closed-form and convergence studies; the shipped path runs every law through
-    ``simcore.core.physics.run_physics``, with the same loop (``simcore.core.stepping``). Heat alone changes no cell,
-    so the source power ``power()`` (W per cell, or None) is read once."""
-    if seconds <= 0:
-        return 0
-    inputs = LawInputs(power_w=power() if power is not None else None)
-
-    def once(dt: float, _refresh: bool) -> bool:
-        HEAT.step(grid, dt, inputs)
-        return False
-
-    taken = substep_loop(seconds, min_substeps, lambda: stable_dt(grid), once)
-    grid.time_s += seconds
-    return taken
 
 
 def heat_energy_j(grid: MaterialGrid, reference_c: float = 0.0) -> float:

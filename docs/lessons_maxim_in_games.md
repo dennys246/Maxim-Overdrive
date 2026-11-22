@@ -392,3 +392,19 @@ renders it as "Failure type: None" in the replan prompt (`loop_state.py:248`, `p
 classifies by the text, though the replan prompt carries it verbatim as "Failure reason:" (`plan_document.py:280`);
 Maxim's one text classifier, `classify_failure_type`, runs only from a planner its own docstring calls dormant (delta
 rounds 2 and 3, SF-1, R3-5).
+
+### 32. A writer's identity must be a capability its owner holds, not a name it gives (2026-11-22)
+
+**When many laws share one world, "who is writing" has to be unforgeable, or the field registry describes intentions,
+not the world.** *Evidence:* step 5a's PR 2 let each law narrow the write window to its own name (`as_writer(name)`).
+Two reviewer plants passed every guard (`reviews/sim_laws/round1_exec_physics.md`, SF1): thermal damage writing
+`material` "as topology", and heat writing "as construction", which gave it `material`, `integrity` and `regions`. A
+handle taken in one law's block stayed writable for the rest of the window, and a read-only view could be unlocked in
+one line (SF2). The fold makes each writer a token claimed once, at its owner's import (Topology, construction, and
+the orchestrator for every law); the orchestrator runs each law narrowed to its token and its declared `reads`, and a
+block's writable arrays are revoked when it ends, at about one array copy per law per substep. The plants now fail at
+runtime and in a source scan. *Consequence:* any field a future law (fire's solid and contact laws, the body laws) or
+an NPC-facing path writes is held to the registry by the same tokens. Python can't make a token unforgeable against
+code that reaches into private names, so a scan holds the tokens to their owners' modules; that is the residual, and
+it is named. For Maxim: none yet; this is the engine's half of the SEM contract (`sem_stimuli.md` §7.1), where a body
+law's writes must be as checkable as a physics law's.
