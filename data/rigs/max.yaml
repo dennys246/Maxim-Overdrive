@@ -1,2 +1,2 @@
-version: 1  # the rig profile format (simcore.protocol.tiers.RIG_PROFILE_VERSION)
+version: 1  # the rig profile format (simcore.protocol.tiers.RIG_PROFILE)
 name: max

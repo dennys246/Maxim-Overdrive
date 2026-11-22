@@ -13,14 +13,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from simcore.adapters.loaders import FilePath, read_yaml
-from simcore.core.checks import format_version, known_keys, shown
+from simcore.core.schema import Field, Format, Schema, Text
 
-RIG_PROFILE_VERSION = 1
-RIG_KEYS = frozenset({"version", "name"})
 _V0_MOVED = (
     "rig format v0 carried physics (cell_size_m, min_substeps_per_turn), which left the rig (world_model D20): the "
     "grid spacing is now World.from_scene's dx_m, and the substep floor follows from it"
 )
+RIG_PROFILE = Format("rig profile", 1, Schema((Field("name", Text()),)), refused={0: _V0_MOVED})
 
 
 @dataclass(frozen=True)
@@ -31,18 +30,15 @@ class RigProfile:
 
     def __post_init__(self) -> None:
         # Validating constructor (boundaries §5.1): holding a RigProfile is proof its name is usable.
-        if not isinstance(self.name, str) or not self.name.strip():
-            raise ValueError(f"a rig profile needs a name, got {shown(self.name)}")
+        RIG_PROFILE.schema.check({"name": self.name}, "a rig profile")
 
     @classmethod
     def load(cls, path: FilePath) -> RigProfile:
-        """The rig profile in the file at ``path``. The gate (``loaders.read_yaml``) reads it; this only decodes."""
-        what = f"rig profile {path}"
-        raw = read_yaml(path)
-        if isinstance(raw, Mapping) and type(raw.get("version")) is int and raw["version"] == 0:
-            raise ValueError(f"{what} version must be {RIG_PROFILE_VERSION}, got 0: {_V0_MOVED}")
-        raw = known_keys(format_version(raw, RIG_PROFILE_VERSION, what), what, required=RIG_KEYS)
-        try:
-            return cls(name=raw["name"])  # type: ignore[arg-type]  # the constructor checks it
-        except ValueError as exc:
-            raise ValueError(f"{what}: {exc}") from None
+        """The rig profile in the file at ``path``. The gate (``loaders.read_yaml``) reads it; ``RIG_PROFILE`` decodes
+        it."""
+        return cls.from_document(RIG_PROFILE.read(read_yaml(path), f"rig profile {path}"))
+
+    @classmethod
+    def from_document(cls, doc: Mapping[str, object]) -> RigProfile:
+        """The profile from a document ``RIG_PROFILE`` has read."""
+        return cls(name=doc["name"])  # type: ignore[arg-type]  # the schema's Text

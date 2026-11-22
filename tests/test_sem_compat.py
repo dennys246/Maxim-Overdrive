@@ -87,3 +87,34 @@ def test_the_bridge_runs_on_the_stand_ins_without_pymaxim(bridge_without_maxim: 
     assert all(type(a) is _compat.AffordanceSchema for a in mods["structure"].affordances.values())
     with pytest.raises(RuntimeError, match="pymaxim is not installed"):
         b.to_maxim_entity(Applier(w), w.frames, "wall")
+
+
+def test_the_target_aliases_mirror_maxims_own() -> None:
+    """Maxim resolves these names to the agent itself before any lookup, so no body or region may take one
+    (checks.MAXIM_TARGET_ALIASES). The orchestrator's set is importable; tool_bridge._resolve_target_body spells the
+    same three inline. A new alias in a Maxim release turns this red on the drift job (O32), never silently stale."""
+    from maxim.simulation.tools import OrchestratorActorTool  # noqa: PLC0415 - the gate installs pymaxim
+
+    from simcore.core.checks import MAXIM_TARGET_ALIASES  # noqa: PLC0415
+
+    assert frozenset(OrchestratorActorTool._TARGET_ALIASES) == MAXIM_TARGET_ALIASES
+
+
+def test_the_tool_bridges_inline_aliases_are_the_same_set() -> None:
+    """Delta 2, N-3: ModulatorAffordanceTool._resolve_target_body spells the aliases inline, on the path an NPC's own
+    per-entity tool takes, so a release that adds one only there must turn this red too."""
+    import ast  # noqa: PLC0415
+    import inspect  # noqa: PLC0415
+    import textwrap  # noqa: PLC0415
+
+    from maxim.embodiment.tool_bridge import ModulatorAffordanceTool  # noqa: PLC0415 - the gate installs pymaxim
+
+    from simcore.core.checks import MAXIM_TARGET_ALIASES  # noqa: PLC0415
+
+    tree = ast.parse(textwrap.dedent(inspect.getsource(ModulatorAffordanceTool._resolve_target_body)))
+    spelled = [
+        {e.value for e in node.elts if isinstance(e, ast.Constant)}
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Tuple | ast.Set | ast.List) and node.elts
+    ]
+    assert frozenset(MAXIM_TARGET_ALIASES) in [frozenset(s) for s in spelled]
