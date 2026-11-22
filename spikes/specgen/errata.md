@@ -4,8 +4,10 @@
 places where the frozen text is wrong, vacuous or silent. This file records how the spike reads each one. It is
 committed before any data exists, so no reading can be chosen to rescue a result.
 
-The owner accepted this process on 2026-11-22. Each reading below is the author's, and the owner confirms or changes
-it in PR review, before the first run. A changed reading means a changed line here, never a change to a frozen file.
+The owner accepted this process on 2026-11-22, and confirmed every reading below the same day, including the four
+that were choices: E4 (turns of 6 s), E6 (largest remainder), E7 (trend prompts from the labelling set) and E8 (M9
+on the labelled set). A later change is a changed line here with the owner's ruling, never a change to a frozen
+file, and only before the first run.
 
 | # | Frozen text | What is wrong or missing | The spike's reading |
 |---|---|---|---|
