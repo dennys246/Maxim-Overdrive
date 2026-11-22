@@ -362,8 +362,10 @@ See `docs/book_to_world.md`. Extraction, timeline and the perspective split, the
 
 ## Before the repository goes public
 
-The repository is private until Maxim publishes its fix for OD-I5 (owner, 2026-11-21). Going public is one branch,
-`phaseN/go-public`, which does all of this, then the owner flips visibility:
+The repository was private until Maxim published its fix for OD-I5 (owner, 2026-11-21). It is public again since
+2026-11-22 (owner), after the disclosure and Maxim 1.3.4's release. The plan was one branch, `phaseN/go-public`, doing
+all of this before visibility flipped. Items 1 and 3 hold (item 3 read from the repository settings on 2026-11-22:
+no runners, approval for first-time contributors, read-only default token). Items 2, 4 and 5 are still open:
 
 1. **Disclosure:** Maxim's advisory for OD-I5 is public and its fix released. Until then, stay private; the history is
    not rewritten (the mentions span 202 commits and GitHub keeps PR refs).

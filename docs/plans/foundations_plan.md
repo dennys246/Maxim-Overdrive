@@ -8,8 +8,8 @@ question is present (not true) and the 2,500-word budget. Source: the review in 
 
 PRs #1–#13 are merged; open PRs are on GitHub. Each branch has a same-named worktree under `.worktrees/`.
 
-**Security gate.** Private since 2026-11-17. design-v2's history and PR #4 hold OD-I5's details; before going
-public, the owner decides on a force-push plus GitHub support for PR #4's refs. Security findings go to private notes.
+**Security gate.** Public again since 2026-11-22, after OD-I5's disclosure and Maxim 1.3.4's release (owner).
+Security findings still go to private notes; the roadmap's go-public items 2, 4 and 5 are still open.
 
 ## 2. The order: tile first (D26)
 
