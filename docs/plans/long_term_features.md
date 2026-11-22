@@ -26,7 +26,7 @@ Each entry says which half each piece of work is.
 | **Status** | **Solid spike:** the solid matches FDS; rerun 1 (numerics only) converges, and validation still misses with every fit at a bound (R5, R6). **The owner took the fallback (2026-11-20):** Phase 1's exit is the lone-surface solid, lit, charring and flaming out, verified but not validated; the crate and 6.2–6.4 move to Phase 2; rerun 2 is banked (`solid_spike/results_rerun1.md` §7). Production code waits for step 5a (6.0a) and step 5b (6.0b) |
 | **Open** | why the solid ignites PMMA late at 25 kW/m² (parameter transfer from N₂ gasification, or the ignition criterion); the flame design (6.2), written from the spike's results; the separate NPC fire note (the Maxim asks MP-1, MP-2) |
 | **Horizon** | **Long term** (owner, 2026-11-20). The exit's fallback, the highest rung that passes honestly, stays available whenever the owner calls it |
-| **Next** | 6.1's production solid, with its validation misses as Known gaps; rerun 2 once the pre-ignition question has a cited answer |
+| **Next** | 6.1's production solid, with its validation misses as Known gaps, flipping the burnout red gate (owner, 2026-11-21); rerun 2 once the pre-ignition question has a cited answer |
 
 ## Plasma
 
@@ -51,7 +51,7 @@ Each entry says which half each piece of work is.
 | **Laws** | the world-side models behind each stimulus (skin heat, radiation onto body regions, luminance after line of sight), each replaceable behind the contract |
 | **Decided** | the world computes the stimulus at the receptor and Maxim transduces it (`fire_model.md` §5.1); fractions, never booleans; no flammability, flash point or φ as a sensor; tissue physics is the world's (lesson 24) |
 | **Status** | **v5, the contract, is final on paper** (owner, 2026-11-21: the rounds stop). Four paper rounds of seven lenses (blockers 15, 2, 4, 1); the final round's findings are folded into v5 or moved to `checklists.md` as tests (`reviews/sem_stimuli/final/fold.md`), statuses set when the code PRs' reviews read the tree. Ruled D1–D15 and S4; D12 provisional; PH2-S2 re-ruled to (c): the world is the body's plant and the NPC its controller, with effector commands reserved and an ANALOG stand-in until Maxim drives them (M20, OD-C12) |
-| **Next** | 5a carries the contract's reservations (`sem_stimuli.md` §11.1); 5b, `phase1/agents` and the tissue row build the rest, each reviewed as code; T16c and T17 are future bars on Maxim (OD-A22, OD-C12) |
+| **Next** | 5a carries the contract's reservations (`sem_stimuli.md` §11.1); 5b, `phase1/agents` and the tissue row build the rest, each reviewed as code, and each step's plan lists the v5 fold rows it settles; T16c and T17 are future bars on Maxim (OD-A22, OD-C12); M4 goes to Maxim when Phase 4's planning starts (owner, 2026-11-21) |
 
 ## States of matter: liquids, gases and zones
 
