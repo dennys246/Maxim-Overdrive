@@ -103,7 +103,7 @@ the measured checks, advisory.
   never loosen the test to pass.
 - Author scenes in metres. Keep physics parameters per unit volume. Deposit energy by exact cell average or volume
   overlap, never by whether the cell centre is inside.
-- **Reconstruct, decide at the point, integrate upward.** Never apply a threshold or a non-linear law to a cell's
+- **Reconstruct, decide at the point, integrate upward** (owner: `docs/design/world_model.md` §3). Never apply a threshold or a non-linear law to a cell's
   mean when the outcome depends on structure inside the cell: averaging then thresholding is not thresholding then
   averaging, and the difference grows with the cell size. Reconstruct the sub-cell profile (from neighbours, or a
   surface model sized in metres), evaluate the law on it, and integrate over the cell. Every consumer reads at its
@@ -259,7 +259,7 @@ only review holds.
   `tests/test_formats.py::test_every_format_refuses_a_version_it_does_not_know`, B3, B4
 - **The client is untrusted input.** Every intent is validated at the protocol layer. Malformed input gets an error
   reply, never a crash or a half-applied change. The server binds to 127.0.0.1, refuses any handshake carrying an
-  `Origin` header, and requires the per-launch token. Imagined and authored geometry is validated where primitives
+  `Origin` header, and requires the per-launch token (owner: `docs/design/boundaries.md` §5.3). Imagined and authored geometry is validated where primitives
   are made. Only the file gates read input, and nothing unpickles. Guard:
   `tests/test_imagination.py::test_the_world_refuses_impossible_objects`,
   `tests/test_input_allowlist.py::test_every_layer_imports_only_the_externals_its_allowlist_names`,

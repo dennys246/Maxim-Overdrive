@@ -113,7 +113,9 @@ def test_a_spawn_built_in_code_refuses_a_position_that_is_not_whole_millimetres(
 
 def test_the_phase_2_keys_are_refused_by_path_with_the_reason():
     for key in ("zones", "vents", "gaps"):
-        with pytest.raises(Refused, match=rf"scene\.{key}: zones, vents and gaps arrive with scene v2") as caught:
+        with pytest.raises(
+            Refused, match=rf"scene\.{key}: zones, vents and gaps arrive with a later scene version"
+        ) as caught:
             Scene.from_dict(_raw(**{key: []}))
         assert (caught.value.code, caught.value.field) == (RefusalCode.UNKNOWN_FIELD, key)
 
