@@ -111,6 +111,7 @@ prompts:
   text: a small steel barricade of three crossed beams
   expect:
   - steel
+  hard: shape
 - stratum: barriers
   id: b28
   text: a steel bike rack
@@ -283,7 +284,7 @@ prompts:
   breaks: primitives
 - stratum: impossible
   id: i29
-  text: a wooden picket fence with forty separate pickets
+  text: a wooden picket fence two and a half metres long with forty separate pickets
   expect:
   - wood
   breaks: primitives

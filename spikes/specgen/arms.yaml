@@ -10,6 +10,15 @@ arms:
   A2: {grammar: true, examples: true, retries: 0}
   A3: {grammar: true, examples: true, retries: 3}
 
+# The engine, frozen with the spike (owner, 2026-11-22): the mini's Homebrew llama.cpp, never upgraded during it. The
+# weights' SHA-256 are in freeze.sha256.
+engine:
+  llama_cpp: "build 10621 (c1d0e7a00)"
+  server_flags: "--jinja -ngl 999 -c 16384 --parallel 1"
+  models:
+    S: {repo: unsloth/Qwen3.5-4B-GGUF, revision: e87f176479d0855a907a41277aca2f8ee7a09523, file: Qwen3.5-4B-Q8_0.gguf}
+    R: {repo: unsloth/Qwen3.5-27B-GGUF, revision: 3221f178a6b842d04f1fb42f1c413534adcc0a6a, file: Qwen3.5-27B-Q8_0.gguf}
+
 # Sampling is pure temperature: every other sampler is pinned off, so llama.cpp build defaults can't differ.
 sampling:
   temperature: 0.7
@@ -21,7 +30,9 @@ sampling:
   seeds: [0, 1, 2, 3, 4, 5, 6, 7]
   retry_seed: "100 * attempt + seed"  # attempt 1, 2 or 3 in A3: 100-107, 200-207, 300-307, apart from the base seeds
   max_output_tokens: 4096
-  thinking: off  # the template's enable_thinking=false, through llama-server; verified on the mini before the freeze
+  # Thinking off: chat_template_kwargs {enable_thinking: false}, through llama-server. Verified on the mini
+  # (2026-11-22, lesson 33): without it, S spends all 4,096 tokens reasoning and answers nothing; with it, none.
+  thinking: off
 
 protocol:
   # Whole centimetres become metres by exact division, never by multiplying by 0.01: v * 0.01 and v / 100 differ for

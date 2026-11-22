@@ -410,3 +410,25 @@ geometry can't live inside the agent. *Consequence:* Phase 6 had no spec author.
   would have hidden from NPCs that an imagined table burns (round 1, Architecture B1).
 - Whether Maxim should know that an entity was generated is a question for Phase 6's design.
 - The spec generator spike (`docs/design/research/specgen_spike/plan.md`) measures the first step.
+
+### 33. A reasoning model's default thinking spends the whole reply budget: switch it off in the chat template, and prove the switch with a control (2026-11-22)
+
+**A generator that thinks before it answers can run out of tokens before it writes a single field.** *Evidence:* on
+the owner's Mac mini, before the spec generator spike's freeze (`docs/design/reviews/specgen_spike/freeze_delta2.md`):
+- **Without the switch,** llama-server (build 10621) with the model's own template, Qwen3.5 4B (Q8_0) put all 4,096
+  reply tokens into reasoning (11,926 characters) and returned an empty answer, so the scorer would class every
+  reply `truncated`. The JSON-schema grammar didn't prevent it: with the grammar on, the reasoning still took all
+  4,096 tokens (12,136 characters). The grammar constrains the answer, and the answer never started.
+- **With the switch,** `chat_template_kwargs: {enable_thinking: false}`, all 19 probe replies had no reasoning, and
+  every grammar-constrained reply parsed, at about 40 tokens/s (about 5 s per spec).
+- **Gemma 4 31B** behaved the same way: 3,170 and 3,655 tokens of reasoning without the switch, none with it.
+- **Qwen3.5 27B,** the reference model, matched S: without the switch it spent all 4,096 tokens reasoning (11,093
+  and 11,601 characters) for about 520 s per call and answered nothing; with it, all 19 replies parsed at about
+  8 tokens/s.
+
+A silent "no thinking" proves nothing until the same call without the switch shows thinking.
+
+*Consequence:* any game call to a local model (imagination, an NPC's voice) pins the template's thinking switch in
+its frozen settings, and verifies it once per model and engine build with a control call. A default flip costs the
+whole reply budget: the reference model took about 8.6 minutes a call, against lesson 30's
+latency bound of seconds. The spike records the switch in `spikes/specgen/arms.yaml` and its engine build there too.

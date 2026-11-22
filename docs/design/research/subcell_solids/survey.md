@@ -163,6 +163,8 @@ mass.
 - (2) analytic primitives or per-object local voxels;
 - (3) one store with fuel, or a sibling.
 
+**Answered (owner, 2026-11-22, D35):** a metric threshold in data, analytic primitives, and one store with a `role`.
+
 ## Sources
 
 - **FDS:**

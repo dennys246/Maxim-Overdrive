@@ -135,6 +135,7 @@ prompts:
   text: a wooden painter's easel
   expect:
   - wood
+  hard: shape
 - stratum: furniture
   id: f39
   text: a wooden sawhorse
@@ -343,6 +344,7 @@ prompts:
   text: a steel truss segment two metres long
   expect:
   - steel
+  hard: shape
 - stratum: barriers
   id: b40
   text: a thin concrete retaining wall section one metre long and fifty centimetres high
@@ -813,7 +815,7 @@ prompts:
   breaks: primitives
 - stratum: impossible
   id: i22
-  text: a steel fence with fifty separate vertical bars
+  text: a steel fence panel two metres wide with fifty separate vertical bars
   expect:
   - steel
   breaks: primitives

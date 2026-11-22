@@ -48,7 +48,7 @@ furniture:
   - {id: f35, text: "a wooden toolbox with a handle", expect: [wood]}
   - {id: f36, text: "a wooden wine rack", expect: [wood]}
   - {id: f37, text: "a wooden plant stand with two tiers", expect: [wood]}
-  - {id: f38, text: "a wooden painter's easel", expect: [wood]}
+  - {id: f38, text: "a wooden painter's easel", expect: [wood], hard: shape}
   - {id: f39, text: "a wooden sawhorse", expect: [wood]}
   - {id: f40, text: "a wooden sauna bench", expect: [wood]}
   - {id: f41, text: "a wooden church pew", expect: [wood]}
@@ -88,7 +88,7 @@ barriers:
   - {id: b23, text: "a concrete drainage channel section", expect: [concrete]}
   - {id: b24, text: "a steel stair with three steps", expect: [steel]}
   - {id: b25, text: "a concrete fence post", expect: [concrete], single_ok: true}
-  - {id: b26, text: "a small steel barricade of three crossed beams", expect: [steel]}
+  - {id: b26, text: "a small steel barricade of three crossed beams", expect: [steel], hard: shape}
   - {id: b27, text: "a wall of solid concrete blocks one metre wide, one metre tall and fifteen centimetres thick", expect: [concrete]}
   - {id: b28, text: "a steel bike rack", expect: [steel]}
   - {id: b29, text: "a short steel street light pole", expect: [steel]}
@@ -101,7 +101,7 @@ barriers:
   - {id: b36, text: "a steel security grille for a window", expect: [steel]}
   - {id: b37, text: "a steel hitching rail", expect: [steel]}
   - {id: b38, text: "a low concrete wall around a small well sixty centimetres across", expect: [concrete]}
-  - {id: b39, text: "a steel truss segment two metres long", expect: [steel]}
+  - {id: b39, text: "a steel truss segment two metres long", expect: [steel], hard: shape}
   - {id: b40, text: "a thin concrete retaining wall section one metre long and fifty centimetres high", expect: [concrete], single_ok: true}
 
 glass:
@@ -212,12 +212,12 @@ impossible:
   - {id: i19, text: "a solid glass block one metre on each side", expect: [glass], breaks: mass, single_ok: true}
   - {id: i20, text: "a solid steel column three metres tall and thirty centimetres across", expect: [steel], breaks: mass, single_ok: true}
   - {id: i21, text: "a wooden xylophone with forty separate bars", expect: [wood], breaks: primitives}
-  - {id: i22, text: "a steel fence with fifty separate vertical bars", expect: [steel], breaks: primitives}
+  - {id: i22, text: "a steel fence panel two metres wide with fifty separate vertical bars", expect: [steel], breaks: primitives}
   - {id: i23, text: "a wooden lattice screen of forty separate slats", expect: [wood], breaks: primitives}
   - {id: i24, text: "a chess table with all sixty-four squares as separate wooden blocks", expect: [wood], breaks: primitives}
   - {id: i25, text: "a steel grate of forty separate crossing bars", expect: [steel], breaks: primitives}
   - {id: i26, text: "a wooden abacus with fifty separate beads", expect: [wood], breaks: primitives}
   - {id: i27, text: "a wooden bookshelf holding forty separate books", expect: [wood], breaks: primitives}
   - {id: i28, text: "a steel radiator with forty separate fins", expect: [steel], breaks: primitives}
-  - {id: i29, text: "a wooden picket fence with forty separate pickets", expect: [wood], breaks: primitives}
+  - {id: i29, text: "a wooden picket fence two and a half metres long with forty separate pickets", expect: [wood], breaks: primitives}
   - {id: i30, text: "a drywall room divider of forty separate tiles", expect: [drywall], breaks: primitives}

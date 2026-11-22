@@ -43,6 +43,8 @@ class _StrictLoader(yaml.SafeLoader):
 
 def _no_repeats(loader: _StrictLoader, node: yaml.MappingNode) -> dict[Any, Any]:
     keys = [loader.construct_object(k) for k, _ in node.value]
+    if not all(isinstance(k, str) for k in keys):
+        raise ValueError(f"line {node.start_mark.line + 1}: every key must be a string")
     repeated = {k for k in keys if keys.count(k) > 1}
     if repeated:
         raise ValueError(f"line {node.start_mark.line + 1}: repeated keys {sorted(map(str, repeated))}")
@@ -53,24 +55,26 @@ _StrictLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _n
 
 
 def _check_prompt(stratum: str, p: dict[str, Any]) -> None:
+    if not isinstance(p, dict):
+        raise ValueError(f"{stratum}: each prompt must be a mapping, not {p!r}")
     pid = p.get("id")
     if not set(p) <= KEYS or not {"id", "text", "expect"} <= set(p):
         raise ValueError(f"{pid}: keys {sorted(map(str, p))} must include id, text and expect, within {sorted(KEYS)}")
     if not isinstance(p["text"], str) or not p["text"].strip():
         raise ValueError(f"{pid}: text must be a non-empty string")
-    if not isinstance(p["expect"], list) or not set(p["expect"]) <= MATERIALS:
+    if not isinstance(p["expect"], list) or not all(isinstance(m, str) and m in MATERIALS for m in p["expect"]):
         raise ValueError(f"{pid}: unknown material in {p['expect']}")
     if (stratum == "impossible") != ("breaks" in p):
         raise ValueError(f"{pid}: `breaks` belongs to the impossible stratum only")
-    if "breaks" in p and p["breaks"] not in HELD_OUT_BREAKS:
+    if "breaks" in p and p["breaks"] not in list(HELD_OUT_BREAKS):
         raise ValueError(f"{pid}: breaks must be one of {sorted(HELD_OUT_BREAKS)}")
-    if p.get("single_ok", True) is not True or p.get("hard", "shape") not in HARD:
+    if p.get("single_ok", True) is not True or p.get("hard", "shape") not in list(HARD):
         raise ValueError(f"{pid}: single_ok must be true and hard one of {sorted(HARD)}")
 
 
 def _checked(source: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
-    if source.get("version") != 0:
-        raise ValueError(f"prompts_source.yaml: unknown version {source.get('version')!r}")
+    if not isinstance(source, dict) or type(source.get("version")) is not int or source["version"] != 0:
+        raise ValueError("prompts_source.yaml: a mapping with version 0 (an integer) is required")
     strata = {k: v for k, v in source.items() if k != "version"}
     if {k: len(v) for k, v in strata.items()} != SIZES:
         raise ValueError(f"stratum sizes {[(k, len(v)) for k, v in strata.items()]} differ from the plan's {SIZES}")

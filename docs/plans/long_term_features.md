@@ -92,10 +92,10 @@ Each entry says which half each piece of work is.
 | **Documents** | `../roadmap.md` Phase 2; `../design/world_v2.md` §3.2 (strength) and §4 (connectivity, loose solids, settling by angle of repose); research in `../design/research/subcell_solids/`; no design document yet |
 | **Contract** (to decide) | what a body is against the grid, and how it hands back to cells at rest; the formats a body adds to frames, saves and the intent log; determinism (bit-identical on one machine, the outcome class across machines and grids); what NPCs sense (weight, contact, motion) |
 | **Laws** (to choose) | load against capacity (crushing, bending, buckling), rechecked on events and as strength changes; rigid-body dynamics with contacts and friction; each with a closed-form test and a cross-grid test |
-| **Decided** | load is in (D31); moving bodies are in if they can be done honestly, and a declined cost is a valid result (D32); imagined objects meet the support rule when placed (D33); sub-cell solids that aren't fuel get a contract, designed and reviewed before code (D34) |
+| **Decided** | load is in (D31); moving bodies are in if they can be done honestly, and a declined cost is a valid result (D32); imagined objects meet the support rule when placed (D33); sub-cell solids that aren't fuel get a contract, designed and reviewed before code (D34); a metric threshold in data, analytic primitives, one store with fuel objects (D35) |
 | **Open** | whether an existing physics library can meet the determinism and cross-grid rules, or the laws are ours; how fire and load couple (a burning leg fails, the table falls); the sub-cell solids contract: thin sheets, panes and structural members thinner than two cells (D31, D34) |
 | **Status** | not started; Phase 2 |
-| **Next** | The sub-cell solids design (survey done: `../design/research/subcell_solids/survey.md`; three owner questions in its §5), then its review; then a pre-registered spike, as for fire: the closed forms first (D31's, a box's tipping angle, a block sliding with friction), then one body crossing two grids |
+| **Next** | The sub-cell solids design (survey done: `../design/research/subcell_solids/survey.md`; answered by D35), then its review; then a pre-registered spike, as for fire: the closed forms first (D31's, a box's tipping angle, a block sliding with friction), then one body crossing two grids |
 
 ## Imagined-object generator
 
@@ -106,8 +106,8 @@ Each entry says which half each piece of work is.
 | **Contract** | the spec `place` accepts (v0 today; v1 planned in `../design/fire_model.md`), with its refusal codes; provenance and the IP gate (`../design/ip_and_licensing.md` §3, §6) |
 | **Decided** | the spike is allowed, local only, P = 0.8 (O56); the generator is world-side, never the agent's imagination (O57); local models first (O58) |
 | **Open** | whether stage 2, training, goes ahead (plan §6); physics scoring waits on spec v1 (plan §5); the two Maxim questions O57 defers to Phase 6's design |
-| **Status** | stage 1 planned (draft, round 1 folded), not run |
-| **Next** | write the prompt and arm files, review them, then commit the plan with their hashes as the pre-registration; then run A0 to measure cost |
+| **Status** | stage 1's plan and files written and reviewed (round 1, freeze round 1, deltas); S and R measured on the mini; not run |
+| **Next** | commit the plan with `spikes/specgen/freeze.sha256` as the pre-registration; then run A0 to measure cost |
 
 ## How this file is kept
 

@@ -4,8 +4,9 @@
 together, before any spike code runs:
 - `spikes/specgen/arms.yaml`, holding the schema text, the examples and the feedback wording;
 - `prompts_dev.yaml` and `prompts_heldout.yaml`, holding the prompts and their expected materials;
-- the reference model's name and weights hash, measured on the mini (§2);
-- this plan, carrying the SHA-256 of each file.
+- the reference model's name, fixed on the mini (§2);
+- `spikes/specgen/freeze.sha256`: the SHA-256 of each file and of both models' weights;
+- this plan.
 
 Those files are reviewed before that commit. After it, no metric, threshold or prompt changes to rescue a result, and
 none is reinterpreted.
@@ -17,7 +18,7 @@ and on a large reference model. The answer decides whether stage 2 is worth doin
 the scorer as its reward, toward the reference model's level.
 
 **What it is not.** It is throwaway, like the physics and LLM spikes: code in `spikes/specgen/`, never imported by
-`src/`, and no change to `src/`. It makes no claim about Maxim or about NPCs, and it never goes on Maxim's ledger.
+`src/`, and no change to `src/`. It claims nothing about Maxim or NPCs and never goes on Maxim's ledger.
 
 ## 1. What we found before planning
 
@@ -52,12 +53,11 @@ from the start.
 2. **Both models run locally, on the owner's Mac mini** (M4 Pro, 48 GB) over Tailscale. That follows O58: local
    models first, with hosted models only ever the player's opt-in. The model server binds to the mini's Tailscale
    address only.
-   - **Small model S:** Qwen3.5 4B (Apache-2.0), the model stage 2 would train.
-   - **Reference model R:** the largest Apache-2.0 open model that runs on the mini, for example Gemma 4 31B at 4
-     bits. It is fixed before the freeze, once its size and speed are measured there.
-   - **No Llama-family model**, and no hosted model, so nothing is spent and no prompt leaves the owner's machines.
-   - **Decoding:** llama.cpp with a JSON-schema grammar. Every arm emits whole centimetres as bounded integers, which
-     the scorer converts to metres.
+   - **Small model S:** Qwen3.5 4B at 8 bits (Apache-2.0), the model stage 2 would train.
+   - **Reference model R:** Qwen3.5 27B at 8 bits, S's family, so Δ measures scale (owner, 2026-11-22).
+   - **No Llama-family or hosted model:** nothing is spent, and no prompt leaves the owner's machines.
+   - **Decoding:** llama.cpp (build 10621) with a JSON-schema grammar. Every arm emits whole centimetres as bounded
+     integers, which the scorer converts to metres.
 3. **Product bar P = 0.8.** This is the good-spec rate an imagination feature would need to ship, used by §6. It may
    be tuned before the freeze. A change after the run is a recorded owner decision, and the report still gives the
    result at 0.8.
@@ -110,7 +110,7 @@ Every object is placed in an empty 4 × 4 × 4 m air scene at the offset (0.503,
 The metrics:
 - **M1, acceptance.** The fraction that `place` accepts and whose placed bounds lie inside the world. The scorer checks
   the bounds, since `place` doesn't (a Known gap). Rejections are broken down by `RefusalCode` and field.
-  "Outside the world" and A0's parse failures are their own classes.
+  "Outside the world", truncated replies and A0's parse failures are their own classes.
   - **`too_small` is a world outcome, not a generator failure** (D34). `place` refuses objects of thin parts depending
     only on where they land on the grid: two of the four examples are refused at 0.1 m, and all four at some
     spacing. M1 reports it apart. A spec
@@ -170,9 +170,11 @@ and the first that holds decides:
 3. **Neither:** in every other case, this data doesn't justify training. The report says which failure classes
    dominate, and the owner decides. A larger model or spec v1 may need to come first.
 
+L and H are also reported without furniture, whose examples are templates (`arms.yaml`), as a diagnostic only.
+
 **Power.** The 120 samples per arm are 30 prompts of 4 correlated samples each. With within-prompt correlation ρ, the
 design effect is 1 + 3ρ, so near a rate of 0.5 a half-width is about ±0.09 when ρ = 0 and ±0.18 when ρ = 1. A Δ under
-roughly 0.25 can therefore fall under rule 3. That is stated now so it isn't discovered after the run.
+roughly 0.25 can therefore fall under rule 3.
 
 Known gaps that M3 and M5 measure go to `docs/architecture.md` with their numbers, whatever the decision.
 
@@ -214,5 +216,6 @@ Known gaps that M3 and M5 measure go to `docs/architecture.md` with their number
    copyrightable (US Copyright Office, Part 2, 2025). This goes into `ip_and_licensing.md` when it is reviewed.
 2. **Weights are assets.** A stage 2 model needs a licence and source entry, and provenance for its training data.
 3. **The minimum hardware (O58).** The mini's measured cost per good spec (M9) is that budget's first data point.
+4. **Stage 2's held-out split is dealt by family:** doors, ladders and booths cross today's split (freeze delta 1, S5).
 
 Reviews: `../../reviews/specgen_spike/`. Sources: `sources.md`.
