@@ -136,7 +136,8 @@ fails.
     `substep_refine` > 1, and fails with the rerun deleted;
   - the header records the law tuple in order, and a log recorded under the reversed tuple is refused;
   - cadence groups run in §5's order: two strikes on one region in one tick give the second `REGION_GONE`, and
-    `topology_version` rises once per strike record (X-B1, N-B2, DA-S1, X-S2);
+    `topology_version` rises once per strike record that changes the world, and not for one that breaks nothing
+    (X-B1, N-B2, DA-S1, X-S2; sim_core.md §7);
   - `stable_dt` reads only its `bound_reads`: a planted law whose bound reads `temperature` misses the cache after
     heating (Perf S3, DA-S9).
 - **§5.1, the flow (B43):**
@@ -220,9 +221,29 @@ fails.
 
 - **Deferred from PR 1's review (`reviews/sim_shell/fold.md`), each to the PR that owns it:**
   - PR 2: rewrite CLAUDE.md's "only `World.advance` moves time" and "Time comes from `World.advance`" for `Simulation`.
-  - PR 3: a tick an exception interrupts leaves no half-applied state, once the write window moves into the step.
+  - PR 4: a tick an exception interrupts leaves no half-applied state, once the write window moves into the step
+    (`docs/roadmap.md`, Phase 1, names the PR).
   - PR 4: `(actor_id, seq)` unique across ticks, a receipt id on each outcome, and a validated `TickBatch` built by the
     log reader.
+- **Deferred from PR 2's review (`reviews/sim_laws/fold.md`, Exec NIT 5 and Wire N6):**
+  - PR 4: the per-record batch boundary (`sim_core.md` §5.1). A record's stage 2 and its loads are one batch, but
+    `physics.resolve_loads` closes one batch per per-record law; the two agree only while stage 2 emits no topology
+    requests, and `imagine` as stage 2 will. A test: one record whose stage 2 and load both edit cells bumps
+    `topology_version` once.
+- **Deferred from PR 3's review (`reviews/sim_step/fold.md`), each to the PR that owns it:**
+  - PR 4: `source_exposure` as digest member 3 (§9) and in the save, with a save and restore mid-interval (X-B2).
+  - PR 4: a physics step that raises loses its exposure (`Simulation.step` clears it before `advance`); with the
+    window in the step it rolls back with the cells, tested beside the interrupted tick above.
+  - PR 4: the scenario tests move from `World`'s 6 s turn to `Simulation`'s 0.5 s step, and bar 2b reruns there.
+    The strict red gates it can't hold, and `test_act_validation.py`'s fiercest allowed fire, join bar 2b when their
+    gates flip.
+  - PR 4: frames carry their tick (§3); bars 4–7; `World.advance`'s float interval and its exposure's `of_ticks`,
+    which nothing ties together, go with `advance`.
+  - PR 4: heat's `prepare` and `bound_reads`, which take the sources from `World._power_field` (its
+    `TEMPORARY(phase1/sim-clock)` marker); bar 5 with them. This is the one statement of where they are deferred.
+  - PR 4, no later than the per-tick digest (owner, 2026-11-22): the face-conductance and `stable_dt` caches per
+    `topology_version`, each with the rollback eviction the deposit has. Measured at PR 3, without them bar 7 holds at
+    0.1 m only by 0.88–0.96×, and the digest's 1.7 ms per writing tick would take it to about 1.1×.
 ## Step 5b, bodies and movement (`tile_and_client.md` §2, §3, §4.1)
 
 - From step 3b part (b)'s review (Determinism N7): a spawn maps to a cell in integers (`at_mm * 1000 // dx_um`), with

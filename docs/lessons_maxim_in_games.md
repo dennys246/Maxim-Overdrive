@@ -393,7 +393,35 @@ classifies by the text, though the replan prompt carries it verbatim as "Failure
 Maxim's one text classifier, `classify_failure_type`, runs only from a planner its own docstring calls dormant (delta
 rounds 2 and 3, SF-1, R3-5).
 
-### 32. When the world models something below its grid, the renderer and the NPCs' senses both have to follow it, and they become two producers of what the fire looks like (2026-11-21)
+### 32. A writer's identity must be a capability its owner holds, not a name it gives (2026-11-22)
+
+**When many laws share one world, "who is writing" has to be unforgeable, or the field registry describes intentions,
+not the world.** *Evidence:* step 5a's PR 2 let each law narrow the write window to its own name (`as_writer(name)`).
+Two reviewer plants passed every guard (`reviews/sim_laws/round1_exec_physics.md`, SF1): thermal damage writing
+`material` "as topology", and heat writing "as construction", which gave it `material`, `integrity` and `regions`. A
+handle taken in one law's block stayed writable for the rest of the window, and a read-only view could be unlocked in
+one line (SF2). The fold makes each writer a token claimed once, at its owner's import (Topology, construction, and
+the orchestrator for every law); the orchestrator runs each law narrowed to its token and its declared `reads`, and a
+block's writable arrays are revoked when it ends, at about one array copy per law per substep. The plants now fail at
+runtime and in a source scan. *Consequence:* any field a future law (fire's solid and contact laws, the body laws) or
+an NPC-facing path writes is held to the registry by the same tokens. Python can't make a token unforgeable against
+code that reaches into private names, so a scan holds the tokens to their owners' modules; that is the residual, and
+it is named. For Maxim: none yet; this is the engine's half of the SEM contract (`sem_stimuli.md` §7.1), where a body
+law's writes must be as checkable as a physics law's.
+
+### 33. An event shorter than the physics step must still reach the physics, or the NPC never feels it (2026-11-22)
+
+**A world that reads its sources only at the physics tick loses every event that starts and ends between two
+ticks.** *Evidence:* before step 5a's PR 3, physics read the heat sources standing at the physics tick, so a fire lit
+at tick 2 and doused at tick 4 (at T3, ticks of 0.1 s and a physics step every 5) put no energy into the world, and
+fires lit at ticks 66 and 69 gave bit-identical states. `source_exposure` (sim_core.md §3) records which value stood
+at the end of each tick and deposits each its integer ticks' share; `tests/test_exposure.py` holds it to
+`k · tick_us · power` for k = 1 to 5, a douse, a re-ignite at a new power and a replacement. *Consequence:* the
+stimulus an NPC can sense (a brief flare's heat) exists in the world at all; the per-tick digest and the save must
+carry the exposure too (PR 4), or a replay from a mid-step save would lose it again. For Maxim: none yet; it is the
+engine's precondition for any stimulus shorter than a physics step reaching the SEM sensors.
+
+### 34. When the world models something below its grid, the renderer and the NPCs' senses both have to follow it, and they become two producers of what the fire looks like (2026-11-21)
 
 **A sub-grid representation (fuel as objects in metres, not cells) breaks every consumer built on cells, and the
 renderer and the stimulus path each have to be rebuilt on it separately.** *Evidence:* the shader branch (#31) drew

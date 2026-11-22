@@ -2,9 +2,9 @@
 key order through today's applier, and physics on physics ticks through today's `World.advance`.
 
 The wrap changes nothing: a run through `Simulation.step` and the same calls made on a `World` directly give
-bit-identical state (tests/test_determinism.py's digest). That comparison stays until step 5a's PR 3 drops the substep
-floor, a deliberate break (sim_core.md §11). The direct path uses a literal 0.5 s, so a wrong derived interval in the
-shell can't cancel out.
+bit-identical state (tests/test_determinism.py's digest). PR 3's digest break (dropping the substep floor, sim_core.md
+§12) moves both sides alike, since both take the same fixed physics step; it is pinned in tests/test_laws.py. The
+direct path uses a literal 0.5 s, so a wrong derived interval in the shell can't cancel out.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from typing import cast
 import numpy as np
 import pytest
 
+from simcore.core import physics
 from simcore.core.applier import Applier
 from simcore.core.intents import KIND_RANK, Extinguish, Ignite, LogRecord, Strike
 from simcore.core.simulation import T3, SimConfig, Simulation
@@ -37,8 +38,8 @@ def _world(dx_m=0.2):
     return World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
 
 
-def _sim(world=None, config=T3):
-    return Simulation(world or _world(), config=config)
+def _sim(world=None, config=T3, **kwargs):
+    return Simulation(world or _world(), config=config, **kwargs)
 
 
 # --- SimConfig ---
@@ -142,8 +143,40 @@ def test_physics_runs_on_every_physics_every_th_tick_and_never_before():
     assert [r.tick for r in reports] == [1, 2, 3, 4, 5, 6, 7]
     assert [r.physics for r in reports] == [False, False, True, False, False, True, False]
     assert all((r.substeps > 0) == r.physics for r in reports)
-    assert world.grid.time_s == pytest.approx(2 * 0.3)
+    assert (world.grid.time_us, world.grid.time_s) == (600_000, 0.6)
     assert sim.tick == 8
+
+
+def test_time_is_whole_microseconds_and_seconds_are_derived_never_summed():
+    # sim_core.md §3: three physics steps of 0.1 s are 300,000 us, read as 0.3 s; a float sum would read
+    # 0.30000000000000004 (0.1 + 0.1 + 0.1), the drift that grows with every step of a long session.
+    world = _world()
+    sim = _sim(world, SimConfig(tick_us=100_000, physics_every=1))
+    for _ in range(3):
+        sim.step([])
+    assert 0.1 + 0.1 + 0.1 != 0.3  # a precondition: the float sum really drifts
+    assert (world.grid.time_us, world.grid.time_s, sim.frames.latest.time_s) == (300_000, 0.3, 0.3)
+
+
+@pytest.mark.parametrize("seconds", [1e-7, 0.0, -1.0])
+def test_a_physics_step_is_a_positive_whole_number_of_microseconds(seconds):
+    """PR 3 review N1: ``advance(-1.0)`` moved time to -1 s and counted a turn."""
+    world = _world()
+    with pytest.raises(ValueError, match="positive whole number of microseconds"):
+        world.advance(seconds)
+    assert (world.grid.time_us, world.turn) == (0, 0)
+
+
+def test_the_clock_takes_only_whole_microseconds():
+    world = _world()
+    with world.grid.writing(writer=None), pytest.raises(ValueError, match="time_us must be a whole number"):
+        world.grid.time_us = 1.5
+
+
+def test_a_law_tuple_the_registry_disagrees_with_is_refused_at_construction():
+    laws = (*physics.DEFAULT_LAWS, physics.DEFAULT_LAWS[1])
+    with pytest.raises(ValueError, match="names each law once"):
+        _sim(laws=laws)
 
 
 # --- step's batch ---
@@ -242,13 +275,22 @@ def test_a_run_through_simulation_is_bit_identical_to_the_same_calls_on_world(dx
 
 
 def test_a_record_on_a_physics_tick_applies_before_that_ticks_physics():
-    # physics_every - 1 empty ticks, then a physics tick carrying the ignite: the step must apply it, then run physics.
+    # physics_every - 1 empty ticks, then a physics tick carrying the ignite: the step must apply it, then run physics,
+    # where the fire stood at the end of one of the step's five ticks (sim_core.md §3), so it delivers a fifth of its
+    # power over the step: bit for bit a fifth-power fire standing the whole step on the direct path.
     schedule = {5: [_record(IGNITE, tick=5)]}
     sim_world = _world()
     sim = _sim(sim_world)
     reports = [sim.step(schedule.get(sim.tick, [])) for _ in range(5)]
     assert reports[-1].physics
-    assert digest(sim_world) == digest(_directly(0.2, 5, schedule))
+    assert FIRE_W * (1 / 5) == FIRE_W / 5  # a precondition: the two fractions are one float
+    fifth = {5: [_record(Ignite(power_w=FIRE_W / 5, radius_m=0.3), tick=5)]}
+    assert digest(sim_world) != digest(_directly(0.2, 5, schedule))
+    assert _temperatures(sim_world) == _temperatures(_directly(0.2, 5, fifth))
+
+
+def _temperatures(world):
+    return world.grid.temperature.tobytes()
 
 
 def test_an_ignite_then_a_douse_in_one_tick_leaves_no_fire():

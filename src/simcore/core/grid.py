@@ -19,17 +19,22 @@ from typing import Protocol
 import numpy as np
 import numpy.typing as npt
 
-from simcore.core.checks import MAXIM_TARGET_ALIASES, entity_key, finite_real, shown
+from simcore.core.checks import MAXIM_TARGET_ALIASES, entity_key, finite_real, shown, whole_number
 from simcore.core.materials import AIR_ID, MaterialTable
 from simcore.core.readonly import frozen
 from simcore.core.refusals import RefusalCode, Refused
 from simcore.core.schema import Text
+from simcore.core.window import WindowOwner
+from simcore.core.writers import Gate, UndeclaredWriter, WindowClosed, WriterToken
 
 # The one rule for a region's name, whoever names it (a scene file, an imagined object, code): printable, bounded,
 # and never a name Maxim resolves to the agent itself (step 3b(b) delta review, D-S1, D-S2).
 REGION_NAME = Text(reserved=tuple(MAXIM_TARGET_ALIASES))
 
 UM_PER_M = 1_000_000
+
+# Topology's fields: never handed out writable, so they change only through its edits, which count its batches.
+_EDITED_ONLY = frozenset({"material", "original_material"})
 
 
 MAX_LENGTH_M = 1000.0  # scene.MAX_EXTENT_M too: no tile is a kilometre across, and the conversion below stays finite
@@ -150,19 +155,23 @@ class GridGeometry:
         return idx  # type: ignore[return-value]
 
 
-class WindowClosed(RuntimeError):
-    """A write was attempted outside the write window: a programming error, never untrusted input."""
+# What a cell window's rollback restores: the channels, the region table, the clock and the topology version.
+_Saved = tuple[dict[str, npt.NDArray[np.generic]], dict[str, "Region"], int, int]
 
 
-class CellStore:
+class CellStore(WindowOwner[_Saved]):
     """The cells' owner: which arrays exist, and the one window in which they may be written (boundaries §4.1).
 
-    At rest every channel, every region mask and the region table are read-only. ``writing()`` hands out fresh
-    writable copies as the channels for the length of the window, and at exit swaps in read-only copies of them as the
-    new owners, so no writable handle, and no view of one unlocked inside the window, outlives it: a write through any
-    of them after exit lands in memory the world no longer reads. The region table works the same way: a window that
-    paints holds writable masks of its own, narrowed in place, and freezes each once at exit. Everything new is built
-    before anything is committed, so a window that raises, in its body or while it closes, is rolled back whole.
+    At rest every channel, every region mask and the region table are read-only. A window (``writing``, whose
+    lifecycle is `simcore.core.window`'s) holds fresh writable copies as the channels while it is open, and at exit
+    swaps in read-only copies of them as the new owners, so a write through a handle kept past the window lands in
+    memory the world no longer reads. The region table works the same way: a window that paints holds writable masks
+    of its own, narrowed in place, and freezes each once at exit.
+
+    Inside the window the gate (`simcore.core.writers.Gate`) decides access. A writable array goes only to a declared
+    writer, and never for `material` or `original_material`, which change only through Topology's edits; anyone else
+    gets a view that can't be made writable. A narrowed block's writable arrays are revoked when it ends: the store
+    keeps a copy and drops the array it handed out, so a handle kept past its block writes nowhere the world reads.
     """
 
     def __init__(
@@ -173,6 +182,12 @@ class CellStore:
         integrity: npt.NDArray[np.float32],
         temperature: Field,
     ) -> None:
+        WindowOwner.__init__(self)
+        self._gate = Gate()
+        self._topology_version = 0
+        self._edited = False  # Topology's open block has painted, named or destroyed something
+        self._handed: set[str] = set()  # fields handed out writable in the open narrowed block
+        self._views: dict[str, npt.NDArray[np.generic]] = {}  # in the window: each field's frozen read-only copy
         self._channels: dict[str, npt.NDArray[np.generic]] = {
             "material": frozen(material),
             "original_material": frozen(original_material),
@@ -183,53 +198,91 @@ class CellStore:
         # Inside a window that paints: each region's writable mask, and its footprint and solidity, in table order.
         self._masks: dict[str, Mask] | None = None
         self._meta: dict[str, tuple[Footprint, bool]] = {}
-        self._time_s = 0.0
-        self._open = False
-        self._held = False  # the world's sources-only window: the same one owner as the cells' window
-        self._on_close: list[Callable[[], None]] = []
+        self._time_us = 0  # world time in whole microseconds: time is never stored as a float (sim_core.md §3)
+
+    def _channel(self, name: str) -> npt.NDArray[np.generic]:
+        """The field's array: writable inside the window only for a writer the registry declares for it, and for
+        anyone else a frozen copy, whose memory is immutable bytes that reach no writable array, so an undeclared write
+        raises and the copy can't be unlocked (sim_core.md §5.1). The copy is made once per change of the field: a
+        writer's revocation and Topology's edits drop it. A narrowed block reads only what its writer declares."""
+        arr = self._channels[name]
+        if not self._open:
+            return arr  # frozen: nothing can make it writable (readonly.frozen)
+        self._gate.require_read(name)
+        if name not in _EDITED_ONLY and self._gate.may_write(name):
+            if self._gate.narrowed:
+                self._handed.add(name)
+            return arr
+        view = self._views.get(name)
+        if view is None:
+            view = self._views[name] = frozen(arr)
+        return view
 
     @property
-    def material(self) -> npt.NDArray[np.uint8]:
-        return self._channels["material"]  # type: ignore[return-value]
+    def topology_version(self) -> int:
+        """How many of Topology's batches have changed the cells or the region table (sim_core.md §5.1, §7)."""
+        return self._topology_version
 
-    @property
-    def original_material(self) -> npt.NDArray[np.uint8]:
-        return self._channels["original_material"]  # type: ignore[return-value]
-
-    @property
-    def integrity(self) -> npt.NDArray[np.float32]:
-        return self._channels["integrity"]  # type: ignore[return-value]
-
-    @property
-    def temperature(self) -> Field:
-        return self._channels["temperature"]  # type: ignore[return-value]
-
-    @property
-    def regions(self) -> Mapping[str, Region]:
-        return MappingProxyType(self._region_table())
-
-    @property
-    def time_s(self) -> float:
-        return self._time_s
-
-    @time_s.setter
-    def time_s(self, value: float) -> None:
-        self._require_window("the clock")
-        self._time_s = value
-
-    @property
-    def is_writing(self) -> bool:
-        """Whether the write window is open now."""
-        return self._open
-
-    def on_close(self, callback: Callable[[], None]) -> None:
-        """Call ``callback`` after each window that closes without raising, whether or not it changed anything (the
-        world publishes a frame there)."""
-        self._on_close.append(callback)
+    @contextmanager
+    def as_writer(self, writer: WriterToken | None, *, reads: tuple[str, ...] | None = None) -> Iterator[None]:
+        """Narrow the open window to ``writer``'s token for the block (``simcore.core.writers``): the orchestrator
+        around each law's step, and Topology around each batch. A batch that changed anything bumps
+        ``topology_version`` once, even if it then raised: its edits are in the window's cells until the window rolls
+        back, which restores the version too. The block's writable arrays are revoked at its end."""
+        self._require_window("a narrowed writer")
+        with self._gate.narrow(writer, reads):
+            self._edited = False
+            try:
+                yield
+            finally:
+                self._topology_version += self._edited
+                self._edited = False
+                for name in self._handed:
+                    self._channels[name] = self._channels[name].copy()
+                    self._views.pop(name, None)
+                self._handed.clear()
 
     def _require_window(self, what: str) -> None:
         if not self._open:
             raise WindowClosed(f"{what} changes only inside the write window (boundaries §4.1)")
+
+    @property
+    def material(self) -> npt.NDArray[np.uint8]:
+        return self._channel("material")  # type: ignore[return-value]
+
+    @property
+    def original_material(self) -> npt.NDArray[np.uint8]:
+        return self._channel("original_material")  # type: ignore[return-value]
+
+    @property
+    def integrity(self) -> npt.NDArray[np.float32]:
+        return self._channel("integrity")  # type: ignore[return-value]
+
+    @property
+    def temperature(self) -> Field:
+        return self._channel("temperature")  # type: ignore[return-value]
+
+    @property
+    def regions(self) -> Mapping[str, Region]:
+        if self._open:
+            self._gate.require_read("regions")
+        return MappingProxyType(self._region_table())
+
+    @property
+    def time_s(self) -> float:
+        """World time in seconds, derived from the whole microseconds it is stored as, never accumulated."""
+        return self._time_us / 1_000_000
+
+    @property
+    def time_us(self) -> int:
+        return self._time_us
+
+    @time_us.setter
+    def time_us(self, value: int) -> None:
+        self._require_window("the clock")
+        if self._gate.narrowed:
+            raise UndeclaredWriter("time moves in the orchestrator, never inside a writer's block")
+        self._time_us = whole_number(value, "time_us")
 
     def _window_table(self) -> tuple[dict[str, Mask], dict[str, tuple[Footprint, bool]]]:
         """This window's changed region masks (writable, narrowed in place) and every region's footprint and
@@ -239,21 +292,25 @@ class CellStore:
             self._meta = {n: (r.footprint, r.solid) for n, r in self._regions.items()}
         return self._masks, self._meta
 
-    def _take_cells(self, mask: Mask) -> None:
-        """A later paint takes cells from any earlier region. Only a region it actually takes cells from is copied
-        and later refrozen, and only the box the mask covers is read (step 3b review, Trust S5)."""
+    def _take_cells(self, mask: Mask) -> bool:
+        """A later paint takes cells from any earlier region; returns whether it took any. Only a region it actually
+        takes cells from is copied and later refrozen, and only the box the mask covers is read (step 3b review,
+        Trust S5)."""
         self._window_table()
         assert self._masks is not None
         box = _bounding_box(mask)
         if box is None:
-            return
-        keep = ~mask[box]
+            return False
+        keep, took = ~mask[box], False
         for name in self._meta:
-            if name in self._masks:
-                np.logical_and(self._masks[name][box], keep, out=self._masks[name][box])
-            elif not np.all(self._regions[name].cells[box] <= keep):  # it holds a cell the paint takes
-                self._masks[name] = self._regions[name].cells.copy()
-                np.logical_and(self._masks[name][box], keep, out=self._masks[name][box])
+            cells = self._masks[name] if name in self._masks else self._regions[name].cells
+            if np.all(cells[box] <= keep):  # it holds no cell the paint takes
+                continue
+            if name not in self._masks:
+                self._masks[name] = cells.copy()
+            np.logical_and(self._masks[name][box], keep, out=self._masks[name][box])
+            took = True
+        return took
 
     def _region_table(self) -> dict[str, Region]:
         if self._masks is None:
@@ -261,41 +318,30 @@ class CellStore:
         masks = self._masks
         return {n: Region(masks[n], *m) if n in masks else self._regions[n] for n, m in self._meta.items()}
 
-    def _refuse_a_second_owner(self) -> None:
-        if self._open or self._held:
-            raise WindowClosed("the write window is already open: it has one owner at a time")
+    # -- the window (its lifecycle is WindowOwner's) --------------------------------------------------------------
 
-    @contextmanager
-    def holding(self) -> Iterator[None]:
-        """The window's ownership without the cells: held by the world's sources-only window, so neither window
-        opens while the other is open (step 3b delta review, Executor S-a). Copies nothing, publishes nothing."""
-        self._refuse_a_second_owner()
-        self._held = True
-        try:
-            yield
-        finally:
-            self._held = False
+    def _open_window(self, writer: WriterToken | None) -> _Saved:
+        self._gate.open(writer)
+        saved = (self._channels, self._regions, self._time_us, self._topology_version)
+        self._channels, self._masks = {name: arr.copy() for name, arr in self._channels.items()}, None
+        self._views.clear()
+        return saved
 
-    @contextmanager
-    def writing(self) -> Iterator[None]:
-        """The write window. One owner at a time: a window opened inside another, or inside ``holding``, is
-        refused."""
-        self._refuse_a_second_owner()
-        owners, regions, time_s = self._channels, self._regions, self._time_s
-        self._channels, self._masks, self._open = {name: arr.copy() for name, arr in owners.items()}, None, True
-        try:
-            yield
-            channels = {name: frozen(arr) for name, arr in self._channels.items()}  # built before anything commits
-            table = self._region_table()
-        except BaseException:
-            self._channels, self._regions, self._time_s = owners, regions, time_s
-            raise
-        else:
+    def _prepare_commit(self) -> Callable[[], None]:
+        channels = {name: frozen(arr) for name, arr in self._channels.items()}
+        table = self._region_table()
+
+        def install() -> None:
             self._channels, self._regions = channels, table
-        finally:
-            self._masks, self._open = None, False
-        for callback in self._on_close:
-            callback()
+
+        return install
+
+    def _roll_back(self, saved: _Saved) -> None:
+        self._channels, self._regions, self._time_us, self._topology_version = saved
+
+    def _close_window(self) -> None:
+        self._masks, self._views = None, {}
+        self._gate.close()
 
 
 class MaterialGrid(GridGeometry, CellStore):
@@ -375,12 +421,11 @@ class MaterialGrid(GridGeometry, CellStore):
             raise Refused(
                 f"region {shown(region)} needs its authored footprint in metres", code=RefusalCode.MISSING_FIELD
             )
-        self._require_window("a paint")
+        self._require_edit("a paint", "material", "original_material", "integrity", "regions")
         mid = self.materials[material_name].id
-        self.material[mask] = mid
-        self.original_material[mask] = mid
-        self.integrity[mask] = 0.0 if mid == AIR_ID else 1.0
-        self._take_cells(mask)
+        values = (("material", mid), ("original_material", mid), ("integrity", float(mid != AIR_ID)))
+        if self._set_cells(mask, values) | self._take_cells(mask):  # both run: `|`, not `or`
+            self._edited = True
         if region is not None:
             assert footprint is not None
             self.name_region(region, mask, footprint, solid=mid != AIR_ID)
@@ -397,23 +442,41 @@ class MaterialGrid(GridGeometry, CellStore):
         if clash is not None:
             message = f"region {shown(region)} already exists" + ("" if clash == region else f" (as {shown(clash)})")
             raise Refused(message, code=RefusalCode.NAME_TAKEN)
-        self._require_window("a region")
+        self._require_edit("a region", "regions")
         self._window_table()
         assert self._masks is not None
         self._masks[region] = np.array(mask, dtype=np.bool_)  # broadcast or not, a mask of its own
         self._meta[region] = (footprint, solid)
+        self._edited = True
 
     def _region_names(self) -> Iterator[str]:
         return iter(self._meta if self._masks is not None else self._regions)
 
     def destroy(self, mask: Mask) -> int:
-        """Turn solid cells in ``mask`` to air. Returns how many cells were destroyed."""
-        hit = mask & (self.material != AIR_ID)
+        """Turn solid cells in ``mask`` to air. Returns how many cells were destroyed. Topology's (sim_core.md §5.1)."""
+        self._require_edit("a destruction", "material", "integrity")
+        hit = mask & (self._channels["material"] != AIR_ID)
         n = int(hit.sum())
         if n:
-            self.material[hit] = AIR_ID
-            self.integrity[hit] = 0.0
+            self._set_cells(hit, (("material", AIR_ID), ("integrity", 0.0)))
+            self._edited = True
         return n
+
+    def _set_cells(self, mask: Mask, values: tuple[tuple[str, float], ...]) -> bool:
+        """Set each field's cells in ``mask`` to its value, in place, and drop the fields' read-only copies. Returns
+        whether any value changed: a batch moves ``topology_version`` only if it changed a value (sim_core.md §5.1)."""
+        changed = False
+        for name, value in values:
+            changed = changed or bool((self._channels[name][mask] != value).any())
+            self._channels[name][mask] = value  # in place, through the owner's dict: the writer scan sees it
+            self._views.pop(name, None)
+        return changed
+
+    def _require_edit(self, what: str, *fields: str) -> None:
+        self._require_window(what)
+        self._gate.require_editor(what)
+        for field in fields:
+            self._gate.require_writer(field)
 
     # -- reading ------------------------------------------------------------
 

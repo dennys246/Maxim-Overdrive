@@ -398,7 +398,7 @@ checklist say so.
 | `docs/standards_backlog.md` | B42 stays open until step 7's decoder deletes the provisional reads; B7 names §6; B5 gains the fuel rows; B40 (2) names the flame pass |
 | `docs/architecture.md`, `docs/roadmap.md` | the `glow` channel's mentions link to the owners |
 | `docs/design/contracts.md` | the snapshot channels and the fuel tables' columns registered |
-| `docs/lessons_maxim_in_games.md` | lesson 32 |
+| `docs/lessons_maxim_in_games.md` | lesson 34 |
 
 ## 9. Owner rulings (2026-11-22: all five as recommended)
 

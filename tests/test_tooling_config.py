@@ -34,6 +34,22 @@ def test_the_no_silent_swallow_rules_are_selected_and_not_ignored():
         assert pattern.startswith("tests/") or not {"BLE", "BLE001", "S110"} & set(rules), pattern
 
 
+PRIVATE_REACH = """from simcore.core import grid, topology, writers
+
+writers._claimed["topology"]
+topology._TOPOLOGY
+grid._channels["material"][0] = 0
+"""
+
+
+@pytest.mark.parametrize(("path", "hits"), [("src/simcore/core/x.py", 3), ("scripts/x.py", 3), ("tests/x.py", 0)])
+def test_code_outside_the_tests_reaches_no_private_name(path, hits):
+    """PR 2 delta D4: a private name reached from another module (a token, Topology's own, a store's arrays) is a
+    lint error in src and scripts; tests reach them to plant and probe. Proven by dropping SLF001: the rows go 0."""
+    out = _ruff("check", "--output-format", "json", "--stdin-filename", path, "-", stdin=PRIVATE_REACH)
+    assert sum(f["code"] == "SLF001" for f in json.loads(out.stdout)) == hits
+
+
 def test_red_gates_are_strict_and_warnings_are_errors():
     pytest_cfg = _config()["pytest"]["ini_options"]
     assert pytest_cfg["xfail_strict"] is True
@@ -266,7 +282,10 @@ def test_a_planted_violation_fails_the_gates_import_command(tmp_path, module, li
 
 
 def _core_modules() -> set[str]:
-    return {f"simcore.core.{p.stem}" for p in (ROOT / "src" / "simcore" / "core").glob("*.py") if p.stem != "__init__"}
+    """The core's modules and packages (a package, such as damage, is classified whole)."""
+    core = ROOT / "src" / "simcore" / "core"
+    modules = {f"simcore.core.{p.stem}" for p in core.glob("*.py") if p.stem != "__init__"}
+    return modules | {f"simcore.core.{p.parent.name}" for p in core.glob("*/__init__.py")}
 
 
 # The core's public surface to the adapters and the protocol (boundaries §2.2, the skip-layer rule): the simulation
@@ -284,6 +303,7 @@ CORE_PUBLIC_SURFACE = {
     "simcore.core.refusals",  # the closed vocabulary every refusal answers in
     "simcore.core.schema",  # the format declarations and their one reader, which the file gates and tiers apply
     "simcore.core.digest",  # versioned content digests, which step 5a's log header records
+    "simcore.core.fields",  # the field registry, which the membrane, the snapshot and the digest read (sim_core.md §6)
 }
 # What the membrane may import from the core (B-13): frames to read, the applier to write, the intents to parse. Not the
 # world: it is handed an applier and a frame view instead (step 3b review, Architecture S1).
@@ -310,6 +330,21 @@ def test_the_membrane_contract_leaves_it_frames_the_applier_and_the_intents_only
     expected = (_core_modules() - MEMBRANE_SURFACE) | {"simcore.adapters.loaders"}
     assert set(contract["forbidden_modules"]) == expected
     assert contract["allow_indirect_imports"] is True
+
+
+def test_the_laws_independent_contract_covers_every_law_in_the_tuple():
+    # B43: laws couple only through fields. The contract lists each law's module, one module per law (an independence
+    # contract works per module, so two laws in one would be held apart by nothing: Arch S5, Exec NIT 4); a law added
+    # to the tuple from a new module, or a contract that loses one, goes red here. Proven by planting
+    # `from simcore.core.damage.loads import LOADS` in damage/thermal.py: lint-imports went red (commit message).
+    from simcore.core import physics  # noqa: PLC0415 - the tuple, read where it is declared
+
+    contract = _contracts()["laws-independent"]
+    assert contract["type"] == "independence"
+    modules = [type(law).__module__ for law in physics.DEFAULT_LAWS]
+    assert len(set(modules)) == len(modules), f"two laws share a module: {modules}"
+    assert set(contract["modules"]) == set(modules)
+    assert contract.get("allow_indirect_imports", False) is False  # through a third module counts too
 
 
 def test_the_gate_exports_the_tier_switch_conftest_reads():

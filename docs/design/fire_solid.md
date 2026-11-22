@@ -23,7 +23,7 @@ Nothing 6.0 leans on is built at gates 396ae10:
 | 6.0 needs | At 396ae10 | Comes from |
 |---|---|---|
 | Field registry | none | step 5a |
-| Fixed physics step | a 6 s turn of 4, 16 or 64 heat substeps, `TEMPORARY(phase1/sim-clock)` | step 5a: 0.5 s (tile T3) |
+| Fixed physics step | stability's count, no floor (5a PR 3) | step 5a: 0.5 s (tile T3) |
 | Intent log and header | none; no SHA-256 in `src/` | step 5a; field list in boundaries §6.3 |
 | Digest | a test helper, `tests/test_determinism.py::digest`; no golden committed | step 5a's registry digest and replay goldens |
 | Region ids | `CellStore._regions`, a dict of `Region` (mask, footprint, `solid`) | the u16 id array in world_model §10 row 4 (sim-clock = step 5a); the 5a checklist must add it |
@@ -153,8 +153,8 @@ Each consumer that asks "is something here", read at 396ae10:
 | `bridge.region_parts`, `StructureModulator` | `frame.is_solid`; an instrument per `QUANTITIES` entry; `strike`, `ignite`, `extinguish` | `region_parts` refuses an object-only region; affordances pinned |
 | `frames.Frame.reading` | cell reductions; `region_integrity` is 0.0 with no solid cells | refuses an object-only region, never 0.0 |
 | `Frame.is_solid`, `Observation.is_solid`, `CellFrame.solid` | cells | unchanged |
-| `damage.strike`, `region_integrity`, `region_breached`, `thermal_degrade` | `grid.solid` | unchanged; objects take no damage (6.2) |
-| `grid.destroy` | solid cells become air | bumps `topology_version`, rebuilding `contact` |
+| `damage.strike.loss`, `reductions.region_integrity`, `reductions.region_breached`, `damage.thermal` | `grid.solid` | unchanged; objects take no damage (6.2) |
+| `topology.Destroy` | solid cells become air | its batch bumps `topology_version`, rebuilding `contact` |
 | `scene._check_no_solid_overlaps`, `imagination._within_world_rules`, `_voxelize` | boxes, footprints, cells | plus §1.3's metric rules |
 | `encoding.snapshot` | `* frame.solid` masks | unchanged; no objects on the wire (§5.6) |
 | The digest (today's helper hashes `region.solid`) | cells, regions, sources, clock | plus `FuelStore`; empty tables add no bytes |
