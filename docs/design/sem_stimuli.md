@@ -62,8 +62,9 @@ body YAML does, and `world_set_axis` clamps (`audio_localization.py:748-761`) ye
 with their field's design: contact and vibration, joints and vestibular (ANALOG); radiance after line of sight from
 **surface** temperatures only (`luminance` the EARN stopgap); `sound_event` per ear; gas per breath.
 
-The world ticks at 0.1 s and steps physics at 0.5 s. `tick` rows read fields held from the last physics step, a
-zero-order hold: a sensor never interpolates fields, which would invent states the simulation never had.
+The world's tick and physics step are `tile_and_client.md` §6.1's (T3). `tick` rows read fields held from the last
+physics step, a zero-order hold: a sensor never interpolates fields, which would invent states the simulation never
+had.
 
 ### 2.3 What binds every law
 
@@ -77,7 +78,7 @@ holds them to five rules:
   coarser published state. Contact's object-side sub-mesh lives for the whole contact (§7.1).
 - **Cell faces exchange nothing with bodies in v1** (owner, S4): strict red gates on face contact and face emission,
   and a Known gap with its number.
-- **Every body–world coupling gets a cross-tier test with an outcome margin.**
+- **Every body–world coupling gets a cross-tier test with an outcome margin** (`world_model.md` §3).
 
 ## 3. The body
 
@@ -101,8 +102,8 @@ body-instance field reserved now. So `core_temperature` moves: it rises beside a
 shivering saturates.
 
 **Tissue has one home:** `body/store.py` implements the field registry's `body_points` container kind, registering
-its arrays as fields (`world_v2.md` §2.5). The `FieldReader` opens read-only views of them, with no copy; save status
-comes from the registry entry.
+its arrays as fields (`boundaries.md` §9.1). The `FieldReader` opens read-only views of them, with no copy; save
+status comes from the registry entry.
 
 **The grammar is engine code; body instances are game data** (`boundaries.md` §2.1, BF-15). Site sets are in
 body-local metres: `skin` (regions of points: position, normal, area, depths), `eyes`, `ears`, `nostrils`, `mouth`,
@@ -208,7 +209,8 @@ class BoundFrame:
 
 ### 4.4 The worker
 
-- **The push:** `world_set_axis(emb, sensor, value, owner="overdrive_world")` per binding. **The body step**
+- **The push:** `world_set_axis(emb, sensor, value, owner="overdrive_world")` per binding. Per-part sensors
+  (`arms.thermal`) need OD-C10, since `world_set_axis` is root-only today. **The body step**
   (`Embodiment.evaluate_failures()`, M4): on a cognition tick the host pushes but doesn't step, so the agent's own
   tick steps the body in Maxim's W-4 order (`substrate_proposal.py:808-839`); under D5 (c) the host steps it on other
   ticks, under D14 never. A publish between passes keys to the last cluster stash, ANALOG until M4 answers.
@@ -301,7 +303,8 @@ membrane factory's frame source (`boundaries.md` §7.1, `npcs_and_sem.md` §6.5)
 (`boundaries.md` §4.2–§4.3, `npcs_and_sem.md` §7.2–§7.3); the pinned actor table (`tile_and_client.md` §4);
 `npcs_and_sem.md` §6.6's barrier levers.
 
-**D10 splits `region_parts`:** modulators stay in the membrane; the instrument builder becomes a lab builder. The
+**D10 splits `region_parts`:** modulators stay in the membrane; the instrument builder becomes a lab builder
+(`boundaries.md` §4.4). The
 environment entity is `phase1/agents`' design (T8, T13), which maps `StructureModulator.execute`'s refusals to §6.2.
 
 ### 6.2 Receipts

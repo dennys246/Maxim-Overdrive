@@ -256,14 +256,11 @@ module sits inside the core (`core/body`, `core/stimuli`) is `sem_stimuli.md` §
 
 ### 4.3 Pushing percepts into bodies (BF-5)
 
-- Maxim bodies perceive by push: the world writes measured values into `vital_metrics` through `world_set_axis` with
-  `live_world_set_sensors` declaring the world the single writer.
-- **This is a sanctioned mutation of agent state,** done by `engine.adapters.agents` on the agent's owner thread
-  (§7.1), as a pure function of the agent's pinned frame (so it needs no log record).
+- Maxim bodies perceive by push. The push path and `world_set_axis` are `sem_stimuli.md` §4.4's.
+- **This is a sanctioned mutation of agent state.**
 - **Every body sensor the world simulates is world-owned.** A modeled `self_effect` is allowed only on sensors the
   world doesn't simulate, and each one is listed as an ANALOG divergence. Otherwise an NPC is burned twice, by the
   YAML delta and by physics.
-- Per-part sensors (`arms.thermal`) need OD-C10, since `world_set_axis` is root-only today.
 
 ### 4.4 B-13 (new): percepts come only through physical channels at the perceiver (BF-7)
 
@@ -271,10 +268,10 @@ module sits inside the core (`core/body`, `core/stimuli`) is `sem_stimuli.md` §
   receptor, with a line-of-sight gate once light exists. The membrane reads the world only through frames and the
   field registry.
 - **Today's region sensors are test and lab instruments,** relabelled as such (an ANALOG divergence), never an NPC's
-  input. **An instrument an NPC uses is an in-world device** with a position, its own physical reduction and a
-  display perceived like any other percept (foundations BF2-6; `npcs_and_sem.md` §7.1).
-- **The membrane drops `cell_size_m`** from readings and entity metadata, which put the rendering tier in front of
-  cognition (foundations Wire S6).
+  input. **An instrument an NPC uses is an in-world device** with a position, its own physical reduction (a probe, a
+  lag) and a display perceived like any other percept (foundations BF2-6; `npcs_and_sem.md` §7.1).
+- **The membrane drops `cell_size_m`** from readings and entity metadata (an instrument may carry it), which put the
+  rendering tier in front of cognition (foundations Wire S6).
 - **Lands:** the import half in `phase1/boundaries`; the perceiver half with the first NPC body (Phase 4).
 
 ## 5. Untrusted input (B-4, rewritten)

@@ -235,8 +235,8 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 ## Step 8, the tile (`tile_and_client.md` §6; `client_rendering.md` §4–§6)
 
 - The game package and its `content/` (AR-S6).
-- The exit script, run stepped and unpaced; the controls, each proven by deletion (PH-S3); the stage-2 refusal
-  scripts.
+- The exit script (Phase 1's exit is `docs/roadmap.md`'s, Phase 1, "Exit"), run stepped and unpaced; the controls,
+  each proven by deletion (PH-S3); the stage-2 refusal scripts.
 - The shader, the cut-away test at ≥ 95%, five scenario goldens per tier, staleness digests, `update_goldens.sh`
   (EX-S13).
 - CR-B3's open half: a shaded golden that differs at 128 and 256 bits and agrees across Intel and AMD runners (the
@@ -467,8 +467,8 @@ measured in the research (L3) or the reviews, **M** are from memory and must be 
   rest is low by 28% at 100 °C, 2.2× at 200 °C, **D**). Test: a two-region body, one region in a hot gas region of a
   fixture gas field, burns only that region; on the shipped path it waits for zones (P-N3).
 - **Immersion and plume** (PH2-S3): a continuous gas-temperature field per flame (flame, intermittent and plume
-  regions from a cited correlation), h(d)·(T_gas − T_s) per point; a cross-tier test with an outcome margin for a
-  hand at the flame edge; until then "plume gas doesn't heat" is a Known gap with a number.
+  regions from a cited correlation), h(d)·(T_gas − T_s) per point; a cross-tier test with an outcome margin
+  (`world_model.md` §3) for a hand at the flame edge; until then "plume gas doesn't heat" is a Known gap with a number.
 - **Contact** (PH2-B1): the object-side sub-mesh, refined to the substep's penetration depth, persists for the whole
   contact, read by the solid law through a conservative remap and remapped once at release. Outcome gate, with a
   horizon and a margin (P-S2): wood at 90 °C stays painless for 10 s with at least 1.9 K to threshold at the basal

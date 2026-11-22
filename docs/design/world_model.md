@@ -32,6 +32,10 @@ This document's decisions (11 rulings) are kept as records, with their dates, ow
   after caching, and slower during a fire (DLP, measured).
 - **The rig profiles stop deciding physics.** `laptop`, `rig` and `max` become rendering tiers: how much of the
   snapshot the client draws, and at what detail.
+- **Thin features** must be at least two cells of the coarsest verification grid (0.2 m) thick, or one cell becomes the
+  whole feature and a scratch becomes a breach. The rule holds for resolved cells; fuel objects are exempt only as
+  `rod`, `slab` or `bed` recipes of fuel, never structure (a plank wall stays cells) (docs-contracts ruling 72;
+  `fire_solid.md` §1.3).
 - **The 0.2 m and 0.05 m grids stay, as verification grids.** The cross-tier tests become convergence tests: the
   0.1 m answer must lie within a stated tolerance of the 0.05 m reference, and must converge from 0.2 m. They no
   longer promise that different machines play different-but-equivalent games. They check that the one game is
@@ -84,7 +88,7 @@ reconstruction.
 | Heat exchange, cell to zone | cell-mean temperature × h | **a surface skin on every exposed face that exchanges heat**, not only fuel faces, with its depth set in metres | P1: a concrete wall under an 800 °C zone absorbs 104 / 104 / 85 MJ/m² at 0.2 / 0.1 / 0.05 m against a converged 48; the skin gives 47.9 / 48.1 / 48.1 (measured) |
 | Ignition | skin per fuel face, face-mean flux | **deposit by area overlap; each face carries an ignited area fraction** computed from the pilot's footprint in metres; losses included, so a critical heat flux exists | P2: a 2 kW pilot on a corner lit the crate in 1.5 s at 0.05 m and never at 0.2 m (measured) |
 | Burning away (ablation) | per-face recession | **sub-box recession per cell:** each burning cell tracks the receding surface inside it in metres | P3: a 0.6 m box kept 0.205 / 0.268 / 0.311 of its mass at t = 0.1 against an exact 0.370; with sub-box recession 0.370 at every grid (measured) |
-| Pyrolysis | energy-limited, T_bulk from the cell mean; a volumetric threshold branch | **T_bulk from the reconstructed profile;** the volumetric branch becomes a rate on the reconstructed profile, not a threshold on the mean, and sensible heat is counted once | S2 |
+| Pyrolysis | energy-limited, T_bulk from the cell mean; a volumetric threshold branch | the rate law is `fire_solid.md` §4.2's | S2 |
 | Strength and breach | strength by mass fraction; breached when strength < ½ | **breach decided by remaining thickness in metres** along the wall's normal | S1: a strength-½ breach fires at 0.30 / 0.35 / 0.375 m of burn depth against a true 0.40 m |
 | Fuel initialisation | by cell centre | **by volume overlap;** unaligned fuel geometry is refused in Phase 1, and a known gap records it | S3: cylinder volume 0.38–1.13 of true at 0.2 m; voxel-sphere area tends to 1.5× (confirmed) |
 | Flame feedback | fixed flux per m² | **fixed flux per m², scaled by the zone's extinction factor and debited from the heat release** | S5: otherwise a sealed crate keeps pyrolysing without heat to pay for it |
@@ -94,11 +98,12 @@ reconstruction.
 **Binary outcomes keep a band however good the laws are** (P-where-they-disagree). Ignition near the critical heat
 flux, a breach near the minimum ligament, "goes out", "burned away". They are gated by a **band gate** (S4): for each
 binary outcome, measure the width of the input range where the truth and the reference disagree, record it in Known
-gaps, and gate that width. This replaces v2's outcome-margin rule, which only chose which scenarios get tested.
+gaps, and gate that width. The operating point also clears the band by a margin (docs-contracts ruling 60).
 
 **"Goes out" is defined** (S9): flames are extinguished when the zone's O₂ fraction falls to the extinction limit,
 with a ramp from 15% to 10% (*from memory*; the sources conflict, so both are cited in data). By derivation, the
-3×3×2 m sealed scene burns 1.07 kg of fuel down to 15% and about 2.0 kg down to 10%.
+3×3×2 m sealed scene burns 1.07 kg of fuel down to 15% and about 2.0 kg down to 10%. Decided by the flames design
+(after R0–R1); for 6.1's cone, extinction is `fire_solid.md` §4.4's.
 
 ## 4. Energy and the heat state
 
@@ -181,7 +186,8 @@ save), with these rules from the Wire and Trust review.
   - loading is all-or-nothing.
 - **Frame rules** (F2, F3, F4, F6) are `client_rendering.md` §4.1's; its fixtures (§4.2) include a non-default
   linear scale, so a decoder that hard-codes 1/255 fails.
-- **Material table v1 uses the strict loader** that `ActionLimits.load` has, under the gate contract
+- **The material data** (its files and versions are `fire_solid.md` §5.1's) uses the strict loader that
+  `ActionLimits.load` has, under the gate contract
   (`boundaries.md` §5.4), species keyed by name, never by position (F8). Its reactions close their mass and atom
   balances. The research's example `wood_flaming` doesn't (2.15 in, 2.40 out), and the loader would rightly refuse it
   (E-NIT).

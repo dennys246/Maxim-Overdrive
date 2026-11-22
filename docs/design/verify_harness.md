@@ -54,7 +54,7 @@ counter to report, and its budgets (B5), which read them. Every observable retur
 - **`band_gate(outcome, xs, runs)` → `Band`.** `outcome(run, x)` is a binary outcome at control value `x`. The harness
   evaluates every `x`, finds each run's flip point, and refuses an outcome that flips more than once (a coarse grid
   can alias a threshold; bisection would hide it). It reports the band across grids. The test then asserts its
-  operating point clears the band by its margin (`tile_and_client.md` §6.3 item 7).
+  operating point clears the band by its margin (`world_model.md` §3).
 - **`agrees(observable, spacings)` → `Agreement`,** for a scenario outcome that isn't smooth in the
   spacing, so has no order. `observable(dx_m)` returns the outcome; spacings go coarse to fine. It reports the spread
   across grids, each grid's error against the finest, and `converging`: each coarser grid's error is no smaller than

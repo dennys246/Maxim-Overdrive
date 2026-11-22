@@ -94,7 +94,8 @@ Every real-Maxim run is an OPEN divergence until tier A (§12.2).
   flash that lived one tick (DR-S1).
 - **The step-size invariance test:** each process over one world hour at step sizes of 1, 2, 5, 10 and 50 ticks.
   - Continuous state agrees within a **relative 1e-9** (closed form measured 1.25e-12; Euler 6.8e-4; X-11).
-  - Discrete events land on the same tick, gated with an outcome margin as CLAUDE.md requires of binary outcomes.
+  - Discrete events land on the same tick, gated with an outcome margin as `world_model.md` §3 requires of binary
+    outcomes.
   - The planted Euler update goes in an **exponential** process with `k·dt_max` ≥ 1e-3; in a linear process Euler is
     exact and the plant can't go red (X-11).
   - Maxim's half has no owner in tier A yet: no exit test there varies the world step size. That is a new upstream
@@ -882,13 +883,10 @@ every time field stripped (§3.1): outcome kind and measured effect only.
 
 ### 7.1 B-13: percepts through physical channels; instruments are devices (BF2-6)
 
-- **A percept** is a reduction of registered physical channels at the perceiver's position and receptor, with a
-  line-of-sight gate once light exists (`boundaries.md` §4.4).
-- **An instrument is an in-world object** with a position, its own physical reduction (a probe, a lag) and a display
-  that is perceived like any other percept. A thermometer reads its own temperature where it is.
-- **Today's omniscient region sensors** (a crate's interior maximum, to anyone, anywhere) are **test and lab
-  instruments, never an NPC's input.** Their interior maximum also grows with resolution; it becomes a surface
-  temperature over an area in metres (world_v2 NIT-2).
+- **A percept, an instrument and today's region sensors** are `boundaries.md` §4.4's. A thermometer reads its own
+  temperature where it is.
+- **Today's omniscient region sensors** (a crate's interior maximum, to anyone, anywhere): their interior maximum also
+  grows with resolution; it becomes a surface temperature over an area in metres (world_v2 NIT-2).
 - **Each world sensor declares how it reaches a perceiver** (N9, perceivability: world_v2 BF-2): its receptor, or the
   device it needs.
 - **This shrinks our own Maxim ask.** With instruments as world objects, Maxim may need nothing beyond the existing
@@ -897,17 +895,15 @@ every time field stripped (§3.1): outcome kind and measured effect only.
 
 ### 7.2 The push path **[Phase 4; per-part sensors after C8]**
 
-- Maxim bodies perceive by push: the world writes values through `world_set_axis`, with `live_world_set_sensors`
-  declaring it the single writer. The adapter does this on the agent's owner thread (§6.3), as a pure function of the
-  frame pinned for that agent (§7.3), so it needs no log record.
+- Maxim bodies perceive by push; the push path and `world_set_axis` are `sem_stimuli.md` §4.4's.
 - Every body sensor the world simulates is world-owned, so an NPC is never burned twice.
 
 ### 7.3 Which frame a pull reads (Wire S6)
 
 - **A frame is pinned per agent** by the adapter: the frame observed at the agent's last `step`. Maxim's pulls during
   a step read that frame, never "the latest published", so what a sensor returns can't depend on the dial.
-- **Leaks removed:** `extra={"cell_size_m": dx}` on every reading and `metadata["cell_size_m"]` on the entity put the
-  rendering tier in front of cognition; both are dropped (an instrument may carry it).
+- **Leaks removed:** `extra={"cell_size_m": dx}` on every reading and `metadata["cell_size_m"]` on the entity are
+  dropped (`boundaries.md` §4.4).
 
 ### 7.4 The receptor-first rule **[now, as a review rule]**
 

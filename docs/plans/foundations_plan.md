@@ -13,8 +13,7 @@ public, the owner decides on a force-push plus GitHub support for PR #4's refs. 
 
 ## 2. The order: tile first (D26)
 
-Phase 1's exit (`docs/roadmap.md`): walk into the alley, set a crate on fire, watch it crack, glow and burn away by a
-fuel-mass law, the same apart from detail at each rendering tier.
+Phase 1's exit is the roadmap's (`docs/roadmap.md`, Phase 1, "Exit").
 
 | # | Step | Blocked by | Owner | First action | Done when | Extra lenses | Closes |
 |---|---|---|---|---|---|---|---|

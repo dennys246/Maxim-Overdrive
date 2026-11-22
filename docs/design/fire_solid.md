@@ -142,7 +142,7 @@ An `imagine` is applied in its own window, between physics steps:
 **Acts and readings stay on cells in 6.0–6.1.** An object-only region is refused by every act and reading with one
 code, `fuel_only_region`, until 6.2 defines strike, fire and integrity on objects. `temperature_*` and the rest of
 `frames.QUANTITIES` keep their cell-only meaning, pinned by a test. An object quantity, when needed, gets a new name
-(F1) as a lab instrument under `tests/`, never in `QUANTITIES` or on an NPC builder (fire_model §5.5).
+(F1) as a lab instrument under `tests/`, never in `QUANTITIES` or on an NPC builder (`boundaries.md` §4.4).
 
 Each consumer that asks "is something here", read at 396ae10:
 
@@ -342,9 +342,9 @@ here did.
 
 | File | Format | Loader | Holds |
 |---|---|---|---|
-| `data/materials/core.yaml` | v0, unchanged | `load_materials` | today's fields; no bump, so `materials_v0_to_v1` is dropped (Wire S4) |
-| `data/materials/chemistry.yaml` | v0 | `load_chemistry` | components and species by name with declared ids; Arrhenius reactions with T_cut; the RAMP schema; fire_model §9.1's per-file refusals |
-| recipe files, one per recipe | v0 | `load_recipes` | a declared `id`, representation, components, admitted kinds, geometry ranges, segment class, node rule, and its `variants:` |
+| `data/materials/core.yaml` | v0, unchanged | `load_materials` | today's fields, u8 ids stable; no bump, so `materials_v0_to_v1` is dropped (Wire S4) |
+| `data/materials/chemistry.yaml` | v0 | `load_chemistry` | components and species by name with declared ids, each reacting component with a formula or elemental mass fractions; Arrhenius reactions with T_cut; transitions; the RAMP schema; fire_model §9.1's per-file refusals |
+| recipe files, one per recipe | v0 | `load_recipes` | a declared `id`, representation, components, void fraction, bulk density, admitted kinds, geometry ranges, segment class, node rule, and its `variants:` |
 | `data/world/limits.yaml` | v0 | `load_world_limits` | §1.3's limits |
 
 - **Variants live in their recipe file,** which deletes a cross-file reference.

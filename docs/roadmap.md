@@ -19,7 +19,8 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   reads `crack` and `glow`.
 - A local transport between client and server: a WebSocket carrying JSON intents and binary snapshots (decided
   2026-11-15; `docs/architecture.md`, "Transport").
-- The first tile authored in metres: the ripperdoc clinic and the alley outside it.
+- The first tile authored in metres: the alley. When the ripperdoc clinic is authored is D27's
+  (`docs/design/decisions/world_model.md`).
 - Save format v0: the world grid plus the scene spec. Agent homes join in Phase 4.
 - The engine and game boundaries, before the verification harness: `phase1/boundaries` (structure) and
   `phase1/gates` (behaviour) (`docs/design/boundaries.md` §11).
@@ -34,8 +35,8 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   degrees (`docs/architecture.md`, Known gaps; the red gate is
   `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`). Needed before the tile's crate
   scenario is gated. **Requirement:** a cell's burn rate must estimate the integral of the point-wise rate over the
-  cell, from a reconstructed sub-cell profile, well enough at the coarsest rig to pass the gate (CLAUDE.md,
-  "Reconstruct, decide at the point, integrate upward"). Converging is not enough: today's law converges, slowly,
+  cell, from a reconstructed sub-cell profile, well enough at the coarsest rig to pass the gate
+  (`docs/design/world_model.md` §3). Converging is not enough: today's law converges, slowly,
   and the coarse rig still sits far off, because the measured cause is a threshold on a cell's mean temperature
   (the crate's mean temperature agrees across rigs within 1 °C while the degradation driver differs 1.3–1.5×). A
   per-cell ignition or pyrolysis threshold would inherit it. It must flip the strict

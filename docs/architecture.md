@@ -44,9 +44,9 @@ How the rule is kept, so far:
   cooler at 0.2 m cells than at 0.05 m, and the crate burned at one rig and not another.
 - SEM sensors are **reductions over cells** (mean integrity, mean and max temperature). Means converge with
   resolution; a max doesn't have to (`temperature_max` mid-burn differs across rigs, see Known gaps), so decisions
-  are taken on means or integrals, as the "reconstruct, decide, integrate" rule in CLAUDE.md requires.
-- Thin features must be at least two of the coarsest rig's cells thick, or one cell becomes the whole feature and a
-  scratch becomes a breach.
+  are taken on means or integrals, as the "reconstruct, decide, integrate" rule (`docs/design/world_model.md` §3)
+  requires.
+- Thin features: the rule and its fuel-object exemption are `docs/design/world_model.md` §1.1's.
 
 **Known gaps (tracked, not gated yet):**
 - NPC inference (no streaming yet, load versus failure, first hops, spend): `docs/design/inference_placement.md` §6.3.
@@ -104,12 +104,13 @@ How the rule is kept, so far:
 - **A destroyed region still claims its space,** for strikes and for imagined objects alike (`spec.place` refuses
   a new object inside a burnt-out crate's old box). A crate burned to nothing still owns its authored box: a strike there
   is "on the crate", and `ignite` puts the fire into air. "Gone" only means a later paint took every cell. Ownership per cell (the region id array planned
-  for design v2) removes it.
+  for design v2) removes it. Decided by the flames design (after R0–R1); `docs/design/world_model.md` §5
+  disagrees.
 - **Overlap is judged on bounding boxes, and it has an authoring cost.** Named solids may not overlap a later solid
   (`scene._check_no_solid_overlaps`, and `imagination.place` for imagined objects), and a cylinder's box corners
   count as its own, so two barrels close together can be refused although they don't touch. A solid window, sign or
   vent inside a named wall is refused too, so such a wall must be split into pieces or left unnamed. Per-cell
-  ownership (design v2's region id array) removes both.
+  ownership (design v2's region id array) removes both. Decided by the flames design (after R0–R1).
 - **A region carved hollow keeps its authored centroid.** Air may carve into a named solid (a doorway), but the
   solid's footprint and centroid stay those of the authored box. With a doorway through a wall's middle, the
   centroid is in air: `ignite` puts the fire in the doorway, where it heats only air, and an aimless strike lands
@@ -120,7 +121,7 @@ How the rule is kept, so far:
 - **Whether an imagined object fits in the world can depend on the rig.** `imagination.place` refuses an object
   "smaller than one cell at this resolution" when it covers no cell centre, which can happen at the coarse rig and
   not at a finer one. Its size and mass budgets are rig-independent; this check
-  isn't. The thin-features rule (two coarse cells) as a minimum authored size
+  isn't. The thin-features rule (`docs/design/world_model.md` §1.1) as a minimum authored size
   would remove it.
 - **A region's temperature reading can leave its declared range.** `RegionInstrument` declares
   `temperature_max` as [-273, 6000] °C, but the fuel gap lets legal fires drive cells far past that (about 4×10⁵ °C

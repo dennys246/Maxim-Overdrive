@@ -39,3 +39,52 @@ Word counts (5c054f6 → now): `boundaries.md` 13,982 → 10,598; `npcs_and_sem.
 `inference_placement.md` 4,886 → 4,607; `sem_stimuli.md` 5,996 → 5,862; `fire_solid.md` 5,972 → 5,949;
 `architecture.md` 2,792 → 2,742; `roadmap.md` 6,976 → 6,825; `world_model.md` 4,666 → 3,480;
 `ip_and_licensing.md` 1,874 → 1,872.
+
+## Step 3e: world and physics
+
+| Row | Contract | Owner section | Copies now links | Added to the owner |
+|---|---|---|---|---|
+| 59 | Phase 1 exit | `roadmap.md` Phase 1 "Exit" | `tile_and_client.md` §6 and `fire_model.md` §7 (one lead line each; their crate text stays, as Phase 2's); `foundations_plan.md` §2's "set a crate on fire" sentence; `checklists.md` step 8's exit-script bullet (the heading is unchanged) | nothing |
+| 60 | Band gate | `world_model.md` §3 | tile §6.3 item 7 (the rule; the script's 2× stays as its own margin); `verify_harness.md` §4; `sem_stimuli.md` §2.3; `npcs_and_sem.md` §2.1; `checklists.md` (plume item) | ruling 60's second rule (the operating point clears the band by a margin); "This replaces v2's outcome-margin rule" dropped |
+| 61 | Convergence predicate | `verify_harness.md` §4 (rule `world_model.md` §1.1) | tile §6.3 item 8 (the tol/4 allowance dropped; its tolerances stay) | nothing |
+| 62 | Material files and split | `fire_solid.md` §5.1 | `fire_model.md` §9.1 (the table, "v0 fixtures migrate", the landing order; the refusal list stays, as §5.1 cites it); `world_model.md` §8; tile §5.1 | FM §9.1's "u8 ids stable", "each reacting component with a formula or elemental mass fractions", "transitions", "void fraction, bulk density" |
+| 63 | Ledger lines | `fire_solid.md` §5.4 where it speaks | FM §9.2: `Δ(skins)` now stays, linking FS §5.4 | nothing; tile §5.4's `unreceived` marked for the flames design |
+| 64 | Object–grid coupling | `fire_solid.md` §1.1, §3.1 | FM §2.1's coupling row; FM §2.2's heat bullet | nothing |
+| 65 | Pyrolysis rate law | `fire_solid.md` §4.2 | FM §3.1 (the bullet and the paragraph); tile §5.2's 6c; WM §3's pyrolysis row | nothing |
+| 66 | Extinction | FS §4.4 for the cone; FM §4.3 otherwise | none deleted; WM §3's O₂ paragraph marked for the flames design | nothing |
+| 67 | R0, R1 grading | `fire_solid.md` §4.5–§4.6 | FM §6.2's R0 and R1 rows (graded and pass columns) | nothing |
+| 68 | Radiation | FM §4.4 (emission), SS §2.3 (body side) | tile §2.1's point source and face-to-body exchange | nothing |
+| 69 | Body, core temperature, tags | `sem_stimuli.md` §3.1, §2.2 (and §3.3) | tile §8's "no metabolism"; FM §5.1's core-temperature line and two ANALOG tags | nothing |
+| 70, 76 | Push path, `world_set_axis` | `sem_stimuli.md` §4.4 | `boundaries.md` §4.3; `npcs_and_sem.md` §7.2; FM §5.1 (OD-C10) | B §4.3's root-only and OD-C10 line, verbatim |
+| 71 | Region ownership | FS §1.3 for objects; otherwise marked | FM §2.2's "cells ∪ objects"; `architecture.md`'s two "removes it/both" gaps marked for the flames design | nothing |
+| 72 | Thin-feature rule | `world_model.md` §1.1 | `architecture.md` (two lines); tile §1.1's slats line | the rule (CLAUDE.md's and architecture's words) and FM §10.1's exemption, verbatim, citing FS §1.3 |
+| 73 | Field registry | `boundaries.md` §9.1 | SS §3.1's citation (was `world_v2.md` §2.5) | nothing |
+| 74 | B-13, lab-only sensors | `boundaries.md` §4.4 | N §7.1, §7.3; tile §8, §10; FM §5.1, §5.4; FS §2; SS §6.1 | N §7.1's "(a probe, a lag)" and §7.3's "(an instrument may carry it)" |
+| 75 | Stimulus split | `sem_stimuli.md` §1 | FM §5.1 (intro and leak tests) | nothing |
+| 77 | Tick, physics step | tile §6.1 (T3) | SS §2.2 | nothing |
+| 78 | Reconstruct, decide, integrate | `world_model.md` §3 | `roadmap.md` Phase 1 (the fuel bullet's citation); `architecture.md` | nothing |
+
+X22: the roadmap's clinic line now reads "the alley", with the clinic's timing D27's. Left: "a cell's burn rate must
+estimate the integral" (against FM §0.3), D26's "fuel recession and pyrolysis" moved to Phase 2 (against FM §10.1)
+and the 6 s turn-length question (against T3); no ruling covers them.
+
+Skipped or left:
+- **Row 77, `npcs_and_sem.md` §9's table** keeps its values: its lead line already links T3, and the values are world
+  config's own fields (ruling: N §9 owns world config). `foundations_plan.md`'s T3 row is a plan list.
+- **Row 59, `long_term_features.md`** line 25's "light a built fire" contradicts line 26; its fire row is hands off.
+- **Row 62, FM §9.1's variants row** ("the only knobs an imagined object may set") is not copied: FS §5.2's spec v1
+  also sets geometry.
+- **Row 63, SS §3.1's "unreceived share"** and tile §2.1's derived flux numbers stay.
+- **Row 65, WM §3's ignition and ablation rows** are FS §4.4 and §4.3's in substance, but not row 65's contract.
+- **Row 70, the pinned frame** in N §7.3 and B §4.2 stays; SS §6.1 supersedes it by name.
+
+Word counts (5c054f6 → now): `roadmap.md` 6,976 → 6,822; `architecture.md` 2,792 → 2,743; `tile_and_client.md`
+5,909 → 5,334; `fire_model.md` 5,991 → 5,392; `fire_solid.md` 5,972 → 5,967; `world_model.md` 4,666 → 3,542;
+`verify_harness.md` 1,252 → 1,241; `sem_stimuli.md` 5,996 → 5,874; `npcs_and_sem.md` 23,492 → 15,908;
+`boundaries.md` 13,982 → 10,563; `foundations_plan.md` 2,500 → 2,471; `checklists.md` 7,354 → 7,227.
+
+Fixed on review of step 3e: `fire_model.md` §3.1 keeps the DP-S1 (18 ulp) and FDS `REFERENCE_TEMPERATURE` sentences.
+They are the rationale for the cutoff, not a copy of the law. Open: boundaries §4.3 and npcs §7.2 said a push "needs no
+log record" because it was "a pure function of the agent's pinned frame". `sem_stimuli.md` §6.1 supersedes the pinned
+frame, and §4.4 doesn't say whether a `BoundFrame` push needs a log record. The claim was dropped with the pinned frame
+and not restated.

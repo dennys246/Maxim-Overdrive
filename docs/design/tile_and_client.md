@@ -40,8 +40,8 @@ This document's decisions (18 rulings) are kept as records, with their dates, ow
 
 - **The crate is a porous fuel bed** (D30): slats around air, authored as a 0.6 m box whose cells carry a fuel volume
   fraction φ and a surface area per volume σ. Content values `[engineering]`: 20 mm slats, φ = 0.25, so σ = 2φ/δ =
-  **25 m²/m³**; 0.054 m³ of wood, **32.4 kg**, **5.4 m²** of fuel surface (derived). The thin-feature rule applies to
-  the box, not the slats, which live inside the cell's state.
+  **25 m²/m³**; 0.054 m³ of wood, **32.4 kg**, **5.4 m²** of fuel surface (derived). The thin-feature rule and its fuel
+  exemption are `world_model.md` §1.1's.
 - **`crate_far` is a placement guard,** not a fire-spread control (PH-S3): heat can't reach it 2.68 m away through
   air (diffusion length √(αt) = 0.34 m over the 5,400 s cap, α_air 2.2×10⁻⁵ m²/s, PH's value).
 - **No bounding-box overlaps between named solids** (`scene._check_no_solid_overlaps`); no other props until D27.
@@ -111,9 +111,8 @@ measurement. `stable_dt` is 46.9 s at 0.1 m: one substep per 0.5 s physics step.
 - **Convection** is superseded by `sem_stimuli.md` §3.1 (2026-11-21): per skin point, against a fixed reservoir in
   Phase 1. The exchange volume's air (1.53 kJ/K) reaches the body's temperature in about 80 s (DPH, derived), so a
   volume-mean sink makes the body fire-blind.
-- **So the body also receives radiation** (§9 Q1): from each hot exposed skin face by a view factor computed in
-  metres, debiting that face's 6a loss; and from the flame by the point-source model q'' = χ_r·Q̇/(4πd²) (*from memory,
-  to verify*), debiting the unreceived flame line (§5.4). It radiates to ambient at εσ(T_b⁴ − T_amb⁴): about 240 W at
+- **So the body also receives radiation** (§9 Q1): the flame's emission is `fire_model.md` §4.4's, and the body
+  side `sem_stimuli.md` §2.3's. It radiates to ambient at εσ(T_b⁴ − T_amb⁴): about 240 W at
   37 °C in 15 °C surroundings (derived). Metabolism and regulation: `sem_stimuli.md` §3.1.
 - **What it feels near the fire (derived from §5's numbers):** in the flaming phase (Q̇ ≈ 780 kW, χ_r 0.3), 18.5 kW/m²
   at 1 m and 2.1 kW/m² at 3 m; absorbed over 0.5 m², 9.3 kW (+2.3 K/min) and 1.0 kW (+0.25 K/min). In the ember phase,
@@ -275,8 +274,8 @@ Its fields are boundaries §6.3's (WT-S3).
 
 ### 5.1 Constants, each with provenance (DPH-B1)
 
-Each goes into material table v1 with a provenance row. **No constant is fitted to make the exit pass:** one changes
-only with a new citation, and the exit's outcome follows from it.
+Each goes into the material data (`fire_solid.md` §5.1) with a provenance row. **No constant is fitted to make the
+exit pass:** one changes only with a new citation, and the exit's outcome follows from it.
 
 | Constant | Value | Tag |
 |---|---|---|
@@ -298,9 +297,9 @@ only with a new citation, and the exit's outcome follows from it.
 - **6b the skin:** a 1 mm surface layer `[engineering]` on every exposed face and on each bed cell's fuel surface,
   carrying its own temperature and stored energy. Explicit stability at 0.5 s: ρc·δ/h_r = 600 × 1,700 × 0.001 / 420 =
   2.4 s (derived; h_r at 1,000 °C ≈ 420 W/m²·K, DPH-N3). Ignition is by area overlap with a critical heat flux.
-- **6c the porous bed:** pyrolysis per m² of burning fuel surface is **m'' = q''_net / L_g**, with q''_net = q''_f +
-  q''_pilot − the 6a envelope loss per m² of fuel surface. Volatiles burn at ΔH_c,eff; the flame deposits q''_f per m²
-  of burning surface; the rest of the release leaves as plume. Char accumulates at χ per kg pyrolysed.
+- **6c the porous bed:** pyrolysis's rate law is `fire_solid.md` §4.2's. Volatiles burn at ΔH_c,eff; the flame
+  deposits q''_f per m² of burning surface; the rest of the release leaves as plume. Char accumulates at χ per kg
+  pyrolysed.
 - **6d char oxidation:** diffusion-limited, m''_c = h_m·Y_O₂·ρ_air·(12/32), with h_m = h_c/(ρ_air·c_p) = 8.3 mm/s
   (derived): **0.86 g/m²s, 28 kW/m²** of char surface (derived, CO₂ assumed).
 - **Thresholds on cell means:** `thermal_degrade` no longer drives fuel. It still drives concrete, a recorded D25
@@ -338,6 +337,7 @@ doesn't reach 625 °C, the exit fails, and the measured balance goes to the owne
 **Inputs** `sources` (the pilot's P·D·0.1 s) + `combustion` (volatiles and char) = **storage** Δ(cells) + Δ(skins) +
 Δ(bodies) + **outputs** `open_air_loss` + `plume_convective` + `flame_radiative` (received by bodies, and
 `unreceived`) + `removed_with_mass`. Relative tolerance per substep and cumulatively (world_model §4).
+`unreceived` is decided by the flames design (after R0–R1).
 - **The deposit test is not an identity:** Σ deposited = q''_f × A_burning × dt, with A_burning taken independently
   from the bed state.
 - **Known gap, metered:** the flame's radiation is exported unreceived except by bodies: 0.3 × 777 kW = 233 kW for
@@ -354,6 +354,8 @@ doesn't reach 625 °C, the exit fails, and the measured balance goes to the owne
   charring shows as cracking and shape change.
 
 ## 6. The exit scenario
+
+Phase 1's exit is the roadmap's (`docs/roadmap.md`, Phase 1, "Exit"). This scenario is the crate's, Phase 2.
 
 ### 6.1 The clock
 
@@ -390,12 +392,12 @@ adjacent to air.
 4. **Glow:** `t_glow` = first tick with ≥ 0.08 m² of envelope whose envelope-layer skin is ≥ 625 °C.
 5. **Burned away:** `t_gone` (§5.5), before the cap.
 6. **Order:** all exist, and `t_crack` < `t_gone`, `t_glow` < `t_gone`.
-7. **Binary outcomes are band-gated** (S4): ignited, glow reached, burned away, `crate_far` intact. Step 6 measures
-   the band in D (the torch's P fixed) at 0.2, 0.1 and 0.05 m and records its width in Known gaps. The script's D is
-   ≥ 2× the band's upper edge at every grid `[engineering]`.
+7. **Binary outcomes are band-gated** (`world_model.md` §3; S4): ignited, glow reached, burned away, `crate_far`
+   intact. Step 6 measures the band in D (the torch's P fixed) at 0.2, 0.1 and 0.05 m and records its width in Known
+   gaps. The script's D is ≥ 2× the band's upper edge at every grid `[engineering]`.
 8. **Times converge** (DPH-S5), with absolute errors e against the 0.05 m reference and tol = 15% (`t_crack`,
-   `t_glow`) or 10% (`t_gone`) of the reference value. Pass when |e₀.₁| ≤ tol, and (|e₀.₂| ≥ |e₀.₁| or |e₀.₁| ≤ tol/4).
-   Tightened by measurement, never loosened.
+   `t_glow`) or 10% (`t_gone`) of the reference value. Pass when |e₀.₁| ≤ tol, and the times converge by
+   `verify_harness.md` §4's `agrees` (`world_model.md` §1.1). Tightened by measurement, never loosened.
 9. **Determinism, on one machine:** two stepped runs, the unpaced run and the replay are bit-identical at every
    physics tick.
 
@@ -441,10 +443,10 @@ The layer order is `boundaries.md` §2.2's; this table places this design's modu
 ## 8. Bio-faithful note
 
 - **Perceivers read the simulation `Frame`,** never the wire or the log. The fire is perceived through physical
-  channels at the perceiver: heat now (§2.1), light and sound in Phase 2 (BF-S1).
+  channels at the perceiver (B-13, `boundaries.md` §4.4): heat now (§2.1), light and sound in Phase 2 (BF-S1).
 - **One world-owned body model.** Regions in metres are what Phase 4's surface percepts reduce over (world_model §9).
 - **Divergences named:** the actor table as a direct view (ANALOG); receptors under two coarse cells (Known gap);
-  `kindle` credit (OPEN, OD-A16/OD-C5); allocentric locomotion (OD-C11); no metabolism (Maxim's drives).
+  `kindle` credit (OPEN, OD-A16/OD-C5); allocentric locomotion (OD-C11). Metabolism is `sem_stimuli.md` §3.1's.
 - **The world's day** is the world config's `epoch_us` and `day_length_ticks` (`npcs_and_sem.md` §9). An SCN
   entrains on Phase 2 light at the perceiver, never on a time-of-day number or the client's sky.
 
@@ -461,7 +463,7 @@ The layer order is `boundaries.md` §2.2's; this table places this design's modu
 - **Step 6's measurements:** constants, torch values, band widths, the three times, ember temperature.
 - **Phase 2:** flame radiation to surfaces, convection, zones, solid sub-cell recession, non-box fuel (CSG), ash.
 - **Phase 4/5:** receptors, damage and pain, metabolism, line of sight, `turn`, egocentric locomotion (OD-C11).
-- **The boundaries PR:** `cell_size_m` leaves the bridge's readings and metadata (BF-N4).
+- **The boundaries PR:** `cell_size_m` leaves the bridge (`boundaries.md` §4.4; BF-N4).
 
 ## 11. Requirements by plan step
 
