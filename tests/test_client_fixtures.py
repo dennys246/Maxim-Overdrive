@@ -32,9 +32,48 @@ def test_a_changed_or_missing_fixture_is_stale(tmp_path, capsys):
     assert cf.stale(tmp_path) == []
     (tmp_path / "alley_fire.bin.gz").write_bytes(b"x")
     (tmp_path / "alley_cold.json").unlink()
-    assert sorted(cf.stale(tmp_path)) == ["alley_cold.json", "alley_fire.bin.gz"]
+    assert sorted(cf.stale(tmp_path)) == ["alley_cold", "alley_fire"]
     assert cf.main(["--check"], out=tmp_path) == 1
-    assert "alley_fire.bin.gz is stale" in capsys.readouterr().err
+    assert "alley_fire is stale" in capsys.readouterr().err
+
+
+def _recompress(directory: Path, name: str, level: int) -> None:
+    """The fixture's same arrays compressed differently, as another zlib build does, with its header's digest
+    updated to match: what a fresh checkout on another machine holds."""
+    data = directory / f"{name}.bin.gz"
+    other = gzip.compress(gzip.decompress(data.read_bytes()), compresslevel=level, mtime=0)
+    data.write_bytes(other)
+    header = json.loads((directory / f"{name}.json").read_text())
+    header["data_gzip_sha256"] = hashlib.sha256(other).hexdigest()
+    (directory / f"{name}.json").write_text(json.dumps(header, indent=1, sort_keys=True) + "\n")
+
+
+def test_the_same_arrays_compressed_by_another_zlib_are_current(tmp_path):
+    # CI's zlib 1.3 and the Mac's 1.2.12 compress the same arrays to different bytes; a byte comparison failed every
+    # CI run of this branch while the Mac's gate passed.
+    assert cf.main([], out=tmp_path) == 0
+    _recompress(tmp_path, "alley_fire", level=1)
+    assert cf.stale(tmp_path) == []
+
+
+def test_content_that_differs_is_stale_however_it_is_compressed(tmp_path):
+    assert cf.main([], out=tmp_path) == 0
+    _recompress(tmp_path, "alley_fire", level=1)
+    header = json.loads((tmp_path / "alley_fire.json").read_text())
+    header["data_gzip_sha256"] = "0" * 64  # the digest no longer matches the file
+    (tmp_path / "alley_fire.json").write_text(json.dumps(header))
+    assert cf.stale(tmp_path) == ["alley_fire"]
+    assert cf.main([], out=tmp_path) == 0
+    raw = bytearray(gzip.decompress((tmp_path / "alley_cold.bin.gz").read_bytes()))
+    raw[0] ^= 1  # one cell's material changed
+    (tmp_path / "alley_cold.bin.gz").write_bytes(gzip.compress(bytes(raw), mtime=0))
+    _recompress(tmp_path, "alley_cold", level=9)
+    assert cf.stale(tmp_path) == ["alley_cold"]
+    assert cf.main([], out=tmp_path) == 0
+    header = json.loads((tmp_path / "alley_cold.json").read_text())
+    header["cell_m"] = 0.2  # a header field changed
+    (tmp_path / "alley_cold.json").write_text(json.dumps(header))
+    assert cf.stale(tmp_path) == ["alley_cold"]
 
 
 def _read(name: str) -> tuple[dict[str, object], bytes]:

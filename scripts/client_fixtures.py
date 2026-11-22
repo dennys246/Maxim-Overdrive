@@ -110,8 +110,8 @@ def arrays(*, fire: bool) -> tuple[dict[str, NDArray[np.generic]], dict[str, int
     return {name: wire_order(a) for name, a in raw.items()}, ids, (nz, ny, nx)
 
 
-def encode(name: str, *, fire: bool) -> tuple[str, bytes]:
-    """The fixture's JSON header and its gzip-compressed arrays."""
+def content(name: str, *, fire: bool) -> tuple[dict[str, object], bytes]:
+    """The fixture's header, without the compressed file's digest, and its raw arrays end to end."""
     data, ids, shape = arrays(fire=fire)
     blob, channels = bytearray(), {}
     for channel, dtype in CHANNELS:
@@ -132,7 +132,13 @@ def encode(name: str, *, fire: bool) -> tuple[str, bytes]:
         "data_size": len(blob),
         "data_sha256": hashlib.sha256(blob).hexdigest(),
     }
-    compressed = gzip.compress(bytes(blob), mtime=0)
+    return header, bytes(blob)
+
+
+def encode(name: str, *, fire: bool) -> tuple[str, bytes]:
+    """The fixture's JSON header and its gzip-compressed arrays, as this machine's zlib compresses them."""
+    header, blob = content(name, fire=fire)
+    compressed = gzip.compress(blob, mtime=0)
     header["data_gzip_sha256"] = hashlib.sha256(compressed).hexdigest()
     return json.dumps(header, indent=1, sort_keys=True) + "\n", compressed
 
@@ -149,9 +155,26 @@ def files() -> dict[str, bytes]:
 
 
 def stale(directory: Path) -> list[str]:
-    """The fixture files that are missing from ``directory`` or differ from what this script makes."""
-    return [name for name, content in files().items() if not (directory / name).is_file()
-            or (directory / name).read_bytes() != content]  # fmt: skip
+    """The fixtures in ``directory`` whose content differs from what this script makes.
+
+    Content, not bytes: zlib builds compress the same arrays to different bytes (1.2.12 on the owner's Mac, 1.3 on
+    CI's Ubuntu; measured), so the committed gzip can't be compared with a fresh one. A fixture is current when its
+    header equals this script's apart from the compressed file's digest, that digest matches the committed file, and
+    the committed file inflates to exactly these arrays.
+    """
+    found = []
+    for name, fire in FIXTURES.items():
+        header_path, data_path = directory / f"{name}.json", directory / f"{name}.bin.gz"
+        if not (header_path.is_file() and data_path.is_file()):
+            found.append(name)
+            continue
+        want, raw = content(name, fire=fire)
+        got = json.loads(header_path.read_text())
+        compressed = data_path.read_bytes()
+        digest = got.pop("data_gzip_sha256", None)
+        if got != want or digest != hashlib.sha256(compressed).hexdigest() or gzip.decompress(compressed) != raw:
+            found.append(name)
+    return found
 
 
 def main(argv: list[str] | None = None, *, out: Path = OUT) -> int:
