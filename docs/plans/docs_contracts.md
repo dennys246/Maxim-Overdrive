@@ -111,31 +111,10 @@ supersedes by name; **✗** a conflict (§3).
 
 Stale text that no owner holds (X22, and the modulator path in P6) is changed to links.
 
-## 3. Rulings needed before their rows move
+## 3. Rulings
 
-**One approval for every S row:** the later design's text becomes the owner text, and each old copy becomes a link.
-`fire_model.md` counts only where `fire_solid.md` is silent.
-
-**Each ✗ row needs its own ruling.** The quotes are in the cited report items. Row numbers:
-- **2:** 0/1/2/3 or 0/10/20/30.
-- **6 and 7:** which receipt vocabulary is live.
-- **8:** the tile's derivation or `fire_model.md`'s.
-- **18:** the caps' home.
-- **22:** refuse or never refuse.
-- **24:** ticks at load or never.
-- **26:** owner and contents. In-flight thoughts against agent state outside `Simulation`.
-- **28:** migrate or refuse v0; zones in v1 or v2. #32 edits T §1.3.
-- **37:** what "no `HOME`" means.
-- **41:** live play's default (N §11 against O11 and O16), and 600–700 ms or 600–1000 ms.
-- **43, 45, 63, 66, 68, 71, 72, 79.**
-- **49:** the as-built five layers.
-- **50 and 51:** two or three window owners; `logging` allowed or banned.
-- **55:** this repo or Maxim.
-- **60:** the band's width or the operating point's margin.
-- **61:** the tol/4 allowance or none.
-
-Rows 25 and 26 need an owner named. The proposal is N §9 for world config and WM §8 for save v0. A row without a
-ruling stays put and is listed as open in `moves.md`.
+The owner agreed to the recommendations on 2026-11-21. `reviews/docs_contracts/rulings.md` records the tiebreakers
+and each ✗ row's ruling. Row 28 waits on #32. CLAUDE.md stays untouched.
 
 ## 4. Fold and decision tables
 

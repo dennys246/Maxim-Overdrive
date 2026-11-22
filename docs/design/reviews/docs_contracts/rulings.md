@@ -1,0 +1,55 @@
+# Rulings for the docs-contracts line (owner, 2026-11-21)
+
+The owner agreed to the author's recommendations as a whole ("agreed with your recommendations overall",
+2026-11-21). The rows cite the plan's inventory (`docs/plans/docs_contracts.md` §2). The author wrote down each ruling
+as recommended, and the owner's agreement is the only authority for it.
+
+## Tiebreakers, approved once
+
+1. Where a contract is built, the text that matches the code is live.
+2. Otherwise the owner's newest dated ruling wins over older restatements.
+3. Otherwise the build spec wins over the direction. `fire_solid.md` beats `fire_model.md`, and `fire_model.md`
+   counts as superseding only where `fire_solid.md` is silent.
+4. Otherwise the stricter reading wins. No bar loosens.
+
+Where a later design supersedes by name, its text becomes the owner text, and the old copy becomes a link.
+
+## The open decisions
+
+- **Orphans.** World config's owner is `npcs_and_sem.md` §9 (row 25), and save v0's is `world_model.md` §8 (row 26).
+- **Decision tables.** They move verbatim to `docs/design/decisions/<doc>.md`. Plans keep their own lists.
+- **`reviews/npcs_v3/foldtable.py`.** It is retargeted to the moved fold table.
+
+## The ✗ rows
+
+| Row | Ruling | Ground |
+|---|---|---|
+| 2 | `kind_rank` 0/10/20/30, in the tile's order | owner's call; nothing reads the values yet |
+| 6, 7 | Split: `sem_stimuli.md` §6.2 owns the agent receipt `(pid, kind)`; tile §3.3 owns the wire `intent_result` outcomes `applied`, `refused`, `stale`, `cancelled`. OD-A16's credit kinds are rechecked against the split before the move | owner's call |
+| 8 | `kindle` derivation: tile §3.2 stays live until the flames design | 3 (flames are designed after R0–R1) |
+| 18 | Stage-1 caps live in `data/world/` | 1 (no `data/server/`) |
+| 22 | Refuse on mismatch for world inputs (boundaries §6.3); inference items recorded, never refused (inference_placement §4.3); boundaries states the exception | 2 |
+| 24 | Timing stays in integer microseconds; ticks derived only at apply (npcs §9) | owner's call |
+| 26 | Save v0 keeps F5: a newer build and a content change are refused; no in-flight thoughts, since agent state lives outside `Simulation` | owner's call |
+| 28 | Scene v0: **pending**, asked of #32's session, whose build decides | 1 |
+| 37 | The worker's `HOME`, `XDG_*` and `TMPDIR` are set under the agent home; npcs §6.6 reads "the host's `HOME` never passes through" | owner's call |
+| 41 | O16 is the live interim policy; npcs §6.6's floor thresholds fold into §4.4; O11a stays a record | 2 |
+| 43 | Model requests carry a deadline, not a priority. OD-A14's upstream ask is amended to match | 2 |
+| 45 | The roadmap's Phase 4 wording owns the guest gates; npcs §6.6 owns the character list | 2, 4 |
+| 49 | Five layers, as `pyproject.toml`: core < adapters < protocol < verify < game | 1 |
+| 50 | The window's owners as built: `World.advance`, the applier, scene construction, `imagination.place` | 1 |
+| 51 | `logging` is banned in the core (`pyproject.toml:116`) | 1 |
+| 55 | The experiment harness is Maxim-owned (npcs §10) | owner's call |
+| 59 | The Phase 1 exit is the torch-lit slab (roadmap, 2026-11-20) | 2 |
+| 60 | Both rules: the band's width is gated (world_model §3), and the operating point clears the band by a margin (tile §6.3); "replaces" is dropped | 4 |
+| 61 | No allowance, as `simcore/verify/agreement.py::agrees`; the tile's tol/4 is dropped | 1, 4 |
+| 63, 66, 71 | `fire_solid.md` where it speaks; otherwise the text stays, marked for the flames design | 3 |
+| 68 | Emission is `fire_model.md` §4.4's; the body side is `sem_stimuli.md` §2.3's; the tile's face-to-body exchange is stale | 3 |
+| 72 | The thin-feature rule holds for cell geometry; fuel objects are exempt | 3 |
+| 79 | `crack` keeps one meaning; the bed's second meaning is dropped | F1 |
+
+## Not decided
+
+- **CLAUDE.md's handshake line.** The author offered to make it a link only if the owner says so explicitly; that
+  has not happened, so CLAUDE.md is untouched.
+- **Row 28.** It waits on #32.
