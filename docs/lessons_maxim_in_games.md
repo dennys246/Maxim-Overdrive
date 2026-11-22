@@ -488,7 +488,8 @@ latency bound of seconds. The spike records the switch in `spikes/specgen/arms.y
 `_OpenAIBackend` returned empty content after 12.5 s: 512 of 512 tokens, stop reason `length`. Nothing in the backend
 can switch a template's thinking off, so a reasoning model behind a Maxim lane answers nothing (OD-I12, a question to
 its deferred self-hosted-servers plan). The first attempt found a second defect: without `allow_local_endpoints`, the
-backend blocks the loopback URL and falls back to the OpenAI client's default endpoint, so the test prompt went to
-api.openai.com (refused 401). A blocked local endpoint fails open to the cloud (OD-I11). For a local-first game (O58),
+backend blocks the loopback URL, and because its refusal checks the provider's name rather than its type, a provider
+keyed `local` of type `openai` falls back to the OpenAI client's default endpoint. The test prompt went to
+api.openai.com (refused 401). A blocked local endpoint can fail open to the cloud (OD-I11). For a local-first game (O58),
 any gateway built on Maxim's backends must refuse there, not fall back. Running Maxim found both; reading its plans
 found neither.

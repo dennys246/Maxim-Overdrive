@@ -156,6 +156,7 @@ prompts:
   text: a wooden sawhorse
   expect:
   - wood
+  template: legs
 - stratum: furniture
   id: f40
   text: a wooden sauna bench
@@ -173,6 +174,7 @@ prompts:
   text: a wooden market stall counter
   expect:
   - wood
+  template: sheets
 - stratum: furniture
   id: f43
   text: a wooden magazine rack
@@ -362,6 +364,7 @@ prompts:
   text: a low concrete wall around a small well sixty centimetres across
   expect:
   - concrete
+  template: sheets
 - stratum: barriers
   id: b39
   text: a steel truss segment two metres long
@@ -672,6 +675,7 @@ prompts:
   expect:
   - concrete
   - steel
+  template: post
 - stratum: mixed
   id: m32
   text: a wooden kiosk with a drywall inner wall
@@ -730,6 +734,7 @@ prompts:
   expect:
   - wood
   - steel
+  template: post
 - stratum: mixed
   id: m46
   text: a steel trolley with a wooden deck
@@ -794,6 +799,7 @@ prompts:
   expect:
   - wood
   breaks: extent
+  template: sheets
 - stratum: impossible
   id: i09
   text: a full-size steel shipping container
@@ -898,6 +904,7 @@ prompts:
   expect:
   - wood
   breaks: primitives
+  template: sheets
 - stratum: impossible
   id: i28
   text: a steel radiator with forty separate fins

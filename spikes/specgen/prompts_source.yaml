@@ -18,7 +18,7 @@ furniture:
   - {id: f01, text: "a wooden dining chair", expect: [wood], template: legs}
   - {id: f02, text: "a four-legged wooden kitchen table", expect: [wood], template: legs}
   - {id: f03, text: "a low wooden coffee table", expect: [wood], template: legs}
-  - {id: f04, text: "a wooden bookshelf with five shelves", expect: [wood]}
+  - {id: f04, text: "a wooden bookshelf with five shelves", expect: [wood], template: sheets}
   - {id: f05, text: "a single wooden bed frame", expect: [wood]}
   - {id: f06, text: "a wooden park bench with a backrest", expect: [wood], template: legs}
   - {id: f07, text: "a wooden desk with a drawer unit on one side", expect: [wood]}
@@ -39,7 +39,7 @@ furniture:
   - {id: f22, text: "a tall wooden bar stool with a footrest", expect: [wood], template: legs}
   - {id: f23, text: "a wooden lectern", expect: [wood], template: post}
   - {id: f24, text: "a wooden trestle table", expect: [wood]}
-  - {id: f25, text: "a wooden kitchen island with an overhanging top", expect: [wood]}
+  - {id: f25, text: "a wooden kitchen island with an overhanging top", expect: [wood], template: sheets}
   - {id: f26, text: "a wooden hope chest", expect: [wood], template: sheets}
   - {id: f27, text: "a wooden dresser with a tall frame on top", expect: [wood], template: sheets}
   - {id: f28, text: "a wooden folding screen with three panels", expect: [wood]}
@@ -51,12 +51,12 @@ furniture:
   - {id: f34, text: "a wooden door in its frame", expect: [wood]}
   - {id: f35, text: "a wooden toolbox with a handle", expect: [wood], template: sheets}
   - {id: f36, text: "a wooden wine rack", expect: [wood]}
-  - {id: f37, text: "a wooden plant stand with two tiers", expect: [wood]}
+  - {id: f37, text: "a wooden plant stand with two tiers", expect: [wood], template: legs}
   - {id: f38, text: "a wooden painter's easel", expect: [wood], hard: shape}
-  - {id: f39, text: "a wooden sawhorse", expect: [wood]}
+  - {id: f39, text: "a wooden sawhorse", expect: [wood], template: legs}
   - {id: f40, text: "a wooden sauna bench", expect: [wood], template: legs}
   - {id: f41, text: "a wooden church pew", expect: [wood], template: legs}
-  - {id: f42, text: "a wooden market stall counter", expect: [wood]}
+  - {id: f42, text: "a wooden market stall counter", expect: [wood], template: sheets}
   - {id: f43, text: "a wooden magazine rack", expect: [wood]}
   - {id: f44, text: "a wooden filing cabinet", expect: [wood], template: sheets}
   - {id: f45, text: "a wooden side table with a lower shelf", expect: [wood], template: legs}
@@ -104,7 +104,7 @@ barriers:
   - {id: b35, text: "a concrete garden edge two metres long", expect: [concrete], single_ok: true}
   - {id: b36, text: "a steel security grille for a window", expect: [steel]}
   - {id: b37, text: "a steel hitching rail", expect: [steel]}
-  - {id: b38, text: "a low concrete wall around a small well sixty centimetres across", expect: [concrete]}
+  - {id: b38, text: "a low concrete wall around a small well sixty centimetres across", expect: [concrete], template: sheets}
   - {id: b39, text: "a steel truss segment two metres long", expect: [steel], hard: shape}
   - {id: b40, text: "a thin concrete retaining wall section one metre long and fifty centimetres high", expect: [concrete], single_ok: true}
 
@@ -171,7 +171,7 @@ mixed:
   - {id: m28, text: "a drywall enclosure on a steel frame", expect: [drywall, steel], template: sheets}
   - {id: m29, text: "a steel-framed wooden lounge chair", expect: [steel, wood]}
   - {id: m30, text: "a wooden flower box on steel brackets", expect: [wood, steel], template: sheets}
-  - {id: m31, text: "a concrete post holding a steel fence panel", expect: [concrete, steel]}
+  - {id: m31, text: "a concrete post holding a steel fence panel", expect: [concrete, steel], template: post}
   - {id: m32, text: "a wooden kiosk with a drywall inner wall", expect: [wood, drywall], template: sheets}
   - {id: m33, text: "a gym bench with a steel frame and a wooden seat", expect: [steel, wood], template: legs}
   - {id: m34, text: "a small steel safe on a wooden stand", expect: [steel, wood], template: stand}
@@ -185,7 +185,7 @@ mixed:
   - {id: m42, text: "a wooden loft ladder with steel hooks", expect: [wood, steel]}
   - {id: m43, text: "a wooden cabinet with steel hinges and handles", expect: [wood, steel], template: sheets}
   - {id: m44, text: "a concrete fire pit with a steel rim", expect: [concrete, steel]}
-  - {id: m45, text: "a wooden dock post with a steel cleat", expect: [wood, steel]}
+  - {id: m45, text: "a wooden dock post with a steel cleat", expect: [wood, steel], template: post}
   - {id: m46, text: "a steel trolley with a wooden deck", expect: [steel, wood]}
   - {id: m47, text: "a wooden doorframe clad in drywall", expect: [drywall, wood]}
   - {id: m48, text: "a coat stand with a concrete base and a steel pole", expect: [concrete, steel], template: post}
@@ -202,7 +202,7 @@ impossible:
   - {id: i05, text: "a wooden footbridge spanning five metres", expect: [wood], breaks: extent}
   - {id: i06, text: "a steel radio mast four metres tall", expect: [steel], breaks: extent}
   - {id: i07, text: "a glass storefront five metres wide", expect: [glass], breaks: extent}
-  - {id: i08, text: "a wooden bookshelf wall four metres wide", expect: [wood], breaks: extent}
+  - {id: i08, text: "a wooden bookshelf wall four metres wide", expect: [wood], breaks: extent, template: sheets}
   - {id: i09, text: "a full-size steel shipping container", expect: [steel], breaks: extent, template: sheets}
   - {id: i10, text: "a wooden canoe five metres long", expect: [wood], breaks: extent, hard: shape}
   - {id: i11, text: "a steel vault door weighing two tonnes", expect: [steel], breaks: mass}
@@ -221,7 +221,7 @@ impossible:
   - {id: i24, text: "a chess table with all sixty-four squares as separate wooden blocks", expect: [wood], breaks: primitives, template: legs}
   - {id: i25, text: "a steel grate of forty separate crossing bars", expect: [steel], breaks: primitives}
   - {id: i26, text: "a wooden abacus with fifty separate beads", expect: [wood], breaks: primitives}
-  - {id: i27, text: "a wooden bookshelf holding forty separate books", expect: [wood], breaks: primitives}
+  - {id: i27, text: "a wooden bookshelf holding forty separate books", expect: [wood], breaks: primitives, template: sheets}
   - {id: i28, text: "a steel radiator with forty separate fins", expect: [steel], breaks: primitives}
   - {id: i29, text: "a wooden picket fence two and a half metres long with forty separate pickets", expect: [wood], breaks: primitives}
   - {id: i30, text: "a drywall room divider of forty separate tiles", expect: [drywall], breaks: primitives}

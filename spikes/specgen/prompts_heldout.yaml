@@ -21,6 +21,7 @@ prompts:
   text: a wooden bookshelf with five shelves
   expect:
   - wood
+  template: sheets
 - stratum: furniture
   id: f05
   text: a single wooden bed frame
@@ -51,6 +52,7 @@ prompts:
   text: a wooden kitchen island with an overhanging top
   expect:
   - wood
+  template: sheets
 - stratum: furniture
   id: f27
   text: a wooden dresser with a tall frame on top
@@ -68,6 +70,7 @@ prompts:
   text: a wooden plant stand with two tiers
   expect:
   - wood
+  template: legs
 - stratum: furniture
   id: f48
   text: a wooden umbrella stand
