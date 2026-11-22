@@ -218,6 +218,11 @@ fails.
 - **Deferred** (owner, 2026-11-21, `reviews/sim_core/fold.md`): preallocated temporaries and the memory budget
   (`world_v2.md` row 3), to B5's memory item, before step 9 (Perf P7).
 
+- **Deferred from PR 1's review (`reviews/sim_shell/fold.md`), each to the PR that owns it:**
+  - PR 2: rewrite CLAUDE.md's "only `World.advance` moves time" and "Time comes from `World.advance`" for `Simulation`.
+  - PR 3: a tick an exception interrupts leaves no half-applied state, once the write window moves into the step.
+  - PR 4: `(actor_id, seq)` unique across ticks, a receipt id on each outcome, and a validated `TickBatch` built by the
+    log reader.
 ## Step 5b, bodies and movement (`tile_and_client.md` §2, §3, §4.1)
 
 - From step 3b part (b)'s review (Determinism N7): a spawn maps to a cell in integers (`at_mm * 1000 // dx_um`), with
@@ -341,6 +346,10 @@ It needs step 7: the host's stage 1 for worker speech calls `engine.text.player_
   worker sends intents as wire data; stage 1 parses them host-side (N-S2).
 - Versions and gate rows: binding table, `BoundFrame`, receipt, `welcome`, `step_output` (W13); replay refuses an
   unknown format version by name, planted by bumping the receipt version (W11).
+- A `BoundFrame` push is never logged (`sem_stimuli.md` §4.2): a rerun that re-derives every frame from the world and
+  the `join` bindings reproduces each per-tick digest, and a frame built from one perturbed input turns a digest red.
+- A stale intent gets no credit (`sem_stimuli.md` §6.2): its settle books nothing, while its receipt still reads
+  `accepted`.
 - Receipts: `pid` per NPC (W14); kinds per D15, decided by stage 1, every stage-2 result `accepted`; one `Receipt` in
   `stimuli.wire`, mapped from `intents`' refusal codes by layer 6 (N-S1); delivery concatenates undelivered ticks,
   planted at divisor 10 by delivering only the current tick's (W10, C1); T11 sweeps every target-dependent refusal the

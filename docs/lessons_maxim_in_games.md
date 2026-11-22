@@ -77,7 +77,9 @@ affordances are things done to it.** *Evidence:* `actor(entity="crate", affordan
 
 **If deliberation latency makes an action stale, refusing it teaches the agent that the tool is bad, scaled by the
 game's speed.** *Evidence:* the bio-faithful reviews of the real-time design. *Consequence:* stale refusals go to the
-next thought's context; a Maxim change is needed for the failure path to respect that.
+next thought's context; a Maxim change is needed for the failure path to respect that. *Update (2026-11-22):* v1's
+receipt never says `stale`, and the host withholds a stale intent's credit (`sem_stimuli.md` §6.2), so nothing reaches
+Maxim's failure path; the Maxim change waits for `stale` to return as a receipt kind.
 
 ### 10. Names are identities, so match Maxim's own name rule (2026-11-16)
 

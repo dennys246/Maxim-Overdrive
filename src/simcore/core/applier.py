@@ -77,7 +77,7 @@ class Applier:
         except ActionRefused as exc:
             return _refused(affordance, params, exc)
         # TEMPORARY(phase1/sim-clock): the applier opens the world's write window itself, synchronously, until
-        # Simulation.step exists (boundaries §4.1, 2c); there the step owns the window and applies intents in order.
+        # Simulation.step owns the window (boundaries §4.1, 2c; sim_core.md §12): step 5a's PR 4 moves it there.
         if isinstance(action, Strike):
             return self._strike(region, action, params)
         if isinstance(action, Ignite):

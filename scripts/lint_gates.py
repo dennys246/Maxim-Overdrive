@@ -47,6 +47,7 @@ _SEM = "tests/test_sem_bridge.py"
 _CON = "tests/test_constructors.py"
 _EXT = "tests/test_extremes.py"
 _FMT = "tests/test_formats.py"
+_SIM = "tests/test_simulation.py"
 # §5.4 asks anything agent-facing (errors, receipts) to answer in a closed code vocabulary. Since step 3b part (b) every
 # refusal these gates give carries a code (simcore.core.refusals, WT-S1), and the membrane answers an agent with the
 # code alone (step 3b review, Trust S3).
@@ -107,6 +108,9 @@ GATES: dict[str, Gate] = {
     "src/simcore/core/intents.py::Ignite.check": Gate(_V, _ACT, "meets"),
     "src/simcore/core/intents.py::Extinguish": Gate(_V, _ACT, "no input"),
     "src/simcore/core/intents.py::Extinguish.check": Gate(_V, _ACT, "no input"),
+    "src/simcore/core/intents.py::LogRecord": Gate(_V, _SIM, "meets"),
+    "src/simcore/core/intents.py::LogRecord.key": Gate(_V, _SIM, "no input"),
+    "src/simcore/core/intents.py::LogRecord.kind_rank": Gate(_V, _SIM, "no input"),
     # stage 2: the world checks, which the host's step will call directly from phase1/agents
     "src/simcore/core/applier.py::Applier.apply": Gate("authorization", _CON, "meets"),
     # imagined objects: spec constructors, budgets before allocation, then the world's rules

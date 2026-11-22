@@ -121,7 +121,7 @@ a nit; OD-I6, OD-I7, OD-I8 new.
 | O18 | Guest sessions use a local model by default; remote needs the guest's informed consent |
 | O19 | The agent half frozen at v3.1; its findings become red-first tests (§2) |
 | O20 | The LLM spike is allowed, without Maxim |
-| O26 | A purge leaves redaction records; replay exact to the first redacted reply |
+| O26 | A purge leaves redaction records; a rerun exact to the first redacted reply |
 | O27 | Co-op listeners perceive lateness (a known gap) |
 | O28 | Co-op in Phase 5 or later; no more co-op rounds |
 | O29 | A minimal tier-A subset, a 1.4.0 date range, a second candidates round |

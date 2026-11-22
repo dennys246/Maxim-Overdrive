@@ -186,7 +186,8 @@ class BoundFrame:
   constructor-site scan holds "only `core.stimuli` builds one".
 - **Ids** come from sorted names, in the header. The worker checks `npc_key` against its channel's actor and that
   `tick` rises, then drops `tick` (D4).
-- **Per tick, independent of delivery:** `BodyFrame`, the bound values and their digests (§5). A `BoundFrame` message
+- **Per tick, independent of delivery:** `BodyFrame`, the bound values and their digests (§5); a push is never
+  logged. A `BoundFrame` message
   concatenates the undelivered ticks' events and receipts and adds no loss, so its content is the same at every
   divisor (toy, **D**); the only loss is §4.3's per-tick coalescing, which the events lane digests.
 - **`StimulusEvent`** is `(tick, offset_us, kind, site_id, local_id, value, caused_by)`, sorted by `(tick, offset_us,
@@ -319,7 +320,8 @@ bounds by bisection. Superseding `npcs_and_sem.md` §6.6's "measured effect":
 - **v1 kinds are target-independent (D15), decided by stage 1 alone:** `malformed`, `limit`; any stage-2 result is
   `accepted`. Whether the target existed, was in reach or was hit is logged host-side only; the effect arrives as
   stimuli. With no vision or touch row, `applied` against `unavailable` would be an existence and footprint oracle.
-  Target-dependent kinds return, as a receipt version bump, when a row defines "perceived".
+  Target-dependent kinds return, as a receipt version bump, when a row defines "perceived". A stale intent gets
+  no credit, withheld host-side.
 - **Gates:** T4, T5, T11 over receipt bytes and the `execute` return, T11 sweeping every target-dependent refusal the
   applier returns (existence, air, gone, footprint, burning state), per affordance; T12's sentinel in `absorbed_j`.
 
@@ -502,8 +504,7 @@ This document's decisions (20 rulings) are kept as records, with their dates, ow
 
 - **Q1.** The `skin` point count. **Q3.** Face skins (S4). **Q4.** Bodies shading each other: a Known gap when
   irradiance lands. **Q5.** Ventilation's owner. **Q6.** Skin feedforward (L1 §9.1). **Q7.** Whether the embedded
-  build opens the Maxim session in build or at first step (§4.4 assumes it opens before `agent_ready`). **Q8.** Whether a
-  `BoundFrame` push needs a log record (docs-contracts round 1 ruling 3).
+  build opens the Maxim session in build or at first step (§4.4 assumes it opens before `agent_ready`).
 
 ### 11.3 Risks, said plainly
 

@@ -58,7 +58,7 @@ This document's decisions (18 rulings) are kept as records, with their dates, ow
 - **Scene v1 = a strict loader (F13) plus a required `spawns` list** (WT-S8), in step 3b: zones, vents and gaps
   refused by path; grid alignment checked in integers (0.6 / 0.2 is 2.9999999999999996 in floats), every extent a
   whole number of 0.2 m cells, judged in whole micrometres, so a scene builds at every verification grid or none.
-  Zones become v2 in Phase 2. v0 is refused by version, never migrated, since scenes are repo-only (step 3b); `join`
+  Zones join later, in Phase 2. v0 is refused by version, never migrated, since scenes are repo-only (step 3b); `join`
   with no spawn for its archetype is refused.
 - **The format checks syntax and extent only;** clearance is checked at construction and `join` (AR-S9); spawns
   convert to integer mm by F13's rule. Spawn names are unique under Maxim's name rule, never a region's name nor one
@@ -375,7 +375,7 @@ server reports the tick before its apply tick. Each run produces a log, and the 
 
 | Tick | Input | Assert |
 |---|---|---|
-| 0 | `join` (host) | actor 1 at (600, 2000, 400) mm, holding `torch` |
+| 1 | `join` (host) | actor 1 at (600, 2000, 400) mm, holding `torch` |
 | 10 | `move {dir: [1000, 0]}` | 140 mm per tick |
 | 42 | `move {dir: null}` | `pos_mm` == (5080, 2000, 400) |
 | 50 | `move_to {target_mm: [5500, 2925]}` | one segment, 1,015.9 mm; `pos_mm` == (5500, 2925, 400) at tick 57 |
