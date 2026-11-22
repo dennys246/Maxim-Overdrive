@@ -1,0 +1,920 @@
+# The spec generator spike's development split (plan §4), dealt by split.py from prompts_source.yaml with
+# numpy.random.default_rng(0), numpy 2.5.5, PyYAML 6.0.3.
+# Generated: edit the source and rerun, never this file.
+version: 0
+split: development
+prompts:
+- stratum: furniture
+  id: f01
+  text: a wooden dining chair
+  expect:
+  - wood
+  template: legs
+- stratum: furniture
+  id: f06
+  text: a wooden park bench with a backrest
+  expect:
+  - wood
+  template: legs
+- stratum: furniture
+  id: f07
+  text: a wooden desk with a drawer unit on one side
+  expect:
+  - wood
+- stratum: furniture
+  id: f08
+  text: a wooden wardrobe with two doors
+  expect:
+  - wood
+  template: sheets
+- stratum: furniture
+  id: f09
+  text: a wooden chest of drawers
+  expect:
+  - wood
+  template: sheets
+- stratum: furniture
+  id: f10
+  text: a wooden nightstand
+  expect:
+  - wood
+  template: legs
+- stratum: furniture
+  id: f11
+  text: a wooden rocking chair
+  expect:
+  - wood
+  hard: shape
+- stratum: furniture
+  id: f13
+  text: a wooden crate for shipping fruit
+  expect:
+  - wood
+  template: sheets
+- stratum: furniture
+  id: f14
+  text: a wooden shipping pallet
+  expect:
+  - wood
+- stratum: furniture
+  id: f15
+  text: a wooden picnic table with attached benches
+  expect:
+  - wood
+  template: legs
+- stratum: furniture
+  id: f16
+  text: a heavy wooden workbench
+  expect:
+  - wood
+  template: legs
+- stratum: furniture
+  id: f17
+  text: a standing wooden coat rack
+  expect:
+  - wood
+  template: post
+- stratum: furniture
+  id: f18
+  text: a wooden TV stand
+  expect:
+  - wood
+- stratum: furniture
+  id: f20
+  text: a wooden baby crib
+  expect:
+  - wood
+- stratum: furniture
+  id: f22
+  text: a tall wooden bar stool with a footrest
+  expect:
+  - wood
+  template: legs
+- stratum: furniture
+  id: f23
+  text: a wooden lectern
+  expect:
+  - wood
+  template: post
+- stratum: furniture
+  id: f26
+  text: a wooden hope chest
+  expect:
+  - wood
+  template: sheets
+- stratum: furniture
+  id: f28
+  text: a wooden folding screen with three panels
+  expect:
+  - wood
+- stratum: furniture
+  id: f29
+  text: a wooden garden planter box
+  expect:
+  - wood
+  template: sheets
+- stratum: furniture
+  id: f30
+  text: a wooden doghouse
+  expect:
+  - wood
+  template: sheets
+- stratum: furniture
+  id: f31
+  text: a wooden bird feeder on a post
+  expect:
+  - wood
+  template: post
+- stratum: furniture
+  id: f32
+  text: a wooden fence section with three posts
+  expect:
+  - wood
+- stratum: furniture
+  id: f33
+  text: a wooden garden gate
+  expect:
+  - wood
+- stratum: furniture
+  id: f34
+  text: a wooden door in its frame
+  expect:
+  - wood
+- stratum: furniture
+  id: f36
+  text: a wooden wine rack
+  expect:
+  - wood
+- stratum: furniture
+  id: f38
+  text: a wooden painter's easel
+  expect:
+  - wood
+  hard: shape
+- stratum: furniture
+  id: f39
+  text: a wooden sawhorse
+  expect:
+  - wood
+  template: legs
+- stratum: furniture
+  id: f40
+  text: a wooden sauna bench
+  expect:
+  - wood
+  template: legs
+- stratum: furniture
+  id: f41
+  text: a wooden church pew
+  expect:
+  - wood
+  template: legs
+- stratum: furniture
+  id: f42
+  text: a wooden market stall counter
+  expect:
+  - wood
+  template: sheets
+- stratum: furniture
+  id: f43
+  text: a wooden magazine rack
+  expect:
+  - wood
+- stratum: furniture
+  id: f44
+  text: a wooden filing cabinet
+  expect:
+  - wood
+  template: sheets
+- stratum: furniture
+  id: f45
+  text: a wooden side table with a lower shelf
+  expect:
+  - wood
+  template: legs
+- stratum: furniture
+  id: f46
+  text: a wooden corner shelf
+  expect:
+  - wood
+- stratum: furniture
+  id: f47
+  text: a wooden high chair for a child
+  expect:
+  - wood
+  template: legs
+- stratum: furniture
+  id: f49
+  text: a wooden porch swing frame with its seat
+  expect:
+  - wood
+- stratum: furniture
+  id: f50
+  text: a free-standing wooden ladder shelf
+  expect:
+  - wood
+- stratum: barriers
+  id: b01
+  text: a short concrete bollard
+  expect:
+  - concrete
+  single_ok: true
+- stratum: barriers
+  id: b03
+  text: two steel bollards joined by a steel bar
+  expect:
+  - steel
+- stratum: barriers
+  id: b04
+  text: a concrete curb section one metre long
+  expect:
+  - concrete
+  single_ok: true
+- stratum: barriers
+  id: b05
+  text: a steel crowd-control barrier
+  expect:
+  - steel
+- stratum: barriers
+  id: b07
+  text: a concrete step one metre wide
+  expect:
+  - concrete
+  single_ok: true
+- stratum: barriers
+  id: b09
+  text: a concrete parking stop
+  expect:
+  - concrete
+  single_ok: true
+- stratum: barriers
+  id: b10
+  text: a steel trench plate one metre square
+  expect:
+  - steel
+  single_ok: true
+- stratum: barriers
+  id: b11
+  text: a concrete column stub half a metre tall
+  expect:
+  - concrete
+  single_ok: true
+- stratum: barriers
+  id: b12
+  text: a steel I-beam two metres long
+  expect:
+  - steel
+- stratum: barriers
+  id: b13
+  text: a steel shipping container door
+  expect:
+  - steel
+- stratum: barriers
+  id: b15
+  text: a concrete slab bench
+  expect:
+  - concrete
+- stratum: barriers
+  id: b16
+  text: a hollow concrete planter half a metre on each side
+  expect:
+  - concrete
+  template: sheets
+- stratum: barriers
+  id: b17
+  text: a steel manhole cover in its frame
+  expect:
+  - steel
+- stratum: barriers
+  id: b18
+  text: a steel railing with balusters two metres long
+  expect:
+  - steel
+- stratum: barriers
+  id: b19
+  text: a concrete base for a street sign
+  expect:
+  - concrete
+  single_ok: true
+- stratum: barriers
+  id: b20
+  text: a steel sign post with a sign plate
+  expect:
+  - steel
+  template: post
+- stratum: barriers
+  id: b22
+  text: a steel cage around a generator
+  expect:
+  - steel
+- stratum: barriers
+  id: b24
+  text: a steel stair with three steps
+  expect:
+  - steel
+- stratum: barriers
+  id: b27
+  text: a wall of solid concrete blocks one metre wide, one metre tall and fifteen centimetres thick
+  expect:
+  - concrete
+- stratum: barriers
+  id: b29
+  text: a short steel street light pole
+  expect:
+  - steel
+- stratum: barriers
+  id: b30
+  text: a concrete enclosure for one small trash can
+  expect:
+  - concrete
+  template: sheets
+- stratum: barriers
+  id: b31
+  text: a steel scaffold section
+  expect:
+  - steel
+- stratum: barriers
+  id: b32
+  text: a steel turnstile
+  expect:
+  - steel
+- stratum: barriers
+  id: b34
+  text: a steel pipe barrier
+  expect:
+  - steel
+- stratum: barriers
+  id: b35
+  text: a concrete garden edge two metres long
+  expect:
+  - concrete
+  single_ok: true
+- stratum: barriers
+  id: b36
+  text: a steel security grille for a window
+  expect:
+  - steel
+- stratum: barriers
+  id: b37
+  text: a steel hitching rail
+  expect:
+  - steel
+- stratum: barriers
+  id: b38
+  text: a low concrete wall around a small well sixty centimetres across
+  expect:
+  - concrete
+  template: sheets
+- stratum: barriers
+  id: b39
+  text: a steel truss segment two metres long
+  expect:
+  - steel
+  hard: shape
+- stratum: barriers
+  id: b40
+  text: a thin concrete retaining wall section one metre long and fifty centimetres high
+  expect:
+  - concrete
+  single_ok: true
+- stratum: glass
+  id: g01
+  text: a glass coffee table with steel legs
+  expect:
+  - glass
+  - steel
+  template: legs
+- stratum: glass
+  id: g02
+  text: a window in a wooden frame
+  expect:
+  - glass
+  - wood
+- stratum: glass
+  id: g03
+  text: a display cabinet with glass doors and wooden shelves
+  expect:
+  - glass
+  - wood
+  template: sheets
+- stratum: glass
+  id: g04
+  text: a glass shower enclosure with a steel frame
+  expect:
+  - glass
+  - steel
+  template: sheets
+- stratum: glass
+  id: g05
+  text: a small balcony greenhouse with glass panels
+  expect:
+  - glass
+  template: sheets
+- stratum: glass
+  id: g06
+  text: a glass door with a steel handle
+  expect:
+  - glass
+  - steel
+- stratum: glass
+  id: g07
+  text: a small bus shelter with one glass wall and a steel frame
+  expect:
+  - glass
+  - steel
+- stratum: glass
+  id: g08
+  text: a glass office partition two metres wide
+  expect:
+  - glass
+  single_ok: true
+- stratum: glass
+  id: g09
+  text: a glass shelf on steel brackets
+  expect:
+  - glass
+  - steel
+- stratum: glass
+  id: g12
+  text: a shop counter with a glass top
+  expect:
+  - glass
+  template: sheets
+- stratum: glass
+  id: g13
+  text: a skylight frame with its glass
+  expect:
+  - glass
+- stratum: glass
+  id: g14
+  text: a glass-topped dining table with wooden legs
+  expect:
+  - glass
+  - wood
+  template: legs
+- stratum: glass
+  id: g15
+  text: a glass panel standing on a wooden easel
+  expect:
+  - glass
+  - wood
+- stratum: glass
+  id: g16
+  text: a glass lantern with a steel frame
+  expect:
+  - glass
+  - steel
+  template: sheets
+- stratum: glass
+  id: g17
+  text: a ticket booth with a glass window
+  expect:
+  - glass
+  template: sheets
+- stratum: glass
+  id: g19
+  text: a steel drinks fridge with a glass door
+  expect:
+  - glass
+  - steel
+  template: sheets
+- stratum: glass
+  id: g20
+  text: a small elevator car with glass walls and a steel floor
+  expect:
+  - glass
+  - steel
+  template: sheets
+- stratum: glass
+  id: g21
+  text: a glass notice case on a steel post
+  expect:
+  - glass
+  - steel
+  template: post
+- stratum: glass
+  id: g23
+  text: a glass cloche on a wooden board
+  expect:
+  - glass
+  - wood
+  hard: shape
+- stratum: glass
+  id: g24
+  text: a wooden front door with glass panels
+  expect:
+  - glass
+  - wood
+- stratum: glass
+  id: g25
+  text: a glass fire screen in a steel frame
+  expect:
+  - glass
+  - steel
+- stratum: glass
+  id: g30
+  text: a glass jewellery counter
+  expect:
+  - glass
+  template: sheets
+- stratum: mixed
+  id: m01
+  text: a wooden table on a steel frame
+  expect:
+  - wood
+  - steel
+  template: legs
+- stratum: mixed
+  id: m03
+  text: a chair with a steel base and a wooden seat
+  expect:
+  - steel
+  - wood
+  template: legs
+- stratum: mixed
+  id: m04
+  text: a workbench with a steel frame and a wooden top
+  expect:
+  - steel
+  - wood
+  template: legs
+- stratum: mixed
+  id: m05
+  text: a drywall partition on a wooden stud frame
+  expect:
+  - drywall
+  - wood
+- stratum: mixed
+  id: m09
+  text: a street vendor's cart with a steel body and a wooden counter
+  expect:
+  - steel
+  - wood
+  hard: shape
+- stratum: mixed
+  id: m10
+  text: a wooden crate with steel corner brackets
+  expect:
+  - wood
+  - steel
+  template: sheets
+- stratum: mixed
+  id: m11
+  text: a picnic table with steel legs and a wooden top
+  expect:
+  - steel
+  - wood
+  template: legs
+- stratum: mixed
+  id: m12
+  text: a shed wall section with a wooden frame and drywall inside
+  expect:
+  - wood
+  - drywall
+- stratum: mixed
+  id: m13
+  text: a kitchen counter with a concrete top on wooden cabinets
+  expect:
+  - concrete
+  - wood
+  template: sheets
+- stratum: mixed
+  id: m14
+  text: a wooden bar counter with a steel foot rail
+  expect:
+  - wood
+  - steel
+  template: sheets
+- stratum: mixed
+  id: m15
+  text: a ladder with steel rails and wooden rungs
+  expect:
+  - steel
+  - wood
+- stratum: mixed
+  id: m17
+  text: a concrete planter with a wooden bench around it
+  expect:
+  - concrete
+  - wood
+- stratum: mixed
+  id: m19
+  text: a steel bollard with a wooden cap
+  expect:
+  - steel
+  - wood
+- stratum: mixed
+  id: m20
+  text: a wooden pergola on concrete footings
+  expect:
+  - wood
+  - concrete
+- stratum: mixed
+  id: m21
+  text: a market stall with a wooden frame and a steel roof sheet
+  expect:
+  - wood
+  - steel
+- stratum: mixed
+  id: m22
+  text: a steel mailbox on a wooden post
+  expect:
+  - steel
+  - wood
+  template: post
+- stratum: mixed
+  id: m23
+  text: a steel wheelbarrow with wooden handles
+  expect:
+  - steel
+  - wood
+  hard: shape
+- stratum: mixed
+  id: m24
+  text: a wooden sign on a concrete base
+  expect:
+  - wood
+  - concrete
+  template: post
+- stratum: mixed
+  id: m25
+  text: a steel tool chest on a wooden pallet
+  expect:
+  - steel
+  - wood
+  template: stand
+- stratum: mixed
+  id: m27
+  text: two concrete steps with a steel handrail
+  expect:
+  - concrete
+  - steel
+- stratum: mixed
+  id: m28
+  text: a drywall enclosure on a steel frame
+  expect:
+  - drywall
+  - steel
+  template: sheets
+- stratum: mixed
+  id: m29
+  text: a steel-framed wooden lounge chair
+  expect:
+  - steel
+  - wood
+- stratum: mixed
+  id: m30
+  text: a wooden flower box on steel brackets
+  expect:
+  - wood
+  - steel
+  template: sheets
+- stratum: mixed
+  id: m31
+  text: a concrete post holding a steel fence panel
+  expect:
+  - concrete
+  - steel
+  template: post
+- stratum: mixed
+  id: m32
+  text: a wooden kiosk with a drywall inner wall
+  expect:
+  - wood
+  - drywall
+  template: sheets
+- stratum: mixed
+  id: m36
+  text: a wooden sentry box with a steel roof
+  expect:
+  - wood
+  - steel
+  template: sheets
+- stratum: mixed
+  id: m37
+  text: a drywall column wrapped around a steel post
+  expect:
+  - drywall
+  - steel
+- stratum: mixed
+  id: m38
+  text: a reception desk with a wooden front and a concrete counter
+  expect:
+  - wood
+  - concrete
+  template: sheets
+- stratum: mixed
+  id: m40
+  text: a wooden shelf bracketed to a concrete block
+  expect:
+  - wood
+  - concrete
+- stratum: mixed
+  id: m41
+  text: a steel grill on a concrete base
+  expect:
+  - steel
+  - concrete
+  template: post
+- stratum: mixed
+  id: m42
+  text: a wooden loft ladder with steel hooks
+  expect:
+  - wood
+  - steel
+- stratum: mixed
+  id: m43
+  text: a wooden cabinet with steel hinges and handles
+  expect:
+  - wood
+  - steel
+  template: sheets
+- stratum: mixed
+  id: m45
+  text: a wooden dock post with a steel cleat
+  expect:
+  - wood
+  - steel
+  template: post
+- stratum: mixed
+  id: m46
+  text: a steel trolley with a wooden deck
+  expect:
+  - steel
+  - wood
+- stratum: mixed
+  id: m47
+  text: a wooden doorframe clad in drywall
+  expect:
+  - drywall
+  - wood
+- stratum: mixed
+  id: m48
+  text: a coat stand with a concrete base and a steel pole
+  expect:
+  - concrete
+  - steel
+  template: post
+- stratum: mixed
+  id: m49
+  text: a wooden bench against a low concrete wall
+  expect:
+  - wood
+  - concrete
+- stratum: mixed
+  id: m50
+  text: a steel log rack with a wooden base
+  expect:
+  - steel
+  - wood
+- stratum: impossible
+  id: i02
+  text: a steel flagpole five metres tall
+  expect:
+  - steel
+  breaks: extent
+  single_ok: true
+- stratum: impossible
+  id: i03
+  text: a straight wooden dining table that seats twenty along its two long sides
+  expect:
+  - wood
+  breaks: extent
+  template: legs
+- stratum: impossible
+  id: i04
+  text: a concrete wall four metres wide
+  expect:
+  - concrete
+  breaks: extent
+  single_ok: true
+- stratum: impossible
+  id: i07
+  text: a glass storefront five metres wide
+  expect:
+  - glass
+  breaks: extent
+- stratum: impossible
+  id: i08
+  text: a wooden bookshelf wall four metres wide
+  expect:
+  - wood
+  breaks: extent
+  template: sheets
+- stratum: impossible
+  id: i09
+  text: a full-size steel shipping container
+  expect:
+  - steel
+  breaks: extent
+  template: sheets
+- stratum: impossible
+  id: i10
+  text: a wooden canoe five metres long
+  expect:
+  - wood
+  breaks: extent
+  hard: shape
+- stratum: impossible
+  id: i11
+  text: a steel vault door weighing two tonnes
+  expect:
+  - steel
+  breaks: mass
+- stratum: impossible
+  id: i12
+  text: a solid concrete cube one metre on each side
+  expect:
+  - concrete
+  breaks: mass
+  single_ok: true
+- stratum: impossible
+  id: i13
+  text: a solid steel anvil block half a metre on each side
+  expect:
+  - steel
+  breaks: mass
+  single_ok: true
+- stratum: impossible
+  id: i14
+  text: a solid concrete road barrier three metres long, eighty centimetres tall and sixty wide at the base
+  expect:
+  - concrete
+  breaks: mass
+- stratum: impossible
+  id: i15
+  text: a solid wooden log one metre thick and three metres long
+  expect:
+  - wood
+  breaks: mass
+  single_ok: true
+- stratum: impossible
+  id: i18
+  text: a stack of ten steel plates each one metre square and two centimetres thick
+  expect:
+  - steel
+  breaks: mass
+- stratum: impossible
+  id: i19
+  text: a solid glass block one metre on each side
+  expect:
+  - glass
+  breaks: mass
+  single_ok: true
+- stratum: impossible
+  id: i20
+  text: a solid steel column three metres tall and thirty centimetres across
+  expect:
+  - steel
+  breaks: mass
+  single_ok: true
+- stratum: impossible
+  id: i21
+  text: a wooden xylophone with forty separate bars
+  expect:
+  - wood
+  breaks: primitives
+- stratum: impossible
+  id: i22
+  text: a steel fence panel two metres wide with fifty separate vertical bars
+  expect:
+  - steel
+  breaks: primitives
+- stratum: impossible
+  id: i23
+  text: a wooden lattice screen of forty separate slats
+  expect:
+  - wood
+  breaks: primitives
+- stratum: impossible
+  id: i24
+  text: a chess table with all sixty-four squares as separate wooden blocks
+  expect:
+  - wood
+  breaks: primitives
+  template: legs
+- stratum: impossible
+  id: i25
+  text: a steel grate of forty separate crossing bars
+  expect:
+  - steel
+  breaks: primitives
+- stratum: impossible
+  id: i27
+  text: a wooden bookshelf holding forty separate books
+  expect:
+  - wood
+  breaks: primitives
+  template: sheets
+- stratum: impossible
+  id: i28
+  text: a steel radiator with forty separate fins
+  expect:
+  - steel
+  breaks: primitives
+- stratum: impossible
+  id: i30
+  text: a drywall room divider of forty separate tiles
+  expect:
+  - drywall
+  breaks: primitives
