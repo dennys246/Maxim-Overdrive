@@ -277,10 +277,11 @@ The join cap counts the tables at the limits (`client_rendering.md` §4.3), whic
 
 ### 5.4 What the player sees that no NPC senses
 
-The player sees three cues that no stimulus row carries:
+The player sees four cues that no stimulus row carries:
 - burning brightness from the solid model's ignition latch;
 - char darkening from a residue fraction;
-- the Phase 1 flame, drawn from `ignited_fraction`.
+- the Phase 1 flame, drawn from `ignited_fraction`;
+- the torch's flame (`torch_pilot.md` §8).
 
 An NPC's future sight row is radiance from surface temperatures only (`sem_stimuli.md` §2.2). So a cold charred
 stick, or a just-ignited one, looks the same to an NPC as unburnt wood at that temperature. These are named
@@ -365,9 +366,8 @@ and decides more. B7 measured c = 0.25–0.96 drawing the same grooves on rig wa
 ### 7.3 Scenario goldens
 
 G1–G5's names stay. Their beats (tile §6.3: `t_crack`, `t_glow`, `t_gone`) are written for the Phase 2 crate. They
-read bed cells and an envelope skin that the slab exit doesn't have. The beats must be restated for the torch-lit
-slab, on logged server state and never on pixels, before step 8 builds its goldens. Their owner is tile §6 (D-S2),
-whose trigger, "before 6.4", no longer fires in Phase 1 (owner ruling 4).
+read bed cells and an envelope skin that the slab exit doesn't have. For the torch-lit
+slab the beats are `torch_pilot.md` §9's, on logged server state, and step 8 maps G1–G5 onto them.
 
 ### 7.4 Budgets (`client_rendering.md` §8)
 

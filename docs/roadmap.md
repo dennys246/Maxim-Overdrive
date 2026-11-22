@@ -11,7 +11,7 @@ The world server v0: material cells authored in metres, heat conduction, damage,
 environment regions, imagination specs, and render snapshots (`docs/architecture.md`).
 
 - **Exit (met):** 42 tests pass at the laptop, rig and max profiles. Heat converges at second order against the closed
-  form, and crater volume is within 5% of its closed form. Breach and fire outcomes agree across rigs.
+  form, and crater volume is within 5% of its closed form. Breach and fire outcomes agree across rigs (fire on structure retired for Phase 1, TP6).
 
 ## Phase 1: The first visible tile (next)
 
@@ -39,10 +39,11 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   rig to pass the gate. Converging is not enough: today's law converges, slowly,
   and the coarse rig still sits far off, because the measured cause is a threshold on a cell's mean temperature
   (the crate's mean temperature agrees across rigs within 1 °C while the degradation driver differs 1.3–1.5×). A
-  per-cell ignition or pyrolysis threshold would inherit it. It must flip the strict
-  red gate `tests/test_act_validation.py::test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn`,
-  and it removes the marked band-aid in `data/world/actions.yaml`, whose ceilings keep fires at the powers the
-  current physics has been measured at.
+  per-cell ignition or pyrolysis threshold would inherit it. The strict red gate
+  `tests/test_act_validation.py::test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn` and
+  the other `ignite` gates close by deletion at 6.1b, the torch pilot (`docs/design/torch_pilot.md` §9.4, TP6), which
+  also removes the marked band-aid in `data/world/actions.yaml`, whose ceilings keep fires at the powers the current
+  physics has been measured at.
 - The write window's two owners until `Simulation.step` owns it, marked band-aids (`docs/design/boundaries.md` §4.1,
   2c): `World.advance` in `src/simcore/core/world.py` and the intent applier in `src/simcore/core/applier.py` open the
   window themselves; step 5a's PR 4 moves both into the step (PR 2 moved the laws into the tuple, not the window), and

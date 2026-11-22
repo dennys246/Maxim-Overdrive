@@ -266,7 +266,8 @@ fails.
   code: a uuid string, an executor-style `invocation_id` and any other non-null value. When the type exists, the
   refusal narrows, with its own test.
 - Action vocabulary v1 with `actions.yaml` v1, refused at v0 by version, not migrated (DC-S5), and an interim sphere-overlap
-  `kindle` deposit: a marked band-aid, its file listed under Phase 1 in the roadmap, removed by step 6's skin.
+  `kindle` deposit: a marked band-aid, its file listed under Phase 1 in the roadmap, removed by 6.1b. The four
+  `ignite` red gates' precondition moves to it here (`torch_pilot.md` §9.4).
 
 - **The SEM stimulus contract's 5b half** (`sem_stimuli.md` v5 §3.1, §4.5, §7.1, §7.3): `body-protected` with
   layer 6's modules (`Simulation`, the applier, the frame publisher) as allowed importers, `body-layers` in the order
@@ -309,7 +310,8 @@ step 8's exit script. Its tests to write (mechanisms deferred here by the review
 - §9.4's controls, each proved by deletion: beat 8's by a flame flux on a part that isn't flaming (E2-S2); the face
   control's by projecting the disc, from a side point more than 1 mm below the top edge (E2-N5, D2-S3); the
   strip-halving times interpolated; and §7's strict red gate;
-- a cell-target `kindle` deposits nothing and heats no air (§4.1);
+- a cell-target `kindle` deposits nothing and heats no air (§4.1); T11's sweep (`sem_stimuli.md` §6.2) covers it and
+  the off-face case;
 - the two delays for OD-A16 (§12): `kindle` to `t_flash` at the exit, with its spread, and the receipt to the first
   change in a declared stimulus row ("none" in Phase 1), recorded in the roadmap's OD-A16 row.
 The save round trip and golden of the pilot record are step 9's (`torch_pilot.md` §2).
