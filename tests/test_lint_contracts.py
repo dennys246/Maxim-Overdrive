@@ -300,6 +300,10 @@ def test_a_section_ends_at_the_next_heading_of_its_level_and_numbers_match_whole
     assert lint.section_span(text, "9") is None
 
 
+def test_the_last_block_counts_without_a_trailing_newline() -> None:
+    assert lint.blocks("# T\n\nlast `a`") == [lint.Block(0, ("# T",)), lint.Block(2, ("last `a`",))]
+
+
 def test_a_fenced_block_is_one_block_even_with_blank_lines() -> None:
     assert [b.start for b in lint.blocks("```\n`a`\n\n`b`\n```\n\nafter\n")] == [0, 6]
 

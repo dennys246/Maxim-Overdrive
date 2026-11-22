@@ -165,3 +165,16 @@ Left, with reasons:
   (a signature matches only with its exact spacing) is the lint's stated limit.
 - Wire N3 (headers that say "uncommitted") and N4 (tile §3.2's heading names `kindle`) are left as they are.
 - Wire D-N2 (fire_model §12's "in 6.4" against #34's "6.1") is main's text, inherited.
+
+## Delta 2 (`delta2_executor.md`): 0 BLOCKER, 0 SHOULD-FIX, 7 NIT, all deferred
+
+Each NIT is deferred, by the author, to the next change of `scripts/lint_contracts.py`, which is its trigger. Folding
+them now would be another code change and another delta round. They are D2-1 to D2-7:
+- a partial banner in a design's lead exempts the whole file;
+- the ruling pattern misses a bulleted `**Ruled`, a bare `**D20.` and `OD-A1`, and flags `- **D1**`;
+- two surviving mutants, on stale exclusions and the lead's paragraph count;
+- the misplaced-member message points at the marker;
+- a bare trailing `|` reads oddly;
+- **a registry count of 0 is accepted, which would report every block on the tree**;
+- the commit didn't state the mutation proof. The delta report holds it: 9 of 12 mutants killed.
+The gate's coverage floor caught `blocks`'s final flush (line 88), which no test reached; a test now covers it.
