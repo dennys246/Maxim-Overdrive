@@ -103,4 +103,4 @@ counter to report, and its budgets (B5), which read them. Every observable retur
 - The exact performance counters (step 5a, with B5's budgets).
 - New physics. Only heat is retrofitted; damage is measured through the existing scenarios.
 - `band_gate`'s first physics caller: the thin-wall breach gate, which asserts its band margin when the PR that fixes
-  that Known gap lands (`docs/architecture.md`). Until then `band_gate` is tested on synthetic outcomes only.
+  that Known gap lands (`docs/known_gaps.md`). Until then `band_gate` is tested on synthetic outcomes only.
