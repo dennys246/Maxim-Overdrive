@@ -67,10 +67,10 @@ On main, `REGION_GONE` came only from a later paint emptying a region: authored,
 destroyed region"). The reviewer measured that this flips with spacing: a 1.2 m wood cube struck repeatedly at 2e7 J
 is first refused at strike 29 at 0.2 m but strike 30 at 0.1 and 0.05 m. Options:
 
-- **(a) Revert to main's rule, and amend §5.1** (recommended for this PR; **the owner's ruling**): gone only when authored geometry empties
-  the region. A strike on a destroyed region succeeds with zero effect, as on main, and no outcome depends on the
-  grid. The douse exemption is then not needed. Destruction-based "gone" returns with a margin-gated rule in the
-  fuel and structure work, as a checklist row.
+- **(a) Revert to main's rule, and amend §5.1** (recommended for this PR; **the owner's ruling**): gone only when
+  authored geometry empties the region. A strike on a destroyed region succeeds with zero effect, as on main, and no
+  outcome depends on the grid. The douse exemption is then not needed. Destruction-based "gone" returns with a
+  margin-gated rule in the fuel and structure work, as a checklist row.
 - **(b) Keep the cell rule, and record it as a Known gap with a strict red gate** on the measured flip, fixed in a
   named later step.
 - **(c) Define gone in metres now** (say, solid volume below a fraction of the authored footprint, gated with a
@@ -128,3 +128,23 @@ reopened row (Arch S5, Exec N2) is folded below. Every deletion claim they tried
 | A N1 | `step`'s docstring says a raising tick changes nothing, but a raising publication leaves it committed | the docstring says so, and the rollback branch's comment no longer says keys recur; a PR 4b checklist row covers a log that would drop that tick | open (for the reviewer) |
 | A N2, Exec N2 (reopened) | the D-S2 row lacks the max-profile figure and the deposit's 40 against 10; `rho_cp`'s deferral is only in this file | the row gives both; `rho_cp` has its own Step 5a checklist row, triggered by B5's profile pass | open (for the reviewer) |
 | A N3 | the marker's "an instant effect at once" | "an instant effect" | open (for the reviewer) |
+
+## Delta 3 (`delta3.md`, verbatim): 0 BLOCKER, 1 SHOULD-FIX, 6 NIT, on afda61c
+
+One reader (Executor, Architecture, Wire integrity, Determinism) on the delta-2 fold. Of delta 2's 12 rows: 10
+fixed, 1 open (D2-S1 with Arch S5, folded below as D3-S1), 1 deferred.
+
+**Correction first.** The delta-2 fold said `World.adopt()` closed D2-S1. It didn't: the flag sat on the `World`, so a
+new `World` over a live simulation's grid gave a second owner (D3-S1). It also said every added line past 120 columns
+was rewrapped, and `fold.md:70` wasn't.
+
+| # | Finding | Fold | Status |
+|---|---|---|---|
+| D3-S1, D2-S1, Arch S5 | adoption on the `World`, not the cells; §2 calls the constructor the save loader's, which it can't be | `CellStore.adopt()`: the cells carry the adoption, so no world over them can take a second simulation; `World.adopt` is gone. §2 says `Simulation(world)` adopts a world's cells at tick 0 and a loaded tick is PR 4b's. `test_cells_another_simulation_owns_are_refused_in_any_world_so_time_has_one_owner` covers both worlds, red with adoption deleted | open (for the reviewer) |
+| D3-N1 | adoption before `Physics(...)` leaves a failed construction's world owned | adopted last, after the caches are warmed; `test_a_construction_that_raised_leaves_the_cells_free_for_a_retry`, red with adoption first | open (for the reviewer) |
+| D3-N2 | the rollback comment says no key can recur; a tick of fires alone counts no rollback | it says a cell window's rollback is counted and a tick of fires alone moves no version | open (for the reviewer) |
+| D3-N3 | the module docstring keeps "a tick that raises changes nothing" | "before the window commits" | open (for the reviewer) |
+| D3-N4 | the churn row misstates the condition | 20 ticks cycling through 5 radii; a radius the previous step used rebuilds | open (for the reviewer) |
+| D3-N5 | `fold.md:70` past 120 columns | rewrapped | open (for the reviewer) |
+| D3-N6 | the bridge test's name states the corrected rule | `..._one_tick_per_call_that_reaches_stage_2`, and lesson 37's citation | open (for the reviewer) |
+| D3-N7 | §7's cost line lost "measured" and the grid labels | both back, at the same word count | open (for the reviewer) |

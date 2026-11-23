@@ -250,9 +250,10 @@ fails.
     D-S2): every tick that changes `material` rebuilds heat's face conductances and bound over the whole grid, 2× on
     a strike every tick at 0.1 m (363 against 183 ms per 20 ticks on the T3 tile; delta 2 measured 2.0–2.5×, about
     8 ms per extra rebuild at 230,400 cells, so about 170 ms per strike tick at 5×10⁶ cells if it scales linearly).
-    A fire re-lit every tick at a new radius counts `heat/deposit` 40 times against 10, at the same run time. Keep the
-    per-cell arrays and recompute only around Topology's edits, bit for bit the full rebuild, with a test holding the
-    two equal.
+    A fire re-lit every tick for 20 ticks, cycling through 5 radii on the same tile, counts `heat/deposit` 40 times
+    against 10, at the same run time: the warm that ends a physics tick keeps only the live source values, so a
+    radius the previous step already used rebuilds. Keep the per-cell arrays and recompute only around Topology's
+    edits, bit for bit the full rebuild, with a test holding the two equal.
   - `rho_cp` is recomputed every substep (round 1 Exec N2): a cache beside the face conductances, triggered by B5's
     profile pass (`reviews/sim_tick/fold.md`).
   - PR 4b: a `place` refused inside its own window changes the next physics tick's work counters, because only

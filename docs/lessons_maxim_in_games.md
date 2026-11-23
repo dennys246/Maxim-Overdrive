@@ -500,8 +500,8 @@ found neither.
 action's own read-back, but a slow one (a fire's heat) on whichever later call happens to run a physics tick, and Maxim
 learns from that read-back.** *Evidence:* since step 5a's PR 4a a frame is published once per tick (sim_core.md §4), so
 the bridge writes through a `Port` its test or host owns (§13): each call that reaches stage 2 is one record and one
-tick (`tests/test_sem_bridge.py::test_the_membrane_steps_only_through_its_port_one_tick_per_call`). The PR's
-Bio-faithful review drove pymaxim 1.3.3's `ModulatorAffordanceTool` through that port, alternating `ignite` and
+tick (`tests/test_sem_bridge.py::test_the_membrane_steps_only_through_its_port_one_tick_per_call_that_reaches_stage_2`).
+The PR's Bio-faithful review drove pymaxim 1.3.3's `ModulatorAffordanceTool` through that port, alternating `ignite` and
 `extinguish` on the crate: `temperature_max` read back 20.0 for calls 1 to 4, 21.29 on call 5 (a physics tick) and 22.15
 on call 10, an extinguish. In 1.3.3 that read-back is more than logging, though it is not reward credit:
 `maxim/embodiment/tool_bridge.py` reads every sensor after `execute` (line 584), passes the readings to

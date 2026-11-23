@@ -20,6 +20,7 @@ from simcore.core.intents import KIND_RANK, Extinguish, Ignite, LogRecord, Strik
 from simcore.core.law import STATELESS, LawInputs
 from simcore.core.scene import Box, Scene
 from simcore.core.simulation import T3, SimConfig, Simulation
+from simcore.core.world import World
 from tests._sim import physics_steps, ticks, world_of
 from tests.conftest import FAST_SPACINGS
 from tests.test_determinism import FIRE_W, LIMITS, MATERIALS, SCENE, digest
@@ -137,14 +138,25 @@ def test_time_is_whole_microseconds_and_seconds_are_derived_never_summed():
     assert (sim.frames.latest.cells.time_us, sim.frames.latest.time_s) == (300_000, 0.3)
 
 
-def test_a_world_another_simulation_owns_is_refused_so_time_has_one_owner():
-    # Delta 2 D2-S1: a second simulation over a stepped world published frame 0 at tick 0, and both stepped it.
+def test_cells_another_simulation_owns_are_refused_in_any_world_so_time_has_one_owner():
+    # Delta 2 D2-S1: a second simulation over a stepped world published frame 0 at tick 0, and both stepped it. Delta 3
+    # D3-S1: a new World over the same grid did it too, so the cells, not the World, carry the adoption.
     first = _sim()
     ticks(first, 3)
-    with pytest.raises(ValueError, match="already has its simulation"):
-        Simulation(world_of(first), config=T3)
+    world = world_of(first)
+    for again in (world, World(world.grid, limits=world.limits, sources=world.sources)):
+        with pytest.raises(ValueError, match="already have their simulation"):
+            Simulation(again, config=T3)
     ticks(first, 2)  # the world's own simulation still owns it: its tick 5 runs physics and publishes
     assert (first.tick, first.frames.latest.tick) == (6, 5)
+
+
+def test_a_construction_that_raised_leaves_the_cells_free_for_a_retry():
+    # Delta 3 D3-N1: adopting before the law tuple was checked left the cells owned by no simulation.
+    world = World(SCENE.build(MATERIALS, dx_m=0.2), limits=LIMITS)
+    with pytest.raises(ValueError, match="names each law once"):
+        Simulation(world, config=T3, laws=(*physics.DEFAULT_LAWS, physics.DEFAULT_LAWS[1]))
+    assert Simulation(world, config=T3).tick == 1
 
 
 def test_a_law_tuple_the_registry_disagrees_with_is_refused_at_construction():

@@ -36,9 +36,9 @@ short list of named steps (§3).
 - **`Simulation` is a pure function of the records it is given.** The intent log's writer and its replay reader live
   in `engine.host` (`boundaries.md` §2.2, layer 8). The host logs what `TickReport` carries; `Simulation` writes no
   log.
-- **Constructors:** `Simulation.from_scene` builds the world through the topology owner; `Simulation(world)`, the
-  save loader's (PR 4b), adopts a built world, and a world has one simulation. Each builds every cache and member
-  digest (§9) eagerly and publishes the world as frame 0, so a run from construction and a replay from a loaded
+- **Constructors:** `Simulation.from_scene` builds the world through the topology owner; `Simulation(world)` adopts
+  a world's cells at tick 0, and cells have one simulation (the loader's tick is PR 4b's). Each builds every
+  cache and member digest (§9) eagerly and publishes frame 0, so a run from construction and a replay from a loaded
   state start alike.
 - **One owner of time,** `Simulation` (`boundaries.md` §7.3). `World.advance`, `World.turn`, `turn_seconds` and
   `grid.time_s` go.
@@ -195,9 +195,9 @@ Simulation.frames -> FrameView                                   # the latest pu
   whole-grid computation while `sphere_overlap`'s values are multiples of 1/64, which its 4³ sub-sample guarantees:
   their sums are exact in any order (verified, `reviews/sim_core/fold.md`). An exact-overlap replacement would break
   that and must be recorded as a digest break (§12).
-- **Cost on the T3 tile,** per 6 world seconds against PR 2's `advance(6.0)`: 0.32–0.35× at 0.1 m and
-  0.72–0.98× at 0.2 m with both caches (PR 4a); PR 3's deposit cache alone gave 0.88–0.96× and 2.4×
-  (`reviews/sim_step/round1_det_perf.md`).
+- **Cost on the T3 tile,** measured per 6 world seconds against PR 2's `advance(6.0)`, at 0.1 and 0.2 m: 0.32–0.35×
+  and 0.72–0.98× with both caches (PR 4a), 0.88–0.96× and 2.4× with the deposit's alone (PR 3,
+  `reviews/sim_step/round1_det_perf.md`).
 - **Accumulations over named collections iterate in sorted-key order** (`boundaries.md` §6.2; string keys by code
   point).
 

@@ -142,6 +142,14 @@ class CellStore(WindowOwner[_Saved]):
         self._handed_open: set[str] = set()  # handed writable outside a narrowed block (construction's window)
         self._rollbacks = 0  # never restored: a version from a rolled-back window can't be reached again
         self._copied = 0  # field values copied, a work counter (sim_core.md §10); never restored
+        self._adopted = False  # a simulation owns these cells: the one owner of their time (sim_core.md §2)
+
+    def adopt(self) -> None:
+        """Hands the cells to their one simulation, the one owner of their time (sim_core.md §2). A second adoption
+        raises, so no second simulation, over this grid in any world, can publish it as frame 0 or step it."""
+        if self._adopted:
+            raise ValueError("these cells already have their simulation (sim_core.md §2)")
+        self._adopted = True
 
     def _channel(self, name: str) -> npt.NDArray[np.generic]:
         """The field's array: writable inside the window only for a writer the registry declares for it, and for

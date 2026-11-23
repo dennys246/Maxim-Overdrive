@@ -2,8 +2,8 @@
 
 `Simulation` is the world's one owner of time and of the write window. A tick applies its records in the log's key
 order, each record's loads resolved right after its stage 2, then runs physics on physics ticks, all in one window:
-a tick that raises changes nothing, its source exposure included. It publishes one frame at the tick's end when the
-tick applied a record or ran physics, stamped with the tick (§4).
+a tick that raises before the window commits changes nothing, its source exposure included. It publishes one frame
+at the tick's end when the tick applied a record or ran physics, stamped with the tick (§4).
 
 Still to come in step 5a, each named with the PR that ends it: the per-tick digest, the intent log, its header with
 the law tuple, and replay (PR 4b, §9, §14); `imagine` as an intent kind (PR 4b, §13).
@@ -92,10 +92,9 @@ class Simulation:
     """The world's one owner of time and of its write window. `step` runs exactly one tick (sim_core.md §4)."""
 
     def __init__(self, world: World, *, config: SimConfig, laws: Sequence[Law] = DEFAULT_LAWS) -> None:
-        """A simulation of an already constructed ``world`` at tick 0: what `from_scene` builds, and what the save's
-        loader will (PR 4b). Its orchestrator is built here over the world's own grid, so the two can't disagree, and
-        the world is adopted, so no other simulation can own it."""
-        world.adopt()
+        """A simulation of an already constructed ``world`` at tick 0, as `from_scene` builds it; a loaded tick is PR
+        4b's (sim_core.md §2). Its orchestrator is built here over the world's own grid, so the two can't disagree, and
+        its cells are adopted once everything that can refuse has run, so no other simulation can own them."""
         self._world, self._config = world, config
         self._physics = physics = Physics(world.grid, laws)
         self._applier = Applier(world)
@@ -104,6 +103,7 @@ class Simulation:
         self._feed = FrameFeed(Frame(CellFrame.of(world.grid, 0, tick=0, time_us=0)))
         self._frames = FrameView(self._feed)
         physics.warm(self._exposure.values())  # every cache built eagerly, at rest (§2): counted in no tick
+        world.grid.adopt()  # last, so a construction that raised leaves the cells free for a retry
 
     @classmethod
     def from_scene(
@@ -160,9 +160,9 @@ class Simulation:
             try:
                 outcomes, substeps = self._run(tick, batch, physics=physics, work=work)
             except BaseException:
-                # The window rolled back. No key it reached can recur (field_version counts rollbacks), but the caches
-                # still hold what it built: bring them back to the restored state at rest, so a retry counts the work
-                # an uninterrupted run counts (§7, §10).
+                # The window rolled back. A cell window's rollback is counted, so no field version it reached recurs; a
+                # tick of fires alone moved none. Either way the caches still hold what it built: bring them back to
+                # the restored state at rest, so a retry counts the work an uninterrupted run counts (§7, §10).
                 self._physics.warm(self._exposure.values())
                 raise
         after = self._physics.builds()

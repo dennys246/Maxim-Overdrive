@@ -49,7 +49,7 @@ def test_strike_moves_the_integrity_sensor(dx_m, materials):
     assert sensors["breached"].read().value == 1.0
 
 
-def test_the_membrane_steps_only_through_its_port_one_tick_per_call(materials):
+def test_the_membrane_steps_only_through_its_port_one_tick_per_call_that_reaches_stage_2(materials):
     # sim_core.md §13's interim rule: each execute that reaches stage 2 submits one record and the port runs one tick
     # for it, so the caller sees the effect at once. The port is the test's; the membrane never holds the simulation.
     sim = _sim(0.2, materials)
