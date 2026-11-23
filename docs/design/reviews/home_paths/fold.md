@@ -83,3 +83,14 @@ and AW-S2 fixed; D3-N1 and D3-N2 deferred to B45. Its new findings:
 |---|---|---|
 | D4-S1: a Godot token runs on through `..`, `:`, `=`, `\`, `|`, `{`, `}`, `@`, hiding a home glued onto it | `NOT_A_DISK` ends at those and before a `..`; nine glued spellings tested (the reviewer's fix, verified by them on a copy and by the author's deletion proof: the old pattern turns exactly those nine red). The four shapes that read as a game directory named `Users` or `home` (`res://game/x.gd/Users/<name>`, `--path=client/x/Users/<name>`) are recorded in B45 | |
 | D4-N1: pytest escapes the elision case's `…` in its id, which the check then refuses in a pasted log | The case has the ASCII id `elisions` | |
+
+## Delta round 5 folds
+
+Statuses of delta round 4's findings are in `delta5.md`: D4-S1 fixed for the shapes it named, D4-N1 fixed. Its new
+findings:
+
+| Finding | Author's fold | Status |
+|---|---|---|
+| D5-S1: the terminators are a denylist, so `#`, `?`, `&`, `+`, `!`, `*`, `$`, `~`, `%3A` or `…` still glue a home on (the third round of this hole) | The reviewer's allowlist, verified on their copy: a Godot token is word characters, `.`, `/` and `-`, never `..`; anything else ends it. Eleven cases added. Author's deletion proof: c30c726's denylist turns eight of them red (the braces and the query case it already ended) | |
+| D5-N1: `{` and `}` proven only as a pair | Each has its own case | |
+| D5-N2: the docstring tied "glued onto a Godot path" to the dash form | Its own item: an exact-spelling home glued onto a Godot path | |

@@ -22,9 +22,9 @@ A finding names the file and line, never the name it matched; a file's path is p
 
 It can't see a name outside a path (an ``ls -l`` owner column, an account named in prose), a name starting with a
 character a name rarely starts with (``.``, ``@``, ``+``, an emoji), a hostname, a private address, text that isn't
-UTF-8, a symlink's target, a dash-encoded home after an encoded prefix (``-Volumes-Data-Users-<name>-``) or glued onto a
-Godot path (``res://game/x.gd/Users/<name>``, which reads as the game's own directory), and a
-file's path holding a home it can't see is printed as it stands on its lines' findings: B45.
+UTF-8, a symlink's target, a dash-encoded home after an encoded prefix (``-Volumes-Data-Users-<name>-``), an
+exact-spelling home glued onto a Godot path (``res://game/x.gd/Users/<name>``, which reads as the game's own
+directory), and a file's path holding a home it can't see is printed as it stands on its lines' findings: B45.
 """
 
 from __future__ import annotations
@@ -44,10 +44,11 @@ PATH_HOME = re.compile(rf"(?:{_EXACT}|{_AT_START}){_NAME}")
 DASH_HOME = re.compile(r"(?<![^\W_])-(?i:users|home)-(?P<name>[\w%][\w.%]*)")
 # Godot's res:// and user:// paths are the project's and the player's, on no one's disk: a game's own home/ directory
 # is one. A path under client/ is one too, since Godot's res:// is that directory. Only the exact spelling is skipped
-# inside them (a dash-encoded scratchpad still counts), and only up to anything that glues another path on: a quote,
-# comma, bracket, space, ``:``, ``=``, ``|``, ``@``, ``\\``, a brace, or a ``..`` that climbs out of the project. Web
-# URLs aren't skipped: a dev server's or a query's path is on a disk.
-NOT_A_DISK = re.compile(r"(?:(?i:\b(?:res|user)://)|(?<![\w./-])client/)(?:(?!\.\.)[^\s\"'`,;()<>\[\]:=|@\\{}])*")
+# inside them (a dash-encoded scratchpad still counts), and only over the characters a Godot path is made of (word
+# characters, ``.``, ``/`` and ``-``, never a ``..`` that climbs out of the project): anything else ends the token, so
+# nothing can glue another path on (an allowlist, after two rounds of a denylist that missed characters: home_paths
+# D3-S1, D4-S1, D5-S1). Web URLs aren't skipped: a dev server's or a query's path is on a disk.
+NOT_A_DISK = re.compile(r"(?:(?i:\b(?:res|user)://)|(?<![\w./-])client/)(?:(?!\.\.)[\w./-])*")
 # Accounts whose name is public: GitHub's hosted runners (/Users/runner, /home/runner) and macOS's shared folder.
 PUBLIC_ACCOUNTS = frozenset({"runner", "Shared"})
 ADVICE = "write <home>, <scratchpad> or a path relative to the repository (the repository is public)"

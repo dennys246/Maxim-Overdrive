@@ -60,6 +60,18 @@ SPELLINGS = (
     "res://x@/Users/",
     "res://x\\Users\\",
     "res://{x}/Users/",
+    # Delta 5, D5-S1: any other character ends a Godot token too.
+    "?root=client/game&src=/Users/",
+    "res://x#/Users/",
+    "res://x+/Users/",
+    "res://x!/Users/",
+    "res://x*/Users/",
+    "res://x$/Users/",
+    "res://x~/Users/",
+    "res://x%3A/Users/",
+    "res://x…/Users/",
+    "res://x{/Users/",
+    "res://x}/Users/",
 )
 
 
