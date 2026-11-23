@@ -343,7 +343,7 @@ Owned here, and listed in `npcs_and_sem.md` §12.2:
 
 ### 6.3 Known gaps
 
-Owned here, and listed in `docs/architecture.md`'s Known gaps:
+Owned here, and listed in `docs/known_gaps.md`:
 - **O50's cost.** The first word arrives with the whole reply. How long that takes depends on the machine's load
   more than on the model:
   - the spike measured a median of 1.29 s on a quiet M2 (`research/llm_spike.md`);
@@ -439,7 +439,7 @@ Overdrive needs neither Maxim's async router nor multi-peer dispatch.
   - §5.3: the cache row, the gates and the thought-budget row;
   - §6.3: the manifest;
   - §7.1: the lane.
-- `architecture.md` Known gaps.
+- `known_gaps.md`.
 - `embeddable_agent_DRAFT.md` and the Exp 64 prereg draft.
 - `research/llm_spike.md`.
 - `checklists.md`, B5, `roadmap.md`, `foundations_plan.md`, lessons 29.

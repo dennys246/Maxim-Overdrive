@@ -129,7 +129,7 @@ the measured checks, advisory.
   Every write happens inside the write window, as a writer the field registry declares, holding its token. The SEM
   membrane is handed an applier and a frame view, never the world, and the import contracts and the ownership scans
   hold it to them.
-- Record known physics gaps in `docs/architecture.md` ("Known gaps"), with numbers, instead of hiding them.
+- Record known physics gaps in `docs/known_gaps.md`, their one owner, with numbers, instead of hiding them.
 
 ## Engineering standards
 
@@ -369,6 +369,11 @@ only review holds.
   three-lens review before its PR opens (Maxim `CONTRIBUTING.md`); a new experiment gets a pre-registration, a
   four-lens design review and a ledger entry (Maxim `CLAUDE.md`). Game runs never go on Maxim's results ledger.
   Guard: `docs/roadmap.md`, B1
+- **Run Maxim when integration needs it** (owner, 2026-11-22). When a design, lesson or pushback depends on what
+  Maxim does, fetch its `origin/main` and run its code (its tests, a backend, a probe) rather than inferring from its
+  documents, and cite the run: the version or commit, what ran, and the result. Run it from its own clone or worktree
+  with its own venv, never one another session uses, and never commit, push or edit Maxim's tree. A run makes no
+  outward request it didn't intend: point every client's fallback endpoint at a closed local port first. Guard: B44
 - **Push back on Maxim where the game shows it's wrong.** Guiding Maxim through a real application is a pillar goal
   of this project. When the game's evidence contradicts a Maxim plan, decision, default or assumption (a clock, a
   deferred trigger, a recorded rationale), propose the change in Maxim. Name the decision you're arguing against,

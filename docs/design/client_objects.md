@@ -249,7 +249,7 @@ The join cap counts the tables at the limits (`client_rendering.md` §4.3), whic
 - **Known gap:** a face being heated is hotter than its cell's mean, so structural glow comes on late and dim.
   - Steady bound: the mean lags the face by up to q·(dx/2)/k, 29 K per kW/m² for the shipped concrete (k = 1.7
     W/m·K) in a 0.1 m cell: hundreds of kelvin at fire fluxes, so a bound, not a correction. A transient lag is less.
-  - It is in `docs/architecture.md`'s Known gaps (owner, 2026-11-22); today's encoder already has it.
+  - It is in `docs/known_gaps.md` (owner, 2026-11-22); today's encoder already has it.
   - A face-temperature input would come from world_model §8's face table under its own name, if Phase 2 builds skins
     on every structural face.
 

@@ -2,7 +2,7 @@
 
 Read-only audit of **installed pymaxim 1.3.3**
 (`.venv/lib/python3.14/site-packages/maxim/`, 539 `.py` files) and the Maxim repo's plans and decisions
-(`/Users/dennyschaedig/Scripts/Maxim`, branch `main`, clean tree, **32 commits behind `origin/main`**. The
+(`<home>/Scripts/Maxim`, branch `main`, clean tree, **32 commits behind `origin/main`**. The
 newer commits touch bounded-stop, routing, motion and coverage, not time. Version 1.3.3 in `pyproject.toml`).
 Every path below is relative to the package root unless it starts with `docs/` (the Maxim repo) or names
 Overdrive.
