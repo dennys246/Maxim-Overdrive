@@ -91,6 +91,9 @@ findings:
 
 | Finding | Author's fold | Status |
 |---|---|---|
-| D5-S1: the terminators are a denylist, so `#`, `?`, `&`, `+`, `!`, `*`, `$`, `~`, `%3A` or `…` still glue a home on (the third round of this hole) | The reviewer's allowlist, verified on their copy: a Godot token is word characters, `.`, `/` and `-`, never `..`; anything else ends it. Eleven cases added. Author's deletion proof: c30c726's denylist turns eight of them red (the braces and the query case it already ended) | |
-| D5-N1: `{` and `}` proven only as a pair | Each has its own case | |
-| D5-N2: the docstring tied "glued onto a Godot path" to the dash form | Its own item: an exact-spelling home glued onto a Godot path | |
+| D5-S1: the terminators are a denylist, so `#`, `?`, `&`, `+`, `!`, `*`, `$`, `~`, `%3A` or `…` still glue a home on (the third round of this hole) | The reviewer's allowlist, verified on their copy: a Godot token is word characters, `.`, `/` and `-`, never `..`; anything else ends it. Eleven cases added. Author's deletion proof: c30c726's denylist turns eight of them red (the braces and the query case it already ended) | fixed (author's, after the owner's ruling) |
+| D5-N1: `{` and `}` proven only as a pair | Each has its own case | fixed (author's, after the owner's ruling) |
+| D5-N2: the docstring tied "glued onto a Godot path" to the dash form | Its own item: an exact-spelling home glued onto a Godot path | fixed (author's, after the owner's ruling) |
+
+The owner stopped the rounds after delta 5 (2026-11-23): no delta 6. No reviewer read these three folds, so their
+statuses are the author's, set under that ruling and read from the tree at a0ba668.
