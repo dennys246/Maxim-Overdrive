@@ -108,8 +108,8 @@ _NAMES_CORE = frozenset({
     "numpy.intersect1d", "numpy.logical_and", "numpy.max", "numpy.mean", "numpy.take", "numpy.typing.NDArray",
     "numpy.uint8", "numpy.where", "numpy.zeros", "re.compile", "reprlib.Repr", "scipy.ndimage", "scipy.ndimage.label",
     "scipy.special.ndtr", "types.MappingProxyType", "typing.Any", "typing.ClassVar", "typing.Literal",
-    "typing.Protocol", "typing.SupportsFloat", "idna.IDNAError", "idna.check_label", "unicodedata.category",
-    "unicodedata.digit", "unicodedata.name", "unicodedata.normalize",
+    "typing.NoReturn", "typing.Protocol", "typing.SupportsFloat", "idna.IDNAError", "idna.check_label",
+    "unicodedata.category", "unicodedata.digit", "unicodedata.name", "unicodedata.normalize",
 })  # fmt: skip
 
 # the file gate: paths, and strict YAML through a SafeLoader subclass
