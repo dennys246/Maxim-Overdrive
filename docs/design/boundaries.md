@@ -45,17 +45,8 @@ This document's decisions (20 rulings) are kept as records, with their dates, ow
 
 Each boundary costs a few renames now, and a refactor across the protocol, zones, fuel and the lab later.
 
-Surveyed on `phase1/act-validation` at 2f200b5 (Executor confirmed each item):
-- `src/maxim_overdrive/` has `checks.py`, `config.py`, `world/` (grid, scene, heat, damage, world), `imagination/`
-  (spec) and `sem_env/` (bridge, `_compat`), plus a root `__init__` that re-exports config, grid, scene and world.
-- Only `sem_env/bridge.py` imports `maxim`.
-- No module imports `time`, `random`, `os` or `importlib`, but the core reached `pathlib` and `yaml` (`config.py`)
-  and `scipy` (`damage.py`, now `damage/strike.py` and `reductions.py`), which bear on determinism (D-N1, D-B2; the
-  IO left the core in 3a).
-- The world's writers lived outside `world/`, in the bridge and `place` (D-B1); objects called frozen were neither
-  deeply frozen nor validated (TB-B2). Both fixed in 3b.
-- `data/` holds rigs, the material table (physical properties mixed with calibrations the file itself labels
-  "GAMEPLAY CALIBRATION"), and action limits.
+The survey behind it (`phase1/act-validation` at 2f200b5) found the game and engine in one package, IO in the core
+and writers outside the world; §2 to §4 are what replaced them, and the review records keep the survey.
 
 ## 2. Packages and layers
 
@@ -93,18 +84,19 @@ The rename re-homes modules by layer, so the package cut and the layer cut agree
 below it. Siblings on one line are independent of each other.
 
 **The layers, as built** (docs-contracts ruling 49; `pyproject.toml` `[tool.importlinter]`, contract `layers`): five,
-bottom to top `simcore.core` < `simcore.adapters` < `simcore.protocol` < `simcore.verify` < `maxim_overdrive` (the
-game). This order is the contract; O24 is its record. The table below is the map of where splits are expected to fall
+bottom to top `simcore.core` < `simcore.adapters` < `simcore.protocol` < `simcore.host` &#124; `simcore.verify`
+(independent siblings) < `maxim_overdrive` (the game). This order is the contract; O24 is its record. The table below is the map of where splits are expected to fall
 (O24): its `engine.*` names are working names, and its numbered layers are not import contracts. Built today:
 - layers 0–6 are `simcore.core`: `checks`, `materials`, `grid` (`engine.cells`), `heat` and `damage`
   (`engine.laws`), `imagination`, `scene`, `intents` and `limits`, and `world`, `applier`, `frames` and `simulation`
   (`engine.sim`), with `readonly`, `refusals`, `schema` and `digest` beside them;
 - `engine.loaders` and `engine.adapters.sem` are `simcore.adapters`;
-- `engine.tiers` and `engine.encoding` are `simcore.protocol`;
+- `engine.tiers`, `engine.encoding` and `engine.protocol` are `simcore.protocol`;
+- `engine.host`'s sessions, `TimeAuthority` and WebSocket server are `simcore.host`;
 - `engine.verify` is `simcore.verify`, which imports nothing from the engine (`verify_harness.md` §2).
 
 Not built: `engine.geometry` (primitives and footprints are in `scene`), `engine.inference_wire`,
-`engine.adapters.inference`, `engine.protocol`'s wire codec, `engine.adapters.agents` and `engine.host`. Where a
+`engine.adapters.inference` and `engine.adapters.agents`. Where a
 module sits inside the core (`core/body`, `core/stimuli`) is `sem_stimuli.md` §7.1's.
 
 | Layer | Modules | Notes |
@@ -323,7 +315,7 @@ module sits inside the core (`core/body`, `core/stimuli`) is `sem_stimuli.md` §
 | **The worker channel** (`npcs_and_sem.md` §6.6; Exec B1, TB3-B1) | a real agent's worker process | one actor per channel, bound at spawn | — | the strictest contract: `npcs_and_sem.md` §6.6's codec, its tests and its `agent_failed` rule | `phase1/agents` (with the test double behind it) |
 | Thought results: intents, speech and **memory writes** | the agent's `StepOutput` and `ThoughtOutput`, decoded from the worker channel | the bound actor | an NPC's own memory only, with provenance by source actor (§6.6) | everything re-validated **in the host**: intents and speech through stage 1, memory writes through the host's gate before the host passes them to `settle` (canonical order; O39); a **gate-to-be** until generate vs apply (OD-A18) gives the game a value to check, an OPEN divergence with a strict red gate (foundations TB2-S3) | `phase1/agents` (types); OD-A18 (memory) |
 | **Thought budgets** (foundations TB2-B3) | the host's thinking lane | — | — | `npcs_and_sem.md` §4.7's caps, from `data/agents/thought_budget.yaml` | `phase1/agents` |
-| **Player speech and all guest text** (foundations TB2-S1; TB3-S3, TB3-S4, TB3-N4) | network lane | session token | per-session rate limit | one gate, `engine.text.player_text`, for `speak` and every guest string that can reach a prompt (`npcs_and_sem.md` §6.6) | `phase1/protocol` |
+| **Player speech and all guest text** (foundations TB2-S1; TB3-S3, TB3-S4, TB3-N4) | network lane | session token | per-session rate limit | one gate, `engine.text.player_text`, for `speak` and every guest string that can reach a prompt (`npcs_and_sem.md` §6.6): NFC before the cap, at least one character drawn, format and default-ignorable characters refused but ZWNJ and ZWJ between visible ones and one presentation selector after an emoji base (O61, O65) | `phase1/protocol` |
 | **The response cache** (foundations DR-B3, TB2-S4, Wire S9) | disk, per save | — | — | `inference_placement.md` §4.2 | after tier A |
 | **The inference gates** | `inference_gateway.md` §9 | — | — | listed there | `phase1/agents` |
 | Scene files, saves, intent logs, bug reports | disk, **strangers' machines** | — | — | the strictest gate (world_model F14): no pickle, budget before allocation, all-or-nothing | scene v1, save v0, sim-clock |
@@ -340,8 +332,8 @@ module sits inside the core (`core/body`, `core/stimuli`) is `sem_stimuli.md` §
 - **Two kinds of token, fresh each launch:** one host token and up to N guest tokens. The role is bound to the
   token, compared with `hmac.compare_digest`. One live session per token, and no promotion. Tokens reach the client
   by environment variable or a 0600 file, never argv, and never appear in a log or an error echo.
-- **The handshake:** `hello` comes first and only once, within a deadline; anything else closes the session. There's
-  a session cap. Client binary frames are refused. Any request carrying an `Origin` header is refused, including an
+- **The handshake:** `hello` comes first and only once, within a deadline, its protocol read first; anything else
+  ends it (`hello_first`), as client_rendering §4.3 ends a refused connection. There's a session cap. Client binary frames are refused. Any request carrying an `Origin` header is refused, including an
   empty one or `null`. Plain HTTP to the port gets a 400. The server binds the literal `127.0.0.1`.
 
 **Actor ids and time authority** (copied from `realtime_lanes_coop.md` §4.2 and §5):
@@ -713,10 +705,12 @@ The core is forbidden from importing it; `engine.adapters.sem` is too (§2.2).
 - **The schema is shape plus closed vocabulary,** not validation. Stage 1 stays the only server validator; limits
   reach the client in the handshake for its UI only.
 - **A strict JSON decoder** sits in front: `parse_constant` raises (no `NaN`/`Infinity`), `object_pairs_hook`
-  refuses repeated keys, `max_size` applies before decoding. Integers are pinned to at most 2⁵³ (Godot parses numbers
-  as doubles).
-- **Golden rejection frames** (`NaN`, `1e400`, a repeated key, an oversized frame, an unknown field) sit beside the
-  valid ones, decoded by both sides.
+  refuses repeated keys, `max_size` applies before decoding. Integers are pinned below 2⁵³ (O59). The server's JSON
+  holds integers only (O62): a reader judges a message's version first, a float there being `bad_version`, then any
+  other float, anywhere, `not_int`. The client reads it with a strict parser of its own, and wire text
+  never holds U+0000, which a Godot string can't (O67).
+- **Golden rejection frames** and grammar edges are judged alike, code and value
+  (a float by its class, O68).
 
 ### 9.2 Tests out of the shipped path (B-12)
 

@@ -165,11 +165,12 @@ def test_the_import_graph_is_built_from_this_worktrees_src():
         assert package in graph.modules
 
 
-def test_the_layers_contract_orders_game_verify_protocol_adapters_core():
+def test_the_layers_contract_orders_game_host_verify_protocol_adapters_core():
+    # host | verify: two siblings in one layer (boundaries §2.2, layer 8), independent, so neither imports the other.
     layers = _contracts()["layers"]
     assert layers["type"] == "layers"
     assert layers["layers"] == [
-        "maxim_overdrive", "simcore.verify", "simcore.protocol", "simcore.adapters", "simcore.core"
+        "maxim_overdrive", "simcore.host | simcore.verify", "simcore.protocol", "simcore.adapters", "simcore.core"
     ]  # fmt: skip
 
 
@@ -177,7 +178,8 @@ def test_the_verification_harness_imports_nothing_from_the_engine():
     # Its layer sits above the protocol, so the layers contract alone would let it reach a World (verify_harness §2).
     contract = _contracts()["verify-measures-only"]
     assert (contract["type"], contract["source_modules"]) == ("forbidden", ["simcore.verify"])
-    assert set(contract["forbidden_modules"]) == {"simcore.core", "simcore.adapters", "simcore.protocol", "maxim"}
+    engine = {"simcore.core", "simcore.adapters", "simcore.protocol", "simcore.host"}
+    assert set(contract["forbidden_modules"]) == engine | {"maxim"}
     shipped = _contracts()["verify-ships-nowhere"]
     assert (shipped["type"], shipped["source_modules"], shipped["forbidden_modules"]) == (
         "forbidden", ["maxim_overdrive"], ["simcore.verify"]
@@ -209,13 +211,13 @@ def test_the_engine_may_not_import_the_game():
     assert contract["forbidden_modules"] == ["maxim_overdrive"]
 
 
-# Direct children of simcore that sit outside the layers, each with its reason. None yet: a new child (host, verify)
-# joins a layer or this list in the change that makes it.
+# Direct children of simcore that sit outside the layers, each with its reason. None: a new child joins a layer or
+# this list in the change that makes it.
 OUTSIDE_LAYERS: dict[str, str] = {}
 
 
 def test_every_child_of_the_engine_is_in_a_layer():
-    layered = set(_contracts()["layers"]["layers"])
+    layered = {m.strip() for layer in _contracts()["layers"]["layers"] for m in layer.split("|")}
     children = {f"simcore.{p.stem}" for p in (ROOT / "src" / "simcore").iterdir() if p.suffix == ".py" or p.is_dir()}
     children -= {"simcore.__init__", "simcore.__pycache__"}
     assert children - layered == set(OUTSIDE_LAYERS)
@@ -262,7 +264,7 @@ def _lint_imports(tree: Path) -> subprocess.CompletedProcess[str]:
 # One planted import per contract that step 3b added, plus 3a's: each must turn the gate's own command red.
 PLANTED = [
     ("simcore/host.py", "from maxim_overdrive import data", "the engine never imports the game"),
-    ("simcore/protocol/encoding.py", "from simcore.core import grid", "adapters and protocol reach no cells"),
+    ("simcore/protocol/encoding.py", "from simcore.core import grid", "adapters, protocol and host reach no cells"),
     ("simcore/adapters/sem/bridge.py", "from simcore.core import materials", "the SEM membrane reads frames"),
     ("simcore/verify/runs.py", "from simcore.core import grid", "the verification harness imports nothing"),
     ("maxim_overdrive/data.py", "from simcore import verify", "the game never imports the verification harness"),
@@ -302,6 +304,8 @@ CORE_PUBLIC_SURFACE = {
     "simcore.core.checks",
     "simcore.core.refusals",  # the closed vocabulary every refusal answers in
     "simcore.core.schema",  # the format declarations and their one reader, which the file gates and tiers apply
+    "simcore.core.converters",  # the converters beyond schema's numbers and names: the wire's vectors, words, tokens
+    "simcore.core.text",  # which characters text may hold: names, and guest text (player_text)
     "simcore.core.digest",  # versioned content digests, which step 5a's log header records
     "simcore.core.fields",  # the field registry, which the membrane, the snapshot and the digest read (sim_core.md §6)
     "simcore.core.work",  # the work counters every TickReport carries (sim_core.md §10)
@@ -309,6 +313,8 @@ CORE_PUBLIC_SURFACE = {
 # What the membrane may import from the core (B-13): frames to read, the intents to parse, and the applier's Outcome its
 # port returns. Not the world or the simulation: it is handed a port and a frame view instead (sim_core.md §13).
 MEMBRANE_SURFACE = CORE_PUBLIC_SURFACE - {
+    "simcore.core.converters",
+    "simcore.core.text",
     "simcore.core.materials",
     "simcore.core.world",
     "simcore.core.simulation",
@@ -320,7 +326,8 @@ MEMBRANE_SURFACE = CORE_PUBLIC_SURFACE - {
 
 def test_the_skip_layer_contract_forbids_every_core_module_outside_the_public_surface():
     contract = _contracts()["skip-layer"]
-    assert (contract["type"], contract["source_modules"]) == ("forbidden", ["simcore.adapters", "simcore.protocol"])
+    sources = ["simcore.adapters", "simcore.protocol", "simcore.host"]
+    assert (contract["type"], contract["source_modules"]) == ("forbidden", sources)
     assert _core_modules() >= CORE_PUBLIC_SURFACE
     assert set(contract["forbidden_modules"]) == _core_modules() - CORE_PUBLIC_SURFACE
     assert contract["allow_indirect_imports"] is True  # the public surface reaches the cells; a direct import may not
@@ -374,3 +381,12 @@ def test_the_wheel_ships_the_game_data_beside_the_module_that_reads_it():
     hatch = _config()["hatch"]["build"]["targets"]["wheel"]
     assert set(hatch["packages"]) == {f"src/{p}" for p in _src_packages()}
     assert hatch["force-include"] == {"data": f"{data.__name__.rsplit('.', 1)[0]}/_data"}
+
+
+def test_the_network_lane_contract_keeps_the_server_off_the_world():
+    # realtime_lanes_coop §4.1 (step 7 review C3, D-S1): the server never calls into the world; step 5a's hand-off
+    # is a bounded queue to the simulation lane
+    contract = _contracts()["network-lane-off-the-world"]
+    assert (contract["type"], contract["source_modules"]) == ("forbidden", ["simcore.host.server"])
+    want = {"simcore.core.world", "simcore.core.simulation", "simcore.core.applier"}
+    assert set(contract["forbidden_modules"]) == want

@@ -17,6 +17,9 @@ dependencies = [
     # IDNA2008's code-point tables and contextual rules decide which characters a name may hold (simcore.core.schema
     # .Text); already locked as pymaxim's transitive dependency, declared because the engine imports it directly
     "idna>=3.7,<4.0",
+    # The client transport (docs/architecture.md, "Transport"; boundaries §5.3): the host's WebSocket server, which
+    # enforces the frame-size cap (close 1009) and lets the handshake refuse an Origin header; BSD-3-Clause
+    "websockets>=15.0,<18.0",
 ]
 
 [project.optional-dependencies]
@@ -97,9 +100,10 @@ include_external_packages = true
 
 [[tool.importlinter.contracts]]
 id = "layers"
-name = "game > verify > protocol > adapters > core"
+# host | verify: one layer of two independent siblings (boundaries §2.2, layer 8), so neither imports the other.
+name = "game > host | verify > protocol > adapters > core"
 type = "layers"
-layers = ["maxim_overdrive", "simcore.verify", "simcore.protocol", "simcore.adapters", "simcore.core"]
+layers = ["maxim_overdrive", "simcore.host | simcore.verify", "simcore.protocol", "simcore.adapters", "simcore.core"]
 
 # The layers contract checks only modules inside a layer, so the engine-never-imports-the-game rule (B-1) is its own
 # contract, covering simcore's root module and any child not yet in a layer.
@@ -137,15 +141,16 @@ forbidden_modules = [
 # classified.
 [[tool.importlinter.contracts]]
 id = "skip-layer"
-name = "adapters and protocol reach no cells, laws, geometry or scene build (boundaries §2.2, S2)"
+name = "adapters, protocol and host reach no cells, laws, geometry or scene build (boundaries §2.2, S2)"
 type = "forbidden"
-source_modules = ["simcore.adapters", "simcore.protocol"]
+source_modules = ["simcore.adapters", "simcore.protocol", "simcore.host"]
 forbidden_modules = [
     "simcore.core.damage", "simcore.core.deposit", "simcore.core.exposure", "simcore.core.geometry",
     "simcore.core.grid", "simcore.core.heat",
     "simcore.core.imagination", "simcore.core.law",
     "simcore.core.physics", "simcore.core.readonly", "simcore.core.reductions", "simcore.core.scene",
-    "simcore.core.stepping", "simcore.core.topology", "simcore.core.window", "simcore.core.writers",
+    "simcore.core.stepping", "simcore.core.text_tables", "simcore.core.topology", "simcore.core.window",
+    "simcore.core.writers",
 ]  # fmt: skip
 allow_indirect_imports = true
 
@@ -159,8 +164,9 @@ name = "the SEM membrane reads frames and writes through its port only (boundari
 type = "forbidden"
 source_modules = ["simcore.adapters.sem"]
 forbidden_modules = [
-    "simcore.core.damage", "simcore.core.deposit", "simcore.core.digest", "simcore.core.exposure",
-    "simcore.core.geometry", "simcore.core.grid", "simcore.core.heat",
+    "simcore.core.converters", "simcore.core.damage", "simcore.core.deposit", "simcore.core.digest",
+    "simcore.core.exposure", "simcore.core.geometry", "simcore.core.text", "simcore.core.text_tables",
+    "simcore.core.grid", "simcore.core.heat",
     "simcore.core.imagination", "simcore.core.law", "simcore.core.materials", "simcore.core.physics",
     "simcore.core.readonly", "simcore.core.reductions", "simcore.core.scene", "simcore.core.schema",
     "simcore.core.simulation",
@@ -181,7 +187,7 @@ id = "verify-measures-only"
 name = "the verification harness imports nothing from the engine or Maxim (verify_harness §2)"
 type = "forbidden"
 source_modules = ["simcore.verify"]
-forbidden_modules = ["simcore.core", "simcore.adapters", "simcore.protocol", "maxim"]
+forbidden_modules = ["simcore.core", "simcore.adapters", "simcore.protocol", "simcore.host", "maxim"]
 
 # The harness is test tooling for the engine: the game never ships it (verify_harness §2). The layers contract already
 # keeps every engine layer below it from importing it; only the game sits above.
@@ -200,6 +206,16 @@ id = "laws-independent"
 name = "no law imports another: laws couple only through fields (sim_core.md §5.1, B43)"
 type = "independence"
 modules = ["simcore.core.damage.loads", "simcore.core.damage.thermal", "simcore.core.heat"]
+
+# The network lane never touches the world (realtime_lanes_coop §4.1; step 7 review C3, D-S1): the server answers
+# from what it holds, and step 7's intent_result hands messages to the simulation lane through a bounded queue, never
+# a call. It fences this module's imports only; the dispatch the game injects is held by review (checklist, C3).
+[[tool.importlinter.contracts]]
+id = "network-lane-off-the-world"
+name = "the WebSocket server never reaches the world, the simulation or the applier (realtime §4.1)"
+type = "forbidden"
+source_modules = ["simcore.host.server"]
+forbidden_modules = ["simcore.core.world", "simcore.core.simulation", "simcore.core.applier"]
 
 [[tool.importlinter.contracts]]
 id = "maxim-through-adapters"
