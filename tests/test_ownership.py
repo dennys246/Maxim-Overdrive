@@ -783,6 +783,17 @@ def test_only_each_writers_owner_narrows_claims_or_names_its_token():
     assert "as_writer" in (SRC / "simcore/core/topology.py").read_text()  # non-vacuity: the owners do narrow
 
 
+@pytest.mark.parametrize("name", sorted(OWNED_CALLS))
+def test_each_owned_call_is_made_by_one_of_its_owners(name):
+    # Delta 5 D5-N1: a renamed call leaves its entry guarding nothing, so each entry must name a call that is made.
+    owners = OWNED_CALLS[name]
+    assert any(
+        isinstance(node, ast.Call) and _named(node.func) == name
+        for rel in owners
+        for node in ast.walk(ast.parse((SRC / rel).read_text()))
+    ), (name, owners)
+
+
 @pytest.mark.parametrize(
     ("rel", "planted"),
     [

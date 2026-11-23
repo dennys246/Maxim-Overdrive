@@ -246,6 +246,7 @@ fails.
   - PR 4a, before the per-tick digest (owner, 2026-11-22): the face-conductance and `stable_dt` caches, keyed on
     `field_version`s that count rollbacks and rebuilt at each windowed tick's end (`reviews/sim_tick/fold.md`).
     Measured at PR 3, without them bar 7 held at 0.1 m only by 0.88–0.96×; with them, 0.32–0.35×.
+- **Deferred from PR 4a's review (`reviews/sim_tick/fold.md`), each to the PR or trigger that owns it:**
   - Incremental cache rebuilds, triggered by B5's turn-time budget (owner, 2026-11-22, `reviews/sim_tick/fold.md`
     D-S2): every tick that changes `material` rebuilds heat's face conductances and bound over the whole grid, 2× on
     a strike every tick at 0.1 m (363 against 183 ms per 20 ticks on the T3 tile; delta 2 measured 2.0–2.5×, about

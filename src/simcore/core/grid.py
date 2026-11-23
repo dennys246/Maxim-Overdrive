@@ -157,7 +157,8 @@ class CellStore(WindowOwner[_Saved]):
         raise TypeError("cells are not copied: build a new grid from its scene (sim_core.md §2)")
 
     def __deepcopy__(self, memo: dict[int, object]) -> NoReturn:
-        """Refused, as `__copy__`: one owner per set of cells."""
+        """Refused: a deep copy shares nothing, but it is a stepped state built outside its scene, which a second
+        simulation would publish as frame 0 (PR 4a delta 4, D4-N2; a loaded state is PR 4b's)."""
         raise TypeError("cells are not copied: build a new grid from its scene (sim_core.md §2)")
 
     def _channel(self, name: str) -> npt.NDArray[np.generic]:

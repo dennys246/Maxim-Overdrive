@@ -161,3 +161,16 @@ found no route to two simulations over one cell store, other than the copy below
 | D4-N2, Arch S5 (residual) | a grid rebuilt from a stepped state is published as frame 0 | a PR 4b checklist row: the loader states its tick and what frame 0 is for a loaded state, with a test | deferred (author's; trigger PR 4b's loader) |
 | D4-N3 | `copy.copy` of a grid shares its versions and gate with a second simulation | `CellStore.__copy__` and `__deepcopy__` raise; `test_cells_are_never_copied_so_no_two_simulations_share_their_versions`, red without them | open (for the reviewer) |
 | D4-N4 | no scan holds `adopt` to `simulation.py` | an `OWNED_CALLS` entry, and a planted case in the scan's test, which goes red without the entry | open (for the reviewer) |
+
+## Delta 5 (`delta5.md`, verbatim): 0 BLOCKER, 0 SHOULD-FIX, 3 NIT, on a1d22ff
+
+One reader (Executor, Architecture, Wire integrity, Determinism). The Delta 4 table read as 3 fixed and D4-N2
+deferred, all as the author claimed. The reader notes that the charter's step 4, read literally, defers a code
+finding only through a `TEMPORARY` marker, and Arch S5 was a SHOULD-FIX: **for the owner**, whether its PR 4b
+checklist row suffices or `Simulation.__init__` needs a marker too.
+
+| # | Finding | Fold | Status |
+|---|---|---|---|
+| D5-N1 | nothing checks that an `OWNED_CALLS` entry names a call that is made | `test_each_owned_call_is_made_by_one_of_its_owners`, for every entry; red when `adopt`'s one call is renamed | open (for the reviewer) |
+| D5-N2 | three PR 4a deferrals sit under the PR 3 group | their own group, "Deferred from PR 4a's review" | open (for the reviewer) |
+| D5-N3 | `__deepcopy__`'s docstring gives the shallow copy's reason | it names a deep copy's hazard, D4-N2's | open (for the reviewer) |
