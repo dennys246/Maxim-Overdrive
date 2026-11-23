@@ -217,8 +217,8 @@ None (T8–T12).
 2. The world server as a pip dependency of Maxim: Phase 3.
 3. Copyright holder: still the owner's call.
 
-**Still open elsewhere:** Windows NPCs before Phase 8 (`checklists.md`); the guest-text gate's ZWNJ and ZWJ rule
-(step 7); whether F-S9's exit-test line is Phase 3's checklist (`fold.md`).
+**Still open elsewhere:** Windows NPCs before Phase 8 (`checklists.md`); whether F-S9's exit-test line is Phase 3's
+checklist (`fold.md`).
 
 ## 6. Risks
 

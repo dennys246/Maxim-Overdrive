@@ -379,3 +379,12 @@ def test_the_wheel_ships_the_game_data_beside_the_module_that_reads_it():
     hatch = _config()["hatch"]["build"]["targets"]["wheel"]
     assert set(hatch["packages"]) == {f"src/{p}" for p in _src_packages()}
     assert hatch["force-include"] == {"data": f"{data.__name__.rsplit('.', 1)[0]}/_data"}
+
+
+def test_the_network_lane_contract_keeps_the_server_off_the_world():
+    # realtime_lanes_coop §4.1 (step 7 review C3, D-S1): the server never calls into the world; step 5a's hand-off
+    # is a bounded queue to the simulation lane
+    contract = _contracts()["network-lane-off-the-world"]
+    assert (contract["type"], contract["source_modules"]) == ("forbidden", ["simcore.host.server"])
+    want = {"simcore.core.world", "simcore.core.simulation", "simcore.core.applier"}
+    assert set(contract["forbidden_modules"]) == want

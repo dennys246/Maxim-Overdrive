@@ -13,7 +13,7 @@ from hypothesis import strategies as st
 
 from simcore.core.refusals import RefusalCode, Refused
 from simcore.core.text import player_text, visible_name
-from simcore.core.text_tables import DEFAULT_IGNORABLE, EMOJI, UNICODE_VERSION
+from simcore.core.text_tables import DEFAULT_IGNORABLE, EMOJI
 
 ZWNJ, ZWJ = "\u200c", "\u200d"
 
@@ -33,7 +33,6 @@ PASSES = [
     "\u2764\ufe0f",  # a heart drawn red: one VS16 after a character with emoji forms (O65)
     "1\ufe0f\u20e3",  # a keycap: digit, VS16, the enclosing keycap
     "\u263a\ufe0e",  # a smiley drawn as text: VS15
-    "\u2800a",  # a braille blank beside a letter draws the letter
 ]
 
 
@@ -143,6 +142,10 @@ HIDDEN = [
     ("a\u115fb", "a Hangul choseong filler inside a word"),
     ("\u2800", "the braille blank alone"),
     ("\u2800 \u2800", "blanks and spaces only"),
+    ("\u2800a", "a braille blank beside a letter: blank by its name, refused as the name rule refuses it"),
+    ("\U00016fe4", "the Khitan small script filler alone (delta review D-B1)"),
+    ("a\U00016fe4\u200d\U00016fe4b", "fillers and a joiner, which could carry hidden bits"),
+    ("\U00013441", "a hieroglyph full blank"),
 ]
 
 
@@ -153,17 +156,16 @@ def test_characters_that_draw_nothing_are_refused(text, why):
     assert refused.value.code is RefusalCode.BAD_TEXT
 
 
-def test_the_property_tables_are_sorted_disjoint_ranges_at_unicode_16():
-    assert UNICODE_VERSION == "16.0.0"
+def test_the_property_tables_are_sorted_disjoint_ranges_holding_unicode_16_s_points():
     for table in (DEFAULT_IGNORABLE, EMOJI):
         assert all(lo <= hi for lo, hi in table)
         assert all(a[1] + 1 < b[0] for a, b in pairwise(table))  # merged: no touching ranges
     # A sample of each property's published points, so a table cut short or shifted fails here
     ignorable = [0x00AD, 0x034F, 0x061C, 0x115F, 0x17B4, 0x180B, 0x200B, 0x202A, 0x2060, 0x3164, 0xFE00, 0xFEFF]
     ignorable += [0xFFA0, 0xFFF0, 0x1BCA0, 0x1D173, 0xE0000, 0xE0100, 0xE0FFF]
-    emoji = [0x0023, 0x0030, 0x00A9, 0x203C, 0x2764, 0x263A, 0x1F525, 0x1F9FF]
+    emoji = [0x0023, 0x0030, 0x00A9, 0x203C, 0x2764, 0x263A, 0x1F5E8, 0x1F321]  # each has a text and an emoji form
     within = lambda table, cp: any(lo <= cp <= hi for lo, hi in table)  # noqa: E731
     assert all(within(DEFAULT_IGNORABLE, cp) for cp in ignorable)
     assert not any(within(DEFAULT_IGNORABLE, cp) for cp in (0x0041, 0x2010, 0x2800, 0xE1000))
     assert all(within(EMOJI, cp) for cp in emoji)
-    assert not within(EMOJI, ord("a"))
+    assert not any(within(EMOJI, cp) for cp in (ord("a"), 0x1F600, 0x1F525))  # emoji by default: no second form

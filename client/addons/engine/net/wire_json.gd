@@ -19,6 +19,16 @@ extends RefCounted
 const MAX_DEPTH: int = 32
 const INT_MAX: int = 9007199254740991  # 2^53 - 1: the largest n for which a double tells n from n + 1
 const _INT_DIGITS: int = 16  # INT_MAX's digit count: a longer integer literal is past the pin before it is read
+## The digits of 2^1024 - 2^970, halfway between the largest double and the next power: at or past it a literal
+## rounds to inf, as Python's float() rounds it (to even); below it, to the largest double. String.to_float rounds
+## some of those below to inf (step 7 delta review D-N2).
+const _PAST_DOUBLE: String = (
+	"1797693134862315807937289714053034150799341327100378269361737789804449682927647509466490179775872070" +
+	"9633028641669288791094655554785194040263065748867150582068190890200070838367627385484581771153176447" +
+	"5730270069855571366959622842914819860834936475292719074168444365510704342711559699508093042880177904" +
+	"174497792"
+)
+const _LARGEST_DOUBLE: float = 1.7976931348623157e308
 
 var _bytes: PackedByteArray
 var _at: int = 0
@@ -42,13 +52,20 @@ static func parse(bytes: PackedByteArray, max_bytes: int) -> WireRead:
 	return parser._read
 
 
-## The server's JSON (a frame header, a reply): the value, with O62's rule applied after the version, as the server's
-## readers apply it (strict_json.integers_only): a float as the top-level protocol is bad_version, any other not_int.
-static func parse_server(bytes: PackedByteArray, max_bytes: int) -> WireRead:
-	var read: WireRead = parse(bytes, max_bytes)
-	if read.ok and read.value is Dictionary and read.non_integer_keys.has("protocol"):
-		read.refuse("bad_version", "protocol must be a whole number")
-	return read
+## O62's rule on the server's JSON, in the server's order (grammar._header, strict_json.integers_only), for a ``read``
+## whose value is an object: first its version when it carries one (``versioned``; missing, a bool or a float is
+## bad_version, and so is another version), then any number written with a point or an exponent, anywhere, not_int.
+## The one place the client applies the rule, for frame headers and text messages alike.
+static func server_rules(read: WireRead, protocol: int, versioned: bool) -> void:
+	if not read.ok:
+		return
+	var message: Dictionary = read.value
+	if versioned:
+		var version: int = WireFields.version(read, message.get("protocol"), read.non_integer_keys.has("protocol"))
+		if read.ok and version != protocol:
+			read.refuse("bad_version", "protocol %d; this client knows %d" % [version, protocol])
+	if read.ok and not read.non_integer_keys.is_empty():
+		read.refuse("not_int", "a number with a point or an exponent; the server's JSON holds integers only")
 
 
 func _fail(why: String) -> void:
@@ -174,7 +191,7 @@ func _string() -> String:
 			_fail("an unterminated string")
 		elif b == 0x22:
 			_at += 1
-			return utf8.get_string_from_utf8()
+			return _decoded(utf8)
 		elif b == 0x5C:
 			_escape(utf8)
 		elif b < 0x20:
@@ -185,6 +202,26 @@ func _string() -> String:
 		else:
 			_utf8_sequence(utf8)
 	return ""
+
+
+## The text ``utf8`` holds, exactly. Godot's get_string_from_utf8 drops a leading U+FEFF (measured on 4.7.2, step 7
+## delta review W-SF1), so text that starts with one is built code point by code point; the bytes were held to the
+## standard on the way in, so every sequence here is whole, and none is U+0000 (refused, see _escape).
+static func _decoded(utf8: PackedByteArray) -> String:
+	var bom: bool = utf8.size() >= 3 and utf8[0] == 0xEF and utf8[1] == 0xBB and utf8[2] == 0xBF
+	if not bom:
+		return utf8.get_string_from_utf8()
+	var out: String = ""
+	var i: int = 0
+	while i < utf8.size():
+		var lead: int = utf8[i]
+		var length: int = 1 if lead < 0x80 else 2 if lead < 0xE0 else 3 if lead < 0xF0 else 4
+		var cp: int = lead if length == 1 else lead & (0x1F if length == 2 else 0x0F if length == 3 else 0x07)
+		for k: int in range(1, length):
+			cp = (cp << 6) | (utf8[i + k] & 0x3F)
+		out += String.chr(cp)
+		i += length
+	return out
 
 
 func _escape(utf8: PackedByteArray) -> void:
@@ -213,13 +250,19 @@ func _escape(utf8: PackedByteArray) -> void:
 			_read.refuse("bad_json", "a string holding a lone surrogate")
 			return
 		cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00)
+	if cp == 0:  # a Godot String can't hold U+0000 (it becomes U+FFFD, measured), so the wire's text never does
+		_read.refuse("bad_json", "a string holding U+0000")
+		return
 	utf8.append_array(String.chr(cp).to_utf8_buffer())
 
 
 ## The four hex digits after a ``\u`` (``_at`` on the ``u``), as a code unit; -1 after a refusal.
 func _hex4() -> int:
 	var digits: String = _bytes.slice(_at + 1, _at + 5).get_string_from_ascii()
-	if digits.length() != 4 or not digits.is_valid_hex_number():
+	var hex: bool = digits.length() == 4
+	for ch: String in digits:  # is_valid_hex_number would take a sign: \u+041 (step 7 delta review W-SF2)
+		hex = hex and "0123456789abcdefABCDEF".contains(ch)
+	if not hex:
 		_fail("a \\u escape without four hex digits")
 		return -1
 	_at += 5
@@ -299,9 +342,55 @@ func _integer(text: String) -> Variant:
 
 
 func _real(text: String, key: String) -> Variant:
-	var value: float = text.to_float()
+	var value: float = _double(text)
 	if not is_finite(value):
 		_read.refuse("bad_json", "a number too large for a double (%d characters)" % text.length())
 		return null
 	_read.non_integer_keys.append(key)
 	return value
+
+
+## The double a number literal names, as Python's float() reads it. String.to_float wraps or clamps a huge exponent
+## (1e4294967296 reads as 1.0; step 7 delta review W-SF3), so the literal's decimal magnitude is worked out from its
+## digits first, with an exponent too long to read saturated far past either edge, and the significant digits are
+## handed to to_float with that magnitude, which it reads as Python's float() does (inf past the largest double).
+static func _double(text: String) -> float:
+	var negative: bool = text.begins_with("-")
+	var body: String = text.trim_prefix("-")
+	var mark: int = body.findn("e")
+	var exponent: int = 0
+	if mark >= 0:
+		var digits: String = body.substr(mark + 1).trim_prefix("+")
+		var direction: int = -1 if digits.begins_with("-") else 1
+		digits = digits.trim_prefix("-").lstrip("0")
+		exponent = direction * (100000 if digits.length() > 6 else digits.to_int())  # far past either edge
+		body = body.substr(0, mark)
+	var point: int = body.find(".")
+	var whole: String = body if point < 0 else body.substr(0, point)
+	var all_digits: String = whole + ("" if point < 0 else body.substr(point + 1))
+	var significant: String = all_digits.lstrip("0")
+	# Signs by statement, not by a conditional expression: -x if c else y reads as -(x if c else y) (measured, 4.7.2)
+	var value: float = 0.0
+	if significant.is_empty():
+		return _signed(value, negative)
+	var magnitude: int = whole.length() - (all_digits.length() - significant.length()) - 1 + exponent
+	var tail: String = "" if significant.length() == 1 else "." + significant.substr(1)
+	var normal: String = significant.substr(0, 1) + tail + "e" + str(magnitude)
+	value = normal.to_float()
+	if magnitude == 308 and not is_finite(value) and not _past_largest(significant):
+		value = _LARGEST_DOUBLE
+	elif magnitude == 308 and _past_largest(significant):
+		value = INF
+	return _signed(value, negative)
+
+
+static func _signed(value: float, negative: bool) -> float:
+	if negative:
+		return -value
+	return value
+
+
+## Whether the significant digits ``digits`` (of a number of magnitude 10^308) reach _PAST_DOUBLE.
+static func _past_largest(digits: String) -> bool:
+	var width: int = maxi(digits.length(), _PAST_DOUBLE.length())
+	return digits.rpad(width, "0") >= _PAST_DOUBLE.rpad(width, "0")

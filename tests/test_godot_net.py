@@ -11,17 +11,25 @@ reaches Godot by environment variable, never argv. Slow, behind ``MAXIM_OVERDRIV
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import sys
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
+import numpy as np
 import pytest
+from websockets.asyncio.server import ServerConnection, serve
+from websockets.exceptions import ConnectionClosed
 
 from simcore.host.server import BIND, HostConfig, start
 from simcore.host.sessions import Session, Sessions
 from simcore.host.tokens import Tokens
+from simcore.protocol.catalogue import DTYPES, V0
+from simcore.protocol.grammar import encode_cells
 from simcore.protocol.messages import ClientMessage
+from simcore.protocol.replies import welcome
+from simcore.protocol.strict_json import encode
 from tests.test_godot_check import gc
 
 CLIENT = Path(__file__).resolve().parents[1] / "client"
@@ -112,3 +120,55 @@ def test_godot_drops_the_error_that_arrives_with_the_close(project, monkeypatch)
     # upgrade makes it hold the packet, this flips; NetClient keeps working, and its comment is then out of date.
     monkeypatch.setenv("MAXIM_OVERDRIVE_NET_RAW", "1")
     assert _with_host(project, monkeypatch, lambda t: "x" * 43) == ["net-check: raw packets 0 reason bad_token"]
+
+
+def _against(
+    project: tuple[str, Path, Path], monkeypatch: pytest.MonkeyPatch, *, replies: list[str | bytes]
+) -> tuple[list[str], int | None, str | None]:
+    """The client against a bare WebSocket server that answers its hello with ``replies``; the lines it printed,
+    and the close code and reason the server received."""
+    closed: list[tuple[int | None, str | None]] = []
+
+    async def handle(connection: ServerConnection) -> None:
+        await connection.recv()  # the hello
+        for reply in replies:
+            await connection.send(reply)
+        with contextlib.suppress(ConnectionClosed):
+            await connection.wait_closed()
+        closed.append((connection.close_code, connection.close_reason))
+
+    async def go() -> list[str]:
+        async with serve(handle, BIND, 0, compression=None, max_size=None) as server:
+            monkeypatch.setenv("MAXIM_OVERDRIVE_NET_PORT", str(next(iter(server.sockets)).getsockname()[1]))
+            monkeypatch.setenv("MAXIM_OVERDRIVE_TOKEN", "t0ken")
+            lines = await _net_check(project)
+            await asyncio.wait_for(_until(lambda: bool(closed)), TIMEOUT_S)
+            return lines
+
+    lines = asyncio.run(go())
+    return lines, *closed[0]
+
+
+async def _until(ready: Callable[[], bool]) -> None:
+    while not ready():
+        await asyncio.sleep(0)
+
+
+def test_a_frame_past_godot_s_default_buffer_reaches_the_client(project, monkeypatch):
+    # 8 x 64 x 128 cells x 6 bytes: 393,216 bytes, six times WebSocketPeer's default 65,535 (client_rendering §4.3)
+    shape = (8, 64, 128)
+    channels = [(c, np.zeros(shape, np.dtype(DTYPES[c.dtype]))) for c in V0]
+    frame = encode_cells(tick=1, regions_version=0, cell_size_um=100_000, origin_um=(0, 0, 0), catalogue=V0,
+                         channels=channels)  # fmt: skip
+    assert len(frame) > 6 * 65_535
+    monkeypatch.setenv("MAXIM_OVERDRIVE_NET_FRAME", "1")
+    welcomed = encode(welcome(session_id=1, role="host", shape=shape))
+    lines, _, _ = _against(project, monkeypatch, replies=[welcomed, frame])
+    assert lines == ["net-check: frame 8 64 128"]
+
+
+def test_the_client_refuses_a_welcome_of_another_catalogue_and_closes_with_its_code(project, monkeypatch):
+    other = dict(welcome(session_id=1, role="guest", shape=(2, 2, 2)), catalogue_hash="sha256/c14n-1:" + "0" * 64)
+    lines, code, reason = _against(project, monkeypatch, replies=[encode(other)])
+    assert lines == ["net-check: refused bad_version"]
+    assert (code, reason) == (1000, "bad_version")  # the client closed, with its refusal as the reason

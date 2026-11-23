@@ -34,6 +34,7 @@ __all__ = [
     "TOKEN_CHARS",
     "ClientMessage",
     "Hello",
+    "HelloRefused",
     "Kindle",
     "Move",
     "MoveTo",
@@ -126,10 +127,19 @@ def read_message(data: str | bytes) -> ClientMessage:
     raw = decode(data, max_bytes=MAX_MESSAGE_BYTES)
     if not isinstance(raw, Mapping):
         raise Refused(f"a message is a JSON object, got a {type(raw).__name__}", code=RefusalCode.BAD_SHAPE)
-    if raw.get("type") == "hello":
+    if raw.get("type") != "hello":
+        return _typed(CLIENT_MESSAGES.convert(raw, "message"))
+    try:
         _check_protocol(raw)
-    read = CLIENT_MESSAGES.convert(raw, "message")
+        read = CLIENT_MESSAGES.convert(raw, "message")
+    except Refused as refused:  # re-raised as what it is: a hello, which after welcome ends the session
+        raise HelloRefused(str(refused), code=refused.code, field=refused.field) from refused
     return _typed(read)
+
+
+class HelloRefused(Refused):
+    """A ``hello`` stage 1 refused: refused like any message, and, after ``welcome``, the end of the session, since
+    hello comes once (boundaries §5.3)."""
 
 
 def _check_protocol(raw: Mapping[str, object]) -> None:

@@ -225,6 +225,26 @@
        1,
        1
       ]
+     },
+     {
+      "as": "bits",
+      "channel": "temperature_c",
+      "value": 22601,
+      "zyx": [
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "as": "bits",
+      "channel": "temperature_c",
+      "value": 25776,
+      "zyx": [
+       1,
+       1,
+       1
+      ]
      }
     ]
    },
@@ -708,6 +728,12 @@
    {
     "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
     "code": "not_int",
+    "file": "frames/float_where_the_schema_answers_first.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "not_int",
     "file": "frames/scale_float.bin",
     "outcome": "refused"
    },
@@ -715,6 +741,12 @@
     "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
     "code": "bad_version",
     "file": "frames/protocol_true.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_version",
+    "file": "frames/newer_protocol_with_float.bin",
     "outcome": "refused"
    },
    {
@@ -752,6 +784,87 @@
     "code": "out_of_range",
     "file": "frames/extent_past_u16.bin",
     "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_field",
+    "file": "frames/key_with_escaped_bom.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_kind",
+    "file": "frames/kind_with_escaped_bom.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_identity_key",
+    "file": "frames/grid_name_with_escaped_bom.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_kind",
+    "file": "frames/raw_scale_and_unknown_dtype.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_identity_key",
+    "file": "frames/raw_scale_and_bad_name.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_identity_key",
+    "file": "frames/raw_scale_and_bad_of.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/optional_raw_with_scale.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/grid_shape_same_count.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "",
+    "file": "frames/name_at_64_characters.bin",
+    "ignored": [
+     "channel:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn"
+    ],
+    "outcome": "accepted"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_identity_key",
+    "file": "frames/name_past_64_characters.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "over_budget",
+    "file": "frames/too_many_grids.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "over_budget",
+    "file": "frames/too_many_arrays.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/header_past_cap.bin",
+    "outcome": "refused"
    }
   ],
   "readers": [
@@ -764,7 +877,79 @@
    {
     "code": "",
     "file": "json/object.json",
-    "outcome": "accepted"
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "a": [
+         {
+          "i": 1
+         },
+         {
+          "i": -2
+         },
+         {
+          "s": [
+           120
+          ]
+         },
+         {
+          "b": true
+         },
+         {
+          "b": null
+         }
+        ]
+       }
+      ],
+      [
+       {
+        "s": [
+         98
+        ]
+       },
+       {
+        "o": []
+       }
+      ],
+      [
+       {
+        "s": [
+         99
+        ]
+       },
+       {
+        "s": [
+         99,
+         97,
+         102,
+         233,
+         32,
+         233
+        ]
+       }
+      ],
+      [
+       {
+        "s": [
+         100
+        ]
+       },
+       {
+        "f": [
+         1074003968,
+         0
+        ]
+       }
+      ]
+     ]
+    }
    },
    {
     "code": "bad_json",
@@ -814,7 +999,134 @@
    {
     "code": "",
     "file": "json/nesting_at_limit.json",
-    "outcome": "accepted"
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "a": [
+        {
+         "a": [
+          {
+           "a": [
+            {
+             "a": [
+              {
+               "a": [
+                {
+                 "a": [
+                  {
+                   "a": [
+                    {
+                     "a": [
+                      {
+                       "a": [
+                        {
+                         "a": [
+                          {
+                           "a": [
+                            {
+                             "a": [
+                              {
+                               "a": [
+                                {
+                                 "a": [
+                                  {
+                                   "a": [
+                                    {
+                                     "a": [
+                                      {
+                                       "a": [
+                                        {
+                                         "a": [
+                                          {
+                                           "a": [
+                                            {
+                                             "a": [
+                                              {
+                                               "a": [
+                                                {
+                                                 "a": [
+                                                  {
+                                                   "a": [
+                                                    {
+                                                     "a": [
+                                                      {
+                                                       "a": [
+                                                        {
+                                                         "a": [
+                                                          {
+                                                           "a": [
+                                                            {
+                                                             "a": [
+                                                              {
+                                                               "a": [
+                                                                {
+                                                                 "a": [
+                                                                  {
+                                                                   "a": []
+                                                                  }
+                                                                 ]
+                                                                }
+                                                               ]
+                                                              }
+                                                             ]
+                                                            }
+                                                           ]
+                                                          }
+                                                         ]
+                                                        }
+                                                       ]
+                                                      }
+                                                     ]
+                                                    }
+                                                   ]
+                                                  }
+                                                 ]
+                                                }
+                                               ]
+                                              }
+                                             ]
+                                            }
+                                           ]
+                                          }
+                                         ]
+                                        }
+                                       ]
+                                      }
+                                     ]
+                                    }
+                                   ]
+                                  }
+                                 ]
+                                }
+                               ]
+                              }
+                             ]
+                            }
+                           ]
+                          }
+                         ]
+                        }
+                       ]
+                      }
+                     ]
+                    }
+                   ]
+                  }
+                 ]
+                }
+               ]
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
    },
    {
     "code": "bad_json",
@@ -868,9 +1180,9 @@
     "outcome": "refused"
    },
    {
-    "code": "",
+    "code": "bad_json",
     "file": "json/escaped_nul.json",
-    "outcome": "accepted"
+    "outcome": "refused"
    },
    {
     "code": "bad_json",
@@ -880,17 +1192,61 @@
    {
     "code": "",
     "file": "json/float_1e20.json",
-    "outcome": "accepted"
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "f": [
+         1142271773,
+         2025163840
+        ]
+       }
+      ]
+     ]
+    }
    },
    {
     "code": "",
     "file": "json/float_whole_at_2p53.json",
-    "outcome": "accepted"
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "f": [
+         1128267776,
+         0
+        ]
+       }
+      ]
+     ]
+    }
    },
    {
     "code": "",
     "file": "json/float_largest_power.json",
-    "outcome": "accepted"
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "f": [
+        2145504499,
+        2246822048
+       ]
+      }
+     ]
+    }
    },
    {
     "code": "bad_json",
@@ -900,7 +1256,26 @@
    {
     "code": "",
     "file": "json/raw_utf8.json",
-    "outcome": "accepted"
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "s": [
+         99,
+         97,
+         102,
+         233
+        ]
+       }
+      ]
+     ]
+    }
    },
    {
     "code": "bad_json",
@@ -935,7 +1310,23 @@
    {
     "code": "",
     "file": "json/surrogate_pair.json",
-    "outcome": "accepted"
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "s": [
+         128512
+        ]
+       }
+      ]
+     ]
+    }
    },
    {
     "code": "bad_json",
@@ -960,12 +1351,165 @@
    {
     "code": "",
     "file": "json/solidus_escape.json",
-    "outcome": "accepted"
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "s": [
+         47
+        ]
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/raw_bom_in_key.json",
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "i": 2
+       }
+      ],
+      [
+       {
+        "s": [
+         65279,
+         97
+        ]
+       },
+       {
+        "i": 1
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/escaped_bom_leading.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "s": [
+        65279,
+        120
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/nul_beside_replacement.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/signed_unicode_escape_plus.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/signed_unicode_escape_minus.json",
+    "outcome": "refused"
    },
    {
     "code": "",
     "file": "json/minus_zero.json",
-    "outcome": "accepted"
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "i": 0
+      }
+     ]
+    }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/exponent_past_u32.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/zero_with_a_huge_exponent.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "f": [
+        0,
+        0
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/long_fraction_and_exponent.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "f": [
+        1069128089,
+        2576980378
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/just_below_overflow.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "f": [
+        2146435071,
+        4294967295
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/rounds_down_to_the_largest_double.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "f": [
+        2146435071,
+        4294967295
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/rounds_up_past_the_largest_double.json",
+    "outcome": "refused"
    },
    {
     "code": "bad_json",
@@ -990,7 +1534,14 @@
    {
     "code": "",
     "file": "json/largest_negative.json",
-    "outcome": "accepted"
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "i": -9007199254740991
+      }
+     ]
+    }
    },
    {
     "code": "bad_json",
@@ -1005,7 +1556,10 @@
    {
     "code": "",
     "file": "json/scalar.json",
-    "outcome": "accepted"
+    "outcome": "accepted",
+    "value": {
+     "i": 7
+    }
    },
    {
     "code": "bad_json",
@@ -1045,6 +1599,28 @@
   ],
   "readers": [
    "python",
+   "godot"
+  ]
+ },
+ "limits": {
+  "int_max": 9007199254740991,
+  "max_arrays": 64,
+  "max_depth": 32,
+  "max_extent": 65535,
+  "max_grids": 8,
+  "max_header_bytes": 65536,
+  "max_name_chars": 64,
+  "max_tables": 16
+ },
+ "server": {
+  "fixtures": [
+   {
+    "code": "",
+    "file": "server/welcome.json",
+    "outcome": "accepted"
+   }
+  ],
+  "readers": [
    "godot"
   ]
  },

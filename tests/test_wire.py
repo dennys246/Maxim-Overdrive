@@ -46,7 +46,8 @@ def _load(name: str) -> Any:
     return module
 
 
-_load("wire_texts")  # before wire_fixtures, which imports it by name
+_load("wire_texts")  # before wire_fixtures, which imports these two by name
+_load("wire_frames")
 wf = _load("wire_fixtures")
 
 V0_HASH = catalogue_hash(describe(V0))
@@ -127,7 +128,9 @@ def test_an_accepted_frame_reads_its_probes_its_ignored_names_and_its_tick(entry
     assert frame.shape == tuple(entry.get("shape", [2, 2, 2]))
     assert frame.tick == entry.get("tick", 5)
     for probe in entry.get("probes", []):
-        assert int(frame.channels[probe["channel"]][tuple(probe["zyx"])]) == probe["value"]
+        value = frame.channels[probe["channel"]][tuple(probe["zyx"])]
+        read = int(np.asarray(value).view("<u2")) if probe.get("as") == "bits" else int(value)  # an f16's bits
+        assert read == probe["value"]
     assert set(frame.channels) == {c.name for c in V0}
     assert not any(a.flags.writeable for a in frame.channels.values())  # views of the frame's bytes, read-only
 
@@ -319,14 +322,16 @@ def test_the_decoder_refuses_any_text_with_bad_json_or_reads_it(text):
     assert codes <= {RefusalCode.BAD_JSON}
 
 
-_JSON_LEAVES = st.none() | st.booleans() | st.integers(-JSON_INT_MAX, JSON_INT_MAX) | st.text(max_size=8)
+# U+0000 and lone surrogates are never wire text (O63; the decoder refuses both, and so does the encoder)
+_WIRE_TEXT = st.text(st.characters(exclude_characters="\x00", exclude_categories=["Cs"]), max_size=8)
+_JSON_LEAVES = st.none() | st.booleans() | st.integers(-JSON_INT_MAX, JSON_INT_MAX) | _WIRE_TEXT
 
 
 @settings(max_examples=80, deadline=None)
 @given(
     st.recursive(
         _JSON_LEAVES,
-        lambda c: st.lists(c, max_size=3) | st.dictionaries(st.text(max_size=4), c, max_size=3),
+        lambda c: st.lists(c, max_size=3) | st.dictionaries(_WIRE_TEXT, c, max_size=3),
         max_leaves=12,
     )
 )
@@ -450,6 +455,11 @@ def test_the_encoder_refuses_what_json_can_t_hold_and_a_long_integer_is_refused_
     for value in ({1, 2}, object(), b"bytes"):
         with pytest.raises(TypeError, match="can't go on the wire"):
             encode({"a": value})
+    for nul in ({"a": "x\x00"}, {"a\x00": 1}):
+        with pytest.raises(ValueError, match="U\\+0000"):
+            encode(nul)
+    with pytest.raises(ValueError, match="lone surrogate"):
+        encode({"\ud800": 1})
     with pytest.raises(Refused) as refused:  # 10,000 digits: refused by length, never handed to int()
         decode("[" + "9" * 10_000 + "]", max_bytes=20_000)
     assert refused.value.code is RefusalCode.BAD_JSON

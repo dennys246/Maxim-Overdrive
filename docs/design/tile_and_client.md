@@ -253,7 +253,7 @@ fields, the ordering key and `kind_rank` are boundaries §6.2's; `actor_id` come
 | `out_of_reach`, `not_on_surface`, `ambiguous_point`, `region_gone`, `no_igniter`, `over_item_max`, `pilot_live`, `restrike_wait` | stage 2 | `intent_result` | yes | 6 |
 | `no_body`, `no_path`, `unreachable` | stage 2 | `intent_result` | yes | 5 |
 | time refused (`host_only`) | `TimeAuthority` | `time_decision` | yes | 7, by a direct `HostOnly` test (WT-S9) |
-| `bad_version`, `missing_field`, `bad_identity_key`, `over_budget`, `bad_text`; the handshake's `bad_token`, `token_in_use`, `hello_first` | decode, stage 1 | `error`; in the handshake, then close 1008 with the code as reason | no | 7 |
+| `bad_version`, `missing_field`, `bad_identity_key`, `over_budget`, `bad_text`; the handshake's `bad_token`, `token_in_use`, `hello_first` | decode, stage 1 | `error`; in the handshake, then a close (`client_rendering.md` §4.3) | no | 7 |
 
 - **The code enum lives in the core;** the client protocol layer produces `rate_limited` and `coalesced` (DC-N7).
 - **A stop is never refused** (WT-S5): `move` and `move_to` are latest-wins per session per tick; the superseded

@@ -335,8 +335,7 @@ module sits inside the core (`core/body`, `core/stimuli`) is `sem_stimuli.md` §
   token, compared with `hmac.compare_digest`. One live session per token, and no promotion. Tokens reach the client
   by environment variable or a 0600 file, never argv, and never appear in a log or an error echo.
 - **The handshake:** `hello` comes first and only once, within a deadline, its protocol read first; anything else
-  ends it (`hello_first`). A refusal is an `error`, then close 1008 with the code as its reason (client_rendering
-  §4.3). There's a session cap. Client binary frames are refused. Any request carrying an `Origin` header is refused, including an
+  ends it (`hello_first`), as client_rendering §4.3 ends a refused connection. There's a session cap. Client binary frames are refused. Any request carrying an `Origin` header is refused, including an
   empty one or `null`. Plain HTTP to the port gets a 400. The server binds the literal `127.0.0.1`.
 
 **Actor ids and time authority** (copied from `realtime_lanes_coop.md` §4.2 and §5):
@@ -708,9 +707,10 @@ The core is forbidden from importing it; `engine.adapters.sem` is too (§2.2).
   reach the client in the handshake for its UI only.
 - **A strict JSON decoder** sits in front: `parse_constant` raises (no `NaN`/`Infinity`), `object_pairs_hook`
   refuses repeated keys, `max_size` applies before decoding. Integers are pinned below 2⁵³ (O59). The server's JSON
-  holds integers only (O62); the client reads it with a strict parser of its own, not Godot's (O63).
-- **Golden rejection frames** sit beside the valid ones, with a corpus of the grammar's edges, each judged alike by
-  both sides, code for code.
+  holds integers only (O62): a reader judges a message's version first, a float there being `bad_version`, then any
+  other float, anywhere, `not_int`. The client reads it with a strict parser of its own, and wire text
+  never holds U+0000, which a Godot string can't (O63).
+- **Golden rejection frames** sit beside the valid ones, with the grammar's edges, judged alike, code and value.
 
 ### 9.2 Tests out of the shipped path (B-12)
 

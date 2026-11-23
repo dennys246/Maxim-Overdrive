@@ -58,9 +58,12 @@ func test_each_wrong_welcome_ends_the_session_with_the_server_s_code(t: TestCont
 func test_the_server_s_other_messages(t: TestContext) -> void:
 	t.check_eq(_after([_text({"type": "error", "code": "bad_token"})]).refusal, "bad_token", "an error's code")
 	t.check_eq(_after([_text({"type": "error"})]).refusal, "bad_shape", "an error without a code")
+	t.check_eq(_after([_text({"type": "error", "code": "Not a code!"})]).refusal, "bad_shape", "prose as a code")
 	t.check_eq(_after([_text({"type": "vote"})]).refusal, "unknown_kind", "an unknown type")
 	t.check_eq(_after([_text([1, 2])]).refusal, "bad_shape", "not an object")
-	t.check_eq(_after(["{\"type\":\"welcome\",\"session\":1.0}".to_ascii_buffer()]).refusal, "not_int", "a float")
+	t.check_eq(_after(["{\"type\":\"welcome\",\"protocol\":0,\"session\":1.0}".to_ascii_buffer()]).refusal, "not_int", "a float")
+	var newer: PackedByteArray = "{\"type\":\"welcome\",\"protocol\":1,\"session\":1.0}".to_ascii_buffer()
+	t.check_eq(_after([newer]).refusal, "bad_version", "a newer welcome is refused for its version, float or not")
 	t.check_eq(_after(["{\"type\":".to_ascii_buffer()]).refusal, "bad_json", "not JSON")
 	t.check_eq(_after([_welcome(), _welcome()]).refusal, "bad_shape", "welcome comes once")
 
@@ -83,3 +86,12 @@ func test_a_frame_is_read_only_after_welcome(t: TestContext) -> void:
 	t.check(session.last_frame != null and not session.ended(), "a frame after welcome: %s" % session.refusal)
 	session.on_frame(FileAccess.get_file_as_bytes(FRAMES.path_join("unknown_required_channel.bin")))
 	t.check_eq(session.refusal, "unknown_field", "a refused frame ends the session")
+
+
+func test_the_server_s_own_welcome_starts_the_session(t: TestContext) -> void:
+	# Written by the server's encoder (scripts/wire_fixtures.py, the server set): the bytes the client gets on join
+	var bytes: PackedByteArray = FileAccess.get_file_as_bytes("res://tests/fixtures/wire/server/welcome.json")
+	t.check(not bytes.is_empty(), "the golden welcome is there")
+	var session: NetSession = _after([bytes])
+	t.check(not session.ended(), "accepted: %s" % session.refusal)
+	t.check_eq(session.welcome.get("role"), "guest", "its role read")

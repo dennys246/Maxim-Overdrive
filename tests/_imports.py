@@ -97,6 +97,7 @@ ALLOWED: dict[str, dict[str, str]] = {
         "collections": "Callable and Mapping, the dispatch type",
         "dataclasses": "the host's frozen config",
         "http": "the 403 and 400 statuses of a refused handshake",
+        "logging": "the transport's logger, held off DEBUG, where websockets logs each frame's text (a token too)",
         "websockets": "the transport: the server, its handshake hook, close codes and caps",
     },
     # the per-launch tokens (boundaries §5.3): OS entropy that admits sessions and never reaches the world
@@ -187,10 +188,11 @@ _NAMES_HOST = frozenset({
 # the transport: the server, its handshake hook and close codes, and the hello deadline
 _NAMES_HOST_SERVER = frozenset({
     "__future__.annotations", "asyncio.wait_for", "collections.abc.Callable", "collections.abc.Mapping",
-    "dataclasses.dataclass", "http.HTTPStatus.BAD_REQUEST", "http.HTTPStatus.FORBIDDEN",
+    "dataclasses.dataclass", "http.HTTPStatus.BAD_REQUEST", "http.HTTPStatus.FORBIDDEN", "logging.DEBUG",
+    "logging.Logger", "logging.LoggerAdapter", "logging.getLogger",
     "websockets.asyncio.server.Server", "websockets.asyncio.server.ServerConnection",
     "websockets.asyncio.server.serve", "websockets.exceptions.ConnectionClosed", "websockets.frames.CloseCode",
-    "websockets.frames.CloseCode.POLICY_VIOLATION", "websockets.frames.CloseCode.UNSUPPORTED_DATA",
+    "websockets.frames.CloseCode.POLICY_VIOLATION",
     "websockets.http11.Request", "websockets.http11.Response",
 })  # fmt: skip
 

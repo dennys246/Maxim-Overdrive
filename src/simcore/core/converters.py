@@ -123,7 +123,7 @@ class WireName:
 
     def convert(self, value: object, what: str) -> str:
         text = identity_key(value, what)
-        if not all(" " <= ch <= "~" for ch in text):
+        if not all(0x20 <= ord(ch) <= 0x7E for ch in text):  # printable ASCII
             raise Refused(f"{what} must be printable ASCII", code=RefusalCode.BAD_IDENTITY_KEY)
         return text
 

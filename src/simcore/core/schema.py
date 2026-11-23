@@ -17,7 +17,7 @@ is not content: the wire's carry the simulation's integer ticks (a frame's tick,
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Protocol
@@ -379,20 +379,27 @@ def read_version(raw: object, what: str) -> int:
     return version
 
 
-def _tick_fields(schema: Schema) -> list[str]:
-    """Every field named for ticks in ``schema`` and the schemas it nests: a word, not a substring (stick_m is fine)."""
-    found, stack = [], [schema]
+def schemas_within(schema: Schema) -> Iterator[Schema]:
+    """``schema`` and every schema it nests, through ``Nested``, ``ListOf``, ``MapOf`` and ``Tagged``: the one walk the
+    tick rule and the tests' field walk share, so neither can miss a container the other sees."""
+    stack = [schema]
     while stack:
         current = stack.pop()
+        yield current
         for f in current.fields:
-            if {"tick", "ticks"} & set(f.name.split("_")):
-                found.append(f.name)
-            convert: object = f.convert.item if isinstance(f.convert, ListOf) else f.convert
+            convert: object = f.convert
+            convert = convert.item if isinstance(convert, ListOf) else convert
+            convert = convert.value if isinstance(convert, MapOf) else convert
             if isinstance(convert, Nested):
                 stack.append(convert.schema)
             elif isinstance(convert, Tagged):
                 stack.extend(convert.schemas.values())
-    return sorted(found)
+
+
+def _tick_fields(schema: Schema) -> list[str]:
+    """Every field named for ticks in ``schema`` and the schemas it nests: a word, not a substring (stick_m is fine)."""
+    names = (f.name for s in schemas_within(schema) for f in s.fields)
+    return sorted(n for n in names if {"tick", "ticks"} & set(n.split("_")))
 
 
 @dataclass(frozen=True)

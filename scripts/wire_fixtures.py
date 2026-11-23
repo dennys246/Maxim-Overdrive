@@ -20,17 +20,67 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-from numpy.typing import NDArray
+from wire_frames import (
+    CELL_UM,
+    EIGHT_F32,
+    SHAPE,
+    SMOKE,
+    SOOT,
+    ZONES,
+    Header,
+)
+from wire_frames import (
+    array_entries as _array_entries,
+)
+from wire_frames import (
+    arrays as _arrays,
+)
+from wire_frames import (
+    both as _both,
+)
+from wire_frames import (
+    cells as _cells,
+)
+from wire_frames import (
+    drop_array as _drop_array,
+)
+from wire_frames import (
+    edited as _edited,
+)
+from wire_frames import (
+    extra as _extra,
+)
+from wire_frames import (
+    raw as _raw,
+)
+from wire_frames import (
+    repack as _repack,
+)
+from wire_frames import (
+    set_channel as _set_channel,
+)
+from wire_frames import (
+    set_key as _set,
+)
+from wire_frames import (
+    split as _split,
+)
+from wire_frames import (
+    with_channel as _with_channel,
+)
 from wire_texts import Fixture, client_messages, json_texts
 
+from simcore.core.checks import IDENTITY_KEY_CHARS
 from simcore.protocol.catalogue import V0, Channel, catalogue_hash, describe
-from simcore.protocol.frame_header import MAX_EXTENT, MAX_TABLES
-from simcore.protocol.grammar import encode_cells
+from simcore.protocol.frame_header import MAX_ARRAYS, MAX_EXTENT, MAX_GRIDS, MAX_TABLES
+from simcore.protocol.grammar import MAX_HEADER_BYTES, encode_cells
+from simcore.protocol.replies import welcome
+from simcore.protocol.strict_json import JSON_INT_MAX, MAX_DEPTH, encode
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "client" / "tests" / "fixtures" / "wire"
@@ -38,95 +88,6 @@ FORMAT = "overdrive-wire-fixtures"
 VERSION = 0
 FRAME_CAP = 4 * 1024 * 1024  # the client's inbound buffer (client_rendering §4.3): the decoders' default cap
 V0_HASH = catalogue_hash(describe(V0))
-SHAPE = (2, 2, 2)
-CELL_UM, ORIGIN_UM = 200_000, (0, 0, 0)
-
-Header = dict[str, Any]  # the encoder's own header, as json.loads reads it back
-
-
-def _arrays(shape: tuple[int, int, int]) -> list[NDArray[np.generic]]:
-    n = int(np.prod(shape))
-    return [
-        (np.arange(n) % 4).astype("<u1").reshape(shape),  # material: air, then three solids
-        np.arange(n, dtype="<u2").reshape(shape) * 257 + 1,  # region: 0x0001, 0x0102, ...: the two bytes differ, so
-        # a reader that swaps them reads another id (a probe below), which RG8's upload of the low byte first needs
-        np.linspace(0, 255, n).astype("<u1").reshape(shape),  # crack
-        np.linspace(-40.0, 1200.0, n).astype("<f2").reshape(shape),  # temperature_c
-    ]
-
-
-def _cells(tick: int = 5, shape: tuple[int, int, int] = SHAPE, catalogue: Sequence[Channel] = V0) -> bytes:
-    """The base frame: v0's channels, under the hash of ``catalogue``, the one its welcome announced."""
-    channels = list(zip(V0, _arrays(shape), strict=True))
-    return encode_cells(
-        tick=tick, regions_version=1, cell_size_um=CELL_UM, origin_um=ORIGIN_UM, catalogue=catalogue, channels=channels
-    )
-
-
-def _split(frame: bytes) -> tuple[Header, bytes]:
-    n = int.from_bytes(frame[:4], "little")
-    header: Header = json.loads(frame[4 : 4 + n])
-    return header, frame[4 + n :]
-
-
-def _repack(header: Header, payload: list[bytes]) -> bytes:
-    """A frame from a header the server's encoder would refuse to write (a float, a missing field): plain JSON."""
-    return _raw(json.dumps(header, separators=(",", ":"), sort_keys=True), b"".join(payload))
-
-
-def _edited(edit: Callable[[Header], None], frame: bytes | None = None) -> bytes:
-    """The base frame with its header changed by ``edit``, the payload as it was."""
-    header, payload = _split(frame or _cells())
-    edit(header)
-    return _repack(header, [payload])
-
-
-def _raw(header_text: str, payload: bytes = b"") -> bytes:
-    data = header_text.encode("utf-8", "surrogatepass")
-    return len(data).to_bytes(4, "little") + data + payload
-
-
-def _array_entries(header: Header) -> list[dict[str, Any]]:
-    arrays: list[dict[str, Any]] = header["arrays"]
-    return arrays
-
-
-def _with_channel(channel: Channel, values: bytes, of: str = "cells") -> Callable[[Header], None]:
-    """Append an array carrying ``channel``; the frame's catalogue hash stays welcome's (O64)."""
-
-    def edit(header: Header) -> None:
-        arrays = _array_entries(header)
-        offset = sum(int(a["size"]) for a in arrays)
-        size = len(values)
-        arrays.append({"channel": channel.description(), "of": of, "offset": offset, "size": size,
-                       "uncompressed_size": size})  # fmt: skip
-
-    return edit
-
-
-def _extra(channel: Channel, values: bytes, of: str = "cells", grid: Header | None = None) -> bytes:
-    header, payload = _split(_cells())
-    if grid is not None:
-        header["grids"].append(grid)
-    _with_channel(channel, values, of)(header)
-    return _repack(header, [payload, values])
-
-
-def _set(key: str, value: object) -> Callable[[Header], None]:
-    return lambda h: h.__setitem__(key, value)
-
-
-def _set_channel(i: int, key: str, value: object) -> Callable[[Header], None]:
-    def edit(h: Header) -> None:
-        _array_entries(h)[i]["channel"][key] = value
-
-    return edit
-
-
-SMOKE = Channel("smoke_kg_m3", "kg_per_m3", "f32", "raw", required=False)  # a unit this build has never heard of
-SOOT = Channel("soot", "ratio", "u8", "raw", required=False)  # an optional channel a reader may know and a frame omit
-EIGHT_F32 = np.arange(8, dtype="<f4").tobytes()
-ZONES = {"name": "zones", "required": False, "shape": [1, 1, 2], "cell_size_um": 400_000, "origin_um": [0, 0, 0]}
 
 
 def _optional_grid_and_table() -> bytes:
@@ -153,6 +114,11 @@ def _asymmetric() -> bytes:
 
 
 ASYMMETRIC_CORNERS = [(z, y, x) for z in (0, 1) for y in (0, 2) for x in (0, 3)]
+# temperature_c's f16 bits at two cells of the base frame: a reader that misreads the half-float format reads others
+TEMPERATURE_BITS = [
+    {"channel": "temperature_c", "zyx": list(zyx), "value": int(_arrays(SHAPE)[3][zyx].view("<u2")), "as": "bits"}
+    for zyx in ((0, 0, 1), (1, 1, 1))
+]
 # the region ids at the same corners: index z*12 + y*4 + x in [2, 3, 4], each id's two bytes different
 ASYMMETRIC_REGIONS = [
     {"channel": "region", "zyx": [z, y, x], "value": (z * 12 + y * 4 + x) * 257 + 1} for z, y, x in ASYMMETRIC_CORNERS
@@ -164,7 +130,12 @@ def _goldens() -> dict[str, Fixture]:
     probes = [{"channel": "material", "zyx": list(c), "value": i + 1} for i, c in enumerate(ASYMMETRIC_CORNERS)]
     required = Channel("smoke_kg_m3", "kg_per_m3", "f32", "raw", required=True)
     return {
-        "base": (_cells(), "accepted", "", {"probes": [{"channel": "region", "zyx": [1, 1, 1], "value": 7 * 257 + 1}]}),
+        "base": (
+            _cells(),
+            "accepted",
+            "",
+            {"probes": [{"channel": "region", "zyx": [1, 1, 1], "value": 7 * 257 + 1}, *TEMPERATURE_BITS]},
+        ),
         "asymmetric": (_asymmetric(), "accepted", "", {"shape": [2, 3, 4], "probes": [*probes, *ASYMMETRIC_REGIONS]}),
         "unknown_optional_channel": (_extra(SMOKE, EIGHT_F32), "accepted", "", {"ignored": ["channel:smoke_kg_m3"]}),
         "unknown_optional_grid_and_table": (
@@ -317,17 +288,6 @@ def _extension() -> dict[str, Fixture]:
     }
 
 
-def _drop_array(frame: bytes, i: int) -> bytes:
-    """``frame`` without its array ``i``: later offsets moved down, so only the channel is missing."""
-    header, payload = _split(frame)
-    arrays = _array_entries(header)
-    dropped = arrays.pop(i)
-    start, size = int(dropped["offset"]), int(dropped["size"])
-    for a in arrays[i:]:
-        a["offset"] = int(a["offset"]) - size
-    return _repack(header, [payload[:start] + payload[start + size :]])
-
-
 def _frame_edges() -> dict[str, Fixture]:
     """Where the two decoders could part (step 7 review, W-S1 to W-S8): each with the server's outcome and code."""
     header, payload = _split(_cells())
@@ -344,8 +304,15 @@ def _frame_edges() -> dict[str, Fixture]:
         "header_trailing_comma": (swap('"tick":5', '"tick":5,'), "refused", "bad_json", {}),
         "header_leading_zero": (swap('"tick":5', '"tick":05'), "refused", "bad_json", {}),
         "tick_1e20": (swap('"tick":5', '"tick":1e20'), "refused", "not_int", {}),
+        "float_where_the_schema_answers_first": (swap('"kind":"full"', '"kind":1.5'), "refused", "not_int", {}),
         "scale_float": (swap('"scale":[1,255]', '"scale":[1.0,255]'), "refused", "not_int", {}),
         "protocol_true": (_edited(_set("protocol", True)), "refused", "bad_version", {}),
+        "newer_protocol_with_float": (
+            _raw(text.replace('"protocol":0', '"protocol":1', 1).replace('"tick":5', '"tick":5.0', 1), payload),
+            "refused",
+            "bad_version",
+            {},
+        ),
         "protocol_negative": (_edited(_set("protocol", -1)), "refused", "bad_version", {}),
         "digest_trailing_newline": (swap(f'"{digest}"', f'"{digest}\\n"'), "refused", "bad_shape", {}),
         "optional_name_escaped_non_ascii": (  # an escape decodes to a non-ASCII name: refused by the name rule
@@ -360,20 +327,103 @@ def _frame_edges() -> dict[str, Fixture]:
     }
 
 
+def _swap(old: str, new: str) -> bytes:
+    """The base frame with ``old`` replaced in its header's text, the payload as it was."""
+    header, payload = _split(_cells())
+    text = json.dumps(header, separators=(",", ":"), sort_keys=True)
+    assert old in text, old
+    return _raw(text.replace(old, new, 1), payload)
+
+
+def _limit_edges() -> dict[str, Fixture]:
+    """Every header limit, at it and past it (delta review S8); the manifest's ``limits`` holds the client to them."""
+    long_name = Channel("n" * 64, "ratio", "u8", "raw", required=False)
+    too_long = _edited(lambda h: _array_entries(h)[-1]["channel"].update(name="n" * 65), _extra(SOOT, bytes(8)))
+    grids = [dict(ZONES, name=f"z{i}") for i in range(MAX_GRIDS)]  # with cells, one past the cap
+    many_arrays = _edited(lambda h: _array_entries(h).extend([dict(_array_entries(h)[0])] * (MAX_ARRAYS - 3)))
+    return {
+        "name_at_64_characters": (_extra(long_name, bytes(8)), "accepted", "", {"ignored": [f"channel:{'n' * 64}"]}),
+        "name_past_64_characters": (too_long, "refused", "bad_identity_key", {}),
+        "too_many_grids": (_edited(lambda h: h["grids"].extend(grids)), "refused", "over_budget", {}),
+        "too_many_arrays": (many_arrays, "refused", "over_budget", {}),
+        "header_past_cap": (_swap('"tick":5', '"tick":5' + " " * MAX_HEADER_BYTES), "refused", "bad_shape", {}),
+    }
+
+
+def _parity_edges() -> dict[str, Fixture]:
+    """The delta round's parity holes (W-SF1, S4), and checks a later one used to hide (E-N3)."""
+    swap = _swap
+    raw_scale = _set_channel(0, "scale", [2, 1])
+    return {
+        "key_with_escaped_bom": (swap('"tick":', '"\\ufefftick":'), "refused", "unknown_field", {}),
+        "kind_with_escaped_bom": (swap('"kind":"full"', '"kind":"\\ufefffull"'), "refused", "unknown_kind", {}),
+        "grid_name_with_escaped_bom": (
+            swap('"name":"cells"', '"name":"\\ufeffcells"'),
+            "refused",
+            "bad_identity_key",
+            {},
+        ),
+        "raw_scale_and_unknown_dtype": (
+            _edited(_both(raw_scale, _set_channel(1, "dtype", "u64"))),
+            "refused",
+            "unknown_kind",
+            {},
+        ),
+        "raw_scale_and_bad_name": (
+            _edited(_both(raw_scale, _set_channel(1, "name", "a:b"))),
+            "refused",
+            "bad_identity_key",
+            {},
+        ),
+        "raw_scale_and_bad_of": (
+            _edited(_both(raw_scale, lambda h: _array_entries(h)[2].update(of="a:b"))),
+            "refused",
+            "bad_identity_key",
+            {},
+        ),
+        # checks a later one used to hide (delta review E-N3): each input breaks that rule alone
+        "optional_raw_with_scale": (
+            _edited(lambda h: _array_entries(h)[-1]["channel"].update(scale=[2, 1]), _extra(SOOT, bytes(8))),
+            "refused",
+            "bad_shape",
+            {},
+        ),
+        "grid_shape_same_count": (_edited(lambda h: h["grids"][0].update(shape=[1, 2, 4])), "refused", "bad_shape", {}),
+    }
+
+
 def frames() -> dict[str, Fixture]:
-    return {**_goldens(), **_pins(), **_header_json(), **_schema(), **_layout(), **_extension(), **_frame_edges()}
+    return {
+        **_goldens(), **_pins(), **_header_json(), **_schema(), **_layout(), **_extension(), **_frame_edges(),
+        **_parity_edges(), **_limit_edges(),
+    }  # fmt: skip
+
+
+LIMITS = {
+    "max_grids": MAX_GRIDS, "max_tables": MAX_TABLES, "max_arrays": MAX_ARRAYS, "max_extent": MAX_EXTENT,
+    "max_header_bytes": MAX_HEADER_BYTES, "max_name_chars": IDENTITY_KEY_CHARS, "max_depth": MAX_DEPTH,
+    "int_max": JSON_INT_MAX,
+}  # fmt: skip
+
+
+def server_messages() -> dict[str, Fixture]:
+    """The server's own text messages, written by its encoder, as the client must read them (delta review W-N2)."""
+    welcome_text = encode(welcome(session_id=1, role="guest", shape=SHAPE)).encode()
+    return {"welcome": (welcome_text, "accepted", "", {})}
 
 
 SETS: dict[str, tuple[Callable[[], dict[str, Fixture]], str, tuple[str, ...]]] = {
     "frames": (frames, "bin", _SEEN),
     "json": (json_texts, "json", _SEEN),
     "client": (client_messages, "json", ("python",)),
+    "server": (server_messages, "json", ("godot",)),
 }
 
 
 def files() -> dict[str, bytes]:
     out: dict[str, bytes] = {}
     manifest: dict[str, object] = {"format": FORMAT, "version": VERSION, "frame_cap": FRAME_CAP, "catalogue": V0_HASH}
+    manifest["limits"] = LIMITS  # the client's constants are held to these (step 7 delta review S8)
     for set_name, (build, suffix, readers) in SETS.items():
         entries = []
         for name, (data, outcome, code, extras) in build().items():

@@ -135,6 +135,25 @@ def test_any_origin_header_is_refused_before_the_upgrade(origin):
     assert run(go()) == 403
 
 
+def test_a_request_with_two_upgrade_headers_gets_a_400():
+    async def go() -> bytes:
+        async with _host() as (uri, _):
+            port = int(uri.rsplit(":", 1)[1])
+            reader, writer = await asyncio.open_connection(BIND, port)
+            writer.write(
+                b"GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\nUpgrade: websocket\r\n"
+                b"Connection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
+                b"Sec-WebSocket-Version: 13\r\n\r\n"
+            )
+            await writer.drain()
+            status = await asyncio.wait_for(reader.readline(), WAIT_S)
+            writer.close()
+            await writer.wait_closed()
+            return status
+
+    assert run(go()).startswith(b"HTTP/1.1 400")
+
+
 def test_plain_http_to_the_port_gets_a_400():
     async def go() -> bytes:
         async with _host() as (uri, _):
@@ -322,7 +341,10 @@ def test_a_message_past_the_cap_closes_with_1009_and_one_at_it_does_not():
     assert run(go()) == ("unknown_field", 1009)
 
 
-@pytest.mark.parametrize(("message", "code"), [(b"\x00", "bad_shape"), ("HELLO", "hello_first")])
+@pytest.mark.parametrize(
+    ("message", "code"),
+    [(b"\x00", "bad_shape"), ("HELLO", "hello_first"), ('{"type":"hello","protocol":0}', "hello_first")],
+)
 def test_after_welcome_a_binary_frame_or_a_second_hello_ends_the_session_with_its_code(message, code):
     async def go() -> tuple[dict[str, Any], tuple[int | None, str | None]]:
         async with _host() as (uri, tokens), _open(uri) as ws:
@@ -420,3 +442,17 @@ def test_a_decision_and_the_session_table_refuse_what_can_t_be():
         Decision(False, None)
     with pytest.raises(TypeError, match="at least one"):
         Sessions(Tokens.fresh(guests=0), cap=0)
+
+
+def test_the_server_bounds_each_connection_s_queue_and_its_messages(monkeypatch):
+    # websockets' defaults are bounds too, but a bound set by accident can be lost by accident (review N1, D-N1)
+    import simcore.host.server as server_module  # noqa: PLC0415 - the module whose serve() is replaced
+
+    seen: dict[str, object] = {}
+
+    async def fake_serve(*args: object, **kwargs: object) -> None:
+        seen.update(kwargs)
+
+    monkeypatch.setattr(server_module, "serve", fake_serve)
+    run(start(HostConfig(sessions=Sessions(Tokens.fresh(guests=0), cap=1), shape=SHAPE, dispatch=_echo)))
+    assert (seen["max_queue"], seen["max_size"], seen["compression"]) == (16, MAX_MESSAGE_BYTES, None)

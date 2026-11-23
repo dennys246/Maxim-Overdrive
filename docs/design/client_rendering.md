@@ -83,7 +83,7 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
 | cell frame (binary) | `[u32 header length][JSON header][arrays]`, little-endian; the ASCII header holds `protocol`, `kind`, `tick`, `shape: [nz, ny, nx]`, `regions_version`, `catalogue` (`welcome`'s hash), `compression` (`none` in v0), `grids` (`name`, `required`, `shape`, `cell_size_um`, `origin_um`: cell (0, 0, 0)'s corner, world x, y, z), `tables` (`name`, `required`, `rows`) and `arrays` (`channel`, `of`, `offset`, `size`, `uncompressed_size`), names printable ASCII (O63) |
 | `intent_result`, `time_decision`, `error` | world §3.3, §3.4 |
 
-- **The catalogue** gives each channel's `unit` (from the closed vocabulary), `dtype`, an encoding from a closed list,
+- **The catalogue** gives each channel's `unit` (a known channel's from the closed vocabulary), `dtype`, an encoding from a closed list,
   `required`, and `scale` and `offset` as integer rationals (`scale_num` / `scale_den`), so 975/255 needs no float
   format (DC-N5). Tables have typed columns: column-major, a per-column offset, an integer key column, no strings.
 - **Extension and bumps** (F2–F4, F6, W-F6): readers refuse, loudly, an unknown protocol version, `kind`, dtype or
@@ -97,8 +97,7 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
   hash, so `imagine` doesn't churn it.
 - **Every frame carries `welcome`'s hash,** whichever channels it holds; each equals its catalogue entry, and an
   optional one may be absent (O64). The decoder refuses another hash, or a `regions_version` ahead of its map.
-- **The server's JSON holds integers only** (O62), read by a strict parser on each side (O63): a float as the top-level
-  `protocol` is `bad_version`, any other `not_int`, judged after the version.
+- **The server's JSON holds integers only,** read by a strict parser on each side (boundaries §9.1).
 - **Events accumulate per session** until delivered, bounded at 256 `[engineering]`. An overflow forces a resync: the
   server sends a full `tick` state and the client requests `snapshot`. State tables carry everything an event
   announces, so a skipped tick at 20× loses nothing (DC-S4).

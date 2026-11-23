@@ -2,14 +2,16 @@ class_name WireFields
 extends RefCounted
 ## Typed readers for values parsed off the wire, one per converter the server's schema applies
 ## (src/simcore/core/schema.py, converters.py), each refusing with the server's code: so a header the server would
-## refuse for a field, the client refuses for that field with the same code. Each reader records only the first
-## refusal on ``read`` and returns a neutral value after one, so a caller reads field after field and checks once.
+## refuse for a field, the client refuses for that field with the same code, which the shared fixtures check. Each
+## reader records only the first refusal on ``read`` and returns a neutral value after one, so a caller reads field
+## after field and checks once.
 ##
-## JSON numbers arrive as floats (§4.1); WireJson has already refused any written with a point or an exponent and any
-## of magnitude 2^53 or more, so a float here holds an integer exactly and int() is exact.
+## WireJson reads an integer literal as an int, exact below 2^53; the server's JSON holds no other number (O62), so a
+## float never reaches these readers from it, and whole() still takes one for the client's own data.
 
 const INT_MAX: int = 9007199254740991  # 2^53 - 1 (O59)
 const DIGEST_SCHEME: String = "sha256/c14n-1"
+const MAX_NAME_CHARS: int = 64  # checks.IDENTITY_KEY_CHARS; the fixtures manifest holds the two equal
 
 
 ## ``raw`` as a mapping with every ``required`` key and no other (closed keys, as ``checks.known_keys``).
@@ -96,7 +98,7 @@ static func identity(read: WireRead, value: Variant, what: String) -> String:
 	var text: String = ""
 	if value is String:
 		text = value
-	var ok: bool = value is String and text.length() > 0 and text.length() <= 64 and not text.contains(":")
+	var ok: bool = value is String and text.length() > 0 and text.length() <= MAX_NAME_CHARS and not text.contains(":")
 	ok = ok and text == text.strip_edges()
 	for i: int in text.length():
 		ok = ok and text.unicode_at(i) >= 0x20 and text.unicode_at(i) <= 0x7E

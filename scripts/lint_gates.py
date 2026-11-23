@@ -82,7 +82,7 @@ _SCHEMA_READERS = (
 # what each converter refuses (the generated tests' input) and a schema's fields by name: descriptions, not readers
 _SCHEMA_DESCRIPTIONS = (
     "Real.bad", "Whole.bad", "Vector.bad", "Rgb.bad", "Text.bad", "Identity.bad", "Nested.bad", "Tagged.bad",
-    "ListOf.bad", "MapOf.bad", "Schema.by_name",
+    "ListOf.bad", "MapOf.bad", "Schema.by_name", "schemas_within",
 )  # fmt: skip
 
 GATES: dict[str, Gate] = {

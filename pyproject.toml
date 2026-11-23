@@ -206,6 +206,15 @@ name = "no law imports another: laws couple only through fields (sim_core.md §5
 type = "independence"
 modules = ["simcore.core.damage.loads", "simcore.core.damage.thermal", "simcore.core.heat"]
 
+# The network lane never touches the world (realtime_lanes_coop §4.1; step 7 review C3, D-S1): the server answers
+# from what it holds, and step 5a hands messages to the simulation lane through a bounded queue, never a call.
+[[tool.importlinter.contracts]]
+id = "network-lane-off-the-world"
+name = "the WebSocket server never reaches the world, the simulation or the applier (realtime §4.1)"
+type = "forbidden"
+source_modules = ["simcore.host.server"]
+forbidden_modules = ["simcore.core.world", "simcore.core.simulation", "simcore.core.applier"]
+
 [[tool.importlinter.contracts]]
 id = "maxim-through-adapters"
 name = "only the SEM membrane imports maxim (boundaries §8.1)"

@@ -12,6 +12,8 @@ const PORT_ENV: String = "MAXIM_OVERDRIVE_NET_PORT"
 ## With this set, a bare WebSocketPeer instead: it sends hello and counts the packets it ever holds before the close,
 ## the engine fact NetClient's close-reason read rests on.
 const RAW_ENV: String = "MAXIM_OVERDRIVE_NET_RAW"
+## With this set, the check waits past welcome for a cell frame, and prints its shape.
+const FRAME_ENV: String = "MAXIM_OVERDRIVE_NET_FRAME"
 
 var _client: NetClient = NetClient.new()
 var _raw: WebSocketPeer = null
@@ -41,7 +43,13 @@ func _process(_delta: float) -> bool:
 		return _done
 	_client.poll()
 	var session: NetSession = _client.session
-	if not session.welcome.is_empty():
+	var want_frame: bool = not OS.get_environment(FRAME_ENV).is_empty()
+	if want_frame and session.last_frame != null:
+		var frame: WireFrame = session.last_frame
+		_finish("net-check: frame %d %d %d" % [frame.nz, frame.ny, frame.nx])
+	elif want_frame and not session.ended():
+		return _done
+	elif not session.welcome.is_empty():
 		var hash_ok: bool = session.welcome.get("catalogue_hash") == WireCatalogue.catalogue_hash(WireCatalogue.v0())
 		_finish("net-check: welcome %s catalogue %s" % [session.welcome.get("role"), "same" if hash_ok else "differs"])
 	elif session.ended():

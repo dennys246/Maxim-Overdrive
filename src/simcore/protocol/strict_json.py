@@ -75,6 +75,8 @@ def _check_value(value: object) -> None:
             stack.extend((child, depth + 1) for child in children)
         elif isinstance(item, str) and any(0xD800 <= ord(ch) <= 0xDFFF for ch in item):
             raise _refused("a string holding a lone surrogate")
+        elif isinstance(item, str) and "\x00" in item:  # Godot can't hold U+0000 in a String (O63): never wire text
+            raise _refused("a string holding U+0000")
 
 
 def decode(data: str | bytes, *, max_bytes: int) -> object:
@@ -123,8 +125,18 @@ def encode(value: object) -> str:
     return json.dumps(value, allow_nan=False, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
 
 
+def _check_text(text: str) -> None:
+    if "\x00" in text:
+        raise ValueError("U+0000 can't go on the wire: the client's text can't hold it (O63)")
+    if any(0xD800 <= ord(ch) <= 0xDFFF for ch in text):
+        raise ValueError("a lone surrogate can't go on the wire: the decoder refuses it")
+
+
 def _check_numbers(value: object) -> None:
-    if isinstance(value, bool) or value is None or isinstance(value, str):
+    if isinstance(value, str):
+        _check_text(value)
+        return
+    if isinstance(value, bool) or value is None:
         return
     if isinstance(value, float):
         raise ValueError("the server writes integers only; a float can't go on the wire")
@@ -133,7 +145,7 @@ def _check_numbers(value: object) -> None:
             raise ValueError(f"an integer of magnitude 2^53 or more can't go on the wire: {value.bit_length()} bits")
         return
     if isinstance(value, dict):
-        for item in value.values():
+        for item in (*value.keys(), *value.values()):
             _check_numbers(item)
         return
     if isinstance(value, list | tuple):

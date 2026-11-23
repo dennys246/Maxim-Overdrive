@@ -33,14 +33,14 @@ from websockets.http11 import Request, Response
 
 from simcore.core.refusals import RefusalCode, Refused
 from simcore.host.sessions import Session, Sessions
-from simcore.protocol.messages import MAX_MESSAGE_BYTES, ClientMessage, Hello, read_message
+from simcore.protocol.messages import MAX_MESSAGE_BYTES, ClientMessage, Hello, HelloRefused, read_message
 from simcore.protocol.replies import error, welcome
 from simcore.protocol.strict_json import encode
 
 __all__ = ["BIND", "Dispatch", "HostConfig", "start"]
 
 BIND = "127.0.0.1"  # the literal loopback address (boundaries §5.3)
-MAX_QUEUE = 16  # messages received and not yet read, per connection: a bound, never websockets' default by accident
+MAX_QUEUE = 16  # frames received and not yet read, per connection: a bound, never websockets' default by accident
 
 Dispatch = Callable[[Session, ClientMessage], Mapping[str, object]]
 
@@ -58,7 +58,8 @@ def _gate(connection: ServerConnection, request: Request) -> Response | None:
     """Before the upgrade: no Origin header of any value (an empty one and "null" too), and a WebSocket upgrade only."""
     if "Origin" in request.headers:
         return connection.respond(http.HTTPStatus.FORBIDDEN, "no Origin header is accepted\n")
-    if request.headers.get("Upgrade", "").lower() != "websocket":
+    upgrades = request.headers.get_all("Upgrade")  # get() raises on a repeated header: a 500, not a refusal
+    if len(upgrades) != 1 or upgrades[0].lower() != "websocket":
         return connection.respond(http.HTTPStatus.BAD_REQUEST, "this port speaks WebSocket only\n")
     return None
 
@@ -129,6 +130,9 @@ class _Host:
         """The reply to one message after welcome; False when the connection is closed instead."""
         try:
             message = read_message(data)
+        except HelloRefused:  # a second hello, even a malformed one, ends the session
+            await self._refuse(connection, RefusalCode.HELLO_FIRST)
+            return False
         except Refused as refused:
             await connection.send(encode(error(refused.code, refused.field)))
             return True

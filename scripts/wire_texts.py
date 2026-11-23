@@ -5,21 +5,23 @@ client messages decode and stage 1 judge (``simcore.protocol.strict_json``, ``si
 from __future__ import annotations
 
 import json
+import struct
 from collections.abc import Mapping
 
 from simcore.protocol.messages import MAX_MESSAGE_BYTES
-from simcore.protocol.strict_json import MAX_DEPTH
+from simcore.protocol.strict_json import MAX_DEPTH, decode
 
-__all__ = ["Fixture", "client_messages", "json_texts"]
+__all__ = ["Fixture", "client_messages", "json_texts", "value_tree"]
 
 # name -> (bytes, outcome, code or "", extras for the manifest)
 Fixture = tuple[bytes, str, str, Mapping[str, object]]
+_OK, _NO = "accepted", "refused"
 
 
 def json_texts() -> dict[str, Fixture]:
     nested = "[" * 5_000 + "]" * 5_000  # past Python's recursion limit (1,000) and Godot's depth limit
     return {
-        "object": (b'{"a":[1,-2,"x",true,null],"b":{}}', "accepted", "", {}),
+        "object": _judged(b'{"a":[1,-2,"x",true,null],"b":{},"c":"caf\xc3\xa9 \\u00e9","d":2.5}', _OK),
         "nan": (b'{"a":NaN}', "refused", "bad_json", {}),
         "infinity": (b'{"a":Infinity}', "refused", "bad_json", {}),
         "minus_infinity": (b'{"a":-Infinity}', "refused", "bad_json", {}),
@@ -29,7 +31,7 @@ def json_texts() -> dict[str, Fixture]:
         "nested_repeated_key": (b'{"a":[{"b":1,"b":1}]}', "refused", "bad_json", {}),
         "lone_surrogate": (b'{"a":["\\ud800"]}', "refused", "bad_json", {}),
         "deep_nesting": (nested.encode(), "refused", "bad_json", {}),
-        "nesting_at_limit": (("[" * MAX_DEPTH + "]" * MAX_DEPTH).encode(), "accepted", "", {}),
+        "nesting_at_limit": _judged(("[" * MAX_DEPTH + "]" * MAX_DEPTH).encode(), _OK),
         "nesting_past_limit": (("[" * (MAX_DEPTH + 1) + "]" * (MAX_DEPTH + 1)).encode(), "refused", "bad_json", {}),
         "not_json": (b'{"a":', "refused", "bad_json", {}),
         "oversized": (b'{"a":"' + b"x" * 64 + b'"}', "refused", "bad_json", {"max_bytes": 64}),
@@ -37,13 +39,35 @@ def json_texts() -> dict[str, Fixture]:
     }
 
 
-_OK, _NO = "accepted", "refused"
-
-
 def _grammar_edges() -> dict[str, Fixture]:
-    """RFC 8259's edges, where a parser written for the wire and Python's can part (O63): each judged alike."""
+    """RFC 8259's edges, where a parser written for the wire and Python's can part (O63): each judged alike, and each
+    accepted one read to the same value (``value_tree``)."""
     texts = {**_string_edges(), **_number_and_structure_edges()}
-    return {name: (data, outcome, "" if outcome == _OK else "bad_json", {}) for name, (data, outcome) in texts.items()}
+    return {name: _judged(data, outcome) for name, (data, outcome) in texts.items()}
+
+
+def _judged(data: bytes, outcome: str) -> Fixture:
+    if outcome == _NO:
+        return (data, outcome, "bad_json", {})
+    return (data, outcome, "", {"value": value_tree(decode(data, max_bytes=len(data) + 1))})
+
+
+def value_tree(value: object) -> object:
+    """``value`` in a form no JSON reader can change: text as its code points, a float as its IEEE 754 bits (high,
+    low), each object as its members sorted by key. Godot's test builds the same tree from what it parsed."""
+    if isinstance(value, str):
+        return {"s": [ord(ch) for ch in value]}
+    if isinstance(value, bool) or value is None:
+        return {"b": value}
+    if isinstance(value, int):
+        return {"i": value}
+    if isinstance(value, float):
+        bits = struct.unpack("<Q", struct.pack("<d", value))[0]
+        return {"f": [bits >> 32, bits & 0xFFFFFFFF]}
+    if isinstance(value, dict):
+        return {"o": [[value_tree(k), value_tree(v)] for k, v in sorted(value.items())]}
+    assert isinstance(value, list)
+    return {"a": [value_tree(v) for v in value]}
 
 
 def _string_edges() -> dict[str, tuple[bytes, str]]:
@@ -56,7 +80,7 @@ def _string_edges() -> dict[str, tuple[bytes, str]]:
         "raw_newline_in_string": (b'{"a":"x\ny"}', no),
         "nul_after_value": (b'{"a":1}\x00', no),
         "nul_in_string": (b'{"a":"x\x00"}', no),
-        "escaped_nul": (b'{"a":"x\\u0000"}', ok),
+        "escaped_nul": (b'{"a":"x\\u0000"}', no),  # Godot can't hold U+0000 in a String, so neither side takes it
         "bom": (b'\xef\xbb\xbf{"a":1}', no),
         "float_1e20": (b'{"a":1e20}', ok),
         "float_whole_at_2p53": (b'{"a":9007199254740992.0}', ok),
@@ -75,6 +99,11 @@ def _string_edges() -> dict[str, tuple[bytes, str]]:
         "unknown_escape": (b'{"a":"\\x41"}', no),
         "short_unicode_escape": (b'{"a":"\\u12"}', no),
         "solidus_escape": (b'{"a":"\\/"}', ok),
+        "raw_bom_in_key": (b'{"\xef\xbb\xbfa":1,"a":2}', ok),  # two keys: a decoder that drops a BOM sees one
+        "escaped_bom_leading": (b'["\\ufeffx"]', ok),
+        "nul_beside_replacement": (b'{"a\\u0000b":1,"a\\ufffdb":2}', no),  # refused for its U+0000, not a repeat
+        "signed_unicode_escape_plus": (b'["\\u+041"]', no),
+        "signed_unicode_escape_minus": (b'["\\u-041"]', no),
     }
 
 
@@ -82,6 +111,12 @@ def _number_and_structure_edges() -> dict[str, tuple[bytes, str]]:
     ok, no = _OK, _NO
     return {
         "minus_zero": (b"[-0]", ok),
+        "exponent_past_u32": (b"[1e4294967296]", no),  # an exponent that wraps in a 32-bit reader
+        "zero_with_a_huge_exponent": (b"[0e99999999999999999999]", ok),
+        "long_fraction_and_exponent": (b"[0." + b"0" * 400 + b"1e400]", ok),  # 0.1
+        "just_below_overflow": (b"[1.7976931348623157e308]", ok),
+        "rounds_down_to_the_largest_double": (b"[1.7976931348623158e308]", ok),
+        "rounds_up_past_the_largest_double": (b"[1.7976931348623159e308]", no),
         "exponent_without_digits": (b"[1e]", no),
         "fraction_without_digits": (b"[1.]", no),
         "leading_plus": (b"[+1]", no),

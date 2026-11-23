@@ -37,7 +37,7 @@ def visible_name(value: str) -> bool:
     words = [w for w in _NAME_SEPARATORS.split(value) if w]
     if not words or unicodedata.normalize("NFKC", value) != value:
         return False
-    if any(w in unicodedata.name(ch, "") for ch in value for w in _BLANK_WORDS):
+    if any(_blank(ch) for ch in value):
         return False
     return all(_visible_word(w) for w in words)
 
@@ -78,18 +78,22 @@ _PRESENTATION = frozenset("\ufe0e\ufe0f")
 # Categories refused outright: controls (a newline too: guest text is one line), format, surrogates, private use,
 # unassigned code points, and the line and paragraph separators.
 _REFUSED_CATEGORIES = frozenset({"Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp"})
-_BLANK = frozenset("\u2800")  # the braille blank: a glyph that draws nothing, which a message can't be made of alone
 
 
 def _within(ranges: tuple[tuple[int, int], ...], ch: str) -> bool:
     return any(lo <= ord(ch) <= hi for lo, hi in ranges)
 
 
+def _blank(ch: str) -> bool:
+    """A character Unicode names a BLANK or a FILLER: one that draws nothing though no property says so (the braille
+    blank, Khitan's and the hieroglyphs' fillers; step 7 delta review D-B1). The name rule's own test, shared."""
+    return any(w in unicodedata.name(ch, "") for w in _BLANK_WORDS)
+
+
 def _visible(ch: str) -> bool:
-    """A character that draws something: not refused by category, not a space, not default-ignorable."""
-    return (
-        unicodedata.category(ch) not in _REFUSED_CATEGORIES and not ch.isspace() and not _within(DEFAULT_IGNORABLE, ch)
-    )
+    """A character that draws something: not refused by category, not a space, not default-ignorable, not blank."""
+    category_ok = unicodedata.category(ch) not in _REFUSED_CATEGORIES
+    return category_ok and not ch.isspace() and not _within(DEFAULT_IGNORABLE, ch) and not _blank(ch)
 
 
 def _presentation_at(text: str, i: int) -> bool:
@@ -108,7 +112,7 @@ def _refused_at(text: str, i: int) -> bool:
         return not (0 < i < len(text) - 1 and _drawn_at(text, i - 1) and _visible(text[i + 1]))
     if ch in _PRESENTATION:
         return not _presentation_at(text, i)
-    return unicodedata.category(ch) in _REFUSED_CATEGORIES or _within(DEFAULT_IGNORABLE, ch)
+    return unicodedata.category(ch) in _REFUSED_CATEGORIES or _within(DEFAULT_IGNORABLE, ch) or _blank(ch)
 
 
 def player_text(value: object, what: str, *, max_chars: int) -> str:
@@ -128,6 +132,6 @@ def player_text(value: object, what: str, *, max_chars: int) -> str:
         if _refused_at(text, i):
             kind = unicodedata.category(text[i])
             raise Refused(f"{what} holds a {kind} character at {i} that guest text may not", code=RefusalCode.BAD_TEXT)
-    if not any(_visible(ch) and ch not in _BLANK for ch in text):
+    if not any(_visible(ch) for ch in text):
         raise Refused(f"{what} draws nothing: every character is a space or blank", code=RefusalCode.BAD_TEXT)
     return text

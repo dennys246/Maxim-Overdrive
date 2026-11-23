@@ -1,19 +1,12 @@
 class_name FrameDecoder
 extends RefCounted
 ## The client's cell-frame decoder (client_rendering.md §4.1; world_v2.md §8): the twin of the server's
-## src/simcore/protocol/grammar.py, with its checks in the same order and its refusal codes, held to the same golden
+## src/simcore/protocol/grammar.py, with its checks in the same order and its refusal codes, held to the shared golden
 ## fixtures (client/tests/fixtures/wire/manifest.json). Defence in depth (boundaries §5.3): a frame that fails any
 ## check yields nothing, never a crash and never a partly drawn world.
 ##
-## A frame is [u32 header length][JSON header][arrays], little-endian. The checks:
-## 1. the frame's length, the header length, and the header as ASCII, strict JSON (bad_shape, bad_json);
-## 2. protocol first, so a newer frame is refused for its version (bad_version);
-## 3. the header's closed schema (unknown_field, missing_field, unknown_kind, not_int, ...);
-## 4. the catalogue hash against welcome's (bad_version);
-## 5. the layout: each array the size its container and dtype give, back to back (bad_shape);
-## 6. the extension rule: unknown optional grids, tables and channels ignored, unknown required ones refused
-##    (unknown_field); a known channel identical to this build's (bad_shape); every required channel present
-##    (missing_field).
+## A frame is [u32 header length][JSON header][arrays], little-endian. Its checks and their order are grammar.py's
+## (its module docstring lists them), the one statement of them; the fixtures hold the two decoders to it.
 
 const PROTOCOL: int = 0
 const CELL_GRID: String = "cells"
@@ -77,12 +70,9 @@ static func _header(read: WireRead, data: PackedByteArray, max_bytes: int) -> Di
 		read.refuse("bad_shape", "frame: the header is not a JSON object")
 		return {}
 	var raw: Dictionary = json.value
-	var version: int = WireFields.version(read, raw.get("protocol"), json.non_integer_keys.has("protocol"))
-	if read.ok and version != PROTOCOL:
-		read.refuse("bad_version", "frame: protocol %d; this reader knows %d" % [version, PROTOCOL])
-	if read.ok and not json.non_integer_keys.is_empty():  # O62, after the version as strict_json.integers_only
-		read.refuse("not_int", "frame header: a number with a point or an exponent; it holds integers only")
-	if not read.ok:
+	WireJson.server_rules(json, PROTOCOL, true)
+	if not json.ok:
+		read.refuse(json.code, "frame header: " + json.reason)
 		return {}
 	return _read_header(read, raw)
 
@@ -107,6 +97,10 @@ static func _read_header(read: WireRead, raw: Dictionary) -> Dictionary:
 	var arrays: Array[Dictionary] = []
 	for a: Variant in WireFields.list_of(read, h["arrays"], "arrays", MAX_ARRAYS):
 		arrays.append(_array(read, a))
+	for a: Dictionary in arrays:  # after every field is read, as the server builds each Channel after its schema
+		var channel: Dictionary = a.get("channel", {})
+		if read.ok:
+			_channel_rules(read, channel)
 	out["grids"] = grids
 	out["tables"] = tables
 	out["arrays"] = arrays
@@ -150,8 +144,7 @@ static func _array(read: WireRead, raw: Variant) -> Dictionary:
 	}
 
 
-## A channel's description, typed so it compares equal to WireCatalogue's; raw means scale 1/1 and offset 0/1, and a
-## denominator is positive (catalogue.Channel's own checks).
+## A channel's description, typed so it compares equal to WireCatalogue's; its rules are _channel_rules'.
 static func _channel(read: WireRead, raw: Variant) -> Dictionary:
 	var c: Dictionary = WireFields.keys(read, raw, "channel", CHANNEL_KEYS)
 	if not read.ok:
@@ -166,15 +159,17 @@ static func _channel(read: WireRead, raw: Variant) -> Dictionary:
 		"scale": WireFields.wholes(read, c["scale"], "scale", 2, -limit, limit),
 		"offset": WireFields.wholes(read, c["offset"], "offset", 2, -limit, limit),
 	}
-	if not read.ok:
-		return {}
-	var scale: Array[int] = out["scale"]
-	var offset: Array[int] = out["offset"]
-	if out["encoding"] == "raw" and (scale != [1, 1] or offset != [0, 1]):
-		read.refuse("bad_shape", "channel %s: raw, so scale 1/1 and offset 0/1" % out["name"])
+	return out if read.ok else {}
+
+
+## catalogue.Channel's own checks: raw means scale 1/1 and offset 0/1, and a denominator is positive.
+static func _channel_rules(read: WireRead, channel: Dictionary) -> void:
+	var scale: Array[int] = channel["scale"]
+	var offset: Array[int] = channel["offset"]
+	if channel["encoding"] == "raw" and (scale != [1, 1] or offset != [0, 1]):
+		read.refuse("bad_shape", "channel %s: raw, so scale 1/1 and offset 0/1" % channel["name"])
 	elif scale[1] <= 0 or offset[1] <= 0:
-		read.refuse("bad_shape", "channel %s: a rational's denominator is positive" % out["name"])
-	return out
+		read.refuse("bad_shape", "channel %s: a rational's denominator is positive" % channel["name"])
 
 
 ## Each grid and table by name: [element count, known, required].

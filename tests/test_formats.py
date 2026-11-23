@@ -42,6 +42,7 @@ from simcore.core.schema import (
     Vector,
     Whole,
     read_version,
+    schemas_within,
 )
 from simcore.protocol.tiers import RIG_PROFILE, RigProfile
 
@@ -232,6 +233,9 @@ def test_a_document_that_is_not_a_mapping_has_no_version(raw):
 def test_content_stores_time_in_seconds_never_ticks():
     with pytest.raises(TypeError, match="never ticks"):
         Format("doc", 1, Schema((Field("hold_ticks", Whole(0, 10)),)))
+    mapped = MapOf(Identity(), Nested(Schema((Field("hold_ticks", Whole(0, 10)),))), 4)  # a table such as materials
+    with pytest.raises(TypeError, match="never ticks"):
+        Format("doc", 1, Schema((Field("rows", mapped),)))
     deep = Schema((Field("items", ListOf(Nested(Schema((Field("hold_ticks", Whole(0, 10)),))), 4)),))
     with pytest.raises(TypeError, match="never ticks"):  # however deep it is nested
         Format("doc", 1, deep)
@@ -246,26 +250,9 @@ def test_a_schema_cannot_name_a_field_twice():
 
 
 def _walk_fields(s: Schema) -> Iterator[Field]:
-    for f in s.fields:
-        yield f
-        c = f.convert
-        inner = (
-            (c,)
-            if isinstance(c, Nested)
-            else (c.item,)
-            if isinstance(c, ListOf)
-            else (c.value,)
-            if isinstance(c, MapOf)
-            else ()
-        )
-        for i in inner:
-            yield from (
-                _walk_fields(i.schema)
-                if isinstance(i, Nested)
-                else (g for t in i.schemas.values() for g in _walk_fields(t))
-            )
-        if isinstance(c, Tagged):
-            yield from (g for t in c.schemas.values() for g in _walk_fields(t))
+    """Every field in ``s`` and the schemas it nests: the core's own walk (``schemas_within``), the tick rule's too."""
+    for nested in schemas_within(s):
+        yield from nested.fields
 
 
 def _tagged(convert: object) -> list[Tagged]:

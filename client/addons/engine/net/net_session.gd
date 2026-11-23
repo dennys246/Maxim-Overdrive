@@ -4,19 +4,21 @@ extends RefCounted
 ## socket, so every branch runs in a unit test (tests/unit/net/test_net_session.gd); NetClient feeds it packets.
 ##
 ## The first refusal wins and ends the session: a later message can't overwrite why it ended, and the owner closes
-## the connection on it (``ended``). Text is the server's JSON (WireJson.parse_server: integers only, O62); binary is
+## the connection on it (``ended``). Text is the server's JSON (WireJson.server_rules: integers only, O62); binary is
 ## a cell frame, read by this build's catalogue only after a welcome whose catalogue hash is this build's (O64).
 
-const PROTOCOL: int = 0
+const PROTOCOL: int = FrameDecoder.PROTOCOL
+## What a refusal code looks like (src/simcore/core/refusals.py): lower-case words joined by underscores.
+static var CODE: RegEx = RegEx.create_from_string("^[a-z][a-z_]{0,31}\\z")
 ## The server's text messages (welcome, error) are small; a cell frame is binary and has its own cap.
-const MAX_TEXT_BYTES: int = 256 * 1024
+const MAX_TEXT_BYTES: int = 64 * 1024  # the server's own inbound cap; a hostile text parses in well under a second
 const MAX_FRAME_BYTES: int = 4 * 1024 * 1024
 const ROLES: Array[String] = ["host", "guest"]
 
 ## welcome as read, once it is; empty before.
 var welcome: Dictionary = {}
-## The refusal that ended the session: an error the server sent, what this client refused, or the close's reason;
-## empty while all is well.
+## The refusal that ended the session: a code (an error the server sent, what this client refused, or the close's
+## reason), or "closed <close code>" when the connection ended with no reason; empty while all is well.
 var refusal: String = ""
 var last_frame: WireFrame = null
 var _catalogue: Array[Dictionary] = WireCatalogue.v0()
@@ -35,11 +37,13 @@ func end(code: String) -> void:
 func on_text(bytes: PackedByteArray) -> void:
 	if ended():
 		return
-	var read: WireRead = WireJson.parse_server(bytes, MAX_TEXT_BYTES)
-	if read.ok and not read.non_integer_keys.is_empty():
-		read.refuse("not_int", "the server writes integers only")
+	var read: WireRead = WireJson.parse(bytes, MAX_TEXT_BYTES)
 	if read.ok and not read.value is Dictionary:
 		read.refuse("bad_shape", "a server message is a JSON object")
+	if read.ok:  # welcome carries the protocol; an error does not
+		var fields: Dictionary = read.value
+		var versioned: bool = fields.get("type") == "welcome"
+		WireJson.server_rules(read, PROTOCOL, versioned)
 	if not read.ok:
 		end(read.code)
 		return
@@ -50,7 +54,7 @@ func on_text(bytes: PackedByteArray) -> void:
 		"error":
 			var code: Variant = message.get("code")
 			var text: String = code if code is String else ""
-			end(text if not text.is_empty() else "bad_shape")
+			end(text if CODE.search(text) != null else "bad_shape")  # a code from the server's vocabulary's shape
 		_:
 			end("unknown_kind")
 
@@ -59,10 +63,7 @@ func _on_welcome(message: Dictionary) -> void:
 	if not welcome.is_empty():
 		end("bad_shape")  # welcome comes once
 		return
-	var read: WireRead = WireRead.new()
-	var version: int = WireFields.version(read, message.get("protocol"), false)
-	if read.ok and version != PROTOCOL:
-		read.refuse("bad_version", "welcome: protocol %d; this client speaks %d" % [version, PROTOCOL])
+	var read: WireRead = WireRead.new()  # its protocol was read by WireJson.server_rules
 	if read.ok:  # each read refuses through ``read``; the values themselves are kept in ``welcome``
 		var _session: int = WireFields.whole(read, message.get("session"), "session", 1, WireJson.INT_MAX)
 		var _role: String = WireFields.choice(read, message.get("role"), "role", ROLES)
