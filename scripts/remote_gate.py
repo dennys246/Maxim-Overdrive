@@ -155,16 +155,25 @@ class Config:
 def _address(m: re.Match[str]) -> str:
     """``<address>`` for an IPv6 literal (with a hex digit: ``::`` alone is a separator), else the text unchanged."""
     literal = m.group(1) or m.group(2)
-    tail = ""
-    # Bare and zoneless: a `.` or `:` that ends a sentence or a field is not part of the address.
-    if m.group(2) and m.end(2) == m.end(0):
-        stripped = literal.rstrip(".:") or literal
-        literal, tail = stripped, literal[len(stripped) :]
-    try:
-        ipaddress.IPv6Address(literal)
-    except ValueError:
+    end = len(literal)
+    # Bare and zoneless: a `.` or `:` that ends a sentence or a field is not part of the address, but `::` can be
+    # (`2001:db8::`), so drop one trailing separator at a time and take the longest form that parses.
+    floor = len(literal.rstrip(".:")) if m.group(2) and m.end(2) == m.end(0) else end
+    for end in range(len(literal), floor - 1, -1):
+        if _is_ipv6(literal[:end]):
+            break
+    else:
         return m.group(0)
-    return "<address>" + tail if re.search(r"[0-9A-Fa-f]", literal) else m.group(0)
+    return "<address>" + literal[end:] if re.search(r"[0-9A-Fa-f]", literal[:end]) else m.group(0)
+
+
+def _is_ipv6(text: str) -> bool:
+    """Whether ``text`` is an IPv6 address literal (zone excluded)."""
+    try:
+        ipaddress.IPv6Address(text)
+    except ValueError:
+        return False
+    return True
 
 
 def masked(text: str, masks: tuple[tuple[str, str], ...]) -> str:
