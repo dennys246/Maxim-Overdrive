@@ -102,10 +102,10 @@ Each entry says which half each piece of work is.
 | | |
 |---|---|
 | **Goal** | Text to imagined-object specs that the world accepts and that behave as asked, written by a generator on the world's side (O57); perhaps later a small model trained against the world's own scorer |
-| **Documents** | `../design/research/specgen_spike/plan.md` (stage 1) and `sources.md`; `../architecture.md` "Imagination"; `../roadmap.md` Phase 6 |
+| **Documents** | `../design/research/specgen_spike/plan.md` (stage 1) and `sources.md`; `../design/generation_harness.md` (the offline harness and its use battery, built after stage 1); `../architecture.md` "Imagination"; `../roadmap.md` Phase 6 |
 | **Contract** | the spec `place` accepts (v0 today; v1 planned in `../design/fire_model.md`), with its refusal codes; provenance and the IP gate (`../design/ip_and_licensing.md` §3, §6) |
 | **Decided** | the spike is allowed, local only, P = 0.8 (O56); the generator is world-side, never the agent's imagination (O57); local models first (O58) |
-| **Open** | whether stage 2, training, goes ahead (plan §6); physics scoring waits on spec v1 (plan §5); the two Maxim questions O57 defers to Phase 6's design |
+| **Open** | whether stage 2, training, goes ahead (plan §6); physics scoring waits on spec v1 (plan §5); the two Maxim questions O57 defers to Phase 6's design; `owner_lan` as "owner machines", a declared known gap resolved with the peer-mesh refinement between Maxim and Overdrive (owner, 2026-11-22; `../design/generation_harness.md` §2) |
 | **Status** | stage 1 pre-registered 2026-11-22 (`spikes/specgen/freeze.sha256`); S and R measured on the mini; not run |
 | **Next** | write the generator and the scorer under `spikes/specgen/`; run S, then R in windows the owner sets (about 9 h and 62 h on the mini) |
 

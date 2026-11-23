@@ -108,3 +108,7 @@ design document, and removed when its fix lands and its gate flips. Moved verbat
   40×8×6 m tile at 0.1 m) lightly loaded, 1.4× real time (about 3.6× at 5×10⁶ by scaling); under heavy load 1.2–1.45 s
   (2.3–2.9×) and 3.9 s at 5×10⁶ (7.7×). Main is the same (`process_time`, min of 2–5 runs; step 3b). 0.05 m is about
   60× slower than 0.1 m. Step 5a owns it (B5); far cells never run coarser (D21).
+- **A batch job's `owner_lan` placement can't prove the machine is the owner's.** The generation harness hard-codes
+  local egress (`loopback` or `owner_lan`), but a cloud VM joined to the owner's tailnet is `owner_lan` by design
+  (IG §7, IP §6.3), and no check tells them apart. Accepted as a declaration (owner, 2026-11-22,
+  `design/generation_harness.md` §2). Resolved with the peer-mesh refinement between Maxim and Overdrive.

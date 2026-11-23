@@ -149,6 +149,7 @@ be opt-in (from `boundaries.md` §9.3).
 | OD-I10 | **Question** to Maxim's 2026-09-28 decision that "the proxy wins for operator paths" (`DECISIONS.md:1150-1192`, `utils/http.py:830`): Overdrive's gateways set `NO_PROXY=*`, which stops httpx's environment lookup from mounting any proxy and urllib's from consulting macOS System Settings (verified with httpx 0.28.1; `inference_gateway.md` §2). Ask: keep that honoured on the backends' path, since it rests on httpx's private `get_environment_proxies` (`DECISIONS.md:1188`), and expose `HTTPEndpoint.strict_address_check` (`utils/http.py:228`, `:875-881`) to backend callers. Not in O29's subset | new (2026-11-21) |
 | OD-I11 | A blocked `base_url` can fail open to the cloud, because the refusal is keyed on the provider's **name**, not its **type**. `_OpenAIBackend._get_base_url` (`models/language/openai_backend.py:231-243` at `b98954f7`) warns "Blocked base_url … (SSRF protection)" and returns `None`. `_ensure_client` (`:273-275`) refuses only when `self._provider_key` is `openai_compatible` or `openai_compat`, while the router dispatches on the provider's type (`router.py:467-474`). So a provider of type `openai` (or `openai_compatible` under any other key) with a blocked URL builds a client with no base URL, and the OpenAI SDK takes `OPENAI_BASE_URL` or its default, api.openai.com. Run on pymaxim 1.3.4, 2026-11-22: a provider keyed `local`, type `openai`, pointing at a loopback llama-server, sent its prompt to api.openai.com, refused 401 (lesson 36). Searched Maxim's issues ("SSRF base_url fallback", "Blocked base_url"): nothing found. The fix is to refuse on the type, so a local-first game's NPC prompt can't leave the machine on one misconfiguration | new (2026-11-22) |
 | OD-I12 | **Question** to the deferred `plans/deferred/vllm_self_hosted_servers.md`, which calls `chat_template_kwargs` a "vLLM-only payload field" justified only by a dedicated backend (`:62`) and treats thinking as a parsing problem: `--reasoning-parser` keeps `<think>` text out of `content` (`:155-156`), but nothing bounds the tokens it spends. llama-server takes the same field. Run on pymaxim 1.3.4, 2026-11-22: `_OpenAIBackend` against llama-server (`--jinja`, build 10621) serving Qwen3.5 4B returned empty content, 512 of 512 tokens, `stop_reason` `length`: the template's thinking went to `reasoning_content` and spent the whole budget. Nothing in the backend can switch it off (`enable_thinking`, or Ollama's `think`). Does a reasoning model on a self-hosted lane need a per-provider thinking switch, and does this meet the plan's revive trigger? Searched issues ("thinking reasoning local qwen"): nothing found | new (2026-11-22) |
+| OD-I13 | **Ask:** seeds and samplers on Maxim's backends. `backend_protocol.py::complete_with_usage` (at `origin/main` 16aaf664) takes `temperature`, `stop` and `thinking`, with no seed, top-p, top-k, `min_p`, `repeat_penalty` or response format, which IP §1.3 F6 records and the generation harness needs to run through the gateway (`generation_harness.md` §4). Searched `docs/plans` for "seed" with backend and sampling terms: archived plans only, nothing live. Until it lands, the harness keeps its own marked client | new (2026-11-22) |
 
 ### Tier A: an agent a host drives (Phase 4 waits on a named subset)
 
@@ -297,6 +298,9 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
 
 ## Phase 4: Cradles and the first NPCs (later)
 
+- **Retire the generation harness's own inference client** (`TEMPORARY(phase4/inference)`, `generation_harness.md`
+  §4) when the gateway path can carry its protocol: IP §4.2's request fields and §2.3's caller without speakers, IG
+  §3's engine proof, and the Phase 3 asks OD-I11, OD-I12 and OD-I13. Its file is listed here once the code exists.
 - **Starts on tier A's subset** (owner decisions O6, O15a and O29): no real Maxim NPC runs before the subset under
   Phase 3's tier A heading ships (OD-A1's #1361 S3a, S3b and S4; OD-A2 to OD-A11; OD-A12's thread; OD-A14 to OD-A18;
   OD-A20, declined, so the replay exit carries its divergence; the issues OD-I1 and OD-I3), and before Maxim's 1.4.0 cut with the agent-loop decomposition slice that
@@ -370,15 +374,17 @@ See `docs/book_to_world.md`. Extraction, timeline and the perspective split, the
 
 ## Before the repository goes public
 
-The repository is private until Maxim publishes its fix for OD-I5 (owner, 2026-11-21). Going public is one branch,
-`phaseN/go-public`, which does all of this, then the owner flips visibility:
+The repository was private until Maxim published its fix for OD-I5 (owner, 2026-11-21). It is public again since
+2026-11-22 (owner), after the disclosure and Maxim 1.3.4's release. The plan was one branch, `phaseN/go-public`, doing
+all of this before visibility flipped. Items 1 and 3 hold (item 3 read from the repository settings on 2026-11-22:
+no runners, approval for first-time contributors, read-only default token). Items 2, 4 and 5 are still open:
 
 1. **Disclosure:** Maxim's advisory for OD-I5 is public and its fix released. Until then, stay private; the history is
    not rewritten (the mentions span 202 commits and GitHub keeps PR refs).
 2. **CI restored:** `.github/workflows/test.yml` runs Linux and macOS on every pull request again (public repositories
-   get free minutes). That reverses option B, so the test that pins it
-   (`tests/test_check_lock.py::test_macos_runs_on_githubs_runners_only_for_pushes_to_main_and_the_weekly_drift`) is
-   rewritten in the same commit.
+   get free minutes), reversing option B. The pinning test is rewritten as
+   `tests/test_check_lock.py::test_linux_and_macos_run_on_githubs_runners_for_every_pull_request_and_the_weekly_drift`
+   (PR #48).
 3. **No self-hosted runner** is registered (Settings > Actions > Runners lists none), and the repository settings
    require approval for workflow runs from first-time contributors.
 4. **Personal paths:** absolute paths under the owner's home in seven files (three spike scripts and four documents,
