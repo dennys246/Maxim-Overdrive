@@ -383,11 +383,11 @@ capture, the token, caps, 1009), `HostOnly` with a guest-role view, and `player_
     sends faster than the client polls; trigger: step 8's live client.
   - `WireFrame.index(z, y, x)` and `CellSnapshot.index(x, y, z)` take their axes in opposite orders; trigger: step
     8's decoder filling `CellSnapshot`, which picks one.
-  - Guest text's hidden channels, bounded but not closed (Trust D-N4, T3-N2, T4-S1; O70, O71), as upper bounds on
-    3.12: a stack of up to four of 1,706 marks carries about 43 bits per visible character, and a gap of up to two of
-    the 21 inkless characters, each with its marks, about 95, so "hi!" hides at most about 508 bits; a joiner or
-    selector adds a bit or two per visible character. Tighter needs the script property (a mark matching its base's
-    script) or fewer marks, which real text refuses; trigger: the first guest text an NPC reads (`phase1/agents`).
+  - Guest text's hidden channels, bounded but not closed (Trust D-N4, T3-N2, T4-S1): O73 holds the measured bounds,
+    and the cap's cost to Tibetan Sanskrit and pointed Hebrew. Tighter needs the script property (a mark matching its
+    base's script) or fewer marks, which real text refuses. A message ending in spaces is refused, not trimmed; the
+    `speak` step decides whether the client trims or says why (Executor E-N3); trigger: the first guest text an NPC
+    reads (`phase1/agents`).
   - Open NITs from the review rounds, each a test or a code to tighten: a test that asserts the stage-1 fuzz's reach
     (Trust D-N5); `bad_version` naming its field alike on every path (D-N6); the client's code shape tied to
     `RefusalCode`'s spelling test (N-N3); a float of about a million digits, which the client's saturated exponent

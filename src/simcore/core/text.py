@@ -132,8 +132,8 @@ def _inkless(ch: str) -> bool:
     return not _visible(ch)
 
 
-def _never(ch: str) -> bool:
-    return False
+def _joiner(ch: str) -> bool:
+    return ch in _JOINERS
 
 
 def _past_cap_at(text: str, cap: int, *, counted: Callable[[str], bool], skipped: Callable[[str], bool]) -> int | None:
@@ -155,7 +155,7 @@ def _check_runs(text: str, what: str) -> None:
     if blank_at is not None:
         reason = f"{what} holds a run of more than {MAX_BLANK_RUN} characters that draw nothing, at {blank_at}"
         raise Refused(reason, code=RefusalCode.BAD_TEXT)
-    mark_at = _past_cap_at(text, MAX_MARKS, counted=_mark, skipped=_never)
+    mark_at = _past_cap_at(text, MAX_MARKS, counted=_mark, skipped=_joiner)  # a joiner can't split a stack (O71)
     if mark_at is not None:
         raise Refused(
             f"{what} stacks more than {MAX_MARKS} marks on one character, at {mark_at}", code=RefusalCode.BAD_TEXT

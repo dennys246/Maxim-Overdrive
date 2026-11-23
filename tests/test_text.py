@@ -13,7 +13,7 @@ from hypothesis import strategies as st
 
 from simcore.core import text as text_module
 from simcore.core.refusals import RefusalCode, Refused
-from simcore.core.text import MAX_BLANK_RUN, MAX_MARKS, player_text, visible_name
+from simcore.core.text import player_text, visible_name
 from simcore.core.text_tables import DEFAULT_IGNORABLE, EMOJI, NO_INK
 
 ZWNJ, ZWJ = "\u200c", "\u200d"
@@ -122,13 +122,14 @@ def _is_mark(ch: str) -> bool:
 
 def _assert_no_long_runs(out: str) -> None:
     """The test's own reading of O70 and O71: with the marks taken out, no three characters in a row draw nothing (a
-    space, a format character, a listed blank); and no five marks stand in a row."""
+    space, a format character, a listed blank); and with the joiners taken out, no five marks stand in a row."""
     within = lambda cp: any(lo <= cp <= hi for lo, hi in NO_INK)  # noqa: E731
     bare = [ch for ch in out if not _is_mark(ch)]
     inkless = [ch.isspace() or unicodedata.category(ch) == "Cf" or within(ord(ch)) for ch in bare]
-    assert not any(all(inkless[i : i + MAX_BLANK_RUN + 1]) for i in range(len(bare) - MAX_BLANK_RUN))
-    marks = [_is_mark(ch) for ch in out]
-    assert not any(all(marks[i : i + MAX_MARKS + 1]) for i in range(len(out) - MAX_MARKS))
+    assert not any(all(inkless[i : i + 3]) for i in range(len(bare) - 2))  # O70's two, written out (review D1-N1)
+    unjoined = [ch for ch in out if ch not in (ZWNJ, ZWJ)]  # a joiner splits no stack
+    marks = [_is_mark(ch) for ch in unjoined]
+    assert not any(all(marks[i : i + 5]) for i in range(len(unjoined) - 4))  # O71's four, written out
 
 
 # Pieces that reach the run and stack rules, which random text almost never does (review E-N2): letters, spaces and
@@ -232,6 +233,7 @@ TALL_STACKS = [
     ("h" + "\u17d2" * 200 + "i", "invisible Khmer stackers", 5),
     ("1\ufe0f\u20e3\u20e3\u20e3\u20e3", "a keycap with more enclosing marks", 5),
     (" \u0301\u0302\u0303\u0304\u0305x", "five marks on a space", 5),
+    ("x\u0301\u0302\u0303\u0304\u200d\u0301b", "a joiner between marks, which neither ends a stack nor adds to it", 6),
 ]
 
 

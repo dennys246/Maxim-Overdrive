@@ -4,7 +4,7 @@ Generated once from Unicode 16.0's ``DerivedCoreProperties.txt`` (``Default_Igno
 ``emoji-test.txt`` (the bases followed by U+FE0F), under the Unicode License v3, merged into inclusive, sorted,
 disjoint ranges.
 Regenerate them, with a test change, when the engine moves to a newer Unicode version; ``tests/test_text.py`` holds
-their shape and a sample of points to the published data. ``NO_INK`` alone is kept by hand (O70).
+their shape and a sample of points to the published data. ``NO_INK`` alone is kept by hand (O70, O71, O72).
 """
 
 from __future__ import annotations
