@@ -35,7 +35,7 @@ _NUMERIC = {
     "contextlib": "the write window's context manager",
     "dataclasses": "frozen value types",
     "enum": "StrEnum, the closed vocabularies: refusal codes and law cadences",
-    "unicodedata": "a name's NFKC form and its letters' Unicode names (schema.Text); pure, no IO",
+    "unicodedata": "NFC and NFKC forms, categories and digit values for names and guest text (core.text); pure, no IO",
     "idna": "IDNA2008's code-point tables and contextual rules for a name's characters (schema.Text); pure, no IO",
     "hashlib": "sha256 for versioned content digests (simcore.core.digest); not the builtin hash()",
     "re": "the shape of a stored digest",
@@ -144,7 +144,7 @@ _NAMES_CORE = frozenset({
     "numpy.uint8", "numpy.where", "numpy.zeros", "re.compile", "reprlib.Repr", "scipy.ndimage", "scipy.ndimage.label",
     "scipy.special.ndtr", "types.MappingProxyType", "typing.Any", "typing.ClassVar", "typing.Literal",
     "typing.NoReturn", "typing.Protocol", "typing.SupportsFloat", "idna.IDNAError", "idna.check_label",
-    "unicodedata.category", "unicodedata.digit", "unicodedata.name", "unicodedata.normalize",
+    "unicodedata.category", "unicodedata.digit", "unicodedata.normalize",
 })  # fmt: skip
 
 # the file gate: paths, and strict YAML through a SafeLoader subclass
