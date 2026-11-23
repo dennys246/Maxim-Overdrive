@@ -3,7 +3,7 @@
 # log in out/fit/ as it goes.
 cd "$(dirname "$0")"
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MKL_NUM_THREADS=1
-PY=${PYTHON:-/Users/dennyschaedig/Scripts/Maxim-Overdrive/.worktrees/fire-research/.venv/bin/python}
+PY=${PYTHON:-../../../.venv/bin/python}  # the running worktree's own venv
 mkdir -p out/fit
 printf '%s\n' "pine 0" "pine 1" "pine 2" "pine 3" "pine 4" "pmma_forward 0" "pmma_reverse 0" "pmma_forward 1" \
   "pmma_reverse 1" "pmma_forward 2" "pmma_reverse 2" "pmma_forward 3" "pmma_reverse 3" "pmma_forward 4" \

@@ -12,14 +12,13 @@ permissions:
   contents: read
 
 jobs:
-# Linux on every run; macOS (billed at 10x Linux on a private repo) only on pushes to main. A PR's macOS check at
-# Python 3.12 is the prepush PASS from the owner's Mac mini that every hand-off carries; macOS at 3.14 is checked only
-# on main. Untrusted PR code never runs on that machine.
+# Linux and macOS on every pull request and every push to main, on GitHub's hosted runners only: the repository is
+# public (2026-11-22), so macOS minutes are free, and untrusted PR code never runs on the owner's machines.
   prepush:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ fromJSON(github.event_name == 'push' && '["ubuntu-latest", "macos-latest"]' || '["ubuntu-latest"]') }}
+        os: [ubuntu-latest, macos-latest]
         python-version: ["3.12", "3.14"]
     runs-on: ${{ matrix.os }}
     steps:
