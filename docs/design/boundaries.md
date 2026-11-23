@@ -315,7 +315,7 @@ module sits inside the core (`core/body`, `core/stimuli`) is `sem_stimuli.md` §
 | **The worker channel** (`npcs_and_sem.md` §6.6; Exec B1, TB3-B1) | a real agent's worker process | one actor per channel, bound at spawn | — | the strictest contract: `npcs_and_sem.md` §6.6's codec, its tests and its `agent_failed` rule | `phase1/agents` (with the test double behind it) |
 | Thought results: intents, speech and **memory writes** | the agent's `StepOutput` and `ThoughtOutput`, decoded from the worker channel | the bound actor | an NPC's own memory only, with provenance by source actor (§6.6) | everything re-validated **in the host**: intents and speech through stage 1, memory writes through the host's gate before the host passes them to `settle` (canonical order; O39); a **gate-to-be** until generate vs apply (OD-A18) gives the game a value to check, an OPEN divergence with a strict red gate (foundations TB2-S3) | `phase1/agents` (types); OD-A18 (memory) |
 | **Thought budgets** (foundations TB2-B3) | the host's thinking lane | — | — | `npcs_and_sem.md` §4.7's caps, from `data/agents/thought_budget.yaml` | `phase1/agents` |
-| **Player speech and all guest text** (foundations TB2-S1; TB3-S3, TB3-S4, TB3-N4) | network lane | session token | per-session rate limit | one gate, `engine.text.player_text`, for `speak` and every guest string that can reach a prompt (`npcs_and_sem.md` §6.6): NFC before the cap, some ink and no run of three characters without, format and default-ignorable characters refused but joiners between visible ones and a selector after an emoji base (O61, O65, O70) | `phase1/protocol` |
+| **Player speech and all guest text** (foundations TB2-S1; TB3-S3, TB3-S4, TB3-N4) | network lane | session token | per-session rate limit | one gate, `engine.text.player_text`, for `speak` and every guest string that can reach a prompt (`npcs_and_sem.md` §6.6): NFC before the cap, some ink, never three inkless in a row nor five marks on one character, format and default-ignorable characters refused but joiners between visible ones and one selector after an emoji base (O61, O65, O70, O71) | `phase1/protocol` |
 | **The response cache** (foundations DR-B3, TB2-S4, Wire S9) | disk, per save | — | — | `inference_placement.md` §4.2 | after tier A |
 | **The inference gates** | `inference_gateway.md` §9 | — | — | listed there | `phase1/agents` |
 | Scene files, saves, intent logs, bug reports | disk, **strangers' machines** | — | — | the strictest gate (world_model F14): no pickle, budget before allocation, all-or-nothing | scene v1, save v0, sim-clock |
@@ -707,8 +707,8 @@ The core is forbidden from importing it; `engine.adapters.sem` is too (§2.2).
 - **A strict JSON decoder** sits in front: `parse_constant` raises (no `NaN`/`Infinity`), `object_pairs_hook`
   refuses repeated keys, `max_size` applies before decoding. Integers are pinned below 2⁵³ (O59). The server's JSON
   holds integers only (O62): a reader judges a message's version first, a float there being `bad_version`, then any
-  other float, anywhere, `not_int`. The client reads it with a strict parser of its own, and wire text
-  never holds U+0000, which a Godot string can't (O67).
+  other float, anywhere, `not_int`. The client reads it with its own strict parser; wire text never holds
+  U+0000 (O67).
 - **Golden rejection frames** and grammar edges are judged alike, code and value
   (floats by class, O68).
 
