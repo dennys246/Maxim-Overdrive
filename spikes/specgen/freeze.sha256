@@ -1,0 +1,11 @@
+# The spec generator spike's frozen inputs (plan.md, the pre-registration, 2026-11-22). Never edited after
+# the freeze commit. Files: grep -v -e "^#" -e weights: freeze.sha256 | shasum -a 256 -c, from spikes/specgen/.
+# Weights: SHA-256 of each GGUF file, at the Hugging Face revision arms.yaml's engine block names, checked on the
+# mini at download.
+ffd10ebb264772c9f44d92270c1370c7a4ed4ee26b4224eca9520fe9a193b76e  arms.yaml
+29b1aef4c5076cc68c56931f8e971d04b4ab6f410445024d589e4ffa6376dcc8  prompts_source.yaml
+4547ec53dbbd60bee7c437480667895e9c14ed47a343b2efff2b1106edc19d5d  split.py
+6b0894faa92703f548e0a2d7af77314cf8a0103c8dd787e1a0089ad4f61a2efc  prompts_dev.yaml
+adb02bdebecc335262591fdec5a0122b8d228939f35e4f798e3fd04158b43425  prompts_heldout.yaml
+10cc391b403021dd11c614679d2fd92f611c3681d29e29651b717316965d61e1  weights:S:unsloth/Qwen3.5-4B-GGUF@e87f176479d0855a907a41277aca2f8ee7a09523:Qwen3.5-4B-Q8_0.gguf
+6b0a101b0a86697fe11eabcc1a7db72699a9f3d4b18b6a1ac75ea3fb2c26c450  weights:R:unsloth/Qwen3.5-27B-GGUF@3221f178a6b842d04f1fb42f1c413534adcc0a6a:Qwen3.5-27B-Q8_0.gguf
