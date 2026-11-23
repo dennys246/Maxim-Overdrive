@@ -469,6 +469,13 @@ def test_the_address_masks_leave_test_ids_times_and_versions_alone() -> None:
     )
 
 
+def test_an_address_ending_a_sentence_or_a_field_is_still_masked() -> None:
+    text = "closed by 100.64.1.2. Then fd7a::1. Then ::ffff:10.0.0.9: and fe80::2:"
+    assert rg.masked(text, ()) == "closed by <address>. Then <address>. Then <address>: and <address>:"
+    kept = "version 1.2.3.4.5 and 1.2.3.4.5.6, a dotted 10.0.0.7.1, and test_x.py::case"
+    assert rg.masked(kept, ()) == kept
+
+
 def test_the_verdict_takes_only_a_pass_for_the_head_the_remote_gated() -> None:
     head = "a" * 40
 

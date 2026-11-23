@@ -52,7 +52,7 @@ BRANCH = re.compile(r"^[A-Za-z0-9._/-]+$")  # so "+" can flatten "/" without a c
 CLONE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*-repo$")  # one path component, never the shared "repo"
 COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")  # no leading dot, so never ".."
 REMOTE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._@-]*$")  # an ssh host or alias, never option-shaped
-IPV4 = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])")
+IPV4 = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?!\w|\.\d)")  # a sentence's or field's `.` may follow
 IPV6 = re.compile(  # bracketed (``[fe80::1%en0]:22``), or bare and standing alone (never ``test_x.py::test_y``)
     r"\[([0-9A-Fa-f:.]+)(?:%[\w.-]+)?\]|(?<![\w.:])([0-9A-Fa-f:.]*:[0-9A-Fa-f:.]*)(?:%[\w.-]+)?(?![\w:])"
 )
@@ -155,11 +155,16 @@ class Config:
 def _address(m: re.Match[str]) -> str:
     """``<address>`` for an IPv6 literal (with a hex digit: ``::`` alone is a separator), else the text unchanged."""
     literal = m.group(1) or m.group(2)
+    tail = ""
+    # Bare and zoneless: a `.` or `:` that ends a sentence or a field is not part of the address.
+    if m.group(2) and m.end(2) == m.end(0):
+        stripped = literal.rstrip(".:") or literal
+        literal, tail = stripped, literal[len(stripped) :]
     try:
         ipaddress.IPv6Address(literal)
     except ValueError:
         return m.group(0)
-    return "<address>" if re.search(r"[0-9A-Fa-f]", literal) else m.group(0)
+    return "<address>" + tail if re.search(r"[0-9A-Fa-f]", literal) else m.group(0)
 
 
 def masked(text: str, masks: tuple[tuple[str, str], ...]) -> str:
