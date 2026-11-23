@@ -11,4 +11,6 @@ and Me.
 O73's bound was counted by an automaton over four character classes (a visible letter, a mark, a character that
 draws nothing, a joiner) that steps O61's joiner rule, O70's run and O71's stack; it was checked against
 `player_text` on every class string up to length 8 (87,380 strings, no disagreement), then each class was weighted
-by how many characters pass in it on Python 3.12 (1,698 marks, 19 inkless characters, 2 joiners).
+by the most characters that pass in it at any position on Python 3.12 (1,729 marks, 19 inkless characters as kept
+after NFC, 2 joiners). A lone mark counts as ink in the model, as in `player_text`. Delta 2 found the first weights
+(1,698 marks, those NFC leaves alone after "a") too low.
