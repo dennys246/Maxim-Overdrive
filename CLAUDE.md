@@ -386,7 +386,8 @@ only review holds.
   finding, a measurement, a pushback, a design reversal), add or update an entry in `docs/lessons_maxim_in_games.md`
   in the same commit as the work that taught it, with its evidence and its consequence. Don't save lessons for a
   session's wrap-up: a lesson that lives only in a conversation is lost. This file is the seed of an engine's
-  documentation and the evidence base for pushbacks to Maxim. Guard: B18
+  documentation and the evidence base for pushbacks to Maxim. Guard: `scripts/lint_ids.py::check_lessons` (lesson
+  numbers and citations), B18
 - **Engine choices get a one-line why** in the code or the commit (scene tree, node types, shaders, GDScript vs C#),
   for a team learning Godot. Guard: B1
 - **Teach game engineering as you go.** The owner is learning game development from the start, and knows software

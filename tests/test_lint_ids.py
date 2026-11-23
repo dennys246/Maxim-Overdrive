@@ -97,6 +97,59 @@ def test_a_qualified_id_cell_counts_as_its_id() -> None:
     assert len(ids.check_decisions(files)) == 1
 
 
+@pytest.mark.parametrize("cell", ["`O9`", "**O9**", "O9 (provisional)", "O9,provisional", "**`O9`**, provisional"])
+def test_a_decorated_id_cell_is_still_its_id(cell: str) -> None:
+    files = {
+        "docs/design/decisions/a.md": _log(f"{cell} | x | owner | §1 | live"),
+        "docs/design/decisions/b.md": _log("O9 | y | owner | §1 | live"),
+    }
+    assert len(ids.check_decisions(files)) == 1
+
+
+def test_a_hyphenated_id_is_a_record_of_its_own_family() -> None:
+    files = {
+        "docs/design/decisions/a.md": _log("PH2-S2, re-ruled | x | owner | §1 | live"),
+        "docs/design/decisions/b.md": _log("PH2-S2 | y | owner | §1 | live", "S2 | z | owner | §1 | live"),
+    }
+    problems = ids.check_decisions(files)
+    assert len(problems) == 1
+    assert "PH2-S2 is defined 2 times" in problems[0]
+
+
+def test_also_in_counts_only_in_the_status_cell() -> None:
+    files = {
+        "docs/design/decisions/a.md": _log("O3 | see also in `decisions/b.md` | owner | §1 | live"),
+        "docs/design/decisions/b.md": _log("O3 | see also in `decisions/a.md` | owner | §1 | live"),
+    }
+    assert len(ids.check_decisions(files)) == 1
+
+
+def test_three_definitions_are_a_collision_even_when_cross_listed() -> None:
+    row_a = "O3 | x | owner | §1 | live; also in `decisions/b.md`"
+    files = {
+        "docs/design/decisions/a.md": _log(row_a),
+        "docs/design/decisions/b.md": _log("O3 | x | owner | §1 | live; also in `decisions/a.md`"),
+        "docs/design/decisions/c.md": _log("O3 | x | owner | §1 | live; also in `decisions/a.md`"),
+    }
+    problems = ids.check_decisions(files)
+    assert len(problems) == 1
+    assert "defined 3 times" in problems[0]
+
+
+def test_a_roadmap_item_taken_twice_fails() -> None:
+    roadmap = "| Id | Item |\n|---|---|\n| OD-I13 | a |\n| `OD-I13` | b |\n| OD-I14 | c |\n| OD-A13 | d |\n"
+    assert ids.check_roadmap_ids({ids.ROADMAP: roadmap}) == [
+        f"{ids.ROADMAP}: item OD-I13 is defined 2 times (lines 3, 4): two branches took the same id; the one merged "
+        "second renumbers its own item and its own citations"
+    ]
+
+
+def test_a_roadmap_cell_that_only_mentions_an_item_is_not_an_item() -> None:
+    roadmap = "| Id | Item |\n|---|---|\n| OD-I13 | a |\n| see OD-I13 | b |\n| OD-I13, OD-I14 | c |\nOD-I13 prose\n"
+    assert ids.check_roadmap_ids({ids.ROADMAP: roadmap}) == []
+    assert ids.check_roadmap_ids({}) == []
+
+
 def test_files_outside_the_decision_logs_are_not_read() -> None:
     assert ids.check_decisions({"docs/design/other.md": _log("O9 | x | o | §1 | live", "O9 | y | o | §1 | live")}) == []
 
@@ -124,13 +177,27 @@ def test_two_lessons_with_one_number_fail() -> None:
         ("`lessons_maxim_in_games.md` §7", [7]),
         ("lessons_maxim_in_games.md §7", [7]),
         ("lesson\n7", [7]),
+        ("`lessons_maxim_in_games.md` 7", [7]),
+        ("`lessons_maxim_in_games.md::7`", [7]),
+        ("`lessons_maxim_in_games.md` §1, §7", [7]),
+        ("lessons_maxim_in_games.md §1 and §7", [7]),
     ],
 )
 def test_every_citation_spelling_of_a_missing_lesson_fails(text: str, missing: list[int]) -> None:
     files = {ids.LESSONS: LESSONS, "docs/x.md": text}
     problems = ids.check_lessons(files)
     assert [p.split("cites lesson ")[1].split(",")[0] for p in problems] == [str(n) for n in missing]
-    assert problems[0].startswith("docs/x.md:1:") or problems[0].startswith("docs/x.md:")
+    assert problems[0].startswith("docs/x.md:1:")
+
+
+def test_a_finding_names_the_line_of_its_citation() -> None:
+    problems = ids.check_lessons({ids.LESSONS: LESSONS, "docs/x.md": "a\nb\nsee lesson 7\n"})
+    assert [p.split(" cites")[0] for p in problems] == ["docs/x.md:3:"]
+
+
+@pytest.mark.parametrize("text", ["lesson 1, 2026-11-20", "lesson 2 to 2026", "lessons 1 and 2, 12345 cells"])
+def test_a_four_digit_number_after_a_separator_ends_the_list(text: str) -> None:
+    assert ids.check_lessons({ids.LESSONS: LESSONS, "docs/x.md": text}) == []
 
 
 def test_a_citation_never_crosses_a_blank_line() -> None:
@@ -179,17 +246,23 @@ def test_a_markdown_file_outside_docs_is_not_read() -> None:
     assert ids.check_lessons({ids.LESSONS: LESSONS, "spikes/notes.md": "lesson 9"}) == []
 
 
-def test_without_the_lessons_file_there_is_nothing_to_check() -> None:
-    assert ids.check_lessons({"docs/x.md": "lesson 9"}) == []
+def test_without_the_lessons_file_a_citation_is_a_finding() -> None:
+    problems = ids.check_lessons({"docs/a.md": "nothing", "docs/x.md": "x\nlesson 9 and lesson 4"})
+    assert problems == [f"{ids.LESSONS} is missing, but 2 citation(s) cite it, first docs/x.md:2 (lesson 9)"]
 
 
-def test_check_ids_reports_both_families() -> None:
+def test_a_tree_with_no_lessons_and_no_citation_has_nothing_to_check() -> None:
+    assert ids.check_lessons({"docs/x.md": "no citation here"}) == []
+
+
+def test_check_ids_reports_every_family() -> None:
     files = {
         ids.LESSONS: LESSONS,
+        ids.ROADMAP: "| OD-I1 | a |\n| OD-I1 | b |\n",
         "docs/x.md": "lesson 9",
         "docs/design/decisions/a.md": _log("O9 | x | o | §1 | live", "O9 | y | o | §1 | live"),
     }
-    assert len(ids.check_ids(files)) == 2
+    assert len(ids.check_ids(files)) == 3
 
 
 def test_the_real_tree_has_no_collision_and_no_dangling_citation() -> None:

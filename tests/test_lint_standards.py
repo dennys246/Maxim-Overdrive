@@ -453,6 +453,12 @@ def test_main_runs_the_contracts_check_once_there_are_designs(repo, capsys):
     assert "docs/design/d.md:3: a fold table belongs in docs/design/reviews/" in err
 
 
+def test_main_runs_the_id_check(repo, capsys):
+    (repo / "docs/lessons_maxim_in_games.md").write_text("### 1. a\n\n### 1. b\n")
+    assert lint.main([], root=repo) == 1
+    assert "two branches took lesson 1" in capsys.readouterr().err
+
+
 def test_main_without_a_base_or_backlog_still_runs(repo, capsys):
     (repo / "docs/standards_backlog.md").unlink()
     assert lint.main([], root=repo) == 0
