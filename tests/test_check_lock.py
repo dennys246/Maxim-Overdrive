@@ -151,15 +151,13 @@ def test_ci_runs_on_pull_requests_and_pushes_to_main_only() -> None:
         assert _workflow(name)[True] == {"push": {"branches": ["main"]}, "pull_request": None}, name
 
 
-def test_macos_runs_on_githubs_runners_only_for_pushes_to_main_and_the_weekly_drift() -> None:
-    # Private-repo macOS minutes bill at 10x Linux's (owner, 2026-11-21, option B). A PR's macOS check at Python 3.12
-    # is the mini's prepush PASS; 3.14 on macOS waits for main. No job runs off GitHub's runners.
+def test_linux_and_macos_run_on_githubs_runners_for_every_pull_request_and_the_weekly_drift() -> None:
+    # The repository is public (2026-11-22), so macOS minutes are free and option B is reversed (roadmap, "Before the
+    # repository goes public", item 2): the gate runs Linux and macOS on every pull request and every push to main,
+    # with no event-dependent matrix. No job runs off GitHub's runners.
     gate = _workflow("test.yml")["jobs"]["prepush"]
     assert gate["runs-on"] == "${{ matrix.os }}"
-    both, linux = '["ubuntu-latest", "macos-latest"]', '["ubuntu-latest"]'
-    assert (
-        gate["strategy"]["matrix"]["os"] == f"${{{{ fromJSON(github.event_name == 'push' && '{both}' || '{linux}') }}}}"
-    )
+    assert gate["strategy"]["matrix"]["os"] == ["ubuntu-latest", "macos-latest"]
     drift = _workflow("drift.yml")["jobs"]["drift"]
     assert drift["strategy"]["matrix"]["os"] == ["ubuntu-latest", "macos-latest"]
     hosted = {"ubuntu-latest", "macos-latest"}
