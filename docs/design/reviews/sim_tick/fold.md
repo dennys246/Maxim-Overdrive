@@ -196,3 +196,20 @@ without checking.
 | D6-N1, D6-N2 | the guard checks only that `advance` exists; the M5 test is left red | moot: the guard and the pin are gone, and M5's tests pass on the branch | open (for the reviewer) |
 | D6-N3 | E18 doesn't say it came before the first run | E18 gives its time, 23:34 inside the first nightly window, and that no M5 result exists yet, for the spike's author to confirm | open (for the reviewer) |
 | D5-N3 (reopened) | the `__deepcopy__` docstring's hazard can't happen | it says why the refusal stands: one deliberate answer, where a deep copy otherwise fails by accident | open (for the reviewer) |
+
+## Delta 7 (`delta7.md`, verbatim): 0 BLOCKER, 2 SHOULD-FIX, 2 NIT, on 9de55a3, the follow-up PR
+
+PR #49 merged at `7d22c97`, before `ef4c5c8` (the marker) and `98810ce` (the delta-6 fold), which go in a follow-up
+PR from this branch (owner, 2026-11-23). One reader (Executor, Architecture, Wire integrity, Determinism) on
+`origin/main..9de55a3`. D6-S1, D6-N1 with D6-N2 and D6-N3 fixed; D5-N3 open.
+
+**Correction first.** The delta-6 fold's `__deepcopy__` docstring named the region table's mappingproxy; it is the
+material table's (`_materials`), checked by deep-copying each attribute alone.
+
+| # | Finding | Fold | Status |
+|---|---|---|---|
+| D7-S1 | nothing the gate runs reaches `spikes/`, so a physics change could move M5 silently | owner, 2026-11-23: M5 checks itself. `burn.check_engine` replays the golden before any burn and refuses to score on a difference; M5's output records the check and the `src` tree. Red at T3's step (`test_m5_on_simulation_is_bit_for_bit_m5_on_world_advance`, `test_m5_records_the_engine_it_burned_on`); `test_m5_refuses_to_score_on_an_engine_that_moved` plants a moved row | open (for the reviewer) |
+| D7-S2 | E18 may postdate the first run; no ruling covers it | owner, 2026-11-23: E18 stands as the one exception, because it changes no number; E18 and the errata's intro say so | fixed (author's, after the owner's ruling) |
+| D7-N1 | the golden's recorder isn't in the repo | `spikes/specgen/m5_golden_recorder.py`, beside the golden | open (for the reviewer) |
+| D7-N2 | no golden spec is a fire on air or a burnout | the golden holds six specs, `legs` (a fire on air) and `block` (burns out) among them, re-recorded on `c6d4f10` | open (for the reviewer) |
+| D5-N3 (reopened) | the docstring names the wrong table | "the material table's mappingproxy" | open (for the reviewer) |

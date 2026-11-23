@@ -8,8 +8,11 @@ turns 10, 20 and 30, censored from that turn on. Throwaway spike code.
 
 from __future__ import annotations
 
+import json
+import subprocess
 from collections import defaultdict
 from collections.abc import Iterator, Sequence
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -28,6 +31,8 @@ TURN_S = 6.0  # errata E4: turns of 6 s, pinned here so a changed default can't 
 # bit for bit; the ignite applies on tick 1, before any physics, where the old apply stood.
 TICKS_PER_TURN = 6
 CONFIG = SimConfig(tick_us=int(TURN_S * 1e6) // TICKS_PER_TURN, physics_every=TICKS_PER_TURN)
+# M5's engine check (errata E18): six specs' trajectories recorded on c6d4f10 by m5_golden_recorder.py
+GOLDEN = Path(__file__).parent / "m5_golden_c6d4f10.json"
 
 
 def solid_in_sphere(world: World, name: str) -> int:
@@ -59,6 +64,37 @@ def turns(sim: Simulation, world: World, name: str) -> Iterator[tuple[int, float
         yield solid_in_sphere(world, name), reductions.region_integrity(world.grid, name)
 
 
+def trajectory(spec: dict[str, Any]) -> list[list[Any]]:
+    """The golden's rows for an accepted spec: solid cells in the sphere and integrity, after the ignite (turn 0,
+    integrity not read) and after each turn."""
+    sim, world, outcome = lit(spec)
+    if not outcome.success:
+        raise RuntimeError(f"the golden's {spec['name']} was refused at ignite: {outcome.error}")
+    rows: list[list[Any]] = [[solid_in_sphere(world, spec["name"]), None]]
+    return rows + [[solid, repr(value)] for solid, value in turns(sim, world, spec["name"])]
+
+
+def check_engine(golden_path: Path = GOLDEN) -> str:
+    """Refuse to score unless this engine burns the golden's specs exactly as the engine M5 was written against
+    (errata E18), so a later physics change stops M5 loudly instead of moving its numbers. Returns that engine."""
+    golden = json.loads(golden_path.read_text())
+    arms = protocol.load_arms()
+    for raw in golden["specs"]:
+        spec = protocol.convert(raw, arms)
+        if trajectory(spec) != golden["turns"][spec["name"]]:
+            raise RuntimeError(
+                f"M5 refuses to score: {spec['name']} no longer burns as it did on {golden['engine']} (errata E18)"
+            )
+    return str(golden["engine"])
+
+
+def _src_tree() -> str:
+    out = subprocess.run(
+        ["git", "-C", str(protocol.ROOT), "rev-parse", "HEAD:src"], check=True, capture_output=True, text=True
+    )
+    return out.stdout.strip()
+
+
 def burn(spec: dict[str, Any]) -> dict[str, Any]:
     sim, world, outcome = lit(spec)
     name = spec["name"]
@@ -76,12 +112,14 @@ def burn(spec: dict[str, Any]) -> dict[str, Any]:
 
 
 def m5(samples: Sequence[Any]) -> dict[str, Any]:
-    """Per (model, arm), over accepted specs: the fire-on-air fraction and the censored integrity means."""
+    """Per (model, arm), over accepted specs: the fire-on-air fraction and the censored integrity means, with the
+    engine they burned on (errata E18)."""
+    engine = {"matches": check_engine(), "src_tree": _src_tree()}  # before any burn (errata E18)
     rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for s in samples:
         if s.verdict.klass == protocol.ACCEPTED and s.spec is not None:
             rows[f"{s.model}/{s.arm}"].append(burn(s.spec))
-    out = {}
+    out: dict[str, Any] = {"engine": engine}  # cells are keyed "model/arm", so this key can't collide
     for key, rs in sorted(rows.items()):
         lit = [r for r in rs if r.get("ignited")]
         solid = [r for r in lit if not r["fire_on_air"]]

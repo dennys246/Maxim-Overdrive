@@ -158,7 +158,7 @@ class CellStore(WindowOwner[_Saved]):
 
     def __deepcopy__(self, memo: dict[int, object]) -> NoReturn:
         """Refused, so copying cells has one deliberate answer, a new grid from its scene; without it a deep copy fails
-        only by accident, on the region table's mappingproxy (PR 4a deltas 4 and 6)."""
+        only by accident, on the material table's mappingproxy (PR 4a deltas 4, 6 and 7)."""
         raise TypeError("cells are not copied: build a new grid from its scene (sim_core.md §2)")
 
     def _channel(self, name: str) -> npt.NDArray[np.generic]:

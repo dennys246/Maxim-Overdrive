@@ -617,19 +617,31 @@ def test_m5_burns_an_accepted_spec_at_turns_of_6_s() -> None:
 
 
 def test_m5_on_simulation_is_bit_for_bit_m5_on_world_advance() -> None:
-    # Errata E18: the port to Simulation.step must change no M5 number. The golden is each spec's solid count in the
-    # fire's sphere after the ignite and after every 6 s turn, with its integrity, recorded on c6d4f10's engine
-    # (World.advance and the applier) by .worktrees/_durable/sim_tick_review/delta6_scripts/m5_golden_recorder.py.
-    golden = json.loads((Path(__file__).parent / "m5_golden_c6d4f10.json").read_text())
-    arms = protocol.load_arms()
-    for raw in golden["specs"]:
-        spec = protocol.convert(raw, arms)
-        sim, world, outcome = burn.lit(spec)
-        assert outcome.success
-        got = [[burn.solid_in_sphere(world, spec["name"]), None]]
-        got += [[solid, repr(value)] for solid, value in burn.turns(sim, world, spec["name"])]
-        assert got == golden["turns"][spec["name"]], spec["name"]
-    assert any(rows[-1][1] != "1.0" for rows in golden["turns"].values())  # the golden burns: it can tell engines apart
+    # Errata E18: the port to Simulation.step changes no M5 number. The golden is six specs' rows (solid cells in the
+    # fire's sphere and integrity, after the ignite and after every 6 s turn), recorded on c6d4f10's engine by
+    # m5_golden_recorder.py; it holds a fire on air (legs) and a burnout (block).
+    golden = json.loads(burn.GOLDEN.read_text())
+    assert burn.check_engine() == "c6d4f10"
+    rows = golden["turns"]
+    assert rows["legs"][0][0] == 0  # a fire on air
+    assert rows["block"][0][0] > 0
+    assert rows["block"][-1][0] == 0
+    assert any(r[-1][1] not in ("1.0", "0.0") for r in rows.values())  # it burns partway: it tells engines apart
+
+
+def test_m5_refuses_to_score_on_an_engine_that_moved(tmp_path: Path) -> None:
+    golden = json.loads(burn.GOLDEN.read_text())
+    golden["turns"]["plank"][-1][1] = repr(0.5)  # as if a physics change had moved the plank's last integrity
+    moved = tmp_path / "golden.json"
+    moved.write_text(json.dumps(golden))
+    with pytest.raises(RuntimeError, match="M5 refuses to score: plank"):
+        burn.check_engine(moved)
+
+
+def test_m5_records_the_engine_it_burned_on() -> None:
+    out = burn.m5([])
+    assert out["engine"]["matches"] == "c6d4f10"
+    assert len(out["engine"]["src_tree"]) == 40
 
 
 def test_m6_and_m8_rates_come_from_the_labels() -> None:
