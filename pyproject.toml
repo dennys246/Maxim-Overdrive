@@ -130,8 +130,8 @@ forbidden_modules = [
 ]
 
 # Skip-layer rule (boundaries §2.2, S2): the adapters and the protocol reach the core only through its public surface,
-# the simulation (world, applier, frames), the intents (intents, limits), the material types, the checks, the refusal
-# codes, the format schemas, the digests and the field registry. Never the cells or their writers, the laws and their
+# the simulation (world, applier, frames, work counters), the intents (intents, limits), the material types, the checks,
+# the refusal codes, the format schemas, the digests and the field registry. Never the cells or their writers, the laws and their
 # orchestrator, the geometry and scene build, imagination's internals or the core's array helpers. Direct imports only: reaching the cells through the world is the point of the public surface.
 # tests/test_tooling_config.py holds the list to every core module outside that surface, so a new core module must be
 # classified.
@@ -141,8 +141,8 @@ name = "adapters and protocol reach no cells, laws, geometry or scene build (bou
 type = "forbidden"
 source_modules = ["simcore.adapters", "simcore.protocol"]
 forbidden_modules = [
-    "simcore.core.damage", "simcore.core.deposit", "simcore.core.exposure", "simcore.core.grid",
-    "simcore.core.heat",
+    "simcore.core.damage", "simcore.core.deposit", "simcore.core.exposure", "simcore.core.geometry",
+    "simcore.core.grid", "simcore.core.heat",
     "simcore.core.imagination", "simcore.core.law",
     "simcore.core.physics", "simcore.core.readonly", "simcore.core.reductions", "simcore.core.scene",
     "simcore.core.stepping", "simcore.core.topology", "simcore.core.window", "simcore.core.writers",
@@ -150,21 +150,22 @@ forbidden_modules = [
 allow_indirect_imports = true
 
 # B-13's import half (boundaries §4.4): the SEM membrane reads the world through published frames (and, from step 5a,
-# the field registry) and changes it through the applier, the two capabilities it is handed. On top of the skip-layer
-# rule it gives up the material types, the file gates, the world itself and the simulation. tests/test_tooling_config.py holds the list to every core module outside its surface.
+# the field registry) and changes it through a port (sim_core.md §13), the two capabilities it is handed. On top of the
+# skip-layer rule it gives up the material types, the file gates, the world itself, the simulation and its work
+# counters. tests/test_tooling_config.py holds the list to every core module outside its surface.
 [[tool.importlinter.contracts]]
 id = "membrane-reads-frames"
-name = "the SEM membrane reads frames and writes through the applier only (boundaries §4.4, B-13)"
+name = "the SEM membrane reads frames and writes through its port only (boundaries §4.4, B-13; sim_core §13)"
 type = "forbidden"
 source_modules = ["simcore.adapters.sem"]
 forbidden_modules = [
     "simcore.core.damage", "simcore.core.deposit", "simcore.core.digest", "simcore.core.exposure",
-    "simcore.core.grid", "simcore.core.heat",
+    "simcore.core.geometry", "simcore.core.grid", "simcore.core.heat",
     "simcore.core.imagination", "simcore.core.law", "simcore.core.materials", "simcore.core.physics",
     "simcore.core.readonly", "simcore.core.reductions", "simcore.core.scene", "simcore.core.schema",
     "simcore.core.simulation",
-    "simcore.core.stepping", "simcore.core.topology", "simcore.core.window", "simcore.core.world",
-    "simcore.core.writers",
+    "simcore.core.stepping", "simcore.core.topology", "simcore.core.window", "simcore.core.work",
+    "simcore.core.world", "simcore.core.writers",
     "simcore.adapters.loaders",
 ]  # fmt: skip
 allow_indirect_imports = true

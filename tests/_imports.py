@@ -97,7 +97,8 @@ ALLOWED: dict[str, dict[str, str]] = {
 # path) is a stated blind spot. Anything not named here is refused; a test holds each set to exactly today's use.
 # the core's types, scalar maths and arrays, and two scipy laws
 _NAMES_CORE = frozenset({
-    "__future__.annotations", "collections.abc.Callable", "collections.abc.Collection", "collections.abc.Iterable",
+    "__future__.annotations", "collections.Counter", "collections.abc.Callable", "collections.abc.Collection",
+    "collections.abc.Iterable",
     "collections.abc.Iterator", "collections.abc.Mapping", "collections.abc.Sequence", "contextlib.contextmanager",
     "dataclasses.asdict", "dataclasses.dataclass", "dataclasses.field", "enum.StrEnum", "hashlib.sha256", "math.ceil",
     "math.inf", "math.isfinite", "math.log", "math.nan", "math.pi", "math.prod", "math.sqrt", "numbers.Integral",
@@ -106,9 +107,9 @@ _NAMES_CORE = frozenset({
     "numpy.floating", "numpy.floor", "numpy.frombuffer", "numpy.full", "numpy.generic", "numpy.inf", "numpy.integer",
     "numpy.intersect1d", "numpy.logical_and", "numpy.max", "numpy.mean", "numpy.take", "numpy.typing.NDArray",
     "numpy.uint8", "numpy.where", "numpy.zeros", "re.compile", "reprlib.Repr", "scipy.ndimage", "scipy.ndimage.label",
-    "scipy.special.ndtr", "types.MappingProxyType", "typing.Any", "typing.Literal", "typing.Protocol",
-    "typing.SupportsFloat", "idna.IDNAError", "idna.check_label", "unicodedata.category", "unicodedata.digit",
-    "unicodedata.name", "unicodedata.normalize",
+    "scipy.special.ndtr", "types.MappingProxyType", "typing.Any", "typing.ClassVar", "typing.Literal",
+    "typing.NoReturn", "typing.Protocol", "typing.SupportsFloat", "idna.IDNAError", "idna.check_label",
+    "unicodedata.category", "unicodedata.digit", "unicodedata.name", "unicodedata.normalize",
 })  # fmt: skip
 
 # the file gate: paths, and strict YAML through a SafeLoader subclass
@@ -119,11 +120,11 @@ _NAMES_LOADERS = frozenset({
     "yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG",
 })  # fmt: skip
 
-# the membrane: Maxim's frozen SEM types, and their mirror
+# the membrane: Maxim's frozen SEM types, and their mirror; the Port it writes through is a typing.Protocol (PR 4a)
 _NAMES_SEM = frozenset({
     "__future__.annotations", "collections.abc.Mapping", "dataclasses.dataclass", "dataclasses.field",
     "maxim.embodiment.sem.AffordanceSchema", "maxim.embodiment.sem.Entity", "maxim.embodiment.sem.ModulatorResult",
-    "maxim.embodiment.sem.SensorReading", "typing.Any", "typing.TYPE_CHECKING",
+    "maxim.embodiment.sem.SensorReading", "typing.Any", "typing.Protocol", "typing.TYPE_CHECKING",
 })  # fmt: skip
 
 # display quantization and the rig profile's type
