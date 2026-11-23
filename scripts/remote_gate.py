@@ -17,12 +17,14 @@ failure.
 
 Nothing private is written here or printed: the host comes from ``--remote`` or ``OVERDRIVE_REMOTE`` (an ssh host or
 config alias), and the repository is public. Every remote output, ssh's and scp's own messages included, passes a mask
-that replaces the alias, the host and user ssh resolves it to (``ssh -G``), and the remote home, user and temp
-directory. Remote paths are relative to the remote's home. The remote runs its commands under a non-login shell, so
-``--python`` should be an absolute path (Homebrew's ``bin`` isn't on that ``PATH``).
+that replaces the alias, the host, user and ProxyJump hosts ssh resolves it to (``ssh -G``), every IPv4 and IPv6
+address literal, and the remote home, user and temp directory. ``ssh -G`` opens no connection, but a ``Match exec``
+block in the ssh config still runs its command. Remote paths are relative to the remote's home. The remote runs its
+commands under a non-login shell, so ``--python`` should be an absolute path (Homebrew's ``bin`` isn't on that
+``PATH``).
 
-A dropped connection is not survived: the remote gate may run on until it next writes to the dead channel, and the
-pid file refuses a second gate of that branch meanwhile. Surviving a drop (``nohup`` and a log read back) is deferred
+A dropped connection is not survived: the remote gate may run on until it next writes to the dead channel, and its
+lock refuses a second gate of that branch meanwhile. Surviving a drop (``nohup`` and a log read back) is deferred
 until a run on the mini is actually lost to one.
 
 Run: ``python scripts/remote_gate.py --clone <session>-repo --python <abs python3.12> <branch> [<branch> ...]``
@@ -31,6 +33,7 @@ Run: ``python scripts/remote_gate.py --clone <session>-repo --python <abs python
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import os
 import re
 import shlex
@@ -49,6 +52,10 @@ BRANCH = re.compile(r"^[A-Za-z0-9._/-]+$")  # so "+" can flatten "/" without a c
 CLONE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*-repo$")  # one path component, never the shared "repo"
 COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")  # no leading dot, so never ".."
 REMOTE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._@-]*$")  # an ssh host or alias, never option-shaped
+IPV4 = re.compile(r"(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])")
+IPV6 = re.compile(  # bracketed (``[fe80::1%en0]:22``), or bare and standing alone (never ``test_x.py::test_y``)
+    r"\[([0-9A-Fa-f:.]+)(?:%[\w.-]+)?\]|(?<![\w.:])([0-9A-Fa-f:.]*:[0-9A-Fa-f:.]*)(?:%[\w.-]+)?(?![\w:])"
+)
 
 PRELUDE = r"""printf 'remote-gate: PRIVATE home %s\n' "${HOME}"
 printf 'remote-gate: PRIVATE user %s\n' "$(id -un)"
@@ -64,28 +71,35 @@ def _script(body: str) -> str:
 
 PREPARE_SCRIPT = _script(
     r"""clone="${HOME}/$1"; origin=$2; shared="${HOME}/$3"
-if [ ! -d "${clone}/.git" ]; then mkdir -p "$(dirname "${clone}")"; git clone -q "${origin}" "${clone}"; fi
-real=$(cd "${clone}" && pwd -P)
+there="${clone}"; rest=""  # resolve the deepest part that exists, so nothing is made before the check
+while [ ! -e "${there}" ]; do rest="/$(basename "${there}")${rest}"; there=$(dirname "${there}"); done
+real="$(cd "${there}" && pwd -P)${rest}"
 if [ -d "${shared}" ]; then
   case "${real}/" in "$(cd "${shared}" && pwd -P)/"*)
     echo "remote-gate: $1 resolves to or inside the clone every session shares" >&2; exit 2 ;;
   esac
 fi
+if [ ! -d "${clone}/.git" ]; then mkdir -p "$(dirname "${clone}")"; git clone -q "${origin}" "${clone}"; fi
 mkdir -p "${clone}/.git/remote-gate"
 """
 )
 GATE_SCRIPT = _script(
     r"""cd "${HOME}/$1"; branch=$2; name=$3; python=$5
 case "$4" in /*) godot=$4 ;; *) godot="${HOME}/$4" ;; esac
-pidfile="${PWD}/.git/remote-gate/${name}.pid"
-if [ -f "${pidfile}" ] && kill -0 "$(cat "${pidfile}")" 2>/dev/null; then
-  echo "remote-gate: a gate for ${branch} is still running (pid $(cat "${pidfile}"))" >&2; exit 2
+gatelock="${PWD}/.git/remote-gate/${name}.lock"  # mkdir is atomic: of two gates, one makes it
+owner() { cat "${gatelock}/pid" 2>/dev/null || true; }
+busy() { echo "remote-gate: a gate for ${branch} is $1 (remove ${gatelock}$2 if it is not)" >&2; exit 2; }
+if ! mkdir "${gatelock}" 2>/dev/null; then
+  pid=$(owner)
+  if [ -z "${pid}" ] || kill -0 "${pid}" 2>/dev/null; then busy "still running (pid ${pid:-starting})" ""; fi
+  mkdir "${gatelock}.recover" 2>/dev/null || busy "being recovered by another gate" ".recover"  # one recoverer
+  if [ "$(owner)" != "${pid}" ]; then rmdir "${gatelock}.recover"; busy "started just now" ""; fi
+  rm -rf "${gatelock}"  # its owner ${pid} has ended
+  if ! mkdir "${gatelock}" 2>/dev/null; then rmdir "${gatelock}.recover"; busy "started just now" ""; fi
+  rmdir "${gatelock}.recover"
 fi
-rm -f "${pidfile}"  # a stale one: its gate has ended
-if ! (set -o noclobber; echo "$$" > "${pidfile}") 2>/dev/null; then
-  echo "remote-gate: another gate for ${branch} started just now" >&2; exit 2
-fi
-trap 'rm -f "${pidfile}"' EXIT
+echo "$$" > "${gatelock}/pid"
+trap 'rm -rf "${gatelock}"' EXIT
 git fetch -q origin
 git fetch -q ".git/remote-gate/${name}.bundle" "+refs/heads/${branch}:refs/remotes/bundle/${name}"
 wt=".worktrees/${name}"
@@ -138,11 +152,22 @@ class Config:
     masks: tuple[tuple[str, str], ...]  # (value, label) known before any remote call: the alias and what ssh resolves
 
 
+def _address(m: re.Match[str]) -> str:
+    """``<address>`` for an IPv6 literal (with a hex digit: ``::`` alone is a separator), else the text unchanged."""
+    literal = m.group(1) or m.group(2)
+    try:
+        ipaddress.IPv6Address(literal)
+    except ValueError:
+        return m.group(0)
+    return "<address>" if re.search(r"[0-9A-Fa-f]", literal) else m.group(0)
+
+
 def masked(text: str, masks: tuple[tuple[str, str], ...]) -> str:
-    """``text`` with each private value replaced by its label, longest value first so no value is half replaced."""
+    """``text`` with each private value replaced by its label (longest first, so none is half replaced), then every
+    IP address literal: ssh names its peer by address, which ``ssh -G`` never reports."""
     for value, label in sorted(masks, key=lambda p: -len(p[0])):
         text = text.replace(value, label)
-    return text
+    return IPV4.sub("<address>", IPV6.sub(_address, text))
 
 
 @dataclass(frozen=True)
@@ -250,13 +275,25 @@ def copy(cfg: Config, bundle: Path, dest: str) -> None:
         raise GateRefused(f"could not copy the bundle for {bundle.stem} (twice): {why}")
 
 
+def _jumps(proxyjump: str) -> dict[str, str]:
+    """Each ``[user@]host[:port]`` of a ``proxyjump`` value as masks (``none`` means no jump)."""
+    masks: dict[str, str] = {}
+    for hop in proxyjump.removeprefix("ssh://").split(","):
+        user, _, host = hop.rpartition("@")
+        host = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+        masks |= {user: "<user>", host.strip("[]"): "<jump>"}
+    return {v: k for v, k in masks.items() if v and v != "none"}
+
+
 def ssh_masks(remote: str) -> tuple[tuple[str, str], ...]:
-    """The alias and the host and user ssh resolves it to (``ssh -G``, which connects to nothing), as masks."""
+    """The alias and the host, user and jump hosts ssh resolves it to (``ssh -G``, which connects to nothing)."""
     r = _run(["ssh", "-G", "--", remote])
     if r.returncode != 0:
         raise GateRefused(f"ssh could not resolve the remote: {masked(r.stderr.strip(), ((remote, '<remote>'),))}")
-    found = dict(line.split(" ", 1) for line in r.stdout.splitlines() if line.startswith(("hostname ", "user ")))
+    keys = ("hostname ", "user ", "proxyjump ")
+    found = dict(line.split(" ", 1) for line in r.stdout.splitlines() if line.startswith(keys))
     masks = {remote: "<remote>", found.get("hostname", ""): "<remote>", found.get("user", ""): "<user>"}
+    masks |= _jumps(found.get("proxyjump", ""))
     return tuple((v, k) for v, k in masks.items() if v)
 
 

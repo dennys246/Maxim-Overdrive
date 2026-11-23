@@ -1,7 +1,8 @@
 """scripts/remote_gate.py: gate branches on another machine, against a fake remote under tmp_path (no network).
 
 The fake remote is strict where the real one is: ``ssh`` runs the command under zsh (the mini's login shell; ``sh``
-where there is none) with an emptied environment and ``PATH=/usr/bin:/bin``, plus a planted ``GIT_DIR`` and
+where there is none) with an emptied environment and ``PATH=<shims>:/usr/bin:/bin`` (``shims`` is empty unless a test
+plants a command there, to make a race happen at one exact step), plus a planted ``GIT_DIR`` and
 ``MAXIM_OVERDRIVE_UNLOCKED`` the script must not let through; ``scp`` never makes directories; both insist on ``--``
 before the host. The "origin" is a local repository whose ``scripts/prepush.sh`` is a stub, so the tests check what
 the script does around the gate (bundling, refs, worktrees, venvs, masks, the PASS line, refusals), not the gate.
@@ -64,11 +65,12 @@ def _exe(path: Path, text: str) -> Path:
 def _fakes(bin_dir: Path, home: Path, *, scp_fails: int = 0) -> None:
     shell = "/bin/zsh" if Path("/bin/zsh").exists() else "/bin/sh"
     plant = f"GIT_DIR=/nonexistent MAXIM_OVERDRIVE_UNLOCKED=1 TMPDIR={home.parent / 'remote-tmp'}/"
+    shims = home.parent / "shims"
     host = f'{{ [ "$4" = "{HOST}" ] || [ "$4" = "{ALIAS}" ]; }}'
     _exe(
         bin_dir / "ssh",
         f'#!/bin/bash\n{RESOLVE}[ "$3" = -- ] && {host} || {{ echo "ssh: bad argv for $4" >&2; exit 255; }}\n'
-        f'cd "{home}" && exec /usr/bin/env -i PATH=/usr/bin:/bin HOME="{home}" {plant} {shell} -c "$5"\n',
+        f'cd "{home}" && exec /usr/bin/env -i PATH="{shims}":/usr/bin:/bin HOME="{home}" {plant} {shell} -c "$5"\n',
     )
     drops = home / ".drops"
     _exe(
@@ -95,6 +97,7 @@ def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
     origin, home = tmp_path / "origin", tmp_path / "home"
     home.mkdir()
     (tmp_path / "remote-tmp").mkdir()
+    (tmp_path / "shims").mkdir()
     origin.mkdir()
     git(origin, "init", "-q", "-b", "main")
     _exe(origin / "scripts" / "prepush.sh", PASSING)
@@ -194,13 +197,24 @@ def test_a_connection_failure_shows_ssh_stderr_with_the_alias_and_resolved_host_
     world: dict[str, Path], monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], remote: str
 ) -> None:
     monkeypatch.setenv("OVERDRIVE_REMOTE", remote)
-    refused = f'echo "ssh: connect to host {HOST} port 22: timed out ({remote})" >&2\nexit 255\n'
+    lines = [
+        f"ssh: connect to host {HOST} port 22: timed out ({remote})",
+        "Connection closed by 100.64.1.2 port 22",
+        "Connection reset by fd7a:115c:a1e0::1234%utun3 port 22",
+        "kex_exchange_identification: [fd7a:115c:a1e0:0:0:0:0:99]:22 hung up",
+        f"remote-user@{HOST}: Permission denied (publickey).",
+    ]
+    refused = "".join(f'echo "{line}" >&2\n' for line in lines) + "exit 255\n"
     _exe(world["tmp"] / "bin" / "ssh", f"#!/bin/bash\n{RESOLVE}{refused}")
     assert rg.main(_args(world, BRANCH)) == 1
     err = capsys.readouterr().err
     assert "ssh: connect to host <remote> port 22: timed out (<remote>)" in err
-    assert HOST not in err
-    assert ALIAS not in err
+    assert "Connection closed by <address> port 22" in err
+    assert "Connection reset by <address> port 22" in err
+    assert "kex_exchange_identification: <address>:22 hung up" in err
+    assert "<user>@<remote>: Permission denied" in err  # before the PRIVATE lines: only `ssh -G` names the user
+    for private in (HOST, ALIAS, "remote-user", "100.64", "fd7a", ":99"):
+        assert private not in err
 
 
 def test_a_remote_ssh_cannot_resolve_is_refused_with_the_alias_masked(
@@ -270,6 +284,7 @@ def test_a_clone_that_resolves_inside_the_shared_one_is_refused_on_the_remote(
     (shared / "nested").mkdir()
     assert rg.main(_args(world, BRANCH)) == 1
     assert "resolves to or inside the clone every session shares" in capsys.readouterr().err
+    assert list((shared / "nested").iterdir()) == []  # refused before anything was cloned into the shared tree
 
 
 def test_an_option_shaped_remote_is_refused_by_name_not_only_by_ssh(world: dict[str, Path]) -> None:
@@ -316,9 +331,11 @@ def test_a_branch_with_nothing_over_the_base_is_bundled_whole_and_a_mistyped_bas
         rg.make_bundle(world["local"], BRANCH, "origin/mian", world["work"] / "y.bundle")
 
 
+@pytest.mark.parametrize("remote", [HOST, ALIAS])
 def test_a_dropped_copy_is_retried_once_and_two_drops_refuse(
-    world: dict[str, Path], capsys: pytest.CaptureFixture[str]
+    world: dict[str, Path], monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], remote: str
 ) -> None:
+    monkeypatch.setenv("OVERDRIVE_REMOTE", remote)  # as the alias, only the resolved-host mask hides scp's host
     _fakes(world["tmp"] / "bin", world["home"], scp_fails=1)
     assert rg.main(_args(world, BRANCH)) == 0
     (world["home"] / ".drops").write_text("-5")  # five more drops: both attempts fail
@@ -371,17 +388,85 @@ def test_a_python_with_no_lockfile_for_its_version_is_refused(
     assert "no lockfile constraints/py3.99.txt" in capsys.readouterr().err
 
 
-def test_a_gate_still_running_for_the_branch_refuses_a_second_and_a_stale_pid_does_not(
+def _lock(w: dict[str, Path], pid: str | None) -> Path:
+    """The branch's lock as another gate would leave it: the directory, holding ``pid`` (none: just made)."""
+    lock = _clone(w) / ".git" / "remote-gate" / f"{WT}.lock"
+    lock.mkdir()
+    if pid is not None:
+        (lock / "pid").write_text(f"{pid}\n")
+    return lock
+
+
+DEAD = "2147483646"  # no such process
+
+
+def test_a_live_or_starting_gate_refuses_a_second_and_a_dead_one_is_recovered(
     world: dict[str, Path], capsys: pytest.CaptureFixture[str]
 ) -> None:
     assert rg.main(_args(world, BRANCH)) == 0
-    pidfile = _clone(world) / ".git" / "remote-gate" / f"{WT}.pid"
-    assert not pidfile.exists()  # removed on exit
-    pidfile.write_text(f"{os.getpid()}\n")  # a live process
+    lock = _clone(world) / ".git" / "remote-gate" / f"{WT}.lock"
+    assert not lock.exists()  # removed on exit
+    _lock(world, str(os.getpid()))  # a live process holds it
     assert rg.main(_args(world, BRANCH)) == 1
-    assert f"a gate for {BRANCH} is still running" in capsys.readouterr().err
-    pidfile.write_text("2147483646\n")  # no such process
+    assert f"a gate for {BRANCH} is still running (pid {os.getpid()})" in capsys.readouterr().err
+    assert (lock / "pid").read_text().strip() == str(os.getpid())
+    shutil.rmtree(lock)
+    _lock(world, None)  # made, its pid not yet written: never taken for stale
+    assert rg.main(_args(world, BRANCH)) == 1
+    assert "still running (pid starting)" in capsys.readouterr().err
+    shutil.rmtree(lock)
+    _lock(world, DEAD)
     assert rg.main(_args(world, BRANCH)) == 0
+    assert not lock.exists()
+    assert not lock.with_name(f"{WT}.lock.recover").exists()
+
+
+def test_only_one_gate_recovers_a_dead_lock(world: dict[str, Path], capsys: pytest.CaptureFixture[str]) -> None:
+    assert rg.main(_args(world, BRANCH)) == 0
+    lock = _lock(world, DEAD)
+    lock.with_name(f"{WT}.lock.recover").mkdir()  # another gate is recovering it right now
+    assert rg.main(_args(world, BRANCH)) == 1
+    assert "being recovered by another gate" in capsys.readouterr().err
+    assert (lock / "pid").read_text().strip() == DEAD
+
+
+TAKE = 'printf "%s\\n" "$LIVE" > "$d/pid"'  # a live gate's pid, written into the lock at "$d"
+
+
+@pytest.mark.parametrize(
+    ("command", "when", "how"),
+    [  # the race at each step: a live gate takes the lock between this gate's checks and its own mkdir
+        ("mkdir", '*.recover) d="${1%.recover}"', TAKE),
+        ("rm", '*.lock) d="$2"', f'/bin/rm -rf "$d"; /bin/mkdir "$d"; {TAKE}; exit 0'),
+    ],
+)
+def test_a_gate_that_takes_a_dead_lock_first_is_never_removed(
+    world: dict[str, Path], capsys: pytest.CaptureFixture[str], command: str, when: str, how: str
+) -> None:
+    assert rg.main(_args(world, BRANCH)) == 0
+    lock = _lock(world, DEAD)
+    shim = f'#!/bin/bash\nLIVE={os.getpid()}\ncase "${{!#}}" in {when}; {how} ;; esac\nexec /bin/{command} "$@"\n'
+    _exe(world["tmp"] / "shims" / command, shim)
+    assert rg.main(_args(world, BRANCH)) == 1
+    assert f"a gate for {BRANCH} is started just now" in capsys.readouterr().err
+    assert (lock / "pid").read_text().strip() == str(os.getpid())  # the winner's lock is intact
+    assert not lock.with_name(f"{WT}.lock.recover").exists()  # and the next recovery isn't blocked
+
+
+def test_ssh_masks_cover_proxyjump_hosts_and_users(world: dict[str, Path]) -> None:
+    jumps = "proxyjump hopper@jump-one.invalid:2222,jump-two.invalid"
+    _exe(world["tmp"] / "bin" / "ssh", f'#!/bin/bash\nprintf "hostname {HOST}\\nuser remote-user\\n{jumps}\\n"\n')
+    masks = rg.ssh_masks(ALIAS)
+    text = "ssh: Could not resolve hostname jump-one.invalid as hopper, then jump-two.invalid"
+    assert rg.masked(text, masks) == "ssh: Could not resolve hostname <jump> as <user>, then <jump>"
+
+
+def test_the_address_masks_leave_test_ids_times_and_versions_alone() -> None:
+    text = "FAILED tests/test_x.py::add_case at 12:34:56 on Python 3.12.1, ports 22: ok, a :: b"
+    assert rg.masked(text, ()) == text
+    assert rg.masked("from ::1 and 10.0.0.7 and [::ffff:10.0.0.8]:22", ()) == (
+        "from <address> and <address> and <address>:22"
+    )
 
 
 def test_the_verdict_takes_only_a_pass_for_the_head_the_remote_gated() -> None:

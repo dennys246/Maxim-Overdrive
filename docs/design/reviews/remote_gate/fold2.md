@@ -20,3 +20,8 @@ Mutation check: one mutation per change, run against `tests/test_remote_gate.py`
 
 - **Dropping `</dev/null`:** an equivalent mutation. Once the wrapper has made bash read the whole script, stdin is already at end of file, so the redirect is defence in depth, not the guard.
 - **Dropping noclobber:** untested, as the table says.
+
+**Correction (fold 3, the author's):** two claims above were wrong, as delta 2's E-N3 found. "The loser of a
+simultaneous start is refused" overstated: the unconditional `rm -f` could delete the pid file the other gate had just
+written, so both ran. "No test can exercise the refusal" was wrong too: a command planted first on the fake remote's
+`PATH` makes the race happen at one exact step. Fold 3 replaces the pid file with a `mkdir` lock and tests it that way.
