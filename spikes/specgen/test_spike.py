@@ -616,6 +616,22 @@ def test_m5_burns_an_accepted_spec_at_turns_of_6_s() -> None:
     assert burn.TURN_S == 6.0
 
 
+def test_m5_on_simulation_is_bit_for_bit_m5_on_world_advance() -> None:
+    # Errata E18: the port to Simulation.step must change no M5 number. The golden is each spec's solid count in the
+    # fire's sphere after the ignite and after every 6 s turn, with its integrity, recorded on c6d4f10's engine
+    # (World.advance and the applier) by .worktrees/_durable/sim_tick_review/delta6_scripts/m5_golden_recorder.py.
+    golden = json.loads((Path(__file__).parent / "m5_golden_c6d4f10.json").read_text())
+    arms = protocol.load_arms()
+    for raw in golden["specs"]:
+        spec = protocol.convert(raw, arms)
+        sim, world, outcome = burn.lit(spec)
+        assert outcome.success
+        got = [[burn.solid_in_sphere(world, spec["name"]), None]]
+        got += [[solid, repr(value)] for solid, value in burn.turns(sim, world, spec["name"])]
+        assert got == golden["turns"][spec["name"]], spec["name"]
+    assert any(rows[-1][1] != "1.0" for rows in golden["turns"].values())  # the golden burns: it can tell engines apart
+
+
 def test_m6_and_m8_rates_come_from_the_labels() -> None:
     (p,) = furniture(1)
     impossible = next(x for x in protocol.load_prompts("dev") if x["stratum"] == "impossible")

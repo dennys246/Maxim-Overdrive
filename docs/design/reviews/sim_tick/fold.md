@@ -178,3 +178,21 @@ checklist row suffices or `Simulation.__init__` needs a marker too.
 **The owner's rulings on delta 5 (2026-11-22).** Arch S5's residual also gets a `TEMPORARY(phase1/sim-clock)` marker
 on `Simulation.__init__`, listed under Phase 1 in the roadmap beside its PR 4b checklist row; the lint fails with the
 listing removed. A delta 6 reviews the delta-5 fold, the merge with #50's spike pin and this marker.
+
+## Delta 6 (`delta6.md`, verbatim): 0 BLOCKER, 1 SHOULD-FIX, 3 NIT, on ef4c5c8
+
+One reader (Executor, Architecture, Wire integrity, Determinism) on the delta-5 fold, the merge with #50's spike and
+the marker. D5-N1 and D5-N2 fixed; D5-N3 open, folded below.
+
+**Correction first.** 79b5d91's message and the first E18 said that porting the spec spike's M5 to `Simulation` would
+change its turn to T3's 0.5 s step and move a pre-registered metric, and the owner ruled for a pin on that. It was
+false: a 6 s physics step reproduces the old M5 bit for bit (the reader measured it; the author reran it and `cmp`
+agreed). The owner then ruled to port (2026-11-22). The D5-N3 docstring was delta 5's unverified wording, folded
+without checking.
+
+| # | Finding | Fold | Status |
+|---|---|---|---|
+| D6-S1 | the pin rests on a false premise | ported: `burn.py` steps `Simulation` with a 1 s tick and physics every sixth; `test_m5_on_simulation_is_bit_for_bit_m5_on_world_advance` holds it to a golden recorded on `c6d4f10` (`m5_golden_c6d4f10.json`), red at T3's step; E18 rewritten | open (for the reviewer) |
+| D6-N1, D6-N2 | the guard checks only that `advance` exists; the M5 test is left red | moot: the guard and the pin are gone, and M5's tests pass on the branch | open (for the reviewer) |
+| D6-N3 | E18 doesn't say it came before the first run | E18 gives its time, 23:34 inside the first nightly window, and that no M5 result exists yet, for the spike's author to confirm | open (for the reviewer) |
+| D5-N3 (reopened) | the `__deepcopy__` docstring's hazard can't happen | it says why the refusal stands: one deliberate answer, where a deep copy otherwise fails by accident | open (for the reviewer) |
