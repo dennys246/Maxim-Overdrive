@@ -170,4 +170,4 @@ The fixes for TB-B1, TB-B2, TB-B3 and TB-S1 each add a path that needs a case to
 | TB-N3 | NIT | open | `fuel_snapshot.gd::_object_problems` |
 | TB-N4 | NIT | open | `tests/support/fuel_fixture.gd` |
 
-The verified fixes for TB-B1, TB-B2 and TB-B3 were made only in the scratch copy, `/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/b7bf205d-729f-449a-b38d-e830de582329/scratchpad/rev_trust/client/addons/engine/render/fuel_snapshot.gd`. The author still needs to fold them, with tests.
+The verified fixes for TB-B1, TB-B2 and TB-B3 were made only in the scratch copy, `<scratchpad>/rev_trust/client/addons/engine/render/fuel_snapshot.gd`. The author still needs to fold them, with tests.

@@ -2,7 +2,7 @@
 
 Scope: the fold over ce06d7b. The author committed it during this round as 37b24be (the fold) and d934e6d (the goldens). The commit holds exactly the tree I read: the diff stat matches (44 files) and the three `fire.png` md5s match the files I scanned. Statuses below are read from d934e6d.
 
-I edited nothing else and did not run the gate, Docker or windowed Godot. Scratch work is in `/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/fb8c693b-b475-44b8-86f3-99160cb687c9/scratchpad/d2/`:
+I edited nothing else and did not run the gate, Docker or windowed Godot. Scratch work is in `<scratchpad>/d2/`:
 - `emu3.py`: a float32 port of the new `walk_at`, `advance` and `skip_brick`.
 - `sweep3.py`: the port at the golden camera on the alley arrays.
 - `fuzz3.py` and `diffs2.py`: random grids against a float64 DDA that uses the shader's tie rule.

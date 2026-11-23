@@ -2,7 +2,7 @@
 
 Diff: `git diff bfb12f8 336eee8`. pymaxim read: 1.3.3 (the sim-replay venv's site-packages). Experiments ran on a
 `git archive` copy of each commit in the session scratchpad
-(`/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/74644a49-11ab-4a8e-8ab1-c2ccc9c3fbed/scratchpad/review_4a_det/`,
+(`<scratchpad>/review_4a_det/`,
 scripts in `scripts/`), with the worktree's `.venv/bin/python -I`.
 
 **Counts: 0 BLOCKER, 2 SHOULD-FIX, 5 NIT.**

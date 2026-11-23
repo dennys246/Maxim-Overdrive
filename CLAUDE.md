@@ -408,6 +408,11 @@ only review holds.
   lesson number once. When ids collide, the branch merged second renumbers its own record and its citations; a green
   check doesn't prove every citation moved. Guard: `scripts/lint_ids.py::check_decisions`,
   `scripts/lint_ids.py::check_roadmap_ids`, `scripts/lint_ids.py::check_lessons`
+- **No personal details in the tree.** The repository is public, and so are CI's logs. No file holds a path under a
+  home directory (`/Users/<name>`, `/home/<name>`, a session scratchpad's dash-encoded `-Users-<name>-`), a local
+  account name, a hostname or a private address; the public GitHub account and the authorship name are not private.
+  Write `<home>`, `<scratchpad>`, `<owner>` or a path relative to the repository. Guard:
+  `scripts/lint_paths.py::check_paths` (home paths), B45 (account names outside a path, hostnames, addresses)
 - **Engine choices get a one-line why** in the code or the commit (scene tree, node types, shaders, GDScript vs C#),
   for a team learning Godot. Guard: B1
 - **Teach game engineering as you go.** The owner is learning game development from the start, and knows software
