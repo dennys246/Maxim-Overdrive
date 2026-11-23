@@ -19,6 +19,9 @@ __all__ = ["Decision", "HostOnly", "Session", "SessionView", "Sessions", "TimeAu
 
 @dataclass(frozen=True)
 class Session:
+    """One live connection's session. ``session_id`` counts connections in the order they joined this launch: it is
+    the transport's, never the replay log's ``session_id`` (O43), and nothing that a replay must reproduce reads it."""
+
     session_id: int
     role: Role
     token_index: int
@@ -37,7 +40,11 @@ class SessionView:
 @dataclass(frozen=True)
 class Decision:
     granted: bool
-    reason: RefusalCode | None  # None when granted
+    reason: RefusalCode | None  # None when granted, and a code when not
+
+    def __post_init__(self) -> None:
+        if self.granted != (self.reason is None):
+            raise TypeError("a decision grants with no reason, or refuses with one")
 
 
 class TimeAuthority(Protocol):
@@ -57,6 +64,8 @@ class Sessions:
     """The live sessions of one launch: opened by a valid hello, closed when the connection ends."""
 
     def __init__(self, tokens: Tokens, *, cap: int) -> None:
+        if cap < 1:
+            raise TypeError(f"a launch holds at least one session, not {cap}")
         self._tokens = tokens
         self._cap = cap
         self._live: dict[int, Session] = {}

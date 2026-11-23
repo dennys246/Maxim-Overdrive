@@ -36,7 +36,7 @@ def _echo(session: Session, message: ClientMessage) -> Mapping[str, object]:
 @asynccontextmanager
 async def _host(*, guests: int = 1, cap: int = 4, deadline: float = 5.0) -> AsyncIterator[tuple[str, Tokens]]:
     tokens = Tokens.fresh(guests=guests)
-    config = HostConfig(Sessions(tokens, cap=cap), SHAPE, _echo, hello_deadline_s=deadline)
+    config = HostConfig(sessions=Sessions(tokens, cap=cap), shape=SHAPE, dispatch=_echo, hello_deadline_s=deadline)
     server = await start(config)
     port = next(iter(server.sockets)).getsockname()[1]
     try:
@@ -54,8 +54,13 @@ def _hello(token: str, protocol: int = 0) -> str:
     return json.dumps({"type": "hello", "protocol": protocol, "token": token})
 
 
+# A bound on each wait, so a guard that breaks fails the test instead of hanging the gate (no reply ever comes, or the
+# connection is never closed). It never decides an outcome: each test's answer is a message or a close code.
+WAIT_S = 10.0
+
+
 async def _reply(ws: ClientConnection) -> dict[str, Any]:
-    data = await ws.recv()
+    data = await asyncio.wait_for(ws.recv(), WAIT_S)
     assert isinstance(data, str)
     reply: dict[str, Any] = json.loads(data)
     return reply
@@ -68,8 +73,13 @@ async def _drain(ws: ClientConnection) -> None:
 
 async def _closed(ws: ClientConnection) -> int | None:
     with pytest.raises(ConnectionClosed):
-        await _drain(ws)
+        await asyncio.wait_for(_drain(ws), WAIT_S)
     return ws.close_code
+
+
+async def _closed_with(ws: ClientConnection) -> tuple[int | None, str | None]:
+    """The close code and reason, after any messages before the close."""
+    return await _closed(ws), ws.close_reason
 
 
 def run(coro: Any) -> Any:
@@ -79,7 +89,7 @@ def run(coro: Any) -> Any:
 def test_the_server_binds_the_literal_loopback_address():
     async def go() -> list[str]:
         tokens = Tokens.fresh(guests=0)
-        server = await start(HostConfig(Sessions(tokens, cap=1), SHAPE, _echo))
+        server = await start(HostConfig(sessions=Sessions(tokens, cap=1), shape=SHAPE, dispatch=_echo))
         try:
             return [s.getsockname()[0] for s in server.sockets]
         finally:
@@ -106,8 +116,9 @@ def test_a_guest_token_is_a_guest_and_sessions_are_numbered_in_order():
     async def go() -> list[tuple[int, str]]:
         async with _host(guests=2) as (uri, tokens), _open(uri) as a, _open(uri) as b:
             await a.send(_hello(tokens.guests[1]))
+            first = await _reply(a)  # welcomed before the second hello is sent, so the order is the test's
             await b.send(_hello(tokens.host))
-            return [((r := await _reply(ws))["session"], r["role"]) for ws in (a, b)]
+            return [(r["session"], r["role"]) for r in (first, await _reply(b))]
 
     assert run(go()) == [(1, "guest"), (2, "host")]
 
@@ -140,27 +151,69 @@ def test_plain_http_to_the_port_gets_a_400():
 
 
 @pytest.mark.parametrize(
-    ("first", "close"),
+    ("first", "code"),
     [
-        (json.dumps({"type": "snapshot", "seq": 1}), 1008),  # anything but hello first
-        (b"\x00\x01", 1003),  # a client binary frame
+        (json.dumps({"type": "snapshot", "seq": 1}), "hello_first"),  # anything but hello first
+        (b"\x00\x01", "bad_shape"),  # a client binary frame: only the server sends binary
     ],
 )
-def test_anything_but_a_hello_first_closes_the_connection(first, close):
-    async def go() -> int | None:
+def test_anything_but_a_hello_first_gets_an_error_and_a_close_with_its_code(first, code):
+    async def go() -> tuple[dict[str, Any], tuple[int | None, str | None]]:
         async with _host() as (uri, _), _open(uri) as ws:
             await ws.send(first)
-            return await _closed(ws)
+            return await _reply(ws), await _closed_with(ws)
 
-    assert run(go()) == close
+    assert run(go()) == ({"type": "error", "code": code}, (1008, code))
 
 
-def test_no_hello_within_the_deadline_closes_the_connection():
-    async def go() -> int | None:
+def test_no_hello_within_the_deadline_closes_the_connection_with_hello_first():
+    async def go() -> tuple[int | None, str | None]:
         async with _host(deadline=0.0) as (uri, _), _open(uri) as ws:
-            return await _closed(ws)
+            return await _closed_with(ws)
 
-    assert run(go()) == 1008
+    assert run(go()) == (1008, "hello_first")
+
+
+def test_a_client_that_leaves_before_reading_welcome_frees_its_token():
+    # The session opens when the hello passes; a client gone before welcome is sent must not keep it (review C1).
+    async def go() -> list[str]:
+        tokens = Tokens.fresh(guests=0)
+        sessions = Sessions(tokens, cap=1)
+        server = await start(HostConfig(sessions=sessions, shape=SHAPE, dispatch=_echo))
+        uri = f"ws://{BIND}:{next(iter(server.sockets)).getsockname()[1]}"
+        outcomes = []
+        try:
+            for _ in range(3):  # three times over a cap of one: a leak turns the next hello into token_in_use
+                async with _open(uri) as ws:
+                    await ws.send(_hello(tokens.host))
+                await asyncio.wait_for(_until_no_session(sessions), WAIT_S)
+                outcomes.append("freed")
+            return outcomes
+        finally:
+            server.close()
+            await server.wait_closed()
+
+    assert run(go()) == ["freed", "freed", "freed"]
+
+
+async def _until_no_session(sessions: Sessions) -> None:
+    """Yield to the loop until the server has closed every session (its handlers run between the yields)."""
+    while sessions.view().sessions:
+        await asyncio.sleep(0)
+
+
+def test_a_client_that_leaves_mid_handshake_is_not_logged_as_a_server_error(caplog):
+    async def go() -> None:
+        async with _host() as (uri, tokens):
+            async with _open(uri) as ws:
+                await ws.send(_hello(tokens.host))
+            async with _open(uri) as ws:
+                await ws.send("not json")
+            await asyncio.sleep(0)
+
+    caplog.set_level(logging.INFO)
+    run(go())
+    assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
 
 
 @pytest.mark.parametrize(
@@ -169,7 +222,9 @@ def test_no_hello_within_the_deadline_closes_the_connection():
         (lambda t: _hello("x" * 43), "bad_token"),
         (lambda t: _hello(t.host, protocol=1), "bad_version"),
         (lambda t: '{"type":"hello","protocol":0,"token":"' + t.host + '","role":"host"}', "unknown_field"),
-        (lambda t: '{"type":"hello","protocol":0.0,"token":"' + t.host + '"}', "not_int"),
+        (lambda t: '{"type":"hello","protocol":0.0,"token":"' + t.host + '"}', "bad_version"),
+        (lambda t: '{"type":"hello","protocol":1,"token":"' + t.host + '","compat":[1]}', "bad_version"),
+        (lambda t: '{"type":"hello","protocol":1,"token":"' + "t" * 99 + '"}', "bad_version"),
         (lambda t: "not json", "bad_json"),
     ],
 )
@@ -267,26 +322,25 @@ def test_a_message_past_the_cap_closes_with_1009_and_one_at_it_does_not():
     assert run(go()) == ("unknown_field", 1009)
 
 
-def test_a_binary_frame_after_welcome_closes_with_1003():
-    async def go() -> int | None:
+@pytest.mark.parametrize(("message", "code"), [(b"\x00", "bad_shape"), ("HELLO", "hello_first")])
+def test_after_welcome_a_binary_frame_or_a_second_hello_ends_the_session_with_its_code(message, code):
+    async def go() -> tuple[dict[str, Any], tuple[int | None, str | None]]:
         async with _host() as (uri, tokens), _open(uri) as ws:
             await ws.send(_hello(tokens.host))
             await _reply(ws)
-            await ws.send(b"\x00")
-            return await _closed(ws)
+            await ws.send(_hello(tokens.host) if message == "HELLO" else message)
+            return await _reply(ws), await _closed_with(ws)
 
-    assert run(go()) == 1003
+    assert run(go()) == ({"type": "error", "code": code}, (1008, code))
 
 
-def test_a_second_hello_closes_the_session():
-    async def go() -> int | None:
-        async with _host() as (uri, tokens), _open(uri) as ws:
-            await ws.send(_hello(tokens.host))
-            await _reply(ws)
-            await ws.send(_hello(tokens.host))
-            return await _closed(ws)
+def test_the_server_negotiates_no_compression():
+    async def go() -> str | None:
+        async with _host() as (uri, _), connect(uri, proxy=None, compression="deflate") as ws:
+            assert ws.response is not None
+            return ws.response.headers.get("Sec-WebSocket-Extensions")
 
-    assert run(go()) == 1008
+    assert run(go()) is None
 
 
 def test_no_token_reaches_a_log_a_reply_or_a_repr(caplog):
@@ -305,9 +359,13 @@ def test_no_token_reaches_a_log_a_reply_or_a_repr(caplog):
     caplog.set_level(logging.DEBUG)
     held: list[Tokens] = []
     replies = run(go(held))
-    secrets = [held[0].host, *held[0].guests]
-    text = caplog.text + "".join(replies) + repr(held[0])
-    assert not any(s in text or s[:-1] in text for s in secrets)
+    # The server's records: the test's own client (websockets.client) logs what it sends, which is the test's business
+    server_logs = [r for r in caplog.records if not r.name.startswith("websockets.client")]
+    text = "\n".join(r.getMessage() for r in server_logs) + "".join(replies) + repr(held[0])
+    # Any 8 characters of a token in a row (websockets' DEBUG frame lines show a truncated message, review T-S1)
+    pieces = {s[i : i + 8] for s in [held[0].host, *held[0].guests] for i in range(len(s) - 7)}
+    assert server_logs  # the server did log, so the check below can fail
+    assert not [p for p in pieces if p in text]
 
 
 def test_a_token_file_is_new_and_readable_only_by_its_owner(tmp_path: Path):
@@ -353,3 +411,12 @@ def test_an_authority_decides_from_a_frozen_view_of_the_sessions():
     assert view.role_of(guest.session_id) is Role.GUEST
     with pytest.raises(AttributeError):
         view.sessions = ()  # type: ignore[misc]  # frozen
+
+
+def test_a_decision_and_the_session_table_refuse_what_can_t_be():
+    with pytest.raises(TypeError, match="no reason"):
+        Decision(True, RefusalCode.HOST_ONLY)
+    with pytest.raises(TypeError, match="no reason"):
+        Decision(False, None)
+    with pytest.raises(TypeError, match="at least one"):
+        Sessions(Tokens.fresh(guests=0), cap=0)

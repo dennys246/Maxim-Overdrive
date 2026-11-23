@@ -149,7 +149,8 @@ forbidden_modules = [
     "simcore.core.heat",
     "simcore.core.imagination", "simcore.core.law",
     "simcore.core.physics", "simcore.core.readonly", "simcore.core.reductions", "simcore.core.scene",
-    "simcore.core.stepping", "simcore.core.topology", "simcore.core.window", "simcore.core.writers",
+    "simcore.core.stepping", "simcore.core.text_tables", "simcore.core.topology", "simcore.core.window",
+    "simcore.core.writers",
 ]  # fmt: skip
 allow_indirect_imports = true
 
@@ -163,7 +164,7 @@ type = "forbidden"
 source_modules = ["simcore.adapters.sem"]
 forbidden_modules = [
     "simcore.core.converters", "simcore.core.damage", "simcore.core.deposit", "simcore.core.digest",
-    "simcore.core.exposure", "simcore.core.text",
+    "simcore.core.exposure", "simcore.core.text", "simcore.core.text_tables",
     "simcore.core.grid", "simcore.core.heat",
     "simcore.core.imagination", "simcore.core.law", "simcore.core.materials", "simcore.core.physics",
     "simcore.core.readonly", "simcore.core.reductions", "simcore.core.scene", "simcore.core.schema",

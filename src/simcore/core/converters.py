@@ -10,12 +10,12 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from simcore.core.checks import shown
+from simcore.core.checks import identity_key, shown
 from simcore.core.digest import check_digest
 from simcore.core.refusals import RefusalCode, Refused
 from simcore.core.schema import Bad, Whole, item_count
 
-__all__ = ["OPAQUE_ALPHABET", "Choice", "Digest", "Flag", "Opaque", "Wholes"]
+__all__ = ["OPAQUE_ALPHABET", "Choice", "Digest", "Flag", "Opaque", "Wholes", "WireName"]
 
 
 @dataclass(frozen=True)
@@ -113,3 +113,22 @@ class Opaque:
         long = "x" * (self.max_chars + 1)
         return ((7, RefusalCode.BAD_SHAPE), ("", RefusalCode.BAD_SHAPE), (long, RefusalCode.BAD_SHAPE),
                 ("a b", RefusalCode.BAD_SHAPE), ("tok\u00e9n", RefusalCode.BAD_SHAPE))  # fmt: skip
+
+
+@dataclass(frozen=True)
+class WireName:
+    """A name on the wire (a grid's, a table's, a channel's, a unit): an identity key (``checks.identity_key``) in
+    printable ASCII only, so a reader in another language applies the same rule without Unicode tables of its own,
+    which differ between versions (client_rendering §4.1, O63)."""
+
+    def convert(self, value: object, what: str) -> str:
+        text = identity_key(value, what)
+        if not all(" " <= ch <= "~" for ch in text):
+            raise Refused(f"{what} must be printable ASCII", code=RefusalCode.BAD_IDENTITY_KEY)
+        return text
+
+    @property
+    def bad(self) -> Bad:
+        return ((7, RefusalCode.BAD_IDENTITY_KEY), ("", RefusalCode.BAD_IDENTITY_KEY),
+                ("a:b", RefusalCode.BAD_IDENTITY_KEY), (" a", RefusalCode.BAD_IDENTITY_KEY),
+                ("café", RefusalCode.BAD_IDENTITY_KEY), ("x" * 65, RefusalCode.BAD_IDENTITY_KEY))  # fmt: skip

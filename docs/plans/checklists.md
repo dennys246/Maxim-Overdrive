@@ -333,6 +333,15 @@ capture, the token, caps, 1009), `HostOnly` with a guest-role view, and `player_
 - The fuel decoder's world-extent check (`client_objects.md` §3.2; owner, 2026-11-22, review TB2-S2): fuel geometry
   outside the cell snapshot's extent is refused, as fire_solid §1.3 refuses it on the server; finite but huge
   geometry passes the client's checks until then.
+- Deferred from the round-1 review (author-proposed; the delta round sets their status):
+  - `dispatch` hands each message to the simulation lane through a bounded per-session queue (realtime_lanes_coop
+    §4.1), never touching the world on the network loop (C3); trigger: step 5a's first reply that needs the clock.
+  - `simcore.protocol.messages`' typed messages fold into `core.intents`' one stage 1 for NPCs and clients (A8);
+    trigger: step 5b's `move` and `move_to` intents.
+  - `time.scale` travels as an integer rational, since O62 keeps floats off the server's JSON and `tick` echoes it
+    (A6); trigger: step 5a's `time_decision`.
+  - Every converter moves to `simcore.core.converters` and `Converter` is a closed union again (A7); deferred because
+    it edits `scene.py` and the loaders, which `phase1/sim-replay` is changing; trigger: that branch's merge.
 - The shipped path: the game launches the host (tokens, the 0600 token file, `start`) with a `dispatch` for the
   messages after `welcome`, the live frame encoder reads published frames (their tick and region ids come with
   step 5a), and the client's scene owns a `NetClient`. Until then the server, `encode_cells`, `player_text` and

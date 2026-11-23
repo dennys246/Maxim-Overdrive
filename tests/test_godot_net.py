@@ -86,7 +86,7 @@ def _with_host(
 ) -> list[str]:
     async def go() -> list[str]:
         tokens = Tokens.fresh(guests=1)
-        server = await start(HostConfig(Sessions(tokens, cap=2), (2, 2, 2), _reply))
+        server = await start(HostConfig(sessions=Sessions(tokens, cap=2), shape=(2, 2, 2), dispatch=_reply))
         try:
             monkeypatch.setenv("MAXIM_OVERDRIVE_NET_PORT", str(next(iter(server.sockets)).getsockname()[1]))
             monkeypatch.setenv("MAXIM_OVERDRIVE_TOKEN", token_of(tokens))
@@ -104,3 +104,11 @@ def test_the_client_joins_the_real_host_and_shares_its_catalogue(project, monkey
 
 def test_the_client_records_the_host_s_refusal_of_a_wrong_token(project, monkeypatch):
     assert _with_host(project, monkeypatch, lambda t: "x" * 43) == ["net-check: refused bad_token"]
+
+
+def test_godot_drops_the_error_that_arrives_with_the_close(project, monkeypatch):
+    # The engine fact NetClient reads the close reason for, measured on every gate run (review A2, B26): a bare
+    # WebSocketPeer never holds the host's error text, which arrives in the same poll as the close. If an engine
+    # upgrade makes it hold the packet, this flips; NetClient keeps working, and its comment is then out of date.
+    monkeypatch.setenv("MAXIM_OVERDRIVE_NET_RAW", "1")
+    assert _with_host(project, monkeypatch, lambda t: "x" * 43) == ["net-check: raw packets 0 reason bad_token"]

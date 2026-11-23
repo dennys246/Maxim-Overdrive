@@ -5,12 +5,13 @@ from __future__ import annotations
 
 import pytest
 
-from simcore.core.converters import OPAQUE_ALPHABET, Choice, Digest, Flag, Opaque, Wholes
+from simcore.core.converters import OPAQUE_ALPHABET, Choice, Digest, Flag, Opaque, Wholes, WireName
 from simcore.core.digest import digest
 from simcore.core.refusals import Refused
 from simcore.core.schema import Converter, Real, Whole, item_count
 
 CONVERTERS: list[Converter] = [
+    WireName(),
     Wholes(3, -5, 5),
     Wholes(2, 0, 2**31 - 1),
     Choice(("pause", "resume")),

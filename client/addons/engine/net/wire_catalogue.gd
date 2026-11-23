@@ -9,10 +9,10 @@ extends RefCounted
 ## Protocol v0's cell channels, in the server's order. Every one is required.
 static func v0() -> Array[Dictionary]:
 	return [
-		_channel("material", "id", "u8", "raw", [1, 1]),
-		_channel("region", "id", "u16", "raw", [1, 1]),
-		_channel("crack", "ratio", "u8", "linear", [1, 255]),
-		_channel("temperature_c", "celsius", "f16", "raw", [1, 1]),
+		channel("material", "id", "u8", "raw", true, [1, 1]),
+		channel("region", "id", "u16", "raw", true, [1, 1]),
+		channel("crack", "ratio", "u8", "linear", true, [1, 255]),
+		channel("temperature_c", "celsius", "f16", "raw", true, [1, 1]),
 	]
 
 
@@ -22,9 +22,13 @@ const DTYPES: Array[String] = ["u8", "u16", "u32", "f16", "f32"]
 const ENCODINGS: Array[String] = ["raw", "linear"]
 
 
-static func _channel(name: String, unit: String, dtype: String, encoding: String, scale: Array[int]) -> Dictionary:
+## One channel's description, as the wire states it and FrameDecoder compares it. The offset is 0/1 for every
+## channel v0 knows.
+static func channel(
+	name: String, unit: String, dtype: String, encoding: String, required: bool, scale: Array[int]
+) -> Dictionary:
 	return {
-		"name": name, "unit": unit, "dtype": dtype, "encoding": encoding, "required": true, "scale": scale,
+		"name": name, "unit": unit, "dtype": dtype, "encoding": encoding, "required": required, "scale": scale,
 		"offset": [0, 1],
 	}
 

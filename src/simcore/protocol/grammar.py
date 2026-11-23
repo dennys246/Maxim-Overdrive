@@ -35,7 +35,7 @@ from simcore.core.schema import read_version
 from simcore.protocol.catalogue import DTYPES, Channel, catalogue_hash, describe
 from simcore.protocol.frame_header import Array, Header, read_header
 from simcore.protocol.messages import PROTOCOL
-from simcore.protocol.strict_json import decode, encode
+from simcore.protocol.strict_json import decode, encode, integers_only
 
 __all__ = ["CELL_GRID", "MAX_HEADER_BYTES", "DecodedFrame", "decode_frame", "encode_cells", "pack"]
 
@@ -70,9 +70,11 @@ def encode_cells(
     regions_version: int,
     cell_size_um: int,
     origin_um: tuple[int, int, int],
+    catalogue: Sequence[Channel],
     channels: Sequence[tuple[Channel, npt.NDArray[np.generic]]],
 ) -> bytes:
-    """A full frame of cell channels, each an ``(nz, ny, nx)`` array in its channel's dtype."""
+    """A full frame of cell channels, each an ``(nz, ny, nx)`` array in its channel's dtype. The header carries the
+    hash of ``catalogue``, the one ``welcome`` announced, whichever of its channels the frame holds (O64)."""
     shape = channels[0][1].shape
     arrays, offset, payload = [], 0, []
     for channel, values in channels:
@@ -90,7 +92,7 @@ def encode_cells(
         "tick": tick,
         "shape": list(shape),
         "regions_version": regions_version,
-        "catalogue": catalogue_hash(describe([c for c, _ in channels])),
+        "catalogue": catalogue_hash(describe(catalogue)),
         "compression": "none",
         "grids": [{**grid, "cell_size_um": cell_size_um, "origin_um": list(origin_um)}],
         "tables": [],
@@ -119,6 +121,7 @@ def _header(data: bytes, max_bytes: int) -> tuple[Header, memoryview]:
     version = read_version({"version": raw.get("protocol")}, "frame header protocol")
     if version != PROTOCOL:
         raise Refused(f"frame protocol {version}; this reader knows {PROTOCOL}", code=RefusalCode.BAD_VERSION)
+    integers_only(raw, "frame header")
     return read_header(raw), memoryview(data)[_LENGTH_BYTES + length :]
 
 

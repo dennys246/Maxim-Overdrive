@@ -226,6 +226,34 @@ def findings(path: Path, source: str) -> list[str]:
     return out
 
 
+# asyncio's clock in src/ (review D1): a sleep, a timeout or the loop (whose time() is monotonic wall time), which a
+# pacing loop could feed the world. The host's handshake deadline is the one use: it admits a connection, and a join
+# is a logged event (boundaries §6), so no wall time reaches the world through it. Tests may bound a wait with them.
+ASYNC_CLOCK = {
+    "sleep", "wait_for", "wait", "timeout", "timeout_at", "get_running_loop", "get_event_loop", "new_event_loop",
+}  # fmt: skip
+ASYNC_CLOCK_ALLOWED = {"src/simcore/host/server.py": {"wait_for"}}
+
+
+def async_clock_findings(path: Path, source: str) -> list[str]:
+    """Each use of asyncio's clock in ``source`` (``asyncio.sleep``, ``from asyncio import sleep``, ``aio.sleep``),
+    but those ``ASYNC_CLOCK_ALLOWED`` gives ``path``."""
+    tree = ast.parse(source)
+    aliases = {a.asname or a.name for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names
+               if a.name == "asyncio"}  # fmt: skip
+    allowed = ASYNC_CLOCK_ALLOWED.get(path.as_posix(), set())
+    out = []
+    for node in ast.walk(tree):
+        names: list[str] = []
+        if isinstance(node, ast.ImportFrom) and node.module == "asyncio":
+            names = [a.name for a in node.names]
+        elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id in aliases:
+            names = [node.attr]
+        out += [f"{path}:{getattr(node, 'lineno', 0)}: uses asyncio.{n}: the loop's clock" for n in names
+                if n in ASYNC_CLOCK and n not in allowed]  # fmt: skip
+    return out
+
+
 def _simulated(path: Path) -> bool:
     rel = path.relative_to(SRC).as_posix()
     return not any(rel == d or rel.startswith(d + "/") for d in NOT_SIMULATION)
@@ -281,6 +309,9 @@ def test_the_simulation_and_tests_have_no_hidden_sources_of_nondeterminism():
     scanned = scanned_files()
     assert {p.relative_to(SRC).as_posix() for p in scanned if p.is_relative_to(SRC)} >= MUST_SCAN
     hits = [f for p in scanned for f in findings(p.relative_to(ROOT), p.read_text())]
+    hits += [
+        f for p in scanned if p.is_relative_to(SRC) for f in async_clock_findings(p.relative_to(ROOT), p.read_text())
+    ]
     core = sorted((SRC / CORE).rglob("*.py"))
     assert {p.relative_to(SRC).as_posix() for p in core} >= MUST_SCAN
     hits += [f for p in core for f in core_findings(p.relative_to(ROOT), p.read_text())]
@@ -445,3 +476,21 @@ def _cylinder_run(dx_m: float) -> World:
 @fast_spacings
 def test_a_cylinder_scene_is_repeatable_in_process(dx_m):
     assert digest(_cylinder_run(dx_m)) == digest(_cylinder_run(dx_m))
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import asyncio\nasyncio.sleep(1)",
+        "import asyncio as aio\naio.get_running_loop()",
+        "from asyncio import timeout",
+        "import asyncio\nasyncio.wait_for(x, 1)",
+    ],
+)
+def test_the_scan_sees_asyncio_s_clock_in_src(source):
+    assert async_clock_findings(Path("src/simcore/host/pacing.py"), source)
+
+
+def test_only_the_handshake_deadline_may_use_the_loop_s_clock():
+    assert not async_clock_findings(Path("src/simcore/host/server.py"), "import asyncio\nasyncio.wait_for(x, 1)")
+    assert async_clock_findings(Path("src/simcore/host/server.py"), "import asyncio\nasyncio.sleep(1)")

@@ -9,8 +9,9 @@ Each converter also lists the values it must refuse (``bad``). ``tests/test_form
 over a valid document and feeds each field each of them, plus a missing and an unknown key, so a new field gets its
 rejection tests by being declared. Versions, refusals of old versions and migrations are ``Format``'s.
 
-Content stores time in world units, never ticks (tile §3.2): a field named for ticks is refused when its schema is
-declared, since the tick (step 5a) is derived from seconds at load, never authored.
+Content stores time in world units, never ticks (tile §3.2): a field named for ticks, at any depth, is refused when
+its ``Format`` is declared, since the tick (step 5a) is derived from seconds at load, never authored. A schema alone
+is not content: the wire's carry the simulation's integer ticks (a frame's tick, kindle's ``duration_ticks``).
 """
 
 from __future__ import annotations
@@ -336,17 +337,11 @@ class Schema:
 
     fields: tuple[Field, ...]
     reserved: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
-    # A wire schema carries the simulation's integer ticks (a frame's tick, kindle's duration_ticks: tile §3.3,
-    # client_rendering §4.1), which the host stamps or stage 1 bounds; content never does.
-    wire: bool = False
 
     def __post_init__(self) -> None:
         names = [f.name for f in self.fields]
         if len(set(names)) != len(names):  # a schema contradicting itself is a programming error, not bad input
             raise TypeError(f"a schema names a field twice: {sorted(names)}")
-        ticks = [n for n in names if {"tick", "ticks"} & set(n.split("_"))]  # a word, not a substring: stick_m is fine
-        if ticks and not self.wire:
-            raise TypeError(f"content stores time in seconds, never ticks: {ticks} (tile §3.2)")
         object.__setattr__(self, "reserved", MappingProxyType(dict(self.reserved)))
 
     @property
@@ -384,6 +379,22 @@ def read_version(raw: object, what: str) -> int:
     return version
 
 
+def _tick_fields(schema: Schema) -> list[str]:
+    """Every field named for ticks in ``schema`` and the schemas it nests: a word, not a substring (stick_m is fine)."""
+    found, stack = [], [schema]
+    while stack:
+        current = stack.pop()
+        for f in current.fields:
+            if {"tick", "ticks"} & set(f.name.split("_")):
+                found.append(f.name)
+            convert: object = f.convert.item if isinstance(f.convert, ListOf) else f.convert
+            if isinstance(convert, Nested):
+                stack.append(convert.schema)
+            elif isinstance(convert, Tagged):
+                stack.extend(convert.schemas.values())
+    return sorted(found)
+
+
 @dataclass(frozen=True)
 class Format:
     """A versioned data format: its name, current version and schema, the old versions it refuses with a reason,
@@ -402,6 +413,8 @@ class Format:
     migrations: Mapping[int, Migration] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
+        if ticks := _tick_fields(self.schema):
+            raise TypeError(f"content stores time in seconds, never ticks: {ticks} (tile §3.2)")
         if self.migrations and not self.held_by_others:
             raise TypeError(f"{self.name} is repo-only: bump its version and refuse the old one, never migrate")
         if any(not 0 <= v < self.version for v in (*self.migrations, *self.refused)):

@@ -243,7 +243,7 @@ fields, the ordering key and `kind_rank` are boundaries §6.2's; `actor_id` come
 
 ### 3.4 Refusals (WT-S1, EX-S8), in check order
 
-<!-- contract: refusal.codes: bad_json unknown_kind unknown_field busy not_int bad_shape out_of_range outside_extent rate_limited coalesced out_of_reach not_on_surface ambiguous_point region_gone no_igniter over_item_max pilot_live restrike_wait no_body no_path unreachable | not: 5500.0 1e3 dir kindle move_to -->
+<!-- contract: refusal.codes: bad_json unknown_kind unknown_field busy not_int bad_shape out_of_range outside_extent rate_limited coalesced out_of_reach not_on_surface ambiguous_point region_gone no_igniter over_item_max pilot_live restrike_wait no_body no_path unreachable host_only bad_version missing_field bad_identity_key over_budget bad_text bad_token token_in_use hello_first | not: 5500.0 1e3 dir kindle move_to -->
 | Code | Stage | Reply | Logged | Step |
 |---|---|---|---|---|
 | `bad_json`, `unknown_kind`, `unknown_field`, `busy` | decode | `error` | no | 7 |
@@ -252,7 +252,8 @@ fields, the ordering key and `kind_rank` are boundaries §6.2's; `actor_id` come
 | `rate_limited` (wall flood guards: `kindle` ≤ 5/s, `move_to` ≤ 10/s), `coalesced` | stage 1 (client protocol layer) | `intent_result` | no | 7 |
 | `out_of_reach`, `not_on_surface`, `ambiguous_point`, `region_gone`, `no_igniter`, `over_item_max`, `pilot_live`, `restrike_wait` | stage 2 | `intent_result` | yes | 6 |
 | `no_body`, `no_path`, `unreachable` | stage 2 | `intent_result` | yes | 5 |
-| time refused (role) | `TimeAuthority` | `time_decision` | yes | 7, by a direct `HostOnly` test (WT-S9) |
+| time refused (`host_only`) | `TimeAuthority` | `time_decision` | yes | 7, by a direct `HostOnly` test (WT-S9) |
+| `bad_version`, `missing_field`, `bad_identity_key`, `over_budget`, `bad_text`; the handshake's `bad_token`, `token_in_use`, `hello_first` | decode, stage 1 | `error`; in the handshake, then close 1008 with the code as reason | no | 7 |
 
 - **The code enum lives in the core;** the client protocol layer produces `rate_limited` and `coalesced` (DC-N7).
 - **A stop is never refused** (WT-S5): `move` and `move_to` are latest-wins per session per tick; the superseded
@@ -442,7 +443,8 @@ The layer order is `boundaries.md` §2.2's; this table places this design's modu
 | Actor and pilots tables, body archetype type, motion, blocked predicate, walk grid, A\*, path walking, body heat (convection and radiation), the bed and laws 6a–6d, intents, the refusal-code enum, receipts, `Frame` | core (motion and navigation as two modules, AR-N3) |
 | File gates (archetypes, items, scene v1, `actions.yaml` v1), the SEM membrane and agent adapter (the `hold` conversion) | adapters |
 | The alley, `human`, `torch`, the bed's φ and σ, fuel calibrations | game (`content/`, rights reserved, step 8) |
-| Wire encoding, sessions, latest-wins slots, rate limits, `TimeAuthority`, the network lane | client protocol |
+| Wire encoding, latest-wins slots, rate limits | client protocol |
+| Sessions, `TimeAuthority`, the network lane | host (`boundaries.md` §2.2) |
 | Godot | `client/` (`client_rendering.md` §7) |
 
 ## 8. Bio-faithful note
@@ -457,11 +459,7 @@ The layer order is `boundaries.md` §2.2's; this table places this design's modu
 
 ## 9. Open questions for the owner
 
-1. **The flame radiates into bodies by a point source in Phase 1,** walls in Phase 2: decided, T14.
-2. **The crate as 20 mm slats at φ = 0.25** (σ = 25 m²/m³, 32.4 kg), step 6's content value: decided, T15. A denser
-   crate burns longer and a sparser one may not sustain (σ_min 4.2–7.0 m²/m³).
-3. **Protocol v0 freezes only the kinds a Phase 1 client sends:** decided, T16.
-4. **The accelerant's form:** decided, T18.
+None: T14, T15, T16 and T18 decided the four (`decisions/tile_and_client.md`).
 
 ## 10. What this does not settle
 

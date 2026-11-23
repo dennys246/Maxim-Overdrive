@@ -16,8 +16,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from simcore.core.converters import Choice, Digest, Flag, Wholes
-from simcore.core.schema import Field, Identity, ListOf, Nested, Schema, Whole
+from simcore.core.converters import Choice, Digest, Flag, Wholes, WireName
+from simcore.core.schema import Field, ListOf, Nested, Schema, Whole
 from simcore.protocol.catalogue import DTYPES, ENCODINGS, Channel
 from simcore.protocol.strict_json import JSON_INT_MAX
 
@@ -36,8 +36,8 @@ _RATIONAL = Wholes(2, -JSON_INT_MAX, JSON_INT_MAX)
 
 CHANNEL = Schema(
     (
-        Field("name", Identity()),
-        Field("unit", Identity()),
+        Field("name", WireName()),
+        Field("unit", WireName()),
         Field("dtype", Choice(tuple(DTYPES))),
         Field("encoding", Choice(ENCODINGS)),
         Field("required", Flag()),
@@ -47,18 +47,18 @@ CHANNEL = Schema(
 )
 GRID = Schema(
     (
-        Field("name", Identity()),
+        Field("name", WireName()),
         Field("required", Flag()),
         Field("shape", Wholes(3, 1, MAX_EXTENT)),  # [nz, ny, nx]
         Field("cell_size_um", Whole(1, JSON_INT_MAX)),
         Field("origin_um", Wholes(3, -JSON_INT_MAX, JSON_INT_MAX)),  # [x, y, z] of the grid's corner
     )
 )
-TABLE = Schema((Field("name", Identity()), Field("required", Flag()), Field("rows", _COUNT)))
+TABLE = Schema((Field("name", WireName()), Field("required", Flag()), Field("rows", _COUNT)))
 ARRAY = Schema(
     (
         Field("channel", Nested(CHANNEL)),
-        Field("of", Identity()),  # the grid or table the array belongs to
+        Field("of", WireName()),  # the grid or table the array belongs to
         Field("offset", _COUNT),  # from the payload's start, after the header
         Field("size", _COUNT),
         Field("uncompressed_size", _COUNT),
@@ -77,7 +77,6 @@ HEADER = Schema(
         Field("tables", ListOf(Nested(TABLE), MAX_TABLES)),
         Field("arrays", ListOf(Nested(ARRAY), MAX_ARRAYS)),
     ),
-    wire=True,
 )
 
 

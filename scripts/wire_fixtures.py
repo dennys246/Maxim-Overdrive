@@ -20,17 +20,17 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
+from wire_texts import Fixture, client_messages, json_texts
 
 from simcore.protocol.catalogue import V0, Channel, catalogue_hash, describe
+from simcore.protocol.frame_header import MAX_EXTENT, MAX_TABLES
 from simcore.protocol.grammar import encode_cells
-from simcore.protocol.messages import MAX_MESSAGE_BYTES
-from simcore.protocol.strict_json import MAX_DEPTH
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "client" / "tests" / "fixtures" / "wire"
@@ -48,15 +48,19 @@ def _arrays(shape: tuple[int, int, int]) -> list[NDArray[np.generic]]:
     n = int(np.prod(shape))
     return [
         (np.arange(n) % 4).astype("<u1").reshape(shape),  # material: air, then three solids
-        np.arange(n, dtype="<u2").reshape(shape) * 257,  # region: both bytes differ, so RG8's byte order shows
+        np.arange(n, dtype="<u2").reshape(shape) * 257 + 1,  # region: 0x0001, 0x0102, ...: the two bytes differ, so
+        # a reader that swaps them reads another id (a probe below), which RG8's upload of the low byte first needs
         np.linspace(0, 255, n).astype("<u1").reshape(shape),  # crack
         np.linspace(-40.0, 1200.0, n).astype("<f2").reshape(shape),  # temperature_c
     ]
 
 
-def _cells(tick: int = 5, shape: tuple[int, int, int] = SHAPE) -> bytes:
+def _cells(tick: int = 5, shape: tuple[int, int, int] = SHAPE, catalogue: Sequence[Channel] = V0) -> bytes:
+    """The base frame: v0's channels, under the hash of ``catalogue``, the one its welcome announced."""
     channels = list(zip(V0, _arrays(shape), strict=True))
-    return encode_cells(tick=tick, regions_version=1, cell_size_um=CELL_UM, origin_um=ORIGIN_UM, channels=channels)
+    return encode_cells(
+        tick=tick, regions_version=1, cell_size_um=CELL_UM, origin_um=ORIGIN_UM, catalogue=catalogue, channels=channels
+    )
 
 
 def _split(frame: bytes) -> tuple[Header, bytes]:
@@ -88,7 +92,7 @@ def _array_entries(header: Header) -> list[dict[str, Any]]:
 
 
 def _with_channel(channel: Channel, values: bytes, of: str = "cells") -> Callable[[Header], None]:
-    """Append an array carrying ``channel`` (and rehash the catalogue over every channel the frame carries)."""
+    """Append an array carrying ``channel``; the frame's catalogue hash stays welcome's (O64)."""
 
     def edit(header: Header) -> None:
         arrays = _array_entries(header)
@@ -96,7 +100,6 @@ def _with_channel(channel: Channel, values: bytes, of: str = "cells") -> Callabl
         size = len(values)
         arrays.append({"channel": channel.description(), "of": of, "offset": offset, "size": size,
                        "uncompressed_size": size})  # fmt: skip
-        header["catalogue"] = catalogue_hash([a["channel"] for a in arrays])
 
     return edit
 
@@ -116,12 +119,12 @@ def _set(key: str, value: object) -> Callable[[Header], None]:
 def _set_channel(i: int, key: str, value: object) -> Callable[[Header], None]:
     def edit(h: Header) -> None:
         _array_entries(h)[i]["channel"][key] = value
-        h["catalogue"] = catalogue_hash([a["channel"] for a in _array_entries(h)])
 
     return edit
 
 
 SMOKE = Channel("smoke_kg_m3", "kg_per_m3", "f32", "raw", required=False)  # a unit this build has never heard of
+SOOT = Channel("soot", "ratio", "u8", "raw", required=False)  # an optional channel a reader may know and a frame omit
 EIGHT_F32 = np.arange(8, dtype="<f4").tobytes()
 ZONES = {"name": "zones", "required": False, "shape": [1, 1, 2], "cell_size_um": 400_000, "origin_um": [0, 0, 0]}
 
@@ -146,22 +149,23 @@ def _asymmetric() -> bytes:
         material[z, y, x] = i + 1
     arrays[0] = material
     return encode_cells(tick=5, regions_version=1, cell_size_um=CELL_UM, origin_um=(-1000, 2000, 400),
-                        channels=list(zip(V0, arrays, strict=True)))  # fmt: skip
+                        catalogue=V0, channels=list(zip(V0, arrays, strict=True)))  # fmt: skip
 
 
 ASYMMETRIC_CORNERS = [(z, y, x) for z in (0, 1) for y in (0, 2) for x in (0, 3)]
+# the region ids at the same corners: index z*12 + y*4 + x in [2, 3, 4], each id's two bytes different
+ASYMMETRIC_REGIONS = [
+    {"channel": "region", "zyx": [z, y, x], "value": (z * 12 + y * 4 + x) * 257 + 1} for z, y, x in ASYMMETRIC_CORNERS
+]
 _SEEN = ("python", "godot")
-
-# name -> (bytes, outcome, code or "", extras for the manifest)
-Fixture = tuple[bytes, str, str, Mapping[str, object]]
 
 
 def _goldens() -> dict[str, Fixture]:
     probes = [{"channel": "material", "zyx": list(c), "value": i + 1} for i, c in enumerate(ASYMMETRIC_CORNERS)]
     required = Channel("smoke_kg_m3", "kg_per_m3", "f32", "raw", required=True)
     return {
-        "base": (_cells(), "accepted", "", {"probes": [{"channel": "region", "zyx": [1, 1, 1], "value": 7 * 257}]}),
-        "asymmetric": (_asymmetric(), "accepted", "", {"shape": [2, 3, 4], "probes": probes}),
+        "base": (_cells(), "accepted", "", {"probes": [{"channel": "region", "zyx": [1, 1, 1], "value": 7 * 257 + 1}]}),
+        "asymmetric": (_asymmetric(), "accepted", "", {"shape": [2, 3, 4], "probes": [*probes, *ASYMMETRIC_REGIONS]}),
         "unknown_optional_channel": (_extra(SMOKE, EIGHT_F32), "accepted", "", {"ignored": ["channel:smoke_kg_m3"]}),
         "unknown_optional_grid_and_table": (
             _optional_grid_and_table(),
@@ -298,6 +302,12 @@ def _extension() -> dict[str, Fixture]:
             "unknown_field",
             {},
         ),
+        "optional_channel_omitted": (  # the reader knows an optional channel this frame doesn't carry (O64)
+            _cells(catalogue=[*V0, SOOT]),
+            "accepted",
+            "",
+            {"catalogue": catalogue_hash(describe([*V0, SOOT])), "known_extra": [SOOT.description()]},
+        ),
         "catalogue_mismatch": (
             _edited(_set("catalogue", catalogue_hash([other_unit.description()]))),
             "refused",
@@ -315,98 +325,43 @@ def _drop_array(frame: bytes, i: int) -> bytes:
     start, size = int(dropped["offset"]), int(dropped["size"])
     for a in arrays[i:]:
         a["offset"] = int(a["offset"]) - size
-    header["catalogue"] = catalogue_hash([a["channel"] for a in arrays])
     return _repack(header, [payload[:start] + payload[start + size :]])
 
 
+def _frame_edges() -> dict[str, Fixture]:
+    """Where the two decoders could part (step 7 review, W-S1 to W-S8): each with the server's outcome and code."""
+    header, payload = _split(_cells())
+    text = json.dumps(header, separators=(",", ":"), sort_keys=True)
+    digest = str(header["catalogue"])
+
+    def swap(old: str, new: str) -> bytes:
+        assert old in text, old
+        return _raw(text.replace(old, new, 1), payload)
+
+    many = [{"name": f"t{i}", "required": False, "rows": 0} for i in range(MAX_TABLES + 1)]
+    return {
+        "header_nul_padding": (_raw(text + "\x00\x00", payload), "refused", "bad_json", {}),
+        "header_trailing_comma": (swap('"tick":5', '"tick":5,'), "refused", "bad_json", {}),
+        "header_leading_zero": (swap('"tick":5', '"tick":05'), "refused", "bad_json", {}),
+        "tick_1e20": (swap('"tick":5', '"tick":1e20'), "refused", "not_int", {}),
+        "scale_float": (swap('"scale":[1,255]', '"scale":[1.0,255]'), "refused", "not_int", {}),
+        "protocol_true": (_edited(_set("protocol", True)), "refused", "bad_version", {}),
+        "protocol_negative": (_edited(_set("protocol", -1)), "refused", "bad_version", {}),
+        "digest_trailing_newline": (swap(f'"{digest}"', f'"{digest}\\n"'), "refused", "bad_shape", {}),
+        "optional_name_escaped_non_ascii": (  # an escape decodes to a non-ASCII name: refused by the name rule
+            _edited(lambda h: _array_entries(h)[-1]["channel"].update(name="s\u00f6t"), _extra(SOOT, bytes(8))),
+            "refused",
+            "bad_identity_key",
+            {},
+        ),
+        "name_with_colon": (_edited(_set_channel(0, "name", "mat:erial")), "refused", "bad_identity_key", {}),
+        "too_many_tables": (_edited(_set("tables", many)), "refused", "over_budget", {}),
+        "extent_past_u16": (_edited(_set("shape", [1, 1, MAX_EXTENT + 1])), "refused", "out_of_range", {}),
+    }
+
+
 def frames() -> dict[str, Fixture]:
-    return {**_goldens(), **_pins(), **_header_json(), **_schema(), **_layout(), **_extension()}
-
-
-def json_texts() -> dict[str, Fixture]:
-    nested = "[" * 5_000 + "]" * 5_000  # past Python's recursion limit (1,000) and Godot's depth limit
-    return {
-        "object": (b'{"a":[1,-2,"x",true,null],"b":{}}', "accepted", "", {}),
-        "nan": (b'{"a":NaN}', "refused", "bad_json", {}),
-        "infinity": (b'{"a":Infinity}', "refused", "bad_json", {}),
-        "minus_infinity": (b'{"a":-Infinity}', "refused", "bad_json", {}),
-        "overflow": (b'{"a":1e400}', "refused", "bad_json", {}),
-        "repeated_key": (b'{"a":1,"a":2}', "refused", "bad_json", {}),
-        "repeated_escaped_key": (b'{"a":1,"\\u0061":2}', "refused", "bad_json", {}),
-        "nested_repeated_key": (b'{"a":[{"b":1,"b":1}]}', "refused", "bad_json", {}),
-        "lone_surrogate": (b'{"a":["\\ud800"]}', "refused", "bad_json", {}),
-        "deep_nesting": (nested.encode(), "refused", "bad_json", {}),
-        "nesting_at_limit": (("[" * MAX_DEPTH + "]" * MAX_DEPTH).encode(), "accepted", "", {}),
-        "nesting_past_limit": (("[" * (MAX_DEPTH + 1) + "]" * (MAX_DEPTH + 1)).encode(), "refused", "bad_json", {}),
-        "not_json": (b'{"a":', "refused", "bad_json", {}),
-        "oversized": (b'{"a":"' + b"x" * 64 + b'"}', "refused", "bad_json", {"max_bytes": 64}),
-    }
-
-
-def _message(**fields: object) -> bytes:
-    return json.dumps(fields, separators=(",", ":")).encode()
-
-
-KINDLE: dict[str, object] = {"type": "kindle", "seq": 3, "point_mm": [5500, 2925, 400], "duration_ticks": 100}
-
-
-def _accepted_messages() -> dict[str, Fixture]:
-    ok: str = "accepted"
-    kindle = KINDLE
-    accepted: dict[str, Fixture] = {
-        "hello": (_message(type="hello", protocol=0, token="Ab3_-x" * 7 + "z"), ok, "", {}),
-        "hello_newer": (_message(type="hello", protocol=1, token="t0ken"), ok, "", {}),  # the session refuses it
-        "move": (_message(type="move", seq=1, dir=[1, 0]), ok, "", {}),
-        "move_stop": (_message(type="move", seq=2, dir=None), ok, "", {}),
-        "move_to": (_message(type="move_to", seq=2, target_mm=[8000, 3600]), ok, "", {}),
-        "kindle": (_message(**kindle), ok, "", {}),
-        "time_pause": (_message(type="time", seq=4, op="pause"), ok, "", {}),
-        "time_set_scale": (_message(type="time", seq=5, op="set_scale", scale=10), ok, "", {}),
-        "snapshot": (_message(type="snapshot", seq=6), ok, "", {}),
-        "seq_largest": (_message(type="snapshot", seq=2**31 - 1), ok, "", {}),
-    }
-    return accepted
-
-
-def _refused_messages() -> dict[str, tuple[bytes, str]]:
-    kindle = KINDLE
-    return {
-        "duration_float": (_message(**{**kindle, "duration_ticks": 5500.0}), "not_int"),
-        "duration_true": (_message(**{**kindle, "duration_ticks": True}), "not_int"),
-        "duration_1e3": (_message(**kindle).replace(b'"duration_ticks":100', b'"duration_ticks":1e3'), "not_int"),
-        "point_bool": (_message(**{**kindle, "point_mm": [1, True, 3]}), "not_int"),
-        "seq_below_2p53": (_message(type="snapshot", seq=2**53 - 1), "out_of_range"),
-        "seq_at_2p53": (_message(type="snapshot", seq=2**53), "bad_json"),
-        "seq_past_2p53": (_message(type="snapshot", seq=2**53 + 1), "bad_json"),
-        "seq_2p31": (_message(type="snapshot", seq=2**31), "out_of_range"),
-        "seq_negative": (_message(type="snapshot", seq=-1), "out_of_range"),
-        "unknown_type": (_message(type="vote", seq=1), "unknown_kind"),
-        "no_type": (_message(seq=1), "unknown_kind"),
-        "type_not_text": (_message(type=7, seq=1), "unknown_kind"),
-        "client_actor": (_message(type="move", seq=1, dir=[1, 0], actor=2), "unknown_field"),
-        "client_tick": (_message(type="move", seq=1, dir=[1, 0], tick=9), "unknown_field"),
-        "client_observed_tick": (_message(type="snapshot", seq=1, observed_tick=9), "unknown_field"),
-        "client_apply_us": (_message(**{**kindle, "apply_us": 0}), "unknown_field"),
-        "client_role": (_message(type="hello", protocol=0, token="t0ken", role="host"), "unknown_field"),
-        "missing_seq": (_message(type="snapshot"), "missing_field"),
-        "dir_short": (_message(type="move", seq=1, dir=[1]), "bad_shape"),
-        "dir_text": (_message(type="move", seq=1, dir="up"), "bad_shape"),
-        "token_spaces": (_message(type="hello", protocol=0, token="a token"), "bad_shape"),
-        "token_long": (_message(type="hello", protocol=0, token="t" * 65), "bad_shape"),
-        "pause_with_scale": (_message(type="time", seq=4, op="pause", scale=2), "bad_shape"),
-        "set_scale_without_scale": (_message(type="time", seq=4, op="set_scale"), "bad_shape"),
-        "unknown_op": (_message(type="time", seq=4, op="rewind"), "unknown_kind"),
-        "not_object": (b"[1,2]", "bad_shape"),
-        "nan": (b'{"type":"time","seq":4,"op":"set_scale","scale":NaN}', "bad_json"),
-        "overflow": (b'{"type":"time","seq":4,"op":"set_scale","scale":1e400}', "bad_json"),
-        "repeated_key": (b'{"type":"snapshot","seq":1,"seq":2}', "bad_json"),
-        "oversized": (_message(type="snapshot", seq=1, pad="x" * MAX_MESSAGE_BYTES), "bad_json"),
-    }
-
-
-def client_messages() -> dict[str, Fixture]:
-    refused: dict[str, Fixture] = {k: (v, "refused", code, {}) for k, (v, code) in _refused_messages().items()}
-    return {**_accepted_messages(), **refused}
+    return {**_goldens(), **_pins(), **_header_json(), **_schema(), **_layout(), **_extension(), **_frame_edges()}
 
 
 SETS: dict[str, tuple[Callable[[], dict[str, Fixture]], str, tuple[str, ...]]] = {
@@ -414,17 +369,6 @@ SETS: dict[str, tuple[Callable[[], dict[str, Fixture]], str, tuple[str, ...]]] =
     "json": (json_texts, "json", _SEEN),
     "client": (client_messages, "json", ("python",)),
 }
-
-
-def _announced(data: bytes) -> str:
-    """The catalogue hash a ``welcome`` would have announced for this frame: the one its header states, when the
-    header can be read at all, and v0's otherwise."""
-    try:
-        header = json.loads(data[4 : 4 + int.from_bytes(data[:4], "little")])
-    except ValueError:  # a header made to be unreadable; the reader refuses it before any hash is compared
-        return V0_HASH
-    stated: object = header.get("catalogue") if isinstance(header, dict) else None
-    return stated if isinstance(stated, str) else V0_HASH
 
 
 def files() -> dict[str, bytes]:
@@ -437,7 +381,7 @@ def files() -> dict[str, bytes]:
             out[path] = data
             entry = {"file": path, "outcome": outcome, "code": code, **extras}
             if set_name == "frames":
-                entry.setdefault("catalogue", _announced(data))
+                entry.setdefault("catalogue", V0_HASH)  # what welcome announced: every frame carries it (O64)
             entries.append(entry)
         manifest[set_name] = {"readers": list(readers), "fixtures": entries}
     out["manifest.json"] = (json.dumps(manifest, indent=1, sort_keys=True) + "\n").encode()
@@ -445,10 +389,15 @@ def files() -> dict[str, bytes]:
 
 
 def stale(directory: Path) -> list[str]:
-    """The fixture files that differ from what this script makes, or are missing, or are left over."""
+    """The fixture files that differ from what this script makes, or are missing, or are left over. A hidden file (a
+    Finder ``.DS_Store``) is the machine's, not a fixture, so it is never left over."""
     want = files()
     have = (
-        {p.relative_to(directory).as_posix() for p in directory.rglob("*") if p.is_file()}
+        {
+            p.relative_to(directory).as_posix()
+            for p in directory.rglob("*")
+            if p.is_file() and not p.name.startswith(".")
+        }
         if directory.exists()
         else set()
     )

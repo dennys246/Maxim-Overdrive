@@ -8,9 +8,9 @@
     "outcome": "accepted"
    },
    {
-    "code": "",
+    "code": "bad_version",
     "file": "client/hello_newer.json",
-    "outcome": "accepted"
+    "outcome": "refused"
    },
    {
     "code": "",
@@ -219,7 +219,7 @@
     "probes": [
      {
       "channel": "region",
-      "value": 1799,
+      "value": 1800,
       "zyx": [
        1,
        1,
@@ -305,6 +305,78 @@
        2,
        3
       ]
+     },
+     {
+      "channel": "region",
+      "value": 1,
+      "zyx": [
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "channel": "region",
+      "value": 772,
+      "zyx": [
+       0,
+       0,
+       3
+      ]
+     },
+     {
+      "channel": "region",
+      "value": 2057,
+      "zyx": [
+       0,
+       2,
+       0
+      ]
+     },
+     {
+      "channel": "region",
+      "value": 2828,
+      "zyx": [
+       0,
+       2,
+       3
+      ]
+     },
+     {
+      "channel": "region",
+      "value": 3085,
+      "zyx": [
+       1,
+       0,
+       0
+      ]
+     },
+     {
+      "channel": "region",
+      "value": 3856,
+      "zyx": [
+       1,
+       0,
+       3
+      ]
+     },
+     {
+      "channel": "region",
+      "value": 5141,
+      "zyx": [
+       1,
+       2,
+       0
+      ]
+     },
+     {
+      "channel": "region",
+      "value": 5912,
+      "zyx": [
+       1,
+       2,
+       3
+      ]
      }
     ],
     "shape": [
@@ -314,7 +386,7 @@
     ]
    },
    {
-    "catalogue": "sha256/c14n-1:d6b66591dc72d429ce2abf8fb157c3d6196e86cd25f43e46d06ea0e2ba93e812",
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
     "code": "",
     "file": "frames/unknown_optional_channel.bin",
     "ignored": [
@@ -323,7 +395,7 @@
     "outcome": "accepted"
    },
    {
-    "catalogue": "sha256/c14n-1:06cf6e17f06052c9283c5e8a3a82e0210f688f3d884ea76f0ba2ab881716a043",
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
     "code": "",
     "file": "frames/unknown_optional_grid_and_table.bin",
     "ignored": [
@@ -333,7 +405,7 @@
     "outcome": "accepted"
    },
    {
-    "catalogue": "sha256/c14n-1:962018c05fcacd4d5917a06ab6900303367b3da1586d483d6953e29a0da85f60",
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
     "code": "unknown_field",
     "file": "frames/unknown_required_channel.bin",
     "outcome": "refused"
@@ -485,31 +557,31 @@
     "outcome": "refused"
    },
    {
-    "catalogue": "sha256/c14n-1:8fedaf6c8052381e2a9904c8b3f8b03596ade9ed9d4a636ea8d741222a71d776",
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
     "code": "unknown_kind",
     "file": "frames/unknown_dtype.bin",
     "outcome": "refused"
    },
    {
-    "catalogue": "sha256/c14n-1:c83504023124c52c471c23d9963329f2a819bf74ca1d0bf988763e9a3fa27263",
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
     "code": "unknown_kind",
     "file": "frames/unknown_encoding.bin",
     "outcome": "refused"
    },
    {
-    "catalogue": "sha256/c14n-1:7f16efd79f3c71230aa4c088c5faf9c65f15bfa9221e88aa342ecf300ae8071b",
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
     "code": "bad_shape",
     "file": "frames/required_not_bool.bin",
     "outcome": "refused"
    },
    {
-    "catalogue": "sha256/c14n-1:9b7840f79abfeb3947ab32e3173ecb79f04c56a99d8969685b01922010e482b6",
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
     "code": "bad_shape",
     "file": "frames/raw_with_scale.bin",
     "outcome": "refused"
    },
    {
-    "catalogue": "sha256/c14n-1:8fdb58427589c983539fc2f4257278a9a6ab9ab7ec31279cce2058e3b1da3d23",
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
     "code": "bad_shape",
     "file": "frames/zero_denominator.bin",
     "outcome": "refused"
@@ -551,25 +623,25 @@
     "outcome": "refused"
    },
    {
-    "catalogue": "sha256/c14n-1:7062368045f661d47d455c77aecbf425611c0c07367ffefa5a7eca7f01fad892",
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
     "code": "bad_shape",
     "file": "frames/duplicate_channel.bin",
     "outcome": "refused"
    },
    {
-    "catalogue": "sha256/c14n-1:38023761d4ea8b928a4e7e0f4b23381d44bc39121ef5f938d732db797f68c79d",
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
     "code": "missing_field",
     "file": "frames/missing_required_channel.bin",
     "outcome": "refused"
    },
    {
-    "catalogue": "sha256/c14n-1:d44f1ce1da64ec6236f858c90f958fa68ba05ca859282cea5072f9ef4027aae5",
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
     "code": "bad_shape",
     "file": "frames/known_channel_other_unit.bin",
     "outcome": "refused"
    },
    {
-    "catalogue": "sha256/c14n-1:161988e8b22735aaba6a58273f22b6ff8075a7e9a1db7ff185626e8f60fccfb5",
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
     "code": "unknown_field",
     "file": "frames/unknown_required_grid.bin",
     "outcome": "refused"
@@ -581,9 +653,104 @@
     "outcome": "refused"
    },
    {
+    "catalogue": "sha256/c14n-1:44dc931c5e296238ccbce14302a83f061468188ad180953127ac6b3a63f3369f",
+    "code": "",
+    "file": "frames/optional_channel_omitted.bin",
+    "known_extra": [
+     {
+      "dtype": "u8",
+      "encoding": "raw",
+      "name": "soot",
+      "offset": [
+       0,
+       1
+      ],
+      "required": false,
+      "scale": [
+       1,
+       1
+      ],
+      "unit": "ratio"
+     }
+    ],
+    "outcome": "accepted"
+   },
+   {
     "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
     "code": "bad_version",
     "file": "frames/catalogue_mismatch.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_nul_padding.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_trailing_comma.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_leading_zero.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "not_int",
+    "file": "frames/tick_1e20.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "not_int",
+    "file": "frames/scale_float.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_version",
+    "file": "frames/protocol_true.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_version",
+    "file": "frames/protocol_negative.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/digest_trailing_newline.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_identity_key",
+    "file": "frames/optional_name_escaped_non_ascii.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_identity_key",
+    "file": "frames/name_with_colon.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "over_budget",
+    "file": "frames/too_many_tables.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "out_of_range",
+    "file": "frames/extent_past_u16.bin",
     "outcome": "refused"
    }
   ],
@@ -663,6 +830,216 @@
     "code": "bad_json",
     "file": "json/oversized.json",
     "max_bytes": 64,
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/leading_zero.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/trailing_comma_object.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/trailing_comma_array.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/raw_tab_in_string.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/raw_newline_in_string.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/nul_after_value.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/nul_in_string.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/escaped_nul.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/bom.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/float_1e20.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "json/float_whole_at_2p53.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "json/float_largest_power.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/float_past_double.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/raw_utf8.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/truncated_utf8.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/overlong_utf8.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/overlong_utf8_three_bytes.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/overlong_utf8_four_bytes.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/utf8_surrogate.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/utf8_past_unicode.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/surrogate_pair.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/lone_low_surrogate.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/high_then_letter.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/unknown_escape.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/short_unicode_escape.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/solidus_escape.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "json/minus_zero.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/exponent_without_digits.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/fraction_without_digits.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/leading_plus.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/leading_point.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/largest_negative.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/negative_at_2p53.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/long_integer.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/scalar.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/empty.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/only_space.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/two_values.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/capital_true.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/short_null.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/key_not_text.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/vertical_tab.json",
     "outcome": "refused"
    }
   ],

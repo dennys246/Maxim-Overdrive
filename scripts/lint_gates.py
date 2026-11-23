@@ -119,6 +119,8 @@ GATES: dict[str, Gate] = {
             "Digest.convert",
             "Opaque",
             "Opaque.convert",
+            "WireName",
+            "WireName.convert",
         )
     },
     **{
@@ -129,6 +131,7 @@ GATES: dict[str, Gate] = {
             "Flag",
             "Digest",
             "Opaque",
+            "WireName",
         )
     },
     **{
@@ -171,6 +174,7 @@ GATES: dict[str, Gate] = {
     },
     "src/simcore/protocol/strict_json.py::decode": Gate(_V, _WIRE, "meets"),
     "src/simcore/protocol/strict_json.py::encode": Gate(_V, _WIRE, "no input"),
+    "src/simcore/protocol/strict_json.py::integers_only": Gate(_V, _WIRE, "meets"),
     "src/simcore/protocol/messages.py::read_message": Gate(_V, _WIRE, "meets"),
     **{
         f"src/simcore/protocol/messages.py::{n}": Gate(_V, _WIRE, "no input")

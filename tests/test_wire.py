@@ -21,13 +21,13 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from simcore.core.refusals import RefusalCode, Refused
-from simcore.core.schema import Field, Nested, Schema, Tagged
+from simcore.core.schema import Format, Tagged
 from simcore.protocol import registry
 from simcore.protocol.catalogue import UNITS, V0, Channel, catalogue_hash, describe
-from simcore.protocol.frame_header import Array, Grid, Header, Table, read_header
+from simcore.protocol.frame_header import HEADER, Array, Grid, Header, Table, read_header
 from simcore.protocol.grammar import CELL_GRID, DecodedFrame, decode_frame, encode_cells, pack
 from simcore.protocol.messages import CLIENT_MESSAGES, Hello, Kindle, Move, MoveTo, Snapshot, Time, read_message
-from simcore.protocol.strict_json import JSON_INT_MAX, MAX_DEPTH, decode, encode
+from simcore.protocol.strict_json import JSON_INT_MAX, MAX_DEPTH, decode, encode, integers_only
 from tests.conftest import ALL_TIERS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,12 +35,19 @@ WIRE = ROOT / "client" / "tests" / "fixtures" / "wire"
 ARTIFACT = ROOT / "docs" / "generated" / "protocol.md"
 MANIFEST: dict[str, Any] = json.loads((WIRE / "manifest.json").read_text())
 
-_spec = importlib.util.spec_from_file_location("wire_fixtures", ROOT / "scripts" / "wire_fixtures.py")
-assert _spec is not None
-assert _spec.loader is not None
-wf = importlib.util.module_from_spec(_spec)
-sys.modules["wire_fixtures"] = wf
-_spec.loader.exec_module(wf)
+
+def _load(name: str) -> Any:
+    spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / f"{name}.py")
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_load("wire_texts")  # before wire_fixtures, which imports it by name
+wf = _load("wire_fixtures")
 
 V0_HASH = catalogue_hash(describe(V0))
 
@@ -52,7 +59,9 @@ def _entries(set_name: str) -> list[dict[str, Any]]:
 
 def _read_frame(entry: dict[str, Any]) -> Any:
     data = (WIRE / entry["file"]).read_bytes()
-    return decode_frame(data, known=V0, catalogue=entry["catalogue"], max_bytes=entry.get("max_bytes", wf.FRAME_CAP))
+    known = [*V0, *(Channel(**{**d, "scale": tuple(d["scale"]), "offset": tuple(d["offset"])})
+                    for d in entry.get("known_extra", []))]  # fmt: skip
+    return decode_frame(data, known=known, catalogue=entry["catalogue"], max_bytes=entry.get("max_bytes", wf.FRAME_CAP))
 
 
 def _outcome(read: Any, entry: dict[str, Any]) -> tuple[str, str]:
@@ -90,6 +99,7 @@ def test_the_generator_reports_a_changed_a_missing_and_a_left_over_file(tmp_path
     (tmp_path / "frames" / "base.bin").write_bytes(b"x")
     (tmp_path / "json" / "nan.json").unlink()
     (tmp_path / "frames" / "extra.bin").write_bytes(b"")
+    (tmp_path / "frames" / ".DS_Store").write_bytes(b"\x00")  # the machine's, not a fixture
     assert wf.stale(tmp_path) == ["frames/base.bin", "frames/extra.bin", "json/nan.json"]
     assert wf.main(["--check"], out=tmp_path) == 1
 
@@ -155,7 +165,7 @@ def test_a_frame_round_trips_every_channel_bit_for_bit(shape, seed, tick):
         rng.integers(0, 256, shape).astype("<u1"),
         rng.uniform(-273, 6000, shape).astype("<f2"),
     ]
-    data = encode_cells(tick=tick, regions_version=3, cell_size_um=50_000, origin_um=(1, -2, 3),
+    data = encode_cells(tick=tick, regions_version=3, cell_size_um=50_000, origin_um=(1, -2, 3), catalogue=V0,
                         channels=list(zip(V0, arrays, strict=True)))  # fmt: skip
     frame = decode_frame(data, known=V0, catalogue=V0_HASH, max_bytes=len(data))
     assert (frame.tick, frame.regions_version) == (tick, 3)
@@ -201,7 +211,7 @@ def test_every_one_byte_change_to_a_frame_is_read_or_refused_and_the_sweep_reach
 def test_the_encoder_refuses_an_array_that_is_not_its_channel_s():
     wrong = [np.zeros((2, 2, 2), "<u2"), *[np.zeros((2, 2, 2), "<u1")] * 3]
     with pytest.raises(TypeError, match="channel material"):
-        encode_cells(tick=0, regions_version=0, cell_size_um=1, origin_um=(0, 0, 0),
+        encode_cells(tick=0, regions_version=0, cell_size_um=1, origin_um=(0, 0, 0), catalogue=V0,
                      channels=list(zip(V0, wrong, strict=True)))  # fmt: skip
 
 
@@ -358,7 +368,9 @@ def _walk() -> list[tuple[str, str, object, RefusalCode]]:
         for field in schema.fields:
             for bad, code in field.convert.bad:
                 if not (field.nullable and bad is None):
-                    cases.append((kind, field.name, bad, RefusalCode.BAD_JSON if _past_json(bad) else code))
+                    version_first = kind == "hello" and field.name == "protocol"  # read first (_check_protocol)
+                    want = RefusalCode.BAD_VERSION if version_first else code
+                    cases.append((kind, field.name, bad, RefusalCode.BAD_JSON if _past_json(bad) else want))
     return cases
 
 
@@ -379,7 +391,8 @@ def test_every_message_refuses_an_unknown_and_a_missing_field(kind):
     for name in required:
         with pytest.raises(Refused) as missing:
             read_message(json.dumps({k: v for k, v in SAMPLES[kind].items() if k != name}))
-        assert missing.value.code is RefusalCode.MISSING_FIELD
+        version_first = kind == "hello" and name == "protocol"  # a hello with no version is refused for it
+        assert missing.value.code is (RefusalCode.BAD_VERSION if version_first else RefusalCode.MISSING_FIELD)
 
 
 def test_each_message_reads_to_its_type():
@@ -412,12 +425,58 @@ def test_pause_and_resume_take_no_scale_and_set_scale_needs_one(op):
     assert (refused.value.code, refused.value.field) == (RefusalCode.BAD_SHAPE, "scale")
 
 
-def test_the_wire_schemas_may_name_ticks_and_content_schemas_may_not():
-    assert Schema((Field("duration_ticks", Nested(Schema(()))),), wire=True)
+def test_the_wire_schemas_may_name_ticks_and_content_formats_may_not():
+    # The rule is content's (Format's): a wire schema carries the simulation's ticks, a data file never does
+    assert {"tick", "duration_ticks"} <= {f.name for s in (HEADER, CLIENT_MESSAGES.schemas["kindle"]) for f in s.fields}
     with pytest.raises(TypeError, match="never ticks"):
-        Schema((Field("duration_ticks", Nested(Schema(()))),))
+        Format("doc", 1, CLIENT_MESSAGES.schemas["kindle"])
 
 
 def test_the_messages_are_one_tagged_reader_keyed_by_type():
     assert isinstance(CLIENT_MESSAGES, Tagged)
     assert CLIENT_MESSAGES.tag == "type"
+
+
+def test_the_server_s_json_holds_integers_only_at_any_depth():
+    # O62: a reader of the server's JSON refuses a float wherever it sits, after the version (strict_json.integers_only)
+    integers_only({"a": [1, {"b": -2}], "c": "5.0", "d": True, "e": None}, "doc")
+    for value in ({"a": 5.0}, {"a": [1, [2.5]]}, {"a": {"b": {"c": 1e20}}}, [0.0]):
+        with pytest.raises(Refused) as refused:
+            integers_only(value, "doc")
+        assert refused.value.code is RefusalCode.NOT_INT
+
+
+def test_the_encoder_refuses_what_json_can_t_hold_and_a_long_integer_is_refused_before_it_is_read():
+    for value in ({1, 2}, object(), b"bytes"):
+        with pytest.raises(TypeError, match="can't go on the wire"):
+            encode({"a": value})
+    with pytest.raises(Refused) as refused:  # 10,000 digits: refused by length, never handed to int()
+        decode("[" + "9" * 10_000 + "]", max_bytes=20_000)
+    assert refused.value.code is RefusalCode.BAD_JSON
+
+
+_JSON_VALUES = st.recursive(
+    st.none() | st.booleans() | st.integers(-(2**60), 2**60) | st.floats(allow_nan=False) | st.text(max_size=12),
+    lambda inner: st.lists(inner, max_size=4) | st.dictionaries(st.text(max_size=6), inner, max_size=4),
+    max_leaves=12,
+)
+
+
+@settings(max_examples=400, deadline=None)
+@given(kind=st.sampled_from(sorted(SAMPLES)), data=st.data())
+def test_stage_1_never_crashes_on_a_real_message_with_one_field_changed(kind, data):
+    # Past decode (review T-S2): a valid message of each type with one field replaced, added or dropped, so the
+    # examples reach the schema and the message builders, not only the JSON parser. A refusal carries a code.
+    message = dict(SAMPLES[kind])
+    key = data.draw(st.sampled_from([*message, "extra"]), label="key")
+    if data.draw(st.booleans(), label="drop") and key in message and key != "type":
+        del message[key]
+    else:
+        message[key] = data.draw(_JSON_VALUES, label="value")
+    codes: list[RefusalCode] = []
+    try:
+        read = read_message(json.dumps(message))
+    except Refused as refused:  # a refusal carries a code; any other exception escaping fails the test
+        codes.append(refused.code)
+    if not codes:
+        assert type(read).__name__.lower().replace("_", "") == str(message["type"]).replace("_", "")

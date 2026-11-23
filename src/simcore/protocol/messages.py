@@ -22,7 +22,7 @@ from types import MappingProxyType
 
 from simcore.core.converters import Choice, Opaque, Wholes
 from simcore.core.refusals import RefusalCode, Refused
-from simcore.core.schema import Field, Real, Schema, Tagged, Whole
+from simcore.core.schema import Field, Real, Schema, Tagged, Whole, read_version
 from simcore.protocol.strict_json import JSON_INT_MAX, decode
 
 __all__ = [
@@ -52,7 +52,7 @@ TIME_OPS = ("pause", "resume", "set_scale")
 
 _INT = Whole(-JSON_INT_MAX, JSON_INT_MAX)  # held to the pin only, until intent_result brings the ceilings
 _SEQ = Field("seq", Whole(0, SEQ_LIMIT - 1))
-_VERSION = Whole(0, JSON_INT_MAX)  # any version is read as a number first, so a newer one gets bad_version
+_VERSION = Whole(PROTOCOL, PROTOCOL)  # read first by _check_protocol, so only this version reaches the schema
 
 CLIENT_MESSAGES = Tagged(
     "type",
@@ -68,7 +68,6 @@ CLIENT_MESSAGES = Tagged(
                     Field("point_mm", Wholes(3, -JSON_INT_MAX, JSON_INT_MAX)),
                     Field("duration_ticks", _INT),
                 ),
-                wire=True,
             ),
             "time": Schema(
                 (_SEQ, Field("op", Choice(TIME_OPS)), Field("scale", Real(), required=False, nullable=True))
@@ -127,8 +126,19 @@ def read_message(data: str | bytes) -> ClientMessage:
     raw = decode(data, max_bytes=MAX_MESSAGE_BYTES)
     if not isinstance(raw, Mapping):
         raise Refused(f"a message is a JSON object, got a {type(raw).__name__}", code=RefusalCode.BAD_SHAPE)
+    if raw.get("type") == "hello":
+        _check_protocol(raw)
     read = CLIENT_MESSAGES.convert(raw, "message")
     return _typed(read)
+
+
+def _check_protocol(raw: Mapping[str, object]) -> None:
+    """A hello's protocol, read before its other fields as a frame's is (``read_version``), so a newer client is
+    refused for its version (``bad_version``), never for a field it added or a token it made longer."""
+    version = read_version({"version": raw.get("protocol")}, "hello protocol")
+    if version != PROTOCOL:
+        raise Refused(f"hello: protocol {version}; this server speaks {PROTOCOL}", code=RefusalCode.BAD_VERSION,
+                      field="protocol")  # fmt: skip
 
 
 def _typed(read: Mapping[str, object]) -> ClientMessage:

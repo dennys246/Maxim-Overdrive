@@ -28,6 +28,7 @@ SHIPPED = (
     "not_on_region", "not_burning", "wrong_target", "namesake", "name_taken", "unknown_material", "over_budget",
     "space_taken", "too_small", "duplicate_key",
     "bad_text", "bad_token", "token_in_use", "host_only",
+    "hello_first",
 )  # fmt: skip
 
 

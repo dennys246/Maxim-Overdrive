@@ -50,12 +50,29 @@ func test_every_frame_reaches_its_manifest_outcome(t: TestContext) -> void:
 		var file: String = entry["file"]
 		var catalogue: String = entry["catalogue"]
 		var data: PackedByteArray = FileAccess.get_file_as_bytes(DIR.path_join(file))
-		var read: WireRead = FrameDecoder.decode(data, WireCatalogue.v0(), catalogue, _int(entry.get("max_bytes", cap)))
+		var read: WireRead = FrameDecoder.decode(data, _known(entry), catalogue, _int(entry.get("max_bytes", cap)))
 		var got: String = "accepted" if read.ok else "refused " + read.code
 		t.check_eq(got, _want(entry), "%s (%s)" % [file, read.reason])
 		if read.ok and got == _want(entry):
 			var frame: WireFrame = read.value
 			_check_accepted(t, entry, frame)
+
+
+## The reader's catalogue for ``entry``: v0's channels, and any the manifest says this reader also knows.
+func _known(entry: Dictionary) -> Array[Dictionary]:
+	var known: Array[Dictionary] = WireCatalogue.v0()
+	var extra: Array = entry.get("known_extra", [])
+	for d: Dictionary in extra:
+		var scale: Array = d["scale"]
+		var whole_scale: Array[int] = [_int(scale[0]), _int(scale[1])]
+		var text: Dictionary[String, String] = {}
+		for key: String in ["name", "unit", "dtype", "encoding"]:
+			text[key] = d[key]
+		var required: bool = d["required"]
+		known.append(
+			WireCatalogue.channel(text["name"], text["unit"], text["dtype"], text["encoding"], required, whole_scale)
+		)
+	return known
 
 
 func _want(entry: Dictionary) -> String:
@@ -85,8 +102,8 @@ func _check_accepted(t: TestContext, entry: Dictionary, frame: WireFrame) -> voi
 func test_every_json_text_reaches_its_manifest_outcome(t: TestContext) -> void:
 	for entry: Dictionary in _entries(_manifest(), "json"):
 		var file: String = entry["file"]
-		var text: String = FileAccess.get_file_as_string(DIR.path_join(file))
-		var read: WireRead = WireJson.parse(text, _int(entry.get("max_bytes", 1 << 20)))
+		var bytes: PackedByteArray = FileAccess.get_file_as_bytes(DIR.path_join(file))  # bytes: a NUL stays a NUL
+		var read: WireRead = WireJson.parse(bytes, _int(entry.get("max_bytes", 1 << 20)))
 		var got: String = "accepted" if read.ok else "refused " + read.code
 		t.check_eq(got, _want(entry), "%s (%s)" % [file, read.reason])
 
@@ -109,6 +126,6 @@ func test_the_asymmetric_frame_reads_x_fastest(t: TestContext) -> void:
 
 
 func test_a_number_written_as_a_float_is_listed_by_its_key(t: TestContext) -> void:
-	var read: WireRead = WireJson.parse("{\"a\":5.0,\"b\":[1e3,2],\"c\":7}", 100)
+	var read: WireRead = WireJson.parse("{\"a\":5.0,\"b\":[1e3,2],\"c\":7}".to_ascii_buffer(), 100)
 	t.check(read.ok, "the text parses")
 	t.check_eq(read.non_integer_keys, ["a", ""] as Array[String], "5.0 under a, 1e3 in an array")

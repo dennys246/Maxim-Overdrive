@@ -16,7 +16,7 @@ A JSON object whose `type` names it.
 
 | Field | Required | Null | Read by |
 |---|---|---|---|
-| `protocol` | yes | no | `Whole(lo=0, hi=9007199254740991)` |
+| `protocol` | yes | no | `Whole(lo=0, hi=0)` |
 | `token` | yes | no | `Opaque(max_chars=64)` |
 
 ### `move`
@@ -70,15 +70,15 @@ A JSON object whose `type` names it.
 | `regions_version` | yes | no | `Whole(lo=0, hi=9007199254740991)` |
 | `catalogue` | yes | no | `Digest()` |
 | `compression` | yes | no | `Choice(words=('none',))` |
-| `grids` | yes | no | `ListOf(item=Nested(schema=Schema(fields=(Field(name='name', convert=Identity(max_chars=64), required=True, default=None, nullable=False, lookup=None), Field(name='required', convert=Flag(), required=True, default=None, nullable=False, lookup=None), Field(name='shape', convert=Wholes(n=3, lo=1, hi=65535), required=True, default=None, nullable=False, lookup=None), Field(name='cell_size_um', convert=Whole(lo=1, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None), Field(name='origin_um', convert=Wholes(n=3, lo=-9007199254740991, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None)), reserved=mappingproxy({}), wire=False)), max_items=8)` |
-| `tables` | yes | no | `ListOf(item=Nested(schema=Schema(fields=(Field(name='name', convert=Identity(max_chars=64), required=True, default=None, nullable=False, lookup=None), Field(name='required', convert=Flag(), required=True, default=None, nullable=False, lookup=None), Field(name='rows', convert=Whole(lo=0, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None)), reserved=mappingproxy({}), wire=False)), max_items=16)` |
-| `arrays` | yes | no | `ListOf(item=Nested(schema=Schema(fields=(Field(name='channel', convert=Nested(schema=Schema(fields=(Field(name='name', convert=Identity(max_chars=64), required=True, default=None, nullable=False, lookup=None), Field(name='unit', convert=Identity(max_chars=64), required=True, default=None, nullable=False, lookup=None), Field(name='dtype', convert=Choice(words=('u8', 'u16', 'u32', 'f16', 'f32')), required=True, default=None, nullable=False, lookup=None), Field(name='encoding', convert=Choice(words=('raw', 'linear')), required=True, default=None, nullable=False, lookup=None), Field(name='required', convert=Flag(), required=True, default=None, nullable=False, lookup=None), Field(name='scale', convert=Wholes(n=2, lo=-9007199254740991, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None), Field(name='offset', convert=Wholes(n=2, lo=-9007199254740991, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None)), reserved=mappingproxy({}), wire=False)), required=True, default=None, nullable=False, lookup=None), Field(name='of', convert=Identity(max_chars=64), required=True, default=None, nullable=False, lookup=None), Field(name='offset', convert=Whole(lo=0, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None), Field(name='size', convert=Whole(lo=0, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None), Field(name='uncompressed_size', convert=Whole(lo=0, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None)), reserved=mappingproxy({}), wire=False)), max_items=64)` |
+| `grids` | yes | no | `ListOf(item=Nested(schema=Schema(fields=(Field(name='name', convert=WireName(), required=True, default=None, nullable=False, lookup=None), Field(name='required', convert=Flag(), required=True, default=None, nullable=False, lookup=None), Field(name='shape', convert=Wholes(n=3, lo=1, hi=65535), required=True, default=None, nullable=False, lookup=None), Field(name='cell_size_um', convert=Whole(lo=1, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None), Field(name='origin_um', convert=Wholes(n=3, lo=-9007199254740991, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None)), reserved=mappingproxy({}))), max_items=8)` |
+| `tables` | yes | no | `ListOf(item=Nested(schema=Schema(fields=(Field(name='name', convert=WireName(), required=True, default=None, nullable=False, lookup=None), Field(name='required', convert=Flag(), required=True, default=None, nullable=False, lookup=None), Field(name='rows', convert=Whole(lo=0, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None)), reserved=mappingproxy({}))), max_items=16)` |
+| `arrays` | yes | no | `ListOf(item=Nested(schema=Schema(fields=(Field(name='channel', convert=Nested(schema=Schema(fields=(Field(name='name', convert=WireName(), required=True, default=None, nullable=False, lookup=None), Field(name='unit', convert=WireName(), required=True, default=None, nullable=False, lookup=None), Field(name='dtype', convert=Choice(words=('u8', 'u16', 'u32', 'f16', 'f32')), required=True, default=None, nullable=False, lookup=None), Field(name='encoding', convert=Choice(words=('raw', 'linear')), required=True, default=None, nullable=False, lookup=None), Field(name='required', convert=Flag(), required=True, default=None, nullable=False, lookup=None), Field(name='scale', convert=Wholes(n=2, lo=-9007199254740991, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None), Field(name='offset', convert=Wholes(n=2, lo=-9007199254740991, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None)), reserved=mappingproxy({}))), required=True, default=None, nullable=False, lookup=None), Field(name='of', convert=WireName(), required=True, default=None, nullable=False, lookup=None), Field(name='offset', convert=Whole(lo=0, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None), Field(name='size', convert=Whole(lo=0, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None), Field(name='uncompressed_size', convert=Whole(lo=0, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None)), reserved=mappingproxy({}))), max_items=64)` |
 
 ### grid
 
 | Field | Required | Null | Read by |
 |---|---|---|---|
-| `name` | yes | no | `Identity(max_chars=64)` |
+| `name` | yes | no | `WireName()` |
 | `required` | yes | no | `Flag()` |
 | `shape` | yes | no | `Wholes(n=3, lo=1, hi=65535)` |
 | `cell_size_um` | yes | no | `Whole(lo=1, hi=9007199254740991)` |
@@ -88,7 +88,7 @@ A JSON object whose `type` names it.
 
 | Field | Required | Null | Read by |
 |---|---|---|---|
-| `name` | yes | no | `Identity(max_chars=64)` |
+| `name` | yes | no | `WireName()` |
 | `required` | yes | no | `Flag()` |
 | `rows` | yes | no | `Whole(lo=0, hi=9007199254740991)` |
 
@@ -96,8 +96,8 @@ A JSON object whose `type` names it.
 
 | Field | Required | Null | Read by |
 |---|---|---|---|
-| `channel` | yes | no | `Nested(schema=Schema(fields=(Field(name='name', convert=Identity(max_chars=64), required=True, default=None, nullable=False, lookup=None), Field(name='unit', convert=Identity(max_chars=64), required=True, default=None, nullable=False, lookup=None), Field(name='dtype', convert=Choice(words=('u8', 'u16', 'u32', 'f16', 'f32')), required=True, default=None, nullable=False, lookup=None), Field(name='encoding', convert=Choice(words=('raw', 'linear')), required=True, default=None, nullable=False, lookup=None), Field(name='required', convert=Flag(), required=True, default=None, nullable=False, lookup=None), Field(name='scale', convert=Wholes(n=2, lo=-9007199254740991, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None), Field(name='offset', convert=Wholes(n=2, lo=-9007199254740991, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None)), reserved=mappingproxy({}), wire=False))` |
-| `of` | yes | no | `Identity(max_chars=64)` |
+| `channel` | yes | no | `Nested(schema=Schema(fields=(Field(name='name', convert=WireName(), required=True, default=None, nullable=False, lookup=None), Field(name='unit', convert=WireName(), required=True, default=None, nullable=False, lookup=None), Field(name='dtype', convert=Choice(words=('u8', 'u16', 'u32', 'f16', 'f32')), required=True, default=None, nullable=False, lookup=None), Field(name='encoding', convert=Choice(words=('raw', 'linear')), required=True, default=None, nullable=False, lookup=None), Field(name='required', convert=Flag(), required=True, default=None, nullable=False, lookup=None), Field(name='scale', convert=Wholes(n=2, lo=-9007199254740991, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None), Field(name='offset', convert=Wholes(n=2, lo=-9007199254740991, hi=9007199254740991), required=True, default=None, nullable=False, lookup=None)), reserved=mappingproxy({})))` |
+| `of` | yes | no | `WireName()` |
 | `offset` | yes | no | `Whole(lo=0, hi=9007199254740991)` |
 | `size` | yes | no | `Whole(lo=0, hi=9007199254740991)` |
 | `uncompressed_size` | yes | no | `Whole(lo=0, hi=9007199254740991)` |
@@ -106,8 +106,8 @@ A JSON object whose `type` names it.
 
 | Field | Required | Null | Read by |
 |---|---|---|---|
-| `name` | yes | no | `Identity(max_chars=64)` |
-| `unit` | yes | no | `Identity(max_chars=64)` |
+| `name` | yes | no | `WireName()` |
+| `unit` | yes | no | `WireName()` |
 | `dtype` | yes | no | `Choice(words=('u8', 'u16', 'u32', 'f16', 'f32'))` |
 | `encoding` | yes | no | `Choice(words=('raw', 'linear'))` |
 | `required` | yes | no | `Flag()` |

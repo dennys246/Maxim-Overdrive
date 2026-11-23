@@ -5,6 +5,7 @@ passes; every format character but a joiner between two visible characters is re
 from __future__ import annotations
 
 import unicodedata
+from itertools import pairwise
 
 import pytest
 from hypothesis import given, settings
@@ -12,6 +13,7 @@ from hypothesis import strategies as st
 
 from simcore.core.refusals import RefusalCode, Refused
 from simcore.core.text import player_text, visible_name
+from simcore.core.text_tables import DEFAULT_IGNORABLE, EMOJI, UNICODE_VERSION
 
 ZWNJ, ZWJ = "\u200c", "\u200d"
 
@@ -28,6 +30,10 @@ PASSES = [
     "\u0928\u092e\u0938\u094d\u0924\u0947",  # Hindi
     "\u05e9\u05dc\u05d5\u05dd",  # Hebrew, right to left without any control
     "caf\u00e9 \u2014 50% off!",
+    "\u2764\ufe0f",  # a heart drawn red: one VS16 after a character with emoji forms (O65)
+    "1\ufe0f\u20e3",  # a keycap: digit, VS16, the enclosing keycap
+    "\u263a\ufe0e",  # a smiley drawn as text: VS15
+    "\u2800a",  # a braille blank beside a letter draws the letter
 ]
 
 
@@ -122,3 +128,42 @@ def test_whatever_passes_is_nfc_within_its_cap_and_holds_no_lone_format_characte
 def test_the_name_rule_is_text_s_too():
     assert visible_name("crate")
     assert not visible_name("cr\u200bate")
+
+
+# Default-ignorable code points render as nothing, so a run of them can hide content (O65; review T-B2, E-S4)
+HIDDEN = [
+    ("a\ufe00\ufe01\ufe02", "a run of variation selectors after a letter"),
+    ("a\ufe0f", "a variation selector after a character with no emoji forms"),
+    ("\u2764\ufe0f\ufe0f", "two variation selectors"),
+    ("x\U000e0100", "a supplementary variation selector"),
+    ("a\u034fb", "the combining grapheme joiner"),
+    ("a\u180bb", "a Mongolian free variation selector"),
+    ("\u2764\ufe0f\u200d\ufe0f", "a ZWJ before a variation selector"),
+    ("\u3164", "a Hangul filler alone"),
+    ("a\u115fb", "a Hangul choseong filler inside a word"),
+    ("\u2800", "the braille blank alone"),
+    ("\u2800 \u2800", "blanks and spaces only"),
+]
+
+
+@pytest.mark.parametrize(("text", "why"), HIDDEN, ids=[why for _, why in HIDDEN])
+def test_characters_that_draw_nothing_are_refused(text, why):
+    with pytest.raises(Refused) as refused:
+        player_text(text, "speech", max_chars=20)
+    assert refused.value.code is RefusalCode.BAD_TEXT
+
+
+def test_the_property_tables_are_sorted_disjoint_ranges_at_unicode_16():
+    assert UNICODE_VERSION == "16.0.0"
+    for table in (DEFAULT_IGNORABLE, EMOJI):
+        assert all(lo <= hi for lo, hi in table)
+        assert all(a[1] + 1 < b[0] for a, b in pairwise(table))  # merged: no touching ranges
+    # A sample of each property's published points, so a table cut short or shifted fails here
+    ignorable = [0x00AD, 0x034F, 0x061C, 0x115F, 0x17B4, 0x180B, 0x200B, 0x202A, 0x2060, 0x3164, 0xFE00, 0xFEFF]
+    ignorable += [0xFFA0, 0xFFF0, 0x1BCA0, 0x1D173, 0xE0000, 0xE0100, 0xE0FFF]
+    emoji = [0x0023, 0x0030, 0x00A9, 0x203C, 0x2764, 0x263A, 0x1F525, 0x1F9FF]
+    within = lambda table, cp: any(lo <= cp <= hi for lo, hi in table)  # noqa: E731
+    assert all(within(DEFAULT_IGNORABLE, cp) for cp in ignorable)
+    assert not any(within(DEFAULT_IGNORABLE, cp) for cp in (0x0041, 0x2010, 0x2800, 0xE1000))
+    assert all(within(EMOJI, cp) for cp in emoji)
+    assert not within(EMOJI, ord("a"))

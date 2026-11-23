@@ -26,7 +26,7 @@ from collections.abc import Sequence
 
 from simcore.core.refusals import RefusalCode, Refused
 
-__all__ = ["JSON_INT_MAX", "MAX_DEPTH", "decode", "encode"]
+__all__ = ["JSON_INT_MAX", "MAX_DEPTH", "decode", "encode", "integers_only"]
 
 JSON_INT_MAX = 2**53 - 1  # boundaries §9.1 (O59): the largest n for which a double tells n from n + 1
 MAX_DEPTH = 32  # containers along the deepest path, so [] is 1; deeper than any message the protocol defines
@@ -99,6 +99,23 @@ def decode(data: str | bytes, *, max_bytes: int) -> object:
     return value
 
 
+def integers_only(value: object, what: str) -> None:
+    """Refuse a float anywhere in ``value`` (``not_int``): the server's JSON holds integers only (O62), so a reader of
+    it applies this right after the version, before any schema, and refuses any number written with a point or an
+    exponent with this one code, as the client's parser does (O63)."""
+    stack: list[object] = [value]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, float):
+            raise Refused(
+                f"{what}: a number with a point or an exponent; it holds integers only", code=RefusalCode.NOT_INT
+            )
+        if isinstance(item, dict):
+            stack.extend(item.values())
+        elif isinstance(item, list):
+            stack.extend(item)
+
+
 def encode(value: object) -> str:
     """``value`` as the server's JSON text. A float, or an integer of magnitude 2⁵³ or more, is a programming error
     here, never sent: the client refuses the one and can't read the other exactly."""
@@ -122,3 +139,5 @@ def _check_numbers(value: object) -> None:
     if isinstance(value, list | tuple):
         for item in value:
             _check_numbers(item)
+        return
+    raise TypeError(f"a {type(value).__name__} can't go on the wire: JSON holds objects, arrays, text and integers")

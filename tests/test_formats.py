@@ -231,7 +231,13 @@ def test_a_document_that_is_not_a_mapping_has_no_version(raw):
 
 def test_content_stores_time_in_seconds_never_ticks():
     with pytest.raises(TypeError, match="never ticks"):
-        Schema((Field("hold_ticks", Whole(0, 10)),))
+        Format("doc", 1, Schema((Field("hold_ticks", Whole(0, 10)),)))
+    deep = Schema((Field("items", ListOf(Nested(Schema((Field("hold_ticks", Whole(0, 10)),))), 4)),))
+    with pytest.raises(TypeError, match="never ticks"):  # however deep it is nested
+        Format("doc", 1, deep)
+    tagged = Tagged("kind", "", {"a": Schema((Field("delay_ticks", Whole(0, 9)),))})
+    with pytest.raises(TypeError, match="never ticks"):
+        Format("doc", 1, Schema((Field("event", tagged),)))
 
 
 def test_a_schema_cannot_name_a_field_twice():
@@ -271,9 +277,9 @@ def _tagged(convert: object) -> list[Tagged]:
 
 
 def test_the_tick_rule_reads_words_not_letters():
-    Schema((Field("stick_length_m", Real()),))  # "tick" inside a word is not a tick count
+    Format("doc", 1, Schema((Field("stick_length_m", Real()),)))  # "tick" inside a word is not a tick count
     with pytest.raises(TypeError, match="never ticks"):
-        Schema((Field("delay_ticks", Whole(0, 9)),))
+        Format("doc", 1, Schema((Field("delay_ticks", Whole(0, 9)),)))
 
 
 def test_no_shipped_format_has_a_field_counted_in_ticks():

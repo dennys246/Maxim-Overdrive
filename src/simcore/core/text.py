@@ -14,6 +14,7 @@ import unicodedata
 import idna
 
 from simcore.core.refusals import RefusalCode, Refused
+from simcore.core.text_tables import DEFAULT_IGNORABLE, EMOJI
 
 __all__ = ["NAME_JOINERS", "player_text", "visible_name"]
 
@@ -64,42 +65,69 @@ def _visible_word(word: str) -> bool:
     return False
 
 
-# Guest text (boundaries §5.3; O61, TB-N5). Format characters (Cf) render as nothing or reorder text: bidi controls
-# (U+202A-202E, U+2066-2069) can make a line read other than it is, a zero-width space or BOM hides inside a word, and
-# tag characters (U+E0000 block) smuggle ASCII invisibly. All are refused, but ZWNJ and ZWJ, which Persian and Indic
-# spelling and emoji sequences need, between two visible characters: never first or last, never doubled, never beside
-# another format character, so a run of zero-width characters can't carry hidden bits. Flags spelled with tag
-# characters (England, Scotland) are refused with them.
+# Guest text (boundaries §5.3; O61, amended by O65). Format characters (Cf) render as nothing or reorder text: bidi
+# controls (U+202A-202E, U+2066-2069) can make a line read other than it is, a zero-width space or BOM hides inside a
+# word, and tag characters (U+E0000 block) smuggle ASCII invisibly. Every default-ignorable code point (a variation
+# selector, U+034F, a Hangul filler) is refused too, since each renders as nothing and a run of them can carry hidden
+# bits, an LLM prompt's known smuggling route. Two exceptions keep real writing working: ZWNJ and ZWJ, which Persian
+# and Indic spelling and emoji sequences need, between two visible characters (never first or last, never doubled,
+# never beside another format character); and one U+FE0E or U+FE0F right after a character with text and emoji forms,
+# so a heart can be drawn red. Flags spelled with tag characters (England, Scotland) are refused with them.
 _JOINERS = frozenset("\u200c\u200d")
+_PRESENTATION = frozenset("\ufe0e\ufe0f")
 # Categories refused outright: controls (a newline too: guest text is one line), format, surrogates, private use,
 # unassigned code points, and the line and paragraph separators.
 _REFUSED_CATEGORIES = frozenset({"Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp"})
+_BLANK = frozenset("\u2800")  # the braille blank: a glyph that draws nothing, which a message can't be made of alone
+
+
+def _within(ranges: tuple[tuple[int, int], ...], ch: str) -> bool:
+    return any(lo <= ord(ch) <= hi for lo, hi in ranges)
 
 
 def _visible(ch: str) -> bool:
-    return unicodedata.category(ch) not in _REFUSED_CATEGORIES and not ch.isspace()
+    """A character that draws something: not refused by category, not a space, not default-ignorable."""
+    return (
+        unicodedata.category(ch) not in _REFUSED_CATEGORIES and not ch.isspace() and not _within(DEFAULT_IGNORABLE, ch)
+    )
+
+
+def _presentation_at(text: str, i: int) -> bool:
+    """A variation selector the rule lets through: one, right after a visible character with emoji forms."""
+    return text[i] in _PRESENTATION and i > 0 and _visible(text[i - 1]) and _within(EMOJI, text[i - 1])
+
+
+def _drawn_at(text: str, i: int) -> bool:
+    """What a joiner may stand beside: a visible character, or a variation selector the rule lets through."""
+    return _visible(text[i]) or _presentation_at(text, i)
 
 
 def _refused_at(text: str, i: int) -> bool:
     ch = text[i]
     if ch in _JOINERS:
-        return not (0 < i < len(text) - 1 and _visible(text[i - 1]) and _visible(text[i + 1]))
-    return unicodedata.category(ch) in _REFUSED_CATEGORIES
+        return not (0 < i < len(text) - 1 and _drawn_at(text, i - 1) and _visible(text[i + 1]))
+    if ch in _PRESENTATION:
+        return not _presentation_at(text, i)
+    return unicodedata.category(ch) in _REFUSED_CATEGORIES or _within(DEFAULT_IGNORABLE, ch)
 
 
 def player_text(value: object, what: str, *, max_chars: int) -> str:
-    """Guest text as the engine keeps it: in NFC, then 1 to ``max_chars`` characters, not all spaces, with no
-    character O61 refuses. A refusal names where and what kind of character, never the text: what a guest typed is
-    theirs, and a log is no place to echo it."""
+    """Guest text as the engine keeps it: in NFC, then 1 to ``max_chars`` characters, at least one of which draws
+    something, with no character O61 and O65 refuse. Unassigned code points (Cn) follow the interpreter's Unicode
+    version (15.0 on Python 3.12, 16.0 on 3.14), so the text kept is what a replay reads back, never re-checked. A
+    refusal names where and what kind of character, never the text: what a guest typed is theirs, and a log is no
+    place to echo it."""
     if type(value) is not str:  # a str subclass could print as something else
         raise Refused(f"{what} must be text", code=RefusalCode.BAD_SHAPE)
     if any(0xD800 <= ord(ch) <= 0xDFFF for ch in value):  # NFC has no form for a lone surrogate
         raise Refused(f"{what} holds a lone surrogate", code=RefusalCode.BAD_TEXT)
     text = unicodedata.normalize("NFC", value)  # before the cap, so decomposed and composed text count alike
-    if not 0 < len(text) <= max_chars or text.isspace():
-        raise Refused(f"{what} must be 1 to {max_chars} characters, not all spaces", code=RefusalCode.BAD_TEXT)
+    if not 0 < len(text) <= max_chars:
+        raise Refused(f"{what} must be 1 to {max_chars} characters", code=RefusalCode.BAD_TEXT)
     for i in range(len(text)):
         if _refused_at(text, i):
             kind = unicodedata.category(text[i])
             raise Refused(f"{what} holds a {kind} character at {i} that guest text may not", code=RefusalCode.BAD_TEXT)
+    if not any(_visible(ch) and ch not in _BLANK for ch in text):
+        raise Refused(f"{what} draws nothing: every character is a space or blank", code=RefusalCode.BAD_TEXT)
     return text

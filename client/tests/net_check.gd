@@ -9,12 +9,25 @@ extends SceneTree
 
 const PORT_ENV: String = "MAXIM_OVERDRIVE_NET_PORT"
 
+## With this set, a bare WebSocketPeer instead: it sends hello and counts the packets it ever holds before the close,
+## the engine fact NetClient's close-reason read rests on.
+const RAW_ENV: String = "MAXIM_OVERDRIVE_NET_RAW"
+
 var _client: NetClient = NetClient.new()
+var _raw: WebSocketPeer = null
+var _raw_packets: int = 0
+var _raw_hello: bool = false
 var _done: bool = false
 
 
 func _initialize() -> void:
 	var port: int = OS.get_environment(PORT_ENV).to_int()
+	if not OS.get_environment(RAW_ENV).is_empty():
+		_raw = WebSocketPeer.new()
+		var connected: Error = _raw.connect_to_url("ws://127.0.0.1:%d" % port)
+		if connected != OK:
+			_finish("net-check: open failed %s" % error_string(connected))
+		return
 	var opened: Error = _client.open(port, NetClient.token_from_environment())
 	if opened != OK:
 		_finish("net-check: open failed %s" % error_string(opened))
@@ -23,13 +36,31 @@ func _initialize() -> void:
 func _process(_delta: float) -> bool:
 	if _done:
 		return true
+	if _raw != null:
+		_poll_raw()
+		return _done
 	_client.poll()
-	if not _client.welcome.is_empty():
-		var hash_ok: bool = _client.welcome.get("catalogue_hash") == WireCatalogue.catalogue_hash(WireCatalogue.v0())
-		_finish("net-check: welcome %s catalogue %s" % [_client.welcome.get("role"), "same" if hash_ok else "differs"])
-	elif not _client.refusal.is_empty():
-		_finish("net-check: refused %s" % _client.refusal)
+	var session: NetSession = _client.session
+	if not session.welcome.is_empty():
+		var hash_ok: bool = session.welcome.get("catalogue_hash") == WireCatalogue.catalogue_hash(WireCatalogue.v0())
+		_finish("net-check: welcome %s catalogue %s" % [session.welcome.get("role"), "same" if hash_ok else "differs"])
+	elif session.ended():
+		_finish("net-check: refused %s" % session.refusal)
 	return _done
+
+
+func _poll_raw() -> void:
+	_raw.poll()
+	if _raw.get_ready_state() == WebSocketPeer.STATE_OPEN and not _raw_hello:
+		var hello: Dictionary = {"type": "hello", "protocol": 0, "token": NetClient.token_from_environment()}
+		_raw_hello = _raw.send_text(JSON.stringify(hello)) == OK
+	while _raw.get_available_packet_count() > 0:
+		var _packet: PackedByteArray = _raw.get_packet()
+		_raw_packets += 1
+	if _raw.get_ready_state() == WebSocketPeer.STATE_CLOSED:
+		_done = true
+		print("net-check: raw packets %d reason %s" % [_raw_packets, _raw.get_close_reason()])
+		quit(0)
 
 
 func _finish(line: String) -> void:

@@ -69,7 +69,7 @@ static func _header(read: WireRead, data: PackedByteArray, max_bytes: int) -> Di
 		if b > 0x7F:
 			read.refuse("bad_json", "frame: a header byte outside ASCII")
 			return {}
-	var json: WireRead = WireJson.parse(bytes.get_string_from_ascii(), MAX_HEADER_BYTES)
+	var json: WireRead = WireJson.parse(bytes, MAX_HEADER_BYTES)
 	if not json.ok:
 		read.refuse(json.code, json.reason)
 		return {}
@@ -77,17 +77,12 @@ static func _header(read: WireRead, data: PackedByteArray, max_bytes: int) -> Di
 		read.refuse("bad_shape", "frame: the header is not a JSON object")
 		return {}
 	var raw: Dictionary = json.value
-	var protocol: Variant = raw.get("protocol")
-	# A bool is not a float in GDScript, so true is refused here; 1.0 and 1e0 are listed in non_integer_keys.
-	if json.non_integer_keys.has("protocol") or not protocol is float:
-		read.refuse("bad_version", "frame: protocol must be a whole number")
-		return {}
-	var version: float = protocol
-	if version != float(PROTOCOL):
-		read.refuse("bad_version", "frame: protocol %d; this reader knows %d" % [int(version), PROTOCOL])
-		return {}
-	if not json.non_integer_keys.is_empty():
-		read.refuse("not_int", "frame: a number with a point or an exponent; the header holds integers only")
+	var version: int = WireFields.version(read, raw.get("protocol"), json.non_integer_keys.has("protocol"))
+	if read.ok and version != PROTOCOL:
+		read.refuse("bad_version", "frame: protocol %d; this reader knows %d" % [version, PROTOCOL])
+	if read.ok and not json.non_integer_keys.is_empty():  # O62, after the version as strict_json.integers_only
+		read.refuse("not_int", "frame header: a number with a point or an exponent; it holds integers only")
+	if not read.ok:
 		return {}
 	return _read_header(read, raw)
 

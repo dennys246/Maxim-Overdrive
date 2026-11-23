@@ -29,6 +29,19 @@ static func keys(read: WireRead, raw: Variant, what: String, required: Array[Str
 	return d
 
 
+## A version, read before anything else as the server's read_version does: a whole number from 0, never a bool, a
+## float or missing (bad_version). ``was_float`` is the parser's word that it was written with a point or exponent.
+static func version(read: WireRead, value: Variant, was_float: bool) -> int:
+	if was_float or not value is int:
+		read.refuse("bad_version", "protocol must be a whole number")
+		return -1
+	var whole_version: int = value
+	if whole_version < 0:
+		read.refuse("bad_version", "protocol must be a whole number from 0")
+		return -1
+	return whole_version
+
+
 static func whole(read: WireRead, value: Variant, what: String, lo: int, hi: int) -> int:
 	if value is bool or not (value is float or value is int):
 		read.refuse("not_int", "%s must be a whole number" % what)
@@ -76,8 +89,9 @@ static func flag(read: WireRead, value: Variant, what: String) -> bool:
 	return b
 
 
-## An identity key (``checks.identity_key``): 1 to 64 printable characters, no outer spaces, no ':'. A header is ASCII,
-## so printable is 0x20 to 0x7E.
+## A wire name (``converters.WireName``, client_rendering §4.1): 1 to 64 characters of printable ASCII (0x20 to 0x7E),
+## no outer spaces, no ':'. ASCII on both sides, so neither reader needs Unicode tables, which differ by version; an
+## escape can decode to any character, so the check reads the decoded name, never the header's bytes.
 static func identity(read: WireRead, value: Variant, what: String) -> String:
 	var text: String = ""
 	if value is String:
@@ -97,7 +111,8 @@ static func digest(read: WireRead, value: Variant, what: String) -> String:
 	var text: String = ""
 	if value is String:
 		text = value
-	var shape: RegEx = RegEx.create_from_string("^([a-z0-9]+/[a-z0-9]+-[0-9]+):[0-9a-f]{64}$")
+	# \z, not $: PCRE's $ also matches before a final newline, which Python's fullmatch never does (review W-S4)
+	var shape: RegEx = RegEx.create_from_string("^([a-z0-9]+/[a-z0-9]+-[0-9]+):[0-9a-f]{64}\\z")
 	var found: RegExMatch = shape.search(text)
 	if not value is String or found == null:
 		read.refuse("bad_shape", "%s must be a digest" % what)
