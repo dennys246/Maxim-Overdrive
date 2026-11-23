@@ -174,3 +174,7 @@ checklist row suffices or `Simulation.__init__` needs a marker too.
 | D5-N1 | nothing checks that an `OWNED_CALLS` entry names a call that is made | `test_each_owned_call_is_made_by_one_of_its_owners`, for every entry; red when `adopt`'s one call is renamed | open (for the reviewer) |
 | D5-N2 | three PR 4a deferrals sit under the PR 3 group | their own group, "Deferred from PR 4a's review" | open (for the reviewer) |
 | D5-N3 | `__deepcopy__`'s docstring gives the shallow copy's reason | it names a deep copy's hazard, D4-N2's | open (for the reviewer) |
+
+**The owner's rulings on delta 5 (2026-11-22).** Arch S5's residual also gets a `TEMPORARY(phase1/sim-clock)` marker
+on `Simulation.__init__`, listed under Phase 1 in the roadmap beside its PR 4b checklist row; the lint fails with the
+listing removed. A delta 6 reviews the delta-5 fold, the merge with #50's spike pin and this marker.
