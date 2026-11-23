@@ -1,2 +1,5 @@
 # The generated artifacts are compared byte for byte (tests/test_fields.py), so their line endings are pinned.
 docs/generated/* text eol=lf
+# The wire fixtures are compared byte for byte by both decoders' tests and scripts/wire_fixtures.py --check: no
+# line-ending or text conversion may touch them (review D4).
+client/tests/fixtures/wire/** -text

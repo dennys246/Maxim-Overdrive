@@ -1,7 +1,8 @@
 extends RefCounted
 ## Integers on the wire (client_rendering.md §3, §4.1): JSON.stringify writes an int as an integer but a float as
 ## "5500.0", so every value the client sends is cast with int() first; JSON.parse_string turns every number into a
-## float, so every integer the client reads is cast back, and nothing on the JSON path may exceed 2^53.
+## float, so every integer the client reads is cast back, and every integer on the JSON path stays below 2^53 (O59):
+## 2^53 and 2^53 + 1 parse to one double.
 
 
 func test_stringify_writes_ints_as_integers_and_floats_with_a_point(t: TestContext) -> void:

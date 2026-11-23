@@ -340,21 +340,21 @@ grids, and its refusal held by a cross-grid test.
 
 ## Step 7, `phase1/protocol`
 
-- The frame grammar's extension rule (`client_rendering.md` §4.1); six golden fixtures (`world_v2.md` §8), among them an
-  asymmetric grid and ones for an unknown optional channel
-  (ignored) and an unknown required channel (refused).
-- The engine `build` in `welcome` (`client_rendering.md` §4.1) and the version `error`.
-- A refusal for exhausted u16 region ids.
-- JSON reads floats (`client_rendering.md` §4.1; the pin is `boundaries.md` §9.1's): decoder fixtures with an integer
-  at 2^53 and at 2^53 + 1 (refused); stage 1 refuses `5500.0` and `true` where an integer is expected (Python reads a
-  float, and `bool` is an `int`).
-- B25's engine/game check, with the second engine file.
+Landed on `phase1/protocol`: the frame grammar and its extension rule, the six goldens and the decode and stage-1
+rejection fixtures (both decoders read one manifest), the JSON pins (below 2⁵³, O59; integers only, O62), the
+catalogue and its hash checked on every frame, `welcome`'s `build` and the version `error`, the handshake (Origin
+capture, the token, caps, 1009), `HostOnly` with a guest-role view, and `player_text` (O61). Remaining:
 
+- Region ids' exhausted-u16 refusal belongs to step 5a's Topology (owner, 2026-11-22); this step ships the u16
+  `region` channel in fixtures and decoders only.
+- B25's engine/game check, with the second engine file; `NetClient` (the engine half) names the game's
+  `MAXIM_OVERDRIVE_TOKEN` variables, which that check moves to the game (Architecture N1).
+- Fixtures for a frame after an `imagine` (a new region), and the head-of-line wait of a `tick` behind a 1.74 MB
+  frame on localhost, measured (both cut from `client_rendering.md` §4 as tests to write).
 - The strict red gate that refuses guest joins while real-Maxim NPCs are live, as the roadmap's Phase 4 assigns
   this PR (TB-B2).
-- `intent_result`, `seq`, `observed_tick` and events' `cause`; the catalogue with non-default-scale fixtures and its hash check on
-  every frame (WT-B3, WT-S13).
-- `region` as u16 `region_id`, the `regions` message and `regions_version` (DC-B1); the fuel tables and fuel view
+- `intent_result`, `time_decision`, `seq`, `observed_tick` and events' `cause` (after step 5a's integer clock).
+- The `regions` message (DC-B1); the fuel tables and fuel view
   (`client_objects.md` §3, `fire_solid.md` §5.6) with u32 and f32 in v0's dtypes, a cell channel's fixtures at a
   non-default scale (`client_objects.md` §7.1), the join cap counting fuel, the fuel view's leak test (`Observation`'s
   members pinned; `adapters.sem` never imports or reads it), the decoder filling `CellSnapshot` with v0's channels and
@@ -362,14 +362,50 @@ grids, and its refusal held by a cross-grid test.
   input), and `encoding`'s `glow` key retired with `docs/architecture.md`'s and the roadmap's mentions of it;
   `tick` as JSON with integer columns (DC-S9); events accumulated with a resync (DC-S4); `tile_and_client.md`
   §3.3's message table; `welcome`'s maps; a `snapshot` on join (WT-S6).
-- Decode and stage-1 rejection fixtures; `HostOnly` tested directly with a guest-role view (WT-S9).
-- Buffer caps and the 1009-close test (WT-S12); the `Origin` capture test.
-- The guest-text gate `engine.text.player_text`. Its Cf rule must let ZWNJ and ZWJ through for Persian, Indic
-  spelling and emoji sequences, or say why not, and NFC runs before the length cap. This is an owner decision
-  (TB-N5).
 - The fuel decoder's world-extent check (`client_objects.md` §3.2; owner, 2026-11-22, review TB2-S2): fuel geometry
   outside the cell snapshot's extent is refused, as fire_solid §1.3 refuses it on the server; finite but huge
   geometry passes the client's checks until then.
+- Deferred from the round-1 review (author-proposed; the delta round sets their status):
+  - `dispatch` hands each message to the simulation lane through a bounded per-session queue (realtime_lanes_coop
+    §4.1), never touching the world on the network loop (C3); the import contract `network-lane-off-the-world` fences
+    only the server's imports, never the injected `dispatch`; trigger: this step's `intent_result`.
+  - `simcore.protocol.messages`' typed messages fold into `core.intents`' one stage 1 for NPCs and clients (A8);
+    trigger: step 5b's `move` and `move_to` intents.
+  - `time.scale` travels as an integer rational, since O62 keeps floats off the server's JSON and `tick` echoes it
+    (A6); trigger: this step's `time_decision`.
+  - Guest text is judged by the interpreter's Unicode tables for unassigned code points: 5,812 pass on Python 3.14
+    (16.0) that 3.12 (15.0) refuses (Determinism delta N3). The log keeps the text `player_text` returned and no
+    reader re-checks it, or the engine pins one Unicode version; trigger: the first logged speech (`phase1/agents`).
+  - Guest text's residual: a character that draws nothing yet no Unicode property or name marks (U+1D159, MUSICAL
+    SYMBOL NULL NOTEHEAD) still passes; trigger: the first guest text an NPC reads (`phase1/agents`), when a
+    rendering test can measure ink.
+  - What Godot 4.7.2 does at the 65th queued packet (`max_queued_packets` is 64), measured with a listener that
+    sends faster than the client polls; trigger: step 8's live client.
+  - `WireFrame.index(z, y, x)` and `CellSnapshot.index(x, y, z)` take their axes in opposite orders; trigger: step
+    8's decoder filling `CellSnapshot`, which picks one.
+  - Guest text's hidden channels the rulings leave open, for the owner (Trust D-N4, T3-N2, T4-S1): one variation
+    selector or joiner beside a visible character carries a bit or two per visible character; runs of spacing
+    characters between two visible ones have no limit: 28 of them (thin, hair, spacing blanks) pass in a run of any
+    length, about 4.8 bits each, so "hi" + 496 of them + "!" hides about 2,390 bits (measured). Closing it needs a
+    rule the rulings don't hold, such as a cap on a run of characters that draw nothing; trigger: the first guest
+    text an NPC reads (`phase1/agents`).
+  - Open NITs from the review rounds, each a test or a code to tighten: a test that asserts the stage-1 fuzz's reach
+    (Trust D-N5); `bad_version` naming its field alike on every path (D-N6); the client's code shape tied to
+    `RefusalCode`'s spelling test (N-N3); a float of about a million digits, which the client's saturated exponent
+    judges otherwise than Python, past every shipped cap (Wire NT-1); Godot's "Exponent too high" warning (NT-2);
+    the client closing its own refusal with 1000 where the host uses 1008 (Client N-N2); trigger: this step's
+    `intent_result`, which adds codes and a stage-1 path.
+  - A test that a `welcome` and a `tick` at the world limits fit within the 64 KiB text cap (Architecture delta 3
+    N-3); trigger: this step's `tick` and `welcome`'s maps.
+  - A cap on connections that haven't sent `hello` (Concurrency N2): only local programs reach the port today;
+    trigger: guests joining from beyond localhost (Phase 5).
+  - Every converter moves to `simcore.core.converters` and `Converter` is a closed union again (A7); deferred because
+    it edits `scene.py` and the loaders, which `phase1/sim-replay` is changing; trigger: that branch's merge.
+- The shipped path: the game launches the host (tokens, the 0600 token file, `start`, the hello deadline and the
+  session and guest caps read from `data/server/`, Architecture N5) with a `dispatch` for the
+  messages after `welcome`, the live frame encoder reads published frames (their tick and region ids come with
+  step 5a), and the client's scene owns a `NetClient`. Until then the server, `encode_cells`, `player_text` and
+  `NetClient` run only under tests.
 
 ## Step 8, the tile (`tile_and_client.md` §6; `client_rendering.md` §4–§6)
 

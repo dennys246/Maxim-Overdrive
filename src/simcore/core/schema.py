@@ -9,20 +9,18 @@ Each converter also lists the values it must refuse (``bad``). ``tests/test_form
 over a valid document and feeds each field each of them, plus a missing and an unknown key, so a new field gets its
 rejection tests by being declared. Versions, refusals of old versions and migrations are ``Format``'s.
 
-Content stores time in world units, never ticks (tile §3.2): a field named for ticks is refused when its schema is
-declared, since the tick (step 5a) is derived from seconds at load, never authored.
+Content stores time in world units, never ticks (tile §3.2): a field named for ticks, at any depth, is refused when
+its ``Format`` is declared, since the tick (step 5a) is derived from seconds at load, never authored. A schema alone
+is not content: the wire's carry the simulation's integer ticks (a frame's tick, kindle's ``duration_ticks``).
 """
 
 from __future__ import annotations
 
 import math
-import re
-import unicodedata
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
-
-import idna
+from typing import Protocol
 
 from simcore.core.checks import (
     IDENTITY_KEY_CHARS,
@@ -35,6 +33,7 @@ from simcore.core.checks import (
     whole_number,
 )
 from simcore.core.refusals import RefusalCode, Refused
+from simcore.core.text import NAME_JOINERS, visible_name
 
 Bad = tuple[tuple[object, RefusalCode], ...]  # a value the converter must refuse, and the code it refuses it with
 _NOT_NUMBERS: Bad = (
@@ -46,56 +45,10 @@ _NOT_NUMBERS: Bad = (
 )
 
 
-# A name's characters follow IDNA2008 (RFC 5890-5893; the idna package's code-point tables and contextual rules), the
-# standard for which characters are safe in an identifier people read, rather than a rule written here: three review
-# rounds found holes in hand-written ones (delta rounds 1-3). Each word between the separators below must be a valid
-# IDNA2008 label as written, lower-cased or upper-cased (or digits of one system; see _visible_word), so combining marks
-# are allowed after a base letter (Hindi, Tamil, vocalised Arabic), and Default_Ignorables, joiners outside their
-# contexts, symbols and compatibility forms are not. The whole name must be its own NFKC form, so a fullwidth "crate"
-# (U+FF43...) or a ligature is not a second "crate". IDNA admits two letters that render blank (EGYPTIAN HIEROGLYPH FULL
-# and HALF BLANK), so a letter named BLANK or FILLER is refused by its Unicode name. Look-alikes from other scripts
-# ("\u0441rate") need TR39's confusable skeleton: B38.
-_NAME_SEPARATORS = re.compile("[ _.'\u2019-]+")
-_BLANK_WORDS = ("BLANK", "FILLER")
-_JOINERS = {0x200C: "x", 0x200D: "x"}  # allowed past isprintable only so IDNA can rule on their context
-
-
-def _visible_name(value: str) -> bool:
-    words = [w for w in _NAME_SEPARATORS.split(value) if w]
-    if not words or unicodedata.normalize("NFKC", value) != value:
-        return False
-    if any(w in unicodedata.name(ch, "") for ch in value for w in _BLANK_WORDS):
-        return False
-    return all(_visible_word(w) for w in words)
-
-
-def _visible_word(word: str) -> bool:
-    """One word of a name: digits only (any script's, judged as digits: IDNA's per-label bidi rule refuses a lone
-    Arabic-Indic number, so "room \u0662" would be refused while "room 2" is kept; delta round 4, R4-1), all from one
-    digit system, or a valid IDNA2008 label as written, lower-cased or upper-cased (IDNA allows Cherokee's capitals and
-    not its small letters, so Cherokee in any case is judged by its capitals; casefold would admit twins IDNA refuses,
-    such as U+1C80 beside "\u0432"; R5-1). A joiner may not end a word: after a virama with nothing following it renders
-    nothing, so "\u0b95\u0bcd\u200d" would be a twin of "\u0b95\u0bcd" (R4-3)."""
-    if all(unicodedata.category(ch) == "Nd" for ch in word):
-        # one digit system per word, stricter than IDNA's CONTEXTO rule (which bans only Arabic-Indic beside Extended
-        # Arabic-Indic, whose 1, 2 and 3 look alike, so "\u0661\u06f2" would twin "\u0661\u0662"; delta round 5, R5-2,
-        # and round 6, N6-1): keep it stricter, the safe direction
-        return len({ord(ch) - unicodedata.digit(ch) for ch in word}) == 1
-    if word[-1] in "\u200c\u200d":
-        return False
-    for candidate in (word, word.lower(), word.upper()):  # Cherokee in lower or title case is valid upper-cased (R5-1)
-        try:
-            idna.check_label(candidate)
-        except idna.IDNAError:  # this spelling is not a valid label; the other may be
-            continue
-        return True
-    return False
-
-
 TEXT_CHARS = 128  # a name's budget (boundaries §5.4): imagined names are held tighter by Budget.max_name_chars
 
 
-def _count(value: Sequence[object] | Mapping[object, object]) -> int:
+def item_count(value: Sequence[object] | Mapping[object, object]) -> int:
     """A container's length, or one past any budget for a length too large to count (``range(10**20)``; no file
     holds one)."""
     try:
@@ -185,7 +138,7 @@ class Rgb:
     """A colour: three whole numbers from 0 to 255."""
 
     def convert(self, value: object, what: str) -> tuple[int, int, int]:
-        if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or _count(value) != 3:
+        if isinstance(value, (str, bytes)) or not isinstance(value, Sequence) or item_count(value) != 3:
             raise Refused(f"{what} must be three whole numbers, got {shown(value)}", code=RefusalCode.BAD_SHAPE)
         byte = Whole(0, 255)
         return (byte.convert(value[0], what), byte.convert(value[1], what), byte.convert(value[2], what))
@@ -217,9 +170,9 @@ class Text:
         ok = (
             type(value) is str  # a str subclass could print as something else (delta review, D5)
             and 0 < len(value) <= self.max_chars
-            and value.translate(_JOINERS).isprintable()  # ZWJ, ZWNJ: IDNA's CONTEXTJ judges them (Sinhala)
+            and value.translate(NAME_JOINERS).isprintable()  # ZWJ, ZWNJ: IDNA's CONTEXTJ judges them (Sinhala)
             and value == value.strip()
-            and _visible_name(value)  # a name an agent can see and tell apart
+            and visible_name(value)  # a name an agent can see and tell apart
         )
         if not ok:
             rule = (
@@ -318,7 +271,7 @@ class ListOf:
     def convert(self, value: object, what: str) -> tuple[Mapping[str, object], ...]:
         if isinstance(value, (str, bytes, Mapping)) or not isinstance(value, Sequence):
             raise Refused(f"{what} must be a list, got {type(value).__name__}", code=RefusalCode.BAD_SHAPE)
-        if _count(value) > self.max_items:
+        if item_count(value) > self.max_items:
             raise Refused(f"{what} holds at most {self.max_items} items", code=RefusalCode.OVER_BUDGET)
         return tuple(self.item.convert(v, f"{what}[{i}]") for i, v in enumerate(value))
 
@@ -338,7 +291,7 @@ class MapOf:
     def convert(self, value: object, what: str) -> Mapping[str, Mapping[str, object]]:
         if not isinstance(value, Mapping):
             raise Refused(f"{what} must be a mapping, got {type(value).__name__}", code=RefusalCode.BAD_SHAPE)
-        if _count(value) > self.max_items:
+        if item_count(value) > self.max_items:
             raise Refused(f"{what} holds at most {self.max_items} entries", code=RefusalCode.OVER_BUDGET)
         out = {self.key.convert(k, f"a name in {what}"): v for k, v in value.items()}
         return MappingProxyType({k: self.value.convert(v, f"{what} {k}") for k, v in out.items()})
@@ -348,7 +301,15 @@ class MapOf:
         return (([], RefusalCode.BAD_SHAPE), ({7: {}}, self.key.bad[0][1]))
 
 
-Converter = Real | Whole | Vector | Rgb | Text | Identity | Nested | Tagged | ListOf | MapOf
+class Converter(Protocol):
+    """What reads one field: ``convert`` turns an untrusted value into the engine's or refuses it with a code, and
+    ``bad`` lists the values it must refuse, with their codes (the generated rejection tests' input). The converters
+    are this module's and ``simcore.core.converters``'s."""
+
+    def convert(self, value: object, what: str) -> object: ...
+
+    @property
+    def bad(self) -> Bad: ...
 
 
 @dataclass(frozen=True)
@@ -381,9 +342,6 @@ class Schema:
         names = [f.name for f in self.fields]
         if len(set(names)) != len(names):  # a schema contradicting itself is a programming error, not bad input
             raise TypeError(f"a schema names a field twice: {sorted(names)}")
-        ticks = [n for n in names if {"tick", "ticks"} & set(n.split("_"))]  # a word, not a substring: stick_m is fine
-        if ticks:
-            raise TypeError(f"content stores time in seconds, never ticks: {ticks} (tile §3.2)")
         object.__setattr__(self, "reserved", MappingProxyType(dict(self.reserved)))
 
     @property
@@ -421,6 +379,29 @@ def read_version(raw: object, what: str) -> int:
     return version
 
 
+def schemas_within(schema: Schema) -> Iterator[Schema]:
+    """``schema`` and every schema it nests, through ``Nested``, ``ListOf``, ``MapOf`` and ``Tagged``: the one walk the
+    tick rule and the tests' field walk share, so neither can miss a container the other sees."""
+    stack = [schema]
+    while stack:
+        current = stack.pop()
+        yield current
+        for f in current.fields:
+            convert: object = f.convert
+            convert = convert.item if isinstance(convert, ListOf) else convert
+            convert = convert.value if isinstance(convert, MapOf) else convert
+            if isinstance(convert, Nested):
+                stack.append(convert.schema)
+            elif isinstance(convert, Tagged):
+                stack.extend(convert.schemas.values())
+
+
+def _tick_fields(schema: Schema) -> list[str]:
+    """Every field named for ticks in ``schema`` and the schemas it nests: a word, not a substring (stick_m is fine)."""
+    names = (f.name for s in schemas_within(schema) for f in s.fields)
+    return sorted(n for n in names if {"tick", "ticks"} & set(n.split("_")))
+
+
 @dataclass(frozen=True)
 class Format:
     """A versioned data format: its name, current version and schema, the old versions it refuses with a reason,
@@ -439,6 +420,8 @@ class Format:
     migrations: Mapping[int, Migration] = field(default_factory=lambda: MappingProxyType({}))
 
     def __post_init__(self) -> None:
+        if ticks := _tick_fields(self.schema):
+            raise TypeError(f"content stores time in seconds, never ticks: {ticks} (tile §3.2)")
         if self.migrations and not self.held_by_others:
             raise TypeError(f"{self.name} is repo-only: bump its version and refuse the old one, never migrate")
         if any(not 0 <= v < self.version for v in (*self.migrations, *self.refused)):

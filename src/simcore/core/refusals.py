@@ -8,7 +8,8 @@ get their class with the intent log (step 5a), whose writer needs it.
 
 The enum is append-only: a code's value is its wire spelling and, from step 5a, part of the intent log, so a code is
 never renamed, reused or removed (``tests/test_refusals.py`` pins every value in order). Tile §3.4's codes are listed
-before they have a producer, so the protocol (step 7), bodies (5) and fire (6) add producers, not codes.
+before they have a producer, so bodies (5) and fire (6) add producers, not codes; step 7 added the handshake's,
+the time authority's and guest text's codes, which tile §3.4 lists with them.
 """
 
 from __future__ import annotations
@@ -60,6 +61,13 @@ class RefusalCode(StrEnum):
     SPACE_TAKEN = "space_taken"
     TOO_SMALL = "too_small"
     DUPLICATE_KEY = "duplicate_key"
+    # step 7: guest text (engine.text.player_text, O61), and the handshake and time authority (boundaries §5.3)
+    BAD_TEXT = "bad_text"
+    BAD_TOKEN = "bad_token"
+    TOKEN_IN_USE = "token_in_use"
+    HOST_ONLY = "host_only"
+    # the handshake's order (boundaries §5.3): no hello within the deadline, another message first, or a second hello
+    HELLO_FIRST = "hello_first"
 
 
 class Refused(ValueError):

@@ -353,12 +353,8 @@ body model is designed (Phase 4):
 
 v1 §7 stands (closed schemas, one final reply per message, two-stage validation, the intent log), with these
 changes:
-- **Frames are self-describing.** The header lists grids (each with its own shape, cell size and origin), channels
-  (dtype, units, an encoding from a closed list, `required`) and tables with typed columns (per-zone gas, pools).
-- **Old readers** refuse an unknown required channel and ignore unknown optional channels and columns.
-  - Adding an optional channel bumps the registry version, not the protocol.
-  - A new encoding, dtype, `kind` or compression bumps the protocol.
-  - `kind: delta` is reserved, not built.
+- **Frames describe their grids, channels and tables** (per-zone gas, pools), and every frame carries `welcome`'s
+  catalogue hash (O64). The header, the extension rule and what bumps the protocol are `client_rendering.md` §4.1's.
 - **Six golden fixtures,** including an unknown optional channel (must be ignored), an unknown required channel
   (must be refused) and an asymmetric grid.
 - **`welcome`** adds the channel catalogue, the zone list and material table v1. The intent log header hashes the
