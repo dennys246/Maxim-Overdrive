@@ -21,9 +21,10 @@ vocabulary written one member per bullet is owned as a table or as one item that
 - No design document holds a fold table, a decision table, or a list of rulings (``- **D20.``, ``**Ruled …:**``):
   those are records (``docs/design/reviews/``, ``docs/design/decisions/``).
 
-Scope: ``docs/design/*.md``, ``docs/plans/*.md``, ``docs/roadmap.md`` and ``docs/architecture.md``. Records
-(``reviews/``, ``decisions/``, ``research/``) sit in subdirectories and are out of scope, and so is a design whose
-header (the text before its first section) carries a ``> **Superseded`` banner. Markers in fenced code are quotation.
+Scope: ``docs/design/*.md``, ``docs/plans/*.md``, ``docs/roadmap.md``, ``docs/architecture.md`` and
+``docs/known_gaps.md``. Records (``reviews/``, ``decisions/``, ``research/``) sit in subdirectories and are out of
+scope, and so is a design whose header (the text before its first section) carries a ``> **Superseded`` banner.
+Markers in fenced code are quotation.
 The check sees code spans, not prose: a rule restated in words, a copy below a row's count, and an unregistered
 contract stay with review (B36).
 """
@@ -37,7 +38,7 @@ REGISTRY = "docs/design/contracts.md"
 KINDS = {"vocabulary", "signature"}
 MARKER = re.compile(r"^<!-- contract: ([a-z0-9_.-]+)(?:: ([^>]*?))? -->\s*$")
 SUPERSEDED = re.compile(r"^> \*\*Superseded(?! in part)", re.M)  # a partial supersession leaves the design live
-SCOPE = re.compile(r"^docs/(design|plans)/[^/]+\.md$|^docs/(roadmap|architecture)\.md$")
+SCOPE = re.compile(r"^docs/(design|plans)/[^/]+\.md$|^docs/(roadmap|architecture|known_gaps)\.md$")
 DESIGN = re.compile(r"^docs/design/[^/]+\.md$")
 SPAN = re.compile(r"`([^`\n]+)`")
 HEADING = re.compile(r"^(#{1,6}) (.*)$")
