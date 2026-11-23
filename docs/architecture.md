@@ -72,7 +72,7 @@ words and changes nothing. The physics checks again underneath: `HeatSource` and
 and negative values, whoever calls them. The limits are physics-safety ceilings, not what a body can do; an NPC's
 capability will come from its body and energy (`docs/roadmap.md`, Phase 5).
 
-Actions change cells; only `World.advance` moves time.
+Actions change cells; only `Simulation.step` moves time.
 
 ## Fine-scale state drives graphics
 

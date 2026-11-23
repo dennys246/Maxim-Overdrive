@@ -18,14 +18,17 @@ import numpy as np
 import pytest
 
 from maxim_overdrive import data
-from simcore.core.applier import Applier
+from simcore.core.applier import Applier, Outcome
 from simcore.core.checks import finite_real, finite_vector, known_keys, shown, whole_number
 from simcore.core.imagination import Budget, SpecRejected, place
-from simcore.core.intents import Extinguish, Ignite, Strike
+from simcore.core.intents import Action, Extinguish, Ignite, Strike
+from simcore.core.law import LoadEffect
 from simcore.core.materials import MaterialTable
+from simcore.core.physics import Physics
 from simcore.core.scene import Box, Scene
 from simcore.core.world import World
 from simcore.protocol.tiers import RIG_PROFILE, RigProfile
+from tests._sim import act, make, world_of
 
 ROOT = Path(__file__).resolve().parents[1]
 LIMITS = data.action_limits()
@@ -144,20 +147,29 @@ def test_shown_bounds_length_and_survives_an_int_too_long_to_print():
     assert shown(12345) == "12345"
 
 
-def test_a_world_needs_a_positive_finite_turn():
-    grid = _grid()
-    for bad in (0.0, -6.0, math.nan):
-        with pytest.raises(ValueError, match="turn_seconds"):
-            World(grid, bad, limits=LIMITS)
-
-
 # -- stage 2: the applier's world checks ------------------------------------------------------------------------------
 
 
+_ROOM_SCENE = Scene(
+    (3.0, 3.0, 2.0),
+    (Box((0.0, 0.0, 0.0), (1.0, 3.0, 2.0), "air", "room"), Box((1.2, 1.2, 0), (1.8, 1.8, 0.6), "wood", "crate")),
+)
+
+
 def _world():
-    room = Box((0.0, 0.0, 0.0), (1.0, 3.0, 2.0), "air", "room")
-    crate = Box((1.2, 1.2, 0), (1.8, 1.8, 0.6), "wood", "crate")
-    return World.from_scene(Scene((3.0, 3.0, 2.0), (room, crate)), MATERIALS, dx_m=0.2, limits=LIMITS)
+    return World(_ROOM_SCENE.build(MATERIALS, dx_m=0.2), limits=LIMITS)
+
+
+def _sim():
+    return make(_ROOM_SCENE, MATERIALS, dx_m=0.2, limits=LIMITS)
+
+
+def _apply(w: World, region: object, action: Action) -> Outcome:
+    """The applier's own check, called the way `Simulation.step` calls it, inside the tick's window: a region that is
+    not a name never reaches it through a record (`LogRecord` refuses it), so these tests call it directly."""
+    resolve = Physics(w.grid).resolve_loads
+    with w.writing(cells=isinstance(action, Strike)) as sources:
+        return Applier(w).apply(region, action, sources=sources, resolve=resolve)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
@@ -165,33 +177,40 @@ def _world():
     [("door", "there is no 'door' in this world"), ("room", "the room is air: there is no structure to act on")],
 )
 def test_the_applier_refuses_a_region_it_cannot_act_on_and_changes_nothing(region, message):
-    w = _world()
-    frame = w.frames.latest
+    sim = _sim()
+    frame = sim.frames.latest
     for action in (Strike(1.0, 0.2, None), Ignite(1.0, 0.3)):
-        out = Applier(w).apply(region, action)
+        out = act(sim, region, action)
         assert (out.success, out.error) == (False, message)
-    assert w.frames.latest is frame
-    assert dict(w.sources) == {}
+    # A refusal-only tick publishes its frame (sim_core.md §4), whose cells are the ones before it.
+    assert sim.frames.latest.sequence == frame.sequence + 2
+    for name in ("material", "integrity", "temperature"):
+        assert np.array_equal(getattr(sim.frames.latest.cells, name), getattr(frame.cells, name)), name
+    assert dict(world_of(sim).sources) == {}
 
 
 def test_an_outcome_reports_the_applied_values_and_is_read_only():
-    out = Applier(_world()).apply("crate", Strike(1e3, 0.2, (1.5, 1.5, 0.3)))
+    out = act(_sim(), "crate", Strike(1e3, 0.2, (1.5, 1.5, 0.3)))
     assert out.success
     assert dict(out.params) == {"energy_j": 1e3, "sigma_m": 0.2, "point_m": [1.5, 1.5, 0.3]}
-    assert set(out.metadata) == {"destroyed_volume_m3", "absorbed_j"}
+    # The strike's effect, a host-side value in the tick's report (sim_core.md §4): one frozen LoadEffect.
+    (effect,) = out.effects
+    assert isinstance(effect, LoadEffect)
     with pytest.raises(TypeError):
-        out.metadata["x"] = 1.0  # type: ignore[index]
+        out.params["x"] = 1.0  # type: ignore[index]
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        effect.absorbed_j = 1.0  # type: ignore[misc]
 
 
 def test_extinguish_puts_out_the_fire_it_names_and_publishes_its_after_frame():
-    w = _world()
-    applier = Applier(w)
-    assert applier.apply("crate", Ignite(1000.0, 0.3)).success
-    lit = w.frames.latest.sequence
-    out = applier.apply("crate", Extinguish())
-    assert (out.success, out.error, dict(w.sources)) == (True, None, {})
-    assert w.frames.latest.sequence == lit + 1  # every application has an after-frame (delta review, D2)
-    again = applier.apply("crate", Extinguish())
+    sim = _sim()
+    assert act(sim, "crate", Ignite(1000.0, 0.3)).success
+    lit = sim.frames.latest.sequence
+    out = act(sim, "crate", Extinguish())
+    assert (out.success, out.error, dict(world_of(sim).sources)) == (True, None, {})
+    # Every tick that applies a record has its after-frame, stamped with the tick (delta review, D2; sim_core.md §4).
+    assert (sim.frames.latest.sequence, sim.frames.latest.tick) == (lit + 1, 2)
+    again = act(sim, "crate", Extinguish())
     assert (again.success, again.error) == (False, "nothing is burning on the crate")
 
 
@@ -269,7 +288,7 @@ def test_extent_mass_and_ownership_are_refused_before_any_mask_is_built(monkeypa
 
 
 def test_the_applier_echoes_a_hostile_region_bounded():
-    out = Applier(_world()).apply("x" * 10_000, Strike(1.0, 0.2, None))
+    out = _apply(_world(), "x" * 10_000, Strike(1.0, 0.2, None))
     assert out.error is not None
     assert len(out.error) < 200
 
@@ -299,7 +318,7 @@ def test_a_set_echoes_sorted_and_bounded_in_process():
 
 @pytest.mark.parametrize("region", [["crate"], {"a": 1}, 7, None])
 def test_the_applier_refuses_a_region_that_is_not_a_name(region):
-    out = Applier(_world()).apply(region, Ignite(1.0, 0.3))
+    out = _apply(_world(), region, Ignite(1.0, 0.3))
     assert (out.success, out.error) == (False, f"there is no {shown(region)} in this world")
 
 

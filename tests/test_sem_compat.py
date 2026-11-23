@@ -17,9 +17,8 @@ import pytest
 
 from maxim_overdrive import data
 from simcore.adapters.sem import _compat, bridge
-from simcore.core.applier import Applier
 from simcore.core.scene import Box, Scene
-from simcore.core.world import World
+from tests._sim import SteppingPort, make
 
 LIMITS = data.action_limits()
 
@@ -71,13 +70,13 @@ def bridge_without_maxim() -> Iterator[ModuleType]:
 def test_the_bridge_runs_on_the_stand_ins_without_pymaxim(bridge_without_maxim: ModuleType, dx_m, materials) -> None:
     b = bridge_without_maxim
     assert b.HAVE_MAXIM is False
-    w = World.from_scene(
+    sim = make(
         Scene((2.0, 2.0, 2.0), (Box((0.8, 0, 0), (1.2, 2, 2), "concrete", "wall"),)),
         materials,
         dx_m=dx_m,
         limits=LIMITS,
     )
-    sensors, mods = b.region_parts(Applier(w), w.frames, "wall")
+    sensors, mods = b.region_parts(SteppingPort(sim), sim.frames, "wall")
     reading = sensors["integrity"].read()
     assert type(reading) is _compat.SensorReading
     assert reading.value == pytest.approx(1.0)
@@ -86,7 +85,7 @@ def test_the_bridge_runs_on_the_stand_ins_without_pymaxim(bridge_without_maxim: 
     assert result.success
     assert all(type(a) is _compat.AffordanceSchema for a in mods["structure"].affordances.values())
     with pytest.raises(RuntimeError, match="pymaxim is not installed"):
-        b.to_maxim_entity(Applier(w), w.frames, "wall")
+        b.to_maxim_entity(SteppingPort(sim), sim.frames, "wall")
 
 
 def test_the_target_aliases_mirror_maxims_own() -> None:

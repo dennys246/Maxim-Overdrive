@@ -11,7 +11,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from simcore.core.fields import TOPOLOGY
-from simcore.core.grid import Footprint, Mask, MaterialGrid
+from simcore.core.geometry import Mask
+from simcore.core.grid import Footprint, MaterialGrid
 from simcore.core.writers import claim
 
 _TOPOLOGY = claim(TOPOLOGY)

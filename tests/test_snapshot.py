@@ -10,15 +10,15 @@ import pytest
 from maxim_overdrive import data
 from simcore.core.readonly import frozen
 from simcore.core.scene import Box, Scene
-from simcore.core.world import World
 from simcore.protocol.encoding import GLOW_FULL_C, GLOW_START_C, snapshot
+from tests._sim import make, physics_steps
 
 LIMITS = data.action_limits()
 
 
 def _grid(dx_m, materials):
     """The published frame the encoder reads, never the grid (boundaries §4.2). Tests build their states as frames."""
-    return World.from_scene(
+    return make(
         Scene((2.0, 2.0, 2.0), (Box((0.8, 0, 0), (1.2, 2, 2), "concrete", "wall"),)),
         materials,
         dx_m=dx_m,
@@ -32,9 +32,9 @@ def test_snapshot_shapes_dtypes_and_metadata(dx_m, materials):
     assert s["shape"] == g.shape
     assert s["cell_size_m"] == g.dx_m
     assert s["time_s"] == g.time_s == 0.0
-    w = World.from_scene(Scene((2.0, 2.0, 2.0)), materials, dx_m=dx_m, limits=LIMITS)
-    w.advance()  # a later frame, so a constant time_s can't pass (step 3b review, Executor N1)
-    assert snapshot(w.frames.latest.cells)["time_s"] == w.turn_seconds
+    sim = make(Scene((2.0, 2.0, 2.0)), materials, dx_m=dx_m, limits=LIMITS)
+    physics_steps(sim, 1)  # a later frame, so a constant time_s can't pass (step 3b review, Executor N1)
+    assert snapshot(sim.frames.latest.cells)["time_s"] == sim.config.physics_seconds
     for key, dtype in [("material", np.uint8), ("crack", np.uint8), ("glow", np.uint8), ("temperature_c", np.float16)]:
         arr = s[key]
         assert isinstance(arr, np.ndarray)

@@ -22,19 +22,20 @@ from maxim_overdrive import data
 from simcore.adapters.loaders import DataPath, load_action_limits, load_materials, read_yaml
 from simcore.adapters.sem import bridge
 from simcore.core import damage, physics, reductions
-from simcore.core.applier import Applier
-from simcore.core.exposure import Exposure, standing
+from simcore.core.deposit import Deposit
+from simcore.core.exposure import standing
 from simcore.core.grid import Footprint, MaterialGrid
 from simcore.core.imagination import Budget, SpecRejected, place
-from simcore.core.law import LawInputs
+from simcore.core.law import STATELESS, LawInputs
 from simcore.core.limits import ACTION_LIMITS
 from simcore.core.materials import MATERIAL, MATERIAL_TABLE, MaterialTable
 from simcore.core.refusals import RefusalCode, Refused
 from simcore.core.scene import Box, Cylinder, Scene, Spawn, constructing
-from simcore.core.world import HeatSource, World
+from simcore.core.world import HeatSource
 from simcore.protocol.tiers import RIG_PROFILE, RigProfile
 from tests._cells import heat_alone, name_region, paint
 from tests._gitutil import git
+from tests._sim import SteppingPort, make, physics_steps, world_of
 
 LIMITS = data.action_limits()
 MATERIAL_REQUIRED = frozenset(f.name for f in MATERIAL.fields if f.required)
@@ -175,33 +176,33 @@ def test_a_region_with_no_solid_cells_cannot_be_breached(dx_m, materials):
 
 
 def test_a_world_with_no_fire_stays_at_ambient(dx_m, materials):
-    w = World.from_scene(
+    sim = make(
         Scene((1.0, 1.0, 1.0), (Box((0, 0, 0), (0.4, 1, 1), "concrete", "wall"),)),
         materials,
         dx_m=dx_m,
         limits=LIMITS,
     )
-    w.advance()
-    assert np.allclose(w.grid.temperature, 20.0)
-    assert w.turn == 1
+    physics_steps(sim, 12)  # 6 s, the turn this ran before PR 4a
+    assert np.allclose(sim.frames.latest.cells.temperature, 20.0)
+    assert (sim.frames.latest.tick, sim.frames.latest.time_s) == (60, 6.0)
 
 
 def test_a_source_smaller_than_a_cell_still_delivers_its_full_power(dx_m, materials):
     # All air, so the fire has no solid to sit on. A source this small is no action's (the limits refuse it), so it
     # arrives the one other way, at construction.
     spark = HeatSource((0.5, 0.5, 0.5), radius_m=1e-4, power_w=100.0)
-    w = World(Scene((1.0, 1.0, 1.0)).build(materials, dx_m=dx_m), limits=LIMITS, sources={"spark": spark})
-    power = w._power_field(Exposure(standing(w.sources, 1), 1))
+    grid = Scene((1.0, 1.0, 1.0)).build(materials, dx_m=dx_m)
+    power = Deposit(grid).power(standing({"spark": spark}, 1), 1)  # heat's resolver for the sources
     assert power is not None
     assert power.sum() == pytest.approx(100.0)
-    assert power[w.grid.cell_of((0.5, 0.5, 0.5))] == pytest.approx(100.0)
+    assert power[grid.cell_of((0.5, 0.5, 0.5))] == pytest.approx(100.0)
 
 
 # -- SEM bridge -------------------------------------------------------------------------------------------------------
 
 
 def _world(dx_m, materials):
-    return World.from_scene(
+    return make(
         Scene((2.0, 2.0, 2.0), (Box((0.8, 0, 0), (1.2, 2, 2), "concrete", "wall"),)),
         materials,
         dx_m=dx_m,
@@ -216,12 +217,12 @@ def test_sensors_and_modulators_refuse_unknown_names(dx_m, materials):
     with pytest.raises(ValueError, match="no region 'door'"):
         bridge.RegionInstrument(w.frames, "door", "integrity")
     with pytest.raises(ValueError, match="no region 'door'"):
-        bridge.StructureModulator(Applier(w), w.frames, "door")
+        bridge.StructureModulator(SteppingPort(w), w.frames, "door")
 
 
 def test_every_sensor_reports_its_schema_and_unit(dx_m, materials):
     w = _world(dx_m, materials)
-    sensors, _ = bridge.region_parts(Applier(w), w.frames, "wall")
+    sensors, _ = bridge.region_parts(SteppingPort(w), w.frames, "wall")
     assert sensors["integrity"].reading_schema == {"type": "float", "range": [0.0, 1.0]}
     assert sensors["breached"].reading_schema == {"type": "float", "range": [0.0, 1.0]}
     assert sensors["temperature_max"].reading_schema == {"type": "float", "range": [-273.0, 6000.0]}
@@ -236,14 +237,15 @@ def test_every_sensor_reports_its_schema_and_unit(dx_m, materials):
 
 def test_a_region_that_lost_all_its_cells_reads_nan_and_cannot_burn(dx_m, materials):
     w = _world(dx_m, materials)
-    sensors, mods = bridge.region_parts(Applier(w), w.frames, "wall")
-    with constructing(w.grid):  # a later paint takes every cell
-        paint(w.grid, w.grid.regions["wall"].cells, "air")
-    assert math.isnan(sensors["temperature_max"].value())
-    res = mods["structure"].execute("ignite", {"power_w": 1000.0})
+    sensors, mods = bridge.region_parts(SteppingPort(w), w.frames, "wall")
+    grid = world_of(w).grid
+    with constructing(grid):  # a later paint takes every cell
+        paint(grid, grid.regions["wall"].cells, "air")
+    res = mods["structure"].execute("ignite", {"power_w": 1000.0})  # its tick publishes the painted cells
     assert not res.success
     assert res.error == "region_gone"  # the closed vocabulary; the words stay in the applier's Outcome
-    assert "fire:wall" not in w.sources
+    assert math.isnan(sensors["temperature_max"].value())
+    assert "fire:wall" not in world_of(w).sources
 
 
 def test_an_imagined_object_over_its_mass_budget_is_refused(dx_m, materials):
@@ -449,7 +451,7 @@ def test_thermal_degradation_follows_its_closed_form_at_every_rig(spacings, mate
         with constructing(g):
             g.temperature[:] = wood.degrade_above_c + excess
         with g.writing(writer=None):
-            physics.run_law(g, damage.THERMAL, dt, LawInputs())
+            physics.run_law(g, damage.THERMAL, dt, LawInputs(), state=STATELESS)
         expected = 1.0 - wood.degrade_rate_per_s_per_100c * dt * excess / 100.0
         assert g.integrity == pytest.approx(np.full(g.shape, expected), rel=1e-6), dx_m
 
@@ -500,7 +502,7 @@ def test_thermal_degradation_is_proportional_to_the_excess(spacings, materials):
         with constructing(g):
             g.temperature[:] = wood.degrade_above_c + excess
         with g.writing(writer=None):
-            physics.run_law(g, damage.THERMAL, 0.5, LawInputs())
+            physics.run_law(g, damage.THERMAL, 0.5, LawInputs(), state=STATELESS)
         expected = 1.0 - wood.degrade_rate_per_s_per_100c * 0.5 * excess / 100.0
         assert g.integrity == pytest.approx(expected, rel=1e-6), dx_m
 

@@ -9,8 +9,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from simcore.core.damage.strike import loss as strike_loss
-from simcore.core.grid import Field, Mask, MaterialGrid
-from simcore.core.law import Cadence, Changes, LawInputs, Load, LoadEffect
+from simcore.core.exposure import Exposure
+from simcore.core.geometry import Field, Mask
+from simcore.core.grid import MaterialGrid
+from simcore.core.law import STATELESS, Cadence, Changes, LawInputs, LawState, Load, LoadEffect
 from simcore.core.topology import Destroy, Request
 
 Resolver = Callable[[MaterialGrid, Load], tuple[Field, Field]]  # (energy per cell in J, integrity lost per cell)
@@ -29,11 +31,18 @@ class LoadsLaw:
     cadence: Cadence = Cadence.PER_RECORD
     reads: tuple[str, ...] = ("material", "integrity")
     writes: tuple[str, ...] = ("integrity",)
+    bound_reads: tuple[str, ...] = ()  # unconditionally stable
 
-    def stable_dt(self, grid: MaterialGrid) -> float:
+    def new_state(self, grid: MaterialGrid) -> LawState:
+        return STATELESS
+
+    def prepare(self, grid: MaterialGrid, state: LawState, exposure: Exposure) -> LawInputs:
+        return LawInputs()
+
+    def stable_dt(self, grid: MaterialGrid, state: LawState) -> float:
         return math.inf
 
-    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs) -> Changes:
+    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs, state: LawState) -> Changes:
         requests: list[Request] = []
         effects: list[LoadEffect] = []
         slated: Mask | None = None  # broken by an earlier load of this batch: counted once
