@@ -170,7 +170,7 @@ Each consumer that asks "is something here", read at 396ae10:
 §5.2) on object surfaces, booked as tile §5.4's `open_air_loss`. Nothing an object loses enters an air cell.
 - **Why:** Phase 1 air has no advection, so heat put into it pools by an amount set by dx. `Deposit`
   refuses air for the same reason. For a cone sample the rule is literally true.
-- **It is permanent for Phase 1,** a Known gap rather than a `TEMPORARY` marker, recorded in `docs/architecture.md`
+- **It is permanent for Phase 1,** a Known gap rather than a `TEMPORARY` marker, recorded in `docs/known_gaps.md`
   in 6.0b's commit with its costs:
   - hot gas never preheats fuel: an object at 200 °C inside 200 °C cells still loses about 4.5 kW/m² (2.3 convective,
     2.2 radiative; D, Physics §4);

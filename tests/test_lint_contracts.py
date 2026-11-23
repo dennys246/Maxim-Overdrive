@@ -134,6 +134,14 @@ def test_a_restated_signature_fails_anywhere_in_scope() -> None:
     ]
 
 
+def test_the_known_gaps_file_is_in_scope() -> None:
+    gaps = "# Known gaps\n\n- Order by `(apply_tick, kind_rank, seq)`.\n"
+    assert check(**{"docs/known_gaps.md": gaps}) == [
+        "docs/known_gaps.md:3: restates log.order (`(apply_tick, kind_rank, seq)`); "
+        "link to docs/design/bounds.md §6.2 instead"
+    ]
+
+
 @pytest.mark.parametrize(
     "rel",
     [

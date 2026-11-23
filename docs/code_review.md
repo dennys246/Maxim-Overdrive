@@ -21,7 +21,7 @@ the Maxim repo), where the record shows that the catches came from a *different*
 4. **Fold.** Every BLOCKER and SHOULD-FIX is fixed on the branch, or answered in writing with a reason. Deferring a
    code finding is allowed only as a `TEMPORARY(phaseN)` marker listed under that phase in `docs/roadmap.md` (the
    lint checks both). A finding with no code to mark (a missing check, a process gap) is deferred as a row in
-   `docs/standards_backlog.md`, or as a known gap in `docs/architecture.md` for physics. NITs are the author's call.
+   `docs/standards_backlog.md`, or as a known gap in `docs/known_gaps.md` for physics. NITs are the author's call.
 5. **Delta round.** After a fold that touches `src/`, `scripts/` or `client/`, rerun the lens whose finding was
    folded, plus wire integrity, on the fold's diff only. Repeat until a round folds nothing in code.
 6. **Record.** The fold commit's message lists each finding and what was done. The hand-off note (and the PR

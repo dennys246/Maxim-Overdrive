@@ -131,7 +131,7 @@ the measured checks, advisory.
   the write window, one per tick. Every write happens inside the write window, as a writer the field registry
   declares, holding its token. The SEM membrane is handed a port and a frame view, never the simulation, and the
   import contracts and the ownership scans hold it to them.
-- Record known physics gaps in `docs/architecture.md` ("Known gaps"), with numbers, instead of hiding them.
+- Record known physics gaps in `docs/known_gaps.md`, their one owner, with numbers, instead of hiding them.
 
 ## Engineering standards
 
@@ -393,7 +393,14 @@ only review holds.
   finding, a measurement, a pushback, a design reversal), add or update an entry in `docs/lessons_maxim_in_games.md`
   in the same commit as the work that taught it, with its evidence and its consequence. Don't save lessons for a
   session's wrap-up: a lesson that lives only in a conversation is lost. This file is the seed of an engine's
-  documentation and the evidence base for pushbacks to Maxim. Guard: B18
+  documentation and the evidence base for pushbacks to Maxim. Guard: `scripts/lint_ids.py::check_lessons` (lesson
+  numbers and citations), B18
+- **A record id names one record** (owner, 2026-11-23). Sessions number decisions, lessons and roadmap items on their
+  own branches, so two can take the same next id. Each decision id is defined once across `docs/design/decisions/`
+  (a decision filed in two logs says `also in` in both rows), each `OD-` item once in `docs/roadmap.md`, and each
+  lesson number once. When ids collide, the branch merged second renumbers its own record and its citations; a green
+  check doesn't prove every citation moved. Guard: `scripts/lint_ids.py::check_decisions`,
+  `scripts/lint_ids.py::check_roadmap_ids`, `scripts/lint_ids.py::check_lessons`
 - **Engine choices get a one-line why** in the code or the commit (scene tree, node types, shaders, GDScript vs C#),
   for a team learning Godot. Guard: B1
 - **Teach game engineering as you go.** The owner is learning game development from the start, and knows software
