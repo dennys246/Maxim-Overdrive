@@ -6,6 +6,8 @@ resolves to the clone every session shares). For each branch it:
 - checks that the bundle's head is the local branch head;
 - copies the bundle into the clone's ``.git/remote-gate/`` (one retry on a dropped connection);
 - runs a bash script there on stdin, never through the remote's login shell (zsh read ``$b:r`` as a modifier once).
+  bash reads that script a byte at a time, so its body is one function, read whole before it runs, and runs with
+  stdin closed: no child can swallow the rest of the script.
 
 The remote script fetches the bundle (a rewritten branch is taken as rewritten), checks out a detached worktree per
 branch, rebuilds its ``.venv`` whenever the lockfile for ``--python``'s version or ``pyproject.toml`` changed, and
@@ -14,9 +16,14 @@ checking that the remote gated the local head, or the failure lines, stderr incl
 failure.
 
 Nothing private is written here or printed: the host comes from ``--remote`` or ``OVERDRIVE_REMOTE`` (an ssh host or
-config alias), and the repository is public. Every remote output passes a mask that replaces the host, the remote
-home, user and temp directory. Remote paths are relative to the remote's home. The remote runs its commands under a
-non-login shell, so ``--python`` should be an absolute path (Homebrew's ``bin`` isn't on that ``PATH``).
+config alias), and the repository is public. Every remote output, ssh's and scp's own messages included, passes a mask
+that replaces the alias, the host and user ssh resolves it to (``ssh -G``), and the remote home, user and temp
+directory. Remote paths are relative to the remote's home. The remote runs its commands under a non-login shell, so
+``--python`` should be an absolute path (Homebrew's ``bin`` isn't on that ``PATH``).
+
+A dropped connection is not survived: the remote gate may run on until it next writes to the dead channel, and the
+pid file refuses a second gate of that branch meanwhile. Surviving a drop (``nohup`` and a log read back) is deferred
+until a run on the mini is actually lost to one.
 
 Run: ``python scripts/remote_gate.py --clone <session>-repo --python <abs python3.12> <branch> [<branch> ...]``
 """
@@ -43,33 +50,42 @@ CLONE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*-repo$")  # one path component, 
 COMPONENT = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")  # no leading dot, so never ".."
 REMOTE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._@-]*$")  # an ssh host or alias, never option-shaped
 
-PRELUDE = r"""set -euo pipefail
-printf 'remote-gate: PRIVATE home %s\n' "${HOME}"
+PRELUDE = r"""printf 'remote-gate: PRIVATE home %s\n' "${HOME}"
 printf 'remote-gate: PRIVATE user %s\n' "$(id -un)"
 printf 'remote-gate: PRIVATE tmp %s\n' "${TMPDIR:-/tmp}"
 for v in $(env | sed -n 's/^\(GIT_[A-Za-z0-9_]*\)=.*/\1/p'); do unset "${v}"; done
 """
-PREPARE_SCRIPT = (
-    PRELUDE
-    + r"""clone="${HOME}/$1"; origin=$2; shared="${HOME}/$3"
+
+
+def _script(body: str) -> str:
+    """``body`` as one function bash reads whole, run with stdin closed (bash -s reads its script a byte at a time)."""
+    return "set -euo pipefail\nmain() {\n" + PRELUDE + body + '}\nmain "$@" </dev/null\n'
+
+
+PREPARE_SCRIPT = _script(
+    r"""clone="${HOME}/$1"; origin=$2; shared="${HOME}/$3"
 if [ ! -d "${clone}/.git" ]; then mkdir -p "$(dirname "${clone}")"; git clone -q "${origin}" "${clone}"; fi
 real=$(cd "${clone}" && pwd -P)
-if [ -d "${shared}" ] && [ "${real}" = "$(cd "${shared}" && pwd -P)" ]; then
-  echo "remote-gate: $1 resolves to the clone every session shares" >&2; exit 2
+if [ -d "${shared}" ]; then
+  case "${real}/" in "$(cd "${shared}" && pwd -P)/"*)
+    echo "remote-gate: $1 resolves to or inside the clone every session shares" >&2; exit 2 ;;
+  esac
 fi
 mkdir -p "${clone}/.git/remote-gate"
 """
 )
-GATE_SCRIPT = (
-    PRELUDE
-    + r"""cd "${HOME}/$1"; branch=$2; name=$3; python=$5
+GATE_SCRIPT = _script(
+    r"""cd "${HOME}/$1"; branch=$2; name=$3; python=$5
 case "$4" in /*) godot=$4 ;; *) godot="${HOME}/$4" ;; esac
-trap '' HUP  # a dropped ssh leaves the gate running; the pid file below then refuses a second run until it ends
 pidfile="${PWD}/.git/remote-gate/${name}.pid"
 if [ -f "${pidfile}" ] && kill -0 "$(cat "${pidfile}")" 2>/dev/null; then
   echo "remote-gate: a gate for ${branch} is still running (pid $(cat "${pidfile}"))" >&2; exit 2
 fi
-echo "$$" > "${pidfile}"; trap 'rm -f "${pidfile}"' EXIT
+rm -f "${pidfile}"  # a stale one: its gate has ended
+if ! (set -o noclobber; echo "$$" > "${pidfile}") 2>/dev/null; then
+  echo "remote-gate: another gate for ${branch} started just now" >&2; exit 2
+fi
+trap 'rm -f "${pidfile}"' EXIT
 git fetch -q origin
 git fetch -q ".git/remote-gate/${name}.bundle" "+refs/heads/${branch}:refs/remotes/bundle/${name}"
 wt=".worktrees/${name}"
@@ -80,6 +96,7 @@ if [ -d "${wt}" ]; then
   fi
   git -C "${wt}" checkout -q --detach "bundle/${name}"
 else
+  git worktree prune  # this session's own clone: forgets a worktree whose directory was deleted by hand
   git worktree add -q --detach "${wt}" "bundle/${name}"
 fi
 cd "${wt}"
@@ -118,6 +135,14 @@ class Config:
     origin: str
     repo: Path
     work: Path
+    masks: tuple[tuple[str, str], ...]  # (value, label) known before any remote call: the alias and what ssh resolves
+
+
+def masked(text: str, masks: tuple[tuple[str, str], ...]) -> str:
+    """``text`` with each private value replaced by its label, longest value first so no value is half replaced."""
+    for value, label in sorted(masks, key=lambda p: -len(p[0])):
+        text = text.replace(value, label)
+    return text
 
 
 @dataclass(frozen=True)
@@ -127,12 +152,10 @@ class Remote:
     lines: tuple[str, ...]
     errors: tuple[str, ...]  # stderr
     code: int
-    private: tuple[tuple[str, str], ...]  # (value, label), longest value first
+    private: tuple[tuple[str, str], ...]  # (value, label)
 
     def shown(self, text: str) -> str:
-        for value, label in self.private:
-            text = text.replace(value, label)
-        return text
+        return masked(text, self.private)
 
     def tail(self) -> str:
         return self.shown("\n".join([*self.lines[-20:], *self.errors[-20:]]))
@@ -163,7 +186,10 @@ def clone_path(gate_root: str, clone: str) -> str:
         raise GateRefused(f"{clone!r} must be one name ending in -repo; the shared clone is never this session's own")
     if not all(COMPONENT.match(p) for p in gate_root.split("/")):
         raise GateRefused(f"{gate_root!r} must be a relative path of plain names")
-    return f"{gate_root}/{clone}"
+    path = f"{gate_root}/{clone}"
+    if path.startswith(f"{SHARED_CLONE}/"):
+        raise GateRefused(f"{path!r} is inside the clone every session shares")
+    return path
 
 
 def local_head(repo: Path, branch: str) -> str:
@@ -195,15 +221,16 @@ def ssh(cfg: Config, script: str, *args: str) -> Remote:
     """Run ``script`` under bash on the remote, with ``args``; its output is masked before anyone sees it."""
     r = _run(["ssh", "-o", "BatchMode=yes", "--", cfg.remote, shlex.join(["bash", "-s", "--", *args])], stdin=script)
     labels = {"home": "<home>", "user": "<user>", "tmp": "<tmp>"}
-    private = {cfg.remote: "<remote>"}
+    private = dict(cfg.masks)
     lines: list[str] = []
     for line in r.stdout.splitlines():
         if m := PRIVATE_LINE.match(line):
             private[m.group(2).rstrip("/")] = labels[m.group(1)]
         else:
             lines.append(line)
-    ordered = tuple(sorted(((v, k) for v, k in private.items() if v), key=lambda p: -len(p[0])))
-    remote = Remote(tuple(lines), tuple(r.stderr.splitlines()), r.returncode, ordered)
+    remote = Remote(
+        tuple(lines), tuple(r.stderr.splitlines()), r.returncode, tuple((v, k) for v, k in private.items() if v)
+    )
     if r.returncode != 0 and not any(HEAD_LINE.match(line) for line in lines):
         raise GateRefused(f"the remote refused (exit {r.returncode}):\n{remote.tail()}")
     return remote
@@ -215,8 +242,22 @@ def prepare(cfg: Config) -> None:
 
 def copy(cfg: Config, bundle: Path, dest: str) -> None:
     cmd = ["scp", "-q", "-o", "BatchMode=yes", "--", str(bundle), f"{cfg.remote}:{dest}"]
-    if _run(cmd).returncode != 0 and _run(cmd).returncode != 0:  # one retry: connections drop
-        raise GateRefused(f"could not copy the bundle for {bundle.stem} (twice)")
+    if _run(cmd).returncode == 0:
+        return
+    retry = _run(cmd)  # one retry: connections drop
+    if retry.returncode != 0:
+        why = masked(retry.stderr.strip(), cfg.masks)
+        raise GateRefused(f"could not copy the bundle for {bundle.stem} (twice): {why}")
+
+
+def ssh_masks(remote: str) -> tuple[tuple[str, str], ...]:
+    """The alias and the host and user ssh resolves it to (``ssh -G``, which connects to nothing), as masks."""
+    r = _run(["ssh", "-G", "--", remote])
+    if r.returncode != 0:
+        raise GateRefused(f"ssh could not resolve the remote: {masked(r.stderr.strip(), ((remote, '<remote>'),))}")
+    found = dict(line.split(" ", 1) for line in r.stdout.splitlines() if line.startswith(("hostname ", "user ")))
+    masks = {remote: "<remote>", found.get("hostname", ""): "<remote>", found.get("user", ""): "<user>"}
+    return tuple((v, k) for v, k in masks.items() if v)
 
 
 def verdict(remote: Remote, head: str) -> str:
@@ -262,7 +303,8 @@ def config(argv: list[str]) -> tuple[Config, list[str]]:
     for branch in a.branches:
         check_branch(branch)
     godot = a.godot or f"{a.gate_root}/godot/Godot.app/Contents/MacOS/Godot"
-    return Config(a.remote, clone, godot, a.python, a.base, _origin_url(a.repo), a.repo, a.work), a.branches
+    masks = ssh_masks(a.remote)
+    return Config(a.remote, clone, godot, a.python, a.base, _origin_url(a.repo), a.repo, a.work, masks), a.branches
 
 
 def main(argv: list[str] | None = None) -> int:

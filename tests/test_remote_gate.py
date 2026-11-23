@@ -13,6 +13,7 @@ import getpass
 import importlib.util
 import os
 import re
+import shutil
 import stat
 import sys
 from pathlib import Path
@@ -30,6 +31,8 @@ sys.modules["remote_gate"] = rg
 _spec.loader.exec_module(rg)
 
 HOST = "secret-host.invalid"  # stands for the private host: it must reach no file and no output
+ALIAS = "gate-box"  # an ssh config alias whose HostName is HOST
+RESOLVE = f'if [ "$1" = -G ]; then printf "hostname %s\\nuser remote-user\\nport 22\\n" "{HOST}"; exit 0; fi\n'
 BRANCH = "phase1/x-y"
 WT = "phase1+x-y"
 LEAK_CHECK = 'if [ -n "${GIT_DIR:-}${MAXIM_OVERDRIVE_UNLOCKED:-}" ]; then echo "leaked into the gate"; exit 5; fi\n'
@@ -37,7 +40,10 @@ PASSING = (
     "#!/bin/bash\n" + LEAK_CHECK + 'echo "godot=$GODOT"\necho "on stderr" >&2\n'
     "printf '\\nprepush: PASS %s (base %s)%s\\n' \"$(git rev-parse --short=12 HEAD)\" stub ''\n"
 )
-FAILING = '#!/bin/bash\necho "godot=$GODOT tmp=$TMPDIR_SEEN"\necho "FAILED tests/test_x.py::test_y"\nexit 3\n'
+FAILING = (
+    '#!/bin/bash\necho "godot=$GODOT tmp=$TMPDIR_SEEN"\necho "ran as $(id -un), alone"\n'
+    'echo "FAILED tests/test_x.py::test_y"\nexit 3\n'
+)
 PYTHON = (  # the remote Python: reports its version, makes a venv whose pip counts its installs
     "#!/bin/bash\n"
     'if [ "$1" = -c ]; then echo "${FAKE_PY_VERSION:-3.12}"; exit 0; fi\n'
@@ -58,9 +64,10 @@ def _exe(path: Path, text: str) -> Path:
 def _fakes(bin_dir: Path, home: Path, *, scp_fails: int = 0) -> None:
     shell = "/bin/zsh" if Path("/bin/zsh").exists() else "/bin/sh"
     plant = f"GIT_DIR=/nonexistent MAXIM_OVERDRIVE_UNLOCKED=1 TMPDIR={home.parent / 'remote-tmp'}/"
+    host = f'{{ [ "$4" = "{HOST}" ] || [ "$4" = "{ALIAS}" ]; }}'
     _exe(
         bin_dir / "ssh",
-        f'#!/bin/bash\n[ "$3" = -- ] && [ "$4" = "{HOST}" ] || {{ echo "ssh: bad argv for $4" >&2; exit 255; }}\n'
+        f'#!/bin/bash\n{RESOLVE}[ "$3" = -- ] && {host} || {{ echo "ssh: bad argv for $4" >&2; exit 255; }}\n'
         f'cd "{home}" && exec /usr/bin/env -i PATH=/usr/bin:/bin HOME="{home}" {plant} {shell} -c "$5"\n',
     )
     drops = home / ".drops"
@@ -68,8 +75,9 @@ def _fakes(bin_dir: Path, home: Path, *, scp_fails: int = 0) -> None:
         bin_dir / "scp",
         '#!/bin/bash\n[ "$4" = -- ] || exit 1\n'
         f'n=$(cat "{drops}" 2>/dev/null || echo 0)\n'
-        f'if [ "$n" -lt {scp_fails} ]; then echo $((n+1)) > "{drops}"; exit 1; fi\n'
-        f'[ "${{6%%:*}}" = "{HOST}" ] || exit 1\n'
+        f'if [ "$n" -lt {scp_fails} ]; then echo $((n+1)) > "{drops}"\n'
+        f'  echo "lost connection to {HOST}" >&2; exit 1; fi\n'
+        f'[ "${{6%%:*}}" = "{HOST}" ] || [ "${{6%%:*}}" = "{ALIAS}" ] || exit 1\n'
         f'dest="{home}/${{6#*:}}"; [ -d "$(dirname "$dest")" ] || {{ echo "scp: no directory" >&2; exit 1; }}\n'
         'cp "$5" "$dest"\n',
     )
@@ -151,6 +159,8 @@ def test_a_worktree_removed_by_hand_is_added_again(world: dict[str, Path]) -> No
     assert rg.main(_args(world, BRANCH)) == 0
     git(_clone(world), "worktree", "remove", "--force", f".worktrees/{WT}")
     assert rg.main(_args(world, BRANCH)) == 0  # with `-b`, the branch left behind would refuse this
+    shutil.rmtree(_clone(world) / ".worktrees" / WT)  # deleted, still registered: `worktree prune` forgets it
+    assert rg.main(_args(world, BRANCH)) == 0
 
 
 def test_a_worktree_on_another_branch_is_refused_and_its_message_reaches_stderr(
@@ -173,19 +183,40 @@ def test_a_failing_gate_exits_nonzero_and_masks_the_remote_home_user_temp_and_ho
     assert "FAILED tests/test_x.py::test_y" in err
     assert "(exit 3)" in err
     assert "godot=<home>/gate/godot/Godot.app/Contents/MacOS/Godot tmp=<tmp>" in err
+    assert "ran as <user>, alone" in err  # the remote user outside any path: only the user mask hides it
     assert str(world["home"]) not in err
     assert getpass.getuser() not in err
     assert HOST not in err
 
 
-def test_a_connection_failure_shows_ssh_stderr_with_the_host_masked(
-    world: dict[str, Path], capsys: pytest.CaptureFixture[str]
+@pytest.mark.parametrize("remote", [HOST, ALIAS])
+def test_a_connection_failure_shows_ssh_stderr_with_the_alias_and_resolved_host_masked(
+    world: dict[str, Path], monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], remote: str
 ) -> None:
-    _exe(world["tmp"] / "bin" / "ssh", f'#!/bin/bash\necho "ssh: connect to host {HOST}: refused" >&2\nexit 255\n')
+    monkeypatch.setenv("OVERDRIVE_REMOTE", remote)
+    refused = f'echo "ssh: connect to host {HOST} port 22: timed out ({remote})" >&2\nexit 255\n'
+    _exe(world["tmp"] / "bin" / "ssh", f"#!/bin/bash\n{RESOLVE}{refused}")
     assert rg.main(_args(world, BRANCH)) == 1
     err = capsys.readouterr().err
-    assert "ssh: connect to host <remote>: refused" in err
+    assert "ssh: connect to host <remote> port 22: timed out (<remote>)" in err
     assert HOST not in err
+    assert ALIAS not in err
+
+
+def test_a_remote_ssh_cannot_resolve_is_refused_with_the_alias_masked(
+    world: dict[str, Path], monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("OVERDRIVE_REMOTE", ALIAS)
+    _exe(world["tmp"] / "bin" / "ssh", f'#!/bin/bash\necho "ssh: bad config for {ALIAS}" >&2\nexit 255\n')
+    assert rg.main(_args(world, BRANCH)) == 1
+    err = capsys.readouterr().err
+    assert "ssh could not resolve the remote: ssh: bad config for <remote>" in err
+    assert list(world["home"].iterdir()) == []
+
+
+def test_an_alias_is_gated_like_a_host(world: dict[str, Path], monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OVERDRIVE_REMOTE", ALIAS)
+    assert rg.main(_args(world, BRANCH)) == 0
 
 
 @pytest.mark.parametrize(
@@ -197,6 +228,7 @@ def test_a_connection_failure_shows_ssh_stderr_with_the_host_masked(
         ("--clone", "-repo"),
         ("--gate-root", "gate/.."),
         ("--gate-root", "/abs"),
+        ("--gate-root", "overdrive-gate/repo"),  # a clone inside the shared clone's working tree
         ("--remote", "-oProxyCommand=touch pwned"),
         ("--remote", ""),
     ],
@@ -225,8 +257,19 @@ def test_a_clone_that_resolves_to_the_shared_one_is_refused_on_the_remote(
     (world["home"] / "gate").mkdir()
     (world["home"] / "gate" / "session-repo").symlink_to(shared)
     assert rg.main(_args(world, BRANCH)) == 1
-    assert "resolves to the clone every session shares" in capsys.readouterr().err
+    assert "resolves to or inside the clone every session shares" in capsys.readouterr().err
     assert not (shared / ".git" / "remote-gate").exists()
+
+
+def test_a_clone_that_resolves_inside_the_shared_one_is_refused_on_the_remote(
+    world: dict[str, Path], capsys: pytest.CaptureFixture[str]
+) -> None:
+    shared = world["home"] / "overdrive-gate" / "repo"
+    git(world["tmp"], "clone", "-q", str(world["origin"]), str(shared))
+    (world["home"] / "gate").symlink_to(shared / "nested")  # gate/session-repo lands in the shared working tree
+    (shared / "nested").mkdir()
+    assert rg.main(_args(world, BRANCH)) == 1
+    assert "resolves to or inside the clone every session shares" in capsys.readouterr().err
 
 
 def test_an_option_shaped_remote_is_refused_by_name_not_only_by_ssh(world: dict[str, Path]) -> None:
@@ -280,7 +323,9 @@ def test_a_dropped_copy_is_retried_once_and_two_drops_refuse(
     assert rg.main(_args(world, BRANCH)) == 0
     (world["home"] / ".drops").write_text("-5")  # five more drops: both attempts fail
     assert rg.main(_args(world, BRANCH)) == 1
-    assert "twice" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "(twice): lost connection to <remote>" in err
+    assert HOST not in err
 
 
 def test_the_venv_is_rebuilt_when_the_lock_or_pyproject_changes_and_only_then(world: dict[str, Path]) -> None:
@@ -290,9 +335,20 @@ def test_the_venv_is_rebuilt_when_the_lock_or_pyproject_changes_and_only_then(wo
     assert len(installs.read_text().split()) == 1
     _commit(world["local"], "pyproject.toml", "[project]\nname = 'x'\n", "pyproject")
     assert rg.main(_args(world, BRANCH)) == 0
+    stale = _clone(world) / ".worktrees" / WT / ".venv" / "stale-package"
+    stale.write_text("from the old lock\n")
     _commit(world["local"], "constraints/py3.12.txt", "numpy==2\n", "lock")
     assert rg.main(_args(world, BRANCH)) == 0
     assert len(installs.read_text().split()) == 3
+    assert not stale.exists()  # rebuilt from nothing, not over the old venv
+    other = _exe(world["tmp"] / "otherpy", PYTHON)  # another interpreter at the same version
+    assert rg.main([*_args(world, BRANCH)[:-1], "--python", str(other), BRANCH]) == 0
+    assert len(installs.read_text().split()) == 4
+
+
+def test_a_child_that_reads_stdin_cannot_swallow_the_rest_of_the_remote_script(world: dict[str, Path]) -> None:
+    _exe(world["python"], PYTHON.replace('mkdir -p "$3/bin"', 'cat > /dev/null; mkdir -p "$3/bin"'))
+    assert rg.main(_args(world, BRANCH)) == 0  # bash -s reads byte by byte: without </dev/null cat eats the rest
 
 
 def test_a_failed_install_shows_its_log_and_is_rebuilt_next_time(
