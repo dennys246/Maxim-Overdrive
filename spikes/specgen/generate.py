@@ -19,7 +19,6 @@ from __future__ import annotations
 import argparse
 import json
 import platform
-import subprocess
 import sys
 import time
 import urllib.error
@@ -208,11 +207,6 @@ def run_sample(
     return attempts
 
 
-def _git(*args: str) -> str:
-    out = subprocess.run(["git", "-C", str(protocol.ROOT), *args], check=True, capture_output=True, text=True)
-    return out.stdout.strip()
-
-
 def _lockfile() -> dict[str, str]:
     name = f"py{sys.version_info.major}.{sys.version_info.minor}.txt"
     return {"name": name, "sha256": protocol.sha256_file(protocol.ROOT / "constraints" / name)}
@@ -256,13 +250,14 @@ def header(
     """Plan §7's run header. The flags keep arms.yaml's placeholder for the host, so they compare byte for byte.
     ``weights`` is the SHA-256 measured on the server's machine and checked against freeze.sha256."""
     frozen = protocol.check_frozen()
+    tree = protocol.engine_tree()  # before HEAD is read: it refuses a src that neither would name
     data = protocol.ROOT / "data"
     half = protocol.TRUTH_DX_M / 2
     return {
         "kind": "header",
         "version": 0,
-        "simcore_commit": _git("rev-parse", "HEAD"),
-        "src_tree": _git("rev-parse", "HEAD:src"),
+        "simcore_commit": protocol.git(protocol.ROOT, "rev-parse", "HEAD"),
+        "src_tree": tree,
         "spike_tree": protocol.spike_tree(),
         "lockfile": _lockfile(),
         "data_sha256": {p: protocol.sha256_file(data / p) for p in ("materials/core.yaml", "world/actions.yaml")},

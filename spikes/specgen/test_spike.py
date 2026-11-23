@@ -667,22 +667,61 @@ def test_m5_checks_the_engine_before_it_burns_anything(monkeypatch: pytest.Monke
     assert burned == []
 
 
-def test_m5_refuses_an_uncommitted_src_which_no_tree_names(tmp_path: Path) -> None:
-    # Delta 8, D8-S2: HEAD:src names the committed engine, not an edited one.
+def _committed_src(tmp_path: Path) -> Path:
+    """A throwaway repository with one committed file under src, deaf to the user's git config and signing."""
     env = {"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "GIT_CONFIG_NOSYSTEM": "1"}
+    repo = tmp_path / "repo"
+    (repo / "src" / "simcore").mkdir(parents=True)
+    (repo / "src" / "simcore" / "__init__.py").write_text("K = 1\n")
+    for args in (
+        ["init", "-q"],
+        ["add", "-A"],
+        ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "commit", "-qm", "t"],
+    ):
+        subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, env=env)
+    return repo
 
-    def git(*args: str) -> None:
-        subprocess.run(["git", "-C", str(tmp_path), *args], check=True, capture_output=True, env=env)
 
-    (tmp_path / "src").mkdir()
-    (tmp_path / "src" / "heat.py").write_text("K = 1\n")
-    git("init", "-q")
-    git("add", "-A")
-    git("-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "commit", "-qm", "t")
-    assert len(burn.src_tree(tmp_path)) == 40
-    (tmp_path / "src" / "heat.py").write_text("K = 2\n")
-    with pytest.raises(RuntimeError, match="M5 refuses to score: src has uncommitted changes"):
-        burn.src_tree(tmp_path)
+def test_the_engine_tree_refuses_a_src_no_tree_names(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Delta 8, D8-S2; delta 9, D9-N1 and D9-N4: a tracked edit or an untracked file, whatever the user's git config
+    # and an inherited GIT_DIR say.
+    repo = _committed_src(tmp_path)
+    engine = [repo / "src" / "simcore" / "__init__.py"]
+    assert len(protocol.engine_tree(repo, engine)) == 40
+    with (repo / ".git" / "config").open("a") as config:  # the repository's own config: engine_tree reads it
+        config.write("[status]\n\tshowUntrackedFiles = no\n")
+    monkeypatch.setenv("GIT_DIR", str(tmp_path / "elsewhere"))
+    (repo / "src" / "new.py").write_text("")
+    with pytest.raises(RuntimeError, match="src has uncommitted changes"):
+        protocol.engine_tree(repo, engine)
+    (repo / "src" / "new.py").unlink()
+    (repo / "src" / "simcore" / "__init__.py").write_text("K = 2\n")
+    with pytest.raises(RuntimeError, match="src has uncommitted changes"):
+        protocol.engine_tree(repo, engine)
+
+
+def test_the_engine_tree_refuses_an_engine_imported_from_another_checkout(tmp_path: Path) -> None:
+    # Delta 9, D9-S1: a borrowed venv's editable install imports another checkout's simcore.
+    repo = _committed_src(tmp_path)
+    with pytest.raises(RuntimeError, match="imported from outside"):
+        protocol.engine_tree(repo, [repo / "src" / "simcore" / "__init__.py", tmp_path / "other" / "src" / "x.py"])
+    with pytest.raises(RuntimeError, match="imported from outside"):
+        protocol.engine_tree(repo)  # this checkout's own engine is not under the throwaway's src
+
+
+def test_m5_and_the_run_header_record_the_engine_tree_and_refuse_with_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Delta 9, D9-S2 and D9-N2: both records go through engine_tree, so neither can skip its refusal.
+    def refused() -> str:
+        raise RuntimeError("planted: src has uncommitted changes")
+
+    monkeypatch.setattr(burn, "check_engine", lambda: "c6d4f10")
+    monkeypatch.setattr(protocol, "engine_tree", refused)
+    with pytest.raises(RuntimeError, match="planted"):
+        burn.m5([])
+    with pytest.raises(RuntimeError, match="planted"):
+        write_run(tmp_path / "run.jsonl", [])
 
 
 def test_m5_burn_returns_a_fire_on_air_and_a_burnout_as_the_golden_rows_say() -> None:

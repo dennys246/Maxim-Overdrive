@@ -228,3 +228,19 @@ proved by a mutation of `burn.py` that turns exactly one M5 test red (six mutati
 | D8-N1 | E18 claims any engine that would move an M5 number stops M5; the golden is wood alone | E18 now says what the check covers: the golden's six specs, with data files refused at scoring by `data_sha256`, and a `src` change that moves only another material's burn passes | open (for the reviewer) |
 | D8-N2 | the errata intro's "committed before any data exists" has no exception; E18's time is stale | the intro names E18 as the exception; E18 says it was first written at 23:34 on 2026-11-22 and rewritten on 2026-11-23 | open (for the reviewer) |
 | D7-N2 (reopened) | `burn()`'s returns on a fire on air and a burnout are untested | `test_m5_burn_returns_a_fire_on_air_and_a_burnout_as_the_golden_rows_say` derives them from the golden's rows; red with the fire-on-air return deleted, and with the censor moved below the integrity read | open (for the reviewer) |
+
+## Delta 9 (`delta9.md`, verbatim): 0 BLOCKER, 2 SHOULD-FIX, 4 NIT, on 5dc79b5, the delta-8 fold
+
+One reader (Executor, Architecture, Wire integrity, Determinism) on `8dcc0ff..5dc79b5`. The reader's statuses for
+delta 8: D8-S1, D8-S2, D8-N1, D8-N2 and D7-N2 fixed. The fold moves the engine record into one function,
+`protocol.engine_tree`, which both records call: M5's output and generate.py's run header. Each fold below was proved
+by a mutation that turns exactly one test red (seven mutations, seven reds).
+
+| # | Finding | Fold | Status |
+|---|---|---|---|
+| D9-S1 | `src_tree` hashes `protocol.ROOT`'s `src`, while `simcore` may come from a borrowed venv's checkout; `data_sha256` has the same split | `engine_tree` refuses unless `simcore` and `maxim_overdrive` were imported from `ROOT/src`, so the tree, the engine and the data beside the package are one checkout. `test_the_engine_tree_refuses_an_engine_imported_from_another_checkout`; red without the check | open (for the reviewer) |
+| D9-S2 | no test sees `m5` itself refuse a dirty `src` | `test_m5_and_the_run_header_record_the_engine_tree_and_refuse_with_it` plants a refusing `engine_tree`; red with `m5`'s call inlined to `rev-parse`, and with the header's | open (for the reviewer) |
+| D9-N1 | `status.showUntrackedFiles=no` hides an untracked file under `src` | `--untracked-files=all`; the test sets that config in the throwaway repository and adds an untracked file; red without the flag | open (for the reviewer) |
+| D9-N2 | `generate.py::header` records `HEAD:src` on a dirty tree, by a second `_git` | the header records `engine_tree()`, read before `HEAD`. Not deferred: the reader's reason (a changed `generate.py` changes `spike_tree`, so a resume refuses) applies to every commit already, because a resume must also match `simcore_commit`; a run in progress resumes on its own commit | open (for the reviewer) |
+| D9-N3 | E18's data sentence claims more than `data_sha256` checks | E18 says `data_sha256` holds a run to the data it was generated on, that `git diff c6d4f10 -- data` is empty on 2026-11-23, and that no check holds the data to `c6d4f10` | open (for the reviewer) |
+| D9-N4 | `src_tree`'s git inherits `GIT_DIR` and the rest | `protocol.git` drops every `GIT_*` variable; the test sets `GIT_DIR` to another path; red when the environment is inherited | open (for the reviewer) |
