@@ -39,8 +39,8 @@ func _xf(buffer: PackedFloat32Array, i: int) -> Transform3D:
 func test_each_object_is_one_instance_of_its_kind(t: TestContext) -> void:
 	var f: FuelFixture = _fixture(t)
 	var fuel: FuelPass = _pass(t, f)
-	t.check_eq(fuel.rods.multimesh.instance_count, 76, "rods")
-	t.check_eq(fuel.slabs.multimesh.instance_count, 1, "slabs")
+	t.check_eq(fuel.rods.multimesh.instance_count, 77, "rods")
+	t.check_eq(fuel.slabs.multimesh.instance_count, 2, "slabs")
 	fuel.free()
 
 
@@ -216,18 +216,30 @@ func test_every_uniform_the_pass_sets_is_one_both_shaders_declare(t: TestContext
 	fuel.free()
 
 
-func test_a_rods_fringe_is_its_cores_next_pass_and_gets_every_uniform(t: TestContext) -> void:
+func test_a_rods_colour_core_then_fade_follow_its_depth_and_get_every_uniform(t: TestContext) -> void:
 	var f: FuelFixture = _fixture(t)
 	var fuel: FuelPass = _pass(t, f)
 	t.check(fuel.use_pixel_metres(0.01, 0.5).is_empty(), "a pixel size")
-	var core: ShaderMaterial = fuel.rods.material_override
-	var fringe: ShaderMaterial = core.next_pass
-	t.check(fringe != null and fringe.shader == FuelPass.ROD_FRINGE_SHADER, "the fringe draws after the core")
+	var depth: ShaderMaterial = fuel.rods.material_override
+	var core: ShaderMaterial = depth.next_pass
+	var fade: ShaderMaterial = core.next_pass if core != null else null
+	t.check(core != null and core.shader == FuelPass.ROD_FRINGE_SHADER, "the colour's core draws after the depth")
+	t.check(fade != null and fade.shader == FuelPass.ROD_FRINGE_SHADER, "and its fade after the core")
+	if fade == null:
+		fuel.free()
+		return
+	t.check_eq([core.get_shader_parameter(&"fade_half"), fade.get_shader_parameter(&"fade_half")], [null, true],
+		"the core draws coverage 0.5 and up (the shader's default), the fade below it")
+	# Every core before any fade, and flames last (review D1, C-S2): priorities, since all of them blend.
+	var priorities: Array[int] = [depth.render_priority, core.render_priority, fade.render_priority,
+		(fuel.flames.material_override as ShaderMaterial).render_priority]
+	t.check_eq(priorities, [0, 1, 2, 3] as Array[int], "depth, core, fade, flames")
 	for u: Dictionary in FuelPass.ROD_SHADER.get_shader_uniform_list():
 		var uniform_name: StringName = u["name"]
-		t.check_eq(fringe.get_shader_parameter(uniform_name), core.get_shader_parameter(uniform_name),
-			"%s is the same on both passes" % uniform_name)
-	t.check_eq(fringe.get_shader_parameter(&"render_pixel_m"), 0.02, "the fade is one rendered pixel")
+		for colour: ShaderMaterial in [core, fade]:
+			t.check_eq(colour.get_shader_parameter(uniform_name), depth.get_shader_parameter(uniform_name),
+				"%s is the same on every pass" % uniform_name)
+	t.check_eq(fade.get_shader_parameter(&"render_pixel_m"), 0.02, "the fade is one rendered pixel")
 	fuel.free()
 
 

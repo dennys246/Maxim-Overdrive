@@ -1,4 +1,4 @@
-// Rods (docs/design/client_objects.md §4): what the rod's two passes share. A unit cylinder per instance, its axis
+// Rods (docs/design/client_objects.md §4): what the rod's three passes share. A unit cylinder per instance, its axis
 // along local y, scaled by the instance transform to the rod's length and radius. The vertex shader widens a thin rod
 // to the 2 px floor plus one rendered pixel; the fragment shader finds its own segment, drops a burnt-through one (per
 // pixel, never per vertex, §4.2), and computes its coverage: its distance from the drawn silhouette in rendered
@@ -8,10 +8,10 @@
 // Two passes, because a blended edge can't both write depth and fade (review C-S1): Compatibility's prepass for a
 // blended material keeps only fragments at alpha 1, so a floored stick on the laptop tier, whose fade spans its whole
 // width, wrote no depth, and crossing sticks occluded each other by instance order. The depth pass (fuel_rod.gdshader)
-// writes depth, and no colour, over the drawn silhouette (coverage 0.5 and up); the colour pass
-// (fuel_rod_fringe.gdshader, its next pass) blends the whole coverage ramp, depth-tested against every silhouette.
-// The cost: where one rod's fade overlaps another rod behind it inside the front rod's silhouette, the rear rod is
-// hidden there, so that pixel blends the front rod over what is behind both.
+// writes depth, and no colour, over the drawn silhouette (coverage 0.5 and up); the colour (fuel_rod_fringe.gdshader,
+// its next passes) blends the whole coverage ramp, depth-tested against every silhouette: every rod's core, then every
+// rod's fade outside it, so a front fade lands on a rear rod. The cost: inside the front rod's silhouette the rear rod
+// is hidden, so the front rod's inner fade blends over what is behind both (D1's inner half).
 //
 // Why view space: the camera is orthographic, so view-space x and y are screen-aligned metres, and a fragment's
 // distance from the rod's projected axis is a 2-D distance there. A perspective camera would need the projection

@@ -107,8 +107,10 @@ def test_the_stability_check_passes_an_ideal_stick_and_fails_a_flickering_one(tm
     assert gs.findings(tmp_path) == []
     _stability_frames(tmp_path, flicker=True)
     found = gs.findings(tmp_path)
-    assert len(found) == 1
+    # Drawn at alternate offsets only, it crawls and it also draws half its area, so both checks find it.
+    assert len(found) == 2
     assert found[0].startswith("stick stability (laptop-30): ")
+    assert found[1].startswith("coverage encoding (laptop-30): area ratio 0.5")
 
 
 def test_a_stability_record_that_is_missing_partial_or_short_is_a_finding(tmp_path):
@@ -137,3 +139,18 @@ def test_the_stability_keys_are_what_the_scene_draws():
     offsets = int(source.split("const OFFSETS: int = ")[1].split()[0])
     assert tuple(sorted(f"{t}-{int(float(z))}" for t in tiers for z in zooms)) == gs.KEYS
     assert offsets == gs.OFFSETS
+
+
+def test_linear_coverage_conserves_area_and_srgb_encoded_coverage_is_found():
+    axes = _axes()
+    ideal = [gs.ideal_coverage(SHAPE, a, WIDTH) for a in axes]
+    assert gs.area_ratio(ideal, axes, WIDTH) == pytest.approx(1.0, abs=0.01)
+    assert gs.area_findings("rig-72", ideal, axes, WIDTH) == []
+    encoded = [gs.srgb(f) for f in ideal]
+    found = gs.area_findings("rig-72", encoded, axes, WIDTH)
+    assert len(found) == 1
+    assert found[0].startswith("coverage encoding (rig-72): area ratio 1.")
+
+
+def test_srgb_is_the_standard_transfer():
+    assert gs.srgb(np.array([0.0, 0.002, 0.5, 1.0])) == pytest.approx([0.0, 0.02584, 0.73536, 1.0], abs=1e-4)

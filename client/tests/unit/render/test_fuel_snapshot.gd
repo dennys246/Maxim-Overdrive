@@ -15,11 +15,11 @@ func test_the_committed_fixture_loads(t: TestContext) -> void:
 	if f.snapshot == null:
 		return
 	var snap: FuelSnapshot = f.snapshot
-	t.check_eq(snap.rows["objects"], 77, "objects")
-	t.check_eq(snap.rows["slabs"], 1, "one slab")
+	t.check_eq(snap.rows["objects"], 79, "objects")
+	t.check_eq(snap.rows["slabs"], 2, "two slabs")
 	t.check_eq(snap.kind_ids, {"rod": 0, "slab": 1} as Dictionary[String, int], "the kind vocabulary")
 	var first: PackedInt32Array = snap.first_rows()
-	t.check(first[first.size() - 8] > 2048, "the visible objects start past half-float exactness")
+	t.check(first[first.size() - 10] > 2048, "the visible objects start past half-float exactness")
 	t.check_eq(first[0], 0, "the first object starts at row 0")
 
 
@@ -48,8 +48,8 @@ func test_only_structural_columns_move_the_structure(t: TestContext) -> void:
 
 func test_each_kind_has_its_own_geometry_rows(t: TestContext) -> void:
 	var snap: FuelSnapshot = _loaded(t).snapshot
-	t.check_eq(snap.geometry_rows("rod").size(), 76, "the rods")
-	t.check_eq(snap.geometry_rows("slab").size(), 1, "the slab")
+	t.check_eq(snap.geometry_rows("rod").size(), 77, "the rods")
+	t.check_eq(snap.geometry_rows("slab").size(), 2, "the slabs")
 	t.check_eq(snap.geometry_rows("bed").size(), 0, "a kind the vocabulary doesn't name has none")
 
 
@@ -192,6 +192,23 @@ func test_the_per_frame_check_refuses_a_bad_state_or_a_short_column(t: TestConte
 		var short: FuelSnapshot = _with(t, key, drop_one)
 		var found: Array[String] = short.frame_problems()
 		t.check(found.size() == 1 and found[0].begins_with(key), "a short %s: %s" % [key, found])
+
+
+func test_the_per_frame_check_refuses_a_temperature_outside_the_clip(t: TestContext) -> void:
+	# f16 bits: +inf, -inf, a NaN, 6,004 (the next half above 6,000) and -273.25 (the next below -273); at the first
+	# row, one inside and the last, so a loop that stops short is caught (the tables' own clip copy: test_fuel_fixtures).
+	var last: int = _loaded(t).snapshot.rows["segments"] - 1
+	for row: int in [0, 5, last]:
+		for bits: int in [0x7C00, 0xFC00, 0x7E00, 0x6DDD, 0xDC45]:
+			var snap: FuelSnapshot = _with(t, "segments.surface_temperature_c",
+				func(b: PackedByteArray) -> void: b.encode_u16(row * 2, bits))
+			var found: Array[String] = snap.frame_problems()
+			var named: bool = found.size() == 1 and found[0].begins_with("segment row %d is at" % row)
+			t.check(named, "0x%04x at row %d is refused: %s" % [bits, row, found])
+	for edge: float in [FuelSnapshot.TEMPERATURE_MIN_C, FuelSnapshot.TEMPERATURE_MAX_C]:
+		var at_edge: FuelSnapshot = _with(t, "segments.surface_temperature_c",
+			func(b: PackedByteArray) -> void: b.encode_half(5 * 2, edge))
+		t.check(at_edge.frame_problems().is_empty(), "%s °C, on the clip, passes" % edge)
 
 
 func _header() -> Dictionary:

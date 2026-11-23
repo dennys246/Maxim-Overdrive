@@ -365,6 +365,9 @@ capture, the token, caps, 1009), `HostOnly` with a guest-role view, and `player_
 - The fuel decoder's world-extent check (`client_objects.md` §3.2; owner, 2026-11-22, review TB2-S2): fuel geometry
   outside the cell snapshot's extent is refused, as fire_solid §1.3 refuses it on the server; finite but huge
   geometry passes the client's checks until then.
+- The fuel encoder clips `surface_temperature_c` to exactly [−273.0, 6000.0] (`client_objects.md` §3.3; both exact in
+  f16, where −273.15 rounds to −273.25, which the client refuses), with a test against `FuelSnapshot`'s constants
+  (fuel_leftovers AW-D1, D2-1).
 - Deferred from the round-1 review (author-proposed; the delta round sets their status):
   - `dispatch` hands each message to the simulation lane through a bounded per-session queue (realtime_lanes_coop
     §4.1), never touching the world on the network loop (C3); the import contract `network-lane-off-the-world` fences
@@ -412,14 +415,24 @@ capture, the token, caps, 1009), `HostOnly` with a guest-role view, and `player_
 - The fuel-object pass (`client_objects.md` §4–§7). Built on `phase1/client-fuel`: the per-instance row texture
   with fixture rows past 2,048; the per-fragment segment lookup; the 2 px output floor; rod edge coverage in two
   passes (owner ruling 3); Phase 1 flames, gated by burnout and burn-through; §7.2's fuel checks, each proved by
-  deletion. Remaining: picking objects with no snap; slab edge coverage (`research/fuel_antialiasing.md` item 2);
-  a stick resting on a slab, against the slab floor's growth (`reviews/client_fuel/`, C-S4; anchored at the top face,
-  the growth hides in whatever the slab rests on, D2); the rod edge at crossings, sorted per yaw or measured as a
-  crossing in the stability check (`research/fuel_antialiasing.md`, D1); rod ends' edge coverage; a guard on the
-  shader's temperature clamp, which no fixture reaches (E2-S3); a two-frame golden for
-  the in-place segment upload (E-N2); §7.2's Severity, Outlines, charred-face Crack and fuel Speckle checks, with the
-  groove view; whether fuel-ID coverage reads linear or sRGB on each tier, stated and tested (W-S5), before the
-  per-object area bar is relied on; the fuel B5 rows; the structural-glow Known gap in `docs/known_gaps.md`;
+  deletion. Built on `phase1/fuel-leftovers` (rulings in `reviews/client_objects/owner_rulings.md`, 6-9): rod colour
+  in two passes, every core before any fade, so a front stick's outer fade lands on a rear rod at any crossing (D1's
+  outer half, ruling 7), checked on rig and max by a bar from the coverage model (ruling 8); a splinter resting on a
+  plank leaning to face the camera, checked against burial (C-S4: face-on, the slab's edge sine is at its floor and
+  the growth largest; a flat plank's rise, 8 mm at 72 px/m, is below any floored rod's half-width); the in-place
+  segment upload, checked on a steady second frame (E-N2); temperatures outside §3.3's clip refused by the decoder
+  (ruling 9), the shader's clamp kept and unseen in the goldens (ruling 6); coverage measured linear on rig and laptop
+  and checked by area (W-S5). Remaining: picking objects with no snap; slab edge coverage
+  (`research/fuel_antialiasing.md` item 2); rod ends' edge coverage; D1's inner half (a front rod's inner fade blends
+  against what is behind both rods); a laptop measure of the outer fade, freshly derived (the upscale smears the core
+  into the band: share 0.258 against 0.233 with one pass); touching rods, whose widened shells interpenetrate: for two
+  touching 5 mm sticks on rig, depth hides 39% of the front fade and notches 10% of its core, and the rear fade draws
+  over the front core at 16–22% of samples (fuel_leftovers N-1, D2-4, a geometry model, not a render); fade over fade
+  in instance order (N-5, at most 0.25 of the colour difference); `golden_stability.area_findings` recomputing the
+  ideal coverage (P-N3, 1.7 s a run; when the golden job's time gets a B5 row); the anchored slab growth hiding in
+  its support (D2,
+  recorded: nothing to fix while it hides); §7.2's Severity, Outlines, charred-face Crack and fuel Speckle checks,
+  with the groove view; the fuel B5 rows; the structural-glow Known gap in `docs/known_gaps.md`;
   the fuel fixture's head-on row readout (C S7).
 - The stick-stability measure (`client_objects.md` §7.2; S7), fixed 2026-11-22 before any renderer was measured: a
   20 mm rod 1 m long, at 72 and 30 px/m, on the rig (scale 1.0) and laptop (0.5) tiers, drawn in the fuel-coverage
