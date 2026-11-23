@@ -18,7 +18,7 @@ extends RefCounted
 
 const MAX_DEPTH: int = 32
 const INT_MAX: int = 9007199254740991  # 2^53 - 1: the largest n for which a double tells n from n + 1
-const _INT_DIGITS: int = 16  # INT_MAX's digit count: a longer integer literal is refused before to_int reads it
+const _INT_DIGITS: int = 16  # INT_MAX's digit count: longer is past the pin, refused before to_int (18 would do too)
 ## The digits of 2^1024 - 2^970, halfway between the largest double and the next power: at or past it a literal
 ## rounds to inf, as Python's float() rounds it (to even); below it, to the largest double. String.to_float rounds
 ## some of those below to inf (step 7 delta review D-N2).
@@ -227,7 +227,9 @@ static func _decoded(utf8: PackedByteArray) -> String:
 func _escape(utf8: PackedByteArray) -> void:
 	_at += 1
 	var b: int = _peek()
-	var simple: Dictionary = {0x22: 0x22, 0x5C: 0x5C, 0x2F: 0x2F, 0x62: 0x08, 0x66: 0x0C, 0x6E: 0x0A, 0x72: 0x0D, 0x74: 0x09}
+	var simple: Dictionary = {
+		0x22: 0x22, 0x5C: 0x5C, 0x2F: 0x2F, 0x62: 0x08, 0x66: 0x0C, 0x6E: 0x0A, 0x72: 0x0D, 0x74: 0x09,
+	}
 	if simple.has(b):
 		var out: int = simple[b]
 		utf8.append_array(PackedByteArray([out]))
@@ -272,7 +274,13 @@ func _hex4() -> int:
 ## One UTF-8 sequence, held to the standard: no overlong form, no surrogate, nothing past U+10FFFF.
 func _utf8_sequence(utf8: PackedByteArray) -> void:
 	var lead: int = _peek()
-	var length: int = 2 if lead >= 0xC2 and lead <= 0xDF else 3 if lead >= 0xE0 and lead <= 0xEF else 4 if lead >= 0xF0 and lead <= 0xF4 else 0
+	var length: int = 0  # a lead byte no sequence uses (C0, C1, F5 and up) stays 0
+	if lead >= 0xC2 and lead <= 0xDF:
+		length = 2
+	elif lead >= 0xE0 and lead <= 0xEF:
+		length = 3
+	elif lead >= 0xF0 and lead <= 0xF4:
+		length = 4
 	if length == 0 or _at + length > _bytes.size():
 		_read.refuse("bad_json", "bytes that are not UTF-8")
 		return
@@ -334,8 +342,9 @@ func _digits() -> bool:
 
 
 func _integer(text: String) -> Variant:
-	# The digit count decides first: String.to_int prints an engine ERROR on overflow and returns -2^63, whose absi
-	# is still negative, so a longer literal never reaches it (step 7 delta 3, Wire B-1; integer_past_u64, 2^63).
+	# The digit count decides first, so a longer literal never reaches String.to_int: past int64 it returns -2^63
+	# (with an engine ERROR above 2^63, silently at it), and absi(-2^63) is still negative. The fixtures at 2^63 and
+	# integer_past_u64 hold it (step 7 delta 3, Wire B-1).
 	var digits: int = text.length() - (1 if text.begins_with("-") else 0)
 	if digits > _INT_DIGITS or absi(text.to_int()) > INT_MAX:
 		_read.refuse("bad_json", "an integer of magnitude 2^53 or more (%d characters)" % text.length())

@@ -41,7 +41,7 @@ def json_texts() -> dict[str, Fixture]:
 def _grammar_edges() -> dict[str, Fixture]:
     """RFC 8259's edges, where a parser written for the wire and Python's can part (O63): each judged alike, and each
     accepted one read to the same value (``value_tree``)."""
-    texts = {**_string_edges(), **_number_and_structure_edges()}
+    texts = {**_string_edges(), **_float_edges(), **_number_and_structure_edges()}
     return {name: _judged(data, outcome) for name, (data, outcome) in texts.items()}
 
 
@@ -107,7 +107,8 @@ def _string_edges() -> dict[str, tuple[bytes, str]]:
     }
 
 
-def _number_and_structure_edges() -> dict[str, tuple[bytes, str]]:
+def _float_edges() -> dict[str, tuple[bytes, str]]:
+    """Floats at a double's edges: both readers agree on each one's class (O68)."""
     ok, no = _OK, _NO
     return {
         "minus_zero": (b"[-0]", ok),
@@ -118,18 +119,29 @@ def _number_and_structure_edges() -> dict[str, tuple[bytes, str]]:
         "rounds_down_to_the_largest_double": (b"[1.7976931348623158e308]", ok),
         "rounds_up_past_the_largest_double": (b"[1.7976931348623159e308]", no),
         "just_past_the_halfway": (b"[1.79769313486231581e308]", no),  # to_float reads it as finite
-        # 2^1024 - 2^970 written out: the tie between the largest double and 2^1024, which rounds to even (inf)
+        # 2^1024 - 2^970, the tie between the largest double and 2^1024, which rounds to even (inf). Written as a
+        # float (.0, or an exponent), or both readers refuse it as an integer before the tie rule runs (W4-S1).
         "exact_halfway_past_the_largest_double": (
-            b"[179769313486231580793728971405303415079934132710037826936173778980444968292764750946649017977587207096330286416692887910946555547851940402630657488671505820681908902000708383676273854845817711531764475730270069855571366959622842914819860834936475292719074168444365510704342711559699508093042880177904174497792]",
+            b"[179769313486231580793728971405303415079934132710037826936173778980444968292764750946649017977587207096330286416692887910946555547851940402630657488671505820681908902000708383676273854845817711531764475730270069855571366959622842914819860834936475292719074168444365510704342711559699508093042880177904174497792.0]",
             no,
         ),
-        "integer_past_u64": (b"[18446744073709551617]", no),  # 2^64 + 1: a reader that wraps reads 1
-        "integer_at_2p63": (b"[9223372036854775808]", no),  # past int64: Godot's to_int reads -2^63, whose absi is too
-        "negative_integer_at_2p63": (b"[-9223372036854775808]", no),
+        "exact_halfway_in_exponent_form": (
+            b"[1.79769313486231580793728971405303415079934132710037826936173778980444968292764750946649017977587207096330286416692887910946555547851940402630657488671505820681908902000708383676273854845817711531764475730270069855571366959622842914819860834936475292719074168444365510704342711559699508093042880177904174497792e308]",
+            no,
+        ),
         "long_negative_integer": (b"[-" + b"9" * 400 + b"]", no),
         "smallest_normal_double": (b"[2.2250738585072014e-308]", ok),  # finite, though Godot reads its digits as 0
         "half_way_digits": (b"[970034019735371.5]", ok),
         "past_the_integers_as_a_float": (b"[9007199254740993.0]", ok),
+    }
+
+
+def _number_and_structure_edges() -> dict[str, tuple[bytes, str]]:
+    ok, no = _OK, _NO
+    return {
+        "integer_past_u64": (b"[18446744073709551617]", no),  # 2^64 + 1: a reader that wraps reads 1
+        "integer_at_2p63": (b"[9223372036854775808]", no),  # past int64: Godot's to_int reads -2^63, whose absi is too
+        "negative_integer_at_2p63": (b"[-9223372036854775808]", no),
         "exponent_without_digits": (b"[1e]", no),
         "fraction_without_digits": (b"[1.]", no),
         "leading_plus": (b"[+1]", no),

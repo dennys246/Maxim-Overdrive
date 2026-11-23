@@ -1499,17 +1499,7 @@
    },
    {
     "code": "bad_json",
-    "file": "json/integer_past_u64.json",
-    "outcome": "refused"
-   },
-   {
-    "code": "bad_json",
-    "file": "json/integer_at_2p63.json",
-    "outcome": "refused"
-   },
-   {
-    "code": "bad_json",
-    "file": "json/negative_integer_at_2p63.json",
+    "file": "json/exact_halfway_in_exponent_form.json",
     "outcome": "refused"
    },
    {
@@ -1552,6 +1542,21 @@
       }
      ]
     }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/integer_past_u64.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/integer_at_2p63.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/negative_integer_at_2p63.json",
+    "outcome": "refused"
    },
    {
     "code": "bad_json",

@@ -13,8 +13,8 @@ extends RefCounted
 ##
 ## The host ends a refused connection with an error and then a close whose reason is the same code. Godot 4.7.2 may
 ## drop a text packet that arrives in the same poll as the close (most runs; measured: tests/test_godot_net.py), so
-## the close reason is read too, when nothing before it said why. Once the session has ended, the client closes and reads no
-## more.
+## the close reason is read too, when nothing before it said why. Once the session has ended, the client closes and
+## reads no more.
 
 const INBOUND_BUFFER_BYTES: int = 4 * 1024 * 1024  # client_rendering §4.3; the server caps a frame at 3.5 MiB
 const MAX_QUEUED_PACKETS: int = 64

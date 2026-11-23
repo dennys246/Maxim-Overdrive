@@ -88,7 +88,7 @@ def _blank(ch: str) -> bool:
     """A character Unicode names a BLANK or a FILLER: one that draws nothing though no property says so (the braille
     blank, Khitan's and the hieroglyphs' fillers; step 7 delta review D-B1). The name rule's own test, shared. In
     guest text a blank is no drawn character, like a space, and only a zero-width one (a mark) is refused outright,
-    so braille and the scripts' gap fillers keep working (delta 2, N-S1)."""
+    so braille and the scripts' gap fillers keep working inside other text, though never alone (delta 2, N-S1)."""
     return any(w in unicodedata.name(ch, "") for w in _BLANK_WORDS)
 
 

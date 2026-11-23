@@ -34,6 +34,7 @@ from tests.test_godot_check import gc
 
 CLIENT = Path(__file__).resolve().parents[1] / "client"
 TIMEOUT_S = 60.0
+CLOSE_WAIT_S = 5.0  # after Godot exits, how long the server may take to see the close: short, so a miss fails fast
 
 pytestmark = [
     pytest.mark.slow,
@@ -154,7 +155,7 @@ def _against(
             monkeypatch.setenv("MAXIM_OVERDRIVE_TOKEN", "t0ken")
             lines = await _net_check(project)
             with contextlib.suppress(TimeoutError):  # bounded: a client that never connected is reported below
-                await asyncio.wait_for(done.wait(), 5.0)
+                await asyncio.wait_for(done.wait(), CLOSE_WAIT_S)
             return lines
 
     lines = asyncio.run(go())
