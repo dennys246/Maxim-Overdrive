@@ -39,7 +39,7 @@ Findings: **2 BLOCKER, 4 SHOULD-FIX, 3 NIT.**
 ## What a job can reach
 
 The runner app runs jobs as the account that started it, with no sandbox (Docs, recalled). If that account is
-`dennys`, every job can reach the following:
+`<owner>`, every job can reach the following:
 
 - the owner's whole home: `~/.ssh`, `~/overdrive-gate` (other branches' worktrees, the Godot binary), and the Ollama
   models and data;

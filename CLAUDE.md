@@ -387,10 +387,11 @@ only review holds.
   in the same commit as the work that taught it, with its evidence and its consequence. Don't save lessons for a
   session's wrap-up: a lesson that lives only in a conversation is lost. This file is the seed of an engine's
   documentation and the evidence base for pushbacks to Maxim. Guard: B18
-- **No personal details in the tree.** The repository is public, and so are CI's logs. No file holds a home
-  directory in any spelling (`/Users/<name>`, `/home/<name>`, a session scratchpad's dash-encoded `-Users-<name>-`),
-  a username, a hostname or a private address: write `<home>`, `<scratchpad>` or a path relative to the repository.
-  Guard: `scripts/lint_paths.py::check_paths`, B44 (a name outside a path, hostnames and addresses)
+- **No personal details in the tree.** The repository is public, and so are CI's logs. No file holds a path under a
+  home directory (`/Users/<name>`, `/home/<name>`, a session scratchpad's dash-encoded `-Users-<name>-`), a local
+  account name, a hostname or a private address; the public GitHub account and the authorship name are not private.
+  Write `<home>`, `<scratchpad>`, `<owner>` or a path relative to the repository. Guard:
+  `scripts/lint_paths.py::check_paths` (home paths), B45 (account names outside a path, hostnames, addresses)
 - **Engine choices get a one-line why** in the code or the commit (scene tree, node types, shaders, GDScript vs C#),
   for a team learning Godot. Guard: B1
 - **Teach game engineering as you go.** The owner is learning game development from the start, and knows software

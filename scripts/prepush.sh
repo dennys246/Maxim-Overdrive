@@ -82,7 +82,7 @@ lint_imports() {
   PYTHONPATH="$PWD/src" "$PY" -c 'from importlinter.cli import lint_imports_command; lint_imports_command()' --no-cache
 }
 lint_imports
-step "standards lint (TEMPORARY markers, pragmas, guard citations, size limits, coverage and size ratchets against $BASE)"
+step "standards lint (TEMPORARY markers, pragmas, guard citations, home paths, size limits, coverage and size ratchets against $BASE)"
 "$PY" scripts/lint_standards.py --base "$BASE"
 
 step "Godot client: pinned version, fresh import, every script loads, client tests (B6, CR-B1)"
