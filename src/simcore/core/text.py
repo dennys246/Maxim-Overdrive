@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Callable
 
 import idna
 
 from simcore.core.refusals import RefusalCode, Refused
-from simcore.core.text_tables import DEFAULT_IGNORABLE, EMOJI
+from simcore.core.text_tables import DEFAULT_IGNORABLE, EMOJI, NO_INK
 
-__all__ = ["NAME_JOINERS", "player_text", "visible_name"]
+__all__ = ["MAX_BLANK_RUN", "MAX_MARKS", "NAME_JOINERS", "player_text", "visible_name"]
 
 # A name's characters follow IDNA2008 (RFC 5890-5893; the idna package's code-point tables and contextual rules), the
 # standard for which characters are safe in an identifier people read, rather than a rule written here: three review
@@ -25,10 +26,9 @@ __all__ = ["NAME_JOINERS", "player_text", "visible_name"]
 # are allowed after a base letter (Hindi, Tamil, vocalised Arabic), and Default_Ignorables, joiners outside their
 # contexts, symbols and compatibility forms are not. The whole name must be its own NFKC form, so a fullwidth "crate"
 # (U+FF43...) or a ligature is not a second "crate". IDNA admits two letters that render blank (EGYPTIAN HIEROGLYPH FULL
-# and HALF BLANK), so a letter named BLANK or FILLER is refused by its Unicode name. Look-alikes from other scripts
+# and HALF BLANK), so a character ``NO_INK`` lists is refused (O72). Look-alikes from other scripts
 # ("\u0441rate") need TR39's confusable skeleton: B38.
 _NAME_SEPARATORS = re.compile("[ _.'\u2019-]+")
-_BLANK_WORDS = ("BLANK", "FILLER")
 NAME_JOINERS = {0x200C: "x", 0x200D: "x"}  # allowed past isprintable only so IDNA can rule on their context
 
 
@@ -78,6 +78,13 @@ _PRESENTATION = frozenset("\ufe0e\ufe0f")
 # Categories refused outright: controls (a newline too: guest text is one line), format, surrogates, private use,
 # unassigned code points, and the line and paragraph separators.
 _REFUSED_CATEGORIES = frozenset({"Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp"})
+# The longest run of characters that draw nothing guest text may hold (O70): two spaces after a full stop pass, and a
+# combining mark neither ends a run nor starts one, so marks floated on spaces can't step around it.
+MAX_BLANK_RUN = 2
+# The most combining marks (Mn, Me) one character may carry, counted after NFC (O71): the longest stack in 533 UDHR
+# translations is 4 (Burmese), and pointed Hebrew with a cantillation mark is 4; a stack of any height hid bits.
+MAX_MARKS = 4
+_MARKS = frozenset({"Mn", "Me"})
 
 
 def _within(ranges: tuple[tuple[int, int], ...], ch: str) -> bool:
@@ -85,11 +92,10 @@ def _within(ranges: tuple[tuple[int, int], ...], ch: str) -> bool:
 
 
 def _blank(ch: str) -> bool:
-    """A character Unicode names a BLANK or a FILLER: one that draws nothing though no property says so (the braille
-    blank, Khitan's and the hieroglyphs' fillers; step 7 delta review D-B1). The name rule's own test, shared. In
-    guest text a blank is no drawn character, like a space, and only a zero-width one (a mark) is refused outright,
-    so braille and the scripts' gap fillers keep working inside other text, though never alone (delta 2, N-S1)."""
-    return any(w in unicodedata.name(ch, "") for w in _BLANK_WORDS)
+    """A character that draws nothing though no Unicode property says so: one ``NO_INK`` lists (O70, O72). The name
+    rule's own test, shared. In guest text a blank is no drawn character, like a space, and only a zero-width one (a
+    mark) is refused outright, so the braille blank keeps working inside other text, though never alone."""
+    return _within(NO_INK, ch)
 
 
 def _visible(ch: str) -> bool:
@@ -118,12 +124,51 @@ def _refused_at(text: str, i: int) -> bool:
     return unicodedata.category(ch) in _REFUSED_CATEGORIES or _within(DEFAULT_IGNORABLE, ch) or zero_width_blank
 
 
+def _mark(ch: str) -> bool:
+    return unicodedata.category(ch) in _MARKS
+
+
+def _inkless(ch: str) -> bool:
+    return not _visible(ch)
+
+
+def _joiner(ch: str) -> bool:
+    return ch in _JOINERS
+
+
+def _past_cap_at(text: str, cap: int, *, counted: Callable[[str], bool], skipped: Callable[[str], bool]) -> int | None:
+    """Where a run of ``counted`` characters first grows past ``cap``, if one does. A ``skipped`` character neither
+    ends a run nor adds to it; any other character ends it."""
+    run = 0
+    for i, ch in enumerate(text):
+        if skipped(ch):
+            continue
+        run = run + 1 if counted(ch) else 0
+        if run > cap:
+            return i
+    return None
+
+
+def _check_runs(text: str, what: str) -> None:
+    """O70 and O71: no long run of characters that draw nothing, and no tall stack of marks."""
+    blank_at = _past_cap_at(text, MAX_BLANK_RUN, counted=_inkless, skipped=_mark)
+    if blank_at is not None:
+        reason = f"{what} holds a run of more than {MAX_BLANK_RUN} characters that draw nothing, at {blank_at}"
+        raise Refused(reason, code=RefusalCode.BAD_TEXT)
+    mark_at = _past_cap_at(text, MAX_MARKS, counted=_mark, skipped=_joiner)  # a joiner can't split a stack (O71)
+    if mark_at is not None:
+        raise Refused(
+            f"{what} stacks more than {MAX_MARKS} marks on one character, at {mark_at}", code=RefusalCode.BAD_TEXT
+        )
+
+
 def player_text(value: object, what: str, *, max_chars: int) -> str:
     """Guest text as the engine keeps it: in NFC, then 1 to ``max_chars`` characters, at least one of which draws
-    something, with no character O61 and O65 refuse. Unassigned code points (Cn) follow the interpreter's Unicode
-    version (15.0 on Python 3.12, 16.0 on 3.14), so the text kept is what a replay reads back, never re-checked. A
-    refusal names where and what kind of character, never the text: what a guest typed is theirs, and a log is no
-    place to echo it."""
+    something, with no character O61 and O65 refuse, no run of more than ``MAX_BLANK_RUN`` that draw nothing (O70)
+    and no character carrying more than ``MAX_MARKS`` marks (O71). Unassigned code points (Cn) follow the
+    interpreter's Unicode version (15.0 on Python 3.12, 16.0 on 3.14), so the text kept is what a replay reads back,
+    never re-checked. A refusal names where and what kind of character, never the text: what a guest typed is
+    theirs, and a log is no place to echo it."""
     if type(value) is not str:  # a str subclass could print as something else
         raise Refused(f"{what} must be text", code=RefusalCode.BAD_SHAPE)
     if any(0xD800 <= ord(ch) <= 0xDFFF for ch in value):  # NFC has no form for a lone surrogate
@@ -135,6 +180,7 @@ def player_text(value: object, what: str, *, max_chars: int) -> str:
         if _refused_at(text, i):
             kind = unicodedata.category(text[i])
             raise Refused(f"{what} holds a {kind} character at {i} that guest text may not", code=RefusalCode.BAD_TEXT)
+    _check_runs(text, what)
     if not any(_visible(ch) for ch in text):
         raise Refused(f"{what} draws nothing: every character is a space or blank", code=RefusalCode.BAD_TEXT)
     return text
