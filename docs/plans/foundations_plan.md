@@ -67,7 +67,7 @@ a nit; OD-I6, OD-I7, OD-I8 new.
 - Tier C: OD-H2 (C2), OD-H4 and OD-H5 (C5), OD-H6 (C3, disagreeing), OD-H1, OD-HX1, OD-HX5 (cautions).
 - Not in it yet: OD-C11 (proposed, tile §9), OD-A6, OD-A9, OD-H3, OD-X1, OD-X2; OD-B1, OD-B2, OD-B3, OD-B4, OD-B5, OD-B6, OD-B7 (Exp 64a's
   prerequisites), OD-B8, OD-B9, OD-B10, OD-B11, OD-B12, OD-B13; OD-C1, OD-C2, OD-C3, OD-C4, OD-C5, OD-C6, OD-C7,
-  OD-C8, OD-C9, OD-C10, OD-C12; OD-A22; OD-I9, OD-I10, OD-I11, OD-I12, OD-A23, OD-A24, OD-A25.
+  OD-C8, OD-C9, OD-C10, OD-C12; OD-A22; OD-I9, OD-I10, OD-I11, OD-I12, OD-I13, OD-A23, OD-A24, OD-A25.
 - Exit tests: OD-WC1, OD-EA4, OD-EA5, OD-EA6, OD-EA7, OD-EA9, OD-EA10, OD-EA11, OD-EA12, OD-EA14, OD-EA15, OD-EA16.
 
 ## 4. Decisions
