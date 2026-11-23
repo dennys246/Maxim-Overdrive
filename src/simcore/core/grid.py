@@ -14,7 +14,7 @@ from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Protocol
+from typing import NoReturn, Protocol
 
 import numpy as np
 import numpy.typing as npt
@@ -150,6 +150,15 @@ class CellStore(WindowOwner[_Saved]):
         if self._adopted:
             raise ValueError("these cells already have their simulation (sim_core.md §2)")
         self._adopted = True
+
+    def __copy__(self) -> NoReturn:
+        """Refused: a copy would share the versions, the gate and the window with these cells, so a second simulation
+        over it would move the first one's cache keys and counters (PR 4a delta 4, D4-N3)."""
+        raise TypeError("cells are not copied: build a new grid from its scene (sim_core.md §2)")
+
+    def __deepcopy__(self, memo: dict[int, object]) -> NoReturn:
+        """Refused, as `__copy__`: one owner per set of cells."""
+        raise TypeError("cells are not copied: build a new grid from its scene (sim_core.md §2)")
 
     def _channel(self, name: str) -> npt.NDArray[np.generic]:
         """The field's array: writable inside the window only for a writer the registry declares for it, and for

@@ -262,6 +262,10 @@ fails.
   - PR 4b: a publication that raises leaves its tick committed, with the clock moved and no frame or `TickReport`
     (`Simulation.step`, PR 4a delta 2). A host that logs from the report would drop that tick and its replay would
     diverge; the log's design covers it, with a test that plants the raise.
+  - PR 4b: `Simulation(world)` takes any built grid at tick 0, so a grid rebuilt from a stepped state's arrays is
+    published as frame 0, against §3's "publishes the authored world" (round 1 Arch S5, delta 4 D4-N2, measured: a
+    lit crate's grid from tick 20, 28.6 °C, published at tick 0). The loader states its tick and what frame 0 is for
+    a loaded state, and a test holds a loaded world to it.
 ## Step 5b, bodies and movement (`tile_and_client.md` §2, §3, §4.1)
 
 - From step 3b part (b)'s review (Determinism N7): a spawn maps to a cell in integers (`at_mm * 1000 // dx_um`), with

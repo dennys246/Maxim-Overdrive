@@ -10,6 +10,7 @@ commit (the old path no longer exists to compare against in a test).
 from __future__ import annotations
 
 import contextlib
+import copy
 from typing import cast
 
 import numpy as np
@@ -20,7 +21,7 @@ from simcore.core.intents import KIND_RANK, Extinguish, Ignite, LogRecord, Strik
 from simcore.core.law import STATELESS, LawInputs
 from simcore.core.scene import Box, Scene
 from simcore.core.simulation import T3, SimConfig, Simulation
-from simcore.core.world import World
+from simcore.core.world import HeatSource, World
 from tests._sim import physics_steps, ticks, world_of
 from tests.conftest import FAST_SPACINGS
 from tests.test_determinism import FIRE_W, LIMITS, MATERIALS, SCENE, digest
@@ -151,12 +152,28 @@ def test_cells_another_simulation_owns_are_refused_in_any_world_so_time_has_one_
     assert (first.tick, first.frames.latest.tick) == (6, 5)
 
 
-def test_a_construction_that_raised_leaves_the_cells_free_for_a_retry():
-    # Delta 3 D3-N1: adopting before the law tuple was checked left the cells owned by no simulation.
-    world = World(SCENE.build(MATERIALS, dx_m=0.2), limits=LIMITS)
-    with pytest.raises(ValueError, match="names each law once"):
-        Simulation(world, config=T3, laws=(*physics.DEFAULT_LAWS, physics.DEFAULT_LAWS[1]))
-    assert Simulation(world, config=T3).tick == 1
+@pytest.mark.parametrize(
+    ("laws", "sources", "match"),
+    [
+        ((*physics.DEFAULT_LAWS, physics.DEFAULT_LAWS[1]), {}, "names each law once"),  # refused building Physics
+        (physics.DEFAULT_LAWS, {"fire:x": HeatSource((50.0, 50.0, 50.0), 0.3, 1e3)}, "outside the grid"),  # in warm
+    ],
+    ids=["law-tuple", "warm"],
+)
+def test_a_construction_that_raised_leaves_the_cells_free_for_a_retry(laws, sources, match):
+    # Delta 3 D3-N1 and delta 4 D4-N1: adopting before every refusal had run left the cells owned by no simulation.
+    grid = SCENE.build(MATERIALS, dx_m=0.2)
+    with pytest.raises(ValueError, match=match):
+        Simulation(World(grid, limits=LIMITS, sources=sources), config=T3, laws=laws)
+    assert Simulation(World(grid, limits=LIMITS), config=T3).tick == 1
+
+
+def test_cells_are_never_copied_so_no_two_simulations_share_their_versions():
+    # Delta 4 D4-N3: a copy shared the versions and the gate, so a second simulation moved the first one's keys.
+    grid = SCENE.build(MATERIALS, dx_m=0.2)
+    for copier in (copy.copy, copy.deepcopy):
+        with pytest.raises(TypeError, match="cells are not copied"):
+            copier(grid)
 
 
 def test_a_law_tuple_the_registry_disagrees_with_is_refused_at_construction():

@@ -745,7 +745,12 @@ TOKENS = {"_TOKENS": "simcore/core/physics.py", "_TOPOLOGY": "simcore/core/topol
     "_run_as": "simcore/core/physics.py",  # runs a body holding a law's token; tests use it, shipped code may not
     "_claimed": "simcore/core/writers.py",  # every granted token (PR 2 delta, N1)
 }
-OWNED_CALLS = {"as_writer": NARROWERS, "claim": set(TOKENS.values()), "constructing": {"simcore/core/scene.py"}}
+OWNED_CALLS = {
+    "as_writer": NARROWERS,
+    "claim": set(TOKENS.values()),
+    "constructing": {"simcore/core/scene.py"},
+    "adopt": {"simcore/core/simulation.py"},  # only a simulation adopts cells: a stray adoption orphans them (D4-N4)
+}
 
 
 def _named(node: ast.AST) -> str | None:
@@ -788,8 +793,9 @@ def test_only_each_writers_owner_narrows_claims_or_names_its_token():
         ("simcore/core/applier.py", "from simcore.core.scene import _CONSTRUCTION\n"),
         ("simcore/core/applier.py", "def f(g):\n    with constructing(g):\n        pass\n"),
         ("simcore/core/damage/loads.py", "from simcore.core import physics\nT = physics._TOKENS['heat']\n"),
+        ("simcore/core/world.py", "def f(w):\n    w.grid.adopt()\n"),
     ],
-    ids=["g3", "g4", "claim", "import-token", "construct", "law-token"],
+    ids=["g3", "g4", "claim", "import-token", "construct", "law-token", "adopt"],
 )
 def test_the_token_scan_catches(rel, planted):
     assert token_uses(rel, planted), planted

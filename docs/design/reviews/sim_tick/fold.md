@@ -148,3 +148,16 @@ was rewrapped, and `fold.md:70` wasn't.
 | D3-N5 | `fold.md:70` past 120 columns | rewrapped | open (for the reviewer) |
 | D3-N6 | the bridge test's name states the corrected rule | `..._one_tick_per_call_that_reaches_stage_2`, and lesson 37's citation | open (for the reviewer) |
 | D3-N7 | §7's cost line lost "measured" and the grid labels | both back, at the same word count | open (for the reviewer) |
+
+## Delta 4 (`delta4.md`, verbatim): 0 BLOCKER, 0 SHOULD-FIX, 4 NIT, on 94ca301
+
+One reader (Executor, Architecture, Wire integrity, Determinism) on the delta-3 fold and the merge of #48. Of the
+Delta 3 table's rows: 9 fixed and 1 open. D3-S1 and D2-S1 are fixed, and Arch S5's residual is open, as D4-N2. It
+found no route to two simulations over one cell store, other than the copy below.
+
+| # | Finding | Fold | Status |
+|---|---|---|---|
+| D4-N1 | the retry test covers only the law-tuple refusal; adoption just after `Physics(...)` passes it | parametrized over a refusal in `warm` too (a fire outside the grid); red with adoption moved there | open (for the reviewer) |
+| D4-N2, Arch S5 (residual) | a grid rebuilt from a stepped state is published as frame 0 | a PR 4b checklist row: the loader states its tick and what frame 0 is for a loaded state, with a test | deferred (author's; trigger PR 4b's loader) |
+| D4-N3 | `copy.copy` of a grid shares its versions and gate with a second simulation | `CellStore.__copy__` and `__deepcopy__` raise; `test_cells_are_never_copied_so_no_two_simulations_share_their_versions`, red without them | open (for the reviewer) |
+| D4-N4 | no scan holds `adopt` to `simulation.py` | an `OWNED_CALLS` entry, and a planted case in the scan's test, which goes red without the entry | open (for the reviewer) |
