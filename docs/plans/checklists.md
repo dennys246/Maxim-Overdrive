@@ -135,7 +135,8 @@ fails.
   - `prepare` reruns after a topology change: `test_a_cell_destroyed_mid_turn_gets_no_more_source_power` runs with
     `substep_refine` > 1, and fails with the rerun deleted;
   - the header records the law tuple in order, and a log recorded under the reversed tuple is refused;
-  - cadence groups run in §5's order: two strikes on one region in one tick give the second `REGION_GONE`, and
+  - cadence groups run in §5's order: two strikes on one region in one tick, the first destroying it and the second
+    applying and destroying nothing, and
     `topology_version` rises once per strike record that changes the world, and not for one that breaks nothing
     (X-B1, N-B2, DA-S1, X-S2; sim_core.md §7);
   - `stable_dt` reads only its `bound_reads`: a planted law whose bound reads `temperature` misses the cache after
@@ -147,7 +148,8 @@ fails.
   - `Topology` is the only path to `material`, `original_material` and `region_id`; `imagine` and `set_material`
     produce requests;
   - a strike resolves as a `Load` in the apply phase, on its own tick: its crater is in that tick's frame, its effect
-    in that tick's `TickReport`, and a second strike on the destroyed region is refused `REGION_GONE`;
+    in that tick's `TickReport`, and a second strike on the destroyed region applies and destroys nothing, at every
+    grid (owner, 2026-11-22: `REGION_GONE` is authored geometry only);
   - `radiant_emitters` rows are keyed `(writer, …)` and summed in sorted key order;
   - every declared input kind names exactly one resolving law, held by a test over the registry (DA-B1);
   - `integrity`'s writers are `damage.loads`, `damage.thermal` and `Topology`, and a planted law outside damage is
@@ -221,29 +223,50 @@ fails.
 
 - **Deferred from PR 1's review (`reviews/sim_shell/fold.md`), each to the PR that owns it:**
   - PR 2: rewrite CLAUDE.md's "only `World.advance` moves time" and "Time comes from `World.advance`" for `Simulation`.
-  - PR 4: a tick an exception interrupts leaves no half-applied state, once the write window moves into the step
+  - PR 4a: a tick an exception interrupts leaves no half-applied state, once the write window moves into the step
     (`docs/roadmap.md`, Phase 1, names the PR).
-  - PR 4: `(actor_id, seq)` unique across ticks, a receipt id on each outcome, and a validated `TickBatch` built by the
+  - PR 4b: `(actor_id, seq)` unique across ticks, a receipt id on each outcome, and a validated `TickBatch` built by the
     log reader.
 - **Deferred from PR 2's review (`reviews/sim_laws/fold.md`, Exec NIT 5 and Wire N6):**
-  - PR 4: the per-record batch boundary (`sim_core.md` §5.1). A record's stage 2 and its loads are one batch, but
+  - PR 4b: the per-record batch boundary (`sim_core.md` §5.1). A record's stage 2 and its loads are one batch, but
     `physics.resolve_loads` closes one batch per per-record law; the two agree only while stage 2 emits no topology
     requests, and `imagine` as stage 2 will. A test: one record whose stage 2 and load both edit cells bumps
     `topology_version` once.
 - **Deferred from PR 3's review (`reviews/sim_step/fold.md`), each to the PR that owns it:**
-  - PR 4: `source_exposure` as digest member 3 (§9) and in the save, with a save and restore mid-interval (X-B2).
-  - PR 4: a physics step that raises loses its exposure (`Simulation.step` clears it before `advance`); with the
+  - PR 4b: `source_exposure` as digest member 3 (§9) and in the save, with a save and restore mid-interval (X-B2).
+  - PR 4a: a physics step that raises loses its exposure (`Simulation.step` clears it before `advance`); with the
     window in the step it rolls back with the cells, tested beside the interrupted tick above.
-  - PR 4: the scenario tests move from `World`'s 6 s turn to `Simulation`'s 0.5 s step, and bar 2b reruns there.
+  - PR 4a: the scenario tests move from `World`'s 6 s turn to `Simulation`'s 0.5 s step, and bar 2b reruns there.
     The strict red gates it can't hold, and `test_act_validation.py`'s fiercest allowed fire, join bar 2b when their
     gates flip.
-  - PR 4: frames carry their tick (§3); bars 4–7; `World.advance`'s float interval and its exposure's `of_ticks`,
-    which nothing ties together, go with `advance`.
-  - PR 4: heat's `prepare` and `bound_reads`, which take the sources from `World._power_field` (its
+  - PR 4a: frames carry their tick (§3); bars 5–7 (bar 4, replay, is PR 4b's); `World.advance`'s float interval and its
+    exposure's `of_ticks`, which nothing ties together, go with `advance`.
+  - PR 4a: heat's `prepare` and `bound_reads`, which take the sources from `World._power_field` (its
     `TEMPORARY(phase1/sim-clock)` marker); bar 5 with them. This is the one statement of where they are deferred.
-  - PR 4, no later than the per-tick digest (owner, 2026-11-22): the face-conductance and `stable_dt` caches per
-    `topology_version`, each with the rollback eviction the deposit has. Measured at PR 3, without them bar 7 holds at
-    0.1 m only by 0.88–0.96×, and the digest's 1.7 ms per writing tick would take it to about 1.1×.
+  - PR 4a, before the per-tick digest (owner, 2026-11-22): the face-conductance and `stable_dt` caches, keyed on
+    `field_version`s that count rollbacks and rebuilt at each windowed tick's end (`reviews/sim_tick/fold.md`).
+    Measured at PR 3, without them bar 7 held at 0.1 m only by 0.88–0.96×; with them, 0.32–0.35×.
+- **Deferred from PR 4a's review (`reviews/sim_tick/fold.md`), each to the PR or trigger that owns it:**
+  - Incremental cache rebuilds, triggered by B5's turn-time budget (owner, 2026-11-22, `reviews/sim_tick/fold.md`
+    D-S2): every tick that changes `material` rebuilds heat's face conductances and bound over the whole grid, 2× on
+    a strike every tick at 0.1 m (363 against 183 ms per 20 ticks on the T3 tile; delta 2 measured 2.0–2.5×, about
+    8 ms per extra rebuild at 230,400 cells, so about 170 ms per strike tick at 5×10⁶ cells if it scales linearly).
+    A fire re-lit every tick for 20 ticks, cycling through 5 radii on the same tile, counts `heat/deposit` 40 times
+    against 10, at the same run time: the warm that ends a physics tick keeps only the live source values, so a
+    radius the previous step already used rebuilds. Keep the per-cell arrays and recompute only around Topology's
+    edits, bit for bit the full rebuild, with a test holding the two equal.
+  - `rho_cp` is recomputed every substep (round 1 Exec N2): a cache beside the face conductances, triggered by B5's
+    profile pass (`reviews/sim_tick/fold.md`).
+  - PR 4b: a `place` refused inside its own window changes the next physics tick's work counters, because only
+    `Simulation.step`'s rollbacks rebuild the caches at rest (PR 4a delta, measured); it ends when `imagine` joins
+    the tick and `place` runs inside the step's window.
+  - PR 4b: a publication that raises leaves its tick committed, with the clock moved and no frame or `TickReport`
+    (`Simulation.step`, PR 4a delta 2). A host that logs from the report would drop that tick and its replay would
+    diverge; the log's design covers it, with a test that plants the raise.
+  - PR 4b: `Simulation(world)` takes any built grid at tick 0, so a grid rebuilt from a stepped state's arrays is
+    published as frame 0, against §3's "publishes the authored world" (round 1 Arch S5, delta 4 D4-N2, measured: a
+    lit crate's grid from tick 20, 28.6 °C, published at tick 0). The loader states its tick and what frame 0 is for
+    a loaded state, and a test holds a loaded world to it.
 ## Step 5b, bodies and movement (`tile_and_client.md` §2, §3, §4.1)
 
 - From step 3b part (b)'s review (Determinism N7): a spawn maps to a cell in integers (`at_mm * 1000 // dx_um`), with
@@ -292,6 +315,12 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 **Added by D-B2 (owner, 2026-11-22):** the fuel geometry's segment rule, slab face and rod origin are answered
 (`fire_solid.md` §1.1–§1.2). Still open, before step 8's exit scenario: the torch's Phase 1 pilot, how `kindle`
 ignites a slab with no flame object.
+
+**Added by step 5a PR 4a's review (Exec S2; owner, 2026-11-22, `reviews/sim_tick/fold.md`):** a region destroyed by
+strikes or burning is never "gone" today, because "no solid cell left" flips with the grid spacing (strike 29 at
+0.2 m, 30 at 0.1 m on a 1.2 m wood cube). With the fuel and structure work: a destruction-based `REGION_GONE`
+decided in metres (remaining solid volume against the authored footprint), gated with an outcome margin across
+grids, and its refusal held by a cross-grid test.
 
 - A short design note first, reviewed under the Physics lens, answering the final review (`reviews/tile_v1/
   final_physics.md`): FPH-B1 radiative transfer between slats inside the bed, plus the draught's air-supply loss;

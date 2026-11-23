@@ -18,9 +18,10 @@ import pytest
 
 from maxim_overdrive import data
 from simcore.adapters.sem.bridge import region_parts
-from simcore.core.applier import Applier
+from simcore.core.intents import Ignite, Strike
 from simcore.core.scene import Box, Cylinder, Scene
-from simcore.core.world import World
+from simcore.core.simulation import SimConfig, Simulation
+from tests._sim import SteppingPort, make, physics_steps, record, world_of
 from tests.conftest import FAST_SPACINGS
 
 LIMITS = data.action_limits()
@@ -33,29 +34,30 @@ SCENE = Scene(
     (3.0, 3.0, 2.0),
     (Box((1.2, 1.2, 0), (1.8, 1.8, 0.6), "wood", "crate"), Box((0, 0, 0), (0.6, 3.0, 2.0), "concrete", "wall")),
 )
-TURNS = 30
-FIRE_W = 500_000.0  # hot enough that the crate degrades and loses cells within TURNS, at every fast grid spacing
+RUN_S = 180.0  # the 30 six-second turns this scenario ran before PR 4a retired the turn
+FIRE_W = 500_000.0  # hot enough that the crate degrades and loses cells within RUN_S, at every fast grid spacing
+IGNITE = Ignite(power_w=FIRE_W, radius_m=0.3)
+STRIKE = Strike(energy_j=2.0e7, sigma_m=0.2, point_m=None)
 
 # Determinism is a property of code paths, not of cell size: the fast tiers run the same code as max, and max would
 # add about 50 s to every pre-push for no new path.
 fast_spacings = pytest.mark.parametrize("dx_m", FAST_SPACINGS)
 
 
-def run(dx_m: float) -> World:
-    """Fire on the crate and a strike on the wall: heat, thermal degradation, thermal and mechanical destruction."""
-    w = World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
-    _, crate = region_parts(Applier(w), w.frames, "crate")
-    assert crate["structure"].execute("ignite", {"power_w": FIRE_W, "radius_m": 0.3}).success
-    _, wall = region_parts(Applier(w), w.frames, "wall")
-    assert wall["structure"].execute("strike", {"energy_j": 2.0e7, "sigma_m": 0.2}).success
-    for _ in range(TURNS):
-        w.advance()
-    return w
+def run(dx_m: float) -> Simulation:
+    """Fire on the crate and a strike on the wall at tick 1: heat, thermal degradation, thermal and mechanical
+    destruction, for RUN_S world seconds."""
+    sim = make(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
+    report = sim.step([record(IGNITE, "crate", tick=1, actor=1), record(STRIKE, "wall", tick=1, actor=2)])
+    assert all(o.success for o in report.outcomes)
+    physics_steps(sim, round(RUN_S / sim.config.physics_seconds))
+    return sim
 
 
-def digest(w: World) -> str:
-    """Everything the next turn depends on: cells, regions (in insertion order), sources, clock."""
+def digest(sim: Simulation) -> str:
+    """Everything the next tick depends on: cells, regions (in insertion order), sources, the clock and the frame."""
     h = hashlib.sha256()
+    w = world_of(sim)
     g = w.grid
     for arr in (g.material, g.original_material, g.integrity, g.temperature):
         h.update(arr.tobytes())
@@ -66,18 +68,19 @@ def digest(w: World) -> str:
         h.update(f"{region.footprint}{region.solid}".encode())  # where fires land and what a strike reaches
     for name, src in w.sources.items():
         h.update(f"{name}{src.point_m}{src.radius_m}{src.power_w}".encode())
-    h.update(f"{g.time_s!r} {w.turn}".encode())
+    h.update(f"{sim.tick} {sim.frames.latest.tick} {sim.frames.latest.time_s!r}".encode())
     return h.hexdigest()
 
 
 @fast_spacings
 def test_the_scenario_exercises_burning(dx_m):
     """Guard on the guard: if the fire stops reaching degradation, the determinism tests below test too little."""
-    w = run(dx_m)
-    sensors, _ = region_parts(Applier(w), w.frames, "crate")
+    sim = run(dx_m)
+    sensors, _ = region_parts(SteppingPort(sim), sim.frames, "crate")
     assert sensors["integrity"].value() < 0.9  # thermal degradation ran
-    original_crate = w.grid.regions["crate"].cells & (w.grid.original_material != 0)
-    assert (original_crate & ~w.grid.solid).any()  # and destroyed crate cells
+    g = world_of(sim).grid
+    original_crate = g.regions["crate"].cells & (g.original_material != 0)
+    assert (original_crate & ~g.solid).any()  # and destroyed crate cells
 
 
 # The fixed physics step (sim_core.md §8): on shipped data stability's bound (240, 60 and 15 s at 0.2, 0.1 and 0.05 m)
@@ -87,10 +90,9 @@ def test_the_scenario_exercises_burning(dx_m):
 @fast_spacings
 @pytest.mark.parametrize("refine", [1, 4])
 def test_each_physics_step_takes_refine_substeps_on_shipped_data(dx_m, refine):
-    w = World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
-    _, crate = region_parts(Applier(w), w.frames, "crate")
-    assert crate["structure"].execute("ignite", {"power_w": FIRE_W, "radius_m": 0.3}).success
-    assert [w.advance(0.5, refine=refine) for _ in range(3)] == [refine] * 3
+    sim = make(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS, config=SimConfig(substep_refine=refine))
+    assert sim.step([record(IGNITE, "crate", tick=1)]).outcomes[0].success
+    assert [r.substeps for r in physics_steps(sim, 3)] == [refine] * 3
 
 
 @fast_spacings
@@ -115,7 +117,7 @@ def test_runs_in_processes_with_different_hash_seeds_agree(dx_m):
 
 # -- the static half: no hidden sources of nondeterminism ------------------------------------------------------------
 
-# Randomness, when it arrives, comes from one seeded numpy Generator owned by World; time comes from World.advance.
+# Randomness, when it arrives, comes from one seeded numpy Generator owned by World; time comes from Simulation.step.
 # The scan reads the syntax tree, so comments, strings, spacing, line breaks and aliases can't hide a call, and
 # f-string expressions are checked on every Python version.
 BANNED_MODULES = {
@@ -502,13 +504,11 @@ CYLINDER_SCENE = Scene(
 )
 
 
-def _cylinder_run(dx_m: float) -> World:
-    w = World.from_scene(CYLINDER_SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
-    _, barrel = region_parts(Applier(w), w.frames, "barrel")
-    assert barrel["structure"].execute("ignite", {"power_w": FIRE_W, "radius_m": 0.3}).success
-    for _ in range(5):
-        w.advance()
-    return w
+def _cylinder_run(dx_m: float) -> Simulation:
+    sim = make(CYLINDER_SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
+    assert sim.step([record(IGNITE, "barrel", tick=1)]).outcomes[0].success
+    physics_steps(sim, 60)  # 30 s, the five 6 s turns this ran before PR 4a
+    return sim
 
 
 @fast_spacings

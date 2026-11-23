@@ -219,12 +219,10 @@ module sits inside the core (`core/body`, `core/stimuli`) is `sem_stimuli.md` §
 - **Proof tests:** for every outward surface, each of direct write, `flags.writeable = True` then write, write
   through `.base`, ufunc `out=`, and attribute assignment must raise; and **a view unlocked inside a window, written
   after the window closes,** must not change the world (DR-B4).
-- **Before `Simulation` exists (2c; foundations Wire B1).** As built (docs-contracts ruling 50), the window's owners
-  are `World.advance`, the intent applier, scene construction (`Scene.build`) and `imagination.place`.
-  `World.advance` and the intent applier are each under a TEMPORARY marker scheduled for `phase1/sim-clock`, saying
-  it moves to `Simulation.step`, with the files listed under Phase 1 in `docs/roadmap.md`. `place` opens it too
-  (marked for 5a; `imagine` has no intent kind). Until sim-clock, the applier publishes a frame after each
-  application, so `tests/test_sem_bridge.py`'s strike-then-read keeps its meaning without an edit.
+- **As built since step 5a's PR 4a.** The window's owners are `Simulation.step` (one window per tick: its records,
+  then physics), scene construction (`Scene.build`) and `imagination.place`, marked for PR 4b because `imagine` has no
+  intent kind yet. The applier runs inside the step's window; a frame is published once per tick (`sim_core.md`
+  §4).
 
 ### 4.2 Observation reads published frames (B-10, rewritten)
 
@@ -449,7 +447,7 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
   `imagine` 30, and `ignite` (vocabulary v0 only) 30, host commands (§6.1's: advance, rig selection, save, load,
   admin `set_material`) 40, so a tick's world actions apply before the host's own operations (owner, 2026-11-21, via
   phase1/sim-clock), leaving room. The log is written in that order, so a replay never sorts. Float accumulations over
-  named collections (today `World._power_field` over `sources`) iterate in sorted-key order. Ordering keys are
+  named collections (today the deposit over `sources`) iterate in sorted-key order. Ordering keys are
   integers (D-N2).
 - **Replay calls nothing live:** no model, no Maxim, no clock, and **never the response cache**
   (`inference_placement.md` §4.2). Tested by replaying with `maxim` blocked from import (foundations TB2-S4).
@@ -510,11 +508,12 @@ Which gates meet this bar is the registry's to say (`scripts/lint_gates.py`; TB-
 
 | Writer | Writes | Class |
 |---|---|---|
-| `Simulation.from_scene`, the save's construction half | cells, regions | construction (opens the window before the clock starts) |
+| `Simulation.from_scene`, the save's construction half | cells, regions, through `Topology` | construction (opens the window before the clock starts) |
 | the applier: strike | a damage `Load` (`sim_core.md` §5.1) | intent application |
 | the applier: ignite, douse | `sources` | intent application |
 | the applier: `imagine` (today's `place`) | topology requests | intent application |
-| the laws in `advance` | cells | advance |
+| `Topology` | cells, regions: every world edit, per batch | world edit (`sim_core.md` §5.1) |
+| the laws in `Simulation.step` | their declared fields | physics |
 
 - `StructureModulator.apply` stops being public. Its world-writing half becomes the applier; its gate half stays in
   the adapter.

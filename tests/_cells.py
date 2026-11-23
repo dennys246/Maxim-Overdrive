@@ -10,9 +10,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from simcore.core import heat, physics, topology
+from simcore.core.exposure import Exposure
 from simcore.core.fields import FIELDS
-from simcore.core.grid import Field, Footprint, Mask, MaterialGrid
-from simcore.core.law import Cadence, Changes, LawInputs
+from simcore.core.geometry import Mask
+from simcore.core.grid import Footprint, MaterialGrid
+from simcore.core.law import STATELESS, Cadence, Changes, LawInputs, LawState
+
+NO_SOURCES = Exposure((), 1)
 
 
 def paint(
@@ -29,12 +33,11 @@ def destroy(grid: MaterialGrid, mask: Mask) -> int:
     return topology.apply(grid, [topology.Destroy(mask)])
 
 
-def heat_alone(
-    grid: MaterialGrid, seconds: float, refine: int = 1, power: Callable[[], Field | None] | None = None
-) -> int:
-    """Heat alone, the one-law tuple through the orchestrator, inside the open window, as one fixed physics step of
-    ``seconds`` refined ``refine`` times. Returns the substeps taken."""
-    return physics.run_physics(grid, seconds, refine=refine, power=power or (lambda: None), laws=(heat.HEAT,))
+def heat_alone(grid: MaterialGrid, seconds: float, refine: int = 1, exposure: Exposure = NO_SOURCES) -> int:
+    """Heat alone, the one-law tuple through an orchestrator of its own, inside the open window, as one fixed physics
+    step of ``seconds`` refined ``refine`` times, the sources' shares ``exposure`` (none by default). Returns the
+    substeps taken."""
+    return physics.Physics(grid, (heat.HEAT,)).run(seconds, refine=refine, exposure=exposure)
 
 
 @dataclass(frozen=True)
@@ -47,11 +50,18 @@ class _AsLaw:
     writes: tuple[str, ...]
     version: int = 1
     cadence: Cadence = Cadence.PER_SUBSTEP
+    bound_reads: tuple[str, ...] = ()
 
-    def stable_dt(self, grid: MaterialGrid) -> float:
+    def new_state(self, grid: MaterialGrid) -> LawState:
+        return STATELESS
+
+    def prepare(self, grid: MaterialGrid, state: LawState, exposure: Exposure) -> LawInputs:
+        return LawInputs()
+
+    def stable_dt(self, grid: MaterialGrid, state: LawState) -> float:
         return math.inf
 
-    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs) -> Changes:
+    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs, state: LawState) -> Changes:
         self.body(grid)
         return Changes()
 

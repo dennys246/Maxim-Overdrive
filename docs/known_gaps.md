@@ -8,20 +8,21 @@ design document, and removed when its fix lands and its gate flips. Moved verbat
 
 **Known gaps (tracked, not gated yet):**
 - NPC inference (no streaming yet, load versus failure, first hops, spend): `docs/design/inference_placement.md` §6.3.
-- Late in a burn the coarsest rig lags (crate integrity 0.539 at 0.2 m vs 0.370 and 0.381 at 0.1 and 0.05 m after 150
-  turns): a coarse cell degrades as one block. Onset agrees to within 5%. It falls below 0.7 at turn 137 at 0.2 m
-  against 104 at 0.1 m (one substep per 6 s turn, 2026-11-22). Red gate: `tests/test_cross_tier.py::test_the_crate_is_badly_burned_at_the_same_turn_at_every_rig`.
+- Late in a burn the coarsest rig lags (crate integrity 0.550 at 0.2 m vs 0.370 at 0.1 m after 900 s): a coarse cell
+  degrades as one block. Onset agrees to within 5%. It falls below 0.7 at 830 s at 0.2 m against 629.5 s at 0.1 m
+  (31.9%, the bar 15%; 2026-11-22). Red gate:
+  `tests/test_cross_tier.py::test_the_crate_is_badly_burned_at_the_same_time_at_every_rig`.
 - Structural glow reads the cell-mean temperature, not the face's: a heated face glows late and dim, by up to
   q·(dx/2)/k in steady state (29 K per kW/m² for concrete at 0.1 m). Face skins would fix it
   (`docs/design/client_objects.md` §5.1; owner, 2026-11-22).
 - No convection or radiation: air only conducts, so rooms heat too slowly and fires must sit on a material.
 - Destroying a cell removes its heat (it becomes air at air's heat capacity). Measured: a 5.4-minute crate-and-pallet
   burn lost 42.2 of 84.0 MJ to 14 destroyed cells (commit 6e8f037).
-- **Fires don't consume fuel: once nothing solid is left under a fire, it heats air.** `World._power_field` spreads a
+- **Fires don't consume fuel: once nothing solid is left under a fire, it heats air.** Heat's deposit spreads a
   fire's power over the solid cells its sphere overlaps, and falls back to the air cells when there are none. Air has
   about 1/1000 of wood's ρc, so the runaway is enormous. On the 3×3×2 m crate scene at 500 kW, radius 0.3 m: the
-  crate is gone by turn 50 at 0.2 m cells, and the peak is 207,350 °C at turn 50 and 2.67 million °C at turn 200;
-  at 0.1 m it is 361,913 °C at turn 50 and 2.67 million °C at turn 200. The snapshot clamps at 6000 °C; the heat
+  crate goes and a cell passes 2000 °C at 243 s at 0.2 m (201.5 s at 0.1 m); peaks reach 423,810 and 578,046 °C by
+  360 s (2026-11-22). The snapshot clamps at 6000 °C; the heat
   still conducts. The fix is a fire that goes out
   when it has nothing to burn. It blocks the exit test's "burn away", so it lands before the tile's crate scenario
   is gated. Red gate: `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`
@@ -29,29 +30,31 @@ design document, and removed when its fix lands and its gate flips. Moved verbat
   *Fixed 2026-11-15, the other half:* power went into cells destroyed mid-turn (16,619 °C by turn 30); it is now
   recomputed after any substep that destroys cells (peaks 538 °C at 0.2 m, 613 °C at 0.1 m). Guards: `tests/test_heat.py::test_a_cell_destroyed_mid_turn_gets_no_more_source_power`
   and `tests/test_cross_tier.py::test_a_fierce_fire_never_heats_any_cell_past_the_flame_temperature`.
-- **A source smaller than a cell heats one cell.** `World._power_field` puts all of a sub-cell source's power into
+- **A source smaller than a cell heats one cell.** Heat's deposit puts all of a sub-cell source's power into
   the cell it sits in, so total power is right but its density is P/dx³: 64× higher at 0.05 m cells than at 0.2 m.
   Peak temperature near a spark therefore depends on the rig. *Closed for actions (2026-11-15):* an `ignite` must
   have a radius of at least 0.3 m and a `strike` a width of at least 0.2 m, the coarsest rig's cell
   (`data/world/actions.yaml`, held by `tests/test_act_validation.py`). A `HeatSource` built directly in code can
   still be smaller.
 - **Fires diverge across rigs mid-burn, so fire outcomes don't yet keep the verification rule.** Measured at the
-  largest fire actions allow (500 kW, 0.3 m radius) on the 3×3×2 m crate scene, recording crate integrity every
-  turn: the spread across laptop / rig / max exceeds 0.1 on every turn from 18 to 27 and peaks at 0.19 at turn 22
-  (0.70 / 0.57 / 0.51). It narrows near turn 30 only because the curves cross, and from about turn 30 the fuel gap
-  takes over (at 40 turns, integrity 0.02 / 0.26 / 0.34 and peaks of 620 / 1.4×10⁵ / 1.4×10⁵ °C). Smaller radii or
-  more power diverge sooner: at a 0.2 m radius the onsets are 11 / 8 / 7, and at 1 MW integrity at turn 30 is
-  0.00 / 0.26 / 0.34. `temperature_max` diverges too (540 / 614 / 978 °C at turn 27). **The cause is measured:**
-  the crate's mean temperature agrees between laptop and rig to within 1 °C through turn 22, so the crate's heat content agrees, but
-  the degradation driver (the mean of the excess of each cell's temperature over the limit, in
-  `damage/thermal.py`) is 1.3–1.5× larger at rig. The law does converge, slowly (integrity at turn 22 is 0.703 /
-  0.567 / 0.514, roughly first order), but the coarse rig sits far off, because a threshold is applied to cell means
-  (CLAUDE.md, "Reconstruct, decide at the point, integrate upward"). Scaling the rate by cell size would make the gate pass and is a band-aid; the law itself is held by a
-  closed-form test at every rig (`tests/test_validation.py::test_thermal_degradation_follows_its_closed_form_at_every_rig`). The fix is the Phase 1 fuel model, with burning as a
-  rate driven by heat content. Held by a strict red gate that checks the spread on every turn for 60 turns,
-  `tests/test_act_validation.py::test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn`.
-  Until then, `ignite`'s ceilings in `data/world/actions.yaml` (at most 500 kW, a radius of at least 0.3 m) keep
-  fires at the powers this physics has been measured at; they make no claim about agreement across rigs.
+  largest fire actions allow (500 kW, 0.3 m radius) on the 3×3×2 m crate scene, recording crate integrity every 6 s: the
+  0.2 and 0.1 m spread first exceeds 0.1 at 114 s (0.743 / 0.630) and peaks at 0.259 (2026-11-22; the 0.19 recorded
+  before was stale). Older three-rig figures, in 6 s turns: it narrows near turn 30 only because the curves cross, and
+  from about turn 30 the fuel gap takes over (at 40 turns, integrity 0.02 / 0.26 / 0.34 and peaks of 620 / 1.4×10⁵ /
+  1.4×10⁵ °C). Smaller radii or more power diverge sooner: at a 0.2 m radius the onsets are 11 / 8 / 7, and at 1 MW
+  integrity at turn 30 is 0.00 / 0.26 / 0.34. `temperature_max` diverges too (540 / 614 / 978 °C at turn 27). **The
+  cause is measured:** the crate's mean temperature agrees between laptop and rig to within 1 °C through turn 22, so the
+  crate's heat content agrees, but the degradation driver (the mean of the excess of each cell's temperature over the
+  limit, in `damage/thermal.py`) is 1.3–1.5× larger at rig. The law does converge, slowly (integrity at turn 22 is 0.703
+  / 0.567 / 0.514, roughly first order), but the coarse rig sits far off, because a threshold is applied to cell means
+  (CLAUDE.md, "Reconstruct, decide at the point, integrate upward"). Scaling the rate by cell size would make the gate
+  pass and is a band-aid; the law itself is held by a closed-form test at every rig
+  (`tests/test_validation.py::test_thermal_degradation_follows_its_closed_form_at_every_rig`). The fix is the Phase 1
+  fuel model, with burning as a rate driven by heat content. Held by a strict red gate that checks the spread on every
+  turn for 60 turns,
+  `tests/test_act_validation.py::test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn`. Until
+  then, `ignite`'s ceilings in `data/world/actions.yaml` (at most 500 kW, a radius of at least 0.3 m) keep fires at the
+  powers this physics has been measured at; they make no claim about agreement across rigs.
 - **Strikes near the fracture threshold, and breaches of thin walls, flip across rigs.** Below the threshold nothing
   is destroyed at any rig, a guarantee of exact cell-average deposition. Craters with a closed-form radius of at least
   0.33 m (about 1.7 coarse cells; 4× the threshold and above at the 0.2 m minimum width on concrete) match the closed
