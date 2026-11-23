@@ -1,0 +1,1780 @@
+{
+ "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+ "client": {
+  "fixtures": [
+   {
+    "code": "",
+    "file": "client/hello.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "bad_version",
+    "file": "client/hello_newer.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "client/move.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "client/move_stop.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "client/move_to.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "client/kindle.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "client/time_pause.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "client/time_set_scale.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "client/snapshot.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "",
+    "file": "client/seq_largest.json",
+    "outcome": "accepted"
+   },
+   {
+    "code": "not_int",
+    "file": "client/duration_float.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "not_int",
+    "file": "client/duration_true.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "not_int",
+    "file": "client/duration_1e3.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "not_int",
+    "file": "client/point_bool.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "out_of_range",
+    "file": "client/seq_below_2p53.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "client/seq_at_2p53.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "client/seq_past_2p53.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "out_of_range",
+    "file": "client/seq_2p31.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "out_of_range",
+    "file": "client/seq_negative.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_kind",
+    "file": "client/unknown_type.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_kind",
+    "file": "client/no_type.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_kind",
+    "file": "client/type_not_text.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_field",
+    "file": "client/client_actor.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_field",
+    "file": "client/client_tick.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_field",
+    "file": "client/client_observed_tick.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_field",
+    "file": "client/client_apply_us.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_field",
+    "file": "client/client_role.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "missing_field",
+    "file": "client/missing_seq.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_shape",
+    "file": "client/dir_short.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_shape",
+    "file": "client/dir_text.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_shape",
+    "file": "client/token_spaces.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_shape",
+    "file": "client/token_long.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_shape",
+    "file": "client/pause_with_scale.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_shape",
+    "file": "client/set_scale_without_scale.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "unknown_kind",
+    "file": "client/unknown_op.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_shape",
+    "file": "client/not_object.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "client/nan.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "client/overflow.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "client/repeated_key.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "client/oversized.json",
+    "outcome": "refused"
+   }
+  ],
+  "readers": [
+   "python"
+  ]
+ },
+ "format": "overdrive-wire-fixtures",
+ "frame_cap": 4194304,
+ "frames": {
+  "fixtures": [
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "",
+    "file": "frames/base.bin",
+    "outcome": "accepted",
+    "probes": [
+     {
+      "channel": "region",
+      "value": 1800,
+      "zyx": [
+       1,
+       1,
+       1
+      ]
+     },
+     {
+      "as": "bits",
+      "channel": "temperature_c",
+      "value": 22601,
+      "zyx": [
+       0,
+       0,
+       1
+      ]
+     },
+     {
+      "as": "bits",
+      "channel": "temperature_c",
+      "value": 25776,
+      "zyx": [
+       1,
+       1,
+       1
+      ]
+     }
+    ]
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "",
+    "file": "frames/asymmetric.bin",
+    "outcome": "accepted",
+    "probes": [
+     {
+      "channel": "material",
+      "value": 1,
+      "zyx": [
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "channel": "material",
+      "value": 2,
+      "zyx": [
+       0,
+       0,
+       3
+      ]
+     },
+     {
+      "channel": "material",
+      "value": 3,
+      "zyx": [
+       0,
+       2,
+       0
+      ]
+     },
+     {
+      "channel": "material",
+      "value": 4,
+      "zyx": [
+       0,
+       2,
+       3
+      ]
+     },
+     {
+      "channel": "material",
+      "value": 5,
+      "zyx": [
+       1,
+       0,
+       0
+      ]
+     },
+     {
+      "channel": "material",
+      "value": 6,
+      "zyx": [
+       1,
+       0,
+       3
+      ]
+     },
+     {
+      "channel": "material",
+      "value": 7,
+      "zyx": [
+       1,
+       2,
+       0
+      ]
+     },
+     {
+      "channel": "material",
+      "value": 8,
+      "zyx": [
+       1,
+       2,
+       3
+      ]
+     },
+     {
+      "channel": "region",
+      "value": 1,
+      "zyx": [
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "channel": "region",
+      "value": 772,
+      "zyx": [
+       0,
+       0,
+       3
+      ]
+     },
+     {
+      "channel": "region",
+      "value": 2057,
+      "zyx": [
+       0,
+       2,
+       0
+      ]
+     },
+     {
+      "channel": "region",
+      "value": 2828,
+      "zyx": [
+       0,
+       2,
+       3
+      ]
+     },
+     {
+      "channel": "region",
+      "value": 3085,
+      "zyx": [
+       1,
+       0,
+       0
+      ]
+     },
+     {
+      "channel": "region",
+      "value": 3856,
+      "zyx": [
+       1,
+       0,
+       3
+      ]
+     },
+     {
+      "channel": "region",
+      "value": 5141,
+      "zyx": [
+       1,
+       2,
+       0
+      ]
+     },
+     {
+      "channel": "region",
+      "value": 5912,
+      "zyx": [
+       1,
+       2,
+       3
+      ]
+     }
+    ],
+    "shape": [
+     2,
+     3,
+     4
+    ]
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "",
+    "file": "frames/unknown_optional_channel.bin",
+    "ignored": [
+     "channel:smoke_kg_m3"
+    ],
+    "outcome": "accepted"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "",
+    "file": "frames/unknown_optional_grid_and_table.bin",
+    "ignored": [
+     "grid:zones",
+     "table:flames"
+    ],
+    "outcome": "accepted"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_field",
+    "file": "frames/unknown_required_channel.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_version",
+    "file": "frames/newer_protocol.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "",
+    "file": "frames/tick_below_2p53.bin",
+    "outcome": "accepted",
+    "tick": 9007199254740991
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/tick_at_2p53.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/tick_past_2p53.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "not_int",
+    "file": "frames/tick_float.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "not_int",
+    "file": "frames/tick_true.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "not_int",
+    "file": "frames/tick_1e3.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_not_json.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_nan.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_overflow.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_repeated_key.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_repeated_escaped_key.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_lone_surrogate.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/header_not_object.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_not_ascii.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/header_length_past_end.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/too_short.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/oversized.bin",
+    "max_bytes": 1079,
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_version",
+    "file": "frames/protocol_missing.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_version",
+    "file": "frames/protocol_float.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_field",
+    "file": "frames/unknown_header_key.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "missing_field",
+    "file": "frames/missing_header_key.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_kind",
+    "file": "frames/delta_kind.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_kind",
+    "file": "frames/zstd_compression.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_kind",
+    "file": "frames/unknown_dtype.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_kind",
+    "file": "frames/unknown_encoding.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/required_not_bool.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/raw_with_scale.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/zero_denominator.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/short_array.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/trailing_bytes.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/array_of_nowhere.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "missing_field",
+    "file": "frames/no_cells_grid.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/grid_shape_differs.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/two_grids_one_name.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/duplicate_channel.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "missing_field",
+    "file": "frames/missing_required_channel.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/known_channel_other_unit.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_field",
+    "file": "frames/unknown_required_grid.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_field",
+    "file": "frames/unknown_required_table.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:44dc931c5e296238ccbce14302a83f061468188ad180953127ac6b3a63f3369f",
+    "code": "",
+    "file": "frames/optional_channel_omitted.bin",
+    "known_extra": [
+     {
+      "dtype": "u8",
+      "encoding": "raw",
+      "name": "soot",
+      "offset": [
+       0,
+       1
+      ],
+      "required": false,
+      "scale": [
+       1,
+       1
+      ],
+      "unit": "ratio"
+     }
+    ],
+    "outcome": "accepted"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_version",
+    "file": "frames/catalogue_mismatch.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_nul_padding.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_trailing_comma.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_json",
+    "file": "frames/header_leading_zero.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "not_int",
+    "file": "frames/tick_1e20.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "not_int",
+    "file": "frames/float_where_the_schema_answers_first.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "not_int",
+    "file": "frames/scale_float.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_version",
+    "file": "frames/protocol_true.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_version",
+    "file": "frames/newer_protocol_with_float.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_version",
+    "file": "frames/protocol_negative.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/digest_trailing_newline.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_identity_key",
+    "file": "frames/optional_name_escaped_non_ascii.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_identity_key",
+    "file": "frames/name_with_colon.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "over_budget",
+    "file": "frames/too_many_tables.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "out_of_range",
+    "file": "frames/extent_past_u16.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_field",
+    "file": "frames/key_with_escaped_bom.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_kind",
+    "file": "frames/kind_with_escaped_bom.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_identity_key",
+    "file": "frames/grid_name_with_escaped_bom.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "unknown_kind",
+    "file": "frames/raw_scale_and_unknown_dtype.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_identity_key",
+    "file": "frames/raw_scale_and_bad_name.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_identity_key",
+    "file": "frames/raw_scale_and_bad_of.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/optional_raw_with_scale.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/grid_shape_same_count.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "",
+    "file": "frames/name_at_64_characters.bin",
+    "ignored": [
+     "channel:nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn"
+    ],
+    "outcome": "accepted"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_identity_key",
+    "file": "frames/name_past_64_characters.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "over_budget",
+    "file": "frames/too_many_grids.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "over_budget",
+    "file": "frames/too_many_arrays.bin",
+    "outcome": "refused"
+   },
+   {
+    "catalogue": "sha256/c14n-1:0bee15dd6a86c74dda0a9d968425853320cb1b7288ae7d7cace188bf3172f3a7",
+    "code": "bad_shape",
+    "file": "frames/header_past_cap.bin",
+    "outcome": "refused"
+   }
+  ],
+  "readers": [
+   "python",
+   "godot"
+  ]
+ },
+ "json": {
+  "fixtures": [
+   {
+    "code": "",
+    "file": "json/object.json",
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "a": [
+         {
+          "i": 1
+         },
+         {
+          "i": -2
+         },
+         {
+          "s": [
+           120
+          ]
+         },
+         {
+          "b": true
+         },
+         {
+          "b": null
+         }
+        ]
+       }
+      ],
+      [
+       {
+        "s": [
+         98
+        ]
+       },
+       {
+        "o": []
+       }
+      ],
+      [
+       {
+        "s": [
+         99
+        ]
+       },
+       {
+        "s": [
+         99,
+         97,
+         102,
+         233,
+         32,
+         233
+        ]
+       }
+      ],
+      [
+       {
+        "s": [
+         100
+        ]
+       },
+       {
+        "f": "finite"
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/nan.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/infinity.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/minus_infinity.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/overflow.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/repeated_key.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/repeated_escaped_key.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/nested_repeated_key.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/lone_surrogate.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/deep_nesting.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/nesting_at_limit.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "a": [
+        {
+         "a": [
+          {
+           "a": [
+            {
+             "a": [
+              {
+               "a": [
+                {
+                 "a": [
+                  {
+                   "a": [
+                    {
+                     "a": [
+                      {
+                       "a": [
+                        {
+                         "a": [
+                          {
+                           "a": [
+                            {
+                             "a": [
+                              {
+                               "a": [
+                                {
+                                 "a": [
+                                  {
+                                   "a": [
+                                    {
+                                     "a": [
+                                      {
+                                       "a": [
+                                        {
+                                         "a": [
+                                          {
+                                           "a": [
+                                            {
+                                             "a": [
+                                              {
+                                               "a": [
+                                                {
+                                                 "a": [
+                                                  {
+                                                   "a": [
+                                                    {
+                                                     "a": [
+                                                      {
+                                                       "a": [
+                                                        {
+                                                         "a": [
+                                                          {
+                                                           "a": [
+                                                            {
+                                                             "a": [
+                                                              {
+                                                               "a": [
+                                                                {
+                                                                 "a": [
+                                                                  {
+                                                                   "a": []
+                                                                  }
+                                                                 ]
+                                                                }
+                                                               ]
+                                                              }
+                                                             ]
+                                                            }
+                                                           ]
+                                                          }
+                                                         ]
+                                                        }
+                                                       ]
+                                                      }
+                                                     ]
+                                                    }
+                                                   ]
+                                                  }
+                                                 ]
+                                                }
+                                               ]
+                                              }
+                                             ]
+                                            }
+                                           ]
+                                          }
+                                         ]
+                                        }
+                                       ]
+                                      }
+                                     ]
+                                    }
+                                   ]
+                                  }
+                                 ]
+                                }
+                               ]
+                              }
+                             ]
+                            }
+                           ]
+                          }
+                         ]
+                        }
+                       ]
+                      }
+                     ]
+                    }
+                   ]
+                  }
+                 ]
+                }
+               ]
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/nesting_past_limit.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/not_json.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/oversized.json",
+    "max_bytes": 64,
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/leading_zero.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/trailing_comma_object.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/trailing_comma_array.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/raw_tab_in_string.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/raw_newline_in_string.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/nul_after_value.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/nul_in_string.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/escaped_nul.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/bom.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/float_1e20.json",
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "f": "finite"
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/float_whole_at_2p53.json",
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "f": "finite"
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/float_largest_power.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "f": "finite"
+      }
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/surrogate_pair.json",
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "s": [
+         128512
+        ]
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/lone_low_surrogate.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/high_then_letter.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/unknown_escape.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/short_unicode_escape.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/solidus_escape.json",
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "s": [
+         47
+        ]
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/raw_bom_in_key.json",
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "i": 2
+       }
+      ],
+      [
+       {
+        "s": [
+         65279,
+         97
+        ]
+       },
+       {
+        "i": 1
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/escaped_bom_leading.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "s": [
+        65279,
+        120
+       ]
+      }
+     ]
+    }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/nul_beside_replacement.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/signed_unicode_escape_plus.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/signed_unicode_escape_minus.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/float_past_double.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/raw_utf8.json",
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "s": [
+         99,
+         97,
+         102,
+         233
+        ]
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/truncated_utf8.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/overlong_utf8.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/overlong_utf8_three_bytes.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/overlong_utf8_four_bytes.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/utf8_surrogate.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/utf8_past_unicode.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/utf8_two_bytes_last.json",
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "s": [
+         2047
+        ]
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/utf8_three_bytes.json",
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "s": [
+         8364
+        ]
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/utf8_four_bytes.json",
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "s": [
+         128512
+        ]
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/utf8_four_bytes_last.json",
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "s": [
+         1114111
+        ]
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/utf8_lone_continuation.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/utf8_two_continuations.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/utf8_lead_past_f4.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/utf8_lead_ff.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/exponent_past_u32.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/zero_with_a_huge_exponent.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "f": "finite"
+      }
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/long_fraction_and_exponent.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "f": "finite"
+      }
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/just_below_overflow.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "f": "finite"
+      }
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/rounds_down_to_the_largest_double.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "f": "finite"
+      }
+     ]
+    }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/rounds_up_past_the_largest_double.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/just_past_the_halfway.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/exact_halfway_past_the_largest_double.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/exact_halfway_in_exponent_form.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/smallest_normal_double.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "f": "finite"
+      }
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/half_way_digits.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "f": "finite"
+      }
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/past_the_integers_as_a_float.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "f": "finite"
+      }
+     ]
+    }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/integer_past_u64.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/minus_zero.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "i": 0
+      }
+     ]
+    }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/long_negative_integer.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/integer_at_2p63.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/negative_integer_at_2p63.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/exponent_without_digits.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/fraction_without_digits.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/leading_plus.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/leading_point.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/largest_negative.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "i": -9007199254740991
+      }
+     ]
+    }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/negative_at_2p53.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/long_integer.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/scalar.json",
+    "outcome": "accepted",
+    "value": {
+     "i": 7
+    }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/empty.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/only_space.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/two_values.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/capital_true.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/short_null.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/key_not_text.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/vertical_tab.json",
+    "outcome": "refused"
+   }
+  ],
+  "readers": [
+   "python",
+   "godot"
+  ]
+ },
+ "limits": {
+  "int_max": 9007199254740991,
+  "max_arrays": 64,
+  "max_depth": 32,
+  "max_extent": 65535,
+  "max_grids": 8,
+  "max_header_bytes": 65536,
+  "max_name_chars": 64,
+  "max_tables": 16,
+  "max_text_bytes": 65536
+ },
+ "server": {
+  "fixtures": [
+   {
+    "code": "",
+    "file": "server/welcome.json",
+    "outcome": "accepted"
+   }
+  ],
+  "readers": [
+   "godot"
+  ]
+ },
+ "version": 0
+}

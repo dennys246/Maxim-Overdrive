@@ -52,7 +52,7 @@ the measured checks, advisory.
 ## Layout
 
 - `src/simcore/`: the engine, in layers that import only downward (`docs/design/boundaries.md` O24; the contracts are
-  `[tool.importlinter]` in `pyproject.toml`): game > verify > protocol > adapters > core
+  `[tool.importlinter]` in `pyproject.toml`): game > host | verify > protocol > adapters > core
 - `src/simcore/core/` (the sealed core: no IO, no clock, no `maxim`): `checks.py` (every untrusted number becomes a
   finite float or a whole number there, and every mapping is held to its reader's keys, `known_keys`, or is refused;
   `shown`, the bounded echo; `entity_key`, Maxim's name rule; `identity_key`, no `:`), `refusals.py` (the append-only
@@ -79,14 +79,20 @@ the measured checks, advisory.
   `sem/bridge.py` (the membrane's gate half: environment regions as Maxim SEM Entities, reading frames and writing
   through a submit-and-step `Port`; the only engine code that imports `maxim`)
 - `src/simcore/protocol/`: what the client receives: `tiers.py` (rig profiles as rendering tiers, no physics),
-  `encoding.py` (`snapshot` of a published frame, display quantization)
+  `encoding.py` (`snapshot` of a published frame, display quantization), `strict_json.py` (the wire's one JSON
+  parser: integers below 2⁵³, no repeated keys), `messages.py` (decode and stage 1 of client messages),
+  `catalogue.py`, `frame_header.py` and `grammar.py` (the cell frame and its extension rule), `replies.py`
+  (`welcome`, `error`) and `registry.py` (its artifact is `docs/generated/protocol.md`); the golden fixtures, which
+  the Godot decoders read too, are `client/tests/fixtures/wire/`, made by `scripts/wire_fixtures.py`
+- `src/simcore/host/`: the process that owns the world and talks to clients: `tokens.py` (per-launch tokens),
+  `sessions.py` (sessions, `TimeAuthority`, `HostOnly`) and `server.py` (the WebSocket handshake, boundaries §5.3)
 - `src/simcore/verify/`: the verification harness (`docs/design/verify_harness.md`): convergence studies, agreement
   across grids, bands and splitting. It measures callables and imports nothing from the engine; only tests use it
 - `src/maxim_overdrive/`: the game. `data.py` says where its data lives (`data/rigs/`, `data/materials/`,
   `data/world/`) and loads it
 - `client/`: the Godot 4.7.2 client (`docs/design/client_rendering.md` §7): `addons/engine/` (the engine half;
-  `render/` holds the cell raymarch shader and its inputs), `game/` (this game: tiers, palette, cut-away walls),
-  `tests/` (`run.gd` the runner, `unit/`, `load_all.gd`, `support/`, the snapshot `fixtures/`, the golden and
+  `render/` holds the cell raymarch shader and its inputs, `net/` the wire decoders and `NetClient`), `game/` (this
+  game: tiers, palette, cut-away walls), `tests/` (`run.gd` the runner, `unit/`, `load_all.gd`, `support/`, the snapshot `fixtures/`, the golden and
   cut-away scenes and `goldens/`);
   `tools/godot_probes/`: the §9 probes, a separate Godot project rerun on an upgrade (B26); `ci/`: the Godot pin
   (`godot.env`), `install_godot.sh` and the golden image (`godot-golden/`)

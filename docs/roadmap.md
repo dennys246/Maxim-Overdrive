@@ -309,6 +309,7 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
   - the guest-text gate refusing line separators and format characters on decoded text;
   - memory provenance with a purge that survives relay and extraction.
   - O18's local model by default, remote only with the guest's informed consent.
+  - a cap on connections that haven't sent `hello` (`docs/plans/checklists.md`, step 7's deferrals);
   Deferred by name (O30): a worker OS sandbox, decided before guest sessions open.
 - The cradle writer: an arc's fixed event pool plus handcrafted inflection points, assembled per NPC in code.
 - Three NPCs on the first tile (the ripperdoc, a fixer, a street kid), each cradled from an authored life.
