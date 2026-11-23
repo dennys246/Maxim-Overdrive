@@ -1,4 +1,4 @@
-// Rods (docs/design/client_objects.md §4): what the rod's two passes share. A unit cylinder per instance, its axis
+// Rods (docs/design/client_objects.md §4): what the rod's three passes share. A unit cylinder per instance, its axis
 // along local y, scaled by the instance transform to the rod's length and radius. The vertex shader widens a thin rod
 // to the 2 px floor plus one rendered pixel; the fragment shader finds its own segment, drops a burnt-through one (per
 // pixel, never per vertex, §4.2), and computes its coverage: its distance from the drawn silhouette in rendered

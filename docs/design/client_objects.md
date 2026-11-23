@@ -114,8 +114,7 @@ span and the origin are fire_solid §1.1–§1.2's.
 **`slabs`**, keyed by `object_id`: `origin_{x,y,z}_m` (a corner), `length_axis_{x,y,z}`, `width_axis_{x,y,z}`,
 `length_m`, `width_m`, `thickness_m`, all f32. The segmented face is fire_solid §1.1's.
 
-Geometry gets a table per kind rather than one table of positional columns. That way each column has one meaning
-(F1), and a new kind is a new table and mesh, never a reinterpretation of old columns.
+A table per kind, not one of positional columns, keeps each column's meaning (F1): a new kind is a new table and mesh.
 
 **The decoder's checks** run when the structure differs from the last frame drawn: every `objects` column but `state`,
 the geometry tables, `segments`' keys, the row counts, the vocabularies and the region map. In a steady burn: insertions
@@ -126,7 +125,8 @@ to §3.3's clip (ruling 9). A refused frame draws nothing new. The decoder refus
 - a `segment_count` of 0, Σ `segment_count` ≠ the `segments` rows, or key bytes ≠ the keys the objects imply;
 - a geometry row missing, or present in another kind's table;
 - non-finite geometry, a non-positive size, an axis off unit or slab axes off square by more than 10⁻⁶ `[engineering]`;
-- from step 7, geometry outside the world: the cell snapshot's extent (fire_solid §1.3).
+- from step 7, geometry outside the world: the cell snapshot's extent (fire_solid §1.3);
+- a surface temperature NaN, infinite or outside §3.3's clip.
 
 The client never recounts segments from geometry. `segment_count` is the server's, its rule fire_solid §1.2's. A recount from f32 columns disagrees with any rule for some lengths: 42 of 1,981 at an absolute tolerance
 (`delta1_wire_integrity.md` N1). The key check catches a misdistributed count, and §4.1's clamp keeps every fragment on
@@ -220,7 +220,7 @@ The join cap counts the tables at the limits (`client_rendering.md` §4.3), whic
   measured in `research/fuel_antialiasing.md`): it holds the bar on every tier, where MSAA fails the laptop tier.
   Slab edges have none yet (that record's open item 2). Rods draw depth alone over the silhouette (coverage ≥ 0.5),
   then every rod's colour core, then every rod's fade, blended by coverage: crossing sticks occlude by depth on every
-  tier, and a front fade lands on a rear rod in any order unless rods touch (ruling 7).
+  tier, and a front fade lands on a rear rod in any order unless rods touch or fades overlap (ruling 7).
 
 ### 4.3 Picking and interaction
 

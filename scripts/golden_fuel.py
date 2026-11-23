@@ -282,8 +282,8 @@ CROSSINGS = (FADE_PAIR, ("stick_on_slab", "slab_leaning"))
 # Coverage falls from 0.5 at the drawn edge to 0 half a rendered pixel past it, so the one-pixel band averages 1/8;
 # inside the floored 2 px stick it rises from 0.5 to 1 over half a pixel, so the strip averages 7/8. An intact fade
 # adds 1/7 of the stick's gain and an overwritten one none; the bar is half of 1/7. Measured, the intact share is
-# 0.396 on llvmpipe, above the model (probably the hot stick's bloom; not separated by measurement), so the bar is a
-# floor, not a fit.
+# 0.396 on llvmpipe, above the model, cause unmeasured: core saturation or bloom (with the fade pass deleted, the
+# core's bloom adds 0.021). The bar is a floor, not a fit.
 FADE_SHARE = 1.0 / 14.0
 # Laptop's upscale smears the stick's core into the band, which a measure at output pixels can't separate: unchecked
 # there until a laptop measure is derived (docs/plans/checklists.md step 8).

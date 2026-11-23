@@ -65,3 +65,17 @@ Statuses of delta round 1's findings are in `delta2_all.md`. Its new findings, a
 | ET-N1, N-3: bloom stated as the cause | "probably bloom; not separated by measurement" in `FADE_SHARE`'s comment and the note | |
 | N-5: fade over fade unrecorded | Step 8's Remaining | |
 | P-N3: trigger only in the fold table | Step 8's Remaining, with its trigger | |
+
+## Delta round 3 folds
+
+Statuses of delta round 2's findings are in `delta3_all.md` (no BLOCKER or SHOULD-FIX open). Its new findings, all
+NIT, which per its summary need no round 4 unless code changes:
+
+| Finding | Author's fold | Status |
+|---|---|---|
+| D3-1: the shader header and research note name one touching-rod effect; "in any order" reads as covering N-5 | `fuel_rod_fringe.gdshader`'s header names both N-1 effects and N-5; the note points to step 8 for both; §4.2 says "unless rods touch or fades overlap"; ruling 7 names N-5 | |
+| D3-2: `fuel_rod.gdshaderinc` "two passes" | "three passes" | |
+| D3-3: §4.1's post-loop insertion figure is loaded | Author proposes deferred to B5's fuel row, which now names it; trigger: that row's first unloaded run | |
+| D3-4: §3.2's refusal list lacks the temperature | A bullet (NaN, infinite or outside §3.3's clip), paid for by cutting §3.2's table-per-kind rationale; 5,175 words | |
+| D3-5, N-3: "probably bloom" against the 0.021 deletion residual | `FADE_SHARE`'s comment and the note: cause unmeasured, core saturation or bloom; the core's bloom alone adds 0.021 | |
+| owner_rulings.md's 122-column line | Rewrapped | |

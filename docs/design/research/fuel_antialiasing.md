@@ -86,7 +86,8 @@ what is behind both rods, not the rear rod (rig fuel-ID 132–208/255 where 255 
 outer half only where crossing centres line up (fuel_leftovers A1). Since owner ruling 7 every rod's colour core
 (coverage ≥ 0.5) draws before any rod's fade, so a front fade lands on a rear rod in any order, unless the rods
 touch (below). The check, on rig and max (ruling 8): the band's linear gain over the log is at least 1/14 of the
-stick's, half the coverage model's 1/7; measured, it is higher, probably from bloom. The stick crossing 0.15 m off
+stick's, half the coverage model's 1/7; measured, it is higher, cause unmeasured (core saturation or bloom; with the
+fade deleted the core's bloom adds 0.021). The stick crossing 0.15 m off
 the log's centre, on llvmpipe:
 
 | Tier | Two passes | One pass (deleted) | Bar |
@@ -94,9 +95,8 @@ the log's centre, on llvmpipe:
 | rig, max | 0.396 | 0.021 | 0.071 |
 | laptop (unchecked) | 0.258 | 0.233 | |
 
-Laptop's upscale smears the core into the band. The inner half stays open. Touching rods' widened shells
-interpenetrate, so near a contact depth hides part of the front fade (a geometry model, not a render:
-fuel_leftovers N-1).
+Laptop's upscale smears the core into the band. The inner half stays open. Touching rods and fade over fade are
+exceptions (N-1, N-5: step 8's checklist).
 
 ## The goldens
 
