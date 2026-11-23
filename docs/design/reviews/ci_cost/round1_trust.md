@@ -119,7 +119,7 @@ BLOCKER 2 should instead `rm -rf` the `_work/<repo>` directory and point `PIP_CA
 
 Create a non-admin user such as `runner`, with no sudo and no keychain items, and keep the owner's GitHub, SSH and
 Tailscale credentials out of it. A second account is not automatically walled off. On this Mac, `ls -led ~` gives
-`drwxr-x---+ dennyschaedig staff` and `~/Scripts` is `drwxr-xr-x` (measured). Every standard user is in `staff`, so a
+`drwxr-x---+ <owner> staff` and `~/Scripts` is `drwxr-xr-x` (measured). Every standard user is in `staff`, so a
 runner account could traverse the owner's home and read anything created with umask 022, such as `~/overdrive-gate`.
 On the mini, run `chmod 700 ~` for the owner, then check (unverified there).
 

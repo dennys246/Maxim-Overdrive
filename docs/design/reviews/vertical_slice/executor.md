@@ -13,7 +13,7 @@ Three tests cannot fail for a rule they should guard. The entry point (`serve`, 
 
 **Counts: 1 BLOCKER, 8 SHOULD-FIX, 6 NIT.**
 
-All probes are in `/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/0cd46c17-46b0-4e03-a0f9-166fcc2b63c1/scratchpad/probes/`. The mutation copies are in `/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/0cd46c17-46b0-4e03-a0f9-166fcc2b63c1/scratchpad/mut/`. Nothing in the repository was modified.
+All probes are in `<scratchpad>/probes/`. The mutation copies are in `<scratchpad>/mut/`. Nothing in the repository was modified.
 
 ---
 
