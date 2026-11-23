@@ -106,7 +106,7 @@ As written, neither of the following is pinned:
 
 **S5. `inference_placement.md::§3` ("no `HOME`"): leaving HOME unset doesn't keep Maxim out of the user's real home directory, and the gateway has no no-effect test.**
 
-- **The fallback.** With HOME unset, `Path.home()` falls back to the password database. *Verified:* I ran `env -i … python -I -c 'Path.home()'` and it printed `/Users/dennyschaedig`.
+- **The fallback.** With HOME unset, `Path.home()` falls back to the password database. *Verified:* I ran `env -i … python -I -c 'Path.home()'` and it printed `<home>`.
 - **What that reaches.** `utils/paths.py::data_home` uses `Path.home() / ".maxim"` and runs `mkdir` on it (`:181-203`). `profile_loader` reads `~/.config/maxim/profiles.yml` on the first profile lookup. Both are reachable through Maxim accessors, for example `load_llm_config`, profile normalisation or `models.download`, if the gateway ever builds its `LLMConfig` through them rather than directly.
 - **What is clean.** I found no call to `data_home` on the three backends' call paths (`git grep` over `models/language`, `utils/http.py`, `utils/net.py`, `utils/logging.py`, `agents/llm_worker.py`).
 - **What else rests only on the allowlist.** The SDKs read `ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL` and `OPENAI_API_KEY`, and the backends fall back to environment keys (`anthropic_backend.py:157`, `openai_backend.py:172`). The environment allowlist is the only thing stopping them.
