@@ -33,6 +33,8 @@ PASSES = [
     "\u2764\ufe0f",  # a heart drawn red: one VS16 after a character with emoji forms (O65)
     "1\ufe0f\u20e3",  # a keycap: digit, VS16, the enclosing keycap
     "\u263a\ufe0e",  # a smiley drawn as text: VS15
+    "\u2813\u280a\u2800\u281e\u2813\u2811\u2817\u2811",  # braille "hi there": its blank is its space (delta 2, N-S1)
+    "\u2422 x",  # the BLANK SYMBOL, which draws
 ]
 
 
@@ -142,7 +144,6 @@ HIDDEN = [
     ("a\u115fb", "a Hangul choseong filler inside a word"),
     ("\u2800", "the braille blank alone"),
     ("\u2800 \u2800", "blanks and spaces only"),
-    ("\u2800a", "a braille blank beside a letter: blank by its name, refused as the name rule refuses it"),
     ("\U00016fe4", "the Khitan small script filler alone (delta review D-B1)"),
     ("a\U00016fe4\u200d\U00016fe4b", "fillers and a joiner, which could carry hidden bits"),
     ("\U00013441", "a hieroglyph full blank"),

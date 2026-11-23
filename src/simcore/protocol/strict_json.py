@@ -121,7 +121,7 @@ def integers_only(value: object, what: str) -> None:
 def encode(value: object) -> str:
     """``value`` as the server's JSON text. A float, or an integer of magnitude 2⁵³ or more, is a programming error
     here, never sent: the client refuses the one and can't read the other exactly."""
-    _check_numbers(value)
+    _check_encodable(value)
     return json.dumps(value, allow_nan=False, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
 
 
@@ -132,7 +132,7 @@ def _check_text(text: str) -> None:
         raise ValueError("a lone surrogate can't go on the wire: the decoder refuses it")
 
 
-def _check_numbers(value: object) -> None:
+def _check_encodable(value: object) -> None:
     if isinstance(value, str):
         _check_text(value)
         return
@@ -146,10 +146,10 @@ def _check_numbers(value: object) -> None:
         return
     if isinstance(value, dict):
         for item in (*value.keys(), *value.values()):
-            _check_numbers(item)
+            _check_encodable(item)
         return
     if isinstance(value, list | tuple):
         for item in value:
-            _check_numbers(item)
+            _check_encodable(item)
         return
     raise TypeError(f"a {type(value).__name__} can't go on the wire: JSON holds objects, arrays, text and integers")

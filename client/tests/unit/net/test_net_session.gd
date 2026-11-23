@@ -60,6 +60,8 @@ func test_the_server_s_other_messages(t: TestContext) -> void:
 	t.check_eq(_after([_text({"type": "error"})]).refusal, "bad_shape", "an error without a code")
 	t.check_eq(_after([_text({"type": "error", "code": "Not a code!"})]).refusal, "bad_shape", "prose as a code")
 	t.check_eq(_after([_text({"type": "vote"})]).refusal, "unknown_kind", "an unknown type")
+	for kind: Variant in [5, true, [1], {}]:  # once a script error that left the session live (delta 2, D2-SF1)
+		t.check_eq(_after([_text({"type": kind})]).refusal, "unknown_kind", "a type that is %s" % type_string(typeof(kind)))
 	t.check_eq(_after([_text([1, 2])]).refusal, "bad_shape", "not an object")
 	t.check_eq(_after(["{\"type\":\"welcome\",\"protocol\":0,\"session\":1.0}".to_ascii_buffer()]).refusal, "not_int", "a float")
 	var newer: PackedByteArray = "{\"type\":\"welcome\",\"protocol\":1,\"session\":1.0}".to_ascii_buffer()
@@ -95,3 +97,12 @@ func test_the_server_s_own_welcome_starts_the_session(t: TestContext) -> void:
 	var session: NetSession = _after([bytes])
 	t.check(not session.ended(), "accepted: %s" % session.refusal)
 	t.check_eq(session.welcome.get("role"), "guest", "its role read")
+
+
+func test_a_reconnect_starts_a_fresh_session(t: TestContext) -> void:
+	# NetClient.open: a new socket and a new session, so the next hello isn't refused by the last one's end (X-N3)
+	var client: NetClient = NetClient.new()
+	client.session.end("bad_token")
+	var _opened: Error = client.open(1, "t0ken")  # port 1: nothing answers; the session is what this checks
+	t.check(not client.session.ended(), "a fresh session: %s" % client.session.refusal)
+	client.peer.close()

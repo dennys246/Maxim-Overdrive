@@ -127,6 +127,7 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
   - it refuses at `join` a shape whose frame, with the fuel tables at the world limits, exceeds a `data/server/` client cap of 3.5 MiB;
   - it sends a new frame only after the previous one has drained;
   - it keeps inbound `max_size` at 64 KiB, with a test for the 1009 close (TB-7, WT-S12).
+- **Server text messages are at most 64 KiB.**
 - **A refused connection ends** with `error`, then close 1008 whose reason is the code: Godot 4.7.2 drops a text
   packet arriving with the close [ran], so the client reads the reason.
 

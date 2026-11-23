@@ -67,6 +67,7 @@ func poll() -> void:
 		# Only a code is taken from the peer: prose, or a reason past a close frame's 123 bytes, can't become ours
 		var reason: String = peer.get_close_reason()
 		var coded: bool = NetSession.CODE.search(reason) != null
-		session.end(reason if coded else "closed %d" % peer.get_close_code())
+		session.close_code = peer.get_close_code()
+		session.end(reason if coded else "closed")
 	elif session.ended() and state == WebSocketPeer.STATE_OPEN:
 		peer.close(1000, session.refusal)

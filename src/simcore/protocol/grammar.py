@@ -9,7 +9,8 @@ applies the same rules, and the golden fixtures hold the two to one outcome each
 
 1. the frame's length (at most ``max_bytes``), the header length, and the header as ASCII, strict JSON
    (``bad_shape``, ``bad_json``);
-2. ``protocol``, before any other field, so a newer frame is refused for its version (``bad_version``);
+2. ``protocol``, before any other field, so a newer frame is refused for its version (``bad_version``), then any
+   float anywhere (``not_int``, ``strict_json.integers_only``: the server's JSON holds integers only, O62);
 3. the header's closed schema: an unknown or missing key, an unknown ``kind``, ``compression``, dtype or encoding
    (``unknown_field``, ``missing_field``, ``unknown_kind``);
 4. the catalogue hash, against the one ``welcome`` announced (``bad_version``);

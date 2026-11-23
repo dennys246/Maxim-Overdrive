@@ -11,16 +11,19 @@ const PROTOCOL: int = FrameDecoder.PROTOCOL
 ## What a refusal code looks like (src/simcore/core/refusals.py): lower-case words joined by underscores.
 static var CODE: RegEx = RegEx.create_from_string("^[a-z][a-z_]{0,31}\\z")
 ## The server's text messages (welcome, error) are small; a cell frame is binary and has its own cap.
-const MAX_TEXT_BYTES: int = 64 * 1024  # the server's own inbound cap; a hostile text parses in well under a second
+const MAX_TEXT_BYTES: int = 64 * 1024  # client_rendering §4.3; the server writes no reply past it (replies.text)
 const MAX_FRAME_BYTES: int = 4 * 1024 * 1024
 const ROLES: Array[String] = ["host", "guest"]
 
 ## welcome as read, once it is; empty before.
 var welcome: Dictionary = {}
-## The refusal that ended the session: a code (an error the server sent, what this client refused, or the close's
-## reason), or "closed <close code>" when the connection ended with no reason; empty while all is well.
+## The refusal that ended the session, always a code: an error the server sent, what this client refused, the close's
+## reason, or "closed" when the connection ended with no reason (its close code is in ``close_code``); empty while
+## all is well.
 var refusal: String = ""
 var last_frame: WireFrame = null
+## The close code, once the connection has closed; 0 before.
+var close_code: int = 0
 var _catalogue: Array[Dictionary] = WireCatalogue.v0()
 var _catalogue_hash: String = WireCatalogue.catalogue_hash(WireCatalogue.v0())
 
@@ -42,7 +45,8 @@ func on_text(bytes: PackedByteArray) -> void:
 		read.refuse("bad_shape", "a server message is a JSON object")
 	if read.ok:  # welcome carries the protocol; an error does not
 		var fields: Dictionary = read.value
-		var versioned: bool = fields.get("type") == "welcome"
+		var kind: Variant = fields.get("type")  # a String compared with a number or a bool is a script error, not false
+		var versioned: bool = kind is String and kind == "welcome"
 		WireJson.server_rules(read, PROTOCOL, versioned)
 	if not read.ok:
 		end(read.code)

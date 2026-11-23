@@ -324,7 +324,7 @@ capture, the token, caps, 1009), `HostOnly` with a guest-role view, and `player_
   frame on localhost, measured (both cut from `client_rendering.md` §4 as tests to write).
 - The strict red gate that refuses guest joins while real-Maxim NPCs are live, as the roadmap's Phase 4 assigns
   this PR (TB-B2).
-- `intent_result`, `seq`, `observed_tick` and events' `cause` (after step 5a's integer clock).
+- `intent_result`, `time_decision`, `seq`, `observed_tick` and events' `cause` (after step 5a's integer clock).
 - The `regions` message (DC-B1); the fuel tables and fuel view
   (`client_objects.md` §3, `fire_solid.md` §5.6) with u32 and f32 in v0's dtypes, a cell channel's fixtures at a
   non-default scale (`client_objects.md` §7.1), the join cap counting fuel, the fuel view's leak test (`Observation`'s
@@ -338,8 +338,8 @@ capture, the token, caps, 1009), `HostOnly` with a guest-role view, and `player_
   geometry passes the client's checks until then.
 - Deferred from the round-1 review (author-proposed; the delta round sets their status):
   - `dispatch` hands each message to the simulation lane through a bounded per-session queue (realtime_lanes_coop
-    §4.1), never touching the world on the network loop (C3; the import contract `network-lane-off-the-world` holds
-    the server to it); trigger: this step's `intent_result`.
+    §4.1), never touching the world on the network loop (C3); the import contract `network-lane-off-the-world` fences
+    only the server's imports, never the injected `dispatch`; trigger: this step's `intent_result`.
   - `simcore.protocol.messages`' typed messages fold into `core.intents`' one stage 1 for NPCs and clients (A8);
     trigger: step 5b's `move` and `move_to` intents.
   - `time.scale` travels as an integer rational, since O62 keeps floats off the server's JSON and `tick` echoes it
@@ -347,6 +347,13 @@ capture, the token, caps, 1009), `HostOnly` with a guest-role view, and `player_
   - Guest text is judged by the interpreter's Unicode tables for unassigned code points: 5,812 pass on Python 3.14
     (16.0) that 3.12 (15.0) refuses (Determinism delta N3). The log keeps the text `player_text` returned and no
     reader re-checks it, or the engine pins one Unicode version; trigger: the first logged speech (`phase1/agents`).
+  - Guest text's residual: a character that draws nothing yet no Unicode property or name marks (U+1D159, MUSICAL
+    SYMBOL NULL NOTEHEAD) still passes; trigger: the first guest text an NPC reads (`phase1/agents`), when a
+    rendering test can measure ink.
+  - What Godot 4.7.2 does at the 65th queued packet (`max_queued_packets` is 64), measured with a listener that
+    sends faster than the client polls; trigger: step 8's live client.
+  - `WireFrame.index(z, y, x)` and `CellSnapshot.index(x, y, z)` take their axes in opposite orders; trigger: step
+    8's decoder filling `CellSnapshot`, which picks one.
   - A cap on connections that haven't sent `hello` (Concurrency N2): only local programs reach the port today;
     trigger: guests joining from beyond localhost (Phase 5).
   - Every converter moves to `simcore.core.converters` and `Converter` is a closed union again (A7); deferred because

@@ -5,7 +5,6 @@ client messages decode and stage 1 judge (``simcore.protocol.strict_json``, ``si
 from __future__ import annotations
 
 import json
-import struct
 from collections.abc import Mapping
 
 from simcore.protocol.messages import MAX_MESSAGE_BYTES
@@ -53,8 +52,10 @@ def _judged(data: bytes, outcome: str) -> Fixture:
 
 
 def value_tree(value: object) -> object:
-    """``value`` in a form no JSON reader can change: text as its code points, a float as its IEEE 754 bits (high,
-    low), each object as its members sorted by key. Godot's test builds the same tree from what it parsed."""
+    """``value`` in a form no JSON reader can change: text as its code points, each object as its members sorted by
+    key, and a float by its class only (finite), never its digits: the server's JSON holds no float (O62), so a
+    reader classifies one, and Godot's to_float isn't correctly rounded (step 7 delta 2, W SF-1). Godot builds the
+    same tree."""
     if isinstance(value, str):
         return {"s": [ord(ch) for ch in value]}
     if isinstance(value, bool) or value is None:
@@ -62,8 +63,7 @@ def value_tree(value: object) -> object:
     if isinstance(value, int):
         return {"i": value}
     if isinstance(value, float):
-        bits = struct.unpack("<Q", struct.pack("<d", value))[0]
-        return {"f": [bits >> 32, bits & 0xFFFFFFFF]}
+        return {"f": "finite"}  # the decoder refused every other class
     if isinstance(value, dict):
         return {"o": [[value_tree(k), value_tree(v)] for k, v in sorted(value.items())]}
     assert isinstance(value, list)
@@ -117,6 +117,11 @@ def _number_and_structure_edges() -> dict[str, tuple[bytes, str]]:
         "just_below_overflow": (b"[1.7976931348623157e308]", ok),
         "rounds_down_to_the_largest_double": (b"[1.7976931348623158e308]", ok),
         "rounds_up_past_the_largest_double": (b"[1.7976931348623159e308]", no),
+        "exact_halfway_past_the_largest_double": (b"[1.79769313486231581e308]", no),  # to_float reads it as finite
+        "integer_past_u64": (b"[18446744073709551617]", no),  # 2^64 + 1: a reader that wraps reads 1
+        "smallest_normal_double": (b"[2.2250738585072014e-308]", ok),  # finite, though Godot reads its digits as 0
+        "half_way_digits": (b"[970034019735371.5]", ok),
+        "past_the_integers_as_a_float": (b"[9007199254740993.0]", ok),
         "exponent_without_digits": (b"[1e]", no),
         "fraction_without_digits": (b"[1.]", no),
         "leading_plus": (b"[+1]", no),

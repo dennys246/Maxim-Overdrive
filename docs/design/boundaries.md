@@ -709,8 +709,9 @@ The core is forbidden from importing it; `engine.adapters.sem` is too (§2.2).
   refuses repeated keys, `max_size` applies before decoding. Integers are pinned below 2⁵³ (O59). The server's JSON
   holds integers only (O62): a reader judges a message's version first, a float there being `bad_version`, then any
   other float, anywhere, `not_int`. The client reads it with a strict parser of its own, and wire text
-  never holds U+0000, which a Godot string can't (O63).
-- **Golden rejection frames** sit beside the valid ones, with the grammar's edges, judged alike, code and value.
+  never holds U+0000, which a Godot string can't (O67).
+- **Golden rejection frames** and the grammar's edges are judged alike, code and value
+  (a float by its class).
 
 ### 9.2 Tests out of the shipped path (B-12)
 

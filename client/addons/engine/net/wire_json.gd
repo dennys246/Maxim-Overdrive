@@ -18,7 +18,6 @@ extends RefCounted
 
 const MAX_DEPTH: int = 32
 const INT_MAX: int = 9007199254740991  # 2^53 - 1: the largest n for which a double tells n from n + 1
-const _INT_DIGITS: int = 16  # INT_MAX's digit count: a longer integer literal is past the pin before it is read
 ## The digits of 2^1024 - 2^970, halfway between the largest double and the next power: at or past it a literal
 ## rounds to inf, as Python's float() rounds it (to even); below it, to the largest double. String.to_float rounds
 ## some of those below to inf (step 7 delta review D-N2).
@@ -61,7 +60,7 @@ static func server_rules(read: WireRead, protocol: int, versioned: bool) -> void
 		return
 	var message: Dictionary = read.value
 	if versioned:
-		var version: int = WireFields.version(read, message.get("protocol"), read.non_integer_keys.has("protocol"))
+		var version: int = WireFields.version(read, message.get("protocol"))
 		if read.ok and version != protocol:
 			read.refuse("bad_version", "protocol %d; this client knows %d" % [version, protocol])
 	if read.ok and not read.non_integer_keys.is_empty():
@@ -334,8 +333,9 @@ func _digits() -> bool:
 
 
 func _integer(text: String) -> Variant:
-	var digits: int = text.length() - (1 if text.begins_with("-") else 0)
-	if digits > _INT_DIGITS or absi(text.to_int()) > INT_MAX:
+	# String.to_int clamps a longer literal to the int64 range rather than wrapping it (2^64 + 1 reads as the maximum;
+	# the integer_past_u64 fixture), so the magnitude check alone refuses every integer at or past 2^53
+	if absi(text.to_int()) > INT_MAX:
 		_read.refuse("bad_json", "an integer of magnitude 2^53 or more (%d characters)" % text.length())
 		return null
 	return text.to_int()
@@ -353,7 +353,9 @@ func _real(text: String, key: String) -> Variant:
 ## The double a number literal names, as Python's float() reads it. String.to_float wraps or clamps a huge exponent
 ## (1e4294967296 reads as 1.0; step 7 delta review W-SF3), so the literal's decimal magnitude is worked out from its
 ## digits first, with an exponent too long to read saturated far past either edge, and the significant digits are
-## handed to to_float with that magnitude, which it reads as Python's float() does (inf past the largest double).
+## handed to to_float with that magnitude. The class (finite or not) is Python's float()'s, at the largest double too;
+## the digits are to_float's, which isn't correctly rounded, so a float's value is never part of the contract: the
+## server's JSON holds none (O62), and a reader only classifies one.
 static func _double(text: String) -> float:
 	var negative: bool = text.begins_with("-")
 	var body: String = text.trim_prefix("-")

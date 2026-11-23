@@ -15,7 +15,7 @@ the cap's intent). After ``welcome``, each message goes through decode and stage
 ``error``, and a message stage 1 accepts goes to ``dispatch``. ``dispatch`` runs on the network loop, so it may
 answer from what it holds but never touch the world: the hand-off to the simulation lane through a bounded queue
 (realtime_lanes_coop §4.1) and the replies that need its clock (``intent_result``, ``time_decision``, a ``snapshot``
-frame) join with step 5a.
+frame) join with this step's ``intent_result``, after step 5a's clock.
 """
 
 from __future__ import annotations
@@ -34,8 +34,7 @@ from websockets.http11 import Request, Response
 from simcore.core.refusals import RefusalCode, Refused
 from simcore.host.sessions import Session, Sessions
 from simcore.protocol.messages import MAX_MESSAGE_BYTES, ClientMessage, Hello, HelloRefused, read_message
-from simcore.protocol.replies import error, welcome
-from simcore.protocol.strict_json import encode
+from simcore.protocol.replies import error, text, welcome
 
 __all__ = ["BIND", "Dispatch", "HostConfig", "start"]
 
@@ -85,7 +84,7 @@ class _Host:
                 return
             try:
                 reply = welcome(session_id=session.session_id, role=session.role.value, shape=self._config.shape)
-                await connection.send(encode(reply))
+                await connection.send(text(reply))
                 await self._serve(connection, session)
             finally:
                 self._config.sessions.close(session)
@@ -95,7 +94,7 @@ class _Host:
     async def _refuse(self, connection: ServerConnection, code: RefusalCode, field: str | None = None) -> None:
         """An ``error`` reply, then the close, whose reason is the same code: a client that drops a message arriving
         with the close (Godot 4.7.2 does) still reads why from the close (client_rendering §4.3)."""
-        await connection.send(encode(error(code, field)))
+        await connection.send(text(error(code, field)))
         await connection.close(CloseCode.POLICY_VIOLATION, code.value)
 
     async def _hello(self, connection: ServerConnection) -> Hello | None:
@@ -134,12 +133,12 @@ class _Host:
             await self._refuse(connection, RefusalCode.HELLO_FIRST)
             return False
         except Refused as refused:
-            await connection.send(encode(error(refused.code, refused.field)))
+            await connection.send(text(error(refused.code, refused.field)))
             return True
         if isinstance(message, Hello):
             await self._refuse(connection, RefusalCode.HELLO_FIRST)  # hello comes once
             return False
-        await connection.send(encode(dict(self._config.dispatch(session, message))))
+        await connection.send(text(self._config.dispatch(session, message)))
         return True
 
 

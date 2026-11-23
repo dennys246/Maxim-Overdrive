@@ -1,6 +1,6 @@
 """Protocol v0's golden wire fixtures, read by the Python decoders and by Godot's (world_v2 §8; boundaries §9.1).
 
-Three sets, under ``client/tests/fixtures/wire/``, each listed in ``manifest.json`` with the outcome every reader of it
+Four sets, under ``client/tests/fixtures/wire/``, each listed in ``manifest.json`` with the outcome every reader of it
 must reach (accepted, or refused with a code), so the two sides are held to one list:
 
 - ``frames/``: cell frames (``simcore.protocol.grammar``; ``client/addons/engine/net/frame_decoder.gd``). The six
@@ -79,7 +79,7 @@ from simcore.core.checks import IDENTITY_KEY_CHARS
 from simcore.protocol.catalogue import V0, Channel, catalogue_hash, describe
 from simcore.protocol.frame_header import MAX_ARRAYS, MAX_EXTENT, MAX_GRIDS, MAX_TABLES
 from simcore.protocol.grammar import MAX_HEADER_BYTES, encode_cells
-from simcore.protocol.replies import welcome
+from simcore.protocol.replies import MAX_TEXT_BYTES, welcome
 from simcore.protocol.strict_json import JSON_INT_MAX, MAX_DEPTH, encode
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -402,7 +402,7 @@ def frames() -> dict[str, Fixture]:
 LIMITS = {
     "max_grids": MAX_GRIDS, "max_tables": MAX_TABLES, "max_arrays": MAX_ARRAYS, "max_extent": MAX_EXTENT,
     "max_header_bytes": MAX_HEADER_BYTES, "max_name_chars": IDENTITY_KEY_CHARS, "max_depth": MAX_DEPTH,
-    "int_max": JSON_INT_MAX,
+    "int_max": JSON_INT_MAX, "max_text_bytes": MAX_TEXT_BYTES,
 }  # fmt: skip
 
 

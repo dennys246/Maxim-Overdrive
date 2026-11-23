@@ -32,9 +32,9 @@ static func keys(read: WireRead, raw: Variant, what: String, required: Array[Str
 
 
 ## A version, read before anything else as the server's read_version does: a whole number from 0, never a bool, a
-## float or missing (bad_version). ``was_float`` is the parser's word that it was written with a point or exponent.
-static func version(read: WireRead, value: Variant, was_float: bool) -> int:
-	if was_float or not value is int:
+## float or missing (bad_version). WireJson reads an integer literal as an int and anything else as a float.
+static func version(read: WireRead, value: Variant) -> int:
+	if not value is int:
 		read.refuse("bad_version", "protocol must be a whole number")
 		return -1
 	var whole_version: int = value

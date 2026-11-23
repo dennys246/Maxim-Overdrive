@@ -207,7 +207,7 @@ type = "independence"
 modules = ["simcore.core.damage.loads", "simcore.core.damage.thermal", "simcore.core.heat"]
 
 # The network lane never touches the world (realtime_lanes_coop §4.1; step 7 review C3, D-S1): the server answers
-# from what it holds, and step 5a hands messages to the simulation lane through a bounded queue, never a call.
+# from what it holds, and step 7's intent_result hands messages to the simulation lane through a bounded queue.
 [[tool.importlinter.contracts]]
 id = "network-lane-off-the-world"
 name = "the WebSocket server never reaches the world, the simulation or the applier (realtime §4.1)"

@@ -24,7 +24,7 @@ from simcore.host.sessions import Decision, HostOnly, Session, Sessions, Session
 from simcore.host.tokens import Role, Tokens, write_token_file
 from simcore.protocol.catalogue import V0, catalogue_hash, describe
 from simcore.protocol.messages import MAX_MESSAGE_BYTES, ClientMessage
-from simcore.protocol.replies import BUILD
+from simcore.protocol.replies import BUILD, MAX_TEXT_BYTES, text, welcome
 
 SHAPE = (4, 5, 6)
 
@@ -456,3 +456,10 @@ def test_the_server_bounds_each_connection_s_queue_and_its_messages(monkeypatch)
     monkeypatch.setattr(server_module, "serve", fake_serve)
     run(start(HostConfig(sessions=Sessions(Tokens.fresh(guests=0), cap=1), shape=SHAPE, dispatch=_echo)))
     assert (seen["max_queue"], seen["max_size"], seen["compression"]) == (16, MAX_MESSAGE_BYTES, None)
+
+
+def test_the_server_writes_no_reply_past_the_client_s_text_cap():
+    # client_rendering §4.3: the client ends the session on a larger one, so the server refuses to write it
+    assert len(text(welcome(session_id=1, role="host", shape=SHAPE))) < MAX_TEXT_BYTES
+    with pytest.raises(ValueError, match="past the client's"):
+        text({"type": "test_echo", "pad": "x" * MAX_TEXT_BYTES})

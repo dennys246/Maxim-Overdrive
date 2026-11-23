@@ -86,14 +86,16 @@ def _within(ranges: tuple[tuple[int, int], ...], ch: str) -> bool:
 
 def _blank(ch: str) -> bool:
     """A character Unicode names a BLANK or a FILLER: one that draws nothing though no property says so (the braille
-    blank, Khitan's and the hieroglyphs' fillers; step 7 delta review D-B1). The name rule's own test, shared."""
+    blank, Khitan's and the hieroglyphs' fillers; step 7 delta review D-B1). The name rule's own test, shared. In
+    guest text a blank is no drawn character, like a space, and only a zero-width one (a mark) is refused outright,
+    so braille and the scripts' gap fillers keep working (delta 2, N-S1)."""
     return any(w in unicodedata.name(ch, "") for w in _BLANK_WORDS)
 
 
 def _visible(ch: str) -> bool:
-    """A character that draws something: not refused by category, not a space, not default-ignorable, not blank."""
-    category_ok = unicodedata.category(ch) not in _REFUSED_CATEGORIES
-    return category_ok and not ch.isspace() and not _within(DEFAULT_IGNORABLE, ch) and not _blank(ch)
+    """A character that draws something: not refused by category, not a space, not blank. (A default-ignorable one
+    is refused outright in ``_refused_at``, and the emoji bases hold none, so it never reaches this question.)"""
+    return unicodedata.category(ch) not in _REFUSED_CATEGORIES and not ch.isspace() and not _blank(ch)
 
 
 def _presentation_at(text: str, i: int) -> bool:
@@ -112,7 +114,8 @@ def _refused_at(text: str, i: int) -> bool:
         return not (0 < i < len(text) - 1 and _drawn_at(text, i - 1) and _visible(text[i + 1]))
     if ch in _PRESENTATION:
         return not _presentation_at(text, i)
-    return unicodedata.category(ch) in _REFUSED_CATEGORIES or _within(DEFAULT_IGNORABLE, ch) or _blank(ch)
+    zero_width_blank = _blank(ch) and unicodedata.category(ch) == "Mn"  # a filler mark: nothing, joined to its base
+    return unicodedata.category(ch) in _REFUSED_CATEGORIES or _within(DEFAULT_IGNORABLE, ch) or zero_width_blank
 
 
 def player_text(value: object, what: str, *, max_chars: int) -> str:

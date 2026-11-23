@@ -139,7 +139,7 @@ func test_the_client_s_limits_are_the_server_s(t: TestContext) -> void:
 		"max_grids": FrameDecoder.MAX_GRIDS, "max_tables": FrameDecoder.MAX_TABLES,
 		"max_arrays": FrameDecoder.MAX_ARRAYS, "max_extent": FrameDecoder.MAX_EXTENT,
 		"max_header_bytes": FrameDecoder.MAX_HEADER_BYTES, "max_name_chars": WireFields.MAX_NAME_CHARS,
-		"max_depth": WireJson.MAX_DEPTH, "int_max": WireJson.INT_MAX,
+		"max_depth": WireJson.MAX_DEPTH, "int_max": WireJson.INT_MAX, "max_text_bytes": NetSession.MAX_TEXT_BYTES,
 	}
 	t.check_eq(limits.keys().size(), mine.size(), "every limit the server lists is checked here")
 	for key: String in mine:
@@ -147,8 +147,8 @@ func test_the_client_s_limits_are_the_server_s(t: TestContext) -> void:
 	t.check_eq(WireFields.INT_MAX, WireJson.INT_MAX, "one pin on the client")
 
 
-## ``value`` as the manifest writes it (wire_texts.value_tree): text as code points, a float as its IEEE 754 bits,
-## each object's members sorted by key; ints as ints, compared with the manifest's doubles below 2^53.
+## ``value`` as the manifest writes it (wire_texts.value_tree): text as code points, a float by its class, each
+## object's members sorted by key; ints as ints, compared with the manifest's doubles below 2^53.
 func _tree(value: Variant) -> Variant:
 	if value is String:
 		var text: String = value
@@ -160,11 +160,9 @@ func _tree(value: Variant) -> Variant:
 		return {"b": value}
 	if value is int:
 		return {"i": value}
-	if value is float:
+	if value is float:  # a float by its class (wire_texts.value_tree): the parser refused every class but finite
 		var double: float = value
-		var bytes: PackedByteArray = PackedByteArray([0, 0, 0, 0, 0, 0, 0, 0])
-		bytes.encode_double(0, double)
-		return {"f": [bytes.decode_u32(4), bytes.decode_u32(0)]}
+		return {"f": "finite" if is_finite(double) else "not finite"}
 	if value is Dictionary:
 		var members: Dictionary = value
 		var keys: Array = members.keys()

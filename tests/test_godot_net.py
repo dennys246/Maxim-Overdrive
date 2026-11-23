@@ -82,7 +82,7 @@ def test_godot_s_upgrade_request_carries_no_origin_header(project, monkeypatch):
     headers = [h.split(b":", 1)[0].strip().lower() for h in captured[0].split(b"\r\n")[1:] if b":" in h]
     assert b"upgrade" in headers  # the capture saw a real WebSocket upgrade, so the next line can fail
     assert b"origin" not in headers
-    assert lines == ["net-check: refused closed -1"]  # a TCP close with no WebSocket close frame: no code, no reason
+    assert lines == ["net-check: refused closed"]  # a TCP close with no WebSocket close frame: no reason to read
 
 
 def _reply(session: Session, message: ClientMessage) -> Mapping[str, object]:
@@ -123,35 +123,42 @@ def test_godot_drops_the_error_that_arrives_with_the_close(project, monkeypatch)
 
 
 def _against(
-    project: tuple[str, Path, Path], monkeypatch: pytest.MonkeyPatch, *, replies: list[str | bytes]
+    project: tuple[str, Path, Path],
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    replies: list[str | bytes],
+    close_reason: str | None = None,
 ) -> tuple[list[str], int | None, str | None]:
-    """The client against a bare WebSocket server that answers its hello with ``replies``; the lines it printed,
-    and the close code and reason the server received."""
+    """The client against a bare WebSocket server that answers its hello with ``replies`` (then closes 1008 with
+    ``close_reason``, when given); the lines Godot printed, and the close code and reason the server saw."""
     closed: list[tuple[int | None, str | None]] = []
+    done = asyncio.Event()
 
     async def handle(connection: ServerConnection) -> None:
-        await connection.recv()  # the hello
-        for reply in replies:
-            await connection.send(reply)
-        with contextlib.suppress(ConnectionClosed):
-            await connection.wait_closed()
-        closed.append((connection.close_code, connection.close_reason))
+        try:
+            await connection.recv()  # the hello
+            for reply in replies:
+                await connection.send(reply)
+            if close_reason is not None:
+                await connection.close(1008, close_reason)
+            with contextlib.suppress(ConnectionClosed):
+                await connection.wait_closed()
+        finally:  # recorded on every exit, so a client that never speaks fails fast with what Godot printed
+            closed.append((connection.close_code, connection.close_reason))
+            done.set()
 
     async def go() -> list[str]:
         async with serve(handle, BIND, 0, compression=None, max_size=None) as server:
             monkeypatch.setenv("MAXIM_OVERDRIVE_NET_PORT", str(next(iter(server.sockets)).getsockname()[1]))
             monkeypatch.setenv("MAXIM_OVERDRIVE_TOKEN", "t0ken")
             lines = await _net_check(project)
-            await asyncio.wait_for(_until(lambda: bool(closed)), TIMEOUT_S)
+            with contextlib.suppress(TimeoutError):  # bounded: a client that never connected is reported below
+                await asyncio.wait_for(done.wait(), 5.0)
             return lines
 
     lines = asyncio.run(go())
+    assert closed, lines  # the client connected and the server saw the connection end
     return lines, *closed[0]
-
-
-async def _until(ready: Callable[[], bool]) -> None:
-    while not ready():
-        await asyncio.sleep(0)
 
 
 def test_a_frame_past_godot_s_default_buffer_reaches_the_client(project, monkeypatch):
@@ -172,3 +179,9 @@ def test_the_client_refuses_a_welcome_of_another_catalogue_and_closes_with_its_c
     lines, code, reason = _against(project, monkeypatch, replies=[encode(other)])
     assert lines == ["net-check: refused bad_version"]
     assert (code, reason) == (1000, "bad_version")  # the client closed, with its refusal as the reason
+
+
+def test_a_close_reason_that_is_no_code_is_not_taken_as_one(project, monkeypatch):
+    # The peer's reason becomes the refusal only in a refusal code's shape (delta review D-S2; delta 2 N-S2, D2-SF2)
+    lines, _, _ = _against(project, monkeypatch, replies=[], close_reason="This is prose, not a code!")
+    assert lines == ["net-check: refused closed"]

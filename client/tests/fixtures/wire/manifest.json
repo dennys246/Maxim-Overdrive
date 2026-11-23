@@ -942,10 +942,7 @@
         ]
        },
        {
-        "f": [
-         1074003968,
-         0
-        ]
+        "f": "finite"
        }
       ]
      ]
@@ -1202,10 +1199,7 @@
         ]
        },
        {
-        "f": [
-         1142271773,
-         2025163840
-        ]
+        "f": "finite"
        }
       ]
      ]
@@ -1224,10 +1218,7 @@
         ]
        },
        {
-        "f": [
-         1128267776,
-         0
-        ]
+        "f": "finite"
        }
       ]
      ]
@@ -1240,10 +1231,7 @@
     "value": {
      "a": [
       {
-       "f": [
-        2145504499,
-        2246822048
-       ]
+       "f": "finite"
       }
      ]
     }
@@ -1453,10 +1441,7 @@
     "value": {
      "a": [
       {
-       "f": [
-        0,
-        0
-       ]
+       "f": "finite"
       }
      ]
     }
@@ -1468,10 +1453,7 @@
     "value": {
      "a": [
       {
-       "f": [
-        1069128089,
-        2576980378
-       ]
+       "f": "finite"
       }
      ]
     }
@@ -1483,10 +1465,7 @@
     "value": {
      "a": [
       {
-       "f": [
-        2146435071,
-        4294967295
-       ]
+       "f": "finite"
       }
      ]
     }
@@ -1498,10 +1477,7 @@
     "value": {
      "a": [
       {
-       "f": [
-        2146435071,
-        4294967295
-       ]
+       "f": "finite"
       }
      ]
     }
@@ -1510,6 +1486,52 @@
     "code": "bad_json",
     "file": "json/rounds_up_past_the_largest_double.json",
     "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/exact_halfway_past_the_largest_double.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/integer_past_u64.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/smallest_normal_double.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "f": "finite"
+      }
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/half_way_digits.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "f": "finite"
+      }
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/past_the_integers_as_a_float.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "f": "finite"
+      }
+     ]
+    }
    },
    {
     "code": "bad_json",
@@ -1610,7 +1632,8 @@
   "max_grids": 8,
   "max_header_bytes": 65536,
   "max_name_chars": 64,
-  "max_tables": 16
+  "max_tables": 16,
+  "max_text_bytes": 65536
  },
  "server": {
   "fixtures": [

@@ -235,7 +235,8 @@ ASYNC_CLOCK = {
     "sleep", "wait_for", "wait", "timeout", "timeout_at", "Timeout", "as_completed", "get_running_loop",
     "get_event_loop", "new_event_loop", "events", "tasks", "timeouts",
 }  # fmt: skip
-LOOP_HANDLES = {"loop", "_loop", "get_loop", "call_later", "call_at"}
+# websockets' connection.latency is a measured round trip: wall time, which lag compensation could take as a tick
+LOOP_HANDLES = {"loop", "_loop", "get_loop", "call_later", "call_at", "time", "latency"}
 ASYNC_CLOCK_ALLOWED = {"src/simcore/host/server.py": {"wait_for": 1}}
 
 
@@ -277,6 +278,16 @@ def async_clock_findings(path: Path, source: str) -> list[str]:
     handles = [n for n in ast.walk(tree) if isinstance(n, ast.Attribute) and n.attr in LOOP_HANDLES]
     out += [f"{path}:{n.lineno}: reaches .{n.attr}: the event loop, whose time() is the wall clock" for n in handles]
     return out
+
+
+def scan_hits(files: dict[Path, str]) -> list[str]:
+    """The main scan over ``files`` (absolute path to source): src/ modules held to ``src_findings``, the rest to
+    ``findings``. One function, so a test can hold the main scan to the asyncio half."""
+    return [
+        f
+        for p, s in files.items()
+        for f in (src_findings if p.is_relative_to(SRC) else findings)(p.relative_to(ROOT), s)
+    ]
 
 
 def src_findings(path: Path, source: str) -> list[str]:
@@ -338,11 +349,7 @@ def core_findings(path: Path, source: str) -> list[str]:
 def test_the_simulation_and_tests_have_no_hidden_sources_of_nondeterminism():
     scanned = scanned_files()
     assert {p.relative_to(SRC).as_posix() for p in scanned if p.is_relative_to(SRC)} >= MUST_SCAN
-    hits = [
-        f
-        for p in scanned
-        for f in (src_findings if p.is_relative_to(SRC) else findings)(p.relative_to(ROOT), p.read_text())
-    ]
+    hits = scan_hits({p: p.read_text() for p in scanned})
     core = sorted((SRC / CORE).rglob("*.py"))
     assert {p.relative_to(SRC).as_posix() for p in core} >= MUST_SCAN
     hits += [f for p in core for f in core_findings(p.relative_to(ROOT), p.read_text())]
@@ -533,3 +540,9 @@ def test_only_the_one_handshake_deadline_may_use_the_loop_s_clock():
     assert not async_clock_findings(Path("src/simcore/host/server.py"), one)
     assert async_clock_findings(Path("src/simcore/host/server.py"), one + "\nasyncio.wait_for(y, 2)")
     assert async_clock_findings(Path("src/simcore/host/server.py"), "import asyncio\nasyncio.sleep(1)")
+
+
+def test_the_main_scan_holds_src_to_the_asyncio_half():
+    planted = "import asyncio\nasyncio.sleep(1)\n"
+    assert scan_hits({SRC / "simcore" / "host" / "pacing.py": planted})  # what the main test runs, on a plant
+    assert not scan_hits({ROOT / "tests" / "test_x.py": planted})  # tests may bound a wait
