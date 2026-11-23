@@ -678,10 +678,11 @@ Tests to write first, by step. Each cites the design section it serves and the r
 (`../design/reviews/generation_harness/`).
 
 **H0, preconditions (§10):**
-- PRs #50, #51 and #52 and `phase1/torch-pilot` merged;
-- each check's cost per spec measured at the spike's scene (Physics S3, Executor S9), and §11's first question
-  settled;
-- a delta review of the design's folds.
+- PRs #50 (cited at a commit, Executor N2), #51 and #52, `phase1/torch-pilot` and `phase1/protocol` merged (NN1, F11);
+- each check's cost per spec measured at the spike's scene (Physics S3, Executor S9), under the owner's ruling (§11.1,
+  the 0.05 m reference on every spec), every check included: U3s's band sweep, U10, U8 and the 0.1 m runs (delta Physics
+  F5);
+- the `sha256/raw-1` tick digest (`sim_core.md` §9) built, for U8 (delta Wire F6).
 
 **H1, the package, the gates, the client and the runner (§4, §5):**
 - the `generation-surface` contract refuses a planted `simcore.core.grid` import, and `overdrive_tools` is absent from
@@ -719,10 +720,10 @@ Tests to write first, by step. Each cites the design section it serves and the r
 **H3, the battery and the engine-property suite (§6, §7):**
 - each judged check goes red once:
   - by a planted spec for U1, U1c, U2, U3, U3s, T7 and C;
-  - by a mechanism mutation for U8 (a perturbed voxelizer) and for L5's no-pain assertion (a planted failure mode)
-    (Executor S2);
+  - by a mechanism mutation for U8 (a perturbed voxelizer) and for the engine-property suite's no-pain assertion (a
+    planted failure mode) (Executor S2, delta Wire F1);
 - U3s's strike energy derives from the spec's material and mass (Executor S2);
-- the 0.38, 0.40 and 0.42 m planted triple for L5 and U2 (Bio B3);
+- the 0.38, 0.40 and 0.42 m planted triple for U2 and U3s (Bio B3);
 - a planted engine NaN stops the batch and names the spec, and never marks it (Physics B3);
 - a planted Known-gap failure records `engine_gap` with its gate id, and the spec stays eligible (Coverage B2, Trust
   T5);
@@ -735,3 +736,43 @@ Tests to write first, by step. Each cites the design section it serves and the r
 **H4, the first consumer (§10):**
 - stage 2's data job refuses a spec with `spec_fault`, `not_run` or `within_margin` on a needed check, and a verdict
   file from another engine or battery (Executor S7, Determinism D3).
+
+**Deferred from delta 1 to their steps** (B33's stop, the owner's acceptance pending a reviewer's record;
+`../design/reviews/generation_harness/delta1_*.md`):
+- **H1:**
+  - `NOT_SIMULATION` exempts only the client and runner module, never the battery or scorer (§4; NS1);
+  - the temporary client's engine proof reads `/props` (build, `n_ctx`, slots), and the weights digest is recorded
+    as declared for `owner_lan` (§5.2; NS4, Wire F12);
+  - the mask replaces the API key, and a planted key in a reply, header or error never reaches a run directory (§4;
+    NS5);
+  - the depth bound is proposed to `boundaries.md` §9.1's owner, and the decoder's build is a precondition (§5; NS6,
+    Wire F11);
+  - `ALLOWED` names only the externals with a consumer, and any spawn site outside `tests/` and `scripts/` is decided
+    first (§4; NN3);
+  - the package's source path is named, for the import-graph test and coverage (§4; NN2);
+  - a run with `cache_prompt: true` beside the pinned run records whether the pin changes outputs on Metal (§3;
+    delta Physics F4), and the server's launch flags are pinned and recorded (F4);
+  - the IP §4.2 note: seed, top-p and top-k are already in the canonical request, and the gap is F6 in the backends
+    (Wire NIT).
+- **H2:**
+  - the H2 digest and an H3 verdict fixture also run on Linux CI, digesting counts and indices only (§3; delta
+    Physics F6);
+  - §5.3's `failed(refused)`, `failed(empty)` and `failed(oversized)` land in named classes, and whether excluded
+    classes leave the rate denominators is stated (Wire NIT).
+- **H3:**
+  - each consumer's `within_margin` choice, as §5.5 decides it (a data job keeps, a shipped prop refuses), tested per consumer (NS7);
+  - U3s's and U10's band sources and margins are derived before the first battery run (§7; NN4, delta Physics N3);
+  - U3's observable is a reduction in metres over the object, never a cell maximum (§7; delta Physics F8);
+  - the 0.2 m convergence half is waived per spec with its reason, or judged where 0.2 m places the spec (§7; delta
+    Physics F10);
+  - the ledger each check reads is named (cells, `world_model.md` §4; fuel, `fire_solid.md` §5.4), and the
+    temperature bound is sourced, air included (§6; delta Physics N2);
+  - T7 checks the name on the shipping surface (`sem_stimuli.md` T13, the golden LLM surface) (§7; Wire F5);
+  - C's bars are set from H0's measurement, per spec, not B5's scene rule (§7; Wire F7);
+  - `douse` over objects gets a check once `fire_model`'s next revision routes it (`subcell_solids.md` §7.1; Wire F9);
+  - N6's per-object failure is only its stimuli half, since `accepted` is target-independent (Wire NIT).
+- **Records:**
+  - the lab builder's home is not this harness's concern after L5's removal (NS2, moot);
+  - the Bio pushback candidate (the tool bridge's `entity_state` readback) gets a Phase 3 trigger row if Maxim's
+    proximity-sensing plan revives (Wire NIT);
+  - U11's "Until" names the IP gate's build step (NN5).
