@@ -382,7 +382,7 @@ capture, the token, caps, 1009), `HostOnly` with a guest-role view, and `player_
   shader's temperature clamp, which no fixture reaches (E2-S3); a two-frame golden for
   the in-place segment upload (E-N2); §7.2's Severity, Outlines, charred-face Crack and fuel Speckle checks, with the
   groove view; whether fuel-ID coverage reads linear or sRGB on each tier, stated and tested (W-S5), before the
-  per-object area bar is relied on; the fuel B5 rows; the structural-glow Known gap in `docs/architecture.md`;
+  per-object area bar is relied on; the fuel B5 rows; the structural-glow Known gap in `docs/known_gaps.md`;
   the fuel fixture's head-on row readout (C S7).
 - The stick-stability measure (`client_objects.md` §7.2; S7), fixed 2026-11-22 before any renderer was measured: a
   20 mm rod 1 m long, at 72 and 30 px/m, on the rig (scale 1.0) and laptop (0.5) tiers, drawn in the fuel-coverage

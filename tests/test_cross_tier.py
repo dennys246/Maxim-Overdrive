@@ -61,7 +61,7 @@ def test_fire_outcomes_agree_across_rigs(spacings, materials):
     assert onset.converging is not False, onset
     assert all(r[1] < 0.7 for r in runs.values()), runs  # it is badly burned everywhere
     assert all(r[2] > 0.99 for r in runs.values()), runs  # the concrete wall survives everywhere
-    # Known gap (docs/architecture.md): the coarsest rig lags in the burn; gated below.
+    # Known gap (docs/known_gaps.md): the coarsest rig lags in the burn; gated below.
 
 
 BADLY_BURNED = 0.7  # the level test_fire_outcomes_agree_across_rigs asserts every rig reaches
@@ -86,7 +86,7 @@ def _turn_below(dx_m, materials, level, *, turns=300, power_w=60_000.0, refine=1
     strict=True,
     raises=AssertionError,
     reason=(
-        "Known gap (docs/architecture.md): the coarsest rig lags in the burn, because a coarse cell degrades as one "
+        "Known gap (docs/known_gaps.md): the coarsest rig lags in the burn, because a coarse cell degrades as one "
         "block. Measured 2026-11-22, one substep per 6 s turn: the crate falls below 0.7 at turn 137 at 0.2 m against "
         "104 at 0.1 m (32%, against tile §6.3's 15%); below 0.5 the lag is 152 against 134 (13.4%). The fix is the "
         "reconstructed burn rate (roadmap Phase 2, 'Close the known gap'); this gate then flips and must be removed."
@@ -134,7 +134,7 @@ def test_a_fierce_fire_never_heats_any_cell_past_the_flame_temperature(spacings,
     strict=True,
     raises=AssertionError,
     reason=(
-        "Known gap (docs/architecture.md): fires don't consume fuel. Once no solid is left under a fire, "
+        "Known gap (docs/known_gaps.md): fires don't consume fuel. Once no solid is left under a fire, "
         "World._power_field deposits its power into air (207,350 C at 0.2 m by turn 50). Fix before the Phase 1 "
         "crate scenario is gated; this gate then flips and must be removed."
     ),
