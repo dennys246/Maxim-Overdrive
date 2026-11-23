@@ -74,7 +74,7 @@ step "ruff format"
 "$PY" -m ruff format --check src tests scripts
 step "mypy (strict on src and scripts; test bodies checked)"
 "$PY" -m mypy
-step "import contracts: game > protocol > adapters > core, the sealed core, maxim only in the membrane (boundaries O24)"
+step "import contracts: game > host | verify > protocol > adapters > core, the sealed core, maxim only in the membrane (boundaries O24)"
 # PYTHONPATH names this worktree's src/, so a venv whose editable install points at another checkout can't make the
 # contracts read that checkout's code. No cache, so the gate writes nothing into the tree. importlinter.cli has no
 # __main__ (`python -m importlinter.cli` exits 0 having checked nothing), so the command is called directly.

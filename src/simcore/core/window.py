@@ -1,5 +1,5 @@
 """The write window's lifecycle (boundaries §4.1): one owner at a time, a window that commits whole or rolls back
-whole, and listeners told after each commit.
+whole.
 
 What a window holds, and who may write inside it, are its owner's (`simcore.core.grid.CellStore` and its gate,
 `simcore.core.writers.Gate`); this is only the protocol every window follows, so it lives once.
@@ -20,28 +20,11 @@ class WindowOwner[Saved]:
     def __init__(self) -> None:
         self._open = False
         self._held = False  # the world's sources-only window: the same one owner as the cells' window
-        self._on_close: list[Callable[[], None]] = []
-        self._on_roll_back: list[Callable[[], None]] = []
 
     @property
     def is_writing(self) -> bool:
         """Whether the write window is open now."""
         return self._open
-
-    def on_close(self, callback: Callable[[], None]) -> None:
-        """Call ``callback`` after each window that closes without raising, whether or not it changed anything (the
-        world publishes a frame there). Registered at rest only, by the window's owner, so code running inside a
-        window (a law's step) can't leave a listener behind (PR 2 delta N3)."""
-        self._refuse_a_second_owner()
-        self._on_close.append(callback)
-
-    def on_roll_back(self, callback: Callable[[], None]) -> None:
-        """Call ``callback`` after each window that rolls back, before its exception propagates: a cache built from
-        the window's state (the deposit's weights, sim_core.md §7) forgets it, since a rollback restores
-        ``topology_version`` and a different later edit would reach the same version. Registered at rest only, as
-        ``on_close`` is."""
-        self._refuse_a_second_owner()
-        self._on_roll_back.append(callback)
 
     def _refuse_a_second_owner(self) -> None:
         if self._open or self._held:
@@ -71,16 +54,12 @@ class WindowOwner[Saved]:
             commit = self._prepare_commit()
         except BaseException:
             self._roll_back(saved)
-            for forget in self._on_roll_back:
-                forget()
             raise
         else:
             commit()
         finally:
             self._open = False
             self._close_window()
-        for callback in self._on_close:
-            callback()
 
     def _open_window(self, writer: WriterToken | None) -> Saved:
         """Open for ``writer``; return what a rollback restores."""

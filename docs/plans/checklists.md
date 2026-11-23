@@ -135,7 +135,8 @@ fails.
   - `prepare` reruns after a topology change: `test_a_cell_destroyed_mid_turn_gets_no_more_source_power` runs with
     `substep_refine` > 1, and fails with the rerun deleted;
   - the header records the law tuple in order, and a log recorded under the reversed tuple is refused;
-  - cadence groups run in §5's order: two strikes on one region in one tick give the second `REGION_GONE`, and
+  - cadence groups run in §5's order: two strikes on one region in one tick, the first destroying it and the second
+    applying and destroying nothing, and
     `topology_version` rises once per strike record that changes the world, and not for one that breaks nothing
     (X-B1, N-B2, DA-S1, X-S2; sim_core.md §7);
   - `stable_dt` reads only its `bound_reads`: a planted law whose bound reads `temperature` misses the cache after
@@ -147,7 +148,8 @@ fails.
   - `Topology` is the only path to `material`, `original_material` and `region_id`; `imagine` and `set_material`
     produce requests;
   - a strike resolves as a `Load` in the apply phase, on its own tick: its crater is in that tick's frame, its effect
-    in that tick's `TickReport`, and a second strike on the destroyed region is refused `REGION_GONE`;
+    in that tick's `TickReport`, and a second strike on the destroyed region applies and destroys nothing, at every
+    grid (owner, 2026-11-22: `REGION_GONE` is authored geometry only);
   - `radiant_emitters` rows are keyed `(writer, …)` and summed in sorted key order;
   - every declared input kind names exactly one resolving law, held by a test over the registry (DA-B1);
   - `integrity`'s writers are `damage.loads`, `damage.thermal` and `Topology`, and a planted law outside damage is
@@ -221,29 +223,50 @@ fails.
 
 - **Deferred from PR 1's review (`reviews/sim_shell/fold.md`), each to the PR that owns it:**
   - PR 2: rewrite CLAUDE.md's "only `World.advance` moves time" and "Time comes from `World.advance`" for `Simulation`.
-  - PR 4: a tick an exception interrupts leaves no half-applied state, once the write window moves into the step
+  - PR 4a: a tick an exception interrupts leaves no half-applied state, once the write window moves into the step
     (`docs/roadmap.md`, Phase 1, names the PR).
-  - PR 4: `(actor_id, seq)` unique across ticks, a receipt id on each outcome, and a validated `TickBatch` built by the
+  - PR 4b: `(actor_id, seq)` unique across ticks, a receipt id on each outcome, and a validated `TickBatch` built by the
     log reader.
 - **Deferred from PR 2's review (`reviews/sim_laws/fold.md`, Exec NIT 5 and Wire N6):**
-  - PR 4: the per-record batch boundary (`sim_core.md` §5.1). A record's stage 2 and its loads are one batch, but
+  - PR 4b: the per-record batch boundary (`sim_core.md` §5.1). A record's stage 2 and its loads are one batch, but
     `physics.resolve_loads` closes one batch per per-record law; the two agree only while stage 2 emits no topology
     requests, and `imagine` as stage 2 will. A test: one record whose stage 2 and load both edit cells bumps
     `topology_version` once.
 - **Deferred from PR 3's review (`reviews/sim_step/fold.md`), each to the PR that owns it:**
-  - PR 4: `source_exposure` as digest member 3 (§9) and in the save, with a save and restore mid-interval (X-B2).
-  - PR 4: a physics step that raises loses its exposure (`Simulation.step` clears it before `advance`); with the
+  - PR 4b: `source_exposure` as digest member 3 (§9) and in the save, with a save and restore mid-interval (X-B2).
+  - PR 4a: a physics step that raises loses its exposure (`Simulation.step` clears it before `advance`); with the
     window in the step it rolls back with the cells, tested beside the interrupted tick above.
-  - PR 4: the scenario tests move from `World`'s 6 s turn to `Simulation`'s 0.5 s step, and bar 2b reruns there.
+  - PR 4a: the scenario tests move from `World`'s 6 s turn to `Simulation`'s 0.5 s step, and bar 2b reruns there.
     The strict red gates it can't hold, and `test_act_validation.py`'s fiercest allowed fire, join bar 2b when their
     gates flip.
-  - PR 4: frames carry their tick (§3); bars 4–7; `World.advance`'s float interval and its exposure's `of_ticks`,
-    which nothing ties together, go with `advance`.
-  - PR 4: heat's `prepare` and `bound_reads`, which take the sources from `World._power_field` (its
+  - PR 4a: frames carry their tick (§3); bars 5–7 (bar 4, replay, is PR 4b's); `World.advance`'s float interval and its
+    exposure's `of_ticks`, which nothing ties together, go with `advance`.
+  - PR 4a: heat's `prepare` and `bound_reads`, which take the sources from `World._power_field` (its
     `TEMPORARY(phase1/sim-clock)` marker); bar 5 with them. This is the one statement of where they are deferred.
-  - PR 4, no later than the per-tick digest (owner, 2026-11-22): the face-conductance and `stable_dt` caches per
-    `topology_version`, each with the rollback eviction the deposit has. Measured at PR 3, without them bar 7 holds at
-    0.1 m only by 0.88–0.96×, and the digest's 1.7 ms per writing tick would take it to about 1.1×.
+  - PR 4a, before the per-tick digest (owner, 2026-11-22): the face-conductance and `stable_dt` caches, keyed on
+    `field_version`s that count rollbacks and rebuilt at each windowed tick's end (`reviews/sim_tick/fold.md`).
+    Measured at PR 3, without them bar 7 held at 0.1 m only by 0.88–0.96×; with them, 0.32–0.35×.
+- **Deferred from PR 4a's review (`reviews/sim_tick/fold.md`), each to the PR or trigger that owns it:**
+  - Incremental cache rebuilds, triggered by B5's turn-time budget (owner, 2026-11-22, `reviews/sim_tick/fold.md`
+    D-S2): every tick that changes `material` rebuilds heat's face conductances and bound over the whole grid, 2× on
+    a strike every tick at 0.1 m (363 against 183 ms per 20 ticks on the T3 tile; delta 2 measured 2.0–2.5×, about
+    8 ms per extra rebuild at 230,400 cells, so about 170 ms per strike tick at 5×10⁶ cells if it scales linearly).
+    A fire re-lit every tick for 20 ticks, cycling through 5 radii on the same tile, counts `heat/deposit` 40 times
+    against 10, at the same run time: the warm that ends a physics tick keeps only the live source values, so a
+    radius the previous step already used rebuilds. Keep the per-cell arrays and recompute only around Topology's
+    edits, bit for bit the full rebuild, with a test holding the two equal.
+  - `rho_cp` is recomputed every substep (round 1 Exec N2): a cache beside the face conductances, triggered by B5's
+    profile pass (`reviews/sim_tick/fold.md`).
+  - PR 4b: a `place` refused inside its own window changes the next physics tick's work counters, because only
+    `Simulation.step`'s rollbacks rebuild the caches at rest (PR 4a delta, measured); it ends when `imagine` joins
+    the tick and `place` runs inside the step's window.
+  - PR 4b: a publication that raises leaves its tick committed, with the clock moved and no frame or `TickReport`
+    (`Simulation.step`, PR 4a delta 2). A host that logs from the report would drop that tick and its replay would
+    diverge; the log's design covers it, with a test that plants the raise.
+  - PR 4b: `Simulation(world)` takes any built grid at tick 0, so a grid rebuilt from a stepped state's arrays is
+    published as frame 0, against §3's "publishes the authored world" (round 1 Arch S5, delta 4 D4-N2, measured: a
+    lit crate's grid from tick 20, 28.6 °C, published at tick 0). The loader states its tick and what frame 0 is for
+    a loaded state, and a test holds a loaded world to it.
 ## Step 5b, bodies and movement (`tile_and_client.md` §2, §3, §4.1)
 
 - From step 3b part (b)'s review (Determinism N7): a spawn maps to a cell in integers (`at_mm * 1000 // dx_um`), with
@@ -293,6 +316,12 @@ answered, replaced or carried by those documents (their §10 and §7 tables).
 (`fire_solid.md` §1.1–§1.2). Still open, before step 8's exit scenario: the torch's Phase 1 pilot, how `kindle`
 ignites a slab with no flame object.
 
+**Added by step 5a PR 4a's review (Exec S2; owner, 2026-11-22, `reviews/sim_tick/fold.md`):** a region destroyed by
+strikes or burning is never "gone" today, because "no solid cell left" flips with the grid spacing (strike 29 at
+0.2 m, 30 at 0.1 m on a 1.2 m wood cube). With the fuel and structure work: a destruction-based `REGION_GONE`
+decided in metres (remaining solid volume against the authored footprint), gated with an outcome margin across
+grids, and its refusal held by a cross-grid test.
+
 - A short design note first, reviewed under the Physics lens, answering the final review (`reviews/tile_v1/
   final_physics.md`): FPH-B1 radiative transfer between slats inside the bed, plus the draught's air-supply loss;
   FPH-B2 the char-surface product (CO or CO₂) from a cited source, never chosen to make glow pass; FPH-B3 ignition
@@ -311,24 +340,21 @@ ignites a slab with no flame object.
 
 ## Step 7, `phase1/protocol`
 
-- The frame grammar's extension rule (`client_rendering.md` §4.1); six golden fixtures (`world_v2.md` §8), among them an
-  asymmetric grid and ones for an unknown optional channel
-  (ignored) and an unknown required channel (refused).
-- The engine `build` in `welcome` (`client_rendering.md` §4.1) and the version `error`.
-- A refusal for exhausted u16 region ids.
-- JSON reads floats (`client_rendering.md` §4.1; the pin is `boundaries.md` §9.1's): decoder fixtures with an integer
-  at 2^53 and at 2^53 + 1 (refused); stage 1 refuses `5500.0` and `true` where an integer is expected (Python reads a
-  float, and `bool` is an `int`).
-- B25's engine/game check, with the second engine file.
-- The fuel encoder clips `surface_temperature_c` to exactly [−273.0, 6000.0] (`client_objects.md` §3.3; both exact in
-  f16, where −273.15 rounds to −273.25, which the client refuses), with a test against `FuelSnapshot`'s constants
-  (fuel_leftovers AW-D1, D2-1).
+Landed on `phase1/protocol`: the frame grammar and its extension rule, the six goldens and the decode and stage-1
+rejection fixtures (both decoders read one manifest), the JSON pins (below 2⁵³, O59; integers only, O62), the
+catalogue and its hash checked on every frame, `welcome`'s `build` and the version `error`, the handshake (Origin
+capture, the token, caps, 1009), `HostOnly` with a guest-role view, and `player_text` (O61). Remaining:
 
+- Region ids' exhausted-u16 refusal belongs to step 5a's Topology (owner, 2026-11-22); this step ships the u16
+  `region` channel in fixtures and decoders only.
+- B25's engine/game check, with the second engine file; `NetClient` (the engine half) names the game's
+  `MAXIM_OVERDRIVE_TOKEN` variables, which that check moves to the game (Architecture N1).
+- Fixtures for a frame after an `imagine` (a new region), and the head-of-line wait of a `tick` behind a 1.74 MB
+  frame on localhost, measured (both cut from `client_rendering.md` §4 as tests to write).
 - The strict red gate that refuses guest joins while real-Maxim NPCs are live, as the roadmap's Phase 4 assigns
   this PR (TB-B2).
-- `intent_result`, `seq`, `observed_tick` and events' `cause`; the catalogue with non-default-scale fixtures and its hash check on
-  every frame (WT-B3, WT-S13).
-- `region` as u16 `region_id`, the `regions` message and `regions_version` (DC-B1); the fuel tables and fuel view
+- `intent_result`, `time_decision`, `seq`, `observed_tick` and events' `cause` (after step 5a's integer clock).
+- The `regions` message (DC-B1); the fuel tables and fuel view
   (`client_objects.md` §3, `fire_solid.md` §5.6) with u32 and f32 in v0's dtypes, a cell channel's fixtures at a
   non-default scale (`client_objects.md` §7.1), the join cap counting fuel, the fuel view's leak test (`Observation`'s
   members pinned; `adapters.sem` never imports or reads it), the decoder filling `CellSnapshot` with v0's channels and
@@ -336,14 +362,53 @@ ignites a slab with no flame object.
   input), and `encoding`'s `glow` key retired with `docs/architecture.md`'s and the roadmap's mentions of it;
   `tick` as JSON with integer columns (DC-S9); events accumulated with a resync (DC-S4); `tile_and_client.md`
   §3.3's message table; `welcome`'s maps; a `snapshot` on join (WT-S6).
-- Decode and stage-1 rejection fixtures; `HostOnly` tested directly with a guest-role view (WT-S9).
-- Buffer caps and the 1009-close test (WT-S12); the `Origin` capture test.
-- The guest-text gate `engine.text.player_text`. Its Cf rule must let ZWNJ and ZWJ through for Persian, Indic
-  spelling and emoji sequences, or say why not, and NFC runs before the length cap. This is an owner decision
-  (TB-N5).
 - The fuel decoder's world-extent check (`client_objects.md` §3.2; owner, 2026-11-22, review TB2-S2): fuel geometry
   outside the cell snapshot's extent is refused, as fire_solid §1.3 refuses it on the server; finite but huge
   geometry passes the client's checks until then.
+- The fuel encoder clips `surface_temperature_c` to exactly [−273.0, 6000.0] (`client_objects.md` §3.3; both exact in
+  f16, where −273.15 rounds to −273.25, which the client refuses), with a test against `FuelSnapshot`'s constants
+  (fuel_leftovers AW-D1, D2-1).
+- Deferred from the round-1 review (author-proposed; the delta round sets their status):
+  - `dispatch` hands each message to the simulation lane through a bounded per-session queue (realtime_lanes_coop
+    §4.1), never touching the world on the network loop (C3); the import contract `network-lane-off-the-world` fences
+    only the server's imports, never the injected `dispatch`; trigger: this step's `intent_result`.
+  - `simcore.protocol.messages`' typed messages fold into `core.intents`' one stage 1 for NPCs and clients (A8);
+    trigger: step 5b's `move` and `move_to` intents.
+  - `time.scale` travels as an integer rational, since O62 keeps floats off the server's JSON and `tick` echoes it
+    (A6); trigger: this step's `time_decision`.
+  - Guest text is judged by the interpreter's Unicode tables for unassigned code points: 5,812 pass on Python 3.14
+    (16.0) that 3.12 (15.0) refuses (Determinism delta N3). The log keeps the text `player_text` returned and no
+    reader re-checks it, or the engine pins one Unicode version; trigger: the first logged speech (`phase1/agents`).
+  - Guest text's residual: a character that draws nothing yet no Unicode property or name marks (U+1D159, MUSICAL
+    SYMBOL NULL NOTEHEAD) still passes; trigger: the first guest text an NPC reads (`phase1/agents`), when a
+    rendering test can measure ink.
+  - What Godot 4.7.2 does at the 65th queued packet (`max_queued_packets` is 64), measured with a listener that
+    sends faster than the client polls; trigger: step 8's live client.
+  - `WireFrame.index(z, y, x)` and `CellSnapshot.index(x, y, z)` take their axes in opposite orders; trigger: step
+    8's decoder filling `CellSnapshot`, which picks one.
+  - Guest text's hidden channels the rulings leave open, for the owner (Trust D-N4, T3-N2, T4-S1): one variation
+    selector or joiner beside a visible character carries a bit or two per visible character; runs of spacing
+    characters between two visible ones have no limit: 28 of them (thin, hair, spacing blanks) pass in a run of any
+    length, about 4.8 bits each, so "hi" + 496 of them + "!" hides about 2,390 bits (measured). Closing it needs a
+    rule the rulings don't hold, such as a cap on a run of characters that draw nothing; trigger: the first guest
+    text an NPC reads (`phase1/agents`).
+  - Open NITs from the review rounds, each a test or a code to tighten: a test that asserts the stage-1 fuzz's reach
+    (Trust D-N5); `bad_version` naming its field alike on every path (D-N6); the client's code shape tied to
+    `RefusalCode`'s spelling test (N-N3); a float of about a million digits, which the client's saturated exponent
+    judges otherwise than Python, past every shipped cap (Wire NT-1); Godot's "Exponent too high" warning (NT-2);
+    the client closing its own refusal with 1000 where the host uses 1008 (Client N-N2); trigger: this step's
+    `intent_result`, which adds codes and a stage-1 path.
+  - A test that a `welcome` and a `tick` at the world limits fit within the 64 KiB text cap (Architecture delta 3
+    N-3); trigger: this step's `tick` and `welcome`'s maps.
+  - A cap on connections that haven't sent `hello` (Concurrency N2): only local programs reach the port today;
+    trigger: guests joining from beyond localhost (Phase 5).
+  - Every converter moves to `simcore.core.converters` and `Converter` is a closed union again (A7); deferred because
+    it edits `scene.py` and the loaders, which `phase1/sim-replay` is changing; trigger: that branch's merge.
+- The shipped path: the game launches the host (tokens, the 0600 token file, `start`, the hello deadline and the
+  session and guest caps read from `data/server/`, Architecture N5) with a `dispatch` for the
+  messages after `welcome`, the live frame encoder reads published frames (their tick and region ids come with
+  step 5a), and the client's scene owns a `NetClient`. Until then the server, `encode_cells`, `player_text` and
+  `NetClient` run only under tests.
 
 ## Step 8, the tile (`tile_and_client.md` §6; `client_rendering.md` §4–§6)
 

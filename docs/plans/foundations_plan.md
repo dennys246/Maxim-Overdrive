@@ -29,7 +29,7 @@ Phase 1's exit is the roadmap's (`docs/roadmap.md`, Phase 1, "Exit").
 | 5a | `phase1/sim-clock` (O34): `Simulation`, tick (T3), 0.1 m truth, law list, field registry, intent log | 4, 3b | this line | a composition note | bit-identical replay; CPU time measured | Physics, Determinism, Performance | B2, B5 |
 | 5b | `phase1/bodies`: bodies, `move`/`move_to`, vocabulary v1 | 5a | this line | the actor table | replay of a movement script | Determinism, Wire | |
 | 6 | Fire as the ladder (2026-11-20; D30, T13, T17 superseded by `fire_model.md`, `fire_solid.md`): 6.0a data files after 5a and `subcell_solids.md` S0, 6.0b fuel objects, 6.1 the solid (R0, R1), 6.2–6.4 long term (fallback, 2026-11-20); fits within cited ranges, graded held out | 5a (6.0a), 5b | this line | flip `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating` red-first (6.1) | each rung's gates at three grids (tile §6.3); R0–R2.5 time-boxed, else the fallback | Physics, Determinism, Bio-faithful | fire burnout gap |
-| 7 | `phase1/protocol` v0: `client_rendering.md` §4.1's and `tile_and_client.md` §3.3's messages, versioned; WebSocket with `boundaries.md` §5.3's handshake; golden fixtures read by Python and Godot; the guest-join red gate | 5b, 6 (6.0b), 2, 0d | this line | `tests/fixtures/wire/` | both readers pass the fixtures | Wire, Trust, Concurrency, Determinism | B3, B14 |
+| 7 | `phase1/protocol` v0: `client_rendering.md` §4.1's and `tile_and_client.md` §3.3's messages, versioned; `boundaries.md` §5.3's handshake; shared fixtures (O59, O60, O61, O62, O63, O64, O65, O66, O67, O68); guest-join red gate | 5b, 6 (6.0b), 2, 0d | this line | `client/tests/fixtures/wire/` | both readers pass the fixtures | Wire, Trust, Concurrency, Determinism | B3, B14 |
 | 8 | The tile: the alley, movement, the client drawing snapshots, the cell shader and the fuel-object pass (never colour alone; `client_objects.md`), golden screenshots per tier | 6, 7, 0d | this line | the alley scene | the exit scenario passes automatically, then a playtest | Client and rendering, Physics | B7 |
 | 9 | Save v0: grid, scene, actor and pilots tables | 8 | this line | save fixture | round trip, golden save | Wire, Determinism | B4 |
 | 10 | Heat-debt prototype (D28): the slice (VS5), before 8; then clinic (D27) | 2 | this line | `spikes/slice/` | verdict by 2026-12-18: fun or not, and why | Client and rendering | |
@@ -207,10 +207,7 @@ Unnumbered (npcs §0): the thought-cost unit as fine as useful; test per Maxim t
 7. O17, with O26's mechanism.
 
 ### Open: tile §9
-1. T14.
-2. T15.
-3. T16.
-4. T18.
+None: T14, T15, T16 and T18 decided.
 
 ### Open: client §10
 None (T8–T12).
@@ -220,8 +217,8 @@ None (T8–T12).
 2. The world server as a pip dependency of Maxim: Phase 3.
 3. Copyright holder: still the owner's call.
 
-**Still open elsewhere:** Windows NPCs before Phase 8 (`checklists.md`); the guest-text gate's ZWNJ and ZWJ rule
-(step 7); whether F-S9's exit-test line is Phase 3's checklist (`fold.md`).
+**Still open elsewhere:** Windows NPCs before Phase 8 (`checklists.md`); whether F-S9's exit-test line is Phase 3's
+checklist (`fold.md`).
 
 ## 6. Risks
 

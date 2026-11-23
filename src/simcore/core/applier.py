@@ -2,11 +2,10 @@
 
 Stage 1 (``simcore.core.intents.parse_action``) made a typed action inside the limits without reading the world.
 Here it is checked against the world as it is now (the region exists and is solid, it has cells left, a strike's
-point is on it, something is burning) and then applied inside the world's write window. A refusal at either stage is
-an ``Outcome`` that changes nothing. The SEM membrane (``simcore.adapters.sem``) is a gate in front of this. It holds an
-``Applier``, which exposes only ``limits`` and ``apply``, and a frame view, and never the World or the grid: that
-capability passing is the guard that holds. The import contracts and ``tests/test_ownership.py``'s peek and re-export
-scans are tripwires for common spellings, with stated blind spots (values, ``getattr``, default arguments).
+point is on it, something is burning) and then applied, inside the tick's write window, which `Simulation.step` opens
+(sim_core.md §13): an ignite or a douse edits the window's sources, and a strike puts a `Load` in, which the per-record
+laws resolve right after (§5.1). A refusal at either stage is an ``Outcome`` that changes nothing. Nothing outside the
+simulation holds an applier: every input reaches the world as a record through `Simulation.step` (§4).
 
 The reach and centroid checks are judged from authored footprints in metres, never from cells: a region's cells move
 with the grid spacing, so a reach built from them would accept a strike at one spacing and refuse it at another.
@@ -14,15 +13,14 @@ with the grid spacing, so a reach built from them would accept a strike at one s
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import asdict, dataclass, field
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import asdict, dataclass
 from types import MappingProxyType
 
-from simcore.core import physics
 from simcore.core.checks import shown
 from simcore.core.grid import Point
 from simcore.core.intents import AFFORDANCE_OF, Action, ActionRefused, Ignite, Strike
-from simcore.core.limits import ActionLimits
+from simcore.core.law import Load, LoadEffect
 from simcore.core.refusals import RefusalCode, Refused, agent_text
 from simcore.core.world import HeatSource, World
 
@@ -31,13 +29,14 @@ from simcore.core.world import HeatSource, World
 class Outcome:
     """What applying one action did. ``params`` are the action's values as applied (finite, JSON-shaped). A refusal
     carries its ``code`` (and the schema ``field`` at fault, if one is), which is all an agent is told, and ``error``,
-    the words, for logs and tests."""
+    the words, for logs and tests. ``effects`` are what its loads did (a strike's destroyed volume and absorbed
+    energy): host-side effects in the tick's report, never a stimulus (sim_core.md §4)."""
 
     affordance: str
     params: Mapping[str, object]
     success: bool
     error: str | None = None
-    metadata: Mapping[str, float] = field(default_factory=lambda: MappingProxyType({}))
+    effects: tuple[LoadEffect, ...] = ()
     code: RefusalCode | None = None
     field: str | None = None
 
@@ -55,18 +54,18 @@ def _refused(affordance: str, params: Mapping[str, object], exc: Refused) -> Out
     return Outcome(affordance, params, False, str(exc), code=exc.code, field=exc.field)
 
 
+Resolve = Callable[[Sequence[Load]], tuple[LoadEffect, ...]]
+
+
 class Applier:
-    """Applies typed actions to one world's regions. It is the write half the SEM bridge used to hold."""
+    """Applies typed actions to one world's regions, inside the tick's window (`Simulation.step`'s)."""
 
     def __init__(self, world: World) -> None:
         self._world = world
 
-    @property
-    def limits(self) -> ActionLimits:
-        return self._world.limits
-
-    def apply(self, region: str, action: Action) -> Outcome:
-        """Apply a typed action to ``region``: re-checked against this world's limits, then against the world now."""
+    def apply(self, region: str, action: Action, *, sources: dict[str, HeatSource], resolve: Resolve) -> Outcome:
+        """Apply a typed action to ``region``: re-checked against this world's limits, then against the world now.
+        ``sources`` is the open window's sources table, and ``resolve`` the per-record laws (sim_core.md §5.1)."""
         if type(action) not in AFFORDANCE_OF:
             raise TypeError(f"not an action: {type(action).__name__}")  # a programming error, not untrusted input
         affordance = AFFORDANCE_OF[type(action)]
@@ -76,14 +75,11 @@ class Applier:
             self._check_region(region)
         except ActionRefused as exc:
             return _refused(affordance, params, exc)
-        # TEMPORARY(phase1/sim-clock): the applier opens the world's write window itself, synchronously, and a strike
-        # calls the orchestrator (physics.strike) instead of appending a Load for the tick, until Simulation.step owns
-        # the window (boundaries §4.1, 2c; sim_core.md §5.1, §12): step 5a's PR 4 moves both there.
         if isinstance(action, Strike):
-            return self._strike(region, action, params)
+            return self._strike(region, action, params, resolve)
         if isinstance(action, Ignite):
-            return self._ignite(region, action, params)
-        return self._extinguish(region, params)
+            return self._ignite(region, action, params, sources)
+        return self._extinguish(region, params, sources)
 
     def _centroid_m(self, region: str) -> Point:
         """Where a fire or an aimless strike lands: the authored centroid, so it doesn't move with the grid spacing."""
@@ -95,6 +91,9 @@ class Applier:
             raise ActionRefused(f"there is no {shown(region)} in this world", code=RefusalCode.NO_REGION)
         if not regions[region].solid:  # a name in the table
             raise ActionRefused(f"the {region} is air: there is no structure to act on", code=RefusalCode.NOT_SOLID)
+        # Gone: authored geometry (a later paint) took every cell. Not destruction: whether any cell survives a strike
+        # depends on the grid spacing, so deciding on it would refuse at one spacing and accept at another (PR 4a
+        # review, Exec S2; owner, 2026-11-22). A strike on a destroyed region applies and destroys nothing.
         if not regions[region].cells.any():
             raise ActionRefused(f"the {region} is gone", code=RefusalCode.REGION_GONE)
 
@@ -117,30 +116,28 @@ class Applier:
         others = (r for r, other in regions.items() if r != region and other.solid)
         return inside(region, 0.0) or not any(inside(r, 0.0) for r in others)
 
-    def _strike(self, region: str, action: Strike, params: Mapping[str, object]) -> Outcome:
+    def _strike(self, region: str, action: Strike, params: Mapping[str, object], resolve: Resolve) -> Outcome:
         point = action.point_m if action.point_m is not None else self._centroid_m(region)
         if not self._on_region(region, point, action.sigma_m):
             refusal = ActionRefused(f"point_m is not on the {region}", code=RefusalCode.NOT_ON_REGION, field="point_m")
             return _refused("strike", params, refusal)
-        with self._world.writing():  # the strike is a load: damage resolves it, and Topology destroys (§5.1)
-            res = physics.strike(self._world.grid, point, action.energy_j, action.sigma_m)
-        meta = {"destroyed_volume_m3": res.destroyed_volume_m3, "absorbed_j": res.absorbed_j}
-        return Outcome("strike", params, True, metadata=MappingProxyType(meta))
+        # The strike is a load: damage resolves it right after this stage 2, and Topology destroys (§5.1).
+        effects = resolve((Load("strike", point, action.energy_j, action.sigma_m),))
+        return Outcome("strike", params, True, effects=effects)
 
-    def _ignite(self, region: str, action: Ignite, params: Mapping[str, object]) -> Outcome:
+    def _ignite(
+        self, region: str, action: Ignite, params: Mapping[str, object], sources: dict[str, HeatSource]
+    ) -> Outcome:
         # A region carved hollow (a wall with a doorway through its middle) can have its centroid in air, so this fire
         # may heat only air: a known gap, held by a strict red gate. Refusing it here would mean deciding from the
         # region's cells, which move with the grid spacing; the fix is per-cell ownership with authored geometry
         # (design v2).
-        source = HeatSource(self._centroid_m(region), action.radius_m, action.power_w)
-        with self._world.writing(cells=False) as sources:  # a fire changes no cell until the next advance
-            sources[f"fire:{region}"] = source
-        return Outcome("ignite", params, True)
+        sources[f"fire:{region}"] = HeatSource(self._centroid_m(region), action.radius_m, action.power_w)
+        return Outcome("ignite", params, True)  # a fire changes no cell until the next physics step
 
-    def _extinguish(self, region: str, params: Mapping[str, object]) -> Outcome:
-        if f"fire:{region}" not in self._world.sources:
+    def _extinguish(self, region: str, params: Mapping[str, object], sources: dict[str, HeatSource]) -> Outcome:
+        if f"fire:{region}" not in sources:  # the window's table: an earlier record this tick may have lit it
             refusal = ActionRefused(f"nothing is burning on the {region}", code=RefusalCode.NOT_BURNING)
             return _refused("extinguish", params, refusal)
-        with self._world.writing(cells=False) as sources:
-            del sources[f"fire:{region}"]
+        del sources[f"fire:{region}"]
         return Outcome("extinguish", params, True)
