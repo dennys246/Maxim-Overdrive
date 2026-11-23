@@ -31,10 +31,12 @@ from simcore.core.intents import CALL_KEYS, ActionRefused, Extinguish, Ignite, S
 from simcore.core.limits import ActionLimits
 from simcore.core.refusals import RefusalCode
 from simcore.core.scene import Box, Scene, constructing
-from simcore.core.world import HeatSource, World
+from simcore.core.simulation import T3, SimConfig
+from simcore.core.world import HeatSource
 from simcore.verify import agrees, same_class
 from tests._cells import paint
-from tests.conftest import COARSEST_M, FAST_SPACINGS
+from tests._sim import SteppingPort, act, make, record, seconds, world_of
+from tests.conftest import COARSEST_M, TIERED_FAST_SPACINGS
 
 ROOT = Path(__file__).resolve().parents[1]
 LIMITS = data.action_limits()
@@ -42,22 +44,38 @@ MATERIALS = data.materials()
 SCENE = Scene((3.0, 3.0, 2.0), (Box((1.2, 1.2, 0), (1.8, 1.8, 0.6), "wood", "crate"),))
 
 
-def _world(dx_m=0.2):
-    return World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
+# The membrane's tests judge what a call is refused or accepted as; time passing is not theirs. Each bridge call is one
+# tick (sim_core.md §13), so they run with physics far off, and a refusal's "nothing changed" compares cells no
+# physics step has touched. Tests about physics use T3.
+NO_PHYSICS = SimConfig(physics_every=1_000_000)
 
 
-def _structure(world):
-    return region_parts(Applier(world), world.frames, "crate")[1]["structure"]
+def _world(dx_m=0.2, scene=SCENE, config=NO_PHYSICS):
+    return make(scene, MATERIALS, dx_m=dx_m, limits=LIMITS, config=config)
 
 
-def _apply(world, action):
-    """Stage 2 alone: the applier, as the membrane calls it after parsing."""
-    return Applier(world).apply("crate", action)
+def _parts(sim, region):
+    """A region's instruments and modulators, through the submit-and-step port the test owns."""
+    return region_parts(SteppingPort(sim), sim.frames, region)
 
 
-def _state(world):
-    g = world.grid
-    return (g.material.copy(), g.integrity.copy(), g.temperature.copy(), dict(world.sources))
+def _structure(sim, region="crate"):
+    return _parts(sim, region)[1]["structure"]
+
+
+def _apply(sim, action):
+    """Stage 2 without parsing: a hand-built action as a record, as the membrane would submit it."""
+    return act(sim, "crate", action)
+
+
+def _sources(sim):
+    return world_of(sim).sources
+
+
+def _state(sim):
+    w = world_of(sim)
+    g = w.grid
+    return (g.material.copy(), g.integrity.copy(), g.temperature.copy(), dict(w.sources))
 
 
 def _unchanged(before, world):
@@ -176,8 +194,9 @@ def test_a_target_is_accepted_only_when_it_is_this_region():
 
     assert frozenset({"target"}) == CALL_KEYS
     scene = Scene(SCENE.extent_m, (*SCENE.primitives, Box((0, 0, 0), (0.6, 3, 2), "concrete", "wall")))
-    w = World.from_scene(scene, MATERIALS, dx_m=0.2, limits=LIMITS)
-    crate, wall = to_maxim_entity(Applier(w), w.frames, "crate"), to_maxim_entity(Applier(w), w.frames, "wall")
+    w = _world(scene=scene)
+    port = SteppingPort(w)
+    crate, wall = to_maxim_entity(port, w.frames, "crate"), to_maxim_entity(port, w.frames, "wall")
     s = crate.modulators["structure"]
     for target in [None, crate, "crate", "Crate"]:  # case-insensitive, as Maxim's EntityMap resolves names
         assert s.execute("ignite", {"power_w": 1000.0, "target": target}).success, target
@@ -192,12 +211,17 @@ def test_a_target_is_accepted_only_when_it_is_this_region():
 
 
 def test_both_ends_of_every_limit_are_allowed_and_one_step_past_them_is_not():
-    s = _structure(_world())
     lim = LIMITS
-    assert s.execute("ignite", {"power_w": lim.max_power_w, "radius_m": lim.max_radius_m}).success
-    assert s.execute("ignite", {"power_w": 0.0, "radius_m": lim.min_radius_m}).success
-    assert s.execute("strike", {"energy_j": lim.max_energy_j, "sigma_m": lim.max_sigma_m}).success
-    assert s.execute("strike", {"energy_j": 0.0, "sigma_m": lim.min_sigma_m}).success
+    # Each end on a world of its own: the largest strike destroys the whole crate, after which any strike on it is
+    # refused region_gone (sim_core.md §5.1), which would say nothing about the limits.
+    for affordance, params in [
+        ("ignite", {"power_w": lim.max_power_w, "radius_m": lim.max_radius_m}),
+        ("ignite", {"power_w": 0.0, "radius_m": lim.min_radius_m}),
+        ("strike", {"energy_j": lim.max_energy_j, "sigma_m": lim.max_sigma_m}),
+        ("strike", {"energy_j": 0.0, "sigma_m": lim.min_sigma_m}),
+    ]:
+        assert _structure(_world()).execute(affordance, params).success, (affordance, params)
+    s = _structure(_world())
     for affordance, params, name in [
         ("ignite", {"power_w": math.nextafter(lim.max_power_w, math.inf)}, "power_w"),
         ("ignite", {"power_w": 1.0, "radius_m": math.nextafter(lim.min_radius_m, 0)}, "radius_m"),
@@ -215,7 +239,7 @@ def test_omitted_parameters_take_their_defaults_from_the_limits():
     w = _world()
     s = _structure(w)
     assert s.execute("ignite", {"power_w": 10.0}).success
-    assert w.sources["fire:crate"].radius_m == LIMITS.default_radius_m
+    assert _sources(w)["fire:crate"].radius_m == LIMITS.default_radius_m
     assert parse_action("strike", {"energy_j": 1.0}, LIMITS) == Strike(1.0, LIMITS.default_sigma_m, None)
     schema = s.affordances
     assert schema["ignite"].params["radius_m"] == (float, LIMITS.default_radius_m)
@@ -245,13 +269,14 @@ def test_apply_names_the_affordance_from_the_action_and_reports_the_parsed_value
 def test_a_region_that_is_gone_refuses_with_a_code_the_agent_can_use():
     w = _world()
     s = _structure(w)
-    with constructing(w.grid):  # a later paint takes every cell
-        paint(w.grid, w.grid.regions["crate"].cells, "air")
+    grid = world_of(w).grid
+    with constructing(grid):  # a later paint takes every cell, before the first tick
+        paint(grid, grid.regions["crate"].cells, "air")
     for affordance, params in [("ignite", {"power_w": 1.0}), ("strike", {"energy_j": 1.0}), ("extinguish", {})]:
         res = s.execute(affordance, params)
         assert not res.success
         assert res.error == "region_gone"
-    out = Applier(w).apply("crate", Strike(1.0, LIMITS.default_sigma_m, None))  # a direct caller gets the refusal
+    out = _apply(w, Strike(1.0, LIMITS.default_sigma_m, None))  # a record's outcome carries the words and the code
     assert (out.success, out.error, out.code) == (False, "the crate is gone", RefusalCode.REGION_GONE)
 
 
@@ -271,16 +296,24 @@ def test_every_verification_grid_is_at_least_as_fine_as_the_smallest_action():
 WOOD_FLAME_C = 2000.0  # wood's adiabatic flame temperature: no fire on wood may heat a cell past it
 
 
+TURN_S = 6.0  # the sampling interval: the retired 6 s turn, now twelve 0.5 s physics steps
+
+
 def _burn_every_turn(dx_m, turns):
-    w = World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
-    s, m = region_parts(Applier(w), w.frames, "crate")
+    """The fiercest allowed fire on the crate, lit at tick 1 by a record; integrity and the hottest cell sampled
+    every TURN_S of world time on the fixed 0.5 s physics step."""
+    sim = _world(dx_m, config=T3)
+    fire = Ignite(LIMITS.max_power_w, LIMITS.min_radius_m)
     # Preconditions raise RuntimeError, not the red gates' raises= type, so a refused action can't count as the miss.
-    if not m["structure"].execute("ignite", {"power_w": LIMITS.max_power_w, "radius_m": LIMITS.min_radius_m}).success:
+    if not sim.step([record(fire, "crate", tick=1)]).outcomes[0].success:
         raise RuntimeError("ignite refused: the gate can't reach its bar")
+    seconds(sim, TURN_S - 0.1)  # tick 1 was the first of the first sample's 60 ticks
     history = []
-    for _ in range(turns):
-        w.advance()
-        history.append((s["integrity"].value(), float(np.max(w.grid.temperature))))
+    for turn in range(turns):
+        if turn:
+            seconds(sim, TURN_S)
+        frame = sim.frames.latest
+        history.append((frame.reading("crate", "integrity"), float(np.max(frame.cells.temperature))))
     return history
 
 
@@ -288,8 +321,9 @@ def _burn_every_turn(dx_m, turns):
     strict=True,
     raises=AssertionError,
     reason="fires diverge across rigs mid-burn: at the allowed corner the crate's integrity differs by up to 0.19 "
-    "between rigs at turn 22, and past about 30 turns the fuel gap heats air. Burning is a threshold on a cell's "
-    "mean temperature, which lags in coarse cells (docs/architecture.md, Known gaps). The Phase 1 fuel model "
+    "between rigs at turn 22 (132 s; measured on the retired 6 s turn), and past about 30 turns (180 s) the fuel gap "
+    "heats air. Burning is a threshold on a cell's "
+    "mean temperature, which lags in coarse cells (docs/known_gaps.md). The Phase 1 fuel model "
     "(a burn rate driven by heat content) is the fix; this gate then flips.",
 )
 def test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn(spacings):
@@ -310,13 +344,12 @@ CONCRETE_THRESHOLD_J = 2.0e7 * (2 * math.pi) ** 1.5 * 0.2**3  # where a 0.2 m st
 
 def _block_strike(dx_m, energy_j, thickness_m=1.8, x0=0.6):
     scene = Scene((3.0, 3.0, 2.0), (Box((x0, 0.2, 0), (x0 + thickness_m, 2.8, 1.8), "concrete", "block"),))
-    w = World.from_scene(scene, MATERIALS, dx_m=dx_m, limits=LIMITS)
-    sensors, mods = region_parts(Applier(w), w.frames, "block")
-    point = [x0 + thickness_m / 2, 1.5, 0.9]
-    res = mods["structure"].execute("strike", {"energy_j": energy_j, "sigma_m": 0.2, "point_m": point})
+    sim = _world(dx_m, scene=scene)
+    point = (x0 + thickness_m / 2, 1.5, 0.9)
+    res = act(sim, "block", Strike(energy_j, 0.2, point))  # an outcome bar: a record, never the bridge (§13)
     if not res.success:
         raise RuntimeError("strike refused: the gate can't reach its bar")
-    return res.metadata["destroyed_volume_m3"], sensors["breached"].value()
+    return res.effects[0].destroyed_volume_m3, sim.frames.latest.reading("block", "breached")
 
 
 def test_a_strike_below_the_fracture_threshold_destroys_nothing_at_any_rig(spacings):
@@ -336,7 +369,7 @@ def test_a_crater_of_radius_at_least_a_third_of_a_metre_matches_the_closed_form_
     strict=True,
     raises=AssertionError,
     reason="whether a strike breaches a thin wall flips across rigs near the threshold: a 0.4 m concrete wall "
-    "struck at 1.5x the threshold is breached at 0.1 m and 0.05 m but not 0.2 m (docs/architecture.md, Known gaps). "
+    "struck at 1.5x the threshold is breached at 0.1 m and 0.05 m but not 0.2 m (docs/known_gaps.md). "
     "Craters narrower than two coarse cells are below what the coarse grid resolves.",
 )
 def test_a_strike_breaches_a_thin_wall_the_same_at_every_rig(spacings):
@@ -351,8 +384,7 @@ def test_a_strike_at_any_face_of_a_region_off_the_coarse_grid_is_judged_the_same
     scene = Scene((3.0, 3.0, 2.0), (Box(lo, hi, "wood", "crate"),))
     middle = [(a + b) / 2 for a, b in zip(lo, hi, strict=True)]
     for dx_m in spacings:
-        w = World.from_scene(scene, MATERIALS, dx_m=dx_m, limits=LIMITS)
-        s = region_parts(Applier(w), w.frames, "crate")[1]["structure"]
+        s = _structure(_world(dx_m, scene=scene))
         for axis in range(3):
             for edge, outward in [(lo[axis] - sigma, -9.0), (hi[axis] + sigma, 9.0)]:
                 at, past = list(middle), list(middle)
@@ -368,8 +400,8 @@ def test_a_strike_past_a_regions_face_into_another_region_belongs_to_that_region
     wall = Box((1.8, 0, 0), (2.4, 3, 2), "concrete", "wall")
     room = Box((0.6, 0.6, 0), (2.4, 2.4, 1.2), "air", "room")  # an air room never owns a point
     for dx_m in spacings:
-        w = World.from_scene(Scene((3.0, 3.0, 2.0), (room, crate, wall)), MATERIALS, dx_m=dx_m, limits=LIMITS)
-        parts = {r: region_parts(Applier(w), w.frames, r)[1]["structure"] for r in ("crate", "wall")}
+        w = _world(dx_m, scene=Scene((3.0, 3.0, 2.0), (room, crate, wall)))
+        parts = {r: _structure(w, r) for r in ("crate", "wall")}
         before = _state(w)
         res = parts["crate"].execute("strike", {"energy_j": 1e7, "point_m": [1.85, 1.5, 0.3]})
         assert res.error == "not_on_region (point_m)", dx_m
@@ -398,7 +430,7 @@ def test_a_strike_past_a_regions_face_into_another_region_belongs_to_that_region
 )
 def test_a_strike_refuses_non_finite_physics(point, energy, sigma):
     with pytest.raises(ValueError, match="strike"):
-        physics.strike(_world().grid, point, energy, sigma)
+        physics.strike(world_of(_world()).grid, point, energy, sigma)
 
 
 @pytest.mark.parametrize(
@@ -429,14 +461,14 @@ def test_an_npc_tool_call_through_maxim_is_refused_or_applied_the_same_way():
     from simcore.adapters.sem.bridge import to_maxim_entity  # noqa: PLC0415
 
     w = _world()
-    tools = generate_tools_for_entity(to_maxim_entity(Applier(w), w.frames, "crate"), ToolRegistry())
+    tools = generate_tools_for_entity(to_maxim_entity(SteppingPort(w), w.frames, "crate"), ToolRegistry())
     ignite = next(t for t in tools if t.name == "crate_ignite")
     refused = ignite.execute(power_w=math.nan)
     assert not refused.success
     assert refused.error == "not_finite (power_w)"
-    assert w.sources == {}
+    assert _sources(w) == {}
     assert ignite.execute(power_w=1000).success
-    assert w.sources["fire:crate"].power_w == 1000.0
+    assert _sources(w)["fire:crate"].power_w == 1000.0
 
 
 # -- no input crashes the modulator or poisons the grid ---------------------------------------------------------------
@@ -469,21 +501,20 @@ _keys = st.one_of(
 _params = st.one_of(st.dictionaries(_keys, _values, max_size=4), st.none(), st.lists(_values, max_size=2))
 
 
-@pytest.mark.parametrize("dx_m", FAST_SPACINGS)
+@pytest.mark.parametrize("dx_m", TIERED_FAST_SPACINGS)
 @settings(derandomize=True, max_examples=250, deadline=None, suppress_health_check=[HealthCheck.too_slow])
 @given(affordance=st.sampled_from(["strike", "ignite", "extinguish", "teleport", 3]), params=_params)
 def test_no_input_crashes_the_modulator_or_leaves_a_bad_cell(dx_m, affordance, params):
-    w = _world(dx_m)
+    w = _world(dx_m, config=T3)
     before = _state(w)
-    res = _structure(w).execute(affordance, params)  # must not raise
+    res = _structure(w).execute(affordance, params)  # must not raise; tick 1 runs no physics
     if not res.success:
         assert _unchanged(before, w)
-    for source in w.sources.values():  # whatever was accepted is inside the limits
+    for source in _sources(w).values():  # whatever was accepted is inside the limits
         assert 0 <= source.power_w <= LIMITS.max_power_w
         assert LIMITS.min_radius_m <= source.radius_m <= LIMITS.max_radius_m
-    for _ in range(3):
-        w.advance()
-    g = w.grid
+    seconds(w, 18.0)  # the three 6 s turns this ran before PR 4a, now 36 physics steps
+    g = world_of(w).grid
     assert np.isfinite(g.temperature).all()
     assert np.isfinite(g.integrity).all()
     assert ((g.integrity >= 0) & (g.integrity <= 1)).all()
@@ -627,8 +658,11 @@ def test_a_hand_built_action_with_bad_numbers_cannot_be_made(build, name):
 
 
 def test_apply_refuses_what_is_not_an_action_loudly():
+    # No record can carry one (a record's params must be its typed action), so the applier's own check is called
+    # directly: it raises before it reads the window's sources or resolves anything.
+    applier = Applier(world_of(_world()))
     with pytest.raises(TypeError, match="not an action: object"):
-        _apply(_world(), object())
+        applier.apply("crate", object(), sources={}, resolve=lambda loads: ())  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
@@ -681,27 +715,23 @@ def test_maxims_actor_tool_must_name_the_region_as_its_own_target():
 
     from simcore.adapters.sem.bridge import to_maxim_entity  # noqa: PLC0415
 
-    w = World.from_scene(
-        Scene(SCENE.extent_m, (*SCENE.primitives, Box((0, 0, 0), (0.6, 3, 2), "concrete", "wall"))),
-        MATERIALS,
-        dx_m=0.2,
-        limits=LIMITS,
-    )
+    w = _world(scene=Scene(SCENE.extent_m, (*SCENE.primitives, Box((0, 0, 0), (0.6, 3, 2), "concrete", "wall"))))
+    port = SteppingPort(w)
     npc = Entity("npc", "body")
     entities = EntityMap()
     entities.register_self(npc)
-    entities.register_scene(to_maxim_entity(Applier(w), w.frames, "crate"))
-    entities.register_scene(to_maxim_entity(Applier(w), w.frames, "wall"))
+    entities.register_scene(to_maxim_entity(port, w.frames, "crate"))
+    entities.register_scene(to_maxim_entity(port, w.frames, "wall"))
     actor = OrchestratorActorTool(embodiment=Embodiment(npc), entity_map=entities)
     ignite = {"entity": "crate", "affordance": "ignite", "params": {"power_w": 1000.0}}
     default = actor.run(**ignite)
     assert not default.success
     assert default.error == "wrong_target (target)"  # the schema's key names the fix the description states
-    described = to_maxim_entity(Applier(w), w.frames, "crate").modulators["structure"].affordances["ignite"]
+    described = to_maxim_entity(port, w.frames, "crate").modulators["structure"].affordances["ignite"]
     assert "The target, if given, is this structure itself" in described.description
-    assert w.sources == {}
+    assert _sources(w) == {}
     assert actor.run(**ignite, target="crate").success
-    assert w.sources["fire:crate"].power_w == 1000.0
+    assert _sources(w)["fire:crate"].power_w == 1000.0
     assert not actor.run(entity="crate", affordance="strike", target="wall", params={"energy_j": 1e3}).success
 
 
@@ -712,13 +742,8 @@ def test_maxims_affordance_tool_accepts_only_the_region_itself_as_a_target(targe
 
     from simcore.adapters.sem.bridge import to_maxim_entity  # noqa: PLC0415
 
-    w = World.from_scene(
-        Scene(SCENE.extent_m, (*SCENE.primitives, Box((0, 0, 0), (0.6, 3, 2), "concrete", "wall"))),
-        MATERIALS,
-        dx_m=0.2,
-        limits=LIMITS,
-    )
-    crate = to_maxim_entity(Applier(w), w.frames, "crate")
+    w = _world(scene=Scene(SCENE.extent_m, (*SCENE.primitives, Box((0, 0, 0), (0.6, 3, 2), "concrete", "wall"))))
+    crate = to_maxim_entity(SteppingPort(w), w.frames, "crate")
     structure = crate.modulators["structure"]
     tool = ModulatorAffordanceTool(
         entity=crate,
@@ -729,7 +754,7 @@ def test_maxims_affordance_tool_accepts_only_the_region_itself_as_a_target(targe
     )
     out = tool.run(power_w=1000.0, **({} if target is None else {"target": target}))
     assert out.success is ok, out.error
-    assert ("fire:crate" in w.sources) is ok
+    assert ("fire:crate" in _sources(w)) is ok
 
 
 @pytest.mark.parametrize(
@@ -765,9 +790,9 @@ def test_a_fire_lands_on_the_authored_centroid_at_every_rig(spacings):
     # The crate's faces sit off the coarse grid, so the centroid of its cells moves with the spacing; the fire mustn't.
     scene = Scene((3.0, 3.0, 2.0), (Box((1.25, 1.25, 0.25), (1.75, 1.75, 0.85), "wood", "crate"),))
     for dx_m in spacings:
-        w = World.from_scene(scene, MATERIALS, dx_m=dx_m, limits=LIMITS)
-        assert region_parts(Applier(w), w.frames, "crate")[1]["structure"].execute("ignite", {"power_w": 1.0}).success
-        assert w.sources["fire:crate"].point_m == (1.5, 1.5, 0.55), dx_m
+        w = _world(dx_m, scene=scene)
+        assert _structure(w).execute("ignite", {"power_w": 1.0}).success
+        assert _sources(w)["fire:crate"].point_m == (1.5, 1.5, 0.55), dx_m
 
 
 def test_an_entity_whose_name_is_not_a_plain_string_is_refused():
@@ -796,19 +821,19 @@ def test_an_air_region_has_no_structure_to_act_on():
     from simcore.adapters.sem.bridge import StructureModulator, to_maxim_entity  # noqa: PLC0415
 
     room = Box((0.6, 0.6, 0), (2.4, 2.4, 1.2), "air", "room")
-    w = World.from_scene(Scene(SCENE.extent_m, (room, *SCENE.primitives)), MATERIALS, dx_m=0.2, limits=LIMITS)
-    sensors, mods = region_parts(Applier(w), w.frames, "room")
+    w = _world(scene=Scene(SCENE.extent_m, (room, *SCENE.primitives)))
+    sensors, mods = _parts(w, "room")
     assert mods == {}
     assert "temperature_mean" in sensors  # still sensed
     with pytest.raises(ValueError, match="'room' is air"):
-        StructureModulator(Applier(w), w.frames, "room")
-    assert to_maxim_entity(Applier(w), w.frames, "room").modulators == {}
+        StructureModulator(SteppingPort(w), w.frames, "room")
+    assert to_maxim_entity(SteppingPort(w), w.frames, "room").modulators == {}
 
 
 def test_targets_resolve_by_maxims_own_name_rule():
     scene = Scene(SCENE.extent_m, (Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", "fire door"), *SCENE.primitives))
-    w = World.from_scene(scene, MATERIALS, dx_m=0.2, limits=LIMITS)
-    crate, door = (region_parts(Applier(w), w.frames, r)[1]["structure"] for r in ("crate", "fire door"))
+    w = _world(scene=scene)
+    crate, door = (_structure(w, r) for r in ("crate", "fire door"))
     for target in ["crate", " Crate ", "CRATE"]:
         assert crate.execute("ignite", {"power_w": 1.0, "target": target}).success, target
     assert door.execute("ignite", {"power_w": 1.0, "target": "fire_door"}).success  # Maxim's spaces-as-underscores
@@ -827,19 +852,20 @@ def test_region_names_that_maxim_would_confuse_are_refused(materials, first, sec
     strict=True,
     raises=AssertionError,
     reason="a region carved hollow keeps its authored centroid, so a fire on a wall with a doorway through its middle "
-    "lands in the doorway and heats only air (docs/architecture.md, Known gaps). Deciding from the region's cells "
+    "lands in the doorway and heats only air (docs/known_gaps.md). Deciding from the region's cells "
     "would move with the grid spacing; per-cell ownership with authored geometry (design v2) is the fix.",
 )
 def test_a_fire_on_a_region_carved_hollow_heats_the_region_not_air(spacings):
     wall = Box((1.0, 0.0, 0.0), (1.6, 3.0, 2.0), "concrete", "wall")
     doorway = Box((1.0, 1.0, 0.0), (1.6, 2.0, 2.0), "air", "doorway")
     for dx_m in spacings:
-        w = World.from_scene(Scene((3.0, 3.0, 2.0), (wall, doorway)), MATERIALS, dx_m=dx_m, limits=LIMITS)
-        res = region_parts(Applier(w), w.frames, "wall")[1]["structure"].execute("ignite", {"power_w": 1000.0})
+        w = _world(dx_m, scene=Scene((3.0, 3.0, 2.0), (wall, doorway)))
+        res = act(w, "wall", Ignite(1000.0, LIMITS.default_radius_m))  # an outcome bar: a record (§13)
         if res.success:  # a fix may refuse the fire, or place it on the wall; either way it must not heat only air
-            source = w.sources["fire:wall"]
-            own = w.grid.regions["wall"].cells & w.grid.solid
-            assert (sphere_overlap(w.grid, source.point_m, source.radius_m) * own).any(), dx_m
+            g = world_of(w).grid
+            source = _sources(w)["fire:wall"]
+            own = g.regions["wall"].cells & g.solid
+            assert (sphere_overlap(g, source.point_m, source.radius_m) * own).any(), dx_m
 
 
 def test_an_entity_that_only_shares_the_regions_name_is_not_the_region():
@@ -853,8 +879,7 @@ def test_an_entity_that_only_shares_the_regions_name_is_not_the_region():
 
 def test_target_names_follow_maxims_lower_not_casefold():
     scene = Scene(SCENE.extent_m, (Box((0.2, 0.2, 0), (0.8, 0.8, 0.6), "wood", "straße"),))
-    w = World.from_scene(scene, MATERIALS, dx_m=0.2, limits=LIMITS)
-    s = region_parts(Applier(w), w.frames, "straße")[1]["structure"]
+    s = _structure(_world(scene=scene), "straße")
     assert s.execute("ignite", {"power_w": 1.0, "target": "STRASSE"}).success is False  # casefold would match
     assert s.execute("ignite", {"power_w": 1.0, "target": "Straße"}).success
 

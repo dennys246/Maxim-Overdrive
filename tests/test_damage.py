@@ -46,7 +46,7 @@ def test_breach_is_the_same_outcome_at_every_rig(spacings, materials, energy, br
     raises=AssertionError,
     reason="region_breached picks its axis from cell extents, so it can change with the spacing: a 0.6 x 0.6 x 0.55 m "
     "box at (0.5, 0.5, 0) tests x at 0.2 m (extents [2, 2, 2], ties to x) and z at 0.1 m ([5, 5, 4]), so a hole "
-    "through its thinnest authored axis counts only at the finer rig (docs/architecture.md, Known gaps). The fix is "
+    "through its thinnest authored axis counts only at the finer rig (docs/known_gaps.md). The fix is "
     "world_model.md section 1's breach by remaining thickness in metres, at step 8a (phase1/fuel-surface).",
 )
 def test_a_hole_through_the_thinnest_authored_axis_is_a_breach_at_every_rig(spacings, materials):

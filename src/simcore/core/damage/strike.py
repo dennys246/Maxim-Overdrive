@@ -21,7 +21,8 @@ import math
 import numpy as np
 from scipy.special import ndtr
 
-from simcore.core.grid import Field, MaterialGrid
+from simcore.core.geometry import Field
+from simcore.core.grid import MaterialGrid
 from simcore.core.law import Load
 
 

@@ -1,7 +1,7 @@
 """Heat conduction against a closed-form solution, plus conservation and convergence.
 
 The laws write the cells only inside the grid's write window (boundaries §4.1), so each test opens it, as
-``World.advance`` does on the shipped path.
+``Simulation.step`` does on the shipped path.
 """
 
 import math
@@ -12,13 +12,14 @@ import numpy as np
 import pytest
 
 from simcore.core import heat, physics, topology
+from simcore.core.exposure import Exposure
 from simcore.core.grid import MaterialGrid
-from simcore.core.law import Cadence, Changes, LawInputs
+from simcore.core.law import STATELESS, Cadence, Changes, LawInputs, LawState
 from simcore.core.materials import AIR_ID
 from simcore.core.scene import Box, Scene, constructing
 from simcore.core.stepping import substep_loop
 from simcore.verify import Run, converges
-from tests._cells import heat_alone, paint
+from tests._cells import NO_SOURCES, heat_alone, paint
 from tests.conftest import ALL_TIERS
 
 SIGMA0, T_S = 0.3, 3600.0
@@ -173,11 +174,18 @@ class _EditOnce:
     cadence: Cadence = Cadence.PER_SUBSTEP
     reads: tuple[str, ...] = ()
     writes: tuple[str, ...] = ()
+    bound_reads: tuple[str, ...] = ()
 
-    def stable_dt(self, grid: MaterialGrid) -> float:
+    def new_state(self, grid: MaterialGrid) -> LawState:
+        return STATELESS
+
+    def prepare(self, grid: MaterialGrid, state: LawState, exposure: Exposure) -> LawInputs:
+        return LawInputs()
+
+    def stable_dt(self, grid: MaterialGrid, state: LawState) -> float:
         return math.inf
 
-    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs) -> Changes:
+    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs, state: LawState) -> Changes:
         self.dts.append(dt_s)
         return Changes((self.edit(grid),)) if len(self.dts) == 1 else Changes()
 
@@ -196,7 +204,7 @@ def test_a_step_replans_at_the_shorter_step_when_a_change_tightens_stability(mat
     seconds = 2 * heat.stable_dt(g)  # two planned substeps at wood's step
     law = _EditOnce(_to_steel)
     with g.writing(writer=None):
-        taken = physics.run_physics(g, seconds, refine=1, power=lambda: None, laws=(heat.HEAT, law))
+        taken = physics.Physics(g, (heat.HEAT, law)).run(seconds, refine=1, exposure=NO_SOURCES)
     turned = law.dts[:1]
     steel_dt = heat.stable_dt(g)
     assert steel_dt < turned[0]  # the change really tightened stability below the planned step
@@ -219,7 +227,7 @@ def test_a_replan_splits_the_rest_evenly_and_never_takes_a_zero_length_substep(m
         g.temperature[:] = np.random.default_rng(1).uniform(0, 100, g.shape)
     law = _EditOnce(_to_steel)
     with g.writing(writer=None):
-        physics.run_physics(g, 2 * k * steel_dt, refine=2, power=lambda: None, laws=(heat.HEAT, law))
+        physics.Physics(g, (heat.HEAT, law)).run(2 * k * steel_dt, refine=2, exposure=NO_SOURCES)
     rest = law.dts[1:]
     assert min(rest) == pytest.approx(max(rest), rel=1e-9)  # one even step, so no zero-length or sliver substep
     assert max(rest) <= steel_dt * (1 + 1e-12)  # an even split can exceed the bound by one ulp (Physics delta N-1)
@@ -249,24 +257,27 @@ def test_step_never_exceeds_the_stability_bound(materials):
     assert np.max(g.temperature) <= 1000.0 + 1e-6
 
 
-def test_a_cell_destroyed_mid_turn_gets_no_more_source_power(dx_m, materials):
+def test_a_cell_destroyed_mid_turn_gets_no_more_source_power(dx_m, materials, monkeypatch):
     """Closed form: one wood cell, constant power on solids, destroyed after the first substep.
 
     It gains exactly one substep's energy at wood's heat capacity. Depositing the turn's power into it after it has
-    become air (1/1000 of wood's rho*cp) is what drove burning crates to tens of thousands of degrees.
+    become air (1/1000 of wood's rho*cp) is what drove burning crates to tens of thousands of degrees. The power is
+    heat's ``prepare``, patched to put ``p_w`` on solid cells, so the test holds that prepare reruns after an edit
+    (sim_core.md §5): deleting the rerun leaves the first substep's power on the destroyed cell.
     """
     g = MaterialGrid.empty((dx_m,) * 3, materials, dx_m=dx_m)
     with constructing(g):
         paint(g, np.ones(g.shape, dtype=bool), "wood")
     p_w = 1000.0
 
-    def power():
-        return p_w * g.solid.astype(np.float64)
+    def prepare(self, grid, state, exposure):
+        return LawInputs(power_w=p_w * grid.solid.astype(np.float64))
 
+    monkeypatch.setattr(heat.HeatLaw, "prepare", prepare)
     law = _EditOnce(lambda grid: topology.Destroy(np.ones(grid.shape, dtype=bool)))
     rho_cp = materials["wood"].volumetric_heat_capacity
     with g.writing(writer=None):
-        n = physics.run_physics(g, 6.0, refine=4, power=power, laws=(heat.HEAT, law))
+        n = physics.Physics(g, (heat.HEAT, law)).run(6.0, refine=4, exposure=NO_SOURCES)
     assert n == 4
     assert (g.material == AIR_ID).all()  # the edit really landed after the first substep
     expected = 20.0 + p_w * 1.5 / (rho_cp * g.cell_volume_m3)

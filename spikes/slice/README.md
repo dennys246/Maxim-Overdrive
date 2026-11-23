@@ -3,6 +3,14 @@
 A prototype lane, not the engine: `docs/plans/vertical_slice.md` says what it is for and what is relaxed. Nothing here
 is the real step 5b, 7 or 8, and nothing under `src/` changes for it.
 
+## The engine it runs on: `bfb12f8`
+
+The slice drives the engine through `World.advance` and the applier, which step 5a's PR 4a retired (one write window
+per tick, owned by `Simulation.step`). It runs, and its recorded sessions replay, on the engine as of `bfb12f8`: check
+that commit out in a worktree of its own (`git worktree add .worktrees/slice-bfb12f8 bfb12f8`) and run it there. Porting
+it to `Simulation` changes when a strike's crater shows (the next tick, not within the tick), which moves the numbers
+its playtests were measured on, so it waits for the owner's call.
+
 ## Run it
 
 From the worktree root, with the worktree's own `.venv` (`CLAUDE.md`, Commands):

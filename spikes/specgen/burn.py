@@ -24,6 +24,7 @@ from simcore.core.world import World
 
 POWER_W, RADIUS_M, TURNS, AT = 100e3, 0.3, 30, (10, 20, 30)
 TURN_S = 6.0  # errata E4: turns of 6 s, pinned here so a changed World default can't move M5
+ENGINE = "c6d4f10"  # errata E18: M5 runs on the engine as of this commit, the last with World.advance
 
 
 def _solid_in_sphere(world: World, name: str) -> int:
@@ -35,6 +36,8 @@ def _solid_in_sphere(world: World, name: str) -> int:
 
 
 def burn(spec: dict[str, Any]) -> dict[str, Any]:
+    if not hasattr(World, "advance"):  # step 5a's PR 4a retired it: say where M5 runs, rather than fail on a name
+        raise RuntimeError(f"M5 runs on the engine as of {ENGINE}: run it from a worktree at that commit (errata E18)")
     world = World(protocol.empty_grid(), limits=action_limits())
     place(world.grid, spec, protocol.OFFSET_M)
     name = spec["name"]

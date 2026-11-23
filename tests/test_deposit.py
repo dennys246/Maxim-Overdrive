@@ -10,7 +10,8 @@ from hypothesis import strategies as st
 
 from simcore.core.deposit import Deposit, bounding_box, sphere_overlap
 from simcore.core.exposure import Share, standing
-from simcore.core.grid import Field, MaterialGrid
+from simcore.core.geometry import Field
+from simcore.core.grid import MaterialGrid
 from simcore.core.scene import constructing
 from simcore.core.world import HeatSource
 from tests._cells import destroy, paint
@@ -102,7 +103,7 @@ def test_the_caches_hold_only_the_current_sources_at_the_current_topology(materi
     fire = HeatSource((0.5, 0.5, 0.4), 0.3, 1e3)
     deposit.power(standing({"fire": fire}, 1), 1)
     assert set(deposit._overlaps) == {(fire.point_m, 0.3)}
-    assert set(deposit._weights) == {(fire.point_m, 0.3, g.topology_version)}
+    assert set(deposit._weights) == {(fire.point_m, 0.3, g.field_version("material"))}
     bigger = HeatSource(fire.point_m, 0.4, 1e3)  # a re-ignite with a new radius under the same id misses the cache
     deposit.power(standing({"fire": bigger}, 1), 1)
     assert set(deposit._overlaps) == {(fire.point_m, 0.4)}
@@ -119,7 +120,7 @@ def test_a_destroyed_cell_moves_the_weights_and_the_power_stays_the_references(m
     with constructing(g):
         destroy(g, _cell(g, (0.5, 0.5, 0.4)))
     after = _power(deposit, fire)
-    assert set(deposit._weights) == {((0.5, 0.5, 0.4), 0.3, g.topology_version)}
+    assert set(deposit._weights) == {((0.5, 0.5, 0.4), 0.3, g.field_version("material"))}
     assert not np.array_equal(before, after)
     assert np.array_equal(after, _reference_power(g, fire))
 
@@ -152,7 +153,8 @@ def test_a_window_that_rolls_back_leaves_no_entry_a_later_state_could_reuse(mate
     """sim_core.md §7: a cache's contents are a function of state. A rollback restores ``topology_version``, so an
     entry built inside the rolled-back window would be found again by a different edit that reaches the same version
     (PR 3 review S1, all three lenses: 75 W into a destroyed cell). Edit A, deposit, raise; then edit B: the deposit is
-    a fresh one's, bit for bit."""
+    a fresh one's, bit for bit, with no help from its owner: the key's `field_version` includes the grid's rollbacks,
+    so no rolled-back window's key is reached again (PR 4a review, Architecture S2)."""
     g = _grid(materials)
     deposit = Deposit(g)
     fire = {"fire": HeatSource((0.5, 0.5, 0.4), 0.3, 1e3)}

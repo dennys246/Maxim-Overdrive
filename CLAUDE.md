@@ -55,27 +55,30 @@ the measured checks, advisory.
 - `src/simcore/`: the engine, in layers that import only downward (`docs/design/boundaries.md` O24; the contracts are
   `[tool.importlinter]` in `pyproject.toml`): game > verify > protocol > adapters > core
 - `src/simcore/core/` (the sealed core: no IO, no clock, no `maxim`): `checks.py` (every untrusted number becomes a
-  finite float or a whole number there, and every mapping is held to its reader's keys, `known_keys`, or is
-  refused; `shown`, the bounded echo; `entity_key`, Maxim's name rule; `identity_key`, no `:`), `refusals.py` (the
-  append-only refusal codes every refusal carries), `schema.py` (one declarative schema per data format, the one
-  reader that applies it, versions and migrations), `digest.py` (`sha256/c14n-1:` digests), `fields.py` (the field
-  registry: each field's declared writers, each input's one resolver; its artifact is `docs/generated/fields.md`),
-  `materials.py` (the material table's types), `readonly.py` (arrays nothing can make writable), `limits.py`
-  (`ActionLimits`), `writers.py` (writers as tokens their owners claim, and the gate: who may read and write inside
-  the window), `window.py` (the window's lifecycle: one owner, commit or roll back), `grid.py` (cells: read-only at
-  rest, written only inside `writing()`), `topology.py` (the one owner of world edits: paint, name and destroy
-  requests, applied per batch), `scene.py` (authoring in metres; `constructing`, construction's window), `law.py`
-  (what a law is: cadence, reads, writes, `step`), `stepping.py` (the substep loop), `heat.py` and `damage/` (the
-  laws, one module each, and damage's load resolvers; no law imports another), `exposure.py` (`source_exposure`:
-  which value of each heat source stood each tick), `deposit.py` (where a source's power lands, and its caches),
-  `reductions.py` (region readings observers take), `physics.py` (the law tuple and its orchestrator, which runs each law as itself), `intents.py`
+  finite float or a whole number there, and every mapping is held to its reader's keys, `known_keys`, or is refused;
+  `shown`, the bounded echo; `entity_key`, Maxim's name rule; `identity_key`, no `:`), `refusals.py` (the append-only
+  refusal codes every refusal carries), `schema.py` (one declarative schema per data format, the one reader that applies
+  it, versions and migrations), `digest.py` (`sha256/c14n-1:` digests), `fields.py` (the field registry: each field's
+  declared writers, each input's one resolver; its artifact is `docs/generated/fields.md`), `geometry.py` (where cells
+  are: spacing, shape, the micrometre rule), `materials.py` (the material table's types), `readonly.py` (arrays nothing
+  can make writable), `limits.py` (`ActionLimits`), `writers.py` (writers as tokens their owners claim, and the gate:
+  who may read and write inside the window), `window.py` (the window's lifecycle: one owner, commit or roll back),
+  `grid.py` (cells: read-only at rest, written only inside `writing()`), `topology.py` (the one owner of world edits:
+  paint, name and destroy requests, applied per batch), `scene.py` (authoring in metres; `constructing`, construction's
+  window), `law.py` (what a law is: cadence, reads, writes, `step`), `stepping.py` (the substep loop), `heat.py` and
+  `damage/` (the laws, one module each, and damage's load resolvers; no law imports another), `exposure.py`
+  (`source_exposure`: which value of each heat source stood each tick), `deposit.py` (where a source's power lands, and
+  its caches), `reductions.py` (region readings observers take), `physics.py` (the law tuple and `Physics`, its
+  orchestrator, which runs each law as itself and holds each law's caches), `work.py` (the work counters), `intents.py`
   (typed actions, stage-1 parsing and the log record), `frames.py` (published frames and the `Observation` protocol
-  observers read), `world.py` (turn loop, heat sources, the world's window, frame publication), `simulation.py` (`Simulation`, the integer clock and `step`; step 5a), `applier.py` (stage 2: the
-  only code that applies an action), `imagination.py` (imagined objects as validated specs that become cells)
+  observers read), `world.py` (the cell state: the grid, heat sources and the world's window), `simulation.py`
+  (`Simulation`, the integer clock, `step` and its one window per tick, frame publication), `applier.py` (stage 2: the
+  only code that applies an action, inside the step's window), `imagination.py` (imagined objects as validated specs
+  that become cells)
 - `src/simcore/adapters/`: `loaders.py` (the file gates: material table, action limits, strict YAML, and `DataPath`,
   the only kind of path the game's data locator hands out) and
   `sem/bridge.py` (the membrane's gate half: environment regions as Maxim SEM Entities, reading frames and writing
-  through the applier; the only engine code that imports `maxim`)
+  through a submit-and-step `Port`; the only engine code that imports `maxim`)
 - `src/simcore/protocol/`: what the client receives: `tiers.py` (rig profiles as rendering tiers, no physics),
   `encoding.py` (`snapshot` of a published frame, display quantization)
 - `src/simcore/verify/`: the verification harness (`docs/design/verify_harness.md`): convergence studies, agreement
@@ -125,12 +128,11 @@ the measured checks, advisory.
 - Imagined objects enter only through `simcore.core.imagination.place`, which validates them. Never write cells
   directly from LLM output.
 - Actions change cells through `simcore.core.applier`, and imagined objects through `place`, until step 5a makes
-  `imagine` an intent kind. Only `Simulation.step` moves the integer clock; `World.advance`, which it calls on
-  physics ticks, moves the world's time in whole microseconds (`time_s` is derived; PR 4 retires `World.advance`).
-  Every write happens inside the write window, as a writer the field registry declares, holding its token. The SEM
-  membrane is handed an applier and a frame view, never the world, and the import contracts and the ownership scans
-  hold it to them.
-- Record known physics gaps in `docs/architecture.md` ("Known gaps"), with numbers, instead of hiding them.
+  `imagine` an intent kind. Only `Simulation.step` moves time, as an integer tick (seconds are derived), and it owns
+  the write window, one per tick. Every write happens inside the write window, as a writer the field registry
+  declares, holding its token. The SEM membrane is handed a port and a frame view, never the simulation, and the
+  import contracts and the ownership scans hold it to them.
+- Record known physics gaps in `docs/known_gaps.md`, their one owner, with numbers, instead of hiding them.
 
 ## Engineering standards
 
@@ -253,8 +255,8 @@ only review holds.
 
 - **Determinism.** The same scene, grid spacing and intents give bit-identical state on one machine. Across machines
   only the outcome class is promised, as across grid spacings. Randomness, when it arrives, comes from one seeded
-  `numpy.random.Generator` owned by `World`. Time comes from `Simulation.step`'s integer tick (and the world's whole
-  microseconds, until step 5a's PR 4), never the wall clock. No builtin `hash()` in the simulation. Guard:
+  `numpy.random.Generator` owned by `World`. Time comes from `Simulation.step`'s integer tick, never the wall
+  clock. No builtin `hash()` in the simulation. Guard:
   `tests/test_determinism.py::test_runs_in_processes_with_different_hash_seeds_agree`,
   `tests/test_determinism.py::test_the_simulation_and_tests_have_no_hidden_sources_of_nondeterminism`
 - **Replays are first-class.** The intent log plus the scene and grid spacing reproduce any session. It is the bug
@@ -370,6 +372,11 @@ only review holds.
   three-lens review before its PR opens (Maxim `CONTRIBUTING.md`); a new experiment gets a pre-registration, a
   four-lens design review and a ledger entry (Maxim `CLAUDE.md`). Game runs never go on Maxim's results ledger.
   Guard: `docs/roadmap.md`, B1
+- **Run Maxim when integration needs it** (owner, 2026-11-22). When a design, lesson or pushback depends on what
+  Maxim does, fetch its `origin/main` and run its code (its tests, a backend, a probe) rather than inferring from its
+  documents, and cite the run: the version or commit, what ran, and the result. Run it from its own clone or worktree
+  with its own venv, never one another session uses, and never commit, push or edit Maxim's tree. A run makes no
+  outward request it didn't intend: point every client's fallback endpoint at a closed local port first. Guard: B44
 - **Push back on Maxim where the game shows it's wrong.** Guiding Maxim through a real application is a pillar goal
   of this project. When the game's evidence contradicts a Maxim plan, decision, default or assumption (a clock, a
   deferred trigger, a recorded rationale), propose the change in Maxim. Name the decision you're arguing against,
@@ -387,7 +394,14 @@ only review holds.
   finding, a measurement, a pushback, a design reversal), add or update an entry in `docs/lessons_maxim_in_games.md`
   in the same commit as the work that taught it, with its evidence and its consequence. Don't save lessons for a
   session's wrap-up: a lesson that lives only in a conversation is lost. This file is the seed of an engine's
-  documentation and the evidence base for pushbacks to Maxim. Guard: B18
+  documentation and the evidence base for pushbacks to Maxim. Guard: `scripts/lint_ids.py::check_lessons` (lesson
+  numbers and citations), B18
+- **A record id names one record** (owner, 2026-11-23). Sessions number decisions, lessons and roadmap items on their
+  own branches, so two can take the same next id. Each decision id is defined once across `docs/design/decisions/`
+  (a decision filed in two logs says `also in` in both rows), each `OD-` item once in `docs/roadmap.md`, and each
+  lesson number once. When ids collide, the branch merged second renumbers its own record and its citations; a green
+  check doesn't prove every citation moved. Guard: `scripts/lint_ids.py::check_decisions`,
+  `scripts/lint_ids.py::check_roadmap_ids`, `scripts/lint_ids.py::check_lessons`
 - **Engine choices get a one-line why** in the code or the commit (scene tree, node types, shaders, GDScript vs C#),
   for a team learning Godot. Guard: B1
 - **Teach game engineering as you go.** The owner is learning game development from the start, and knows software

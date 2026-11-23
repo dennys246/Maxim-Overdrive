@@ -6,7 +6,7 @@ a declared writer holding its token (`simcore.core.writers`). Each input names i
 
 Step 5a's PR 2 registers the cell fields and the inputs; PR 3 adds `source_exposure` (sim_core.md §3), which
 `Simulation.step` records at the end of each tick. The body and keyed fuel tables (5b, 6.0a) and the snapshot, digest
-and save columns' readers (PR 4) join as their PRs land.
+and save columns' readers (PR 4b) join as their PRs land.
 """
 
 from __future__ import annotations
