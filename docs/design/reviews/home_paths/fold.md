@@ -70,3 +70,6 @@ file was still refused); AW-N5 fixed for 06c2774 (main moved again). Its new fin
 | D3-N3: 947d90e's message says masking only the matched name turns the combining-mark cases red | Author's correction: it doesn't; those cases are held by the cut and by `_NAME`'s Unicode class together, so either alone keeps them green. The spaced and overlap cases are the cut's | |
 | D3-N4: `ssh://host/home/` listed twice | The second copy removed | |
 | (author) the `client/` file-path flag in `masked` | Removed: its deletion left every test green, because the `client/` token already covers a file path | |
+
+AW-S2, at the merge of 868e160 (#55 merged first): this branch's check is renumbered 9, in `lint_standards.py`'s list
+and `lint_paths.py`'s docstring; CLAUDE.md keeps #55's rule and this branch's, in that order.

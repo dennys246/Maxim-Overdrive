@@ -33,7 +33,7 @@ class ActionLimits:
     replay needs the same values, which makes them engine mechanism (boundaries §8.2). The minimum radius and width
     are at least the coarsest verification grid's cell (0.2 m), so no action lands in a single cell at one spacing and
     spreads at another. They don't make fires or near-threshold strikes agree across spacings: both diverge today
-    (docs/architecture.md, Known gaps, each held by a strict red gate).
+    (docs/known_gaps.md, each held by a strict red gate).
     """
 
     max_power_w: float

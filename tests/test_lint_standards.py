@@ -33,6 +33,7 @@ gitfiles = _load("lint_repo")
 _load("lint_inputs")  # lint_standards imports these siblings by name
 _load("lint_gates")
 _load("lint_contracts")
+_load("lint_ids")
 _load("lint_paths")
 lint = _load("lint_standards")
 
@@ -457,6 +458,12 @@ def test_main_runs_the_contracts_check_once_there_are_designs(repo, capsys):
     err = capsys.readouterr().err
     assert "docs/design/contracts.md is missing" in err
     assert "docs/design/d.md:3: a fold table belongs in docs/design/reviews/" in err
+
+
+def test_main_runs_the_id_check(repo, capsys):
+    (repo / "docs/lessons_maxim_in_games.md").write_text("### 1. a\n\n### 1. b\n")
+    assert lint.main([], root=repo) == 1
+    assert "two branches took lesson 1" in capsys.readouterr().err
 
 
 def test_main_without_a_base_or_backlog_still_runs(repo, capsys):

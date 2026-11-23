@@ -1,4 +1,4 @@
-"""Standards check 8: no home directory in the tree (CLAUDE.md, "No personal details in the tree").
+"""Standards check 9: no home directory in the tree (CLAUDE.md, "No personal details in the tree").
 
 The repository is public, and a path under someone's home names them. The check refuses one in any tracked or
 untracked text file, and in any file's own path. Homes are told from ordinary directories by their spelling:
