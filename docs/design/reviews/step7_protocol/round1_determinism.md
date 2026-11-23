@@ -82,7 +82,7 @@ safe, but it is spurious. Fix, unverified: `client/tests/fixtures/wire/** -text`
 - `_announced` is pure.
 
 **Byte-identity, measured.** I hashed every output of `files()` (script:
-`/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/e1266556-cb5d-4cec-a4ba-7648bc3e3cd9/scratchpad/review1/determinism/check.py`).
+`<scratchpad>/review1/determinism/check.py`).
 
 | Run | Result |
 |---|---|

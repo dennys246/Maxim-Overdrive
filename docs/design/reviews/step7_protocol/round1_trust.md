@@ -2,7 +2,7 @@
 
 Lens: Trust boundary. Covers the server side (`src/simcore/host/`, `strict_json.py`, `messages.py`, `converters.py`,
 `core/text.py`), the client's net decoders (`client/addons/engine/net/*.gd`) and the gate registry rows.
-Probe scripts are in `/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/e1266556-cb5d-4cec-a4ba-7648bc3e3cd9/scratchpad/review1/trust/`
+Probe scripts are in `<scratchpad>/review1/trust/`
 (probe1 to probe6, gd/). The worktree was not modified.
 
 Counts: **2 BLOCKER, 2 SHOULD-FIX, 6 NIT.**

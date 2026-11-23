@@ -3,7 +3,7 @@
 Scope: `src/simcore/host/server.py`, `sessions.py`, `tokens.py`, `tests/test_host.py`, `tests/test_godot_net.py`,
 against `docs/design/realtime_lanes_coop.md` §4.1 and §5, and `docs/design/boundaries.md` §5.3. websockets 17.4,
 Python 3.12.12. Nothing in the worktree was modified; the repros are scripts under
-`/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/e1266556-cb5d-4cec-a4ba-7648bc3e3cd9/scratchpad/review1/concurrency/`.
+`<scratchpad>/review1/concurrency/`.
 
 Counts: 1 BLOCKER, 2 SHOULD-FIX, 4 NIT.
 
