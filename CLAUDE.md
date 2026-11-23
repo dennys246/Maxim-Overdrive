@@ -52,7 +52,7 @@ the measured checks, advisory.
 ## Layout
 
 - `src/simcore/`: the engine, in layers that import only downward (`docs/design/boundaries.md` O24; the contracts are
-  `[tool.importlinter]` in `pyproject.toml`): game > verify > protocol > adapters > core
+  `[tool.importlinter]` in `pyproject.toml`): game > host | verify > protocol > adapters > core
 - `src/simcore/core/` (the sealed core: no IO, no clock, no `maxim`): `checks.py` (every untrusted number becomes a
   finite float or a whole number there, and every mapping is held to its reader's keys, `known_keys`, or is refused;
   `shown`, the bounded echo; `entity_key`, Maxim's name rule; `identity_key`, no `:`), `refusals.py` (the append-only
@@ -79,14 +79,20 @@ the measured checks, advisory.
   `sem/bridge.py` (the membrane's gate half: environment regions as Maxim SEM Entities, reading frames and writing
   through a submit-and-step `Port`; the only engine code that imports `maxim`)
 - `src/simcore/protocol/`: what the client receives: `tiers.py` (rig profiles as rendering tiers, no physics),
-  `encoding.py` (`snapshot` of a published frame, display quantization)
+  `encoding.py` (`snapshot` of a published frame, display quantization), `strict_json.py` (the wire's one JSON
+  parser: integers below 2⁵³, no repeated keys), `messages.py` (decode and stage 1 of client messages),
+  `catalogue.py`, `frame_header.py` and `grammar.py` (the cell frame and its extension rule), `replies.py`
+  (`welcome`, `error`) and `registry.py` (its artifact is `docs/generated/protocol.md`); the golden fixtures, which
+  the Godot decoders read too, are `client/tests/fixtures/wire/`, made by `scripts/wire_fixtures.py`
+- `src/simcore/host/`: the process that owns the world and talks to clients: `tokens.py` (per-launch tokens),
+  `sessions.py` (sessions, `TimeAuthority`, `HostOnly`) and `server.py` (the WebSocket handshake, boundaries §5.3)
 - `src/simcore/verify/`: the verification harness (`docs/design/verify_harness.md`): convergence studies, agreement
   across grids, bands and splitting. It measures callables and imports nothing from the engine; only tests use it
 - `src/maxim_overdrive/`: the game. `data.py` says where its data lives (`data/rigs/`, `data/materials/`,
   `data/world/`) and loads it
 - `client/`: the Godot 4.7.2 client (`docs/design/client_rendering.md` §7): `addons/engine/` (the engine half;
-  `render/` holds the cell raymarch shader and its inputs), `game/` (this game: tiers, palette, cut-away walls),
-  `tests/` (`run.gd` the runner, `unit/`, `load_all.gd`, `support/`, the snapshot `fixtures/`, the golden and
+  `render/` holds the cell raymarch shader and its inputs, `net/` the wire decoders and `NetClient`), `game/` (this
+  game: tiers, palette, cut-away walls), `tests/` (`run.gd` the runner, `unit/`, `load_all.gd`, `support/`, the snapshot `fixtures/`, the golden and
   cut-away scenes and `goldens/`);
   `tools/godot_probes/`: the §9 probes, a separate Godot project rerun on an upgrade (B26); `ci/`: the Godot pin
   (`godot.env`), `install_godot.sh` and the golden image (`godot-golden/`)
@@ -131,7 +137,7 @@ the measured checks, advisory.
   the write window, one per tick. Every write happens inside the write window, as a writer the field registry
   declares, holding its token. The SEM membrane is handed a port and a frame view, never the simulation, and the
   import contracts and the ownership scans hold it to them.
-- Record known physics gaps in `docs/architecture.md` ("Known gaps"), with numbers, instead of hiding them.
+- Record known physics gaps in `docs/known_gaps.md`, their one owner, with numbers, instead of hiding them.
 
 ## Engineering standards
 
@@ -393,7 +399,14 @@ only review holds.
   finding, a measurement, a pushback, a design reversal), add or update an entry in `docs/lessons_maxim_in_games.md`
   in the same commit as the work that taught it, with its evidence and its consequence. Don't save lessons for a
   session's wrap-up: a lesson that lives only in a conversation is lost. This file is the seed of an engine's
-  documentation and the evidence base for pushbacks to Maxim. Guard: B18
+  documentation and the evidence base for pushbacks to Maxim. Guard: `scripts/lint_ids.py::check_lessons` (lesson
+  numbers and citations), B18
+- **A record id names one record** (owner, 2026-11-23). Sessions number decisions, lessons and roadmap items on their
+  own branches, so two can take the same next id. Each decision id is defined once across `docs/design/decisions/`
+  (a decision filed in two logs says `also in` in both rows), each `OD-` item once in `docs/roadmap.md`, and each
+  lesson number once. When ids collide, the branch merged second renumbers its own record and its citations; a green
+  check doesn't prove every citation moved. Guard: `scripts/lint_ids.py::check_decisions`,
+  `scripts/lint_ids.py::check_roadmap_ids`, `scripts/lint_ids.py::check_lessons`
 - **Engine choices get a one-line why** in the code or the commit (scene tree, node types, shaders, GDScript vs C#),
   for a team learning Godot. Guard: B1
 - **Teach game engineering as you go.** The owner is learning game development from the start, and knows software

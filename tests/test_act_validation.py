@@ -323,7 +323,7 @@ def _burn_every_turn(dx_m, turns):
     reason="fires diverge across rigs mid-burn: at the allowed corner the crate's integrity differs by up to 0.19 "
     "between rigs at turn 22 (132 s; measured on the retired 6 s turn), and past about 30 turns (180 s) the fuel gap "
     "heats air. Burning is a threshold on a cell's "
-    "mean temperature, which lags in coarse cells (docs/architecture.md, Known gaps). The Phase 1 fuel model "
+    "mean temperature, which lags in coarse cells (docs/known_gaps.md). The Phase 1 fuel model "
     "(a burn rate driven by heat content) is the fix; this gate then flips.",
 )
 def test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn(spacings):
@@ -369,7 +369,7 @@ def test_a_crater_of_radius_at_least_a_third_of_a_metre_matches_the_closed_form_
     strict=True,
     raises=AssertionError,
     reason="whether a strike breaches a thin wall flips across rigs near the threshold: a 0.4 m concrete wall "
-    "struck at 1.5x the threshold is breached at 0.1 m and 0.05 m but not 0.2 m (docs/architecture.md, Known gaps). "
+    "struck at 1.5x the threshold is breached at 0.1 m and 0.05 m but not 0.2 m (docs/known_gaps.md). "
     "Craters narrower than two coarse cells are below what the coarse grid resolves.",
 )
 def test_a_strike_breaches_a_thin_wall_the_same_at_every_rig(spacings):
@@ -852,7 +852,7 @@ def test_region_names_that_maxim_would_confuse_are_refused(materials, first, sec
     strict=True,
     raises=AssertionError,
     reason="a region carved hollow keeps its authored centroid, so a fire on a wall with a doorway through its middle "
-    "lands in the doorway and heats only air (docs/architecture.md, Known gaps). Deciding from the region's cells "
+    "lands in the doorway and heats only air (docs/known_gaps.md). Deciding from the region's cells "
     "would move with the grid spacing; per-cell ownership with authored geometry (design v2) is the fix.",
 )
 def test_a_fire_on_a_region_carved_hollow_heats_the_region_not_air(spacings):

@@ -1,0 +1,40 @@
+# Determinism and replay: delta round 2 on phase1/protocol (88d7787 .. cde7634)
+
+Fold table: fixed 2, open 1, deferred 1 (accepted), rejected 0. New findings: BLOCKER 0, SHOULD-FIX 0, NIT 1.
+
+**Correction to my delta-1 report first.** Under D3 I wrote "`replies.welcome` no longer carries a `session_id`". That was wrong. I grepped for the key `session_id`, but the welcome carries the transport counter under the key `"session"`, as it has since 8beb6af (`src/simcore/protocol/replies.py::welcome`, and now `client/tests/fixtures/wire/server/welcome.json`). D3's status stands, because the `Session` docstring was the remedy I accepted. The client reads the counter and throws it away (`net_session.gd:68`, `_session`), so nothing a replay reproduces reads it.
+
+Everything below was run against `git archive cde7634` in `<scratchpad>/delta2/determinism/tree` (src/, scripts/, tests/ and client/ are the same as HEAD e97727d). The plants went into that copy and were restored by byte comparison afterwards. No worktree was modified.
+
+## Fold table (findings delta 1 left open or raised)
+
+| Finding | Status | What I read and ran |
+|---|---|---|
+| SHOULD-FIX D1 (the scan can't see asyncio's clock: `connection.loop.time()`) | **fixed** | `tests/test_determinism.py`: `LOOP_HANDLES = {loop, _loop, get_loop, call_later, call_at}` is flagged on any value, and `_asyncio_names` now sees submodule imports, `from asyncio.x import`, `getattr(asyncio, "<const>")`, `Timeout` and `as_completed`. I planted `def _pace(connection): return connection.loop.time()` in the copy's `server.py`, and the main scan went red (1 failed). The new parametrized cases cover it too: `connection.loop.time()`, `server.get_loop().time()`, `loop.call_later`, `asyncio.tasks`, getattr and `Timeout`. My other delta-1 spellings are now caught: `asyncio.events.get_running_loop()` (through `events`), `from asyncio import events`, `import asyncio.tasks`, `as_completed` and `Timeout`. The B14 row's "put asyncio's clock under the scan" now roughly matches what the scan reaches. The remaining holes are filed as N4 below. |
+| NIT N1 (the `wait_for` allowance covers a whole file) | **fixed** | `ASYNC_CLOCK_ALLOWED = {"src/simcore/host/server.py": {"wait_for": 1}}` counts down, and the unit test now asserts that a second `wait_for` is refused. My delta-1 plant (`await asyncio.wait_for(asyncio.Event().wait(), 0.05)` added to `server.py`) now turns the main scan red. I broke the counter (replaced the decrement with `pass`), and `test_only_the_one_handshake_deadline_may_use_the_loop_s_clock` failed. Residual, not a defect on today's tree: a count can't tell which code calls the one allowed site. Wrapping `_hello`'s `wait_for` in a helper that a pacing hand-off also calls would stay green. Keying by enclosing function would close that; I don't hold the fold to it. |
+| NIT N2 (no test fails if the main scan stops calling the asyncio scan) | **open** | `src_findings` is the main test's entry point today (`(src_findings if p.is_relative_to(SRC) else findings)(...)`), and the parametrized tests now call `src_findings`. So dropping `async_clock_findings` from `src_findings` would be caught. The binding of the main test to `src_findings` is still unguarded. I changed that line in the copy to `findings(...)` for every file, and all 12 scan tests stayed green on a clean `src/`. The test's comment, "the main test's own entry point for src/", states the binding, but nothing checks it. Fix (unverified): factor `scan(root) -> hits` out of the main test, call it there, and test it on a `tmp_path` tree that holds one planted `connection.loop.time()`. |
+| NIT N3 (`player_text`'s acceptance differs between 3.12 and 3.14) | **deferred; I accept the deferral** | `docs/plans/checklists.md` step 7 gives it a reason (the log keeps `player_text`'s output and no reader re-checks it, or one Unicode version is pinned) and a trigger (the first logged speech, `phase1/agents`). I re-measured after the `_blank` fold with `<scratchpad>/delta2/determinism/cn.py`. 3.14.6 (16.0.0) accepts 148,737 + 5,812 points and 3.12.12 (15.0.0) accepts 148,737. The asymmetry is still one-way: 3.12 accepts nothing that 3.14 refuses. `_blank` uses `unicodedata.name`, but character names are immutable once assigned, so it refuses the same 12 extra points on both interpreters (U+2800, U+16FE4, U+13441, U+13442, …). The fold also deleted the tautological `UNICODE_VERSION == "16.0.0"` assertion. The constant is now exported and read by nothing, which is harmless. |
+
+## New findings in the fold's diff
+
+### NIT N4: `tests/test_determinism.py::LOOP_HANDLES` misses a loop held under another name, `.time()` reached through the policy, and websockets' own clock reading
+
+I planted each of these in the copy's `server.py`, and the main scan stayed green (12 passed) for all three:
+- `def _pace(loop): return loop.time()`: a loop handed in as a value. Example: an exception or `call_soon` callback, or a helper whose caller sits in a file the allowance names.
+- `asyncio.get_event_loop_policy().get_event_loop().time()`: `get_event_loop_policy` isn't in `ASYNC_CLOCK`, and `.get_event_loop` on a call's result isn't an alias attribute.
+- `connection.latency`: websockets 17.4's `Connection.latency` is a wall-clock round trip, measured with the loop's clock. `await connection.ping()` returns the same number.
+
+Failure scenario: step 5a adds lag compensation, a textbook netcode feature, as `budget = connection.latency / 2` when deciding which tick an intent lands on. Wall time then picks the tick, and the scan that claims to guard asyncio's clock never sees it. The other two are evasions more than natural spellings, so this stays a NIT.
+
+Fix, **verified** in the copy: `LOOP_HANDLES |= {"time", "latency"}`. That set has zero hits in `src/` at cde7634 (an AST walk over every module), the 12 scan tests stay green on a clean tree, and each of the three plants goes red. `ping()`'s result isn't covered by that fix. Name it in the B14 row as review-held, next to the data-flow test, which stays the real guard.
+
+## Checked, sound
+
+- **Fixture bytes across hash seeds and interpreters.** `wire_fixtures.files()` now gives 183 files, up from 156: the value trees, the limits in the manifest, the new frames and the server welcome. One sha256 over the sorted names and bytes gives `bc106caa8d289bc3` on 3.12.12 and on 3.14.6, each with `PYTHONHASHSEED` 0, 3 and random. `stale(OUT) == []` on all six runs (`<scratchpad>/delta2/determinism/hashall.py`, `-I`, the tree's `src/` and `scripts/` first on the path).
+  - `wire_texts.value_tree` writes floats as `struct`-packed IEEE bits and objects as `sorted(items())`. String keys from a decoder that refuses duplicates give a total order, and ints are bounded by `JSON_INT_MAX`.
+  - `LIMITS` is a literal dict, written with `sort_keys`. Every new header goes through `json.dumps(..., sort_keys=True)`.
+  - The generators use no sets, clock or `hash()`. `stale()`'s one `set()` is sorted before it is returned.
+  - The welcome golden embeds `BUILD` ("simcore 0.0.1"), so a version bump makes the fixture stale. `--check` reports that loudly, which is the intended behaviour.
+- **The new `EMOJI` table** holds 219 points, matching the commit's claim. Version independence: with `<scratchpad>/delta2/determinism/vs.py` I accepted every scalar value followed by U+FE0F or U+FE0E on both interpreters. Each accepts 438 pairs, and the sets have the same sha256 (`a625cbd5d601e4a6`). The table is a constant, and every base is assigned in Unicode 15.0, so 3.12 and 3.14 agree exactly on selectors.
+- **`server.py`'s other changes** (the repeated-Upgrade 400, `HelloRefused`) add no clock, entropy or ordering source. The source still has exactly one `wait_for` (`server.py:104`), and the count of 1 matches it.
+- **Tests run.** 3.12, worktree venv: `tests/test_determinism.py tests/test_text.py tests/test_wire.py tests/test_formats.py`, 1266 passed and 1 skipped. 3.14.6, with the tree's `src/` first on the path (I checked by printing `simcore.__file__`): `tests/test_text.py tests/test_wire.py`, 363 passed and 1 skipped.

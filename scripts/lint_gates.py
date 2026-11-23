@@ -48,6 +48,8 @@ _CON = "tests/test_constructors.py"
 _EXT = "tests/test_extremes.py"
 _FMT = "tests/test_formats.py"
 _SIM = "tests/test_simulation.py"
+_WIRE = "tests/test_wire.py"
+_HOST = "tests/test_host.py"
 # §5.4 asks anything agent-facing (errors, receipts) to answer in a closed code vocabulary. Since step 3b part (b) every
 # refusal these gates give carries a code (simcore.core.refusals, WT-S1), and the membrane answers an agent with the
 # code alone (step 3b review, Trust S3).
@@ -59,6 +61,16 @@ GATE_MODULES = (
     "src/simcore/core/imagination.py",
     "src/simcore/core/intents.py",
     "src/simcore/protocol/tiers.py",
+    "src/simcore/core/converters.py",
+    "src/simcore/core/text.py",
+    "src/simcore/protocol/strict_json.py",
+    "src/simcore/protocol/messages.py",
+    "src/simcore/protocol/frame_header.py",
+    "src/simcore/protocol/catalogue.py",
+    "src/simcore/protocol/grammar.py",
+    "src/simcore/host/server.py",
+    "src/simcore/host/tokens.py",
+    "src/simcore/host/sessions.py",
 )
 
 _SCHEMA_READERS = (
@@ -70,7 +82,7 @@ _SCHEMA_READERS = (
 # what each converter refuses (the generated tests' input) and a schema's fields by name: descriptions, not readers
 _SCHEMA_DESCRIPTIONS = (
     "Real.bad", "Whole.bad", "Vector.bad", "Rgb.bad", "Text.bad", "Identity.bad", "Nested.bad", "Tagged.bad",
-    "ListOf.bad", "MapOf.bad", "Schema.by_name",
+    "ListOf.bad", "MapOf.bad", "Schema.by_name", "schemas_within",
 )  # fmt: skip
 
 GATES: dict[str, Gate] = {
@@ -93,6 +105,117 @@ GATES: dict[str, Gate] = {
     # the one reader every format applies (simcore.core.schema): its converters, fields, schemas and versions
     **{f"src/simcore/core/schema.py::{name}": Gate(_V, _FMT, "meets") for name in _SCHEMA_READERS},
     **{f"src/simcore/core/schema.py::{name}": Gate(_V, _FMT, "no input") for name in _SCHEMA_DESCRIPTIONS},
+    # converters beyond schema's numbers and names (the wire's first), and the two text rules
+    **{
+        f"src/simcore/core/converters.py::{n}": Gate(_V, "tests/test_converters.py", "meets")
+        for n in (
+            "Wholes",
+            "Wholes.convert",
+            "Choice",
+            "Choice.convert",
+            "Flag",
+            "Flag.convert",
+            "Digest",
+            "Digest.convert",
+            "Opaque",
+            "Opaque.convert",
+            "WireName",
+            "WireName.convert",
+        )
+    },
+    **{
+        f"src/simcore/core/converters.py::{n}.bad": Gate(_V, "tests/test_converters.py", "no input")
+        for n in (
+            "Wholes",
+            "Choice",
+            "Flag",
+            "Digest",
+            "Opaque",
+            "WireName",
+        )
+    },
+    **{
+        f"src/simcore/core/schema.py::{n}": Gate(_V, "tests/test_converters.py", "no input")
+        for n in (
+            "Converter",
+            "Converter.convert",
+            "Converter.bad",
+            "item_count",
+        )
+    },
+    "src/simcore/core/text.py::player_text": Gate(_V, "tests/test_text.py", "meets"),
+    "src/simcore/core/text.py::visible_name": Gate(_V, "tests/test_text.py", "meets"),
+    # the wire (boundaries §5.3, §9.1): the strict JSON decoder, decode and stage 1 of client messages, and the frame
+    # grammar's reader, which the client mirrors (client/addons/engine/net/) and the save will use
+    # the host (boundaries §5.3): the handshake admits a connection, a token binds its role, and HostOnly decides time
+    "src/simcore/host/server.py::start": Gate("authentication", _HOST, "meets"),
+    "src/simcore/host/server.py::HostConfig": Gate("authentication", _HOST, "no input"),
+    "src/simcore/host/tokens.py::Tokens.match": Gate("authentication", _HOST, "meets"),
+    **{
+        f"src/simcore/host/tokens.py::{n}": Gate("authentication", _HOST, "no input")
+        for n in ("Role", "Tokens", "Tokens.fresh", "Tokens.host", "Tokens.guests", "Tokens.role", "write_token_file")
+    },
+    "src/simcore/host/sessions.py::Sessions.open": Gate("authentication", _HOST, "meets"),
+    "src/simcore/host/sessions.py::HostOnly.decide": Gate("authorization", _HOST, "meets"),
+    "src/simcore/host/sessions.py::TimeAuthority.decide": Gate("authorization", _HOST, "meets"),
+    **{
+        f"src/simcore/host/sessions.py::{n}": Gate("authorization", _HOST, "no input")
+        for n in (
+            "Session",
+            "SessionView",
+            "SessionView.role_of",
+            "Decision",
+            "TimeAuthority",
+            "HostOnly",
+            "Sessions",
+            "Sessions.close",
+            "Sessions.view",
+        )
+    },
+    "src/simcore/protocol/strict_json.py::decode": Gate(_V, _WIRE, "meets"),
+    "src/simcore/protocol/strict_json.py::encode": Gate(_V, _WIRE, "no input"),
+    "src/simcore/protocol/strict_json.py::integers_only": Gate(_V, _WIRE, "meets"),
+    "src/simcore/protocol/messages.py::read_message": Gate(_V, _WIRE, "meets"),
+    **{
+        f"src/simcore/protocol/messages.py::{n}": Gate(_V, _WIRE, "no input")
+        for n in (
+            "Hello",
+            "Move",
+            "MoveTo",
+            "Kindle",
+            "Time",
+            "Snapshot",
+        )
+    },
+    "src/simcore/protocol/frame_header.py::read_header": Gate(_V, _WIRE, "meets"),
+    **{
+        f"src/simcore/protocol/frame_header.py::{n}": Gate(_V, _WIRE, "no input")
+        for n in (
+            "Grid",
+            "Table",
+            "Array",
+            "Header",
+        )
+    },
+    "src/simcore/protocol/catalogue.py::Channel": Gate(_V, _WIRE, "meets"),
+    **{
+        f"src/simcore/protocol/catalogue.py::{n}": Gate(_V, _WIRE, "no input")
+        for n in (
+            "Channel.description",
+            "describe",
+            "catalogue_hash",
+            "render",
+        )
+    },
+    "src/simcore/protocol/grammar.py::decode_frame": Gate(_V, _WIRE, "meets"),
+    **{
+        f"src/simcore/protocol/grammar.py::{n}": Gate(_V, _WIRE, "no input")
+        for n in (
+            "DecodedFrame",
+            "encode_cells",
+            "pack",
+        )
+    },
     "src/simcore/core/materials.py::MaterialTable.from_document": Gate(_V, _FMT, "no input"),
     "src/simcore/core/limits.py::ActionLimits.from_document": Gate(_V, _FMT, "no input"),
     # validating constructors the loaders and the actions build (§5.1)

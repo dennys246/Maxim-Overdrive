@@ -500,7 +500,7 @@ S0's rows are applied on this branch (D37 (2)); the rest are proposed for their 
 | `torch_pilot.md` §2 (TP1) | after S1, a pilot's target follows §3.1's states and §4.3's "gone" |
 | `client_objects.md` §3 | §10's tables, the protocol bump, and the re-derived bytes and join cap |
 | `ip_and_licensing.md` §6.1; `imagination.py` (`SPEC_KEYS`, docstring); `scene.py` docstring | v1 and the migration; §2's rule; §2.4's voxelization |
-| `docs/architecture.md`, Known gaps | §2.3's rows; §2.4's aliasing; side contacts; §5.2's ambient gap; §8.3's hold-in-place gap |
+| `docs/known_gaps.md` | §2.3's rows; §2.4's aliasing; side contacts; §5.2's ambient gap; §8.3's hold-in-place gap |
 | The spec generator spike's stage 2 design | what v1 replaces: the instruction "may touch or overlap" becomes "may touch"; M2's connectivity becomes §8.4's; the scene places at z = 0; the A3 loop feeds back spec faults only |
 
 ## 13. Build steps

@@ -88,7 +88,7 @@ def test_fire_outcomes_agree_across_rigs(spacings, materials):
     assert onset.converging is not False, onset
     assert all(r[1] < 0.7 for r in runs.values()), runs  # it is badly burned everywhere
     assert all(r[2] > 0.99 for r in runs.values()), runs  # the concrete wall survives everywhere
-    # Known gap (docs/architecture.md): the coarsest rig lags in the burn; gated below.
+    # Known gap (docs/known_gaps.md): the coarsest rig lags in the burn; gated below.
 
 
 BADLY_BURNED = 0.7  # the level test_fire_outcomes_agree_across_rigs asserts every rig reaches
@@ -103,7 +103,7 @@ def _time_below(dx_m, materials, level, *, refine=1):
     strict=True,
     raises=AssertionError,
     reason=(
-        "Known gap (docs/architecture.md): the coarsest rig lags in the burn, because a coarse cell degrades as one "
+        "Known gap (docs/known_gaps.md): the coarsest rig lags in the burn, because a coarse cell degrades as one "
         "block. Measured 2026-11-22 through Simulation.step at the 0.5 s step: the crate falls below 0.7 at 830 s at "
         "0.2 m against 629.5 s at 0.1 m (31.9%, against tile §6.3's 15%); below 0.5 the lag is 916.5 s against 811 s "
         "(13.0%). In 6 s turns it was turn 137 against 104. The fix is the reconstructed burn rate (roadmap Phase 2, "
@@ -155,7 +155,7 @@ def test_a_fierce_fire_never_heats_any_cell_past_the_flame_temperature(spacings,
     strict=True,
     raises=AssertionError,
     reason=(
-        "Known gap (docs/architecture.md): fires don't consume fuel. Once no solid is left under a fire, the deposit "
+        "Known gap (docs/known_gaps.md): fires don't consume fuel. Once no solid is left under a fire, the deposit "
         "puts its power into air. Measured 2026-11-22 through Simulation.step: a cell passes 2000 C at 243 s at 0.2 m "
         "and 201.5 s at 0.1 m, and peaks at 423,810 C and 578,046 C by 360 s (in 6 s turns: 207,350 C at 0.2 m by "
         "turn 50). Fix before the Phase 1 crate scenario is gated; this gate then flips and must be removed."

@@ -42,7 +42,10 @@ import re
 
 # The modules that may read input, each with what it reads. A new gate joins this list, the contract's ignore list
 # and the gate registry (lint_gates.py) in the change that makes it.
-INPUT_GATES = {"src/simcore/adapters/loaders.py": "the file gates: strict YAML from an explicit path"}
+INPUT_GATES = {
+    "src/simcore/adapters/loaders.py": "the file gates: strict YAML from an explicit path",
+    "src/simcore/host/server.py": "the transport: client messages, capped by the socket and decoded by the protocol",
+}
 
 EVERYWHERE = {
     "pickle", "_pickle", "marshal", "shelve", "dill", "cloudpickle", "jsonpickle", "multiprocessing.reduction",
