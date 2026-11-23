@@ -50,6 +50,16 @@ SPELLINGS = (
     "https://example.com/?path=/Users/",
     '{"url":"https://example.com/","path":"/Users/',
     '"res://game/x.tscn","/Users/',
+    # Delta 4, D4-S1: a home glued onto a Godot token.
+    "client/../../Users/",
+    "res://../Users/",
+    "res://=/Users/",
+    "res://x.gd:12:/Users/",
+    "GODOT_PATH=client/bin:/Users/",
+    "res://x|/Users/",
+    "res://x@/Users/",
+    "res://x\\Users\\",
+    "res://{x}/Users/",
 )
 
 
@@ -77,7 +87,7 @@ def test_a_session_scratchpad_path_is_refused():
     "line",
     [
         "`<home>/Scripts/repo` and `<scratchpad>/probe.gd`",
-        "an elided `/Users/…` or `/Users/.../repo/src` names nobody",
+        pytest.param("an elided `/Users/…` or `/Users/.../repo/src` names nobody", id="elisions"),  # D4-N1: ASCII id
         "`~/.config` and `~/.ssh` are anyone's",
         "GitHub's `/Users/runner/hostedtoolcache` and `/home/runner/work`",
         "macOS's `/Users/Shared/`",

@@ -73,3 +73,13 @@ file was still refused); AW-N5 fixed for 06c2774 (main moved again). Its new fin
 
 AW-S2, at the merge of 868e160 (#55 merged first): this branch's check is renumbered 9, in `lint_standards.py`'s list
 and `lint_paths.py`'s docstring; CLAUDE.md keeps #55's rule and this branch's, in that order.
+
+## Delta round 4 folds
+
+Statuses of delta round 3's findings and AW-S2 are in `delta4.md`: D3-S1, E3 (rest), D3-N3, D3-N4, the removed flag
+and AW-S2 fixed; D3-N1 and D3-N2 deferred to B45. Its new findings:
+
+| Finding | Author's fold | Status |
+|---|---|---|
+| D4-S1: a Godot token runs on through `..`, `:`, `=`, `\`, `|`, `{`, `}`, `@`, hiding a home glued onto it | `NOT_A_DISK` ends at those and before a `..`; nine glued spellings tested (the reviewer's fix, verified by them on a copy and by the author's deletion proof: the old pattern turns exactly those nine red). The four shapes that read as a game directory named `Users` or `home` (`res://game/x.gd/Users/<name>`, `--path=client/x/Users/<name>`) are recorded in B45 | |
+| D4-N1: pytest escapes the elision case's `…` in its id, which the check then refuses in a pasted log | The case has the ASCII id `elisions` | |
