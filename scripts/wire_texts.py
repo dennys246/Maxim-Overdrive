@@ -41,7 +41,7 @@ def json_texts() -> dict[str, Fixture]:
 def _grammar_edges() -> dict[str, Fixture]:
     """RFC 8259's edges, where a parser written for the wire and Python's can part (O63): each judged alike, and each
     accepted one read to the same value (``value_tree``)."""
-    texts = {**_string_edges(), **_float_edges(), **_number_and_structure_edges()}
+    texts = {**_string_edges(), **_utf8_edges(), **_float_edges(), **_number_and_structure_edges()}
     return {name: _judged(data, outcome) for name, (data, outcome) in texts.items()}
 
 
@@ -70,6 +70,31 @@ def value_tree(value: object) -> object:
     return {"a": [value_tree(v) for v in value]}
 
 
+def _utf8_edges() -> dict[str, tuple[bytes, str]]:
+    """Raw UTF-8 in a string: every lead byte's branch, accepted at its edges and refused where no sequence is."""
+    ok, no = _OK, _NO
+    return {
+        "float_past_double": (b"[1e309]", no),
+        "raw_utf8": (b'{"a":"caf\xc3\xa9"}', ok),
+        "truncated_utf8": (b'{"a":"\xc3"}', no),
+        "overlong_utf8": (b'{"a":"\xc0\xaf"}', no),  # a lead byte no UTF-8 sequence uses
+        "overlong_utf8_three_bytes": (b'{"a":"\xe0\x80\xaf"}', no),  # "/" in three bytes: valid lead, too small
+        "overlong_utf8_four_bytes": (b'{"a":"\xf0\x80\x80\xaf"}', no),
+        "utf8_surrogate": (b'{"a":"\xed\xa0\x80"}', no),
+        "utf8_past_unicode": (b'{"a":"\xf4\x90\x80\x80"}', no),
+        # every lead byte's branch, raw (delta 5, W5-S1): the edges of two, three and four bytes, and lead bytes no
+        # sequence uses
+        "utf8_two_bytes_last": (b'{"a":"\xdf\xbf"}', ok),  # U+07FF
+        "utf8_three_bytes": (b'{"a":"\xe2\x82\xac"}', ok),  # the euro sign
+        "utf8_four_bytes": (b'{"a":"\xf0\x9f\x98\x80"}', ok),  # an emoji
+        "utf8_four_bytes_last": (b'{"a":"\xf4\x8f\xbf\xbf"}', ok),  # U+10FFFF
+        "utf8_lone_continuation": (b'{"a":"\x80"}', no),
+        "utf8_two_continuations": (b'{"a":"\xbf\xbf"}', no),
+        "utf8_lead_past_f4": (b'{"a":"\xf5\x80\x80\x80"}', no),
+        "utf8_lead_ff": (b'{"a":"\xff"}', no),
+    }
+
+
 def _string_edges() -> dict[str, tuple[bytes, str]]:
     ok, no = _OK, _NO
     return {
@@ -85,14 +110,6 @@ def _string_edges() -> dict[str, tuple[bytes, str]]:
         "float_1e20": (b'{"a":1e20}', ok),
         "float_whole_at_2p53": (b'{"a":9007199254740992.0}', ok),
         "float_largest_power": (b"[1e308]", ok),
-        "float_past_double": (b"[1e309]", no),
-        "raw_utf8": (b'{"a":"caf\xc3\xa9"}', ok),
-        "truncated_utf8": (b'{"a":"\xc3"}', no),
-        "overlong_utf8": (b'{"a":"\xc0\xaf"}', no),  # a lead byte no UTF-8 sequence uses
-        "overlong_utf8_three_bytes": (b'{"a":"\xe0\x80\xaf"}', no),  # "/" in three bytes: valid lead, too small
-        "overlong_utf8_four_bytes": (b'{"a":"\xf0\x80\x80\xaf"}', no),
-        "utf8_surrogate": (b'{"a":"\xed\xa0\x80"}', no),
-        "utf8_past_unicode": (b'{"a":"\xf4\x90\x80\x80"}', no),
         "surrogate_pair": (b'{"a":"\\ud83d\\ude00"}', ok),
         "lone_low_surrogate": (b'{"a":"\\udc00"}', no),
         "high_then_letter": (b'{"a":"\\ud83d\\u0041"}', no),
@@ -111,7 +128,6 @@ def _float_edges() -> dict[str, tuple[bytes, str]]:
     """Floats at a double's edges: both readers agree on each one's class (O68)."""
     ok, no = _OK, _NO
     return {
-        "minus_zero": (b"[-0]", ok),
         "exponent_past_u32": (b"[1e4294967296]", no),  # an exponent that wraps in a 32-bit reader
         "zero_with_a_huge_exponent": (b"[0e99999999999999999999]", ok),
         "long_fraction_and_exponent": (b"[0." + b"0" * 400 + b"1e400]", ok),  # 0.1
@@ -129,7 +145,6 @@ def _float_edges() -> dict[str, tuple[bytes, str]]:
             b"[1.79769313486231580793728971405303415079934132710037826936173778980444968292764750946649017977587207096330286416692887910946555547851940402630657488671505820681908902000708383676273854845817711531764475730270069855571366959622842914819860834936475292719074168444365510704342711559699508093042880177904174497792e308]",
             no,
         ),
-        "long_negative_integer": (b"[-" + b"9" * 400 + b"]", no),
         "smallest_normal_double": (b"[2.2250738585072014e-308]", ok),  # finite, though Godot reads its digits as 0
         "half_way_digits": (b"[970034019735371.5]", ok),
         "past_the_integers_as_a_float": (b"[9007199254740993.0]", ok),
@@ -140,6 +155,8 @@ def _number_and_structure_edges() -> dict[str, tuple[bytes, str]]:
     ok, no = _OK, _NO
     return {
         "integer_past_u64": (b"[18446744073709551617]", no),  # 2^64 + 1: a reader that wraps reads 1
+        "minus_zero": (b"[-0]", ok),
+        "long_negative_integer": (b"[-" + b"9" * 400 + b"]", no),
         "integer_at_2p63": (b"[9223372036854775808]", no),  # past int64: Godot's to_int reads -2^63, whose absi is too
         "negative_integer_at_2p63": (b"[-9223372036854775808]", no),
         "exponent_without_digits": (b"[1e]", no),

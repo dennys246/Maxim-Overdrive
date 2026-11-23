@@ -1237,65 +1237,6 @@
     }
    },
    {
-    "code": "bad_json",
-    "file": "json/float_past_double.json",
-    "outcome": "refused"
-   },
-   {
-    "code": "",
-    "file": "json/raw_utf8.json",
-    "outcome": "accepted",
-    "value": {
-     "o": [
-      [
-       {
-        "s": [
-         97
-        ]
-       },
-       {
-        "s": [
-         99,
-         97,
-         102,
-         233
-        ]
-       }
-      ]
-     ]
-    }
-   },
-   {
-    "code": "bad_json",
-    "file": "json/truncated_utf8.json",
-    "outcome": "refused"
-   },
-   {
-    "code": "bad_json",
-    "file": "json/overlong_utf8.json",
-    "outcome": "refused"
-   },
-   {
-    "code": "bad_json",
-    "file": "json/overlong_utf8_three_bytes.json",
-    "outcome": "refused"
-   },
-   {
-    "code": "bad_json",
-    "file": "json/overlong_utf8_four_bytes.json",
-    "outcome": "refused"
-   },
-   {
-    "code": "bad_json",
-    "file": "json/utf8_surrogate.json",
-    "outcome": "refused"
-   },
-   {
-    "code": "bad_json",
-    "file": "json/utf8_past_unicode.json",
-    "outcome": "refused"
-   },
-   {
     "code": "",
     "file": "json/surrogate_pair.json",
     "outcome": "accepted",
@@ -1418,16 +1359,167 @@
     "outcome": "refused"
    },
    {
+    "code": "bad_json",
+    "file": "json/float_past_double.json",
+    "outcome": "refused"
+   },
+   {
     "code": "",
-    "file": "json/minus_zero.json",
+    "file": "json/raw_utf8.json",
     "outcome": "accepted",
     "value": {
-     "a": [
-      {
-       "i": 0
-      }
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "s": [
+         99,
+         97,
+         102,
+         233
+        ]
+       }
+      ]
      ]
     }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/truncated_utf8.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/overlong_utf8.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/overlong_utf8_three_bytes.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/overlong_utf8_four_bytes.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/utf8_surrogate.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/utf8_past_unicode.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/utf8_two_bytes_last.json",
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "s": [
+         2047
+        ]
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/utf8_three_bytes.json",
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "s": [
+         8364
+        ]
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/utf8_four_bytes.json",
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "s": [
+         128512
+        ]
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "code": "",
+    "file": "json/utf8_four_bytes_last.json",
+    "outcome": "accepted",
+    "value": {
+     "o": [
+      [
+       {
+        "s": [
+         97
+        ]
+       },
+       {
+        "s": [
+         1114111
+        ]
+       }
+      ]
+     ]
+    }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/utf8_lone_continuation.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/utf8_two_continuations.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/utf8_lead_past_f4.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/utf8_lead_ff.json",
+    "outcome": "refused"
    },
    {
     "code": "bad_json",
@@ -1503,11 +1595,6 @@
     "outcome": "refused"
    },
    {
-    "code": "bad_json",
-    "file": "json/long_negative_integer.json",
-    "outcome": "refused"
-   },
-   {
     "code": "",
     "file": "json/smallest_normal_double.json",
     "outcome": "accepted",
@@ -1546,6 +1633,23 @@
    {
     "code": "bad_json",
     "file": "json/integer_past_u64.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "",
+    "file": "json/minus_zero.json",
+    "outcome": "accepted",
+    "value": {
+     "a": [
+      {
+       "i": 0
+      }
+     ]
+    }
+   },
+   {
+    "code": "bad_json",
+    "file": "json/long_negative_integer.json",
     "outcome": "refused"
    },
    {

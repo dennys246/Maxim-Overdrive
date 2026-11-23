@@ -350,8 +350,6 @@ capture, the token, caps, 1009), `HostOnly` with a guest-role view, and `player_
   - Guest text's residual: a character that draws nothing yet no Unicode property or name marks (U+1D159, MUSICAL
     SYMBOL NULL NOTEHEAD) still passes; trigger: the first guest text an NPC reads (`phase1/agents`), when a
     rendering test can measure ink.
-  - On a Godot upgrade (B26), re-measure whether `WebSocketPeer` holds the text packet that arrives with a close (0
-    held in 14 of 16 runs on 4.7.2, 1 in 2; `tests/test_godot_net.py` accepts either); trigger: the upgrade branch.
   - What Godot 4.7.2 does at the 65th queued packet (`max_queued_packets` is 64), measured with a listener that
     sends faster than the client polls; trigger: step 8's live client.
   - `WireFrame.index(z, y, x)` and `CellSnapshot.index(x, y, z)` take their axes in opposite orders; trigger: step
@@ -365,8 +363,9 @@ capture, the token, caps, 1009), `HostOnly` with a guest-role view, and `player_
   - Open NITs from the review rounds, each a test or a code to tighten: a test that asserts the stage-1 fuzz's reach
     (Trust D-N5); `bad_version` naming its field alike on every path (D-N6); the client's code shape tied to
     `RefusalCode`'s spelling test (N-N3); a float of about a million digits, which the client's saturated exponent
-    judges otherwise than Python, past every shipped cap (Wire NT-1); Godot's "Exponent too high" warning (NT-2); the client closing its own refusal with 1000 where the host uses
-    1008 (Client N-N2); trigger: this step's `intent_result`, which adds codes and a stage-1 path.
+    judges otherwise than Python, past every shipped cap (Wire NT-1); Godot's "Exponent too high" warning (NT-2);
+    the client closing its own refusal with 1000 where the host uses 1008 (Client N-N2); trigger: this step's
+    `intent_result`, which adds codes and a stage-1 path.
   - A test that a `welcome` and a `tick` at the world limits fit within the 64 KiB text cap (Architecture delta 3
     N-3); trigger: this step's `tick` and `welcome`'s maps.
   - A cap on connections that haven't sent `hello` (Concurrency N2): only local programs reach the port today;
