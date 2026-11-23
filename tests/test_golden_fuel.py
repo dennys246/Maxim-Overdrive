@@ -27,6 +27,8 @@ _spec.loader.exec_module(gf)
 
 SHAPE = (120, 200)
 SEG = gf.segments()
+NEXT = gf.segments(gf.FIXTURE_NEXT)
+MID = (140, 140, 140)
 GREY, BRIGHT, DARK = (90, 90, 90), (220, 220, 220), (30, 30, 30)
 
 
@@ -52,17 +54,21 @@ def _save(directory: Path, name: str, img: np.ndarray, foot: np.ndarray) -> None
 
 def _frames(
     directory: Path, tier: str, *, burning: bool = True, burnt_hole: bool = True, flames: bool = True,
-    spent_glows: bool = False, stick_hidden: bool = False,
+    spent_glows: bool = False, stick_hidden: bool = False, fade_erased: bool = False, update_stale: bool = False,
+    fade: tuple[int, int, int] = MID,
 ) -> None:  # fmt: skip
     """One tier's four fuel frames: everything laid out passes unless a flag removes what a check needs."""
     foot = _footprints()
     for region, y in (
-        ("rod_lit", 20), ("rod_burnt", 40), ("slab_char", 60), ("stick_glow", 80), ("rod_spent", 96), ("rod_gap", 110),
+        ("slab_leaning", 8), ("rod_lit", 20), ("rod_burnt", 40), ("slab_char", 60), ("stick_glow", 80),
+        ("rod_spent", 96), ("rod_gap", 110),
     ):  # fmt: skip
         _lay(foot, region, y)
     _lay(foot, "log_cross", 70, half=4.0)  # beside slab_char's row, its middle crossed by the stick
     for k, r in enumerate(SEG.rows("stick_cross")):
         foot[r] = [40, 62 + 0.6 * k, 40, 62.6 + 0.6 * k, 1.0]
+    for k, r in enumerate(SEG.rows("stick_on_slab")):  # across slab_leaning's row 8
+        foot[r] = [20, 4 + 0.6 * k, 20, 4.6 + 0.6 * k, 1.0]
     mask = np.zeros((*SHAPE, 3), dtype=np.uint8)
     shaded = np.zeros((*SHAPE, 3), dtype=np.uint8)
     every = np.flatnonzero(foot[:, 2] != foot[:, 0])
@@ -77,7 +83,12 @@ def _frames(
     _paint(shaded, foot, SEG.rows("rod_spent"), BRIGHT if spent_glows else DARK)
     _paint(shaded, foot, SEG.rows("log_cross"), DARK)
     if not stick_hidden:
+        if not fade_erased:  # the outer fade, one rendered pixel past the drawn edge, over the log
+            wide = foot.copy()
+            wide[:, 4] += gm.SPECKLE_TIERS[tier]
+            shaded[gf.strip(SHAPE, wide[SEG.rows("stick_cross")]) & gf.strip(SHAPE, foot[SEG.rows("log_cross")])] = fade
         _paint(shaded, foot, SEG.rows("stick_cross"), BRIGHT)
+    _paint(shaded, foot, SEG.rows("stick_on_slab"), BRIGHT)
     flame = np.zeros((*SHAPE, 3), dtype=np.uint8)
     with_flames = shaded.copy()
     if flames:
@@ -87,6 +98,12 @@ def _frames(
     _save(directory, f"fuel-{tier}", with_flames, foot)
     _save(directory, f"fuel-{tier}-fuel_mask", mask, foot)
     _save(directory, f"fuel-{tier}-flame_mask", flame, foot)
+    update = shaded.copy()
+    glow_rows = SEG.rows("stick_glow")
+    _paint(update, foot, glow_rows, GREY)
+    shown = SEG if update_stale else NEXT
+    _paint(update, foot, shown.rows("stick_glow", shown.temperature_c >= gf.HOT_C), BRIGHT)
+    _save(directory, f"fuel-{tier}-update", update, foot)
 
 
 def test_frames_built_to_pass_pass_every_check(tmp_path):
@@ -238,9 +255,73 @@ def test_a_stick_hidden_by_a_log_behind_it_is_found(tmp_path):
     assert gf.crossing_findings(tmp_path, "rig", SEG) == []
     _frames(tmp_path, "rig", stick_hidden=True)
     found = gf.crossing_findings(tmp_path, "rig", SEG)
-    assert any(f.startswith("crossing (rig): the stick over the log") for f in found)
+    assert any(f.startswith("crossing (rig): stick_cross over log_cross shows") for f in found)
     Image.fromarray(np.zeros((*SHAPE, 3), dtype=np.uint8)).save(tmp_path / "fuel-rig-fuel_mask.png")
-    assert gf.crossing_findings(tmp_path, "rig", SEG) == ["crossing (rig): no pixels to compare (0 and 0)"]
+    assert gf.crossing_findings(tmp_path, "rig", SEG) == [
+        f"crossing (rig): no pixels to compare at {front} (0 and 0)" for front, _ in gf.CROSSINGS
+    ]
+
+
+@pytest.mark.parametrize("tier", gf.FADE_TIERS)
+def test_a_fade_the_log_overwrote_is_found(tmp_path, tier):
+    _frames(tmp_path, tier)
+    assert gf.crossing_findings(tmp_path, tier, SEG) == []
+    _frames(tmp_path, tier, fade_erased=True)
+    found = gf.crossing_findings(tmp_path, tier, SEG)
+    assert f"crossing fade ({tier}): the stick's fade over the log adds 0.000 of its gain, below 0.071" in found
+
+
+def test_the_fade_is_judged_in_linear_light(tmp_path):
+    # A band at sRGB 60 between the log's 30 and the stick's 220 adds 0.046 of the stick's linear gain, under the bar;
+    # in L* it would add 0.18 and in raw sRGB 0.16, both over it (review ET-S1: ruling 8's bar is a linear share).
+    _frames(tmp_path, "rig", fade=(60, 60, 60))
+    found = gf.crossing_findings(tmp_path, "rig", SEG)
+    assert "crossing fade (rig): the stick's fade over the log adds 0.046 of its gain, below 0.071" in found
+
+
+def test_the_fade_is_not_judged_on_laptop(tmp_path):
+    # The upscale smears the core into the band (share 0.258 with two passes, 0.233 with one, measured): no bar yet.
+    assert "laptop" not in gf.FADE_TIERS
+    _frames(tmp_path, "laptop", fade_erased=True)
+    assert gf.crossing_findings(tmp_path, "laptop", SEG) == []
+
+
+def test_the_fade_bar_is_half_the_coverage_models_share():
+    band = 0.5 * 0.5 / 2  # coverage 0.5 to 0 over the first half of the one-pixel band, 0 after: mean 1/8
+    strip = 0.5 * (0.5 + 1.0) / 2 + 0.5 * 1.0  # 0.5 to 1 over the outer half pixel, 1 inside: mean 7/8
+    assert pytest.approx(0.5 * band / strip) == gf.FADE_SHARE
+
+
+def test_a_fade_with_nothing_to_compare_says_so(tmp_path):
+    _frames(tmp_path, "rig")
+    frame = gf.FuelFrame.load(tmp_path, "rig", "-noflame")
+    empty = gf.FuelFrame(frame.rgb, np.zeros_like(frame.fuel), frame.foot)
+    found = gf._fringe_findings(empty, "rig", SEG, frame.fuel, frame.fuel)
+    assert found[0].startswith("crossing fade (rig): no pixels to compare")
+
+
+def test_a_stick_buried_in_the_slab_is_found(tmp_path):
+    _frames(tmp_path, "rig")
+    png = tmp_path / "fuel-rig-noflame.png"
+    img = np.asarray(Image.open(png)).copy()
+    foot = gf.footprints(png)
+    img[gf.strip(SHAPE, foot[SEG.rows("stick_on_slab")])] = GREY  # the plank's grey where the stick should show
+    Image.fromarray(img).save(png)
+    found = gf.crossing_findings(tmp_path, "rig", SEG)
+    assert any(f.startswith("crossing (rig): stick_on_slab over slab_leaning shows") for f in found)
+
+
+def test_an_update_frame_that_kept_the_first_frame_is_found(tmp_path):
+    _frames(tmp_path, "rig")
+    assert gf.update_findings(tmp_path, "rig", NEXT) == []
+    _frames(tmp_path, "rig", update_stale=True)
+    assert any(f.startswith("in-place update (rig)") for f in gf.update_findings(tmp_path, "rig", NEXT))
+
+
+def test_the_next_fixture_reverses_the_glow_ramp():
+    glow, nxt = SEG.rows("stick_glow"), NEXT.rows("stick_glow")
+    assert (NEXT.temperature_c[nxt] == SEG.temperature_c[glow][::-1]).all()
+    assert len(NEXT.region) == len(SEG.region)  # the same structure, so the client draws it as a steady frame
 
 
 def _copy_fixture(directory: Path, edit) -> Path:

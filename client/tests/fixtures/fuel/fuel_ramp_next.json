@@ -1,0 +1,302 @@
+{
+ "data": "fuel_ramp_next.bin.gz",
+ "data_gzip_sha256": "d17f00d8a43236b2d1efa0e9e70bff3e0149aa811e74977c04b59d4c2bde99ff",
+ "data_sha256": "27046db5c2026b12357f763eef65d7c8e9ac2b9c4c1d678c91b6b756d3a900d1",
+ "data_size": 30133,
+ "format": "overdrive-client-fuel-fixture",
+ "kinds": {
+  "rod": 0,
+  "slab": 1
+ },
+ "recipes": {
+  "pine_rod": 1,
+  "pine_slab": 2
+ },
+ "regions": {
+  "10": "rod_lit",
+  "11": "slab_char",
+  "12": "rod_spent",
+  "13": "rod_gap",
+  "14": "stick_cross",
+  "15": "log_cross",
+  "16": "slab_leaning",
+  "17": "stick_on_slab",
+  "7": "kindling_pile",
+  "8": "stick_glow",
+  "9": "rod_burnt"
+ },
+ "tables": {
+  "objects": {
+   "columns": {
+    "kind": {
+     "dtype": "u8",
+     "encoding": "raw",
+     "offset": 632,
+     "size": 79,
+     "unit": "id"
+    },
+    "object_id": {
+     "dtype": "u32",
+     "encoding": "raw",
+     "offset": 0,
+     "size": 316,
+     "unit": "id"
+    },
+    "recipe_id": {
+     "dtype": "u16",
+     "encoding": "raw",
+     "offset": 316,
+     "size": 158,
+     "unit": "id"
+    },
+    "region_id": {
+     "dtype": "u16",
+     "encoding": "raw",
+     "offset": 474,
+     "size": 158,
+     "unit": "id"
+    },
+    "segment_count": {
+     "dtype": "u16",
+     "encoding": "raw",
+     "offset": 790,
+     "size": 158,
+     "unit": "id"
+    },
+    "segment_length_m": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 948,
+     "size": 316,
+     "unit": "m"
+    },
+    "state": {
+     "dtype": "u8",
+     "encoding": "raw",
+     "offset": 711,
+     "size": 79,
+     "unit": "id"
+    }
+   },
+   "rows": 79
+  },
+  "rods": {
+   "columns": {
+    "axis_x": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 2496,
+     "size": 308,
+     "unit": "ratio"
+    },
+    "axis_y": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 2804,
+     "size": 308,
+     "unit": "ratio"
+    },
+    "axis_z": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 3112,
+     "size": 308,
+     "unit": "ratio"
+    },
+    "length_m": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 3420,
+     "size": 308,
+     "unit": "m"
+    },
+    "object_id": {
+     "dtype": "u32",
+     "encoding": "raw",
+     "offset": 1264,
+     "size": 308,
+     "unit": "id"
+    },
+    "origin_x_m": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 1572,
+     "size": 308,
+     "unit": "m"
+    },
+    "origin_y_m": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 1880,
+     "size": 308,
+     "unit": "m"
+    },
+    "origin_z_m": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 2188,
+     "size": 308,
+     "unit": "m"
+    },
+    "radius_m": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 3728,
+     "size": 308,
+     "unit": "m"
+    }
+   },
+   "rows": 77
+  },
+  "segments": {
+   "columns": {
+    "char_fraction": {
+     "dtype": "u8",
+     "encoding": "linear",
+     "offset": 27770,
+     "scale_den": 255,
+     "scale_num": 1,
+     "size": 2363,
+     "unit": "ratio"
+    },
+    "ignited_fraction": {
+     "dtype": "u8",
+     "encoding": "linear",
+     "offset": 23044,
+     "scale_den": 255,
+     "scale_num": 1,
+     "size": 2363,
+     "unit": "ratio"
+    },
+    "object_id": {
+     "dtype": "u32",
+     "encoding": "raw",
+     "offset": 4140,
+     "size": 9452,
+     "unit": "id"
+    },
+    "seg": {
+     "dtype": "u16",
+     "encoding": "raw",
+     "offset": 13592,
+     "size": 4726,
+     "unit": "id"
+    },
+    "surface_temperature_c": {
+     "dtype": "f16",
+     "encoding": "raw",
+     "offset": 18318,
+     "size": 4726,
+     "unit": "celsius"
+    },
+    "thickness_fraction": {
+     "dtype": "u8",
+     "encoding": "linear",
+     "offset": 25407,
+     "scale_den": 255,
+     "scale_num": 1,
+     "size": 2363,
+     "unit": "ratio"
+    }
+   },
+   "rows": 2363
+  },
+  "slabs": {
+   "columns": {
+    "length_axis_x": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 4068,
+     "size": 8,
+     "unit": "ratio"
+    },
+    "length_axis_y": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 4076,
+     "size": 8,
+     "unit": "ratio"
+    },
+    "length_axis_z": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 4084,
+     "size": 8,
+     "unit": "ratio"
+    },
+    "length_m": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 4116,
+     "size": 8,
+     "unit": "m"
+    },
+    "object_id": {
+     "dtype": "u32",
+     "encoding": "raw",
+     "offset": 4036,
+     "size": 8,
+     "unit": "id"
+    },
+    "origin_x_m": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 4044,
+     "size": 8,
+     "unit": "m"
+    },
+    "origin_y_m": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 4052,
+     "size": 8,
+     "unit": "m"
+    },
+    "origin_z_m": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 4060,
+     "size": 8,
+     "unit": "m"
+    },
+    "thickness_m": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 4132,
+     "size": 8,
+     "unit": "m"
+    },
+    "width_axis_x": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 4092,
+     "size": 8,
+     "unit": "ratio"
+    },
+    "width_axis_y": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 4100,
+     "size": 8,
+     "unit": "ratio"
+    },
+    "width_axis_z": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 4108,
+     "size": 8,
+     "unit": "ratio"
+    },
+    "width_m": {
+     "dtype": "f32",
+     "encoding": "raw",
+     "offset": 4124,
+     "size": 8,
+     "unit": "m"
+    }
+   },
+   "rows": 2
+  }
+ },
+ "version": 0
+}

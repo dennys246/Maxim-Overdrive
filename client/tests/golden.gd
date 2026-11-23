@@ -73,6 +73,10 @@ func _draw(text: String) -> String:
 	feet.assign(fixture.actors.values())
 	_stage.place_bodies(feet)
 	_stage.use_pass(shot.pass_kind, tier.bloom)
+	if shot.update:
+		why = await _show_next(shot.fuel)
+		if not why.is_empty():
+			return why
 	var image: Image = await _stage.capture()
 	if image == null or image.get_width() != WIDTH or image.get_height() != HEIGHT:
 		return "no %dx%d frame" % [WIDTH, HEIGHT]
@@ -85,6 +89,18 @@ func _draw(text: String) -> String:
 			return why
 	print("golden: wrote %s adapter=%s" % [shot.png, RenderingServer.get_video_adapter_name()])
 	return ""
+
+
+## The update pass: the frame drawn so far renders, then the fuel fixture's next frame replaces it, which must reach
+## the pass as a steady frame (no rebuild), so what is captured next shows the in-place segment upload.
+func _show_next(fuel_name: String) -> String:
+	var _first: Image = await _stage.capture()
+	var next: FuelFixture = _fuel_fixture(fuel_name + GoldenShot.NEXT_SUFFIX)
+	var why: String = GoldenShot.fuel_usable(next)
+	if not why.is_empty():
+		return why
+	var show: Callable = func() -> Array[String]: return _stage.show_fuel(next.snapshot, next.region_names, RECIPES)
+	return GoldenShot.show_steady(_stage.fuel, show)
 
 
 ## Each fixture is read once per run, so its snapshot object, and the region bounds the stage keeps for it, are
