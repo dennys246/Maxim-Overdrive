@@ -21,3 +21,24 @@ reviewer from the tree (O25). The reports' sample paths are written `<name>`, so
 | AW-N3: the prepush step label | Names home paths | |
 | AW-N4: the rule may belong under "Data and assets" | Author's view: kept under Working, beside the other rules about what a session writes; the reviewer's call | |
 | AW-N5: behind origin/main | Merged (041dd72) | |
+
+## Delta round 1 folds
+
+Statuses of round 1's findings are in `delta1.md` (its sample URL written `<page>`). The statuses it set are copied here
+by the author for the record; the report is the source. Round 1: F1 fixed (see D6); F2, AW-S4, F4, F5, F7, AW-N1,
+AW-S1, AW-S5, AW-N3 fixed; F6, AW-N2 fixed, with the fold's URL claim false (D1 below makes it true again); F3 fixed
+but non-UTF-8 deferred to B45, whose trigger read only "open"; AW-S2, AW-S3, AW-S6 deferred to the other PRs (#47 has
+merged, so AW-S6 goes to whoever owns the go-public items); AW-N4 rejected (the rule belongs under Working); AW-N5 open
+(main moved again).
+
+| Finding | Author's fold | Status |
+|---|---|---|
+| D1: anchoring hid every home after a prefix (`/c/Users`, `/Volumes/<disk>/Users`, `file://localhost`, `../Users`) | Homes are told by spelling, not position: `Users` and `home` as the systems spell them count after any separator; other cases only where a path starts (`docs/users/` stays a directory). WSL's special case is gone. Eight prefixed spellings tested. The dash form keeps its anchor (prose), and a dash-encoded home after an encoded prefix is recorded in B45 | |
+| D2: names starting with, or holding, a non-ASCII letter | Names are Unicode `\w`; `test_a_name_in_any_script_is_a_name_and_is_masked_whole`. The test found that a dash-encoded name's end can't be told (`-Users-<first>-<last>-`), so a dash form is masked to its path component's end | |
+| D3: overlapping matches leak letters through the mask | Spans merge; `test_overlapping_names_are_masked_as_one` | |
+| D4: the lookbehind's `._-` untested | `./users/x`, `../users/x`, `a_/users/x`, `a-/users/x` in the pass cases | |
+| D5: a symlink's target is never scanned | B45 | |
+| D6: the mini's login is the commit email's local part | B45: redacting it keeps the tree consistent, not secret | |
+| (author) line findings printed the file's path unmasked | `check_paths` prints the masked path on every finding; `test_a_line_finding_prints_its_files_path_masked` | |
+| B45's trigger read "open" | "No step yet: review holds it; a leak found in review gets a pattern here if one can see it" | |
+| AW-N5: behind main | Merged with the delta fold | |

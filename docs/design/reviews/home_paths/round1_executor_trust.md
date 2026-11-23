@@ -131,7 +131,7 @@ public-account loophole.
 
 Each of these is flagged with the message "a path under someone's home directory":
 
-- `https://example.com/home/index.html`
+- `https://example.com/home/<page>`
 - `GET /home/<route>`
 - `Power-Users-guide`
 - `multi-home-setup`
