@@ -45,7 +45,11 @@ SPELLINGS = (
     # Delta 2, E2: JSON-escaped and URL-encoded backslashes.
     "\\/Users\\/",
     "%5CUsers%5C",
-    "ssh://host/home/",
+    # Delta 3, D3-S1: a web URL's path is on a disk, and a Godot path ends at its token.
+    "http://localhost/tree/Users/",
+    "https://example.com/?path=/Users/",
+    '{"url":"https://example.com/","path":"/Users/',
+    '"res://game/x.tscn","/Users/',
 )
 
 
@@ -85,7 +89,7 @@ def test_a_session_scratchpad_path_is_refused():
         # Delta 1, D4: inside a path any other case is a directory, whatever comes before its slash.
         "`./users/x`, `../users/x`, `a_/users/x` and `a-/users/x`",
         # Delta 2, E3: paths on no one's disk, and a variable in place of a name.
-        "`res://game/home/kitchen.tscn`, `user://home/save.json` and https://example.com/home/feed",
+        "`res://game/home/kitchen.tscn` and `user://home/save.json`",
         "`/Users/$USER/x`, `/home/*` and `/Users/{name}/x`",
         "GitHub's runner at a sentence's end: /home/runner.",
     ],
@@ -148,3 +152,12 @@ def test_a_line_finding_prints_its_files_path_masked():
     found = paths.check_paths({f"{ROOTS[0]}{NAME}/r.md": f"{ROOTS[1]}{NAME}/x\n"})
     assert [f.split(":")[0] for f in found] == [f"{ROOTS[0]}<name>…"] * 2
     assert all(NAME not in f for f in found)
+
+
+def test_a_godot_projects_own_home_directory_is_not_a_home():
+    # Delta 3, E3: client/ is Godot's res://, so a game's home/ scenes are its own; a scratchpad copied there is not.
+    assert paths.check_paths({"client/game/home/kitchen.tscn": "x\n"}) == []
+    assert paths.check_paths({f"docs{ROOTS[1]}x.md": "x\n"})
+    assert paths.check_paths({"a.md": "see `client/game/home/kitchen.tscn`\n"}) == []
+    assert paths.check_paths({f"client/{ROOTS[3]}{NAME}-Repo/x.gd": "x\n"})
+    assert paths.check_paths({"a.md": f"res://game/{ROOTS[3]}{NAME}-Repo/x.gd\n"})

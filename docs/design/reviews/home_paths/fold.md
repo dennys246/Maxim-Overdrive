@@ -55,3 +55,18 @@ AW-N5 fixed; D2 open in part (E1); D5 deferred to B45. Its new findings:
 | E3: any directory spelled exactly `home` or `Users` is refused, a `res://…/home/` one too | `NOT_A_DISK`: Godot's `res://` and `user://` and web URLs are on no one's disk and are skipped; `ssh://` and `file://` homes still count (tested). Any other exact `Users` or `home` directory is refused, and the docstring says so and what to do | |
 | E4: the test module cites B44 | B45 | |
 | AW-N5: main moved | Merged (4b09fbb) | |
+
+## Delta round 3 folds
+
+Statuses of delta round 2's findings are in `delta3.md`: E1, E2, E4 fixed; E3 fixed in part (a `client/game/home/`
+file was still refused); AW-N5 fixed for 06c2774 (main moved again). Its new findings:
+
+| Finding | Author's fold | Status |
+|---|---|---|
+| D3-S1: the URL exemption skipped the rest of any token, hiding homes in JSON lines, dev-server links and queries | Web URLs aren't exempt: nothing in the tree or the open PRs needed it. `NOT_A_DISK` is Godot's `res://`, `user://` and `client/` tokens, ending at a quote, comma, bracket or space, and inside them only the exact-spelling form is skipped, never the dash form. Four D3-S1 cases tested | |
+| E3 (rest): a `client/game/home/` file refused | A path under `client/` is Godot's `res://`, as file path or in text (`test_a_godot_projects_own_home_directory_is_not_a_home`); a scratchpad copied there is still refused | |
+| D3-N1: a file path holding a home the check can't see prints unmasked on its lines' findings | B45 (it follows from B45's blind spots) | |
+| D3-N2: names starting with `.`, `@`, `+` or an emoji | B45 | |
+| D3-N3: 947d90e's message says masking only the matched name turns the combining-mark cases red | Author's correction: it doesn't; those cases are held by the cut and by `_NAME`'s Unicode class together, so either alone keeps them green. The spaced and overlap cases are the cut's | |
+| D3-N4: `ssh://host/home/` listed twice | The second copy removed | |
+| (author) the `client/` file-path flag in `masked` | Removed: its deletion left every test green, because the `client/` token already covers a file path | |

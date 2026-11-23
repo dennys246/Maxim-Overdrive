@@ -13,16 +13,17 @@ untracked text file, and in any file's own path. Homes are told from ordinary di
   (``/private/tmp/claude-<uid>/-Users-<name>-<repo>/``), which the first scrub's search for ``/Users/`` missed, where
   an encoded path starts (not after a letter or digit, so "Power-Users-guide" is prose).
 A placeholder (``<home>``, ``<scratchpad>``), an elision (``/Users/…``), a variable (``/Users/$USER``) and ``~/``
-name nobody and pass, as do the public accounts in ``PUBLIC_ACCOUNTS`` and paths on no one's disk (``NOT_A_DISK``:
-Godot's ``res://`` and ``user://``, and web URLs). Any other directory spelled exactly ``Users`` or ``home`` is refused
-wherever it sits, because it can't be told from a home: name it otherwise, or reach it through ``res://``.
+name nobody and pass, as do the public accounts in ``PUBLIC_ACCOUNTS`` and Godot's paths (``NOT_A_DISK``: ``res://``,
+``user://`` and files under ``client/``). Any other directory spelled exactly ``Users`` or ``home`` is refused wherever
+it sits, web URLs' included, because it can't be told from a home: name it otherwise.
 
 A finding names the file and line, never the name it matched; a file's path is printed cut where the name starts
 (``masked``). CI's logs are public.
 
-It can't see a name outside a path (an ``ls -l`` owner column, an account named in prose), a hostname, a private
-address, text that isn't UTF-8, a symlink's target, or a dash-encoded home after an encoded prefix
-(``-Volumes-Data-Users-<name>-``): B45.
+It can't see a name outside a path (an ``ls -l`` owner column, an account named in prose), a name starting with a
+character a name rarely starts with (``.``, ``@``, ``+``, an emoji), a hostname, a private address, text that isn't
+UTF-8, a symlink's target, or a dash-encoded home after an encoded prefix (``-Volumes-Data-Users-<name>-``), and a
+file's path holding a home it can't see is printed as it stands on its lines' findings: B45.
 """
 
 from __future__ import annotations
@@ -40,8 +41,11 @@ _AT_START = rf"(?<![\w.-])(?i:(?:/+|%2f)(?:users|home)|[a-z]:{_SEP}users){_SEP}"
 PATH_HOME = re.compile(rf"(?:{_EXACT}|{_AT_START}){_NAME}")
 # A home as Claude Code encodes a project directory: its slashes are dashes.
 DASH_HOME = re.compile(r"(?<![^\W_])-(?i:users|home)-(?P<name>[\w%][\w.%]*)")
-# Paths that are not on anyone's disk: Godot's res:// and user:// (a game's own home/ directory) and web URLs.
-NOT_A_DISK = re.compile(r"(?i)\b(?:res|user|https?)://\S*")
+# Godot's res:// and user:// paths are the project's and the player's, on no one's disk: a game's own home/ directory
+# is one. A path under client/ is one too, since Godot's res:// is that directory. Only the exact spelling is skipped
+# inside them (a dash-encoded scratchpad still counts), and only to the next quote, comma, bracket or space: a JSON
+# line goes on past the token. Web URLs aren't skipped: a dev server's or a query's path is on a disk.
+NOT_A_DISK = re.compile(r"(?:(?i:\b(?:res|user)://)|(?<![\w./-])client/)[^\s\"'`,;()<>\[\]]*")
 # Accounts whose name is public: GitHub's hosted runners (/Users/runner, /home/runner) and macOS's shared folder.
 PUBLIC_ACCOUNTS = frozenset({"runner", "Shared"})
 ADVICE = "write <home>, <scratchpad> or a path relative to the repository (the repository is public)"
@@ -54,9 +58,11 @@ def _account(name: str) -> str:
 
 
 def _private(text: str) -> list[re.Match[str]]:
-    """The homes in ``text`` whose account isn't public, outside the paths that are on no one's disk."""
-    on_disk = NOT_A_DISK.sub(lambda m: " " * len(m[0]), text)  # blanked, so match offsets stay the text's
-    found = [*PATH_HOME.finditer(on_disk), *DASH_HOME.finditer(on_disk)]
+    """The homes in ``text`` whose account isn't public. A path form inside a Godot path (``NOT_A_DISK``), a file's
+    own path under ``client/`` among them, is the project's directory, not a home."""
+    godot = [m.span() for m in NOT_A_DISK.finditer(text)]
+    paths = [m for m in PATH_HOME.finditer(text) if not any(a <= m.start() < b for a, b in godot)]
+    found = [*paths, *DASH_HOME.finditer(text)]
     return [m for m in found if _account(m["name"]) not in PUBLIC_ACCOUNTS]
 
 
