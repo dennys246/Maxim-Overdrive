@@ -18,12 +18,9 @@ const ROLES: Array[String] = ["host", "guest"]
 ## welcome as read, once it is; empty before.
 var welcome: Dictionary = {}
 ## The refusal that ended the session, always a code: an error the server sent, what this client refused, the close's
-## reason, or "closed" when the connection ended with no reason (its close code is in ``close_code``); empty while
-## all is well.
+## reason, or "closed" when the connection ended with no reason; empty while all is well.
 var refusal: String = ""
 var last_frame: WireFrame = null
-## The close code, once the connection has closed; 0 before.
-var close_code: int = 0
 var _catalogue: Array[Dictionary] = WireCatalogue.v0()
 var _catalogue_hash: String = WireCatalogue.catalogue_hash(WireCatalogue.v0())
 

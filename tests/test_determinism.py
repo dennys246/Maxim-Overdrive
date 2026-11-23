@@ -529,6 +529,8 @@ def test_a_cylinder_scene_is_repeatable_in_process(dx_m):
         "def f(connection):\n    return connection.loop.time()",
         "def f(server):\n    return server.get_loop().time()",
         "def f(loop):\n    loop.call_later(1, print)",
+        "def f(loop):\n    return loop.time()",
+        "def f(connection):\n    return connection.latency",
     ],
 )
 def test_the_src_scan_sees_asyncio_s_clock(source):

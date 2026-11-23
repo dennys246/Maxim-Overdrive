@@ -74,7 +74,7 @@ func test_the_first_refusal_wins_and_ends_the_session(t: TestContext) -> void:
 	var session: NetSession = _after([_welcome({"protocol": 1}), _welcome()])
 	t.check_eq(session.refusal, "bad_version", "a later welcome doesn't overwrite why it ended")
 	t.check(session.welcome.is_empty(), "and isn't read")
-	session.end("closed 1000")
+	session.end("closed")
 	t.check_eq(session.refusal, "bad_version", "nor does the close")
 
 

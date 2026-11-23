@@ -354,6 +354,11 @@ capture, the token, caps, 1009), `HostOnly` with a guest-role view, and `player_
     sends faster than the client polls; trigger: step 8's live client.
   - `WireFrame.index(z, y, x)` and `CellSnapshot.index(x, y, z)` take their axes in opposite orders; trigger: step
     8's decoder filling `CellSnapshot`, which picks one.
+  - Guest text's hidden channels the rulings leave open, for the owner: one variation selector or joiner beside a
+    visible character, and alternating spacing characters (thin, hair, spacing blanks), each a bit or two per
+    visible character (Trust D-N4, T3-N2); trigger: the first guest text an NPC reads.
+  - A test that a `welcome` and a `tick` at the world limits fit within the 64 KiB text cap (Architecture delta 3
+    N-3); trigger: this step's `tick` and `welcome`'s maps.
   - A cap on connections that haven't sent `hello` (Concurrency N2): only local programs reach the port today;
     trigger: guests joining from beyond localhost (Phase 5).
   - Every converter moves to `simcore.core.converters` and `Converter` is a closed union again (A7); deferred because

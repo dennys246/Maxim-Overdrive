@@ -11,9 +11,9 @@ extends RefCounted
 ## refuses (tests/test_godot_net.py captures the request). The order is the handshake, hello with the per-launch
 ## token, then welcome; text messages are JSON, binary ones cell frames, told apart by was_string_packet().
 ##
-## The host ends a refused connection with an error and then a close whose reason is the same code. Godot 4.7.2
-## drops a text packet that arrives in the same poll as the close (measured: tests/test_godot_net.py), so the close
-## reason is read too, when nothing before it said why. Once the session has ended, the client closes and reads no
+## The host ends a refused connection with an error and then a close whose reason is the same code. Godot 4.7.2 may
+## drop a text packet that arrives in the same poll as the close (most runs; measured: tests/test_godot_net.py), so
+## the close reason is read too, when nothing before it said why. Once the session has ended, the client closes and reads no
 ## more.
 
 const INBOUND_BUFFER_BYTES: int = 4 * 1024 * 1024  # client_rendering §4.3; the server caps a frame at 3.5 MiB
@@ -67,7 +67,6 @@ func poll() -> void:
 		# Only a code is taken from the peer: prose, or a reason past a close frame's 123 bytes, can't become ours
 		var reason: String = peer.get_close_reason()
 		var coded: bool = NetSession.CODE.search(reason) != null
-		session.close_code = peer.get_close_code()
 		session.end(reason if coded else "closed")
 	elif session.ended() and state == WebSocketPeer.STATE_OPEN:
 		peer.close(1000, session.refusal)

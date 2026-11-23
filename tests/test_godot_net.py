@@ -114,12 +114,13 @@ def test_the_client_records_the_host_s_refusal_of_a_wrong_token(project, monkeyp
     assert _with_host(project, monkeypatch, lambda t: "x" * 43) == ["net-check: refused bad_token"]
 
 
-def test_godot_drops_the_error_that_arrives_with_the_close(project, monkeypatch):
-    # The engine fact NetClient reads the close reason for, measured on every gate run (review A2, B26): a bare
-    # WebSocketPeer never holds the host's error text, which arrives in the same poll as the close. If an engine
-    # upgrade makes it hold the packet, this flips; NetClient keeps working, and its comment is then out of date.
+def test_godot_may_drop_the_error_that_arrives_with_the_close_and_the_reason_still_says_why(project, monkeypatch):
+    # The engine fact NetClient reads the close reason for (review A2, B26): a bare WebSocketPeer may or may not hold
+    # the host's error text, which arrives in the poll the close does (0 packets in 14 of 16 runs, 1 in 2; delta 3
+    # N-N3). What always holds is the reason, which is what NetClient reads when the text never came.
     monkeypatch.setenv("MAXIM_OVERDRIVE_NET_RAW", "1")
-    assert _with_host(project, monkeypatch, lambda t: "x" * 43) == ["net-check: raw packets 0 reason bad_token"]
+    lines = _with_host(project, monkeypatch, lambda t: "x" * 43)
+    assert lines in (["net-check: raw packets 0 reason bad_token"], ["net-check: raw packets 1 reason bad_token"])
 
 
 def _against(

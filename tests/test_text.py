@@ -147,6 +147,7 @@ HIDDEN = [
     ("\U00016fe4", "the Khitan small script filler alone (delta review D-B1)"),
     ("a\U00016fe4\u200d\U00016fe4b", "fillers and a joiner, which could carry hidden bits"),
     ("\U00013441", "a hieroglyph full blank"),
+    ("a\U00016fe4b", "a zero-width filler mark inside a word: refused by that rule alone (delta 3, T3-S1)"),
 ]
 
 

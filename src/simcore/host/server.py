@@ -15,7 +15,8 @@ the cap's intent). After ``welcome``, each message goes through decode and stage
 ``error``, and a message stage 1 accepts goes to ``dispatch``. ``dispatch`` runs on the network loop, so it may
 answer from what it holds but never touch the world: the hand-off to the simulation lane through a bounded queue
 (realtime_lanes_coop §4.1) and the replies that need its clock (``intent_result``, ``time_decision``, a ``snapshot``
-frame) join with this step's ``intent_result``, after step 5a's clock.
+frame) join when step 5a's integer clock lands; the import contract ``network-lane-off-the-world`` fences this
+module's imports only, never the injected ``dispatch``.
 """
 
 from __future__ import annotations

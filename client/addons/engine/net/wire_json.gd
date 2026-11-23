@@ -18,6 +18,7 @@ extends RefCounted
 
 const MAX_DEPTH: int = 32
 const INT_MAX: int = 9007199254740991  # 2^53 - 1: the largest n for which a double tells n from n + 1
+const _INT_DIGITS: int = 16  # INT_MAX's digit count: a longer integer literal is refused before to_int reads it
 ## The digits of 2^1024 - 2^970, halfway between the largest double and the next power: at or past it a literal
 ## rounds to inf, as Python's float() rounds it (to even); below it, to the largest double. String.to_float rounds
 ## some of those below to inf (step 7 delta review D-N2).
@@ -333,9 +334,10 @@ func _digits() -> bool:
 
 
 func _integer(text: String) -> Variant:
-	# String.to_int clamps a longer literal to the int64 range rather than wrapping it (2^64 + 1 reads as the maximum;
-	# the integer_past_u64 fixture), so the magnitude check alone refuses every integer at or past 2^53
-	if absi(text.to_int()) > INT_MAX:
+	# The digit count decides first: String.to_int prints an engine ERROR on overflow and returns -2^63, whose absi
+	# is still negative, so a longer literal never reaches it (step 7 delta 3, Wire B-1; integer_past_u64, 2^63).
+	var digits: int = text.length() - (1 if text.begins_with("-") else 0)
+	if digits > _INT_DIGITS or absi(text.to_int()) > INT_MAX:
 		_read.refuse("bad_json", "an integer of magnitude 2^53 or more (%d characters)" % text.length())
 		return null
 	return text.to_int()

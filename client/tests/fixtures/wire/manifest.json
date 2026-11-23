@@ -1489,12 +1489,32 @@
    },
    {
     "code": "bad_json",
+    "file": "json/just_past_the_halfway.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
     "file": "json/exact_halfway_past_the_largest_double.json",
     "outcome": "refused"
    },
    {
     "code": "bad_json",
     "file": "json/integer_past_u64.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/integer_at_2p63.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/negative_integer_at_2p63.json",
+    "outcome": "refused"
+   },
+   {
+    "code": "bad_json",
+    "file": "json/long_negative_integer.json",
     "outcome": "refused"
    },
    {

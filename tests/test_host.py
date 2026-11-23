@@ -461,5 +461,35 @@ def test_the_server_bounds_each_connection_s_queue_and_its_messages(monkeypatch)
 def test_the_server_writes_no_reply_past_the_client_s_text_cap():
     # client_rendering §4.3: the client ends the session on a larger one, so the server refuses to write it
     assert len(text(welcome(session_id=1, role="host", shape=SHAPE))) < MAX_TEXT_BYTES
-    with pytest.raises(ValueError, match="past the client's"):
-        text({"type": "test_echo", "pad": "x" * MAX_TEXT_BYTES})
+    head = len(text({"pad": "", "type": "test_echo"}))
+    assert len(text({"pad": "x" * (MAX_TEXT_BYTES - head), "type": "test_echo"})) == MAX_TEXT_BYTES  # at the cap
+    with pytest.raises(ValueError, match="past the client's"):  # one byte past it (ensure_ascii: characters are bytes)
+        text({"pad": "x" * (MAX_TEXT_BYTES - head + 1), "type": "test_echo"})
+
+
+def test_a_reply_past_the_cap_ends_that_session_and_frees_its_token():
+    # On the shipped path the server raises rather than send it: websockets closes 1011 and the token comes back
+    async def go() -> tuple[int | None, str]:
+        tokens = Tokens.fresh(guests=0)
+        sessions = Sessions(tokens, cap=1)
+
+        def huge(session: Session, message: ClientMessage) -> Mapping[str, object]:
+            return {"type": "test_echo", "pad": "x" * MAX_TEXT_BYTES}
+
+        server = await start(HostConfig(sessions=sessions, shape=SHAPE, dispatch=huge))
+        uri = f"ws://{BIND}:{next(iter(server.sockets)).getsockname()[1]}"
+        try:
+            async with _open(uri) as ws:
+                await ws.send(_hello(tokens.host))
+                await _reply(ws)
+                await ws.send('{"type":"snapshot","seq":1}')
+                code = await _closed(ws)
+            await asyncio.wait_for(_until_no_session(sessions), WAIT_S)
+            async with _open(uri) as again:
+                await again.send(_hello(tokens.host))
+                return code, (await _reply(again))["type"]
+        finally:
+            server.close()
+            await server.wait_closed()
+
+    assert run(go()) == (1011, "welcome")

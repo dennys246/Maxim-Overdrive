@@ -117,8 +117,16 @@ def _number_and_structure_edges() -> dict[str, tuple[bytes, str]]:
         "just_below_overflow": (b"[1.7976931348623157e308]", ok),
         "rounds_down_to_the_largest_double": (b"[1.7976931348623158e308]", ok),
         "rounds_up_past_the_largest_double": (b"[1.7976931348623159e308]", no),
-        "exact_halfway_past_the_largest_double": (b"[1.79769313486231581e308]", no),  # to_float reads it as finite
+        "just_past_the_halfway": (b"[1.79769313486231581e308]", no),  # to_float reads it as finite
+        # 2^1024 - 2^970 written out: the tie between the largest double and 2^1024, which rounds to even (inf)
+        "exact_halfway_past_the_largest_double": (
+            b"[179769313486231580793728971405303415079934132710037826936173778980444968292764750946649017977587207096330286416692887910946555547851940402630657488671505820681908902000708383676273854845817711531764475730270069855571366959622842914819860834936475292719074168444365510704342711559699508093042880177904174497792]",
+            no,
+        ),
         "integer_past_u64": (b"[18446744073709551617]", no),  # 2^64 + 1: a reader that wraps reads 1
+        "integer_at_2p63": (b"[9223372036854775808]", no),  # past int64: Godot's to_int reads -2^63, whose absi is too
+        "negative_integer_at_2p63": (b"[-9223372036854775808]", no),
+        "long_negative_integer": (b"[-" + b"9" * 400 + b"]", no),
         "smallest_normal_double": (b"[2.2250738585072014e-308]", ok),  # finite, though Godot reads its digits as 0
         "half_way_digits": (b"[970034019735371.5]", ok),
         "past_the_integers_as_a_float": (b"[9007199254740993.0]", ok),
