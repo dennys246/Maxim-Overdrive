@@ -7,7 +7,7 @@ refusals I had raised, `scripts/golden_fuel.py` and the new fixture objects in `
 
 What I ran, all outside the worktree:
 - **Probes:** Godot 4.7.2 (opengl3, M2) on a copy of `client/` at
-  `/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/b7bf205d-729f-449a-b38d-e830de582329/scratchpad/delta_rendering/client/`,
+  `<scratchpad>/delta_rendering/client/`,
   with HOME and XDG moved there.
   - `probe/cross.gd` draws the real `FuelPass` on `fuel_ramp` at the crossing, then swaps the two crossing rods' instance
     order.

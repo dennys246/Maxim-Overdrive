@@ -33,6 +33,7 @@ MAXIM_OVERDRIVE_ALL_TIERS=1 .venv/bin/pytest  # adds the 0.05 m verification gri
 MAXIM_OVERDRIVE_GODOT=1 .venv/bin/pytest    # adds the Godot gate fixtures (about a minute; needs Godot)
 scripts/prepush.sh                          # the full gate: lint, types, standards, Godot, every tier, coverage, diff coverage
 .venv/bin/python scripts/godot_check.py     # the gate's Godot step alone: pinned version, import, every script loads, client tests
+OVERDRIVE_REMOTE=<ssh-alias> .venv/bin/python scripts/remote_gate.py --clone <session>-repo --python <abs python3.12> <branch>  # gate on the mini
 ```
 
 `[maxim]` is optional for running the server, but the gate needs it: mypy checks the SEM bridge against Maxim's own
@@ -407,6 +408,11 @@ only review holds.
   lesson number once. When ids collide, the branch merged second renumbers its own record and its citations; a green
   check doesn't prove every citation moved. Guard: `scripts/lint_ids.py::check_decisions`,
   `scripts/lint_ids.py::check_roadmap_ids`, `scripts/lint_ids.py::check_lessons`
+- **No personal details in the tree.** The repository is public, and so are CI's logs. No file holds a path under a
+  home directory (`/Users/<name>`, `/home/<name>`, a session scratchpad's dash-encoded `-Users-<name>-`), a local
+  account name, a hostname or a private address; the public GitHub account and the authorship name are not private.
+  Write `<home>`, `<scratchpad>`, `<owner>` or a path relative to the repository. Guard:
+  `scripts/lint_paths.py::check_paths` (home paths), B45 (account names outside a path, hostnames, addresses)
 - **Engine choices get a one-line why** in the code or the commit (scene tree, node types, shaders, GDScript vs C#),
   for a team learning Godot. Guard: B1
 - **Teach game engineering as you go.** The owner is learning game development from the start, and knows software

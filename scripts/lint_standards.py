@@ -9,6 +9,7 @@
 7. One owner per contract: no registered vocabulary or signature restated outside its owner, no fold or decision
    table inside a design: ``lint_contracts.py``.
 8. Record ids no two branches may share (decisions, lessons) and lesson citations that resolve: ``lint_ids.py``.
+9. No home directory in the tree, in any spelling: ``lint_paths.py``.
 What they read from git comes from ``lint_repo.py``. This module runs them and says what the ratchets could not
 compare.
 
@@ -28,6 +29,7 @@ from lint_guards import check_guards
 from lint_ids import check_ids
 from lint_inputs import check_inputs
 from lint_markers import check_markers
+from lint_paths import check_paths
 from lint_repo import base_pyproject, tracked_text_files
 from lint_sizes import check_size_ratchet, check_sizes, size_limits
 
@@ -61,6 +63,7 @@ def main(argv: list[str] | None = None, root: Path = ROOT) -> int:
     guard_problems, checked, review_only = check_guards((root / "CLAUDE.md").read_text(), backlog, root)
     problems += guard_problems
     problems += check_inputs(files)
+    problems += check_paths(files)
     designs = any(rel.startswith("docs/design/") for rel in files)
     problems += check_contracts(files) if designs else []
     problems += check_ids(files)

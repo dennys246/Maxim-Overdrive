@@ -34,6 +34,7 @@ _load("lint_inputs")  # lint_standards imports these siblings by name
 _load("lint_gates")
 _load("lint_contracts")
 _load("lint_ids")
+_load("lint_paths")
 lint = _load("lint_standards")
 
 ROADMAP = """\
@@ -441,6 +442,12 @@ def test_main_fails_and_reports_each_finding(repo, capsys):
     assert "FAIL (2 finding(s))" in out.out
     assert "fell from 100 to 90" in out.err
     assert "list hack.py under Phase 1" in out.err
+
+
+def test_main_refuses_a_home_directory_in_an_untracked_file(repo, capsys):
+    (repo / "notes.md").write_text("ran in " + "/Users/" + "alice/repo\n")  # joined: this file is scanned too
+    assert lint.main([], root=repo) == 1
+    assert "notes.md:1: a path under someone's home directory" in capsys.readouterr().err
 
 
 def test_main_runs_the_contracts_check_once_there_are_designs(repo, capsys):
