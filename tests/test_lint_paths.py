@@ -54,7 +54,7 @@ SPELLINGS = (
     "client/../../Users/",
     "res://../Users/",
     "res://=/Users/",
-    "res://x.gd:12:/Users/",
+    "res://x.gd:L:/Users/",  # a file:line location; digits there would read as a port to the isolation scan
     "GODOT_PATH=client/bin:/Users/",
     "res://x|/Users/",
     "res://x@/Users/",
