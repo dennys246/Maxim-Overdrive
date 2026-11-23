@@ -78,8 +78,11 @@ def test_every_table_carries_client_objects_columns_with_their_dtypes_and_encodi
 def test_the_leaning_plank_faces_the_golden_camera():
     # iso_camera.gd's yaw and elevation: if the camera moves, the plank stops facing it and the burial proof with it.
     source = (ff.ROOT / "client" / "addons" / "engine" / "render" / "iso_camera.gd").read_text()
-    elevation = math.radians(float(re.search(r"const ELEVATION_DEG: float = ([\d.]+)", source)[1]))
-    yaw = math.radians(float(re.search(r"const BASE_YAW_DEG: float = ([\d.]+)", source)[1]))
+    elevation_match = re.search(r"const ELEVATION_DEG: float = ([\d.]+)", source)
+    yaw_match = re.search(r"const BASE_YAW_DEG: float = ([\d.]+)", source)
+    assert elevation_match
+    assert yaw_match
+    elevation, yaw = math.radians(float(elevation_match[1])), math.radians(float(yaw_match[1]))
     back = (math.sin(yaw) * math.cos(elevation), -math.cos(yaw) * math.cos(elevation), math.sin(elevation))
     assert pytest.approx(back, abs=1e-12) == ff.TOWARD_CAMERA
 
