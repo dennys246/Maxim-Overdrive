@@ -42,3 +42,16 @@ merged, so AW-S6 goes to whoever owns the go-public items); AW-N4 rejected (the 
 | (author) line findings printed the file's path unmasked | `check_paths` prints the masked path on every finding; `test_a_line_finding_prints_its_files_path_masked` | |
 | B45's trigger read "open" | "No step yet: review holds it; a leak found in review gets a pattern here if one can see it" | |
 | AW-N5: behind main | Merged with the delta fold | |
+
+## Delta round 2 folds
+
+Statuses of delta round 1's findings are in `delta2.md`: D1, D3, D4, D6, the unmasked-line row, B45's trigger and
+AW-N5 fixed; D2 open in part (E1); D5 deferred to B45. Its new findings:
+
+| Finding | Author's fold | Status |
+|---|---|---|
+| E1: combining marks, a space in a Windows profile and a URL-encoded name leak through the mask or escape detection | The third patch to the name's boundary was due, so the approach changed: `masked` cuts a path where its first private name starts and prints `<name>…`, whatever follows, so where a name ends no longer matters to what prints. A name may start with `%` (URL-encoded) in both forms; the test found the dash form missed it and printed the path unmasked. `_account` reads only the account a name begins with, for `PUBLIC_ACCOUNTS`. Eight names tested, none of whose parts reaches a finding | |
+| E2: JSON's `\/` and `%5C` separators pass | `_SEP`: slashes or backslashes in any run, `%2F` or `%5C` | |
+| E3: any directory spelled exactly `home` or `Users` is refused, a `res://…/home/` one too | `NOT_A_DISK`: Godot's `res://` and `user://` and web URLs are on no one's disk and are skipped; `ssh://` and `file://` homes still count (tested). Any other exact `Users` or `home` directory is refused, and the docstring says so and what to do | |
+| E4: the test module cites B44 | B45 | |
+| AW-N5: main moved | Merged (4b09fbb) | |

@@ -1,4 +1,4 @@
-"""scripts/lint_paths.py: no home directory in the tree (CLAUDE.md, "No personal details in the tree"; B44).
+"""scripts/lint_paths.py: no home directory in the tree (CLAUDE.md, "No personal details in the tree"; B45).
 
 Each spelling is proven by planting it and watching the check refuse it. The samples are joined at run time, because
 this file is itself in the tree the check scans: a literal sample would be a finding against it.
@@ -42,6 +42,10 @@ SPELLINGS = (
     "ssh://host/home/",
     "../Users/",
     "](/Users/",
+    # Delta 2, E2: JSON-escaped and URL-encoded backslashes.
+    "\\/Users\\/",
+    "%5CUsers%5C",
+    "ssh://host/home/",
 )
 
 
@@ -80,6 +84,10 @@ def test_a_session_scratchpad_path_is_refused():
         "a placeholder after a public account: `/Users/runner-<name>/x`",
         # Delta 1, D4: inside a path any other case is a directory, whatever comes before its slash.
         "`./users/x`, `../users/x`, `a_/users/x` and `a-/users/x`",
+        # Delta 2, E3: paths on no one's disk, and a variable in place of a name.
+        "`res://game/home/kitchen.tscn`, `user://home/save.json` and https://example.com/home/feed",
+        "`/Users/$USER/x`, `/home/*` and `/Users/{name}/x`",
+        "GitHub's runner at a sentence's end: /home/runner.",
     ],
 )
 def test_placeholders_elisions_and_public_accounts_pass(line):
@@ -105,7 +113,7 @@ def test_a_file_whose_own_path_is_under_a_home_is_refused():
     # Review F3: a copied scratchpad folder names its owner in the path, whatever the file holds.
     found = paths.check_paths({f"docs/-Users-{NAME}-Repo/r.md": "fine\n"})
     assert len(found) == 1
-    assert found[0].startswith("docs/-Users-<name>/r.md: its path is under someone's home directory")
+    assert found[0].startswith("docs/-Users-<name>…: its path is under someone's home directory")
     assert NAME not in found[0]  # the path is printed masked: CI's logs are public
 
 
@@ -116,23 +124,27 @@ def test_files_with_non_ascii_names_are_read(tmp_path):
     assert repo_files.tracked_text_files(tmp_path) == {"café.md": "x\n"}
 
 
-@pytest.mark.parametrize("name", ["élodie", "王芳", "ana-élise"])
+# Delta 2, E1: decomposed Latin and a combining mark (as macOS tools write them), a Windows profile with a space,
+# and a URL-encoded name. Where a name ends can't be told, so no part of any of them may print.
+@pytest.mark.parametrize(
+    "name", ["élodie", "王芳", "ana-élise", "e\u0301lodie", "an\u0303a", "देवी", "Ana Maria", "%C3%A9lodie"]
+)
 def test_a_name_in_any_script_is_a_name_and_is_masked_whole(name):
     # Delta 1, D2: Unicode letters, first or inside, are a name's; none of them reaches a finding.
     found = paths.check_paths({f"docs/-Users-{name}-R/r.md": f"{ROOTS[0]}{name}/x\n"})
     assert len(found) == 2
-    assert all(part not in f for f in found for part in name.split("-"))
+    assert all(part not in f for f in found for part in name.replace("-", " ").split())
 
 
 def test_overlapping_names_are_masked_as_one():
     # Delta 1, D3: a dash form inside a path form's name; masking each alone let letters of the longer one through.
     rel = f"{ROOTS[0]}{NAME}_{ROOTS[4]}{NAME}/r.md"
-    assert paths.masked(rel) == f"{ROOTS[0]}<name>/r.md"
-    assert paths.masked(f"-Users-{NAME}-Repo/x `-home-{NAME}-y` z") == "-Users-<name>/x `-home-<name>` z"
+    assert paths.masked(rel) == f"{ROOTS[0]}<name>…"
+    assert paths.masked(f"-Users-{NAME}-Repo/x `-home-{NAME}-y` z") == "-Users-<name>…"
 
 
 def test_a_line_finding_prints_its_files_path_masked():
     # Fold 2: a line finding prefixes the file's path, so a home in the path reached the output once per line.
     found = paths.check_paths({f"{ROOTS[0]}{NAME}/r.md": f"{ROOTS[1]}{NAME}/x\n"})
-    assert [f.split(":")[0] for f in found] == [f"{ROOTS[0]}<name>/r.md"] * 2
+    assert [f.split(":")[0] for f in found] == [f"{ROOTS[0]}<name>…"] * 2
     assert all(NAME not in f for f in found)

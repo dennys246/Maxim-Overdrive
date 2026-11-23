@@ -7,14 +7,18 @@ untracked text file, and in any file's own path. Homes are told from ordinary di
   ``/mnt/c/Users/<name>``, ``/Volumes/<disk>/Users/<name>``, ``file://localhost/Users/<name>``;
 - any other case (``/users/<name>``, ``c:\\users\\<name>``) only where a path starts, because inside a path a
   lower-case ``users/`` is a directory like any other (``docs/users/`` in the tree);
-- separators single, repeated, escaped (``C:\\\\Users\\\\``) or URL-encoded (``%2FUsers%2F``);
+- separators single, repeated, escaped (``C:\\\\Users\\\\``, JSON's ``\\/Users\\/``) or URL-encoded (``%2FUsers%2F``,
+  ``%5CUsers%5C``);
 - the dash-encoded ``-Users-<name>-`` that a session's scratchpad carries
   (``/private/tmp/claude-<uid>/-Users-<name>-<repo>/``), which the first scrub's search for ``/Users/`` missed, where
   an encoded path starts (not after a letter or digit, so "Power-Users-guide" is prose).
-A placeholder (``<home>``, ``<scratchpad>``), an elision (``/Users/…``) and ``~/`` name nobody and pass, as do the
-public accounts in ``PUBLIC_ACCOUNTS``.
+A placeholder (``<home>``, ``<scratchpad>``), an elision (``/Users/…``), a variable (``/Users/$USER``) and ``~/``
+name nobody and pass, as do the public accounts in ``PUBLIC_ACCOUNTS`` and paths on no one's disk (``NOT_A_DISK``:
+Godot's ``res://`` and ``user://``, and web URLs). Any other directory spelled exactly ``Users`` or ``home`` is refused
+wherever it sits, because it can't be told from a home: name it otherwise, or reach it through ``res://``.
 
-A finding names the file and line, never the name it matched (a path is printed with it masked): CI's logs are public.
+A finding names the file and line, never the name it matched; a file's path is printed cut where the name starts
+(``masked``). CI's logs are public.
 
 It can't see a name outside a path (an ``ls -l`` owner column, an account named in prose), a hostname, a private
 address, text that isn't UTF-8, a symlink's target, or a dash-encoded home after an encoded prefix
@@ -25,50 +29,43 @@ from __future__ import annotations
 
 import re
 
-_SEP = r"(?:\\+|/+|(?i:%2f))"
-# A name runs to the next separator, so ``runner-x`` is not ``runner``. It never ends in ``-``, so ``runner-<name>`` is
-# a placeholder. ``\w`` is Unicode's: a profile named in any script is a name.
-_NAME = r"(?P<name>\w(?:[\w.-]*\w)?)"
+# Separators: slashes or backslashes, single, repeated or JSON-escaped (``\/``), or URL-encoded (%2F, %5C).
+_SEP = r"(?:[\\/]|(?i:%2f|%5c))+"
+# A name is whatever follows the home's separator, from a character a name can start with (a word character in any
+# script, or ``%`` for a URL-encoded one) to the next separator, quote or bracket. Only ``_account`` reads where it
+# ends; a finding never prints any of it (``masked``).
+_NAME = r"(?P<name>[\w%][^\s\\/<>\"'`|()\[\],;]*)"
 _EXACT = rf"{_SEP}(?:Users|home){_SEP}"
 _AT_START = rf"(?<![\w.-])(?i:(?:/+|%2f)(?:users|home)|[a-z]:{_SEP}users){_SEP}"
 PATH_HOME = re.compile(rf"(?:{_EXACT}|{_AT_START}){_NAME}")
-# A home as Claude Code encodes a project directory: its slashes are dashes, so the name ends at the next dash.
-DASH_HOME = re.compile(r"(?<![^\W_])-(?i:users|home)-(?P<name>\w[\w.]*)")
+# A home as Claude Code encodes a project directory: its slashes are dashes.
+DASH_HOME = re.compile(r"(?<![^\W_])-(?i:users|home)-(?P<name>[\w%][\w.%]*)")
+# Paths that are not on anyone's disk: Godot's res:// and user:// (a game's own home/ directory) and web URLs.
+NOT_A_DISK = re.compile(r"(?i)\b(?:res|user|https?)://\S*")
 # Accounts whose name is public: GitHub's hosted runners (/Users/runner, /home/runner) and macOS's shared folder.
 PUBLIC_ACCOUNTS = frozenset({"runner", "Shared"})
 ADVICE = "write <home>, <scratchpad> or a path relative to the repository (the repository is public)"
 
 
+def _account(name: str) -> str:
+    """The account a name begins with: up to an encoded separator, without a trailing ``-`` or ``.``, so
+    ``runner-<name>`` and a sentence's full stop leave ``runner``."""
+    return re.split(r"(?i)%2f|%5c", name)[0].rstrip("-.")
+
+
 def _private(text: str) -> list[re.Match[str]]:
-    """The homes in ``text`` whose account isn't public."""
-    found = [*PATH_HOME.finditer(text), *DASH_HOME.finditer(text)]
-    return [m for m in found if m["name"] not in PUBLIC_ACCOUNTS]
-
-
-# The rest of a dash-encoded path component: an encoded name's end can't be told (``-Users-<first>-<last>-<repo>``).
-_COMPONENT_REST = re.compile(r"[^/\\\s`'\"]*")
-
-
-def _span(match: re.Match[str], text: str) -> tuple[int, int]:
-    """The characters a match's name may occupy: to the separator for a path, to the component's end for a dash form."""
-    if match.re is DASH_HOME:
-        rest = _COMPONENT_REST.match(text, match.end("name"))
-        return match.start("name"), rest.end() if rest else match.end("name")
-    return match.start("name"), match.end("name")
+    """The homes in ``text`` whose account isn't public, outside the paths that are on no one's disk."""
+    on_disk = NOT_A_DISK.sub(lambda m: " " * len(m[0]), text)  # blanked, so match offsets stay the text's
+    found = [*PATH_HOME.finditer(on_disk), *DASH_HOME.finditer(on_disk)]
+    return [m for m in found if _account(m["name"]) not in PUBLIC_ACCOUNTS]
 
 
 def masked(text: str) -> str:
-    """``text`` with each private account name written ``<name>``, so a finding shows a path without publishing it.
-    Overlapping spans (a dash form inside a path form's name) merge, so no letter of either leaks."""
-    spans: list[list[int]] = []
-    for start, end in sorted(_span(m, text) for m in _private(text)):
-        if spans and start <= spans[-1][1]:
-            spans[-1][1] = max(spans[-1][1], end)
-        else:
-            spans.append([start, end])
-    for start, end in reversed(spans):
-        text = text[:start] + "<name>" + text[end:]
-    return text
+    """``text`` cut where its first private name starts and ended ``<name>…``. Where a name ends can't be known
+    (combining marks, a space in a Windows profile, a dash-encoded first and last name), so nothing after the start
+    is printed: CI's logs are public."""
+    starts = [m.start("name") for m in _private(text)]
+    return text[: min(starts)] + "<name>…" if starts else text
 
 
 def check_paths(files: dict[str, str]) -> list[str]:
