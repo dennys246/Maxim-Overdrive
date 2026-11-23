@@ -1,15 +1,15 @@
-"""Unicode property tables guest text needs and ``unicodedata`` lacks (``simcore.core.text``; O65).
+"""Unicode tables guest text needs and ``unicodedata`` lacks (``simcore.core.text``; O65): two generated, one by hand.
 
 Generated once from Unicode 16.0's ``DerivedCoreProperties.txt`` (``Default_Ignorable_Code_Point``) and
 ``emoji-test.txt`` (the bases followed by U+FE0F), under the Unicode License v3, merged into inclusive, sorted,
 disjoint ranges.
 Regenerate them, with a test change, when the engine moves to a newer Unicode version; ``tests/test_text.py`` holds
-their shape and a sample of points to the published data.
+their shape and a sample of points to the published data. ``NO_INK`` alone is kept by hand (O70, O71, O72).
 """
 
 from __future__ import annotations
 
-__all__ = ["DEFAULT_IGNORABLE", "EMOJI", "UNICODE_VERSION"]
+__all__ = ["DEFAULT_IGNORABLE", "EMOJI", "NO_INK", "UNICODE_VERSION"]
 
 UNICODE_VERSION = "16.0.0"
 
@@ -18,6 +18,16 @@ DEFAULT_IGNORABLE: tuple[tuple[int, int], ...] = (
     (0x00AD, 0x00AD), (0x034F, 0x034F), (0x061C, 0x061C), (0x115F, 0x1160), (0x17B4, 0x17B5), (0x180B, 0x180F),
     (0x200B, 0x200F), (0x202A, 0x202E), (0x2060, 0x206F), (0x3164, 0x3164), (0xFE00, 0xFE0F), (0xFEFF, 0xFEFF),
     (0xFFA0, 0xFFA0), (0xFFF0, 0xFFF8), (0x1BCA0, 0x1BCA3), (0x1D173, 0x1D17A), (0xE0000, 0xE0FFF),
+)  # fmt: skip
+
+# Characters that draw nothing though no Unicode property says so, kept by hand and re-checked on a Unicode upgrade
+# (O70, O71, O72). A blank (the braille blank, the hieroglyphs' full and half blanks) is never a message's only ink and
+# counts in a run; a mark here (Khitan's filler, five scripts' invisible joiners) is refused outright. Characters named
+# BLANK or FILLER that draw (U+2422, the scripts' gap fillers) are not here; tests/test_text.py holds every such name
+# to one side or the other. U+1D159 MUSICAL SYMBOL NULL NOTEHEAD: step 7 delta review N-N2; the joiners: O71's review.
+NO_INK: tuple[tuple[int, int], ...] = (
+    (0x2800, 0x2800), (0x2D7F, 0x2D7F), (0x1107F, 0x1107F), (0x11A47, 0x11A47), (0x11A99, 0x11A99),
+    (0x11F42, 0x11F42), (0x13441, 0x13442), (0x16FE4, 0x16FE4), (0x1D159, 0x1D159),
 )  # fmt: skip
 
 # The bases of a presentation sequence: each character that emoji-test.txt shows followed by U+FE0F, so it has both
