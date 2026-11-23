@@ -33,6 +33,7 @@ MAXIM_OVERDRIVE_ALL_TIERS=1 .venv/bin/pytest  # adds the 0.05 m verification gri
 MAXIM_OVERDRIVE_GODOT=1 .venv/bin/pytest    # adds the Godot gate fixtures (about a minute; needs Godot)
 scripts/prepush.sh                          # the full gate: lint, types, standards, Godot, every tier, coverage, diff coverage
 .venv/bin/python scripts/godot_check.py     # the gate's Godot step alone: pinned version, import, every script loads, client tests
+OVERDRIVE_REMOTE=<ssh-alias> .venv/bin/python scripts/remote_gate.py --clone overdrive-gate/<session>-repo <branch>  # gate on the mini
 ```
 
 `[maxim]` is optional for running the server, but the gate needs it: mypy checks the SEM bridge against Maxim's own
