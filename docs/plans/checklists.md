@@ -376,19 +376,18 @@ capture, the token, caps, 1009), `HostOnly` with a guest-role view, and `player_
   - Guest text is judged by the interpreter's Unicode tables for unassigned code points: 5,812 pass on Python 3.14
     (16.0) that 3.12 (15.0) refuses (Determinism delta N3). The log keeps the text `player_text` returned and no
     reader re-checks it, or the engine pins one Unicode version; trigger: the first logged speech (`phase1/agents`).
-  - Guest text's residual: a character that draws nothing yet no Unicode property or name marks (U+1D159, MUSICAL
-    SYMBOL NULL NOTEHEAD) still passes; trigger: the first guest text an NPC reads (`phase1/agents`), when a
-    rendering test can measure ink.
+  - Guest text's residual: a character that draws nothing yet no Unicode property or name marks passes until it is
+    found and listed in `text_tables.NO_INK` (O70 listed U+1D159, the one known); trigger: the first guest text an NPC
+    reads (`phase1/agents`), when a rendering test can measure ink over every code point.
   - What Godot 4.7.2 does at the 65th queued packet (`max_queued_packets` is 64), measured with a listener that
     sends faster than the client polls; trigger: step 8's live client.
   - `WireFrame.index(z, y, x)` and `CellSnapshot.index(x, y, z)` take their axes in opposite orders; trigger: step
     8's decoder filling `CellSnapshot`, which picks one.
-  - Guest text's hidden channels the rulings leave open, for the owner (Trust D-N4, T3-N2, T4-S1): one variation
-    selector or joiner beside a visible character carries a bit or two per visible character; runs of spacing
-    characters between two visible ones have no limit: 28 of them (thin, hair, spacing blanks) pass in a run of any
-    length, about 4.8 bits each, so "hi" + 496 of them + "!" hides about 2,390 bits (measured). Closing it needs a
-    rule the rulings don't hold, such as a cap on a run of characters that draw nothing; trigger: the first guest
-    text an NPC reads (`phase1/agents`).
+  - Guest text's hidden channels, bounded but not closed (Trust D-N4, T3-N2, T4-S1; O70): one variation selector or
+    joiner beside a visible character carries a bit or two per visible character, not yet ruled on; a gap between
+    visible characters holds at most two of the 29 that draw nothing, about 9.8 bits (measured on 3.12), so "hi!"
+    hides at most about 39 bits where a run of any length hid about 2,390; trigger: the first guest text an NPC
+    reads (`phase1/agents`).
   - Open NITs from the review rounds, each a test or a code to tighten: a test that asserts the stage-1 fuzz's reach
     (Trust D-N5); `bad_version` naming its field alike on every path (D-N6); the client's code shape tied to
     `RefusalCode`'s spelling test (N-N3); a float of about a million digits, which the client's saturated exponent

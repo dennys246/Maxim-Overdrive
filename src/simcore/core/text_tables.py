@@ -4,12 +4,12 @@ Generated once from Unicode 16.0's ``DerivedCoreProperties.txt`` (``Default_Igno
 ``emoji-test.txt`` (the bases followed by U+FE0F), under the Unicode License v3, merged into inclusive, sorted,
 disjoint ranges.
 Regenerate them, with a test change, when the engine moves to a newer Unicode version; ``tests/test_text.py`` holds
-their shape and a sample of points to the published data.
+their shape and a sample of points to the published data. ``NO_INK`` alone is kept by hand (O70).
 """
 
 from __future__ import annotations
 
-__all__ = ["DEFAULT_IGNORABLE", "EMOJI", "UNICODE_VERSION"]
+__all__ = ["DEFAULT_IGNORABLE", "EMOJI", "NO_INK", "UNICODE_VERSION"]
 
 UNICODE_VERSION = "16.0.0"
 
@@ -19,6 +19,11 @@ DEFAULT_IGNORABLE: tuple[tuple[int, int], ...] = (
     (0x200B, 0x200F), (0x202A, 0x202E), (0x2060, 0x206F), (0x3164, 0x3164), (0xFE00, 0xFE0F), (0xFEFF, 0xFEFF),
     (0xFFA0, 0xFFA0), (0xFFF0, 0xFFF8), (0x1BCA0, 0x1BCA3), (0x1D173, 0x1D17A), (0xE0000, 0xE0FFF),
 )  # fmt: skip
+
+# Characters that draw nothing though no Unicode property or name says so, found by review and kept by hand (O70):
+# U+1D159 MUSICAL SYMBOL NULL NOTEHEAD (step 7 delta review N-N2). Each is treated as a blank: never a message's only
+# ink, and counted in a run of characters that draw nothing. Re-check the list on a Unicode upgrade.
+NO_INK: tuple[tuple[int, int], ...] = ((0x1D159, 0x1D159),)
 
 # The bases of a presentation sequence: each character that emoji-test.txt shows followed by U+FE0F, so it has both
 # a text and an emoji form (O65; step 7 delta review X-N2, which found the broader Emoji property let a selector ride

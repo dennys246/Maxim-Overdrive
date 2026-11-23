@@ -14,9 +14,9 @@ import unicodedata
 import idna
 
 from simcore.core.refusals import RefusalCode, Refused
-from simcore.core.text_tables import DEFAULT_IGNORABLE, EMOJI
+from simcore.core.text_tables import DEFAULT_IGNORABLE, EMOJI, NO_INK
 
-__all__ = ["NAME_JOINERS", "player_text", "visible_name"]
+__all__ = ["MAX_BLANK_RUN", "NAME_JOINERS", "player_text", "visible_name"]
 
 # A name's characters follow IDNA2008 (RFC 5890-5893; the idna package's code-point tables and contextual rules), the
 # standard for which characters are safe in an identifier people read, rather than a rule written here: three review
@@ -78,6 +78,10 @@ _PRESENTATION = frozenset("\ufe0e\ufe0f")
 # Categories refused outright: controls (a newline too: guest text is one line), format, surrogates, private use,
 # unassigned code points, and the line and paragraph separators.
 _REFUSED_CATEGORIES = frozenset({"Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp"})
+# The longest run of characters that draw nothing guest text may hold (O70): two spaces after a full stop pass, but a
+# run can't carry hidden bits at any length (about 4.8 bits a character, so "hi", 496 of them and "!" hid about 2,390
+# bits; step 7 delta review T4-S1).
+MAX_BLANK_RUN = 2
 
 
 def _within(ranges: tuple[tuple[int, int], ...], ch: str) -> bool:
@@ -86,10 +90,11 @@ def _within(ranges: tuple[tuple[int, int], ...], ch: str) -> bool:
 
 def _blank(ch: str) -> bool:
     """A character Unicode names a BLANK or a FILLER: one that draws nothing though no property says so (the braille
-    blank, Khitan's and the hieroglyphs' fillers; step 7 delta review D-B1). The name rule's own test, shared. In
+    blank, Khitan's and the hieroglyphs' fillers; step 7 delta review D-B1), or one ``NO_INK`` lists (O70). The name
+    rule's own test, shared. In
     guest text a blank is no drawn character, like a space, and only a zero-width one (a mark) is refused outright,
     so braille and the scripts' gap fillers keep working inside other text, though never alone (delta 2, N-S1)."""
-    return any(w in unicodedata.name(ch, "") for w in _BLANK_WORDS)
+    return _within(NO_INK, ch) or any(w in unicodedata.name(ch, "") for w in _BLANK_WORDS)
 
 
 def _visible(ch: str) -> bool:
@@ -118,12 +123,22 @@ def _refused_at(text: str, i: int) -> bool:
     return unicodedata.category(ch) in _REFUSED_CATEGORIES or _within(DEFAULT_IGNORABLE, ch) or zero_width_blank
 
 
+def _long_blank_run_at(text: str) -> int | None:
+    """Where the first run of more than ``MAX_BLANK_RUN`` characters that draw nothing starts, if one does."""
+    run = 0
+    for i, ch in enumerate(text):
+        run = 0 if _visible(ch) else run + 1
+        if run > MAX_BLANK_RUN:
+            return i - MAX_BLANK_RUN
+    return None
+
+
 def player_text(value: object, what: str, *, max_chars: int) -> str:
     """Guest text as the engine keeps it: in NFC, then 1 to ``max_chars`` characters, at least one of which draws
-    something, with no character O61 and O65 refuse. Unassigned code points (Cn) follow the interpreter's Unicode
-    version (15.0 on Python 3.12, 16.0 on 3.14), so the text kept is what a replay reads back, never re-checked. A
-    refusal names where and what kind of character, never the text: what a guest typed is theirs, and a log is no
-    place to echo it."""
+    something, with no character O61 and O65 refuse and no run of more than ``MAX_BLANK_RUN`` that draw nothing
+    (O70). Unassigned code points (Cn) follow the interpreter's Unicode version (15.0 on Python 3.12, 16.0 on 3.14),
+    so the text kept is what a replay reads back, never re-checked. A refusal names where and what kind of character,
+    never the text: what a guest typed is theirs, and a log is no place to echo it."""
     if type(value) is not str:  # a str subclass could print as something else
         raise Refused(f"{what} must be text", code=RefusalCode.BAD_SHAPE)
     if any(0xD800 <= ord(ch) <= 0xDFFF for ch in value):  # NFC has no form for a lone surrogate
@@ -135,6 +150,12 @@ def player_text(value: object, what: str, *, max_chars: int) -> str:
         if _refused_at(text, i):
             kind = unicodedata.category(text[i])
             raise Refused(f"{what} holds a {kind} character at {i} that guest text may not", code=RefusalCode.BAD_TEXT)
+    run_at = _long_blank_run_at(text)
+    if run_at is not None:
+        raise Refused(
+            f"{what} holds a run of more than {MAX_BLANK_RUN} characters that draw nothing at {run_at}",
+            code=RefusalCode.BAD_TEXT,
+        )
     if not any(_visible(ch) for ch in text):
         raise Refused(f"{what} draws nothing: every character is a space or blank", code=RefusalCode.BAD_TEXT)
     return text

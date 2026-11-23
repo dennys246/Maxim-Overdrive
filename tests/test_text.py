@@ -12,8 +12,8 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from simcore.core.refusals import RefusalCode, Refused
-from simcore.core.text import player_text, visible_name
-from simcore.core.text_tables import DEFAULT_IGNORABLE, EMOJI
+from simcore.core.text import MAX_BLANK_RUN, player_text, visible_name
+from simcore.core.text_tables import DEFAULT_IGNORABLE, EMOJI, NO_INK
 
 ZWNJ, ZWJ = "\u200c", "\u200d"
 
@@ -35,6 +35,9 @@ PASSES = [
     "\u263a\ufe0e",  # a smiley drawn as text: VS15
     "\u2813\u280a\u2800\u281e\u2813\u2811\u2817\u2811",  # braille "hi there": its blank is its space (delta 2, N-S1)
     "\u2422 x",  # the BLANK SYMBOL, which draws
+    "Done.  Next",  # two spaces after a full stop: a run of two passes (O70)
+    "\u4f60\u597d\u3000\u3000\u4e16\u754c",  # two ideographic spaces
+    "  hi",  # a run of two at the start
 ]
 
 
@@ -106,6 +109,13 @@ def test_a_refusal_never_echoes_the_text():
     assert "secret" not in str(refused.value)
 
 
+def _draws(ch: str) -> bool:
+    """The test's own reading of a character that draws something: not a space, a format character, a blank or a
+    filler by name, or U+1D159."""
+    blank = any(w in unicodedata.name(ch, "") for w in ("BLANK", "FILLER")) or ch == "\U0001d159"
+    return not (ch.isspace() or unicodedata.category(ch) == "Cf" or blank)
+
+
 @settings(max_examples=300, deadline=None)
 @given(st.text(max_size=40))
 def test_whatever_passes_is_nfc_within_its_cap_and_holds_no_lone_format_character(text):
@@ -120,6 +130,8 @@ def test_whatever_passes_is_nfc_within_its_cap_and_holds_no_lone_format_characte
         return
     assert unicodedata.normalize("NFC", out) == out
     assert 0 < len(out) <= 20
+    inkless = [not _draws(ch) for ch in out]
+    assert not any(all(inkless[i : i + MAX_BLANK_RUN + 1]) for i in range(len(out) - MAX_BLANK_RUN))
     for i, ch in enumerate(out):
         if unicodedata.category(ch) == "Cf":
             assert ch in (ZWNJ, ZWJ)
@@ -148,7 +160,32 @@ HIDDEN = [
     ("a\U00016fe4\u200d\U00016fe4b", "fillers and a joiner, which could carry hidden bits"),
     ("\U00013441", "a hieroglyph full blank"),
     ("a\U00016fe4b", "a zero-width filler mark inside a word: refused by that rule alone (delta 3, T3-S1)"),
+    ("\U0001d159", "the null notehead alone, which no property marks (O70; delta 2, N-N2)"),
+    ("\U0001d159 ", "the null notehead and a space"),
 ]
+
+
+# A run of characters that draw nothing carries hidden bits at any length, so a run is capped (O70; delta 4, T4-S1)
+LONG_RUNS = [
+    ("a   b", "three spaces"),
+    ("a\u2009\u200a\u2009b", "thin and hair spaces"),
+    ("a \u2800 b", "spaces around a braille blank"),
+    ("a\U0001d159\U0001d159\U0001d159b", "three null noteheads"),
+    ("hi   ", "a run at the end"),
+    ("   hi", "a run at the start"),
+    ("hi" + "\u2009\u200a\u3000\u2800" * 124 + "!", "the 496-character run that hid about 2,390 bits"),
+]
+
+
+@pytest.mark.parametrize(("text", "why"), LONG_RUNS, ids=[why for _, why in LONG_RUNS])
+def test_a_run_of_more_than_two_characters_that_draw_nothing_is_refused(text, why):
+    with pytest.raises(Refused, match="run of more than 2") as refused:
+        player_text(text, "speech", max_chars=500)
+    assert refused.value.code is RefusalCode.BAD_TEXT
+
+
+def test_the_null_notehead_is_no_name_either():
+    assert not visible_name("crate\U0001d159")
 
 
 @pytest.mark.parametrize(("text", "why"), HIDDEN, ids=[why for _, why in HIDDEN])
@@ -159,7 +196,7 @@ def test_characters_that_draw_nothing_are_refused(text, why):
 
 
 def test_the_property_tables_are_sorted_disjoint_ranges_holding_unicode_16_s_points():
-    for table in (DEFAULT_IGNORABLE, EMOJI):
+    for table in (DEFAULT_IGNORABLE, EMOJI, NO_INK):
         assert all(lo <= hi for lo, hi in table)
         assert all(a[1] + 1 < b[0] for a, b in pairwise(table))  # merged: no touching ranges
     # A sample of each property's published points, so a table cut short or shifted fails here
@@ -170,4 +207,5 @@ def test_the_property_tables_are_sorted_disjoint_ranges_holding_unicode_16_s_poi
     assert all(within(DEFAULT_IGNORABLE, cp) for cp in ignorable)
     assert not any(within(DEFAULT_IGNORABLE, cp) for cp in (0x0041, 0x2010, 0x2800, 0xE1000))
     assert all(within(EMOJI, cp) for cp in emoji)
+    assert within(NO_INK, 0x1D159)
     assert not any(within(EMOJI, cp) for cp in (ord("a"), 0x1F600, 0x1F525))  # emoji by default: no second form
