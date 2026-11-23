@@ -2,7 +2,7 @@
 
 Scope: `git diff 69483d9` plus the untracked files, read as the tree stood on 2026-11-22. I did not run the gate or `godot_check.py`. I did run:
 - `.venv/bin/pytest tests/test_golden_fuel.py tests/test_golden_stability.py tests/test_golden_run.py tests/test_fuel_fixtures.py`: 52 passed.
-- Godot 4.7.2 (windowed, M2, Compatibility) on a copy of `client/` under `$D=/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/b7bf205d-729f-449a-b38d-e830de582329/scratchpad/rev_executor/`, with HOME and XDG set to `$D`. On that copy I ran `stability_check.tscn` as shipped, a deletion probe and a two-frame probe scene of my own (`$D/client/tests/probe_update.gd`).
+- Godot 4.7.2 (windowed, M2, Compatibility) on a copy of `client/` under `$D=<scratchpad>/rev_executor/`, with HOME and XDG set to `$D`. On that copy I ran `stability_check.tscn` as shipped, a deletion probe and a two-frame probe scene of my own (`$D/client/tests/probe_update.gd`).
 
 I modified nothing in the worktree.
 

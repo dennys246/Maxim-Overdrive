@@ -2,7 +2,7 @@
 
 Lens: Client and rendering. I read the diff (`docs/design/client_objects.md`, `tools/godot_probes/probe_fuel_objects.gd` and its two shaders), all of `client_rendering.md`, the built renderer (`cell_volume.gdshaderinc`, `crack.gdshaderinc`, `emission.gdshaderinc`, `debug.gdshaderinc`, `cell_volume.gd`), `client/tests/support/render_stage.gd`, `scripts/golden_measures.py`, step 8's `fold.md` (decisions 1–9), backlog rows B5, B7, B40, B41 and B42, and fire_solid §5.6.
 
-**What I ran.** Godot 4.7.2.stable.official.ed1daf0bf, Compatibility, Apple M2. Everything ran on a copy of `tools/godot_probes/` at `/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/b7bf205d-729f-449a-b38d-e830de582329/scratchpad/review_client/probes/`, with HOME and XDG moved there. Nothing in the worktree or its git state was touched.
+**What I ran.** Godot 4.7.2.stable.official.ed1daf0bf, Compatibility, Apple M2. Everything ran on a copy of `tools/godot_probes/` at `<scratchpad>/review_client/probes/`, with HOME and XDG moved there. Nothing in the worktree or its git state was touched.
 
 - **R0:** the shipped probe, unchanged.
 - **R1, `rv_probe.gd`:** MultiMesh custom-data precision.

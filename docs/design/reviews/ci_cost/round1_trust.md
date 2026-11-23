@@ -39,7 +39,7 @@ Findings: **2 BLOCKER, 4 SHOULD-FIX, 3 NIT.**
 ## What a job can reach
 
 The runner app runs jobs as the account that started it, with no sandbox (Docs, recalled). If that account is
-`dennys`, every job can reach the following:
+`<owner>`, every job can reach the following:
 
 - the owner's whole home: `~/.ssh`, `~/overdrive-gate` (other branches' worktrees, the Godot binary), and the Ollama
   models and data;
@@ -119,7 +119,7 @@ BLOCKER 2 should instead `rm -rf` the `_work/<repo>` directory and point `PIP_CA
 
 Create a non-admin user such as `runner`, with no sudo and no keychain items, and keep the owner's GitHub, SSH and
 Tailscale credentials out of it. A second account is not automatically walled off. On this Mac, `ls -led ~` gives
-`drwxr-x---+ dennyschaedig staff` and `~/Scripts` is `drwxr-xr-x` (measured). Every standard user is in `staff`, so a
+`drwxr-x---+ <owner> staff` and `~/Scripts` is `drwxr-xr-x` (measured). Every standard user is in `staff`, so a
 runner account could traverse the owner's home and read anything created with umask 022, such as `~/overdrive-gate`.
 On the mini, run `chmod 700 ~` for the owner, then check (unverified there).
 
