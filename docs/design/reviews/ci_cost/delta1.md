@@ -77,7 +77,7 @@ copy has no `.git`.
 ## 4. Going-public plan and B37
 
 - Test name in step 2: it matches the test's name.
-- "Seven files (three spike scripts and four documents)": verified. `git ls-files | xargs grep -l /Users/dennyschaedig`
+- "Seven files (three spike scripts and four documents)": verified. `git ls-files | xargs grep -l <home>`
   gives four documents and `spikes/physics/solid/{fds_driver.py,launch_fits.sh,launch_fits_rerun1.sh}`. Two more
   files hold elided `/Users/…` forms, which are not personal.
 - "Runners lists none": round 1 measured `total_count: 0`. I did not re-measure.

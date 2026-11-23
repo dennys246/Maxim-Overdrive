@@ -239,7 +239,7 @@ behaviour-changing with the experiment Maxim's process requires. State which in 
 ### S8. "No `HOME`" doesn't contain `~/.maxim`; it falls back to the real home (§6.6 "The environment"; §12.1 item 1)
 
 With `HOME` unset, `os.path.expanduser("~")` and `Path.home()` fall back to the password database. Run under
-`env -i … python3 -I`, both return `/Users/dennyschaedig`. Maxim has 65 `expanduser`/`Path.home()` sites (for example
+`env -i … python3 -I`, both return `<home>`. Maxim has 65 `expanduser`/`Path.home()` sites (for example
 `api.py:179`, `Path.home() / ".maxim"`). §12.1 item 1 claims the allowlist closes guests' words reaching the owner's
 `~/.maxim` (TBR-13). *Scenario:* a still-global store (one of the ten families) resolves `~/.maxim/...` in the worker
 and writes guest-derived provenance to the owner's real home. *Fold:* set `HOME` (and the `XDG_*` variables) to the

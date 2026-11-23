@@ -6,7 +6,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 MKL_NUM_THREADS=1
-PY=${PYTHON:-/Users/dennyschaedig/Scripts/Maxim-Overdrive/.worktrees/fire-research/.venv/bin/python}
+PY=${PYTHON:-../../../.venv/bin/python}  # the running worktree's own venv
 mkdir -p out_rerun1/fit out_rerun1/fit_rerun
 export SOLID_FIT_OUT=out_rerun1/fit  # never the first run's out/fit
 jobs=$("$PY" -c '
