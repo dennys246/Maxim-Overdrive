@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 import sys
 import threading
 import urllib.error
@@ -15,6 +16,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
@@ -640,8 +642,64 @@ def test_m5_refuses_to_score_on_an_engine_that_moved(tmp_path: Path) -> None:
 
 def test_m5_records_the_engine_it_burned_on() -> None:
     out = burn.m5([])
-    assert out["engine"]["matches"] == "c6d4f10"
-    assert len(out["engine"]["src_tree"]) == 40
+    head = subprocess.run(
+        ["git", "-C", str(protocol.ROOT), "rev-parse", "HEAD:src"], check=True, capture_output=True, text=True
+    ).stdout.strip()
+    assert out["engine"] == {"matches": "c6d4f10", "src_tree": head}
+
+
+def test_m5_checks_the_engine_before_it_burns_anything(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Delta 8, D8-S1: m5 itself must call the check, and before any burn.
+    burned: list[Any] = []
+
+    def moved() -> str:
+        raise RuntimeError("M5 refuses to score: planted")
+
+    def burn_one(spec: dict[str, Any]) -> dict[str, Any]:
+        burned.append(spec)
+        return {"ignited": False, "code": None}
+
+    monkeypatch.setattr(burn, "check_engine", moved)
+    monkeypatch.setattr(burn, "burn", burn_one)
+    sample = SimpleNamespace(verdict=SimpleNamespace(klass=protocol.ACCEPTED), spec={"name": "x"}, model="S", arm="A1")
+    with pytest.raises(RuntimeError, match="planted"):
+        burn.m5([sample])
+    assert burned == []
+
+
+def test_m5_refuses_an_uncommitted_src_which_no_tree_names(tmp_path: Path) -> None:
+    # Delta 8, D8-S2: HEAD:src names the committed engine, not an edited one.
+    env = {"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "GIT_CONFIG_NOSYSTEM": "1"}
+
+    def git(*args: str) -> None:
+        subprocess.run(["git", "-C", str(tmp_path), *args], check=True, capture_output=True, env=env)
+
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "heat.py").write_text("K = 1\n")
+    git("init", "-q")
+    git("add", "-A")
+    git("-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "commit", "-qm", "t")
+    assert len(burn.src_tree(tmp_path)) == 40
+    (tmp_path / "src" / "heat.py").write_text("K = 2\n")
+    with pytest.raises(RuntimeError, match="M5 refuses to score: src has uncommitted changes"):
+        burn.src_tree(tmp_path)
+
+
+def test_m5_burn_returns_a_fire_on_air_and_a_burnout_as_the_golden_rows_say() -> None:
+    # Delta 8, D7-N2: burn()'s own returns on the golden's fire on air (legs) and burnout (block).
+    golden = json.loads(burn.GOLDEN.read_text())
+    arms = protocol.load_arms()
+    specs = {raw["name"]: protocol.convert(raw, arms) for raw in golden["specs"]}
+    assert burn.burn(specs["legs"]) == {"ignited": True, "fire_on_air": True}
+    rows = golden["turns"]["block"]
+    gone = next(t for t in range(1, len(rows)) if rows[t][0] == 0)
+    want = {t: None if t >= gone else float(rows[t][1]) for t in burn.AT}
+    assert burn.burn(specs["block"]) == {
+        "ignited": True,
+        "fire_on_air": False,
+        "solid_gone_turn": gone,
+        "integrity": want,
+    }
 
 
 def test_m6_and_m8_rates_come_from_the_labels() -> None:

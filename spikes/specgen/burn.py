@@ -88,11 +88,17 @@ def check_engine(golden_path: Path = GOLDEN) -> str:
     return str(golden["engine"])
 
 
-def _src_tree() -> str:
-    out = subprocess.run(
-        ["git", "-C", str(protocol.ROOT), "rev-parse", "HEAD:src"], check=True, capture_output=True, text=True
-    )
-    return out.stdout.strip()
+def _git(root: Path, *args: str) -> str:
+    return subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True, text=True).stdout.strip()
+
+
+def src_tree(root: Path = protocol.ROOT) -> str:
+    """The committed ``src`` tree M5 burns on. An uncommitted ``src`` is refused: no tree hash names the engine that
+    would have run (delta 8, D8-S2)."""
+    changed = _git(root, "status", "--porcelain", "--", "src")
+    if changed:
+        raise RuntimeError(f"M5 refuses to score: src has uncommitted changes, so no tree names its engine:\n{changed}")
+    return _git(root, "rev-parse", "HEAD:src")
 
 
 def burn(spec: dict[str, Any]) -> dict[str, Any]:
@@ -114,7 +120,7 @@ def burn(spec: dict[str, Any]) -> dict[str, Any]:
 def m5(samples: Sequence[Any]) -> dict[str, Any]:
     """Per (model, arm), over accepted specs: the fire-on-air fraction and the censored integrity means, with the
     engine they burned on (errata E18)."""
-    engine = {"matches": check_engine(), "src_tree": _src_tree()}  # before any burn (errata E18)
+    engine = {"matches": check_engine(), "src_tree": src_tree()}  # before any burn (errata E18)
     rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for s in samples:
         if s.verdict.klass == protocol.ACCEPTED and s.spec is not None:

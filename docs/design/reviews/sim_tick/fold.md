@@ -213,3 +213,18 @@ material table's (`_materials`), checked by deep-copying each attribute alone.
 | D7-N1 | the golden's recorder isn't in the repo | `spikes/specgen/m5_golden_recorder.py`, beside the golden | open (for the reviewer) |
 | D7-N2 | no golden spec is a fire on air or a burnout | the golden holds six specs, `legs` (a fire on air) and `block` (burns out) among them, re-recorded on `c6d4f10` | open (for the reviewer) |
 | D5-N3 (reopened) | the docstring names the wrong table | "the material table's mappingproxy" | open (for the reviewer) |
+
+## Delta 8 (`delta8.md`, verbatim): 0 BLOCKER, 2 SHOULD-FIX, 2 NIT, on 8dcc0ff, the delta-7 fold
+
+One reader (Executor, Architecture, Wire integrity, Determinism) on `9de55a3..8dcc0ff`. The reader's statuses for
+delta 7: D7-S1, D7-N1 and D5-N3 fixed; D7-S2 the owner's ruling, and E18's text matches it; D7-N2 open, against the
+author's claim, because nothing tested `burn()`'s own returns on the fire on air and the burnout. Each fold below was
+proved by a mutation of `burn.py` that turns exactly one M5 test red (six mutations, six reds).
+
+| # | Finding | Fold | Status |
+|---|---|---|---|
+| D8-S1 | no test sees that `m5` calls `check_engine`, or calls it before burning | `test_m5_checks_the_engine_before_it_burns_anything` plants a refusing check and a recording `burn`; red with the call replaced by its literal, and with the check moved below the burns | open (for the reviewer) |
+| D8-S2 | `src_tree` records `HEAD:src`, not the `src` that ran; the test passes on any 40 characters | `burn.src_tree` refuses an uncommitted `src` (`git status --porcelain -- src`), so the recorded tree is the engine; `test_m5_refuses_an_uncommitted_src_which_no_tree_names` edits a committed `src` in a throwaway repository; `test_m5_records_the_engine_it_burned_on` compares with `HEAD:src`. Red without the refusal, and with the tree replaced by zeros. `generate.py::header`'s `src_tree`, which came before this diff, is not changed | open (for the reviewer) |
+| D8-N1 | E18 claims any engine that would move an M5 number stops M5; the golden is wood alone | E18 now says what the check covers: the golden's six specs, with data files refused at scoring by `data_sha256`, and a `src` change that moves only another material's burn passes | open (for the reviewer) |
+| D8-N2 | the errata intro's "committed before any data exists" has no exception; E18's time is stale | the intro names E18 as the exception; E18 says it was first written at 23:34 on 2026-11-22 and rewritten on 2026-11-23 | open (for the reviewer) |
+| D7-N2 (reopened) | `burn()`'s returns on a fire on air and a burnout are untested | `test_m5_burn_returns_a_fire_on_air_and_a_burnout_as_the_golden_rows_say` derives them from the golden's rows; red with the fire-on-air return deleted, and with the censor moved below the integrity read | open (for the reviewer) |
