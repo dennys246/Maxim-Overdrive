@@ -374,15 +374,17 @@ See `docs/book_to_world.md`. Extraction, timeline and the perspective split, the
 
 ## Before the repository goes public
 
-The repository is private until Maxim publishes its fix for OD-I5 (owner, 2026-11-21). Going public is one branch,
-`phaseN/go-public`, which does all of this, then the owner flips visibility:
+The repository was private until Maxim published its fix for OD-I5 (owner, 2026-11-21). It is public again since
+2026-11-22 (owner), after the disclosure and Maxim 1.3.4's release. The plan was one branch, `phaseN/go-public`, doing
+all of this before visibility flipped. Items 1 and 3 hold (item 3 read from the repository settings on 2026-11-22:
+no runners, approval for first-time contributors, read-only default token). Items 2, 4 and 5 are still open:
 
 1. **Disclosure:** Maxim's advisory for OD-I5 is public and its fix released. Until then, stay private; the history is
    not rewritten (the mentions span 202 commits and GitHub keeps PR refs).
 2. **CI restored:** `.github/workflows/test.yml` runs Linux and macOS on every pull request again (public repositories
-   get free minutes). That reverses option B, so the test that pins it
-   (`tests/test_check_lock.py::test_macos_runs_on_githubs_runners_only_for_pushes_to_main_and_the_weekly_drift`) is
-   rewritten in the same commit.
+   get free minutes), reversing option B. The pinning test is rewritten as
+   `tests/test_check_lock.py::test_linux_and_macos_run_on_githubs_runners_for_every_pull_request_and_the_weekly_drift`
+   (PR #48).
 3. **No self-hosted runner** is registered (Settings > Actions > Runners lists none), and the repository settings
    require approval for workflow runs from first-time contributors.
 4. **Personal paths:** absolute paths under the owner's home in seven files (three spike scripts and four documents,

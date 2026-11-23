@@ -776,3 +776,70 @@ Tests to write first, by step. Each cites the design section it serves and the r
   - the Bio pushback candidate (the tool bridge's `entity_state` readback) gets a Phase 3 trigger row if Maxim's
     proximity-sensing plan revives (Wire NIT);
   - U11's "Until" names the IP gate's build step (NN5).
+
+## Sub-cell solids, S0 to S6 (`subcell_solids.md` §13)
+
+Items name the design section they serve and the review finding they come from (`reviews/subcell_solids/`). Items
+marked (delta 1) are mechanism findings delta 1 moved here under B33, each to be recorded as deferred by a reviewer
+with its step as the trigger.
+
+**S0, before 6.0a** (lands §12's S0 rows):
+- the contracts lint; `fire_solid.md`'s tests unchanged
+
+**S1. Representation, store, ownership** (lands §2, §3.1–§3.2, §4, §7.4, §11):
+- **red first:** the footstool, aquarium and locker specs at N sub-cell offsets and N origins × 0.2, 0.1 and 0.05 m: the
+  same representation, codes and mass everywhere.
+- Hypothesis: representation is a function of primitives and data, with parts exactly at each threshold and at half-µm
+  origins; any spec and origin places or raises `SpecRejected` with an enum code, leaving the tables, `pending` and
+  cells unchanged; a coordinate beyond the limit is `out_of_range`.
+- The codes S1 produces, each at its gate; the loader's cross-checks; the alley's walls stay cells.
+- **The module plan:** which layer each new module lives in, with one shared home for §2.1's rule (Architecture A-S7).
+- **(delta 1)** box-as-slab axes when edges tie, and the tiles' handedness (Wire N2);
+- **(delta 1)** §2.4's tie between two primitives each covering ½, by primitive order (N-b); the double-counted volume
+  bound at a touching face (N-c); `recipe_id`'s sentinel for structure and inert rows (Wire N7); the digest's member
+  order is the registry's (Wire N6).
+- **(delta 1)** structure's wire tables land with S1, or structure stays out of shipped scenes and the shipped `imagine`
+  path until S6, as a Known gap (Wire NS4)
+
+**S2. Thermal** (lands §3.3, §5.1, §5.3):
+- **closed forms with their boundary conditions stated:** a lumped sheet exchanging on all faces (τ ≈ 770 s at h = 25
+  with radiation off; about 630 s with it linearized, N-d) and under constant flux; a rail heated at one end against 1-D
+  lateral conduction; an island's coupled solve conserving energy at a 120× capacity ratio.
+- The Biot choice on survey §1's cases.
+- §2.3's heat row across the threshold.
+- **Deferred:** Physics S4's square section against a two-sided char closed form; a miss is a Known gap with its
+  numbers, and its fix (orthogonal profiles) changes the node limit, reported back here.
+- **(delta 1)** the thermal island's scheme and solver: in-plane conduction implicit, a direct solver, a fixed DOF
+  order, and an island solved alone bit-identical (S-g)
+
+**S3. Acts, laws, readings** (lands §7):
+- strike's sphere share against cells' at the threshold; the strike target by footprint plus σ; breach by ligament;
+  glass cracking's band gate on the in-plane closed form; the `QUANTITIES` pin; object-only refusals in `Frame.reading`
+  and `region_parts`; the never-perceivable list; a crater under a bearing removing the contact.
+- **(delta 1)** the glass edge band as a ring of tiles exactly `edge_band_um` wide, its frame-covered faces shaded from
+  flame and gas, against the in-plane closed form, so a pane can crack (S-c, Physics B4); a region that becomes
+  object-only mid-life: its reading reports unavailable and never raises, and `_check_region` follows §4.3 (Wire NS5);
+  naming the first act that reaches an object-only region (Wire N3)
+
+**S4. Statics** (lands §8):
+- crushing;
+- Euler buckling of a 1 m × 1 cm steel rod with `buckling_k`; a simply supported beam; the eccentric table's lift-off; a
+  pine leg charred at β under load (D31); a cascade of failing legs within one step; a side-attached shelf leaving its
+  cabinet's island solvable; bit-identity per island against the island alone; `unstable` on a singular island, never an
+  exception;
+- §8.4's codes;
+- §8.3's red gate; a B5 budget for re-solves during a fire; statics' registry row (name, version, reads, writes;
+  Architecture A-S3).
+- **(delta 1)** anchor connectivity by §4.1's µm contact on present geometry: a block 3 mm above a cell floor reads the
+  same at every grid (S-e); one singular sub-part or the iteration cap, and how much of an island goes `unstable`
+  (N-N3); bearing points within the tolerance start at zero gap, against a leg 0.5 mm short (N-e)
+
+**S5. Zones, with Phase 2's zones** (lands §5.2, §6):
+- zone coupling's closed form; a pane at an authored interface blocking at every grid and offset, and its breach joining
+  the zones in that step; the union in exact rationals against a full recompute; a double-glazed unit's blocked area ≤
+  the opening
+
+**S6. Snapshot** (lands §10):
+- `client_objects.md` §7's goldens and measured checks for the new tables.
+- **(delta 1)** the tile mapping on the wire: a per-face tile count, or explicit tile geometry, with §3.1's remainder
+  rule, so the client never recounts from f32 geometry (Wire NS2); `support_lost` stays off the wire (Wire N4)
