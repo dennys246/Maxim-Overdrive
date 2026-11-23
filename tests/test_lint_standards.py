@@ -33,6 +33,7 @@ gitfiles = _load("lint_repo")
 _load("lint_inputs")  # lint_standards imports these siblings by name
 _load("lint_gates")
 _load("lint_contracts")
+_load("lint_ids")
 lint = _load("lint_standards")
 
 ROADMAP = """\
