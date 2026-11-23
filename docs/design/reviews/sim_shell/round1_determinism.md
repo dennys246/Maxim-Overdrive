@@ -110,5 +110,5 @@ see it. Frame cadence is §4's contract. A `frames.latest.sequence` equality in 
 ## Fold status
 
 Every finding is `open`. The B1 and S1 fixes are verified in a scratch copy. The S2 fix is unverified.
-Probe scripts: `/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/74644a49-11ab-4a8e-8ab1-c2ccc9c3fbed/scratchpad/plant/`
+Probe scripts: `<scratchpad>/plant/`
 (`probe_iter.py`, `probe_time.py`, `tests/test_sim_probe.py`). They are scratch and will not survive a reboot.

@@ -141,4 +141,4 @@ The shader assumes `MODEL_MATRIX` is a pure translation, and that `centre_godot`
 
 **Driver risk, unverified.** No ANGLE/D3D11 compile has been run. The 320-step loop with 16 × 27 nested loops is the shape FXC sometimes tries to unroll. Worth one Windows ANGLE compile before step 8 closes.
 
-Scratch work (emulator, crops): /private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/fb8c693b-b475-44b8-86f3-99160cb687c9/scratchpad/emu.py, /private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/fb8c693b-b475-44b8-86f3-99160cb687c9/scratchpad/crops.png, /private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/fb8c693b-b475-44b8-86f3-99160cb687c9/scratchpad/hatch.png.
+Scratch work (emulator, crops): <scratchpad>/emu.py, <scratchpad>/crops.png, <scratchpad>/hatch.png.

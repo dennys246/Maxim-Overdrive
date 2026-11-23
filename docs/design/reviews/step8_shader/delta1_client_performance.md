@@ -7,7 +7,7 @@ Method:
 - Wrote a float32 port of the fold's `walk_at`, `skip_brick` and face-normal entry. It runs against a float64 reference DDA (a plain cell-by-cell ray walk) on the alley material and region arrays saved in round one, at the golden camera.
 - Ran one headless Godot probe on a mktemp copy of `client/`, with HOME in a mktemp directory.
 
-Every number below is labelled **measured** or **derived**. Scratch work is in `/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/fb8c693b-b475-44b8-86f3-99160cb687c9/scratchpad/d1/`.
+Every number below is labelled **measured** or **derived**. Scratch work is in `<scratchpad>/d1/`.
 
 **Headline:** the traversal fix creates a new defect (N1), and the re-recorded goldens lock it in. It replaces one or two holes per frame with 47 single-pixel dark dots per rig and max frame.
 
@@ -61,7 +61,7 @@ Every number below is labelled **measured** or **derived**. Scratch work is in `
 | laptop | 0 → 7 (2×2 blocks, 28 px) | — |
 
 - They lie in regular lines on the pavement top (floor surface z = 4 cells) and on the top of wall_north. Neighbouring dots sit one step of (9, 14) px apart, for example (210, 371), (219, 385), (228, 399).
-- Marked image: `/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/fb8c693b-b475-44b8-86f3-99160cb687c9/scratchpad/d1/marked_rig.png`.
+- Marked image: `<scratchpad>/d1/marked_rig.png`.
 
 **Mechanism (reproduced in float32 emulation, all 16 sampled dot pixels):**
 - The walk finds the **correct cell** but with axis x or y. The reference says z, a top face.

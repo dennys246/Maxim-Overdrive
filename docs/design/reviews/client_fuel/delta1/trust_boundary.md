@@ -126,4 +126,4 @@ Counts: **2 BLOCKER, 3 SHOULD-FIX, 3 NIT**.
 - I did not run the golden or Python suites, and did not measure the cost of `duplicate(true)` beyond its size estimate.
 - I read neither step 7's decoder (it doesn't exist yet) nor the welcome vocabulary format.
 
-Probe: `/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/b7bf205d-729f-449a-b38d-e830de582329/scratchpad/delta_trust/client/probe.gd`.
+Probe: `<scratchpad>/delta_trust/client/probe.gd`.
