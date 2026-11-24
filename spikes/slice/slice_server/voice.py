@@ -78,8 +78,16 @@ def cap(text: str, max_words: int) -> str:
 
 
 class Voice:
-    def __init__(self, params: VoiceParams, canned: Mapping[str, list[str]], ask: Ask | None) -> None:
-        self._params, self._canned, self._ask = params, canned, ask
+    def __init__(
+        self,
+        params: VoiceParams,
+        canned: Mapping[str, list[str]],
+        ask: Ask | None,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        """``clock`` times latency and queueing: the wall clock in play, a test's own clock in tests."""
+        self._params, self._canned, self._ask, self._clock = params, canned, ask, clock
         self._turn = dict.fromkeys(canned, 0)  # canned lines rotate per state, deterministically
         self._heard: deque[str] = deque(maxlen=3)
         self._pool = ThreadPoolExecutor(max_workers=1) if ask is not None else None
@@ -94,17 +102,19 @@ class Voice:
         request and its line arrives later from ``ready``."""
         if self._pool is None or self._ask is None:
             return self._fallback(state, 0.0, "no model configured")
-        asked = time.monotonic()
+        asked = self._clock()
         self._pending.append(self._pool.submit(self._speak, self._ask, state, self._prompt(state, facts), asked))
         return None
 
     def ready(self) -> list[Line]:
-        """The lines whose requests have finished, in the order they were asked. One look per request: a request
-        that finishes while this runs is kept for the next call, never lost between two looks."""
-        done, waiting = [], []
-        for f in self._pending:
-            (done if f.done() else waiting).append(f)
-        self._pending = waiting
+        """The lines whose requests have finished, in the order they were asked: the finished ones at the front of
+        the queue, up to the first that hasn't. A later line that finished first waits for the earlier ones (the
+        worker can finish two between looks). One look per request, so a request that finishes while this runs is
+        kept for the next call, never lost between two looks."""
+        ready = 0
+        while ready < len(self._pending) and self._pending[ready].done():
+            ready += 1
+        done, self._pending = self._pending[:ready], self._pending[ready:]
         return [f.result() for f in done]
 
     def close(self) -> None:
@@ -119,14 +129,14 @@ class Voice:
         )
 
     def _speak(self, ask: Ask, state: str, prompt: str, asked: float) -> Line:
-        queued = time.monotonic() - asked
+        queued = self._clock() - asked
         try:
             text = cap(ask(prompt, self._params.timeout_s), self._params.max_words)
         except VoiceFailed as exc:
-            return self._fallback(state, time.monotonic() - asked, str(exc), queued)
+            return self._fallback(state, self._clock() - asked, str(exc), queued)
         if not text:
-            return self._fallback(state, time.monotonic() - asked, "the model said nothing", queued)
-        return Line(text, state, "llm", time.monotonic() - asked, queued_s=queued)
+            return self._fallback(state, self._clock() - asked, "the model said nothing", queued)
+        return Line(text, state, "llm", self._clock() - asked, queued_s=queued)
 
     def _fallback(self, state: str, latency_s: float, why: str, queued_s: float = 0.0) -> Line:
         lines = self._canned[state]

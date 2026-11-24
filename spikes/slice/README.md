@@ -3,13 +3,14 @@
 A prototype lane, not the engine: `docs/plans/vertical_slice.md` says what it is for and what is relaxed. Nothing here
 is the real step 5b, 7 or 8, and nothing under `src/` changes for it.
 
-## The engine it runs on: `bfb12f8`
+## The engine it runs on
 
-The slice drives the engine through `World.advance` and the applier, which step 5a's PR 4a retired (one write window
-per tick, owned by `Simulation.step`). It runs, and its recorded sessions replay, on the engine as of `bfb12f8`: check
-that commit out in a worktree of its own (`git worktree add .worktrees/slice-bfb12f8 bfb12f8`) and run it there. Porting
-it to `Simulation` changes when a strike's crater shows (the next tick, not within the tick), which moves the numbers
-its playtests were measured on, so it waits for the owner's call.
+`Simulation` (step 5a), on today's main: each tick hands its records (the fire's ignites and douses, the player's
+strikes) to one `Simulation.step`, with physics on every tick (`physics_every=1`; the engine's default is every fifth).
+The port moved no number the slice was tuned on (owner, 2026-11-23): the same scripted run on `bfb12f8` and on the port
+lights the pallet, trips the body and burns the crate out on the same ticks, cracks agree bit for bit, and temperatures
+differ by round-off (6e-12 relative). Main's gate runs the slice's tests, so a change to the engine can't break it
+quietly. Session logs carry `slice-log-1`; the older ones were recorded on the retired engine and are refused by name.
 
 ## Run it
 
@@ -34,7 +35,7 @@ frame and quits.
 `../../.venv/bin/python -m slice_server metrics sessions/<file>.jsonl` replays it and prints the playtest numbers
 (Overdrive seconds per minute, trips, puddle time, fires, the vendor's states, voice and budget); `--json` for the raw
 numbers. It exits non-zero, and says so, when the replay doesn't match the recorded end.
-The tests: `../../.venv/bin/pytest tests` from `spikes/slice`.
+The tests run in main's gate; alone, `.venv/bin/pytest spikes/slice/tests` from the worktree root.
 
 ## Playtests
 

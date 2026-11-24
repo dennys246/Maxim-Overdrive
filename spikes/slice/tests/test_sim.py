@@ -69,3 +69,22 @@ def test_the_body_walks_into_the_alley_from_the_spawn() -> None:
     assert state["tick"] == 20
     assert set(state["cells"]) == {"material", "crack", "glow", "heat"}
     assert state["burning"] == []
+
+
+# The port onto the engine's Simulation (step 5a): the slice runs its tick, with physics on every tick.
+
+
+def test_the_slice_runs_only_the_engines_tick() -> None:
+    with pytest.raises(ValueError, match="100000 us tick"):
+        Sim(C, tick_s=0.05)
+
+
+def test_physics_runs_on_every_tick_not_the_engines_default_fifth() -> None:
+    # The fire and heat were tuned on a 0.1 s physics step; the engine's default runs physics on every fifth tick, so
+    # the crate a kindle lights on tick 1 would not warm until tick 5.
+    sim = Sim(C)
+    sim.body = Body(5.4, 2.9, 0.4, yaw=0.0)
+    before = _crate_hottest(sim)
+    sim.step([Kindle()])
+    sim.step([])
+    assert _crate_hottest(sim) > before

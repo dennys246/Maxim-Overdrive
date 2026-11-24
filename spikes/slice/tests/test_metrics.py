@@ -86,6 +86,25 @@ def test_voice_and_budget_numbers_from_the_log() -> None:
     assert b["tick_cpu_ms_max"] == 30.0
 
 
+@pytest.mark.parametrize(
+    ("meta", "said"),
+    [
+        ({"dx_m": 0.2, "tick_s": 0.1}, "pre-version log"),  # every log recorded before the port onto Simulation
+        ({"log": "slice-log-0", "dx_m": 0.2, "tick_s": 0.1}, "slice-log-0 log"),
+    ],
+)
+def test_a_log_from_another_engine_is_refused_by_name(tmp_path: Path, capsys, meta: dict, said: str) -> None:
+    # A log replays only on the engine it was recorded on: one from before the port would diverge in its last bits
+    # and be reported as "does NOT match", which hides why. It is refused instead, saying which log it is.
+    log = tmp_path / "old.jsonl"
+    log.write_text(json.dumps({"meta": meta}) + "\n" + json.dumps({"end": {"tick": 0, "digest": "0" * 64}}) + "\n")
+    with pytest.raises(ValueError, match=said):
+        session_metrics(log)
+    for command in ("metrics", "replay"):
+        assert main([command, str(log)]) == 2
+        assert said in capsys.readouterr().err
+
+
 def test_a_real_session_log_replays_and_a_tampered_one_is_flagged(tmp_path: Path) -> None:
     serve(0.2, 0, llm=False, root=tmp_path, ticks=5)
     (log,) = (tmp_path / "sessions").iterdir()

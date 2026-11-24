@@ -56,7 +56,7 @@ packages = ["src/simcore", "src/maxim_overdrive"]
 "data" = "maxim_overdrive/_data"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "spikes/slice/tests"]  # every tests directory in the tree (tests/test_tooling_config.py)
 pythonpath = ["src"]
 addopts = ["--strict-markers", "--strict-config"]
 markers = ["slow: takes more than a few seconds; gate it behind a tier variable (CLAUDE.md, Testing)"]

@@ -9,11 +9,12 @@ import argparse
 import json
 import secrets
 import signal
+import sys
 import time
 from collections.abc import Sequence
 from pathlib import Path
 
-from slice_server import config, intents
+from slice_server import LOG_VERSION, config, intents
 from slice_server.metrics import read_log, report, session_metrics
 from slice_server.server import Server, write_run_file
 from slice_server.sim import Sim, replay
@@ -41,7 +42,7 @@ def serve(dx_m: float, port: int, *, llm: bool, root: Path = HERE, ticks: int | 
     log_path = _new_log(root / "sessions")
     token = secrets.token_hex(16)
     with log_path.open("w") as log:
-        log.write(json.dumps({"meta": {"dx_m": dx_m, "tick_s": 0.1}}) + "\n")
+        log.write(json.dumps({"meta": {"log": LOG_VERSION, "dx_m": dx_m, "tick_s": 0.1}}) + "\n")
         cfg = config.load()
         # Engine choice: the voice talks to Ollama on 127.0.0.1 with stdlib urllib, so the slice adds no dependency.
         voice = Voice(cfg.npc.voice, cfg.npc.canned, ollama(cfg.npc.voice) if llm else None)
@@ -83,6 +84,14 @@ def check_replay(log_path: Path) -> bool:
     return got == recorded
 
 
+def _check(args: argparse.Namespace) -> int:
+    if args.cmd == "replay":
+        return 0 if check_replay(args.log) else 1
+    m = session_metrics(args.log)
+    print(json.dumps(m, indent=2) if args.json else report(m))
+    return 0 if m["replay_matches"] else 1
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="slice_server")
     sub = parser.add_subparsers(dest="cmd")
@@ -96,12 +105,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     numbers.add_argument("log", type=Path)
     numbers.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
-    if args.cmd == "replay":
-        return 0 if check_replay(args.log) else 1
-    if args.cmd == "metrics":
-        m = session_metrics(args.log)
-        print(json.dumps(m, indent=2) if args.json else report(m))
-        return 0 if m["replay_matches"] else 1
+    if args.cmd in ("replay", "metrics"):
+        try:
+            return _check(args)
+        except ValueError as exc:  # a log this slice can't read: say which and why, as the command's result
+            print(f"slice_server {args.cmd}: {exc}", file=sys.stderr)
+            return 2
     serve(getattr(args, "dx", 0.2), getattr(args, "port", 0), llm=not getattr(args, "no_llm", False))
     return 0
 

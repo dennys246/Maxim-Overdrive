@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+import json
 import select
 import socket
 import stat
@@ -11,7 +12,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
-from slice_server import WIRE_VERSION, config
+from slice_server import LOG_VERSION, WIRE_VERSION, config
 from slice_server.__main__ import check_replay, main, serve, ticks_of
 from slice_server.intents import parse as parse_intent
 from slice_server.server import Client, Server
@@ -20,12 +21,13 @@ from slice_server.voice import Voice
 from slice_server.wire import FrameReader, encode
 
 TOKEN = "t" * 32
+META = json.dumps({"meta": {"log": LOG_VERSION, "dx_m": 0.2, "tick_s": 0.1}}) + "\n"
 
 
 @contextmanager
 def serving(ticks: int) -> Iterator[tuple[Server, io.StringIO]]:
     log = io.StringIO()
-    log.write('{"meta":{"dx_m":0.2,"tick_s":0.1}}\n')
+    log.write(META)
     server = Server(Sim(config.load()), token=TOKEN, log=log)
     thread = threading.Thread(target=server.run, args=(ticks,))
     thread.start()
@@ -103,7 +105,7 @@ def test_stop_ends_the_loop_between_ticks_so_the_last_digest_replays(tmp_path: P
     # A Ctrl-C used to raise KeyboardInterrupt mid-tick, leaving half an advance in the final digest (a real session
     # failed replay that way). stop() only asks; the loop finishes its tick and returns.
     log = io.StringIO()
-    log.write('{"meta":{"dx_m":0.2,"tick_s":0.1}}\n')
+    log.write(META)
     server = Server(Sim(config.load()), token=TOKEN, log=log)
     thread = threading.Thread(target=server.run, daemon=True)  # no tick limit: only stop() ends it; daemon so a
     # missing stop fails the test instead of hanging pytest
@@ -124,7 +126,7 @@ def test_stop_ends_the_loop_between_ticks_so_the_last_digest_replays(tmp_path: P
 def test_a_change_of_the_vendors_state_sends_a_line_and_logs_it(tmp_path: Path) -> None:
     cfg = config.load()
     log = io.StringIO()
-    log.write('{"meta":{"dx_m":0.2,"tick_s":0.1}}\n')
+    log.write(META)
     sim = Sim(cfg)
     server = Server(sim, token=TOKEN, log=log, voice=Voice(cfg.npc.voice, cfg.npc.canned, None))
     thread = threading.Thread(target=server.run, args=(30,), daemon=True)
@@ -193,7 +195,7 @@ def test_a_crash_mid_tick_leaves_a_log_that_replays_to_the_crash(tmp_path: Path)
     # the intents that caused it.
 
     log = io.StringIO()
-    log.write('{"meta":{"dx_m":0.2,"tick_s":0.1}}\n')
+    log.write(META)
     sim = Sim(config.load())
     server = Server(sim, token=TOKEN, log=log)
     real_step = sim.step

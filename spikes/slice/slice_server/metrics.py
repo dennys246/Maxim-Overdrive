@@ -20,7 +20,7 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from slice_server import alley, config
+from slice_server import LOG_VERSION, alley, config
 from slice_server.intents import Intent, parse
 from slice_server.sim import Sim
 
@@ -108,6 +108,12 @@ class LogParts:
 
 def read_log(path: Path) -> LogParts:
     records = [json.loads(line) for line in path.read_text().splitlines()]
+    version = records[0]["meta"].get("log") if records and isinstance(records[0].get("meta"), dict) else None
+    if version != LOG_VERSION:
+        raise ValueError(
+            f"{path.name} is a {version or 'pre-version'} log; this slice reads {LOG_VERSION} only (a log replays only"
+            " on the engine it was recorded on)"
+        )
     dx_m = float(records[0]["meta"]["dx_m"])
     by_tick: dict[int, list[Intent]] = {}
     end = crashed = None
