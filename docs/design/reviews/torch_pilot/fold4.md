@@ -71,3 +71,15 @@ Known gap (a physics gap), as E-N1 says, so each is recorded here, with its trig
   to another round.
 
 **The delta round** reads `git diff afdb849 8710f4c`, and only that, with the three lenses. It sets every status above.
+
+## The delta round, and the stop
+
+`merge_delta.md` read `afdb849..8710f4c` with the three lenses and set the statuses: 9 fixed, 4 deferred (A-S3,
+A-N1, W-N1, W-N2), 2 rejected (A-N2, E-N2), none open. It found no BLOCKER and no SHOULD-FIX. Its four NITs change
+no text, by the stop rule, and are deferred with the reviewer's triggers:
+- D-N1 (`fire_solid.md` §2's `Deposit` row and §3.1's guard against §9.4's deletion): 6.1b;
+- D-N2 (TP5 not marked as partly superseded by TP11): the decision log's next edit;
+- D-N3 (which act refuses a tick past 2³² − 1, under which code): 5b, as a test to write;
+- D-N4 (`subcell_solids.md` §4.3's planned "gone" against TP10): the step that makes `_check_region` follow §4.3.
+
+No round runs after this one.
