@@ -129,6 +129,31 @@ def test_the_command_line_decides_the_skip_from_the_process_environment(
     assert "only for the scheduled drift job" in capsys.readouterr().err
 
 
+def _run_as_main() -> None:
+    spec = importlib.util.spec_from_file_location("__main__", ROOT / "scripts" / "check_lock.py")
+    assert spec is not None
+    assert spec.loader is not None
+    spec.loader.exec_module(importlib.util.module_from_spec(spec))
+
+
+def test_the_script_runs_the_command_line(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The gate runs the file as ``__main__``, so that block must reach ``entry`` too (delta: Wire N1, Executor N2).
+
+    In process, loaded as ``__main__`` the way this module loads the script: in the drift job's mode it exits 0, and
+    with the event gone it exits 1.
+    """
+    monkeypatch.setattr(sys, "argv", ["check_lock.py"])
+    for k, v in DRIFT_JOB.items():
+        monkeypatch.setenv(k, v)
+    with pytest.raises(SystemExit) as skipped:
+        _run_as_main()
+    assert skipped.value.code == 0
+    monkeypatch.delenv("GITHUB_EVENT_NAME")
+    with pytest.raises(SystemExit) as refused:
+        _run_as_main()
+    assert refused.value.code == 1
+
+
 def test_the_environment_is_a_required_keyword() -> None:
     """Forgetting ``env`` is a TypeError, not a silent fall back to the process environment."""
     with pytest.raises(TypeError, match="env"):

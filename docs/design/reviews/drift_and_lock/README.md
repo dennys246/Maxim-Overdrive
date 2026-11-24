@@ -45,3 +45,20 @@ check, so no backlog row):
 - D2: the pickle stand-in patches `numpy.load` process-wide. Trigger: tests run in parallel in one process.
 
 The B49–B51 reservations are unused; this step releases them.
+
+## Delta round (the last, under the stop rule)
+
+Reports, verbatim: `delta_executor.md`, `delta_architecture.md`, `delta_wire.md`. They read `38383fc..d1c105b`.
+Reviewer-set statuses of round 1: E1–E5, D1, A1–A3, W1–W4 fixed; E6, W5 deferred to the PR's opening (A6 open, the
+same item); D2, A4, A5, W6 deferred with the triggers above. No BLOCKER. New: Architecture N1 (SHOULD-FIX), Executor
+N1 (SHOULD-FIX, the same defect as Wire N2), and NITs Architecture N2, N3, Executor N2 (the same as Wire N1), Wire N3.
+
+**Folds after the delta round, as the author describes them.** No round reads them (stop rule); each was run as stated.
+
+| Findings | Fold |
+|---|---|
+| Executor N1, Wire N2 | The OD-I3 gate also records every `allow_pickle` the loader asks `numpy.load` for (each read made with pickle off) and judges both records after `load` returns. Red on 1.3.4 with an early return on a missing key, and on #1773 with pickle on and its version read from another key; still flips on #1773. The stand-in is a store that opens the file with pickle off |
+| Architecture N1 | Lesson 41 records OD-I1's three setups again; run: it flips on #1773 and stays red with only `get_totals`'s `or time.time()` put back |
+| Architecture N2 | The OD-I7 row points at `sem_stimuli.md` §3.3 and Phase 4's first-body build |
+| Architecture N3, Wire N3 | The module docstring names `prepush.sh`'s import check, which holds on the locked gate and the drift job alike |
+| Executor N2, Wire N1 | A test loads `check_lock.py` as `__main__` (the module's own `exec_module` loader; `runpy`, as proposed, is a code runner the standards lint refuses, boundaries §5.2) and expects exit 0 in the drift job's mode and 1 without the event. Changing the block to `main(env={})` turns it red |

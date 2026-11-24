@@ -577,9 +577,13 @@ doesn't show that.** *Evidence:* `tests/test_maxim_fixes_pending.py` holds OD-I1
 `XPASS(strict)` on #1773's source (`1b2e60a9`, overlaid on the installed package), which looked like proof. Review
 then put `allow_pickle=True` back into #1773's loader, and the gate still passed: #1773 refuses a version 1 file by
 its number before it reads a pickled array, and `load` returns 0 for every refusal, so the gate tracked the format,
-not the pickle (E2, W2). The fixed gate puts a value whose unpickling makes a directory in `version`, the field every
-loader reads first, and asserts the directory never appears. It is red on 1.3.4, red on 1.3.4 with only a version
-bump, red on #1773 with pickle back on, and flips on #1773. A metadata gate is provable the same way: OD-I6 flips with
+not the pickle (E2, W2). The second gate put a value whose unpickling makes a directory in `version`, which 1.3.4's and
+#1773's loaders read first, and asserted the directory never appeared. The delta round broke that too: a loader that
+reads with pickle on but refuses before touching `version` flipped it (Executor N1, Wire N2). The gate now also
+records every `allow_pickle` the loader asks `numpy.load` for, and judges both records after `load` returns, outside
+its `except Exception`. It is red on 1.3.4, on 1.3.4 with only a version bump or an early return, on #1773 with pickle
+back on or its version read from another key, and flips on #1773. OD-I1's gate went through the same three setups: it
+flips on #1773 and stays red with only `get_totals`'s `or time.time()` put back. A metadata gate is provable the same way: OD-I6 flips with
 a copy of `pymaxim-1.3.4.dist-info` whose `Requires-Dist: rich` line is #1773's. The first version of this lesson said
 only a stand-in could show that, and it was wrong (E4). Two more defects the review found are of the same kind: a
 module-level `importorskip` would have turned a module Maxim moved into a quiet skip of every gate (E3, W3, A2), and
@@ -589,5 +593,6 @@ the drift job's skip. It now takes `env` as a required keyword.
 
 *Consequence:* for each gate on an unreleased fix, run it in three setups before trusting it: the installed release
 (red), the fix's source overlaid on it (flips), and the fix with only the defect restored (red). Assert the defect's
-own effect (code ran, a clock was read), never a return value that every failure shares. A gate that can disappear,
+own effect (code ran, pickle was asked for, a clock was read), never a return value that every failure shares,
+and judge it after the call, never inside a handler that swallows. A gate that can disappear,
 by a skip or an untested entry point, is no gate.
