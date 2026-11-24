@@ -31,3 +31,43 @@ renumbering, and the parked row. The design itself is not re-reviewed: rounds 1 
 - The reviewers set each finding's status, not the author.
 
 **Reports:** `merge_architecture.md`, `merge_wire.md` and `merge_executor.md`, verbatim.
+
+## The round (head afdb849)
+
+| Reader | BLOCKER | SHOULD-FIX | NIT |
+|---|---|---|---|
+| Architecture (`merge_architecture.md`) | A-B1 | A-S1, A-S2, A-S3 | A-N1, A-N2 |
+| Wire (`merge_wire.md`) | — | W-S1, W-S2, W-S3 | W-N1, W-N2 |
+| Executor (`merge_executor.md`) | E-B1 | E-S1 | E-N1, E-N2 |
+
+The same defect, found by more than one reader: A-B1 = E-B1; A-S1 = W-S1; A-S2 = W-S3 = E-S1; A-N2 = E-N2.
+
+**The author's correction, first.** The parked row said the records-layout review found three BLOCKERs. It found
+eleven. The author took the count from the session's brief, and the author's own check read only each report's first lines.
+
+**The owner's rulings (2026-11-23):**
+- TP10, on A-B1: a cell region is a candidate by authored geometry, as the applier's "gone" is.
+- TP11, on W-S2, option (a): TP5's layout stands, and the pilots table ships with 5b, with an `i32` dtype and a
+  protocol bump.
+
+**The fold (author's claims; the delta round sets their statuses):**
+
+| Id | Change | Commit |
+|---|---|---|
+| A-B1, E-B1 | `torch_pilot.md` §3's candidacy and §7's gap follow TP10 | 4a9e5e8 |
+| A-S1, W-S1 | §9.4: `..._same_time_...`; `core/deposit.py::Deposit` for `World._power_field` | 4a9e5e8 |
+| A-S2, W-S3, E-S1 | the parked row: eleven BLOCKERs, named | 4a9e5e8 |
+| A-S3 | checklist 6.1b: a destroyed region stays a candidate at every grid; U4 judges with §5's pilot condition | 4a9e5e8 |
+| W-S2 | tile §2.2 and checklist 5b follow TP11 | 8710f4c |
+
+**NITs, with no change to the text (the stop rule).** None fits a backlog row (a rule waiting for a check) or a
+Known gap (a physics gap), as E-N1 says, so each is recorded here, with its trigger:
+- A-N1 (the trigger's "tag" and "fan-out"): the planning session after the tag, which restates the roadmap.
+- A-N2, E-N2 ("three conflicts" over four resolutions): three files, four hunks. Left as written.
+- W-N1 (`data/world/actions.yaml:7`'s marker reason cites `docs/architecture.md`): main's text; 6.1b removes the
+  marker.
+- W-N2 (`OD-C11` cited in tile §2.3, §3.1, §8 and §10, defined nowhere): main's text; the planning session.
+- E-N1 (the stop rule's gaps): this record. A BLOCKER found by the one delta round goes to the owner for a ruling, not
+  to another round.
+
+**The delta round** reads `git diff afdb849 8710f4c`, and only that, with the three lenses. It sets every status above.
