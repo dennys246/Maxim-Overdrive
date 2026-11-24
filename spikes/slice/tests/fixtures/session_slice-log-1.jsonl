@@ -1,0 +1,6 @@
+{"meta": {"dx_m": 0.2, "engine": {"physics_every": 1, "tick_us": 100000}, "log": "slice-log-1", "tick_s": 0.1}}
+{"intents": [{"dir": [1.0, 0.18], "effort": 1.0, "overdrive": false, "type": "move"}], "tick": 0}
+{"intents": [{"dir": [0.0, 0.0], "effort": 0.0, "overdrive": false, "type": "move"}, {"type": "kindle"}], "tick": 32}
+{"intents": [{"dir": [0.0, 0.0], "effort": 0.0, "overdrive": true, "type": "move"}, {"type": "strike"}], "tick": 33}
+{"intents": [{"dir": [0.0, 0.0], "effort": 0.0, "overdrive": false, "type": "move"}], "tick": 34}
+{"end": {"digest": "3d4a98221f525ea6c5dbd53c32f62bb1de1a793751d69b50a9d2d3c33944aca7", "tick": 200}}

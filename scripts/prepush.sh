@@ -69,9 +69,9 @@ step "dependencies match the lockfile (O32)"
 "$PY" scripts/check_lock.py
 if [ "${MAXIM_OVERDRIVE_UNLOCKED:-}" = "1" ]; then SKIPPED="$SKIPPED (lock check skipped: the drift job)"; fi
 step "ruff lint"
-"$PY" -m ruff check src tests scripts
+"$PY" -m ruff check src tests scripts spikes/slice
 step "ruff format"
-"$PY" -m ruff format --check src tests scripts
+"$PY" -m ruff format --check src tests scripts spikes/slice
 step "mypy (strict on src and scripts; test bodies checked)"
 "$PY" -m mypy
 step "import contracts: game > host | verify > protocol > adapters > core, the sealed core, maxim only in the membrane (boundaries O24)"

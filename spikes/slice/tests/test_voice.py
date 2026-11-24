@@ -2,7 +2,7 @@ import ast
 import http.server
 import socketserver
 import threading
-import time
+from concurrent import futures
 from concurrent.futures import Future
 from pathlib import Path
 
@@ -15,10 +15,11 @@ SLICE = Path(__file__).resolve().parents[1] / "slice_server"
 
 
 def _wait(voice: Voice, n: int = 1) -> list:
-    lines: list = []
-    deadline = time.monotonic() + 10  # a bound on a worker thread, not a sleep: it returns as soon as lines arrive
-    while len(lines) < n and time.monotonic() < deadline:
-        lines += voice.ready()
+    """The first ``n`` lines, once their requests finish: waits on the futures, bounded, with no clock of its own."""
+    done, _ = futures.wait(voice._pending[:n], timeout=10)
+    assert len(done) == n, "the worker never finished"
+    lines = voice.ready()
+    assert len(lines) >= n
     return lines
 
 

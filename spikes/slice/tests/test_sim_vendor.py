@@ -26,7 +26,7 @@ def test_the_vendor_walks_to_a_young_fire_and_puts_it_out_through_the_applier() 
         events += sim.step([])
     assert {"type": "event", "what": "doused", "region": "crate", "by": "vendor"} in events
     assert not sim.fire.fuels["crate"].burning
-    assert "fire:crate" not in sim.world.sources
+    assert "fire:crate" not in sim.sources
     assert sim.charges == C.npc.vendor.charges - 1
     states = [e["state"] for e in events if e["what"] == "npc"]
     assert states[:2] == ["douse", "doused"], "it went to the fire, then put it out"
@@ -106,7 +106,7 @@ def test_a_kindle_beside_the_vendor_never_crashes_the_tick() -> None:
     for _ in range(5):
         sim.step([Kindle()] if _ == 0 else [])
     assert sim.charges == C.npc.vendor.charges - 1
-    assert "fire:crate" not in sim.world.sources
+    assert "fire:crate" not in sim.sources
 
 
 def test_relighting_beside_a_vendor_with_a_second_charge_never_crashes() -> None:

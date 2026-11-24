@@ -12,16 +12,17 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
-from slice_server import LOG_VERSION, WIRE_VERSION, config
+from slice_server import WIRE_VERSION, config
 from slice_server.__main__ import check_replay, main, serve, ticks_of
 from slice_server.intents import parse as parse_intent
+from slice_server.metrics import log_meta
 from slice_server.server import Client, Server
 from slice_server.sim import Sim
 from slice_server.voice import Voice
 from slice_server.wire import FrameReader, encode
 
 TOKEN = "t" * 32
-META = json.dumps({"meta": {"log": LOG_VERSION, "dx_m": 0.2, "tick_s": 0.1}}) + "\n"
+META = json.dumps(log_meta(0.2)) + "\n"
 
 
 @contextmanager
@@ -162,12 +163,26 @@ def test_a_change_of_the_vendors_state_sends_a_line_and_logs_it(tmp_path: Path) 
 def test_the_server_runs_past_its_stats_report() -> None:
     # A stray line in _report once broke every session at tick 50, after every other test had stopped short of it.
     cfg = config.load()
-    server = Server(Sim(cfg), token=TOKEN, log=io.StringIO(), voice=Voice(cfg.npc.voice, cfg.npc.canned, None))
+    voice = Voice(cfg.npc.voice, cfg.npc.canned, None)
+    server = Server(Sim(cfg), token=TOKEN, log=io.StringIO(), voice=voice, wall_tick_s=0.001)  # 55 ticks, fast
     try:
         server.run(ticks=55)
     finally:
         server.close()
     assert server.sim.tick == 55
+
+
+def test_the_wall_pacing_never_changes_the_world() -> None:
+    # wall_tick_s only says when the next tick runs; a tick is always the simulation's 0.1 s, so the digest agrees.
+    digests = []
+    for wall in (None, 0.001):
+        server = Server(Sim(config.load()), token=TOKEN, log=io.StringIO(), wall_tick_s=wall)
+        try:
+            server.run(ticks=5)
+        finally:
+            server.close()
+        digests.append(server.sim.digest())
+    assert digests[0] == digests[1]
 
 
 # --- review round (2026-11-21): reproductions written red-first --------------------------------------------------

@@ -8,7 +8,16 @@ from slice_server import config
 from slice_server.__main__ import main, serve
 from slice_server.body import Command
 from slice_server.intents import Kindle, Move
-from slice_server.metrics import Observer, line_numbers, observe, report, session_metrics, stat_numbers
+from slice_server.metrics import (
+    LogRefused,
+    Observer,
+    line_numbers,
+    log_meta,
+    observe,
+    report,
+    session_metrics,
+    stat_numbers,
+)
 from slice_server.sim import Sim
 
 EAST = Move(Command(1.0, 0.0, 1.0))
@@ -91,6 +100,7 @@ def test_voice_and_budget_numbers_from_the_log() -> None:
     [
         ({"dx_m": 0.2, "tick_s": 0.1}, "pre-version log"),  # every log recorded before the port onto Simulation
         ({"log": "slice-log-0", "dx_m": 0.2, "tick_s": 0.1}, "slice-log-0 log"),
+        ({**log_meta(0.2)["meta"], "engine": {"tick_us": 100000, "physics_every": 5}}, "engine cadence"),
     ],
 )
 def test_a_log_from_another_engine_is_refused_by_name(tmp_path: Path, capsys, meta: dict, said: str) -> None:
@@ -98,7 +108,7 @@ def test_a_log_from_another_engine_is_refused_by_name(tmp_path: Path, capsys, me
     # and be reported as "does NOT match", which hides why. It is refused instead, saying which log it is.
     log = tmp_path / "old.jsonl"
     log.write_text(json.dumps({"meta": meta}) + "\n" + json.dumps({"end": {"tick": 0, "digest": "0" * 64}}) + "\n")
-    with pytest.raises(ValueError, match=said):
+    with pytest.raises(LogRefused, match=said):
         session_metrics(log)
     for command in ("metrics", "replay"):
         assert main([command, str(log)]) == 2
@@ -120,3 +130,45 @@ def test_a_real_session_log_replays_and_a_tampered_one_is_flagged(tmp_path: Path
     assert tampered["replay_matches"] is False
     assert "does NOT match" in report(tampered)
     assert main(["metrics", str(log)]) == 1
+
+
+# The committed session log (CLAUDE.md: "Old fixtures stay committed"): a short scripted session that walks to the
+# crate, lights it, strikes it in Overdrive and watches the vendor douse it. A change to the engine that moves the
+# slice's replay turns this red in the gate. If the change is meant, rebuild the log with _build_fixture (from
+# spikes/slice: ../../.venv/bin/python -c "import sys; sys.path[:0] = ['.', 'tests']; import test_metrics as t;
+# t._build_fixture(t.FIXTURE)") and say so in the commit; a new log layout bumps LOG_VERSION and keeps the old file.
+FIXTURE = Path(__file__).parent / "fixtures" / "session_slice-log-1.jsonl"
+
+
+def _script() -> dict[int, list[dict[str, object]]]:
+    def move(x: float, y: float, effort: float, overdrive: bool = False) -> dict[str, object]:
+        return {"type": "move", "dir": [x, y], "effort": effort, "overdrive": overdrive}
+
+    return {
+        0: [move(1.0, 0.18, 1.0)],
+        32: [move(0.0, 0.0, 0.0), {"type": "kindle"}],
+        33: [move(0.0, 0.0, 0.0, True), {"type": "strike"}],
+        34: [move(0.0, 0.0, 0.0)],
+    }
+
+
+def _build_fixture(path: Path, ticks: int = 200) -> None:
+    from slice_server.intents import parse  # noqa: PLC0415 - only the rebuild needs it
+
+    sim, script = Sim(config.load(), dx_m=0.2), _script()
+    rows = [log_meta(0.2)]
+    for tick in range(ticks):
+        raw = script.get(tick, [])
+        rows += [{"tick": tick, "intents": raw}] if raw else []
+        sim.step([parse(r) for r in raw])
+    rows.append({"end": {"tick": ticks, "digest": sim.digest()}})
+    path.parent.mkdir(exist_ok=True)
+    path.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in rows))
+
+
+def test_the_committed_session_log_still_replays() -> None:
+    m = session_metrics(FIXTURE)
+    assert m["replay_matches"] is True, "the engine moved the slice's replay; see FIXTURE's comment"
+    r = m["replayed"]
+    assert isinstance(r, dict)
+    assert (r["kindles_ok"], r["strikes"], r["overdrive_strikes"], r["douses"]) == (1, 1, 1, 1)  # it reaches them

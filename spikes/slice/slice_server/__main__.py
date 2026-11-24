@@ -14,8 +14,8 @@ import time
 from collections.abc import Sequence
 from pathlib import Path
 
-from slice_server import LOG_VERSION, config, intents
-from slice_server.metrics import read_log, report, session_metrics
+from slice_server import config, intents
+from slice_server.metrics import LogRefused, log_meta, read_log, report, session_metrics
 from slice_server.server import Server, write_run_file
 from slice_server.sim import Sim, replay
 from slice_server.voice import Voice, ollama
@@ -42,7 +42,7 @@ def serve(dx_m: float, port: int, *, llm: bool, root: Path = HERE, ticks: int | 
     log_path = _new_log(root / "sessions")
     token = secrets.token_hex(16)
     with log_path.open("w") as log:
-        log.write(json.dumps({"meta": {"log": LOG_VERSION, "dx_m": dx_m, "tick_s": 0.1}}) + "\n")
+        log.write(json.dumps(log_meta(dx_m)) + "\n")
         cfg = config.load()
         # Engine choice: the voice talks to Ollama on 127.0.0.1 with stdlib urllib, so the slice adds no dependency.
         voice = Voice(cfg.npc.voice, cfg.npc.canned, ollama(cfg.npc.voice) if llm else None)
@@ -108,7 +108,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.cmd in ("replay", "metrics"):
         try:
             return _check(args)
-        except ValueError as exc:  # a log this slice can't read: say which and why, as the command's result
+        except LogRefused as exc:  # a log this slice can't read: say which and why, as the command's result
             print(f"slice_server {args.cmd}: {exc}", file=sys.stderr)
             return 2
     serve(getattr(args, "dx", 0.2), getattr(args, "port", 0), llm=not getattr(args, "no_llm", False))

@@ -22,7 +22,7 @@ from pathlib import Path
 
 from slice_server import LOG_VERSION, alley, config
 from slice_server.intents import Intent, parse
-from slice_server.sim import Sim
+from slice_server.sim import ENGINE, Sim
 
 TICK_S = 0.1
 
@@ -96,6 +96,31 @@ def observe(ticks: Sequence[Sequence[Intent]], *, dx_m: float = 0.2) -> tuple[Ob
     return seen, sim
 
 
+class LogRefused(ValueError):
+    """A session log this slice can't replay: another layout, or another engine cadence. The message says which."""
+
+
+def log_meta(dx_m: float) -> dict[str, object]:
+    """The log's first record: its layout version, the grid and the engine's cadence it was recorded on."""
+    engine = {"tick_us": ENGINE.tick_us, "physics_every": ENGINE.physics_every}
+    return {"meta": {"log": LOG_VERSION, "dx_m": dx_m, "tick_s": ENGINE.tick_us / 1e6, "engine": engine}}
+
+
+def _check_meta(path: Path, records: list[dict[str, object]]) -> dict[str, object]:
+    meta = records[0].get("meta") if records and isinstance(records[0], dict) else None
+    if not isinstance(meta, dict):
+        raise LogRefused(f"{path.name} doesn't start with a meta record")
+    version = meta.get("log")
+    if version != LOG_VERSION:
+        raise LogRefused(
+            f"{path.name} is a {version or 'pre-version'} log; this slice reads {LOG_VERSION} only (a log replays only"
+            " on the engine it was recorded on)"
+        )
+    if meta.get("engine") != log_meta(0.0)["meta"]["engine"]:  # type: ignore[index]
+        raise LogRefused(f"{path.name} was recorded at engine cadence {meta.get('engine')}, this slice runs another")
+    return meta
+
+
 @dataclass(frozen=True)
 class LogParts:
     dx_m: float
@@ -108,13 +133,7 @@ class LogParts:
 
 def read_log(path: Path) -> LogParts:
     records = [json.loads(line) for line in path.read_text().splitlines()]
-    version = records[0]["meta"].get("log") if records and isinstance(records[0].get("meta"), dict) else None
-    if version != LOG_VERSION:
-        raise ValueError(
-            f"{path.name} is a {version or 'pre-version'} log; this slice reads {LOG_VERSION} only (a log replays only"
-            " on the engine it was recorded on)"
-        )
-    dx_m = float(records[0]["meta"]["dx_m"])
+    dx_m = float(_check_meta(path, records)["dx_m"])  # type: ignore[arg-type]
     by_tick: dict[int, list[Intent]] = {}
     end = crashed = None
     lines, stats = [], []

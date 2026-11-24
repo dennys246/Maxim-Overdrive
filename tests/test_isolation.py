@@ -17,8 +17,10 @@ from pathlib import Path
 
 import pytest
 
+from tests._testroots import spike_roots
+
 ROOT = Path(__file__).resolve().parents[1]
-SCANNED = ("src", "scripts", "tests")
+SCANNED = ("src", "scripts", "tests", *spike_roots())  # a spike the gate runs is scanned with its tests
 SELF = Path(__file__).resolve()
 GIT_HELPER = "tests/_gitutil.py"
 

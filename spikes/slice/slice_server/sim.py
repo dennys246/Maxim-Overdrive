@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import math
 import struct
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import astuple, replace
 
 import numpy as np
@@ -23,7 +23,7 @@ from simcore.core.intents import RECORD_KIND_OF, Action, Extinguish, Ignite, Log
 from simcore.core.intents import Strike as StrikeAction
 from simcore.core.scene import Box
 from simcore.core.simulation import SimConfig, Simulation
-from simcore.core.world import World
+from simcore.core.world import HeatSource, World
 from slice_server import alley, heat_debt, npc
 from slice_server.body import Body, Cells, Command, blocked, check_no_tunnelling, impulse, step
 from slice_server.config import NPC_STATES, SliceConfig
@@ -32,10 +32,14 @@ from slice_server.intents import Intent, Kindle, Move, Say, Strike
 from slice_server.reach import nearest_in_front
 
 CHEST_M = 1.0  # where on the body radiation and air temperature are read, above the feet
-# The records' actors, in the order a tick applies them (the log's key orders by actor after kind and apply_us): the
-# player's strike, as an intent, comes before the fire's changes, as it did when strikes applied on arrival.
-PLAYER, FIRE = 1, 2
+PLAYER, FIRE = 1, 2  # the records' actor ids; a tick's records are handed over in the log's key order
 TICK_US = 100_000
+# Physics on every tick (the engine's default is every fifth). Not for the numbers: the same scripted run gives the
+# same event ticks at both cadences (review, 2026-11-23). For the digest: at one tick per physics step the engine
+# carries no source history from tick to tick, so ``Sim.digest`` covers every state a later tick depends on. At five,
+# the exposure's segments outlive a tick and nothing outside the engine can read them, so two diverged runs could
+# share a digest. The engine's own per-tick digest (step 5a, PR 4b) ends the reason.
+ENGINE = SimConfig(tick_us=TICK_US, physics_every=1)
 
 
 class Sim:
@@ -45,10 +49,8 @@ class Sim:
         check_no_tunnelling(config.body, tick_s, dx_m)
         self.config, self.tick_s, self.tick = config, tick_s, 0
         scene, table = alley.scene(), data.materials()
-        self.world = World(scene.build(table, dx_m=dx_m), limits=data.action_limits())  # kept to read its sources
-        # Physics every tick, not the engine's default of every fifth: the slice's fire and heat were tuned on a
-        # 0.1 s step, and a playtest has to feel the cadence it is tuned on (the plan's week 4).
-        self._engine = Simulation(self.world, config=SimConfig(tick_us=TICK_US, physics_every=1))
+        self._world = World(scene.build(table, dx_m=dx_m), limits=data.action_limits())  # read only for its sources
+        self._engine = Simulation(self._world, config=ENGINE)
         self._pending: list[tuple[int, str, Action]] = []  # this tick's records: actor, target, action
         self._seq = {PLAYER: 0, FIRE: 0}
         self.body = Body(*alley.SPAWN_M, feet_z=alley.FLOOR_TOP_M)
@@ -65,7 +67,7 @@ class Sim:
             raise ValueError(f"the vendor's stall ({v.stall_x}, {v.stall_y}) is inside a solid")
 
     def _check_fits_the_limits(self) -> None:
-        limits, radius = self.world.limits, self.config.fuel.fire.source_radius_m
+        limits, radius = self._engine.limits, self.config.fuel.fire.source_radius_m
         if not limits.min_radius_m <= radius <= limits.max_radius_m:
             raise ValueError(f"fire.source_radius_m {radius} is outside the action limits")
         for fuel in self.fire.fuels.values():
@@ -76,6 +78,11 @@ class Sim:
             raise ValueError(f"strike.sigma_m {st.sigma_m} is outside the action limits")
         if max(st.energy_j, st.overdrive_energy_j) > limits.max_energy_j:
             raise ValueError(f"a strike's energy is over the action limits' {limits.max_energy_j:.0f} J")
+
+    @property
+    def sources(self) -> Mapping[str, HeatSource]:
+        """The world's heat sources, read-only: what the fire's decisions became in the world."""
+        return self._world.sources
 
     @property
     def frame(self) -> CellFrame:
@@ -110,6 +117,7 @@ class Sim:
             kind = RECORD_KIND_OF[type(action)]
             records.append(LogRecord(self._engine.tick, 0, actor, self._seq[actor], kind, target, action))
         self._pending = []
+        records.sort(key=lambda r: r.key)
         report = self._engine.step(records)
         for record, outcome in zip(records, report.outcomes, strict=True):
             if not outcome.success:
@@ -241,7 +249,8 @@ class Sim:
 
     def digest(self) -> str:
         """Every bit of state that replay must reproduce, and that later ticks depend on: cells, body, command, heat,
-        the vendor, the fires (their growth clocks included) and the world's heat sources."""
+        the vendor, the fires (their growth clocks included) and the world's heat sources. Complete only because
+        physics runs every tick (``ENGINE``)."""
         f, h = self.frame, hashlib.sha256()
         for array in (f.material, f.integrity, f.temperature):
             h.update(array.tobytes())
@@ -255,7 +264,7 @@ class Sim:
         numbers.append(NPC_STATES.index(self.vendor_state))
         for fuel in self.fire.fuels.values():
             numbers += [fuel.fuel_kg, fuel.skin_c, fuel.released_j, fuel.burning, fuel.burnt_out, fuel.burning_s]
-        numbers += [src.power_w for _, src in sorted(self.world.sources.items())]
+        numbers += [src.power_w for _, src in sorted(self.sources.items())]
         h.update(struct.pack(f"<{len(numbers)}d", *(float(n) for n in numbers)))
         h.update(struct.pack("<qd", self.tick, f.time_s))
         return h.hexdigest()

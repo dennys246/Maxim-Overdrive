@@ -22,6 +22,7 @@ from simcore.core.intents import Ignite, Strike
 from simcore.core.scene import Box, Cylinder, Scene
 from simcore.core.simulation import SimConfig, Simulation
 from tests._sim import SteppingPort, make, physics_steps, record, world_of
+from tests._testroots import spike_roots
 from tests.conftest import FAST_SPACINGS
 
 LIMITS = data.action_limits()
@@ -302,9 +303,25 @@ def _simulated(path: Path) -> bool:
     return not any(rel == d or rel.startswith(d + "/") for d in NOT_SIMULATION)
 
 
+# A spike's host side paces to the wall clock and makes launch tokens, as simcore/host does; the rest of a spike the
+# gate runs (its simulation and its tests) is scanned.
+SPIKE_HOST = {
+    "spikes/slice/slice_server/server.py",
+    "spikes/slice/slice_server/__main__.py",
+    "spikes/slice/slice_server/voice.py",
+}
+MUST_SCAN_SPIKES = {"spikes/slice/slice_server/sim.py", "spikes/slice/tests/test_voice.py"}
+
+
 def scanned_files() -> list[Path]:
     files = [p for p in SRC.rglob("*.py") if _simulated(p)]
-    return sorted(files) + sorted((ROOT / "tests").rglob("*.py"))
+    spikes = [
+        p
+        for root in spike_roots()
+        for p in (ROOT / root).rglob("*.py")
+        if p.relative_to(ROOT).as_posix() not in SPIKE_HOST
+    ]
+    return sorted(files) + sorted((ROOT / "tests").rglob("*.py")) + sorted(spikes)
 
 
 def _core_imports(node: ast.AST) -> list[str]:
@@ -351,6 +368,7 @@ def core_findings(path: Path, source: str) -> list[str]:
 def test_the_simulation_and_tests_have_no_hidden_sources_of_nondeterminism():
     scanned = scanned_files()
     assert {p.relative_to(SRC).as_posix() for p in scanned if p.is_relative_to(SRC)} >= MUST_SCAN
+    assert {p.relative_to(ROOT).as_posix() for p in scanned} >= MUST_SCAN_SPIKES
     hits = scan_hits({p: p.read_text() for p in scanned})
     core = sorted((SRC / CORE).rglob("*.py"))
     assert {p.relative_to(SRC).as_posix() for p in core} >= MUST_SCAN

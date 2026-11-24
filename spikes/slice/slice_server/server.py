@@ -74,9 +74,20 @@ class Meter:
 
 class Server:
     def __init__(
-        self, sim: Sim, *, token: str, log: IO[str], port: int = 0, voice: Voice | None = None, hello_s: float = 5.0
+        self,
+        sim: Sim,
+        *,
+        token: str,
+        log: IO[str],
+        port: int = 0,
+        voice: Voice | None = None,
+        hello_s: float = 5.0,
+        wall_tick_s: float | None = None,
     ) -> None:
+        """``wall_tick_s`` is the wall time each tick is paced to: the simulation's own tick in play, so the world runs
+        in real time, and shorter in tests, which run ticks as fast as they like. It never changes a tick's length."""
         self.sim, self._token, self._log, self._hello_s = sim, token, log, hello_s
+        self._wall_tick_s = sim.tick_s if wall_tick_s is None else wall_tick_s
         self._listener = socket.create_server(("127.0.0.1", port))
         self._listener.setblocking(False)
         self.port: int = self._listener.getsockname()[1]
@@ -101,8 +112,8 @@ class Server:
             self._enforce_hello_deadline()
             if time.monotonic() >= deadline:
                 self._tick()
-                deadline += self.sim.tick_s
-                if time.monotonic() - deadline > self.sim.tick_s:
+                deadline += self._wall_tick_s
+                if time.monotonic() - deadline > self._wall_tick_s:
                     self.meter.overruns += 1
                     deadline = time.monotonic()
 

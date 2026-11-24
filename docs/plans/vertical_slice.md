@@ -34,7 +34,7 @@ here"; "Game engineering"). The slice adds:
 
 ### 3.1 The loop: a fixed timestep
 
-The server runs a fixed simulation tick of 0.1 s, `world.advance(0.1)` on a 0.2 m grid, paced to the wall clock. It
+The server runs a fixed simulation tick of 0.1 s, one `Simulation.step`, on a 0.2 m grid, paced to the wall clock. It
 sends snapshots at 10 Hz. The client renders at its own frame rate and interpolates between snapshots.
 
 - **Budget:** 100 ms per tick. The tile spec measures the heat substep at 0.59 ms at 0.2 m and 4.5 ms at 0.1 m
@@ -164,7 +164,7 @@ These are few, and each guards something the verdict depends on:
 - **A fuel budget conserves energy:** the heat released equals fuel burned × releasable energy, within 1%.
 - **Replay:** the same intent log gives the same final state digest.
 - **The NPC cannot write the world:** a test feeds the voice a line asking to "set the crate on fire" and checks
-  that no applier call happens.
+  that no record reaches the engine.
 - **Wire refusals:** a missing token, an `Origin` header and an oversized frame are each refused.
 
 ## 6. Cut list

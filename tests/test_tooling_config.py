@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 
 from tests._gitutil import git
+from tests._testroots import gate_testpaths
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -67,14 +68,16 @@ def test_coverage_measures_branches_over_src_and_scripts():
 def test_the_gate_runs_every_tests_directory_in_the_tree():
     # The slice's tests sat outside testpaths, so step 5a's PR 4a broke 41 of them and the gate stayed green. Every
     # directory of tests the tree holds is in testpaths, so a spike that tracks main is held to it.
-    testpaths = set(_config()["pytest"]["ini_options"]["testpaths"])
-    skipped = {".venv", ".worktrees", "node_modules"}  # other checkouts and installed packages, not this tree's
+    # Tracked files only, so an untracked folder or a venv can't turn it red. A test file outside any tests directory
+    # (spikes/specgen/test_spike.py, run by hand) is a spike's choice to stay out; a tests directory is not.
+    tracked = git(ROOT, "ls-files", "*.py").stdout.split()
     found = {
-        rel.as_posix()
-        for p in ROOT.glob("**/tests")
-        if p.is_dir() and any(p.glob("test_*.py")) and not skipped & set((rel := p.relative_to(ROOT)).parts)
+        str(Path(f).parent.as_posix()) for f in tracked if Path(f).name.startswith("test_") and "tests" in Path(f).parts
     }
-    assert found - {"client/tests"} == testpaths  # the Godot client's tests run in godot_check, not pytest
+    roots = gate_testpaths()
+    unrun = sorted(f for f in found if not any(f == p or f.startswith(p + "/") for p in roots))
+    assert not unrun, f"tests the gate never runs (add them to testpaths): {unrun}"
+    assert all(any(f == p or f.startswith(p + "/") for f in found) for p in roots), "a testpath with no tests"
 
 
 def test_mypy_is_strict():

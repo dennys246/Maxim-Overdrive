@@ -5,12 +5,13 @@ is the real step 5b, 7 or 8, and nothing under `src/` changes for it.
 
 ## The engine it runs on
 
-`Simulation` (step 5a), on today's main: each tick hands its records (the fire's ignites and douses, the player's
-strikes) to one `Simulation.step`, with physics on every tick (`physics_every=1`; the engine's default is every fifth).
-The port moved no number the slice was tuned on (owner, 2026-11-23): the same scripted run on `bfb12f8` and on the port
-lights the pallet, trips the body and burns the crate out on the same ticks, cracks agree bit for bit, and temperatures
-differ by round-off (6e-12 relative). Main's gate runs the slice's tests, so a change to the engine can't break it
-quietly. Session logs carry `slice-log-1`; the older ones were recorded on the retired engine and are refused by name.
+`Simulation` (step 5a), on today's main (owner, 2026-11-23): each tick hands its records (the fire's ignites and
+douses, the player's strikes) to one `Simulation.step`, with physics on every tick (`slice_server/sim.py`, `ENGINE`,
+says why). Measured on `bfb12f8` and on the port with one script: a crate lit, then 400 s at 0.6 m, lights the pallet,
+trips the body and burns the crate out on the same ticks; a 12-tick run with an Overdrive strike gives bit-identical
+integrity and temperatures within 6e-12 relative. A strike still lands where the body reads it next tick, as before.
+Main's gate runs the slice's tests and replays a committed session log (`tests/fixtures/`), so an engine change that
+moves the slice shows there. Session logs carry `slice-log-1` and the engine's cadence; older logs are refused by name.
 
 ## Run it
 
