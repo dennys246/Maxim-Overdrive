@@ -168,9 +168,8 @@ Simulation.frames -> FrameView                                   # the latest pu
   - its conservation law and ledger, or none;
   - its writers, ordered: laws in cadence and tuple order, `Topology`, construction (and the save's loader), or an
     input appender (§5.1). This column is the writers' one owner.
-- **Inputs are declared beside fields:** `sources`, `source_exposure` (§3) and the tick's `loads`, each with its
-  appender (the applier; `Simulation` for `source_exposure`) and its one resolving law: heat for sources, damage for
-  loads.
+- **Inputs are declared beside fields:** `sources`, `source_exposure` (§3), the tick's `loads` and pilots,
+  each with its appender (the applier; `Simulation` for `source_exposure`) and one resolver (heat, damage, solid).
 - **Every reader takes it from there:** storage, the snapshot, the per-tick digest, the save and sem_stimuli §5's
   producer closure, computed over every law in the tuple whatever its cadence.
 - **A generated artifact,** `docs/generated/fields.md`, is committed and compared byte for byte by a test.
@@ -228,7 +227,8 @@ Simulation.frames -> FrameView                                   # the latest pu
   2. `sources`, sorted by key: key, point, radius, power and the tick the value took effect;
   3. `source_exposure`'s closed segments, sorted by key and then tick: key, value and ticks;
   4. regions, sorted by name: name, id and the footprint's scene digest;
-  5. the tick's records in key order: index, refusal code (`refusals.py`; 0 for none) and effect values.
+  5. the tick's records in key order: index, refusal code (`refusals.py`; 0 for none) and effect values;
+  6. pilots (`torch_pilot.md` §2).
 - **Not members:** `WorkCounters` (bar 6 checks them apart), loads (they never outlive their record) and
   `sem_stimuli.md` §5's per-lane digests, which are their own.
 - **Member digests are seeded** by `from_scene` and on load, as the caches are. A member is rehashed only on a tick

@@ -513,3 +513,27 @@ model reads that it heated; NAc's credit comes from the interoceptive drives, no
 *Consequence:* no outcome bar is measured through the port (§13), and `phase1/agents` replaces it with a pending result
 and the effect in a later frame. For Maxim: this is lesson 6's point, already Phase 3's OD-A16 (effects measured later;
 the cerebellum observing at settle), and this is new evidence for it, not a new item.
+
+### 38. A held act's effect lands after Maxim has retired the call, so call-window credit pays the wrong act (2026-11-22)
+
+**A `kindle` is applied at once, but what it does is decided by physics many steps later.** *Evidence:* in Phase 1
+the torch's pilot is a prescribed flux on fuel strips, and a strip flashes only once its own profile reaches
+m''_flash (`docs/design/torch_pilot.md` §5). That takes physics steps of 0.5 s each, while the pilot is still live. On
+Maxim's side, read at `origin/main` b98954f7:
+- R4's credit is anchored to the executor call window, and "relief landing after a call returns credits the NEXT call"
+  (`docs/plans/roadmap_1_4.md`, R4);
+- `docs/plans/tool_failure_credit.md` (lines 76–80) retires a tool event at invocation end, removing the 300 s pending
+  window, and warns that "R4 delayed credit must not assume the window";
+- what reaches past a call is weak or on the wrong clock: the `tool:kindle` eligibility trace (0.3, ×0.9 per loop
+  iteration, onto a `_reward_bias` capped at 0.20; `docs/plans/lookback_primitive.md`), and the anchor tier's 300 s
+  window, read on `time.time()` (`nac.py`; OD-A20).
+
+So a Phase 4 NPC that kindles a slab and walks away would credit whatever the flash causes to its walk, not its
+`kindle`. Our own amendment draft (`docs/maxim_upstream/propose_settle_amendment_DRAFT.md`) assumes the opposite:
+"consequences that take seconds stay with NAc's temporal window". In Phase 1, too, the flash reaches no stimulus row,
+because no row carries flame (`client_objects.md` §5.4).
+
+*Consequence:* the evidence for OD-A16 is two delays, measured separately at 6.1b: from the act to the physical
+outcome (`t_flash`), and from the receipt to the first change in a declared stimulus row. The second one, not the
+first, sizes any credit window. The amendment draft's slow-effects paragraph has to be revisited before it goes
+upstream.

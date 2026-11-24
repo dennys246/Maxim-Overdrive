@@ -42,7 +42,7 @@ by report. Under llvmpipe only the goldens and §7.2's checks ran.
 | `docs/roadmap.md` Phase 1 exit and Phase 2 bullets; `research/solid_spike/results_rerun1.md` §7 | **the exit is the torch-lit slab** ("char, burn and flame out"); 6.2–6.4, the flame object and the crate are Phase 2 (owner, 2026-11-20) |
 | `fire_solid.md` §1.1–§1.3 | the `objects` and `segments` tables; kinds `rod` and `slab`; immutable geometry; 0.02 m strip segments, two parts each; `state` live or burnt out; limits of 2,000 objects and 2×10⁴ segments; no fuel inside a solid footprint |
 | `fire_solid.md` §2, §4.2, §5.6 | acts and `QUANTITIES` stay on cells; residue (char, or the inert fraction); the snapshot requirements this pass settles |
-| `fire_model.md` §2.1, §4.1, §5.4 | `bed` and flames as later kinds and tables; the flame key; `kindle`'s 50 mm nearest-surface rule and `ambiguous_point` |
+| `fire_model.md` §2.1, §4.1; `torch_pilot.md` §3 | `bed` and flames as later kinds and tables; the flame key; `kindle`'s 50 mm nearest-surface rule and `ambiguous_point` |
 | `client_rendering.md` §1, §3, §4, §5, §6, §8 | camera and zoom; input; the frame, channels, bump rules and caps; the raymarch, glow curve and crack pattern; goldens and checks; budgets |
 | `tile_and_client.md` §6.3 | the observed beats G2–G4 key on |
 | `world_model.md` §8 (F1–F4, F15) | a name is a meaning; tables column-major with integer keys; non-default-scale fixtures |
@@ -279,10 +279,11 @@ The join cap counts the tables at the limits (`client_rendering.md` §4.3), whic
 
 ### 5.4 What the player sees that no NPC senses
 
-The player sees three cues that no stimulus row carries:
+The player sees four cues that no stimulus row carries:
 - burning brightness from the solid model's ignition latch;
 - char darkening from a residue fraction;
-- the Phase 1 flame, drawn from `ignited_fraction`.
+- the Phase 1 flame, drawn from `ignited_fraction`;
+- the torch's flame (`torch_pilot.md` §8).
 
 An NPC's future sight row is radiance from surface temperatures only (`sem_stimuli.md` §2.2). So a cold charred
 stick, or a just-ignited one, looks the same to an NPC as unburnt wood at that temperature. These are named
@@ -369,9 +370,8 @@ and decides more. B7 measured c = 0.25–0.96 drawing the same grooves on rig wa
 ### 7.3 Scenario goldens
 
 G1–G5's names stay. Their beats (tile §6.3: `t_crack`, `t_glow`, `t_gone`) are written for the Phase 2 crate. They
-read bed cells and an envelope skin that the slab exit doesn't have. The beats must be restated for the torch-lit
-slab, on logged server state and never on pixels, before step 8 builds its goldens. Their owner is tile §6 (D-S2),
-whose trigger, "before 6.4", no longer fires in Phase 1 (owner ruling 4).
+read bed cells and an envelope skin that the slab exit doesn't have. For the torch-lit
+slab the beats are `torch_pilot.md` §9's, on logged server state, and step 8 maps G1–G5 onto them.
 
 ### 7.4 Budgets (`client_rendering.md` §8)
 
