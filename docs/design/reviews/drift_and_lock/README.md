@@ -33,7 +33,7 @@ lenses, so they are folded once.
 | A3 | The OD-I7 row names `sem_stimuli.md` delta 1's stale "returns 1.0" for the region-modulator build step; the design is outside this step's files |
 | E5 | The OD-I1 row says the gate holds one of five sites, and the release is read for all five before the row closes |
 | D1 | The OD-I1 helper's docstring states the clock bound (later than 3,601 s after the epoch) |
-| A6, E6, W5 | The rows get the PR's number once it exists, before hand-off |
+| A6, E6, W5 | The rows get the PR's number once it exists, before hand-off. Done after the delta round: #73 |
 
 **Left as they are, with their reviewers' triggers** (NITs, the author's call under O80; none is a rule waiting for a
 check, so no backlog row):
