@@ -1,239 +1,281 @@
 # Records layout: one file per record, generated indexes (design, 2026-11-22)
 
-**Scope.** The layout of the repository's shared, append-only records: lessons, decisions, Known gaps and standards
-backlog rows. Today each family is one file that every branch appends to, so parallel sessions collide. This design
-gives each record its own file, generates every index from the records, and detects id collisions mechanically. It
-is contract only (CLAUDE.md, "A design document holds the contract"). Its mechanisms are build steps (§9).
+**Scope.** The layout of the repository's shared records: lessons, decisions, Known gaps and standards backlog rows.
+Today each family is one file that every branch appends to, so parallel sessions collide. This design gives each
+record its own file, generates every index from the records, and makes a collision cheap to find and fix. It is
+contract only (CLAUDE.md, "A design document holds the contract"). Its mechanisms are build steps (§9).
 
-**Status: design, not yet reviewed.** No record moves until it is reviewed and its owner questions (§10) are ruled.
+**Status: round 1 folded at step 1a (2026-11-24).** The owner's rulings are RL1–RL10
+(`docs/design/decisions/records_layout.md`); the fold's record is `docs/design/reviews/records_layout/fold.md`.
+Step 4 builds it.
 
 ## 1. The problem, measured
 
 On 2026-11-22 alone, parallel branches lost time to collisions in shared records four ways:
-- **Lessons.** Two branches each added lessons 32 and 33 to `docs/lessons_maxim_in_games.md`. At the merge one
-  branch's pair became 35 and 36, and every citation in its files was renumbered by hand.
+- **Lessons.** Two branches each added lessons 32 and 33. At the merge one branch's pair became 35 and 36, and every
+  citation in its files was renumbered by hand.
 - **Decisions.** Two branches appended rows after the same row of `docs/design/decisions/world_model.md`, one D31–D35
   and the other D36–D37, giving a merge conflict resolved by hand.
 - **The decision index.** `docs/plans/foundations_plan.md` lists every decision id, sits at its 2,500-word budget,
-  and `scripts/check_plan.py` requires every id there. About five times in one day a branch had to cut someone
-  else's wording to fit its own ids, and two branches then collided on the same index line.
+  and `scripts/check_plan.py` requires every id there. Its §4 table is about 1,083 of those words. About five times in
+  one day a branch cut someone else's wording to fit its own ids.
 - **Known gaps** are one bullet list in one file, the same pattern on a smaller scale.
 
-The cause is shared: several writers append to one list, at the same place, with numbers that only mean something
-in one sequence. Each record family in §2 has that shape.
+Since then, `scripts/lint_ids.py` (#55) detects a duplicated decision, lesson or `OD-` id on the first gate that
+sees both, and steps take reserved id blocks (O79, O81). That catches a duplicate, but not before both PRs merge:
+`main` is unprotected and a PR's checks don't rerun when `main` moves (round 1, C1).
+
+**What this design fixes, and what it doesn't** (RL9). Records stop sharing a file, so editing two records never
+conflicts. Additions to one family still conflict, in that family's generated index, and that is deliberate: the
+conflict is the detector that stops a duplicate before the second merge (§5). Resolving one is a command, not a hand
+edit.
 
 ## 2. Families in scope
 
-| Family | Ids today | Where today | Citations |
-|---|---|---|---|
-| Lessons | `lesson 1`–`lesson 36`, as headings `### N.` | `docs/lessons_maxim_in_games.md` | about 70 files cite "lesson N" |
-| Decisions | `O1`…, `OA1`…, `D1`…, `T1`…, `TP1`…, and each design's own family | `docs/design/decisions/<design>.md`, one table per design | every design, plan, roadmap and many tests |
-| Known gaps | none (bold bullets) | `docs/known_gaps.md` (PR #52) | red-gate `reason=` strings cite the file |
-| Standards backlog | `B1`–`B44` | `docs/standards_backlog.md`, one table | CLAUDE.md's `Guard:` lines, the guard lint |
+Four families move (RL3). Counts are at `1ed9caa`, recounted at R1.
 
-Out of scope for now:
-- **Phase 3 rows** (`OD-…` in `docs/roadmap.md`) collide the same way, but the roadmap is exempt from the budget
-  (O41) and edited less often. They may join as a later family under the same contract.
+| Family | Ids today | Where today |
+|---|---|---|
+| Lessons | `### 1.` to `### 40.` | `docs/lessons_maxim_in_games.md` |
+| Decisions | 174 rows with a single id (164 ids, the rest cross-listed) in ten logs, plus restating and id-less rows | `docs/design/decisions/<design>.md` |
+| Known gaps | none: 13 bold bullets | `docs/known_gaps.md` (#52) |
+| Standards backlog | `B1` to `B48` | `docs/standards_backlog.md` |
+
+Out of scope:
+- **Phase 3 rows** (`OD-…` in `docs/roadmap.md`). `lint_ids::check_roadmap_ids` holds each unique, and the roadmap
+  is the upstream lane's (O77). They may join later under this contract.
 - **Review records** are already one file per report.
 
 ## 3. Layout
 
 Each record is one Markdown file, in a directory per family:
-- lessons: `docs/lessons/<id>-<slug>.md`;
-- decisions: `docs/design/decisions/<design>/<id>-<slug>.md`, where `<design>` is the design whose decision log holds
-  it today;
+- lessons: `docs/lessons/<n>-<slug>.md`;
+- decisions: `docs/design/decisions/<design>/<id>-<slug>.md`, where `<design>` is the design whose log holds it today,
+  or, for a cross-listed decision, the design its owner section names first;
 - Known gaps: `docs/known_gaps/<slug>.md`;
 - backlog rows: `docs/standards_backlog/<id>-<slug>.md`.
 
-A slug is lowercase ASCII words joined by hyphens, at most 60 characters. The id and slug in a file's name must equal
-its front matter (§4). Every record directory sits below a path `scripts/lint_contracts.py` already treats as out
-of scope, or is added to its out-of-scope list, so records are never checked as designs.
-
-Two branches adding records now add different files. Git merges them without a conflict, unless two branches choose
-the same id, which §5 handles.
+A slug is lowercase ASCII words joined by hyphens, at most 60 characters. A file's id and slug must equal its front
+matter. Each family directory also holds `_header.md`, the hand-written text that heads its generated file (§6).
+Record directories are added to `scripts/lint_contracts.py`'s out-of-scope paths; the header files are not.
 
 ## 4. The record format
 
-A record file is YAML front matter, then a Markdown body. Front matter is read by one loader with the repository's
-strict YAML gate (`simcore.adapters.loaders`'s strict reader, or the scripts' equivalent: duplicate keys refused,
-unknown keys refused, a `version` that the reader knows).
+**One reader** owns the format: `scripts/records.py::read_record`. A record file begins with a line that is exactly
+`---`, and its front matter ends at the next such line; everything after it is the body, which may contain `---`
+lines. The front matter is parsed by `simcore.adapters.loaders`' strict YAML reader (duplicate keys refused), and held
+to its family's schema with `simcore.core.schema` (unknown keys refused, unknown versions refused). Each family has
+its own schema and its own `version`, 1 at R1. The reader is a file gate, with a row in the gate registry
+(`scripts/lint_gates.py`).
 
 Common keys:
-- **`version`:** 1. A reader refuses any other.
-- **`id`:** the family's id (§5). Known gaps use their slug as their id.
-- **`title`:** one line. It becomes the index's line for the record.
-- **`date`:** the ISO date the record was made.
+- **`version`**, per family.
+- **`id`**: the family's id (§5). A Known gap's id is its slug.
+- **`title`**: one line, the record's line in its index.
+- **`date`**: the ISO date the record was made.
 
-Per family:
-- **Lessons:** `section`, one of the lessons file's section headings today ("World and physics", "Perception and the
-  body" and so on, a closed list held by the generator). The body holds the lesson's text, with its *Evidence* and
-  *Consequence* as today.
-- **Decisions:**
-  - `who` (for example "owner") and `owner_section` (the design section that states its contract);
-  - optional `supersedes` and `amends`, lists of ids.
+**Lessons:**
+- `section`: one of a closed list, held by the generator: the lessons file's section headings today, plus "Game and
+  general engineering" for lessons beyond Maxim (RL7).
+- `amended`: a list of `{date, why}`, empty at creation (RL10).
 
-  The body is the ruling's text. A decision's status (live, superseded, amended) is **derived**, never stored, from
-  later records' `supersedes` and `amends`. So no existing decision file is edited when a new ruling changes its
-  status. That keeps today's rule that a ruling is never edited and a new ruling is a new record.
-- **Known gaps:**
-  - `status`: `open` or `closed`;
-  - `gate`: the strict red gate's test id, or `none` with a reason;
-  - `closes_at`: the named step that fixes it;
-  - when closed, `closed_by`: a commit or PR.
+The body holds the lesson's text, with its *Evidence* and *Consequence*. The body may change. Each change appends one
+`amended` entry with a one-line why, and the generated file shows the trail under the lesson. A correction like
+lesson 29's stays visible where the lesson is read.
 
-  The body holds its numbers. A Known gap is the one family whose files change after creation, and only in `status`,
-  `closed_by` and the body's numbers.
-- **Backlog rows:** `rule` (the CLAUDE.md rule it holds), `check` (the body) and `lands_with`, plus `status` (`open`,
-  `done in part` or `done`, with the commit). Like a gap, a row may change its status.
+**Decisions:**
+- `who` and `owner_section`, as the log's columns today.
+- `supersedes`, `amends`: lists of decision ids, or of external rulings, each given as a repository path and an anchor
+  (`docs/design/reviews/docs_contracts/rulings.md#41`) that must exist.
+- `also_in`: the other logs that list it (a cross-listed decision, today's "also in").
+- `restates`: for a row that restates other rows (today's `D26–D28`, `RT1–4`), the ids it restates.
 
-**Immutability.** Comparing a branch with its base, a record file that exists on the base may change only in its
-family's mutable fields. Any other edit to an existing lesson or decision file is refused. A wording fix to a merged
-lesson is a new lesson, or an erratum that cites it.
+The body is the ruling's text. The title is the ruling's bold lead sentence; a row without one is given a title by
+hand in the migration commit, listed there. A decision's status (live, superseded, amended, restates) is **derived**
+from these fields across every record, never stored. So a new ruling changes an old one's status without editing it.
+
+**Known gaps:**
+- `kind`: `physics`, `performance` or `trust boundary` (RL6).
+- `gate`: the strict red gate's test id, or `none` and a reason.
+- `closes_at`: the named step that fixes it, or `unscheduled` and a reason.
+
+The body holds its numbers, and the whole body is mutable. A gap whose fix lands is removed: its record is deleted in
+the commit that flips its gate (#52's rule). A partly closed gap keeps one record, for its open part.
+
+**Backlog rows:**
+- `rule`: the CLAUDE.md rule it holds.
+- `lands_with`: as the table's column.
+- `status`: `open`, `done in part` or `done`, and `done_in`, the commit, when not open.
+
+The body is the check's text.
+
+**What may change.** Compared with the merge base of the branch and `main`:
+- a decision file never changes and is never deleted;
+- a lesson may change only its body, its `title` and its `amended` list, which only grows; it is never deleted;
+- a Known gap may change anything but its slug, and may be deleted;
+- a backlog row may change its body, `lands_with`, `status` and `done_in`; it is never deleted;
+- the one exception for every family is §5's duplicate fix.
 
 ## 5. Ids: kept short, collisions detected and fixed
 
-**Every existing id is kept,** and new records continue each family's numbering. "lesson 36", "D34", "O57" and "TP1"
-keep resolving, and so do frozen files that cite ids, such as the spec generator spike's pre-registration, which can
-never change.
+**Every existing id is kept,** and new records continue each family's numbering (RL1). "lesson 36", "D34", "O57" and
+"TP1" keep resolving, and so do frozen files that cite ids.
 
-**Why not ids that can't collide.** An id unique by construction (a date-slug, or a block reserved per branch) would
-end the collisions. But it would make citations long, or need a central allocator, and there is none: sessions never
-push `main`, and the owner merges on GitHub. So ids stay short and sequential, and collisions are made cheap to find
-and fix:
-- **Allocation.** A branch takes the next free number in the family, as seen in its own tree.
-- **Detection.** `check_records` (§7) fails on two record files with one id in a family, naming both files. It runs in
-  the gate and in CI on the pull request's merge ref, so a duplicate is caught before the owner merges, whichever
-  branch lands first.
-- **Resolution.** The later branch runs `scripts/records.py renumber <old> <new>`, which renames its record file,
-  rewrites the id in its front matter, and rewrites the citations **in the files that branch changed**, never in
-  others, because elsewhere the old id belongs to the other branch's record. This is the renumbering done by hand on
-  2026-11-22, made one command and checked.
+**A family** is what CLAUDE.md's "A record id names one record" and `lint_ids` define: for decisions, an id prefix
+across every log (`D` is one family over `sem_stimuli` and `world_model`); lesson numbers; `B` numbers; `OD-` ids. So:
+- a cross-listed decision is one record, with `also_in`;
+- a restating row (a range or list of ids) is a record whose id is the log-qualified slug (`world_model/d26-to-d28`)
+  and which carries `restates`;
+- a row with no id (`ruled 1`, `the split`) is a record whose id is its log-qualified slug. Nothing cites it by number.
 
-`check_records` also fails on a citation to an id that has no record, which catches a renumber that missed a
-citation.
+**Allocation.** A step takes the ids its brief reserves (O79, O81). Otherwise it takes the next free number in its
+own tree.
 
-**Citation forms**, which the checker recognises:
-- `lesson N`;
-- a decision id by its family pattern (the patterns `check_plan.py` and `lint_contracts.py` already use, extended with
-  each design's family);
-- `B<N>`;
-- a Known gap by `docs/known_gaps.md` plus its slug, for example `` `place-loses-geometry` ``.
+**Detection, before the second merge** (RL9, RL8). Each id-bearing family has one generated, committed index in id
+order, one line per record: id, slug, title (§6). Two branches adding to one family both insert lines after the same
+last record, so git reports a conflict and GitHub refuses the second PR's merge. Its session merges `main` locally,
+runs `scripts/records.py index`, and the duplicate check fails if the ids collide. Two branches adding one id with one
+slug would write the same file name, an add/add conflict. GitHub's "require up to date" rule stays off (RL8).
 
-Red-gate `reason=` strings name the gap's slug, so the test that a reason cites a real gap can be mechanical.
+**The duplicate check** is `lint_ids`, retargeted at the record files: two records with one id in a family fail,
+naming both. It runs in the gate and in CI.
+
+**Resolution.** CLAUDE.md names who renumbers: the branch merged second, its own records and citations. It runs
+`scripts/records.py renumber <old>=<new> …`, which applies one mapping at once, so shifting a range can't collide
+with itself. It renames the branch's record files and rewrites their front matter. It rewrites citations **only in
+lines the branch added or changed against its merge base with `main`**, and lists, without rewriting, every citation
+of an old id in lines that came from `main`, because those name the other branch's record. It refuses:
+- a file listed in any `freeze.sha256`;
+- an old id cited anywhere under `docs/maxim_upstream/`. A lesson is cited upstream only after it is on `main`.
+
+A citation the branch made somewhere it didn't edit (a stacked branch, say) still resolves silently to the other
+record. Short citations accept that residual risk (RL1), and the listing above narrows it.
+
+**A duplicate on `main`** (both merged anyway). The fix branch renames the record that reached `main` second (by
+`git log`), with `renumber`. That rename of an existing record is allowed only while `main` holds two records with
+the old id and the branch leaves one.
+
+**Citation forms.** Lesson citations are resolved, in the spellings and files `lint_ids::check_lessons` reads today
+(`docs/**/*.md` and `tests/*.py` `reason=` strings; frozen files skipped). Decision citations are not resolved,
+because Maxim's decision ids and frozen pre-registrations share their shapes. Backlog citations in CLAUDE.md's
+`Guard:` lines stay `lint_guards`'. A Known gap is cited by `docs/known_gaps.md` and its slug. At R3, red-gate
+`reason=` strings name their gap's slug, and a test checks each names a real gap.
 
 ## 6. Generated indexes
 
-`scripts/records.py index` writes each family's index from its records. Each generated file begins with one marker
-line saying it is generated and naming the command, and is committed. The check (§7) regenerates it and compares
-bytes, as `tests/test_fields.py` does for `docs/generated/fields.md`.
+`scripts/records.py index` writes every generated file from the records and the family's `_header.md`. Each begins
+with one marker line saying it is generated and naming the command, and is committed. Generation is deterministic:
+fixed order, no dates, SHAs, clock or locale beyond the records' own fields. The check (§7) regenerates and compares
+bytes, as `tests/test_fields.py` does for `docs/generated/fields.md`. A conflict in a generated file is resolved by
+regenerating it, never by hand.
 
 | Generated file | From | Keeps |
 |---|---|---|
-| `docs/lessons_maxim_in_games.md` | `docs/lessons/` | its path, its sections, the full text of every lesson in id order, and `### N.` headings, so existing links and citations still land |
-| `docs/design/decisions/<design>.md` | `docs/design/decisions/<design>/` | its path and its table form, with the derived status column |
-| `docs/known_gaps.md` | `docs/known_gaps/` | its path; open gaps first, closed gaps after with their closing commit |
-| `docs/standards_backlog.md` | `docs/standards_backlog/` | its path, its table, and its header text, which moves into the generator's template |
-| `docs/generated/decisions_index.md` | every decision record | one line per id: id, title, owning design, derived status |
+| `docs/lessons_maxim_in_games.md` | `docs/lessons/` | its path; the header; first, the id-ordered index of every lesson; then the full text by section, in id order within a section, under `### N.` headings with the date generated from `date`, and each `amended` trail (RL2) |
+| `docs/design/decisions/<design>.md` | `docs/design/decisions/<design>/` and cross-listed records | its path and table form, with the derived status column |
+| `docs/known_gaps.md` | `docs/known_gaps/` | its path and header; gaps grouped by `kind`, each with its slug shown |
+| `docs/standards_backlog.md` | `docs/standards_backlog/` | its path, header and table, in id order |
+| `docs/generated/decisions_index.md` | every decision record | one line per id, in id order: id, slug, title, owning design, derived status |
 
-**The foundations plan** keeps its prose and its open questions. Its §4 decision table is replaced by one sentence
-that links `docs/generated/decisions_index.md`. That removes the table from the plan's budget. Today the table is
-about a quarter of its words, and is the text branches have been cutting.
+The id-ordered indexes (the lessons file's head, the decisions index, the backlog table) are the detector of §5.
 
-**Budgets.** O22's word budgets apply to hand-written text, so the rule is restated here only by reference. A generated
-file has no budget of its own, because its size follows its records. Each record has one: a lesson at most 600 words,
-a decision 300, a Known gap 400, and a backlog row 200. These are the longest existing records rounded up, measured
-at R1 before the caps are fixed. The proposed CLAUDE.md wording is in §8.
+**The foundations plan** keeps its prose and open questions. Its §4 table is replaced by one sentence linking
+`docs/generated/decisions_index.md`.
+
+**Budgets.** O22's budgets apply to hand-written text, including each `_header.md`. A generated file has no budget of
+its own. Each record has one: its family's longest record at R1 rounded up to the next 100 words, then only tightened
+(RL4). At the fold that is 500 words for a lesson, 400 for a decision, 400 for a Known gap and 600 for a backlog row.
 
 ## 7. Checks and the changes to existing tooling
 
-**A new lint, `scripts/lint_records.py::check_records`,** is registered in `lint_standards.py` beside the others. It
-refuses:
-- a record whose front matter fails the strict reader, or whose name disagrees with its `id` and slug;
-- two records with one id in a family;
-- a citation (§5's forms) in any tracked text file to an id with no record. Frozen files are checked too: they must
-  resolve, and they can't change;
-- an edit to an existing record outside its family's mutable fields, compared with the base branch, as
-  `lint_sizes.py`'s ratchet compares;
-- a generated file that differs from its regeneration. The message names the record to edit, or the converter to run
-  (§8);
-- a `supersedes` or `amends` naming an unknown id, and cycles among them.
+**One owner per check:**
+- **`scripts/lint_ids.py`** keeps id uniqueness and lesson-citation resolution, read from the record files instead of
+  the tables and headings.
+- **`scripts/lint_guards.py`** keeps backlog-id duplicates and `Guard:` references, read from the records.
+- **A new lint, `scripts/lint_records.py::check_records`,** registered in `lint_standards.py`, refuses:
+  - a record that `read_record` refuses, or whose file name disagrees with its `id` and slug;
+  - a change §4 doesn't allow, compared with the merge base, as `lint_sizes.py`'s ratchet compares;
+  - a generated file that differs from its regeneration, naming the record or `_header.md` to edit, or `migrate-branch`
+    when the generated file was edited by hand (§8);
+  - a `supersedes`, `amends` or `restates` naming an unknown id or a missing external anchor, and cycles among them;
+  - a record over its family's budget.
 
-**`scripts/check_plan.py`** keeps its open-question checks and its budget on the plan's hand-written text. Its
-`missing_ids` check (every id in the design documents appears in the plan) is retired. The generated index holds
-every id by construction, and `check_records` holds citations to records.
+**`scripts/check_plan.py`** keeps its open-question checks, its budget, and the half of `missing_ids` that requires
+every `OD-` id in the plan. The decision half is retired: the generated index holds every decision id by
+construction.
 
-**`scripts/lint_contracts.py`:**
-- its scope stays the hand-written design, plan, roadmap and architecture files;
-- the record directories are added to its out-of-scope paths;
-- the generated `docs/known_gaps.md` stays in scope (PR #52's test), because it is read as a contract-bearing
-  document, while its generator, not its records, is what the lint checks;
-- the no-decision-table rule in designs is unchanged.
+**`scripts/lint_contracts.py`:** its scope stays the hand-written designs, plans, roadmap and architecture, plus the
+`_header.md` files. The record directories are out of scope. `docs/known_gaps.md` stays in scope as #52 made it; a
+finding there names the record to edit, and the generated sections keep stable headings so findings stay stable.
 
-**`scripts/lint_guards.py`**, which holds every CLAUDE.md rule to a check or a backlog row, reads backlog ids from the
-records instead of the table.
+**CLAUDE.md** changes only by the wording of §8.
 
-**The conventions in CLAUDE.md** change where they name a file:
-- "Record lessons as they're learned" names `docs/lessons/`, one file per lesson;
-- "Record known physics gaps" names `docs/known_gaps/`, one file per gap;
-- the backlog rule names `docs/standards_backlog/`.
+## 8. Migration
 
-## 8. Migration, tolerant of branches in flight
+**The converter, `scripts/records.py migrate`,** parses today's four formats into records. A field the source lacks is
+`unknown`, never invented, and is listed in the migration commit. It is proven by a round trip: regenerating from the
+records reproduces each original file byte for byte, apart from the marker line, the lessons index and the derived
+status column. Every derived status must equal the original cell's meaning; a difference is fixed in the converter or
+listed in the commit as a named change, and none loses information (A-B4).
 
-**The converter, `scripts/records.py migrate`,** parses today's four formats into records:
-- the decision tables, whose columns differ by file: a missing field is recorded as `unknown`, never invented;
-- the lessons headings and their bodies;
-- the Known-gap bullets;
-- the backlog rows.
+**`scripts/records.py migrate-branch <branch>`** is for a branch that edited the old files after the migration
+landed. It runs from a checkout of `main`, before that branch merges `main`. It reads the branch's diff to the four
+old files against its merge base, and:
+- writes each added row, lesson or gap as a new record;
+- maps each edit of an existing entry onto a change §4 allows (a lesson body with an `amended` entry, a backlog status,
+  a gap's body), or refuses it by name;
+- commits the result on the branch, which then merges `main` and regenerates.
 
-It is proven by a round trip. Regenerating from the records must reproduce each original file byte for byte, apart
-from the marker line and status columns now derived. Any difference is either fixed in the converter or listed in the
-migration commit as a named, reviewed change.
+**When.** O79 runs step 4 alone, and O81 keeps the slice branch free of record edits until step 4 merges, so at the
+migration no open branch should need `migrate-branch`. Steps 2 and 3 merge before step 4 starts. A branch that is
+open anyway runs `migrate-branch` at its next merge of `main`. R3 reruns `migrate` from scratch if `main` moves
+before it merges.
 
-**`scripts/records.py migrate-branch`** is for a branch that edited the old files after the migration landed. It reads
-the branch's diff to the four old files against its merge base, writes each added row, lesson or gap as a record,
-reverts the hand edits, and regenerates. When a late branch merges `main`, its edits to the now-generated files
-conflict or fail `check_records`. The lint's message names this command, so the step can't be missed.
-
-**Order.** The migration lands when the fewest branches carry record edits:
-1. **Merge first:** PR #51 (decisions D36–D37 and index rows) and PR #52 (the Known-gaps move). They edit the most
-   records, and #52 creates the Known-gaps file this design splits.
-2. **Then land this branch's migration,** regenerated from that `main`.
-3. **Then each remaining branch runs `migrate-branch` at its next merge of `main`:**
-   - PR #47 (backlog row B44, foundations rows, roadmap);
-   - PR #48 (backlog rows B11 and B37);
-   - `phase1/torch-pilot` (its TP decision file, a lesson and backlog edits).
-4. **No action:** PR #50, which touches no record. The spec generator spike's frozen files keep their citations.
-
-**The CLAUDE.md edit proposed for the owner.** Replace "Record known physics gaps in `docs/architecture.md` ("Known
-gaps")" (or its #52 form) and the lessons and backlog file names with the record directories (§7). Add one sentence
-under the budget rule: "Generated files have no budget of their own; each record family has a per-record budget
-(`docs/design/records_layout.md` §6)."
+**The CLAUDE.md wording** (RL5), applied by step 4 and nothing else:
+- in "Rules that matter here": "Record known gaps (physics, performance or trust boundary) in `docs/known_gaps/`, one
+  file per gap and its one owner, with numbers, instead of hiding them; `docs/known_gaps.md` is generated from them."
+- in the guard paragraph: "… or a row in `docs/standards_backlog/` (one file per row; `docs/standards_backlog.md` is
+  generated) …"
+- in "Record lessons as they're learned": "… add or update an entry in `docs/lessons/`, one file per lesson
+  (`docs/lessons_maxim_in_games.md` is generated from them) …"
+- under "Documents have a word budget": "Generated files have no budget of their own; each record family has a
+  per-record budget (`docs/design/records_layout.md` §6)."
 
 ## 9. Build steps
 
-- **R1, the format and the checks.** `scripts/records.py` (read, write, index, renumber) and `lint_records.py`, on
-  fixtures only. Tests:
-  - every refusal in §7, each proven by deleting its check;
-  - a renumber that misses a citation goes red;
-  - a hand edit to a generated file goes red;
-  - a duplicate id across two fixture "branches" goes red.
+- **R1, the format and the checks,** on fixtures: `read_record`, `records.py index` and `renumber`, `lint_records`,
+  and `lint_ids` and `lint_guards` reading records. Tests:
+  - every refusal in §4 and §7, each proven by deleting its check;
+  - two fixture branches adding records to one family conflict in the generated index, adding one id with two slugs
+    included, and after regeneration the duplicate check fails (A-B1, C1, W1);
+  - on a file both branches share, `renumber` rewrites the branch's own added citation and lists, without rewriting,
+    `main`'s citation of the same id (C3, W2, A-S1);
+  - `renumber` refuses a frozen file and an id cited under `docs/maxim_upstream/` (S4, A-S10), and a mapping that shifts
+    a range applies at once (W-N4);
+  - the duplicate-on-`main` rename is allowed only in its case (C2);
+  - a body containing `---` reads back whole, and each family refuses an unknown version (W11);
+  - lesson citations in every spelling `lint_ids` reads resolve against fixture records (W3, A-S2);
+  - a regeneration twice in different locales and time zones is byte-identical (C-N1).
 
-  Measure the per-record budgets on the real records before fixing them (§6).
-- **R2, the converter.** `migrate` and `migrate-branch`, with the round-trip test over a copy of today's four files
-  committed as fixtures, and a test that a fixture branch's added row comes out as one record.
-- **R3, the migration commit.** Run `migrate` after the §8 order's first step. Commit the records, the generated files
-  and the tooling changes (§7), and the CLAUDE.md edit once the owner rules on it.
-- **R4, the late branches.** Each runs `migrate-branch` at its merge (§8).
+  Measure each family's longest record and fix the budgets (RL4).
+- **R2, the converter.** `migrate` and `migrate-branch`, with the round trip over a copy of today's four files
+  committed as fixtures. Tests:
+  - every non-`live` status cell at R2 derives back to its meaning, external rulings included (A-B4, W5);
+  - cross-listed, restating and id-less rows each come out as one record (A-B3, W4, S1);
+  - the backlog's prose `**done**`, its three-cell rows and the gaps without a gate or step come out as listed
+    `unknown` fields, never invented ones (W6);
+  - a fixture branch's added row becomes one record, its edit of an existing lesson becomes an `amended` entry, and
+    an edit §4 refuses is refused by name (S2, W9);
+  - `migrate-branch` from a `main` checkout, before the branch merges `main` (S3, W9).
+- **R3, the migration commit.** Run `migrate` on `main`. Commit the records, the generated files, the tooling changes
+  (§7), the CLAUDE.md wording (§8), the red-gate `reason=` rewrite to gap slugs (A-S7), and the two O73 channels as
+  `trust boundary` gaps, with `checklists.md`'s step 7 pointing at them (RL6).
+- **R4, a late branch,** if any is open, runs `migrate-branch` (§8).
 
-Each step gets a review round with the Executor, Architecture and Wire integrity lenses. These files are formats
-other tooling reads.
+Each step gets a review round with the Executor, Architecture and Wire integrity lenses, plus Concurrency and lanes,
+because these are formats other tooling reads and ids that concurrent branches allocate.
 
 ## 10. Owner questions
 
-1. **Ids: keep short numbers and detect collisions** (recommended), or switch to ids that can't collide (date-slugs),
-   which would lengthen every new citation?
-2. **The lessons file: generated as full text** (recommended), or an index of titles and links only? Full text keeps
-   it one readable document, as CLAUDE.md describes it.
-3. **Families: lessons, decisions, Known gaps and backlog now** (recommended), with Phase 3 rows later?
-4. **The per-record budgets in §6:** accepted as caps measured at R1?
-5. **The CLAUDE.md wording in §8:** accepted?
+Ruled at step 1a, 2026-11-24, as RL1–RL5 (`docs/design/decisions/records_layout.md`). The two added questions and three
+contract choices from round 1 are RL6–RL10. None is open.
