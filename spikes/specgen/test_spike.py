@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 import sys
 import threading
 import urllib.error
@@ -15,6 +16,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
@@ -614,6 +616,129 @@ def test_m5_burns_an_accepted_spec_at_turns_of_6_s() -> None:
     assert (got["ignited"], got["fire_on_air"]) == (True, False)
     assert sorted(got["integrity"]) == [10, 20, 30]
     assert burn.TURN_S == 6.0
+
+
+def test_m5_on_simulation_is_bit_for_bit_m5_on_world_advance() -> None:
+    # Errata E18: the port to Simulation.step changes no M5 number. The golden is six specs' rows (solid cells in the
+    # fire's sphere and integrity, after the ignite and after every 6 s turn), recorded on c6d4f10's engine by
+    # m5_golden_recorder.py; it holds a fire on air (legs) and a burnout (block).
+    golden = json.loads(burn.GOLDEN.read_text())
+    assert burn.check_engine() == "c6d4f10"
+    rows = golden["turns"]
+    assert rows["legs"][0][0] == 0  # a fire on air
+    assert rows["block"][0][0] > 0
+    assert rows["block"][-1][0] == 0
+    assert any(r[-1][1] not in ("1.0", "0.0") for r in rows.values())  # it burns partway: it tells engines apart
+
+
+def test_m5_refuses_to_score_on_an_engine_that_moved(tmp_path: Path) -> None:
+    golden = json.loads(burn.GOLDEN.read_text())
+    golden["turns"]["plank"][-1][1] = repr(0.5)  # as if a physics change had moved the plank's last integrity
+    moved = tmp_path / "golden.json"
+    moved.write_text(json.dumps(golden))
+    with pytest.raises(RuntimeError, match="M5 refuses to score: plank"):
+        burn.check_engine(moved)
+
+
+def test_m5_records_the_engine_it_burned_on() -> None:
+    out = burn.m5([])
+    head = subprocess.run(
+        ["git", "-C", str(protocol.ROOT), "rev-parse", "HEAD:src"], check=True, capture_output=True, text=True
+    ).stdout.strip()
+    assert out["engine"] == {"matches": "c6d4f10", "src_tree": head}
+
+
+def test_m5_checks_the_engine_before_it_burns_anything(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Delta 8, D8-S1: m5 itself must call the check, and before any burn.
+    burned: list[Any] = []
+
+    def moved() -> str:
+        raise RuntimeError("M5 refuses to score: planted")
+
+    def burn_one(spec: dict[str, Any]) -> dict[str, Any]:
+        burned.append(spec)
+        return {"ignited": False, "code": None}
+
+    monkeypatch.setattr(burn, "check_engine", moved)
+    monkeypatch.setattr(burn, "burn", burn_one)
+    sample = SimpleNamespace(verdict=SimpleNamespace(klass=protocol.ACCEPTED), spec={"name": "x"}, model="S", arm="A1")
+    with pytest.raises(RuntimeError, match="planted"):
+        burn.m5([sample])
+    assert burned == []
+
+
+def _committed_src(tmp_path: Path) -> Path:
+    """A throwaway repository with one committed file under src, deaf to the user's git config and signing."""
+    env = {"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "GIT_CONFIG_NOSYSTEM": "1"}
+    repo = tmp_path / "repo"
+    (repo / "src" / "simcore").mkdir(parents=True)
+    (repo / "src" / "simcore" / "__init__.py").write_text("K = 1\n")
+    for args in (
+        ["init", "-q"],
+        ["add", "-A"],
+        ["-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", "commit", "-qm", "t"],
+    ):
+        subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, env=env)
+    return repo
+
+
+def test_the_engine_tree_refuses_a_src_no_tree_names(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Delta 8, D8-S2; delta 9, D9-N1 and D9-N4: a tracked edit or an untracked file, whatever the user's git config
+    # and an inherited GIT_DIR say.
+    repo = _committed_src(tmp_path)
+    engine = [repo / "src" / "simcore" / "__init__.py"]
+    assert len(protocol.engine_tree(repo, engine)) == 40
+    with (repo / ".git" / "config").open("a") as config:  # the repository's own config: engine_tree reads it
+        config.write("[status]\n\tshowUntrackedFiles = no\n")
+    monkeypatch.setenv("GIT_DIR", str(tmp_path / "elsewhere"))
+    (repo / "src" / "new.py").write_text("")
+    with pytest.raises(RuntimeError, match="src has uncommitted changes"):
+        protocol.engine_tree(repo, engine)
+    (repo / "src" / "new.py").unlink()
+    (repo / "src" / "simcore" / "__init__.py").write_text("K = 2\n")
+    with pytest.raises(RuntimeError, match="src has uncommitted changes"):
+        protocol.engine_tree(repo, engine)
+
+
+def test_the_engine_tree_refuses_an_engine_imported_from_another_checkout(tmp_path: Path) -> None:
+    # Delta 9, D9-S1: a borrowed venv's editable install imports another checkout's simcore.
+    repo = _committed_src(tmp_path)
+    with pytest.raises(RuntimeError, match="imported from outside"):
+        protocol.engine_tree(repo, [repo / "src" / "simcore" / "__init__.py", tmp_path / "other" / "src" / "x.py"])
+    with pytest.raises(RuntimeError, match="imported from outside"):
+        protocol.engine_tree(repo)  # this checkout's own engine is not under the throwaway's src
+
+
+def test_m5_and_the_run_header_record_the_engine_tree_and_refuse_with_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Delta 9, D9-S2 and D9-N2: both records go through engine_tree, so neither can skip its refusal.
+    def refused() -> str:
+        raise RuntimeError("planted: src has uncommitted changes")
+
+    monkeypatch.setattr(burn, "check_engine", lambda: "c6d4f10")
+    monkeypatch.setattr(protocol, "engine_tree", refused)
+    with pytest.raises(RuntimeError, match="planted"):
+        burn.m5([])
+    with pytest.raises(RuntimeError, match="planted"):
+        write_run(tmp_path / "run.jsonl", [])
+
+
+def test_m5_burn_returns_a_fire_on_air_and_a_burnout_as_the_golden_rows_say() -> None:
+    # Delta 8, D7-N2: burn()'s own returns on the golden's fire on air (legs) and burnout (block).
+    golden = json.loads(burn.GOLDEN.read_text())
+    arms = protocol.load_arms()
+    specs = {raw["name"]: protocol.convert(raw, arms) for raw in golden["specs"]}
+    assert burn.burn(specs["legs"]) == {"ignited": True, "fire_on_air": True}
+    rows = golden["turns"]["block"]
+    gone = next(t for t in range(1, len(rows)) if rows[t][0] == 0)
+    want = {t: None if t >= gone else float(rows[t][1]) for t in burn.AT}
+    assert burn.burn(specs["block"]) == {
+        "ignited": True,
+        "fire_on_air": False,
+        "solid_gone_turn": gone,
+        "integrity": want,
+    }
 
 
 def test_m6_and_m8_rates_come_from_the_labels() -> None:

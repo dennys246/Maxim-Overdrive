@@ -95,6 +95,9 @@ class Simulation:
         """A simulation of an already constructed ``world`` at tick 0, as `from_scene` builds it; a loaded tick is PR
         4b's (sim_core.md §2). Its orchestrator is built here over the world's own grid, so the two can't disagree, and
         its cells are adopted once everything that can refuse has run, so no other simulation can own them."""
+        # TEMPORARY(phase1/sim-clock): any built grid is taken at tick 0 and published as frame 0, so a grid rebuilt
+        # from a stepped state's arrays shows as the authored world (sim_core.md §3; round 1 Arch S5, delta 4 D4-N2).
+        # PR 4b's loader states its tick and what frame 0 is for a loaded state, with a test (its checklist row).
         self._world, self._config = world, config
         self._physics = physics = Physics(world.grid, laws)
         self._applier = Applier(world)
