@@ -1,10 +1,16 @@
 # Step 5: the vertical slice, week 4 (`phase1/slice-week4`)
 
-You are the first slice session after `v0.1.0`. You start after step 4 (the records migration) merges (O79). Your
+You are the first slice session after `v0.1.0`. You start now, beside step 1a (O81, which amends O79). Your
 one job: help the owner tune and playtest the heat-debt slice, record three playtests' numbers, write the verdict
 note, and measure step 10's coverage item. The plan is `docs/plans/vertical_slice.md` (step 10, VS5, D28). The
-verdict is due **2026-12-18**. If step 4 hasn't merged by 2026-12-08, tell the owner at once: the order puts the
-date at risk, and the owner may move this step earlier.
+verdict is due **2026-12-18**.
+
+**Records wait for step 4 (O81).** Step 4 migrates every shared record file and must run alone. So until step 4
+merges, this branch writes no lesson, decision, Known gap or backlog row, and opens no PR. Keep the lesson you'd
+write and B47's update as notes in `docs/design/reviews/slice_week4/`. Once step 4 merges, merge `main` in and make
+the record edits as your last commits, in the paths step 4 moved them to, with your reserved ids: lesson number 46
+and B58 to B60. If step 4 hasn't merged when everything else is done, hand off with the PR unopened and tell the
+owner.
 
 **State** (after #68, `c95ab24`):
 - The slice runs on step 5a's `Simulation`. Weeks 1 to 3 are built, and tuning hasn't started.
@@ -40,8 +46,8 @@ started from this brief continues on the same branch. The PR opens when the exit
 
 **Files you may touch:** `spikes/slice/` (data YAML and the code the tuning needs), `docs/plans/vertical_slice_verdict.md`
 (new, at most 1,000 words), `docs/plans/vertical_slice.md` (state only), `docs/roadmap.md` (step 10's row),
-`docs/design/reviews/slice_week4/`, `docs/standards_backlog.md` (B47's row),
-`docs/lessons_maxim_in_games.md`. No `src/` change unless item 1 requires `src` tests, which go in `tests/`.
+`docs/design/reviews/slice_week4/`, and, only after step 4 merges (O81), the backlog's B47 row and B58 to B60 and
+lesson number 46, at their migrated paths. No `src/` change unless item 1 requires `src` tests, which go in `tests/`.
 
 **Review:** Executor, Architecture, Wire integrity, plus Client and rendering if the client changes. One round, one
 delta, then stop.
