@@ -5,7 +5,7 @@ Today each family is one file that every branch appends to, so parallel sessions
 record its own file, generates every index from the records, and makes a collision cheap to find and fix. It is
 contract only (CLAUDE.md, "A design document holds the contract"). Its mechanisms are build steps (§9).
 
-**Status: round 1 and its delta folded at step 1a (2026-11-24).** The owner's rulings are RL1–RL13
+**Status: round 1 and its delta folded at step 1a (2026-11-24).** The owner's rulings are RL1–RL14
 (`docs/design/decisions/records_layout.md`); the fold's record is `docs/design/reviews/records_layout/fold.md`.
 Step 4 builds it.
 
@@ -101,6 +101,8 @@ lesson 29's stays visible where the lesson is read.
   docs-contracts ruling 41"). Each is a repository path and the ruling's first cell in that file's table
   (`{path: docs/design/reviews/docs_contracts/rulings.md, ruling: "41"}`), which must exist. Only the migration
   writes it. A ruling made after it is a decision record.
+- `qualifier`: optional, a ruling's standing written beside its id today (`provisional` for D12, `re-ruled` for
+  PH2-S2).
 - `also_in`: the other logs that list it (a cross-listed decision, today's "also in").
 - `restates`: for a row that restates others (today's `D26–D28`, `RT1–4`), what it restates. Each entry is a decision
   id, or a repository path with an optional section (`docs/design/world_model.md §0`, `CLAUDE.md`).
@@ -138,7 +140,8 @@ generated file renders the field.
   only grows, and a lesson is never deleted;
 - a Known gap may change anything but its slug, and may be deleted;
 - a backlog row may change its body, `lands_with`, `status` and `done_in`; it is never deleted;
-- the one exception for every family is §5's duplicate fix.
+- two exceptions hold for every family: §5's duplicate fix, and R3's presentation commit (§8), which may only remove
+  `legacy` fields and the duplicated prose of §4's "One owner per fact". R3's two commits land in one PR.
 
 ## 5. Ids: kept short, collisions detected and fixed
 
@@ -271,12 +274,14 @@ change this design needs.
    today's form reproduces each original file byte for byte, apart from the marker line. Every presentation fact no
    other field holds goes into `legacy`, and only those: a row's position in its log; for a cross-listed decision, each
    log's own row cells where they differ from the record; a lesson heading's tail (lesson 11's "reworded 2026-11-20");
-   a date cell's original text when it isn't ISO; a gap's group and bullet form in today's file. A field the source
+   a date cell's original text when it isn't ISO; a gap's group and bullet form in today's file; and a row's original
+   id cell and status cell, where the fields don't render them byte for byte (a slug-id row's `D26–D28` or `—`, a
+   status worded "restates realtime decisions 1–4"). A field the source
    lacks is `unknown` (§4). Every derived status must equal the original cell's meaning. A cell the fields can't
    derive is a converter bug, never a listed exception.
 2. **The new forms.** A separate commit switches the generator to §6's forms, removes every `legacy` field and the
    duplicated prose (§4), and lists each removal. It is reviewed as presentation only: its diff changes no record's
-   `id`, `slug`, `title`, body text or relation fields. A cross-listed decision's second wording, a restatement, is
+   `id`, `slug`, `title` or relation fields, and no body text but the duplicated prose (§4). A cross-listed decision's second wording, a restatement, is
    dropped there by name, as "One owner per contract" asks.
 
 **`scripts/records.py migrate-branch <branch>`** is for a branch that edited the old files after the migration
@@ -341,7 +346,7 @@ before it merges.
   - a fixture branch's added row becomes one record, its edit of an existing lesson becomes an `amended` entry, and
     an edit §4 refuses is refused by name (S2, W9);
   - `migrate-branch` before the branch merges `main`, and after a clean merge (S3, W9; delta Concurrency SF1).
-- **R3, the migration,** stage 2 of §8, in two commits. First: run `migrate` on `origin/main` and commit the records,
+- **R3, the migration,** stage 2 of §8, in two commits of one PR. First: run `migrate` on `origin/main` and commit the records,
   today's-form generated files, the tooling changes (§7) and the CLAUDE.md wording (§8). Then: the presentation commit,
   plus the red-gate `reason=` rewrite to gap slugs (A-S7) and the two O73 channels as `trust boundary` gaps, with
   `checklists.md`'s step 7 pointing at them (RL6).
@@ -353,4 +358,4 @@ because these are formats other tooling reads and ids that concurrent branches a
 ## 10. Owner questions
 
 Ruled at step 1a, 2026-11-24, as RL1–RL5 (`docs/design/decisions/records_layout.md`). The two added questions, three
-contract choices from round 1 and three from the delta round are RL6–RL13. None is open.
+contract choices from round 1 and three from the delta round and one from its status check are RL6–RL14. None is open.

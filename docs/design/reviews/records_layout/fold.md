@@ -93,3 +93,12 @@ Delta NITs, the author's call:
 | Executor: CLAUDE.md's "A record id names one record" names the old logs after the migration | left: RL5 limits step 4's CLAUDE.md edits, so it goes to the owner | step 4, R3 |
 | Executor: one id with one slug in two branches | left: the same file name is an add/add conflict, or the same record | — |
 | Wire N5: retiring `check_plan`'s decision half drops its check of decision ids cited in designs | left | step 4, R1: decide whether `lint_ids` resolves decision ids cited in `docs/design/` |
+
+## After the status check (RL14)
+
+The status check of the RL13 fold found two new BLOCKERs in its text: Wire's (R3's presentation commit breaks §4's
+change rules, and §8 said it changes no body text) and Executor's (X-B1's residue: `legacy` couldn't hold id-cell
+qualifiers, slug-id rows' first cells or status-cell wording). The owner ruled RL14: a narrow fold with no further
+check. Folded unreviewed, for step 4's first review round to read: §4's `qualifier` field and second exception, §8's
+widened `legacy` list and corrected stage 2, and §9 R3's one PR. Executor's SF-A (nothing names "the migration
+commit" for the lint) is deferred by its reviewer to step 4, R1 and R3.
