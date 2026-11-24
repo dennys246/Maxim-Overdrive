@@ -244,3 +244,24 @@ by a mutation that turns exactly one test red (seven mutations, seven reds).
 | D9-N2 | `generate.py::header` records `HEAD:src` on a dirty tree, by a second `_git` | the header records `engine_tree()`, read before `HEAD`. Not deferred: the reader's reason (a changed `generate.py` changes `spike_tree`, so a resume refuses) applies to every commit already, because a resume must also match `simcore_commit`; a run in progress resumes on its own commit | open (for the reviewer) |
 | D9-N3 | E18's data sentence claims more than `data_sha256` checks | E18 says `data_sha256` holds a run to the data it was generated on, that `git diff c6d4f10 -- data` is empty on 2026-11-23, and that no check holds the data to `c6d4f10` | open (for the reviewer) |
 | D9-N4 | `src_tree`'s git inherits `GIT_DIR` and the rest | `protocol.git` drops every `GIT_*` variable; the test sets `GIT_DIR` to another path; red when the environment is inherited | open (for the reviewer) |
+
+## Delta 10's stop rule (owner, 2026-11-23, set before the round)
+
+Delta 10 is the follow-up PR's last round. One reader (Executor, Wire integrity, and the generation path: does a fresh
+`generate.py` run's header pass on the spike's own host) on `5dc79b5..820fb29`, the delta-9 fold. A BLOCKER or
+SHOULD-FIX is folded; if that fold changes code, one more round reads only that fold's diff, and none after it. A NIT
+goes to the spike's errata or a backlog row with no code change. Then the gate, the push and the owner's merge.
+
+## Delta 10 (`delta10.md`, verbatim): 0 BLOCKER, 0 SHOULD-FIX, 3 NIT, on 820fb29, the delta-9 fold
+
+One reader (Executor, Wire integrity, the generation path) on the delta-9 fold's own files. The reader's statuses
+for delta 9: D9-S1, D9-S2, D9-N1, D9-N2, D9-N3 and D9-N4 fixed. A clean worktree on the spike's documented host setup
+passes the new header, symlinked or not, with `__pycache__` and `*.egg-info` under `src`. The S and R runs in
+progress resume on their own commit, whose `generate.py` this PR doesn't reach. Under the stop rule above, the three
+NITs change no code and end the rounds. E18 names them.
+
+| # | Finding | Fold | Status |
+|---|---|---|---|
+| D10-N1 | no test puts an engine under `ROOT` but outside `ROOT/src`, so checking the checkout root instead would pass | recorded in E18; no documented setup does it | deferred (author's, under the owner's stop rule): trigger, the next change to `protocol.engine_tree` |
+| D10-N2 | no test drops `maxim_overdrive` from `protocol.ENGINE`, which would silently reopen D9-S1's data half | recorded in E18 | deferred (author's, under the stop rule): same trigger |
+| D10-N3 | the tests set `GIT_DIR` only, not `GIT_WORK_TREE` or `GIT_INDEX_FILE`, which the shipped code also drops | recorded in E18 | deferred (author's, under the stop rule): same trigger |
