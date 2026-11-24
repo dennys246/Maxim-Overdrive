@@ -193,7 +193,7 @@ solid, or far from everything), the act is `not_on_surface`.
 - **The torch's values are fixed and committed before the first exit run.** D and the cap come from the band runs by
   §9.2's rule, and are committed before the graded run.
 
-## 7. Known gaps (into `docs/architecture.md` with 6.1b's commit)
+## 7. Known gaps (into `docs/known_gaps.md` with 6.1b's commit)
 
 - **A strip's mean smears a narrow footprint across its width.** A flash decided on the strip mean is averaging, then
   thresholding (CLAUDE.md). D, over all centre offsets: the most-covered strip gets 0.195–0.199 of q''_t at r = 0.05 m
@@ -325,7 +325,7 @@ Documents marked † were edited on this branch; the rest are 6.1b's, with its c
 | `tests/test_act_validation.py` | `test_every_verification_grid_is_at_least_as_fine_as_the_smallest_action`'s 0.2 m floor gives way to §6's two-strip floor |
 | `tests/test_cross_tier.py`, `test_determinism.py`, `test_exposure.py`, `test_deposit.py` | the heat-source tests that drive `ignite` or `sources` are deleted with them or rehomed on the pilot, each named in 6.1b's commit |
 | † `docs/roadmap.md` | 6.1b in Phase 1; Phase 1's "must flip the strict red gate" sentences follow §9.4 and TP6; the Phase 0 claim "fire outcomes agree across rigs" is retired for structure (TP6). At 6.1b, Phase 2 lists `core/solid.py` for the `TEMPORARY(phase2/6.2)` markers on the pilot deposit and, under TP2, q''_fl, and the strip-width red gate |
-| `docs/architecture.md` | Known gaps: §7's entries; the four gates' gaps closed by deletion at 6.1b |
+| `docs/known_gaps.md` | §7's entries; the four gates' gaps closed by deletion at 6.1b |
 | † `docs/standards_backlog.md` B30 | tile §6.3 item 7's 2× margin listed (TP8) |
 | † `docs/plans/checklists.md` steps 5b, 6, 8, 9 | 5b moves the four gates' precondition to the sphere `kindle` and names 6.1b for its removal; 6.1b's tests; step 8 maps G1–G5 onto §9.1's beats; the record in save v0 |
 
@@ -358,5 +358,5 @@ route is the roadmap's row (Phase 3, OD-A16), not this note's. Searched Maxim `o
 - from the receipt to the first change in a declared stimulus row: none in Phase 1, since no row carries flame
   (`client_objects.md` §5.4, OD-C8).
 
-Lesson 37 records why this matters. The roadmap's OD-A16 row cites it, and the step 6 checklist records both delays
+Lesson 38 records why this matters. The roadmap's OD-A16 row cites it, and the step 6 checklist records both delays
 at 6.1b.

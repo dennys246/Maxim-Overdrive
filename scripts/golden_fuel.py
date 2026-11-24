@@ -62,7 +62,10 @@ class Segments:
         return np.flatnonzero(picked if keep is None else picked & keep)
 
 
-FIXTURE = Path(__file__).resolve().parents[1] / "client" / "tests" / "fixtures" / "fuel" / f"{FIXTURE_NAME}.json"
+FIXTURES_DIR = Path(__file__).resolve().parents[1] / "client" / "tests" / "fixtures" / "fuel"
+FIXTURE = FIXTURES_DIR / f"{FIXTURE_NAME}.json"
+# The update pass's second frame (scripts/fuel_fixtures.py's NEXT).
+FIXTURE_NEXT = FIXTURES_DIR / f"{FIXTURE_NAME}_next.json"
 NUMPY = {"u8": "<u1", "u16": "<u2", "u32": "<u4", "f16": "<f2", "f32": "<f4"}
 
 
@@ -119,6 +122,13 @@ def strip(shape: tuple[int, int], rows: NDArray[np.float64], shrink_px: float = 
         across = np.abs(-(xs - ax) * uy + (ys - ay) * ux)
         out[y0:y1, x0:x1] |= (along >= shrink_px) & (along <= length - shrink_px) & (across <= half)
     return out
+
+
+def _mean_y(rgb: golden_compare.Rgb, mask: Mask) -> float:
+    """Mean linear luminance (CIE Y) of the masked pixels: blending is linear in it, so coverage shares add there."""
+    c = rgb[mask].astype(np.float64) / 255.0
+    linear = np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
+    return float((linear @ golden_compare.SRGB_TO_XYZ[1]).mean()) if mask.any() else float("nan")
 
 
 def _mean_l(rgb: golden_compare.Rgb, mask: Mask) -> float:
@@ -263,18 +273,76 @@ def dead_flame_findings(frames: Path, tier: str, seg: Segments) -> list[str]:
     return found
 
 
+# (front, behind): a hot thin stick and what it lies over. The first pair is two rods, the log later in row order
+# (review C-S1, D1); the second a stick resting on the plank, which the slab's floor must not bury (C-S4).
+FADE_PAIR = ("stick_cross", "log_cross")  # the pair whose outer fade is measured: two rods, so a fade and a core meet
+CROSSINGS = (FADE_PAIR, ("stick_on_slab", "slab_leaning"))
+# The outer fade over the log, in linear light, must add at least this share of the stick's own gain there (owner
+# ruling 8, 2026-11-22, derived from the coverage model; the old L* bar's proof numbers were known when it was written).
+# Coverage falls from 0.5 at the drawn edge to 0 half a rendered pixel past it, so the one-pixel band averages 1/8;
+# inside the floored 2 px stick it rises from 0.5 to 1 over half a pixel, so the strip averages 7/8. An intact fade
+# adds 1/7 of the stick's gain and an overwritten one none; the bar is half of 1/7. Measured, the intact share is
+# 0.396 on llvmpipe, above the model, cause unmeasured: core saturation or bloom (with the fade pass deleted, the
+# core's bloom adds 0.021). The bar is a floor, not a fit.
+FADE_SHARE = 1.0 / 14.0
+# Laptop's upscale smears the stick's core into the band, which a measure at output pixels can't separate: unchecked
+# there until a laptop measure is derived (docs/plans/checklists.md step 8).
+FADE_TIERS = ("rig", "max")
+
+
 def crossing_findings(frames: Path, tier: str, seg: Segments) -> list[str]:
-    """Depth, not draw order, decides who occludes whom: where stick_cross (hot) lies over log_cross (cold, drawn
-    later), the stick's pixels are brighter than the log's own by the glow bar, flames off."""
+    """Depth, not draw order, decides who occludes whom: where each pair's hot stick lies over the other object, its
+    pixels are brighter than that object's own by the glow bar, flames off; and the rod pair's outer fade, one
+    rendered pixel past the stick's drawn edge, blends over the log rather than under it (every rod's core draws before
+    any rod's fade), judged on FADE_TIERS."""
     frame = FuelFrame.load(frames, tier, "-noflame")
-    stick, log = frame.pixels(seg.rows("stick_cross")), frame.pixels(seg.rows("log_cross"))
-    over, bare = stick & log, log & ~stick
-    if not (over.any() and bare.any()):
-        return [f"crossing ({tier}): no pixels to compare ({int(over.sum())} and {int(bare.sum())})"]
-    gain = _mean_l(frame.rgb, over) - _mean_l(frame.rgb, bare)
-    if gain >= FUEL_MIN_L:
+    found = []
+    for front, behind in CROSSINGS:
+        stick, under = frame.pixels(seg.rows(front)), frame.pixels(seg.rows(behind))
+        over, bare = stick & under, under & ~stick
+        if not (over.any() and bare.any()):
+            found.append(
+                f"crossing ({tier}): no pixels to compare at {front} ({int(over.sum())} and {int(bare.sum())})"
+            )
+            continue
+        gain = _mean_l(frame.rgb, over) - _mean_l(frame.rgb, bare)
+        if gain < FUEL_MIN_L:
+            found.append(f"crossing ({tier}): {front} over {behind} shows {gain:.1f} L*, below {FUEL_MIN_L}")
+        elif (front, behind) == FADE_PAIR and tier in FADE_TIERS:
+            found += _fringe_findings(frame, tier, seg, over, bare)
+    return found
+
+
+def _fringe_findings(frame: FuelFrame, tier: str, seg: Segments, over: Mask, under: Mask) -> list[str]:
+    """The stick's outer fade band (past its drawn half-width by one rendered pixel) inside the log's strip, against
+    the stick's own gain over the log (``over`` against ``under``), both in linear luminance."""
+    front, behind = FADE_PAIR
+    shape = (frame.rgb.shape[0], frame.rgb.shape[1])
+    rows = frame.foot[seg.rows(front)]
+    wide = rows.copy()
+    wide[:, 4] += gm.SPECKLE_TIERS[tier]  # output pixels per rendered pixel: the fade's width on this tier
+    log = strip(shape, frame.foot[seg.rows(behind)]) & frame.fuel
+    band = strip(shape, wide) & ~strip(shape, rows) & log
+    bare = log & ~strip(shape, wide)
+    if not (band.any() and bare.any()):
+        return [f"crossing fade ({tier}): no pixels to compare ({int(band.sum())} and {int(bare.sum())})"]
+    core_gain = _mean_y(frame.rgb, over) - _mean_y(frame.rgb, under)
+    gain = _mean_y(frame.rgb, band) - _mean_y(frame.rgb, bare)
+    if gain >= FADE_SHARE * core_gain:
         return []
-    return [f"crossing ({tier}): the stick over the log shows {gain:.1f} L*, below {FUEL_MIN_L}"]
+    share = gain / core_gain  # positive: the caller found the stick brighter than the log by the glow bar
+    return [
+        f"crossing fade ({tier}): the stick's fade over the log adds {share:.3f} of its gain, below {FADE_SHARE:.3f}"
+    ]
+
+
+def update_findings(frames: Path, tier: str, seg_next: Segments) -> list[str]:
+    """The update frame shows the next fixture's segment state, uploaded in place: its glow ramp, reversed from the
+    first frame's, reads hot where the next fixture is hot (review E-N2)."""
+    frame = FuelFrame.load(frames, tier, "-update")
+    hot = seg_next.rows("stick_glow", seg_next.temperature_c >= HOT_C)
+    cold = seg_next.rows("stick_glow", seg_next.temperature_c <= COLD_C)
+    return _contrast(f"in-place update ({tier})", frame, hot, cold, bar=FUEL_MIN_L, sign=1.0)
 
 
 def object_areas(frames: Path, tier: str, seg: Segments) -> dict[str, float]:
@@ -305,10 +373,11 @@ def agreement_findings(frames: Path, seg: Segments) -> list[str]:
 
 
 def fuel_findings(frames: Path) -> list[str]:
-    seg = segments()
+    seg, seg_next = segments(), segments(FIXTURE_NEXT)
     found: list[str] = []
     for tier in gm.TIERS:
         found += state_findings(frames, tier, seg) + burn_through_findings(frames, tier, seg)
         found += flame_findings(frames, tier, seg) + burnout_findings(frames, tier, seg)
         found += dead_flame_findings(frames, tier, seg) + crossing_findings(frames, tier, seg)
+        found += update_findings(frames, tier, seg_next)
     return found + agreement_findings(frames, seg)

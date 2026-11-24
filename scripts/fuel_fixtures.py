@@ -41,6 +41,9 @@ KINDS = {"rod": 0, "slab": 1}
 RECIPES = {"pine_rod": 1, "pine_slab": 2}
 # Rows past which half-float instance data loses whole numbers (client_objects.md §2).
 HALF_EXACT_ROWS = 2048
+# client_objects.md §3.3's clip of surface_temperature_c, which a producer applies and the client refuses outside of:
+# the fixtures stand in for the server's fuel encoder (step 7) until it exists.
+TEMPERATURE_CLIP_C = (-273.0, 6000.0)
 
 # client_objects.md §3.2 and §3.3: column -> (dtype, unit, encoding).
 RAW, LINEAR = "raw", "linear"
@@ -108,24 +111,31 @@ def segment_count(length_m: float) -> int:
     return -(-length_um // segment_um)
 
 
+Vec = tuple[float, float, float]
+
+
 def rod(
-    region: str, origin: tuple[float, float, float], length_m: float, radius_m: float, *, state: int = 0,
-    along_y: bool = False,
+    region: str, origin: Vec, length_m: float, radius_m: float, *, state: int = 0, along_y: bool = False,
+    axis: Vec | None = None,
 ) -> Fuel:  # fmt: skip
-    """A rod lying along world x (or y), its axis at ``origin``'s height."""
+    """A rod from ``origin`` along world x (or y, or ``axis``), its axis at ``origin``'s height."""
     geometry = dict(zip(("origin_x_m", "origin_y_m", "origin_z_m"), origin, strict=True))
-    axis = (0.0, 1.0, 0.0) if along_y else (1.0, 0.0, 0.0)
+    axis = axis or ((0.0, 1.0, 0.0) if along_y else (1.0, 0.0, 0.0))
     geometry |= dict(zip(("axis_x", "axis_y", "axis_z"), axis, strict=True))
     geometry |= {"length_m": length_m, "radius_m": radius_m}
     segments = [Segment() for _ in range(segment_count(length_m))]
     return Fuel("rod", "pine_rod", region, geometry, state=state, segments=segments)
 
 
-def slab(region: str, origin: tuple[float, float, float], length_m: float, width_m: float, thickness_m: float) -> Fuel:
-    """A slab on the floor, length along world x, width along y, so its segmented face (fire_solid §1.1) is the top."""
+def slab(
+    region: str, origin: Vec, length_m: float, width_m: float, thickness_m: float, *,
+    axes: tuple[Vec, Vec] = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0)),
+) -> Fuel:  # fmt: skip
+    """A slab from its corner ``origin``, length along ``axes[0]`` and width along ``axes[1]`` (by default world x and
+    y, on the floor), so its segmented face (fire_solid §1.1), at thickness along their cross product, is the top."""
     geometry = dict(zip(("origin_x_m", "origin_y_m", "origin_z_m"), origin, strict=True))
-    geometry |= {"length_axis_x": 1.0, "length_axis_y": 0.0, "length_axis_z": 0.0}
-    geometry |= {"width_axis_x": 0.0, "width_axis_y": 1.0, "width_axis_z": 0.0}
+    geometry |= dict(zip(("length_axis_x", "length_axis_y", "length_axis_z"), axes[0], strict=True))
+    geometry |= dict(zip(("width_axis_x", "width_axis_y", "width_axis_z"), axes[1], strict=True))
     geometry |= {"length_m": length_m, "width_m": width_m, "thickness_m": thickness_m}
     return Fuel("slab", "pine_slab", region, geometry, segments=[Segment() for _ in range(segment_count(length_m))])
 
@@ -169,22 +179,60 @@ def visible() -> list[Fuel]:
             s.thickness, s.ignited = 0.0, 1.0
     # A hot thin stick lying across a cold log, the log later in instance order: where they cross the stick, in front,
     # must show (review C-S1: a floored stick wrote no depth, and a rod drawn after it overwrote it).
-    cross = rod("stick_cross", (3.2, 1.6, FLOOR_TOP_M + 0.1 + 0.005), 0.5, 0.005, along_y=True)
+    # It crosses 0.15 m from the log's centre and 0.1 m from the stick's: a sort by centre would put the stick behind
+    # the log once their centres part by about 0.065 m along the view (review A1, CR-1, E-S1).
+    cross = rod("stick_cross", (3.05, 1.5, FLOOR_TOP_M + 0.1 + 0.005), 0.5, 0.005, along_y=True)
     for s in cross.segments:
         s.temperature_c = 1500.0
     log = rod("log_cross", (2.95, 1.85, FLOOR_TOP_M + 0.05), 0.5, 0.05)
-    return [hot, burnt, lit, plank, spent, gap, cross, log]
+    return [hot, burnt, lit, plank, spent, gap, cross, log, *leaning()]
+
+
+# The golden camera's direction back toward the viewer (client iso_camera.gd: yaw 45 deg, elevation 40 deg), so a
+# slab can face it: cos 40 / sqrt 2 across x and -y, sin 40 up.
+TOWARD_CAMERA: Vec = (0.5416752204197017, -0.5416752204197017, 0.6427876096865393)
+
+
+def leaning() -> list[Fuel]:
+    """A 20 mm plank leaning 50 deg to face the golden camera, a hot splinter resting across its face: the slab floor
+    must not bury it (review C-S4). Face-on, the edge sine is fuel_slab.gdshader's floor, 0.25, so at 72 px/m the 2 px
+    floor grows the plank to 27.8 / 0.25 = 111 mm. Grown symmetrically, its face would come 45.6 mm toward the camera
+    and cover the splinter, whose mesh, widened by the floor and one rendered pixel, reaches 2 + 13.9 + 13.9 = 29.8 mm
+    off the face on rig and max and 2 + 13.9 + 27.8 = 43.7 mm on laptop, a 1.9 mm margin there (derived; review CR-4;
+    the measured deletion is caught on every tier). Seen from 40 deg, a flat plank's sine is 0.77 and the rise 8 mm,
+    under any floored rod's 13.9 mm half-width: that view can't see the deletion."""
+    along: Vec = (0.7071067811865476, 0.7071067811865476, 0.0)
+    n = TOWARD_CAMERA
+    across: Vec = (-n[2] * along[1], n[2] * along[0], n[0] * along[1] - n[1] * along[0])  # n x along, along level
+    plank = slab("slab_leaning", (3.0, 2.5, FLOOR_TOP_M), 0.3, 0.2, 0.02, axes=(along, across))
+    lift = 0.02 + 0.002  # the plank's thickness and the splinter's radius, along the face's normal
+    start = tuple(o + across[i] * 0.1 + along[i] * 0.02 + n[i] * lift for i, o in enumerate((3.0, 2.5, FLOOR_TOP_M)))
+    resting = rod("stick_on_slab", (start[0], start[1], start[2]), 0.26, 0.002, axis=along)
+    for s in resting.segments:
+        s.temperature_c = 1500.0
+    return [plank, resting]
 
 
 def objects() -> list[Fuel]:
     return padding() + visible()
 
 
+def objects_next() -> list[Fuel]:
+    """fuel_ramp's next frame: the same structure, stick_glow's ramp reversed. Drawn after fuel_ramp, it reaches the
+    client as a steady frame (no rebuild), so the glow check on it holds the in-place segment upload (review E-N2)."""
+    fuel = objects()
+    hot = next(f for f in fuel if f.region == "stick_glow")
+    for s, t in zip(hot.segments, reversed([s.temperature_c for s in hot.segments]), strict=True):
+        s.temperature_c = t
+    return fuel
+
+
 def stick() -> list[Fuel]:
     return [rod("stick", (4.5, 2.0, FLOOR_TOP_M + 0.01), 1.0, 0.01)]
 
 
-FIXTURES = {NAME: objects, STICK: stick}
+NEXT = f"{NAME}_next"
+FIXTURES = {NAME: objects, NEXT: objects_next, STICK: stick}
 
 
 def alley_region_count() -> int:

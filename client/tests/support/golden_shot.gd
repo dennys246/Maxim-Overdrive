@@ -5,11 +5,14 @@ extends RefCounted
 ## the cells. Separate from the scene so the headless runner can test every refusal: the scene itself needs a display,
 ## which the gate's runner doesn't have.
 
+## The update pass (below): its name, said once.
+const UPDATE: String = "shaded_update"
 const PASSES: Dictionary[String, CellVolume.Pass] = {
 	"shaded": CellVolume.Pass.SHADED,
 	"crack_mask": CellVolume.Pass.CRACK_MASK,
 	"glow_mask": CellVolume.Pass.GLOW_MASK,
 	"shaded_noflame": CellVolume.Pass.SHADED,
+	UPDATE: CellVolume.Pass.SHADED,
 	"fuel_mask": CellVolume.Pass.OCCLUDER,
 	"flame_mask": CellVolume.Pass.OCCLUDER,
 }
@@ -17,13 +20,20 @@ const PASSES: Dictionary[String, CellVolume.Pass] = {
 const FUEL_VIEWS: Dictionary[String, FuelPass.View] = {"fuel_mask": FuelPass.View.FUEL_ID, "flame_mask": FuelPass.View.FLAME_ID}
 ## The cell masks: a fuel fixture drawn into one would put shaded fuel in a mask that measures cells.
 const CELL_MASKS: Array[String] = ["crack_mask", "glow_mask"]
-const NO_FLAMES: Array[String] = ["shaded_noflame", "fuel_mask"]
+const NO_FLAMES: Array[String] = ["shaded_noflame", UPDATE, "fuel_mask"]
+## The shaded passes that exist only for a fuel fixture (the masks of FUEL_VIEWS need one too).
+const FUEL_ONLY: Array[String] = ["shaded_noflame", UPDATE]
+## The update pass draws ``<fuel>``, lets it render, then draws ``<fuel>`` + NEXT_SUFFIX (the same structure, new
+## segment state) and captures that: a steady frame, which the client uploads in place (review E-N2).
+const NEXT_SUFFIX: String = "_next"
 
 var fixture: String = ""
 ## The fuel fixture drawn over the cells, or "" for none.
 var fuel: String = ""
 var fuel_view: FuelPass.View = FuelPass.View.SHADED
 var flames: bool = true
+## Whether the frame captured is the fuel fixture's next frame (the update pass).
+var update: bool = false
 var tier: String = ""
 var pass_kind: CellVolume.Pass = CellVolume.Pass.SHADED
 var png: String = ""
@@ -50,8 +60,9 @@ static func parse(text: String) -> GoldenShot:
 		shot.pass_kind = PASSES[parts[2]]
 		shot.fuel_view = FUEL_VIEWS.get(parts[2], FuelPass.View.SHADED)
 		shot.flames = not NO_FLAMES.has(parts[2])
+		shot.update = parts[2] == UPDATE
 		shot.png = parts[3]
-	if shot.problem.is_empty() and shot.fuel.is_empty() and (FUEL_VIEWS.has(parts[2]) or parts[2] == "shaded_noflame"):
+	if shot.problem.is_empty() and shot.fuel.is_empty() and (FUEL_VIEWS.has(parts[2]) or FUEL_ONLY.has(parts[2])):
 		shot.problem = "pass %s draws fuel, so it needs a <cells>+<fuel> fixture" % parts[2]
 	if shot.problem.is_empty() and not shot.fuel.is_empty() and CELL_MASKS.has(parts[2]):
 		shot.problem = "pass %s measures cells, so it draws no fuel fixture" % parts[2]
@@ -75,4 +86,17 @@ static func usable(source: SnapshotFixture, drawn_with: RenderTier, player: int)
 static func fuel_usable(source: FuelFixture) -> String:
 	if not source.problems.is_empty():
 		return "fuel fixture: " + "; ".join(source.problems)
+	return ""
+
+
+## The update pass's second frame on ``fuel_pass``: ``show`` draws it and returns what was refused. It must reach the pass
+## as a steady frame, uploaded in place, or the shot shows a rebuild instead (review E-N2): a refusal or a rebuild is
+## the shot's problem.
+static func show_steady(fuel_pass: FuelPass, show: Callable) -> String:
+	var rebuilds: int = fuel_pass.rebuilds
+	var refused: Array[String] = show.call()
+	if not refused.is_empty():
+		return "fuel next: " + "; ".join(refused)
+	if fuel_pass.rebuilds != rebuilds:
+		return "the next frame rebuilt the fuel pass; it must be a steady frame"
 	return ""

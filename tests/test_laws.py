@@ -13,32 +13,39 @@ from __future__ import annotations
 import hashlib
 import math
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 import pytest
 from scipy.special import ndtr
 
 from simcore.core import damage, heat, physics, scene, topology
-from simcore.core.applier import Applier
+from simcore.core.deposit import Deposit
 from simcore.core.exposure import Exposure, standing
 from simcore.core.grid import MaterialGrid
 from simcore.core.intents import Ignite, Strike
-from simcore.core.law import Cadence, Changes, LawInputs, Load, LoadEffect
+from simcore.core.law import STATELESS, Cadence, Changes, LawInputs, LawState, Load, LoadEffect
 from simcore.core.materials import AIR_ID
 from simcore.core.scene import Box, constructing, footprint_of
-from simcore.core.world import World
+from simcore.core.simulation import SimConfig, Simulation
+from simcore.core.world import HeatSource, World
 from simcore.core.writers import UndeclaredRead, UndeclaredWriter, WindowClosed, WriterToken, claim
-from tests._cells import destroy, paint
+from tests._cells import NO_SOURCES, destroy, paint
+from tests._sim import make, record, world_of
 from tests.conftest import FAST_SPACINGS
-from tests.test_determinism import FIRE_W, LIMITS, MATERIALS, SCENE, TURNS
+from tests.test_determinism import FIRE_W, LIMITS, MATERIALS, SCENE
+
+TURNS = 30  # the reference's 6 s turns: the tuple runs them as one 6 s physics step each (_turns)
+TURN_S = 6.0
 
 fast_spacings = pytest.mark.parametrize("dx_m", FAST_SPACINGS)
 CUBE = Box((0, 0, 0), (1, 1, 1), "concrete")
 
 
-def _state(w: World) -> str:
-    """Every byte the next turn depends on, as test_determinism.digest hashes it, without the turn counter."""
+def _state(w: World | Simulation) -> str:
+    """Every byte the next physics step depends on, as test_determinism.digest hashes it, without the clock: the
+    reference has none, and the tuple's is the simulation's."""
+    w = world_of(w) if isinstance(w, Simulation) else w
     h, g = hashlib.sha256(), w.grid
     for arr in (g.material, g.original_material, g.integrity, g.temperature):
         h.update(arr.tobytes())
@@ -46,7 +53,6 @@ def _state(w: World) -> str:
         h.update(name.encode() + region.cells.tobytes() + f"{region.footprint}{region.solid}".encode())
     for name, src in w.sources.items():
         h.update(f"{name}{src.point_m}{src.radius_m}{src.power_w}".encode())
-    h.update(repr(g.time_s).encode())
     return h.hexdigest()
 
 
@@ -71,14 +77,18 @@ def _reference_advance(w: World, seconds: float) -> int:
     """The pre-tuple, pre-PR-3 World.advance: heat.step with damage.thermal_degrade as its on_substep callback, under
     the retired substep floor, its replan measured from a running float sum."""
     g = w.grid
+
+    def power_field():  # the sources' deposit, the shipped deposit's arithmetic, standing the whole step
+        return Deposit(g).power(standing(w.sources, 1), 1)
+
     with constructing(g):  # the reference writes as construction, through Topology's edits
         n = max(_retired_floor(g.dx), math.ceil(seconds / heat.stable_dt(g)))
         dt = seconds / n
         planned, taken, elapsed, changed = n, 0, 0.0, False
-        power_w = w._power_field(Exposure(standing(w.sources, 1), 1))
+        power_w = power_field()
         while taken < planned:
             if changed:
-                power_w = w._power_field(Exposure(standing(w.sources, 1), 1))
+                power_w = power_field()
                 bound = heat.stable_dt(g)
                 if bound < dt:
                     remaining = seconds - elapsed
@@ -90,7 +100,6 @@ def _reference_advance(w: World, seconds: float) -> int:
             changed = bool(_reference_thermal_degrade(g, dt))
             elapsed += dt
             taken += 1
-        g.time_us += round(seconds * 1_000_000)
     return taken
 
 
@@ -112,6 +121,20 @@ def _reference_strike(w: World, point, energy_j: float, sigma_m: float) -> tuple
         return n, n * g.cell_volume_m3, float(cell_energy[solid].sum())
 
 
+def _turns(dx_m: float, refine: int) -> Simulation:
+    """The tuple on the shipped path, `Simulation.step`, with the reference's 6 s turn as its physics step: two 3 s
+    ticks per step, so tick 1 applies records with no physics and the fire lit then stands the whole first step."""
+    config = SimConfig(tick_us=3_000_000, physics_every=2, substep_refine=refine)
+    return make(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS, config=config)
+
+
+def _reference(dx_m: float) -> World:
+    """The reference's world: the crate's fire set as the applier sets it, at the crate's authored centroid."""
+    grid = SCENE.build(MATERIALS, dx_m=dx_m)
+    fire = HeatSource(grid.regions["crate"].footprint.centroid_m, 0.3, FIRE_W)
+    return World(grid, limits=LIMITS, sources={"fire:crate": fire})
+
+
 @fast_spacings
 def test_the_digest_break_is_exactly_the_floor_the_law_tuple_otherwise_matches_its_callback_reference(dx_m):
     """Fire on the crate and a strike on the wall, through the tuple and through the pre-tuple, pre-PR-3 reference:
@@ -119,33 +142,36 @@ def test_the_digest_break_is_exactly_the_floor_the_law_tuple_otherwise_matches_i
     cells both ways (so both paths ran). On shipped data stability asks for one substep per turn (sim_core.md §8), so
     the floor's count times one is the floor's count: PR 3's digest break (§12) is the floor and nothing else.
     test_the_break_is_real shows the shipped refine of 1 does differ."""
-    worlds = [World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS) for _ in range(2)]
-    for w in worlds:
-        assert Applier(w).apply("crate", Ignite(power_w=FIRE_W, radius_m=0.3)).success
-    tuple_world, reference = worlds
+    sim, reference = _turns(dx_m, _retired_floor(dx_m)), _reference(dx_m)
+    report = sim.step(
+        [
+            record(Ignite(power_w=FIRE_W, radius_m=0.3), "crate", tick=1, seq=0),
+            record(Strike(energy_j=2.0e7, sigma_m=0.2, point_m=None), "wall", tick=1, seq=1),
+        ]
+    )
+    assert not report.physics
     point = reference.grid.regions["wall"].footprint.centroid_m
-    outcome = Applier(tuple_world).apply("wall", Strike(energy_j=2.0e7, sigma_m=0.2, point_m=None))
     expected = _reference_strike(reference, point, 2.0e7, 0.2)
-    assert (outcome.metadata["destroyed_volume_m3"], outcome.metadata["absorbed_j"]) == expected[1:]
+    (effect,) = report.outcomes[1].effects
+    assert (effect.destroyed_volume_m3, effect.absorbed_j) == expected[1:]
     assert expected[0] > 0
-    assert _state(tuple_world) == _state(reference)
+    assert _state(sim) == _state(reference)
     for _ in range(TURNS):
-        refine = _retired_floor(dx_m)
-        assert tuple_world.advance(refine=refine) == _reference_advance(reference, tuple_world.turn_seconds)
-        assert _state(tuple_world) == _state(reference)
-    assert (tuple_world.grid.original_material != AIR_ID).sum() > tuple_world.grid.solid.sum() + expected[0]
+        (physics_tick,) = [r for r in (sim.step(()), sim.step(())) if r.physics]
+        assert physics_tick.substeps == _reference_advance(reference, TURN_S)
+        assert _state(sim) == _state(reference)
+    g = world_of(sim).grid
+    assert (g.original_material != AIR_ID).sum() > g.solid.sum() + expected[0]
 
 
 @fast_spacings
 def test_the_break_is_real(dx_m):
-    """The other half of the recorded break (sim_core.md §12): at the shipped refine of 1, a 6 s turn takes the one
+    """The other half of the recorded break (sim_core.md §12): at the shipped refine of 1, a 6 s step takes the one
     substep stability asks for, not the floor's 4 or 16, and the state leaves the floor's reference."""
-    worlds = [World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS) for _ in range(2)]
-    for w in worlds:
-        assert Applier(w).apply("crate", Ignite(power_w=FIRE_W, radius_m=0.3)).success
-    shipped, reference = worlds
-    assert shipped.advance() == 1
-    assert _reference_advance(reference, shipped.turn_seconds) == _retired_floor(dx_m)
+    shipped, reference = _turns(dx_m, 1), _reference(dx_m)
+    shipped.step([record(Ignite(power_w=FIRE_W, radius_m=0.3), "crate", tick=1)])
+    assert shipped.step(()).substeps == 1
+    assert _reference_advance(reference, TURN_S) == _retired_floor(dx_m)
     assert _state(shipped) != _state(reference)
 
 
@@ -156,7 +182,7 @@ def test_the_tuple_is_loads_heat_then_thermal_damage_at_their_cadences():
         ("damage.thermal", Cadence.PER_SUBSTEP),
     ]
     physics.check_laws(physics.DEFAULT_LAWS)
-    assert damage.LOADS.stable_dt(_grid()) == damage.THERMAL.stable_dt(_grid()) == math.inf
+    assert damage.LOADS.stable_dt(_grid(), STATELESS) == damage.THERMAL.stable_dt(_grid(), STATELESS) == math.inf
 
 
 @dataclass(frozen=True)
@@ -166,11 +192,18 @@ class _Law:
     cadence: Cadence = Cadence.PER_SUBSTEP
     reads: tuple[str, ...] = ()
     writes: tuple[str, ...] = ()
+    bound_reads: tuple[str, ...] = ()
 
-    def stable_dt(self, grid: MaterialGrid) -> float:
+    def new_state(self, grid: MaterialGrid) -> LawState:
+        return STATELESS
+
+    def prepare(self, grid: MaterialGrid, state: LawState, exposure: Exposure) -> LawInputs:
+        return LawInputs()
+
+    def stable_dt(self, grid: MaterialGrid, state: LawState) -> float:
         return math.inf
 
-    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs) -> Changes:
+    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs, state: LawState) -> Changes:
         return Changes()
 
 
@@ -183,14 +216,14 @@ class _Law:
         ((_Law(name="heat"),), r"writes \[\], but the field registry declares \['temperature'\]"),
         ((_Law(cadence=Cadence.PER_TICK),), "a cadence nothing runs yet"),
         ((_Law(cadence=Cadence.PER_PHYSICS_STEP),), "a cadence nothing runs yet"),
+        ((_Law(reads=("material",), bound_reads=("material", "temperature")),), "bound reads .* beyond its reads"),
     ],
 )
 def test_a_law_tuple_the_registry_disagrees_with_is_refused(laws, match):
     with pytest.raises(ValueError, match=match):
         physics.check_laws(laws)
-    g = _grid()
-    with g.writing(writer=None), pytest.raises(ValueError, match=match):
-        physics.run_physics(g, 1.0, refine=1, power=lambda: None, laws=laws)
+    with pytest.raises(ValueError, match=match):
+        physics.Physics(_grid(), laws)  # refused when an orchestrator is built, before anything runs
 
 
 def _grid(dx_m: float = 0.2) -> MaterialGrid:
@@ -200,12 +233,13 @@ def _grid(dx_m: float = 0.2) -> MaterialGrid:
     return g
 
 
-def test_physics_over_no_time_runs_no_substep_and_moves_no_clock():
+def test_physics_over_no_time_runs_no_substep_and_counts_no_physics_step():
     g = _grid()
+    orchestrator = physics.Physics(g)
     with g.writing(writer=None):
-        assert physics.run_physics(g, 0.0, refine=4, power=lambda: None) == 0
-        assert physics.run_physics(g, -1.0, refine=4, power=lambda: None) == 0
-    assert g.time_s == 0.0
+        assert orchestrator.run(0.0, refine=4, exposure=NO_SOURCES) == 0
+        assert orchestrator.run(-1.0, refine=4, exposure=NO_SOURCES) == 0
+    assert orchestrator.work.physics_steps == 0
 
 
 # -- the write window: writers are tokens, and each law reads and writes only what it declares (B43) ---------------
@@ -221,11 +255,18 @@ class _Plant:
     cadence: Cadence = Cadence.PER_SUBSTEP
     reads: tuple[str, ...] = ("material", "temperature")
     writes: tuple[str, ...] = ("temperature",)
+    bound_reads: tuple[str, ...] = ()
 
-    def stable_dt(self, grid: MaterialGrid) -> float:
+    def new_state(self, grid: MaterialGrid) -> LawState:
+        return STATELESS
+
+    def prepare(self, grid: MaterialGrid, state: LawState, exposure: Exposure) -> LawInputs:
+        return LawInputs()
+
+    def stable_dt(self, grid: MaterialGrid, state: LawState) -> float:
         return math.inf
 
-    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs) -> Changes:
+    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs, state: LawState) -> Changes:
         self.body(grid)
         return Changes()
 
@@ -247,13 +288,12 @@ def _set(arr: np.ndarray, value: float) -> None:
         (lambda g: _set(g.material, 0), ValueError, "read-only"),  # Topology's field: never writable by subscript
         (lambda g: g.destroy(np.ones(g.shape, dtype=bool)), UndeclaredWriter, "only Topology applies it"),
         (lambda g: g.paint(np.ones(g.shape, dtype=bool), "wood"), UndeclaredWriter, "only Topology applies it"),
-        (lambda g: setattr(g, "time_us", 5), UndeclaredWriter, "time moves in the orchestrator"),
         (lambda g: setattr(g.material.flags, "writeable", True), ValueError, "WRITEABLE"),  # SF2: can't unlock
         # G3: a law edits the world itself, holding Topology's token; G4: it narrows to another writer. Neither nests.
         (lambda g: topology.apply(g, [topology.Destroy(np.ones(g.shape, dtype=bool))]), UndeclaredWriter, "nests"),
         (lambda g: g.as_writer(physics._TOKENS["damage.thermal"]).__enter__(), UndeclaredWriter, "nests"),
     ],
-    ids=["read", "regions", "material", "destroy", "paint", "clock", "unlock", "g3-topology", "g4-other-law"],
+    ids=["read", "regions", "material", "destroy", "paint", "unlock", "g3-topology", "g4-other-law"],
 )
 def test_a_law_reads_and_writes_only_what_it_declares(body, raises, match):
     """Heat writes temperature; anything else it reaches for raises, and changes nothing. Proven by deleting each
@@ -343,16 +383,65 @@ def test_a_read_only_view_follows_every_change_to_its_field():
     assert seen == [20.0, MATERIALS["concrete"].id, 30.0, AIR_ID, MATERIALS["wood"].id]
 
 
-def test_a_law_leaves_no_close_listener_behind():
-    """PR 2 delta N3: a listener registered from inside a window ran after every later window. Proven by deleting
-    the refusal in ``on_close``: the listener is registered and runs."""
+@pytest.mark.parametrize("law", physics.DEFAULT_LAWS, ids=lambda law: law.name)
+def test_every_shipped_law_answers_the_whole_protocol(law):
+    # The orchestrator prepares only per-substep laws, so a per-record law's prepare is reached only here; each law
+    # still answers every member (sim_core.md §5), so a cadence change can't meet a missing one.
     g = _grid()
-    ran: list[int] = []
-    with g.writing(writer=None), pytest.raises(WindowClosed, match="one owner"):
-        physics._run_as(g, _Plant(lambda grid: grid.on_close(lambda: ran.append(1))), 1.0, LawInputs())
+    state = law.new_state(g)
     with g.writing(writer=None):
+        inputs = law.prepare(g, state, Exposure((), 1))
+        bound = law.stable_dt(g, state)
+    assert set(law.bound_reads) <= set(law.reads)
+    assert bound > 0
+    assert inputs.loads == ()
+    assert (inputs.power_w is None) or law.name == "heat"
+
+
+def test_the_region_tables_version_is_topology_s():
+    # field_version("regions") moves exactly when a Topology batch changes the table (sim_core.md §7).
+    g = _grid()
+    before = g.field_version("regions")
+    with constructing(g):
+        paint(g, g.solid, "air")
+    assert g.field_version("regions") == (0, g.topology_version)
+    assert g.topology_version > before[1]
+
+
+def test_a_field_written_in_construction_s_window_moves_its_version():
+    # PR 4a review, Determinism N-1: a field handed out writable outside a narrowed block (construction's window)
+    # changed its values without moving its version, so a cache keyed on it could serve the old values.
+    g = _grid()
+    before = g.field_version("temperature")
+    with constructing(g):
+        g.temperature[...] = 999.0
+    assert g.field_version("temperature") != before
+    untouched = g.field_version("integrity")
+    with constructing(g):
         pass
-    assert ran == []
+    assert g.field_version("integrity") == untouched
+
+
+def test_no_version_a_rolled_back_window_reached_is_reached_again():
+    # PR 4a review, Architecture S2: eviction is the type's, not one owner's. A window that rolls back restores the
+    # counts, so a different later edit could reach the same count; the grid's rollbacks are part of every key and
+    # never go back.
+    g = _grid()
+    seen = []
+
+    def paint_then_undo():
+        with constructing(g):
+            paint(g, g.solid, "air")
+            seen.append(g.field_version("material"))
+            raise RuntimeError("undo")
+
+    with pytest.raises(RuntimeError, match="undo"):
+        paint_then_undo()
+    (inside,) = seen
+    with constructing(g):
+        paint(g, g.solid, "air")
+    assert g.field_version("material")[1] == inside[1]  # the same count, reached by a later edit
+    assert g.field_version("material") != inside
 
 
 def test_a_law_named_like_a_registered_one_gets_no_token():
@@ -363,14 +452,14 @@ def test_a_law_named_like_a_registered_one_gets_no_token():
         lambda grid: _set(grid.integrity, 0.5), name="damage.thermal", reads=("integrity",), writes=("integrity",)
     )
     with g.writing(writer=None), pytest.raises(ValueError, match="read-only"):
-        physics.run_law(g, impostor, 1.0, LawInputs())
+        physics.run_law(g, impostor, 1.0, LawInputs(), state=STATELESS)
     assert g.integrity[0, 0, 0] == 1.0
 
 
 def test_a_law_must_declare_what_it_reads():
     g = _grid()
     with g.writing(writer=None), pytest.raises(ValueError, match="declares no reads"):
-        physics.run_law(g, _Plant(lambda grid: None, reads=None), 1.0, LawInputs())  # type: ignore[arg-type]
+        physics.run_law(g, _Plant(lambda grid: None, reads=None), 1.0, LawInputs(), state=STATELESS)  # type: ignore[arg-type]
 
 
 def test_the_orchestrators_window_writes_nothing_itself():
@@ -553,16 +642,23 @@ def test_a_per_record_law_whose_effects_disagree_with_topology_is_refused():
         cadence: Cadence = Cadence.PER_RECORD
         reads: tuple[str, ...] = ("material",)
         writes: tuple[str, ...] = ("integrity",)
+        bound_reads: tuple[str, ...] = ()
 
-        def stable_dt(self, grid: MaterialGrid) -> float:
+        def new_state(self, grid: MaterialGrid) -> LawState:
+            return STATELESS
+
+        def prepare(self, grid: MaterialGrid, state: LawState, exposure: Exposure) -> LawInputs:
+            return LawInputs()
+
+        def stable_dt(self, grid: MaterialGrid, state: LawState) -> float:
             return math.inf
 
-        def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs) -> Changes:
+        def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs, state: LawState) -> Changes:
             return Changes((topology.Destroy(np.ones(grid.shape, dtype=bool)),), (LoadEffect(0, 0.0, 0.0),))
 
     g = _grid()
     with g.writing(writer=None), pytest.raises(RuntimeError, match="reported 0 destroyed cells"):
-        physics.resolve_loads(g, (), laws=(_Liar(),))
+        physics.Physics(g, (_Liar(),)).resolve_loads(())
 
 
 # -- damage's laws ----------------------------------------------------------------------------------------------
@@ -574,7 +670,7 @@ def test_two_loads_in_one_record_count_each_broken_cell_once():
     g = _grid()
     load = Load("strike", (0.5, 0.5, 0.5), 5.0e7, 0.2)
     with g.writing(writer=None):
-        first, second = physics.resolve_loads(g, (load, load))
+        first, second = physics.Physics(g).resolve_loads((load, load))
     destroyed = int((~g.solid).sum())
     assert first.destroyed_cells > 0
     assert first.destroyed_cells + second.destroyed_cells == destroyed
@@ -584,7 +680,7 @@ def test_two_loads_in_one_record_count_each_broken_cell_once():
 def test_damage_resolves_no_load_kind_it_does_not_know():
     g = _grid()
     with g.writing(writer=None), pytest.raises(ValueError, match="no 'bullet' load"):
-        physics.resolve_loads(g, (Load("bullet", (0.5, 0.5, 0.5), 1.0, 0.2),))
+        physics.Physics(g).resolve_loads((Load("bullet", (0.5, 0.5, 0.5), 1.0, 0.2),))
     assert g.integrity.min() == 1.0
 
 
@@ -593,5 +689,194 @@ def test_thermal_damage_asks_for_no_destruction_when_nothing_breaks():
     with constructing(g):
         g.temperature[:] = 2000.0  # far past concrete's limit, for one short step
     with g.writing(writer=None):
-        assert physics.run_law(g, damage.THERMAL, 1e-3, LawInputs()) == (Changes(), 0)
+        assert physics.run_law(g, damage.THERMAL, 1e-3, LawInputs(), state=STATELESS) == (Changes(), 0)
     assert g.integrity.max() < 1.0
+
+
+# -- the caches (sim_core.md §5, §7): the bound per bound_reads' versions, heat's face conductances per material ------
+
+
+@dataclass(frozen=True)
+class _Bounded:
+    """A per-substep law that writes nothing and counts its ``stable_dt`` evaluations, its bound reading ``reads``."""
+
+    name: str
+    reads: tuple[str, ...]
+    calls: list[int] = field(default_factory=list)
+    version: int = 1
+    cadence: Cadence = Cadence.PER_SUBSTEP
+    writes: tuple[str, ...] = ()
+
+    @property
+    def bound_reads(self) -> tuple[str, ...]:
+        return self.reads
+
+    def new_state(self, grid: MaterialGrid) -> LawState:
+        return STATELESS
+
+    def prepare(self, grid: MaterialGrid, state: LawState, exposure: Exposure) -> LawInputs:
+        return LawInputs()
+
+    def stable_dt(self, grid: MaterialGrid, state: LawState) -> float:
+        self.calls.append(1)
+        return math.inf
+
+    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs, state: LawState) -> Changes:
+        return Changes()
+
+
+def test_a_bound_is_re_evaluated_when_a_field_it_reads_changes_and_not_otherwise():
+    """sim_core.md §7 (Perf S3, DA-S9): a law's bound is cached on its bound_reads' versions. Heat changes temperature
+    every substep, so a bound reading temperature is evaluated each step; one reading material only once. Proven by
+    making ``Physics._law_bound`` ignore the version key: the temperature row stays at 1."""
+    g = _grid()
+    with constructing(g):
+        g.temperature[0, 0, 0] = 500.0  # a gradient, so heating really changes temperature
+    hot, cold = _Bounded("test.hot", ("temperature",)), _Bounded("test.cold", ("material",))
+    orchestrator = physics.Physics(g, (heat.HEAT, hot, cold))
+    with g.writing(writer=None):
+        for _ in range(3):
+            orchestrator.run(0.5, refine=1, exposure=NO_SOURCES)
+    assert (len(hot.calls), len(cold.calls)) == (3, 1)
+
+
+@dataclass(frozen=True)
+class _Peeks(_Bounded):
+    """A law whose bound declares ``material`` but reads ``temperature``, or whose prepare reads it."""
+
+    where: str = "bound"
+
+    def prepare(self, grid: MaterialGrid, state: LawState, exposure: Exposure) -> LawInputs:
+        if self.where == "prepare":
+            _ = grid.temperature
+        return LawInputs()
+
+    def stable_dt(self, grid: MaterialGrid, state: LawState) -> float:
+        if self.where == "bound":
+            _ = grid.temperature
+        return math.inf
+
+
+@pytest.mark.parametrize("where", ["bound", "prepare"])
+def test_a_bound_or_a_prepare_reading_an_undeclared_field_raises(where):
+    # PR 4a review, Architecture S1: the bound is cached on its bound_reads' versions, so a bound that read more
+    # would be served stale for ever; prepare's reads are the law's too. Both run narrowed to what they declare, at
+    # rest (construction's warm-up) and in a window. Proven by running them unnarrowed: neither raises.
+    g = _grid()
+    law = _Peeks("test.peeks", ("material",), where=where)
+
+    def build_then_run():
+        orchestrator = physics.Physics(g, (law,))
+        orchestrator.warm(())
+        with g.writing(writer=None):
+            orchestrator.run(0.5, refine=1, exposure=NO_SOURCES)
+
+    with pytest.raises(UndeclaredRead, match="temperature"):
+        build_then_run()
+
+
+class _PeekingState:
+    """A law state whose warm-up reads temperature, which its law doesn't declare."""
+
+    def builds(self):
+        return {}
+
+    def warm(self, grid, sources):
+        _ = grid.temperature
+
+
+@dataclass(frozen=True)
+class _PeeksInWarm(_Bounded):
+    def new_state(self, grid: MaterialGrid) -> LawState:
+        return _PeekingState()
+
+
+def test_a_law_state_warming_up_reads_only_what_its_law_declares():
+    # PR 4a delta, NIT: Physics.warm runs each law state's warm-up narrowed to the law's reads, at rest. Proven by
+    # warming unnarrowed: the read of temperature goes through.
+    g = _grid()
+    orchestrator = physics.Physics(g, (_PeeksInWarm("test.warm", ("material",)),))
+    with pytest.raises(UndeclaredRead, match="temperature"):
+        orchestrator.warm(())
+
+
+def test_a_bare_orchestrator_on_a_rolled_back_grid_serves_no_stale_cache():
+    # PR 4a review, Executor S1 and Architecture S2: heat's face conductances and the bound, cached on material's
+    # version, built inside a window that rolls back, must not serve a different later edit that reaches the same
+    # count. Any owner, not only Simulation: the rollbacks are part of the key. Proven by not counting rollbacks.
+    g = _grid()
+    orchestrator = physics.Physics(g, (heat.HEAT,))
+    with g.writing(writer=None):
+        orchestrator.run(0.5, refine=1, exposure=NO_SOURCES)
+
+    def edit_and_run(cells, then_raise):
+        with g.writing(writer=None):
+            destroy(g, cells)
+            orchestrator.run(0.5, refine=1, exposure=NO_SOURCES)
+            if then_raise:
+                raise RuntimeError("undo")
+
+    first, second = np.zeros(g.shape, bool), np.zeros(g.shape, bool)
+    first[g.solid.nonzero()[0][0], g.solid.nonzero()[1][0], g.solid.nonzero()[2][0]] = True
+    second[g.solid.nonzero()[0][-1], g.solid.nonzero()[1][-1], g.solid.nonzero()[2][-1]] = True
+    with pytest.raises(RuntimeError, match="undo"):
+        edit_and_run(first, then_raise=True)
+    edit_and_run(second, then_raise=False)
+    fresh = heat.face_conductances(g)
+    state = orchestrator._states["heat"]
+    assert isinstance(state, heat.HeatState)
+    cached = state.faces(g)
+    assert all(np.array_equal(a, b) for (_, a), (_, b) in zip(cached, fresh, strict=True))
+
+
+class _DestroyOnce:
+    """A per-substep law that asks Topology to destroy ``mask`` on its first substep: a mid-step topology change."""
+
+    name, version, cadence = "test.destroy_once", 1, Cadence.PER_SUBSTEP
+    reads, writes, bound_reads = ("material",), (), ()
+
+    def __init__(self, mask: np.ndarray) -> None:
+        self.mask, self.steps = mask, 0
+
+    def new_state(self, grid: MaterialGrid) -> LawState:
+        return STATELESS
+
+    def prepare(self, grid: MaterialGrid, state: LawState, exposure: Exposure) -> LawInputs:
+        return LawInputs()
+
+    def stable_dt(self, grid: MaterialGrid, state: LawState) -> float:
+        return math.inf
+
+    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs, state: LawState) -> Changes:
+        self.steps += 1
+        return Changes((topology.Destroy(self.mask),)) if self.steps == 1 else Changes()
+
+
+def _cached_or_not(monkeypatch: pytest.MonkeyPatch, *, cached: bool) -> bytes:
+    """Heat on a wood-and-steel grid under a fire, a block of steel destroyed after the first of eight substeps."""
+    if not cached:  # the uncached module functions: conductances and the bound recomputed on every call
+        monkeypatch.setattr(heat.HeatState, "faces", lambda self, grid: heat.face_conductances(grid))
+        monkeypatch.setattr(
+            physics.Physics, "_law_bound", lambda self, law: law.stable_dt(self._grid, self._states[law.name])
+        )
+    g = MaterialGrid.empty((1.0, 1.0, 1.0), MATERIALS, dx_m=0.2)
+    steel = np.zeros(g.shape, dtype=bool)
+    steel[2:4, 2:4, :2] = True
+    with constructing(g):
+        paint(g, np.ones(g.shape, dtype=bool), "wood")
+        paint(g, steel, "steel")
+        g.temperature[:] = np.random.default_rng(3).uniform(20, 200, g.shape)
+    fire = Exposure(standing({"fire": HeatSource((0.5, 0.5, 0.3), 0.3, 5e4)}, 1), 1)
+    with g.writing(writer=None):
+        taken = physics.Physics(g, (heat.HEAT, _DestroyOnce(steel))).run(2.0, refine=8, exposure=fire)
+    assert taken == 8  # wood's and steel's bounds are past 2 s at 0.2 m: refine alone sets the count
+    assert not g.solid[steel].any()  # the destruction landed, so the cached conductances had to rebuild
+    return g.temperature.tobytes()
+
+
+def test_heats_cached_conductances_and_bound_give_the_uncached_bits(monkeypatch):
+    """sim_core.md §11 bar 5's reference path: the cached face conductances and stable_dt give exactly the bits the
+    uncached module functions give, across a topology change mid-step. Proven by making ``HeatState.faces`` never
+    rebuild (keep the first build whatever the version): the bits differ after the destruction."""
+    cached = _cached_or_not(monkeypatch, cached=True)
+    assert cached == _cached_or_not(monkeypatch, cached=False)

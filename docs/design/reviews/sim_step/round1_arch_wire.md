@@ -35,7 +35,7 @@ entry it computed inside the rolled-back window. Failure scenario: an editing su
 `power()` (on a refresh, reachable with `substep_refine` > 1 or a replan), then a law raises and the window rolls
 back to N. A strike then destroys a *different* cell and the version moves to N+1 again. The next `advance` reuses
 the rolled-back topology's weights and puts power into a cell that is now air. **Verified:** my scratch script
-(`/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/74644a49-11ab-4a8e-8ab1-c2ccc9c3fbed/scratchpad/rollback.py`) got `equal: False`, with 75.47 W deposited into the destroyed cell against 0.0 from a
+(`<scratchpad>/rollback.py`) got `equal: False`, with 75.47 W deposited into the destroyed cell against 0.0 from a
 fresh `Deposit`. This breaks §7's "a cache's contents are a function of state" and "each cache equals its uncached
 path", and a replay that doesn't raise diverges. It is the first cache keyed on `topology_version`, so it sets the
 pattern for the conductance and `stable_dt` caches to come. Proposed fix (unverified): roll the deposit's dicts back

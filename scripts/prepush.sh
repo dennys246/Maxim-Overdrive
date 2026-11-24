@@ -74,7 +74,7 @@ step "ruff format"
 "$PY" -m ruff format --check src tests scripts
 step "mypy (strict on src and scripts; test bodies checked)"
 "$PY" -m mypy
-step "import contracts: game > protocol > adapters > core, the sealed core, maxim only in the membrane (boundaries O24)"
+step "import contracts: game > host | verify > protocol > adapters > core, the sealed core, maxim only in the membrane (boundaries O24)"
 # PYTHONPATH names this worktree's src/, so a venv whose editable install points at another checkout can't make the
 # contracts read that checkout's code. No cache, so the gate writes nothing into the tree. importlinter.cli has no
 # __main__ (`python -m importlinter.cli` exits 0 having checked nothing), so the command is called directly.
@@ -82,7 +82,7 @@ lint_imports() {
   PYTHONPATH="$PWD/src" "$PY" -c 'from importlinter.cli import lint_imports_command; lint_imports_command()' --no-cache
 }
 lint_imports
-step "standards lint (TEMPORARY markers, pragmas, guard citations, size limits, coverage and size ratchets against $BASE)"
+step "standards lint (TEMPORARY markers, pragmas, guard citations, home paths, size limits, coverage and size ratchets against $BASE)"
 "$PY" scripts/lint_standards.py --base "$BASE"
 
 step "Godot client: pinned version, fresh import, every script loads, client tests (B6, CR-B1)"

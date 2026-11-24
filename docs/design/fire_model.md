@@ -357,7 +357,7 @@ on a crate packed with cardboard; the player kindles the starter with the torch.
 - **Flame count is the crux:** TN 2102's cluster count is computed before R2.5.
 - **A fire budget is written before R2.5**, for example "fire kernels ≤ X ms per physics step at the 1.92 × 10⁶-cell
   tile with the crate at peak". It is recorded in Known gaps. The server is already at about 0.7 s per 0.5 s step on
-  that tile (gates `docs/architecture.md`, a 40×8×6 m tile).
+  that tile (gates `docs/known_gaps.md`, a 40×8×6 m tile).
 - **The primary gate is deterministic work counters:** node solves, view-factor pairs, ray samples, cluster edges
   and cap events per step. B5's `process_time` gate is secondary.
 

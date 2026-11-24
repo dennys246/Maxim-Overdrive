@@ -26,7 +26,7 @@ short list of named steps (§3).
 
 | Part | Type | Holds | Changes through |
 |---|---|---|---|
-| Cell state | `World` (kept, minus `advance`, `_power_field`, publication and construction) | the `MaterialGrid`, `sources`, `source_exposure`, regions, `topology_version` | declared writers (§5.1), inside the write window |
+| Cell state | `World` (kept, minus `advance`, `_power_field`, publication and construction) | the `MaterialGrid`, `sources`, regions, `topology_version`; `Simulation` holds `source_exposure` (owner, 2026-11-22, `reviews/sim_tick/fold.md`) | declared writers (§5.1), inside the write window |
 | Topology | `Topology` | nothing of its own; it applies world-edit requests | requests, applied per batch (§5.1) |
 | Body state | reserved | 5b's `body_points` container (`sem_stimuli.md` §7.1) | 5b |
 | Ledger | reserved | `world_v2.md` §2.6 | the fuel and zone PRs |
@@ -36,9 +36,10 @@ short list of named steps (§3).
 - **`Simulation` is a pure function of the records it is given.** The intent log's writer and its replay reader live
   in `engine.host` (`boundaries.md` §2.2, layer 8). The host logs what `TickReport` carries; `Simulation` writes no
   log.
-- **One constructor,** `Simulation.from_scene`. It builds the world through the topology owner, builds every cache and
-  member digest (§9) eagerly, and publishes the authored world as frame 0, so a run from construction and a replay
-  from a loaded state start alike.
+- **Constructors:** `Simulation.from_scene` builds the world through the topology owner; `Simulation(world)` adopts
+  a world's cells at tick 0, and cells have one simulation (the loader's tick is PR 4b's). Each builds every
+  cache and member digest (§9) eagerly and publishes frame 0, so a run from construction and a replay from a loaded
+  state start alike.
 - **One owner of time,** `Simulation` (`boundaries.md` §7.3). `World.advance`, `World.turn`, `turn_seconds` and
   `grid.time_s` go.
 - **Where the new types live** (`boundaries.md` §2.2's layers): `FieldSpec`, `Topology` and its request type with
@@ -73,6 +74,7 @@ short list of named steps (§3).
 
 ```
 Simulation.from_scene(scene, materials, *, dx_m, config: SimConfig, limits, laws=DEFAULT_LAWS) -> Simulation
+Simulation(world, *, config: SimConfig, laws=DEFAULT_LAWS)        # a built world, adopted (§2)
 Simulation.step(records: Sequence[LogRecord]) -> TickReport    # exactly one tick
 Simulation.tick -> int
 Simulation.frames -> FrameView                                   # the latest published frame
@@ -148,9 +150,10 @@ Simulation.frames -> FrameView                                   # the latest pu
   `contact_exchange`: per coupling row, written by contact each tick it runs, read and reset by the solid law at its
   physics step, saved, and booked by the ledger when it lands.
 - **Strikes resolve on their own tick.** `damage.loads` runs per record: each `Load` resolves right after its
-  record's stage 2, so the next record's stage 2 sees the crater (`REGION_GONE` still refuses a second strike on a
-  destroyed region). The crater is in that tick's frame and its effect in that tick's `TickReport`. No load outlives
-  its record. One cell window serves the apply phase, opened only when a handle is needed.
+  record's stage 2, so the next record's stage 2 sees the crater; "gone" is authored geometry only, so a strike on
+  a destroyed region destroys nothing (owner, 2026-11-22, `reviews/sim_tick/fold.md`). The crater is in that tick's
+  frame and its effect in that tick's `TickReport`. No load outlives its record. One cell window serves the apply
+  phase, opened only when a handle is needed.
 
 ## 6. The field registry
 
@@ -176,25 +179,24 @@ Simulation.frames -> FrameView                                   # the latest pu
 - **Regions become one `region_id` u16 array** (`world_v2.md` §2.4). Id 0 is unowned. `Region` keeps its authored
   footprint.
 - **`topology_version: int`** is Topology's version; §5.1 says when it moves.
-- **A cache's key is the values its result reads.** So:
-  - face conductances, per `topology_version`;
-  - each law's `stable_dt`, per the versions of its `bound_reads` (heat's are topology fields, so per
-    `topology_version`);
+- **A cache's key is the versions of what its result reads** (`CellStore.field_version`, counting rollbacks so no
+  rolled-back key recurs; owner, 2026-11-22, `reviews/sim_tick/fold.md`). So:
+  - face conductances, per `material`'s version;
+  - each law's `stable_dt`, per the versions of its `bound_reads`;
   - each source's geometric overlap per its value `(point_m, radius_m)` (the grid's `dx` and shape are fixed), and
-    its solid-weighted, normalised weights per `(source value, topology_version)`. A re-ignite with a new radius
-    under the same id then misses the cache, as it must;
+    its weights per `(source value, material's version)`. A re-ignite at a new radius misses;
   - region reductions, per `topology_version` and the write tick of each field they read.
-- **A cache holds only what the current state needs:** entries for the current sources at the current
-  `topology_version`. Replacing, removing or bumping evicts, and so does a window's rollback, which restores the
-  version a later edit can reach again (owner, 2026-11-22, `reviews/sim_step/fold.md` S1). So a cache's
-  contents are a function of state, and the eager build reproduces them on load.
+- **A cache holds only what the current state needs:** entries for the current sources at the current versions,
+  rebuilt at construction, at each windowed tick's end and after a rollback (owner, 2026-11-22: this,
+  `reviews/sim_tick/fold.md`; the rollback rule, `reviews/sim_step/fold.md` S1). Contents are then a function of
+  state, which the eager build reproduces on load.
 - **The overlap is computed over the source's bounding box, padded by one cell.** That is bit-identical to the
   whole-grid computation while `sphere_overlap`'s values are multiples of 1/64, which its 4³ sub-sample guarantees:
   their sums are exact in any order (verified, `reviews/sim_core/fold.md`). An exact-overlap replacement would break
   that and must be recorded as a digest break (§12).
-- **Cost, measured at PR 3 on the T3 tile** (`reviews/sim_step/round1_det_perf.md`), per 6 world seconds, against
-  PR 2's `advance(6.0)`, with only the deposit's cache: 0.88–0.96× at 0.1 m and 2.4× at 0.2 m. At 0.1 m a step is
-  42% `stable_dt` and 24% face conductances; with those caches, an estimate gives 0.35× and 0.75×.
+- **Cost on the T3 tile,** measured per 6 world seconds against PR 2's `advance(6.0)`, at 0.1 and 0.2 m: 0.32–0.35×
+  and 0.72–0.98× with both caches (PR 4a), 0.88–0.96× and 2.4× with the deposit's alone (PR 3,
+  `reviews/sim_step/round1_det_perf.md`).
 - **Accumulations over named collections iterate in sorted-key order** (`boundaries.md` §6.2; string keys by code
   point).
 
@@ -289,13 +291,12 @@ Bar 3 is proven able to fail by a planted order-sensitive pair of test laws (a c
   (`imagination.place` as the intent's stage 2) and the admin material edit produce topology requests. That removes
   imagination's marker.
 - **Construction** to `Simulation.from_scene`, through `Topology`.
-- **The SEM bridge, until `phase1/agents`** (owner, 2026-11-21), keeps its existing `TEMPORARY(phase1/agents)`
-  synchronous path. It is handed a submit-and-step port, a callable its test or host owns, never the `Simulation`:
-  `execute` submits its record and the port runs one tick for it, so a caller still sees the effect at once. In the
-  interim, world time advances one tick per call, every `physics_every`-th call runs physics, the records aren't
-  logged (a bridge-driven session can't be replayed), and no outcome bar may be measured through this path. The
-  marker's reason is rewritten to say so; its phase and roadmap entry stay. Its `ModulatorResult` stops carrying the
-  destroyed volume and absorbed energy, which are host-side effects (§4).
+- **The SEM bridge, until `phase1/agents`** (owner, 2026-11-21), keeps its `TEMPORARY(phase1/agents)` synchronous path.
+  It is handed a submit-and-step port, an object its test or host owns, never the `Simulation`. Each `execute` that
+  reaches stage 2 submits one record and the port runs one tick for it, so a caller sees the effect at once; every
+  `physics_every`-th such call runs physics. The records aren't logged (a bridge-driven session can't be replayed), and
+  no outcome bar may be measured through this path. The marker says so; its phase and roadmap entry stay. Its
+  `ModulatorResult` stops carrying the destroyed volume and absorbed energy, which are host-side effects (§4).
 
 `tests/test_ownership.py`'s writer scan follows the new owners.
 

@@ -242,20 +242,20 @@ growing table of tag pairs. New sensors and modulators need no Maxim change; a n
 
 ### 23. Maxim's sensors pull, so a frame must be published when an action applies, not only when time moves (2026-11-20)
 
-**Maxim's `Sensor.read()` is a pull with no tick argument, and its modulator tool reads every sensor on the entity
-right after `execute` returns, as the action's "cascade effects" (`ModulatorAffordanceTool`, pymaxim 1.3.3).
-A world that publishes frames only at physics steps would show the agent the world from before its own act.**
-*Evidence:* step 3b part (a) moved the SEM instruments onto published frames
-(`simcore/core/frames.py`). With publication removed from the window's close (a planted mutation of
-`World.__init__`), `tests/test_sem_bridge.py::test_strike_moves_the_integrity_sensor` went red: the strike
-landed and the integrity reading did not move. *Consequence:* every write window that closes publishes, so an
-application's effect is in the next read (boundaries §4.2's cadence, now held by
-`tests/test_ownership.py::test_the_shipped_path_publishes_a_frame_after_each_application_and_each_advance`). For
-any engine: an agent that perceives by pulling needs its own act reflected in the next pull, or its efference copy
-has nothing to match; publish on change, and make the action's commit a change. *Amended 2026-11-20
-(`sem_stimuli.md` §6.2):* NPC stimuli are pushed each tick, so the post-`execute` cascade read sees the pre-act
-frame. Push and pull now hold at different layers; the cascade read is logging, never credit, and the act's effect
-reaches the actor in the next tick's frame.
+**Maxim's `Sensor.read()` is a pull with no tick argument, and its modulator tool reads every sensor on the entity right
+after `execute` returns, as the action's "cascade effects" (`ModulatorAffordanceTool`, pymaxim 1.3.3). A world that
+publishes frames only at physics steps would show the agent the world from before its own act.** *Evidence:* step 3b
+part (a) moved the SEM instruments onto published frames (`simcore/core/frames.py`). With publication removed from the
+window's close (a planted mutation of `World.__init__`),
+`tests/test_sem_bridge.py::test_strike_moves_the_integrity_sensor` went red: the strike landed and the integrity reading
+did not move. *Consequence:* every write window that closes publishes, so an application's effect is in the next read
+(since step 5a's PR 4a, one frame per tick that applied a record or ran physics, held by
+`tests/test_ownership.py::test_the_shipped_path_publishes_one_frame_per_tick_with_a_record_or_physics`). For any engine:
+an agent that perceives by pulling needs its own act reflected in the next pull, or its efference copy has nothing to
+match; publish on change, and make the action's commit a change. *Amended 2026-11-20 (`sem_stimuli.md` §6.2):* NPC
+stimuli are pushed each tick, so the post-`execute` cascade read sees the pre-act frame. Push and pull now hold at
+different layers; the cascade read is logging, never credit, and the act's effect reaches the actor in the next tick's
+frame.
 
 ### 24. A sensor must be something a receptor could sense; read-outs that are true can still be oracles (2026-11-20)
 
@@ -424,7 +424,7 @@ fires lit at ticks 66 and 69 gave bit-identical states. `source_exposure` (sim_c
 at the end of each tick and deposits each its integer ticks' share; `tests/test_exposure.py` holds it to
 `k · tick_us · power` for k = 1 to 5, a douse, a re-ignite at a new power and a replacement. *Consequence:* the
 stimulus an NPC can sense (a brief flare's heat) exists in the world at all; the per-tick digest and the save must
-carry the exposure too (PR 4), or a replay from a mid-step save would lose it again. For Maxim: none yet; it is the
+carry the exposure too (PR 4b), or a replay from a mid-step save would lose it again. For Maxim: none yet; it is the
 engine's precondition for any stimulus shorter than a physics step reaching the SEM sensors.
 
 ### 34. When the world models something below its grid, the renderer and the NPCs' senses both have to follow it, and they become two producers of what the fire looks like (2026-11-21)
@@ -494,7 +494,27 @@ api.openai.com (refused 401). A blocked local endpoint can fail open to the clou
 any gateway built on Maxim's backends must refuse there, not fall back. Running Maxim found both; reading its plans
 found neither.
 
-### 37. A held act's effect lands after Maxim has retired the call, so call-window credit pays the wrong act (2026-11-22)
+### 37. A stepped world's interim port hands an action's read-back whatever physics ran on that call, and Maxim learns from it (2026-11-22)
+
+**Through a submit-and-step port, Maxim's "read right after execute" shows an instant effect (a strike's crater) in the
+action's own read-back, but a slow one (a fire's heat) on whichever later call happens to run a physics tick, and Maxim
+learns from that read-back.** *Evidence:* since step 5a's PR 4a a frame is published once per tick (sim_core.md §4), so
+the bridge writes through a `Port` its test or host owns (§13): each call that reaches stage 2 is one record and one
+tick (`tests/test_sem_bridge.py::test_the_membrane_steps_only_through_its_port_one_tick_per_call_that_reaches_stage_2`).
+The PR's Bio-faithful review drove pymaxim 1.3.3's `ModulatorAffordanceTool` through that port, alternating `ignite` and
+`extinguish` on the crate: `temperature_max` read back 20.0 for calls 1 to 4, 21.29 on call 5 (a physics tick) and 22.15
+on call 10, an extinguish. In 1.3.3 that read-back is more than logging, though it is not reward credit:
+`maxim/embodiment/tool_bridge.py` reads every sensor after `execute` (line 584), passes the readings to
+`Cerebellum.observe_from_action(actual=...)` (line 885) whenever a cerebellum is attached (line 860), and puts them in
+the tool's output as `entity_state` (line 908), which reaches the LLM. The cerebellum is a forward model "for sensory
+prediction instead of reward" (`cerebellum.py`'s docstring), so the douse's predictor learns to expect heating, and the
+model reads that it heated; NAc's credit comes from the interoceptive drives, not from this read. Lesson 23's amendment
+("the cascade read is logging, never credit") holds for reward, not for prediction or the prompt (PR 4a delta 2, D2-N2).
+*Consequence:* no outcome bar is measured through the port (§13), and `phase1/agents` replaces it with a pending result
+and the effect in a later frame. For Maxim: this is lesson 6's point, already Phase 3's OD-A16 (effects measured later;
+the cerebellum observing at settle), and this is new evidence for it, not a new item.
+
+### 38. A held act's effect lands after Maxim has retired the call, so call-window credit pays the wrong act (2026-11-22)
 
 **A `kindle` is applied at once, but what it does is decided by physics many steps later.** *Evidence:* in Phase 1
 the torch's pilot is a prescribed flux on fuel strips, and a strip flashes only once its own profile reaches

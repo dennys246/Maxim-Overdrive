@@ -186,5 +186,5 @@ It is throwaway, but the demo and capture and the HUD are separable concerns. Th
 - **Main has moved.** `origin/main` is past the merge base (verify harness, one-owner rule, CLAUDE.md edits). The plan's weekly main merge is due, and the `architecture.md` Known-gaps hunk is near lines main also edited.
 
 Probe scripts, if wanted:
-- /private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/0cd46c17-46b0-4e03-a0f9-166fcc2b63c1/scratchpad/douse.py (the S1 repro)
-- /private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/0cd46c17-46b0-4e03-a0f9-166fcc2b63c1/scratchpad/burn.py (the N1 burn)
+- <scratchpad>/douse.py (the S1 repro)
+- <scratchpad>/burn.py (the N1 burn)

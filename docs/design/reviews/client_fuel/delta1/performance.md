@@ -3,7 +3,7 @@
 Reader: Performance lens. Tree: the worktree as it stood on 2026-11-22 around 03:00. HEAD is d91df0f, and the fold is
 uncommitted in the working tree. I read the fold record `docs/design/reviews/client_fuel/fold.md` as claims, not
 statuses. I measured on a copy of `client/` in
-`/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/b7bf205d-729f-449a-b38d-e830de582329/scratchpad/delta_performance/client/`:
+`<scratchpad>/delta_performance/client/`:
 - Godot 4.7.2 on the M2, with HOME and XDG under that directory.
 - GDScript warnings demoted to warnings in the copy only.
 - Benches in `client/bench/`: `bench.gd` (mine), `author_bench.gd` (a copy of the author's `scratchpad/bench/bench_fuel.gd`) and `frame_time.gd` (the committed tool plus two env knobs and an `onepass` mode).

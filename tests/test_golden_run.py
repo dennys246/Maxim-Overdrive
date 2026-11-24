@@ -124,7 +124,7 @@ def test_matching_frames_pass_every_shot_is_drawn_and_the_logs_are_kept(setup, t
     code = gr.main(["--godot", godot, "--out", str(tmp_path / "out")], work_parent=tmp_path)
     assert code == 0, capsys.readouterr().err
     printed = capsys.readouterr().out
-    assert printed.endswith("golden_run: PASS (24 shots, 6 goldens, cut-away, stick stability)\n")
+    assert printed.endswith("golden_run: PASS (27 shots, 6 goldens, cut-away, stick stability)\n")
     assert printed.count("res://tests/cutaway_check.tscn took") == 4
     assert printed.count("res://tests/golden.tscn took") == 3  # one call per tier
     out = tmp_path / "out"
@@ -220,7 +220,7 @@ def test_off_the_ci_image_the_goldens_are_not_judged_and_stale_cut_frames_are_cl
     assert _main(tmp_path, godot) == 0  # --no-xvfb
     printed = capsys.readouterr().out
     assert "goldens not judged" in printed
-    assert printed.endswith("golden_run: PASS (24 shots, goldens not judged, cut-away, stick stability)\n")
+    assert printed.endswith("golden_run: PASS (27 shots, goldens not judged, cut-away, stick stability)\n")
     assert measured == [tmp_path / "out" / "cutaway"]
     assert not stale.exists()
 

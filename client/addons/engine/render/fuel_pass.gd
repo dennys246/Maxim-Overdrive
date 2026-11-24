@@ -47,11 +47,13 @@ var instance_images: Dictionary[String, Image] = {}
 ## How many times instances were rebuilt: a burnout or a new temperature must not add one.
 var rebuilds: int = 0
 var _materials: Dictionary[String, ShaderMaterial] = {
-	"rod": ShaderMaterial.new(), "rod_fringe": ShaderMaterial.new(), "slab": ShaderMaterial.new(),
-	"flame": ShaderMaterial.new(),
+	"rod": ShaderMaterial.new(), "rod_core": ShaderMaterial.new(), "rod_fade": ShaderMaterial.new(),
+	"slab": ShaderMaterial.new(), "flame": ShaderMaterial.new(),
 }
-## Each kind's materials: a rod draws its core, then its fringe as the core's next pass.
-const KIND_MATERIALS: Dictionary[String, Array] = {"rod": ["rod", "rod_fringe"], "slab": ["slab"], "flame": ["flame"]}
+## Each kind's materials: a rod draws its depth, then its colour's core and fade, each the previous one's next pass.
+const KIND_MATERIALS: Dictionary[String, Array] = {
+	"rod": ["rod", "rod_core", "rod_fade"], "slab": ["slab"], "flame": ["flame"],
+}
 ## The structure and region map of the last frame drawn (§3.2): a frame whose structure differs is checked and rebuilt.
 var _structure: Dictionary = {}
 var _regions: Dictionary[int, String] = {}
@@ -76,18 +78,23 @@ func _init() -> void:
 	cylinder.radial_segments = 12
 	cylinder.rings = 0
 	_materials["rod"].shader = ROD_SHADER
-	_materials["rod_fringe"].shader = ROD_FRINGE_SHADER
-	# Engine why: next_pass draws the same mesh again with a second material; the depth pass writes every rod's
-	# silhouette before the colour pass blends, so crossing rods occlude by depth (fuel_rod.gdshaderinc, review C-S1).
-	_materials["rod"].next_pass = _materials["rod_fringe"]
-	# Both rod passes blend, so they sort in the transparent pass, where priority, not distance, orders them: every
-	# rod's depth, then every rod's colour, then the flames.
-	_materials["rod_fringe"].render_priority = 1
+	_materials["rod_core"].shader = ROD_FRINGE_SHADER
+	_materials["rod_fade"].shader = ROD_FRINGE_SHADER
+	_materials["rod_fade"].set_shader_parameter(&"fade_half", true)
+	# Engine why: next_pass draws the same mesh again with another material; the depth pass writes every rod's
+	# silhouette before the colour blends, so crossing rods occlude by depth (fuel_rod.gdshaderinc, review C-S1).
+	_materials["rod"].next_pass = _materials["rod_core"]
+	_materials["rod_core"].next_pass = _materials["rod_fade"]
+	# Every rod pass blends, so they sort in the transparent pass, where priority, not distance, orders them: every
+	# rod's depth, then every rod's core, then every rod's fade (so a front fade lands on a rear core, review D1),
+	# then the flames.
+	_materials["rod_core"].render_priority = 1
+	_materials["rod_fade"].render_priority = 2
 	_materials["slab"].shader = SLAB_SHADER
 	_materials["flame"].shader = FLAME_SHADER
 	# Flames last, whatever the camera: by box centre a flame could sort before a rod's colour pass, which would then
 	# blend over the light the flame added (C-S2).
-	_materials["flame"].render_priority = 2
+	_materials["flame"].render_priority = 3
 	_setup(rods, cylinder, _materials["rod"])
 	_setup(slabs, BoxMesh.new(), _materials["slab"])
 	_setup(flames, QuadMesh.new(), _materials["flame"])
@@ -105,8 +112,8 @@ func _setup(instance: MultiMeshInstance3D, mesh: Mesh, material: ShaderMaterial)
 
 ## Draw ``snap`` and return what is wrong with it; a refused frame draws nothing new, and the last good one stays.
 ## ``region_names`` is the region map (id -> name). The structural check and the rebuild run only when the structure or
-## the region map changes (§3.2); every frame gets the per-frame check, so a steady burn costs a compare, a short check
-## and its segment uploads.
+## the region map changes (§3.2); every frame gets the per-frame check, so a steady burn costs a compare, the
+## per-frame check (its temperature loop, about 1.8 ms at 2×10⁴ segments, measured) and its segment uploads.
 func show_fuel(snap: FuelSnapshot, region_names: Dictionary[int, String]) -> Array[String]:
 	# Every check runs before anything is drawn: a refused frame changes no instance, texture or colour (review TB2-B1).
 	var frame: Array[String] = snap.frame_problems()

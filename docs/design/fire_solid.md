@@ -90,26 +90,27 @@ The tables are column-major numpy arrays, registered and sorted by integer key:
 
 ### 1.3 Representation, overlap, regions and limits
 
-**Representation is authored.** Fuel recipes are objects at every spacing. Structural materials are cells (concrete,
-steel, glass, drywall, and `wood` cells such as a plank wall). Wood cells keep today's thermal and damage laws and no
+**Representation is `subcell_solids.md` §2.2's rule:** fuel recipes are objects at every spacing, and other
+parts are objects or cells by their thinnest dimension in µm. Wood cells keep today's thermal and damage laws and no
 fire law; a burning wall is out of Phase 1, a Known gap (D-S4).
 
-**Overlap is judged on authored geometry in metres, never on cells:**
-- A fuel object may not overlap another fuel object, or any solid region's footprint, by more than 1 mm. That extends
-  today's imagined rule (`imagination._within_world_rules` refuses overlap with a solid footprint). Containers
+**Overlap and contact are judged on present geometry in µm** (`subcell_solids.md` §4), never on cells:
+- A fuel object may not overlap another fuel object, or any solid region's present geometry, by more than 1 mm. That
+  extends today's imagined rule (`imagination._within_world_rules` refuses overlap with a solid footprint). Containers
   (cardboard in the crate) come with 6.2's bed.
-- A structural `place` may not overlap a fuel object. Today `_voxelize` tests `mask & grid.solid` only.
+- Overlap with any part is `space_taken`.
 - An object partly outside the world is refused. Today's `place` catches only one entirely outside.
 
-**Contact** between a segment face and a solid cell face needs a separation ≤ 1 mm and an overlap over 1 mm along
-each face axis. Cell edges are integer micrometres (F13). By float edges, an object on [0.3, 0.5] m left a
-5.55×10⁻¹⁷ m sliver at 0.1 and 0.05 m and none at 0.2 m (D, DP FS-S2). `holds_fuel` uses the same metric threshold.
-It has no 6.0–6.1 consumer, so it is built with its first (6.2); 6.1b's `kindle` uses geometry.
+**Contact** between a segment face and a solid region's present face (`subcell_solids.md` §4.1; before S1, its authored
+primitives) needs a separation ≤ 1 mm and an overlap over 1 mm along each face axis, in integer micrometres (F13). Float
+edges once left a 5.55×10⁻¹⁷ m sliver at 0.1 and 0.05 m and none at 0.2 m (D, DP FS-S2). `holds_fuel` uses the same
+metric threshold. It has no 6.0–6.1 consumer, so it is built with its first (6.2); 6.1b's `kindle` uses geometry.
 
 **Regions.** In 6.0–6.1 each fuel object names a new region (a scene's `region:` must not exist yet; a spec's
-`name`, as today). A region is then cells only or objects only; mixing comes with 6.2.
+`name`, as today). Mixed regions come with `subcell_solids.md` S1 (its §4.3).
 
-**World limits** (`data/world/limits.yaml`) are checked before allocation by scene build and `place`:
+**World limits** (`data/world/limits.yaml`; structure's in `subcell_solids.md` §3.1) are checked before allocation by
+scene build and `place`:
 
 | Limit | Value | Basis |
 |---|---|---|
@@ -137,19 +138,20 @@ An `imagine` is applied in its own window, between physics steps:
 
 ## 2. Occupancy, regions and the consumers
 
-**Acts and readings stay on cells in 6.0–6.1.** An object-only region is refused by every act but `kindle` from 6.1b
-(`torch_pilot.md` §3) and every reading with one code, `fuel_only_region`, until 6.2 defines them on objects. `temperature_*` and the rest of
-`frames.QUANTITIES` keep their cell-only meaning, pinned by a test. An object quantity, when needed, gets a new name
-(F1) as a lab instrument under `tests/`, never in `QUANTITIES` or on an NPC builder (`boundaries.md` §4.4).
+**Acts and readings stay on cells until `subcell_solids.md` S3** (its §2.3). An act but `kindle` from 6.1b
+(`torch_pilot.md` §3) reaches only a region's cell parts, with no new code; readings and `region_parts` refuse an
+object-only region. `temperature_*` and the rest of `frames.QUANTITIES` keep their cell-only meaning, pinned by a test.
+An object quantity, when needed, gets a new name (F1) as a lab instrument under `tests/`, never in `QUANTITIES` or on
+an NPC builder (`boundaries.md` §4.4).
 
 Each consumer that asks "is something here", read at 396ae10:
 
 | Consumer | Today | 6.0–6.1 |
 |---|---|---|
 | `grid.Region.solid` | set once: at `paint` (`solid=mid != AIR_ID`), or `True` when imagined | unchanged |
-| `applier._check_region` | refuses unknown, `not solid` ("is air"), `not cells.any()` ("is gone") | refuses `fuel_only_region` first |
+| `applier._check_region` | refuses unknown, `not solid` ("is air"), `not cells.any()` ("is gone") | a region with a live object isn't gone (`subcell_solids.md` §4.3) |
 | `applier._on_region` | strike-point ownership from footprints and others' `solid`; refuses nothing | unchanged; no fuel sits in a solid footprint |
-| `World._power_field` | `frac * grid.solid`, falling back to air (Known gap) | unchanged; guarded (§3.1) |
+| `Deposit` | `frac * grid.solid`, falling back to air (Known gap) | unchanged; guarded (§3.1) |
 | `bridge.region_parts`, `StructureModulator` | `frame.is_solid`; an instrument per `QUANTITIES` entry; `strike`, `ignite`, `extinguish` | `region_parts` refuses an object-only region; affordances pinned |
 | `frames.Frame.reading` | cell reductions; `region_integrity` is 0.0 with no solid cells | refuses an object-only region, never 0.0 |
 | `Frame.is_solid`, `Observation.is_solid`, `CellFrame.solid` | cells | unchanged |
@@ -166,9 +168,9 @@ Each consumer that asks "is something here", read at 396ae10:
 
 **Every exposed object surface loses h_c(T_s − T∞) + εσ(T_s⁴ − T∞⁴) to the ambient reservoir:** tile 6a (§1.2,
 §5.2) on object surfaces, booked as tile §5.4's `open_air_loss`. Nothing an object loses enters an air cell.
-- **Why:** Phase 1 air has no advection, so heat put into it pools by an amount set by dx. `World._power_field`
+- **Why:** Phase 1 air has no advection, so heat put into it pools by an amount set by dx. `Deposit`
   refuses air for the same reason. For a cone sample the rule is literally true.
-- **It is permanent for Phase 1,** a Known gap rather than a `TEMPORARY` marker, recorded in `docs/architecture.md`
+- **It is permanent for Phase 1,** a Known gap rather than a `TEMPORARY` marker, recorded in `docs/known_gaps.md`
   in 6.0b's commit with its costs:
   - hot gas never preheats fuel: an object at 200 °C inside 200 °C cells still loses about 4.5 kW/m² (2.3 convective,
     2.2 radiative; D, Physics §4);
@@ -177,7 +179,7 @@ Each consumer that asks "is something here", read at 396ae10:
 - **The plume** leaves the open-topped alley (tile §1.2). Preheating from hot gas would be a new law 6.2 may design,
   not a stub it owes.
 - **The guard:** a test sums each law's power into `material == AIR_ID` cells and requires zero, except
-  `_power_field`'s fallback, whose Known gap has its strict red gate
+  `Deposit`'s fallback, whose Known gap has its strict red gate
   (`tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`). Sending an object's loss to its
   cells turns it red.
 
@@ -369,18 +371,17 @@ here did.
   `kind` (`rod` with a finite non-zero axis, or `slab`), metric geometry, a new region. Scenes are repo-only, so the
   older version gets a bump and a refusal test, not a migration (`checklists.md` 3b).
 - **Spec v1:** `name`, recipe, admitted kind, geometry in range and closed variant keys; out of range is refused,
-  never clamped; checked against `Budget` and the remaining limits with `pending` counted. Structural imagining keeps
-  today's unversioned `{name, primitives}`, which nothing persisted, so no migration (Wire N-S6).
+  never clamped; checked against `Budget` and the remaining limits with `pending` counted. One tagged format with
+  structural parts; today's unversioned form is v0, migrated (`subcell_solids.md` §11.2).
 - **The caller** is step 5's `imagine` intent, reached in Phase 1 only through logged intents and tests (T16): a thin
   caller (A-S6, D-S11).
 
 ### 5.3 Refusal codes
 
 In tile §3.4's enum, each tested at its gate:
-- **Acts and readings:** `fuel_only_region`.
-- **Spec and scene:** `unknown_recipe`, `kind_not_admitted`, `geometry_out_of_range`, `bad_axis`,
-  `unknown_variant`, `variant_out_of_range`, `joint_loading`, `overlaps_fuel`, and 3b's `space_taken`,
-  `outside_extent`, `name_taken`, `over_budget`.
+- **Spec and scene:** `unknown_recipe`, `kind_not_admitted`, `bad_axis`, `unknown_variant`, `variant_out_of_range`,
+  `joint_loading`, and the existing `out_of_range`, `space_taken`, `outside_extent`, `name_taken`, `over_budget`; shared
+  with `subcell_solids.md` §11.3.
 - **Limits:** `world_limit_objects`, `_segments`, `_nodes`, `_area`, `_contact`; `object_ids_exhausted`,
   `region_ids_exhausted`.
 - **Loaders:** 3b's `bad_version` per file, and §5.1's catalogue codes.
@@ -482,7 +483,7 @@ for segment temperature; fire_model §2.2's "SEM … read" is corrected in fire_
 | The solid: conduction, absorption, kinetics, regression, flash, q''_fl, extinction | 4 | `core/solid.py` |
 | Contact rows, skins, exchange | 4 | `core/coupling.py` |
 | Scene `fuel:`; spec v1 | 5a | `core/scene.py`, `core/imagination.py` |
-| `fuel_only_region`, insertion, the composed window | 6 | `core/applier.py`, `core/world.py` |
+| Insertion, the composed window | 6 | `core/applier.py`, `core/world.py` |
 | The fuel view, `FuelFrame` | 6 | `core/frames.py` |
 | Loaders | 7a | `adapters/loaders.py` |
 | The cone harness (heater, spark) and its test ledger | — | `tests/fire/` |

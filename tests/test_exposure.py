@@ -15,6 +15,7 @@ from simcore.core.intents import Extinguish, Ignite, LogRecord
 from simcore.core.scene import Box, Scene
 from simcore.core.simulation import T3, Simulation
 from simcore.core.world import HeatSource, World
+from tests._sim import make, world_of
 from tests.test_determinism import LIMITS, MATERIALS
 
 SLAB = Scene((2.0, 2.0, 1.0), (Box((0.6, 0.6, 0.0), (1.4, 1.4, 0.6), "concrete", "slab"),))
@@ -33,13 +34,14 @@ def _douse(tick: int, seq: int) -> LogRecord:
 
 
 def _run(schedule: dict[int, list[LogRecord]], ticks: int, world: World | None = None) -> tuple[Simulation, float]:
-    """Run ``ticks`` ticks of ``schedule``; returns the simulation and the heat its world gained, in joules."""
-    world = world or World.from_scene(SLAB, MATERIALS, dx_m=0.2, limits=LIMITS)
-    before = heat.heat_energy_j(world.grid, 20.0)
-    sim = Simulation(world, config=T3)
+    """Run ``ticks`` ticks of ``schedule``; returns the simulation and the heat its world gained, in joules. A given
+    ``world`` (construction's sources) is wrapped through Simulation's constructor for a built world, as from_scene
+    does."""
+    sim = make(SLAB, MATERIALS, dx_m=0.2, limits=LIMITS) if world is None else Simulation(world, config=T3)
+    before = heat.heat_energy_j(world_of(sim).grid, 20.0)
     while sim.tick <= ticks:
         sim.step(schedule.get(sim.tick, []))
-    return sim, heat.heat_energy_j(world.grid, 20.0) - before
+    return sim, heat.heat_energy_j(world_of(sim).grid, 20.0) - before
 
 
 @pytest.mark.parametrize("k", [1, 2, 3, 4, 5])

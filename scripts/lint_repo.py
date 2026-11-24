@@ -13,15 +13,17 @@ def _git_env() -> dict[str, str]:
 
 
 def tracked_text_files(root: Path) -> dict[str, str]:
-    cmd = ["git", "ls-files", "-co", "--exclude-standard"]
+    # -z: unquoted names. Without it git quotes a non-ASCII name ("\303\251.md"), no such file exists, and every check
+    # skips the file without a word (home_paths review F3).
+    cmd = ["git", "ls-files", "-z", "-co", "--exclude-standard"]
     out = subprocess.run(cmd, cwd=root, env=_git_env(), capture_output=True, text=True, check=True)
     files = {}
-    for rel in out.stdout.splitlines():
+    for rel in filter(None, out.stdout.split("\0")):
         p = root / rel
         if p.is_file():
             try:
                 files[rel] = p.read_text(encoding="utf-8")
-            except UnicodeDecodeError:  # binary file: no markers to find
+            except UnicodeDecodeError:  # binary, or text that isn't UTF-8 (B45): no markers to find
                 continue
     return files
 

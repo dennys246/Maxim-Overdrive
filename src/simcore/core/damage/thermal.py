@@ -6,8 +6,9 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+from simcore.core.exposure import Exposure
 from simcore.core.grid import MaterialGrid
-from simcore.core.law import Cadence, Changes, LawInputs
+from simcore.core.law import STATELESS, Cadence, Changes, LawInputs, LawState
 from simcore.core.topology import Destroy
 
 
@@ -20,11 +21,18 @@ class ThermalLaw:
     cadence: Cadence = Cadence.PER_SUBSTEP
     reads: tuple[str, ...] = ("material", "integrity", "temperature")
     writes: tuple[str, ...] = ("integrity",)
+    bound_reads: tuple[str, ...] = ()  # unconditionally stable
 
-    def stable_dt(self, grid: MaterialGrid) -> float:
+    def new_state(self, grid: MaterialGrid) -> LawState:
+        return STATELESS
+
+    def prepare(self, grid: MaterialGrid, state: LawState, exposure: Exposure) -> LawInputs:
+        return LawInputs()
+
+    def stable_dt(self, grid: MaterialGrid, state: LawState) -> float:
         return math.inf
 
-    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs) -> Changes:
+    def step(self, grid: MaterialGrid, dt_s: float, inputs: LawInputs, state: LawState) -> Changes:
         above = grid.materials.degrade_above[grid.material]
         excess = grid.temperature - above
         hot = grid.solid & (excess > 0)
