@@ -18,7 +18,7 @@ from __future__ import annotations
 import os
 import re
 import sys
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from importlib import metadata
 from pathlib import Path
 
@@ -59,7 +59,7 @@ def findings(text: str, installed: Callable[[str], str], present: Iterable[str])
     return out + [f"{name} is installed but not in the lock" for name in extras]
 
 
-def skip_refusal(env: dict[str, str]) -> str | None:
+def skip_refusal(env: Mapping[str, str]) -> str | None:
     """None when the lock check may be skipped here; otherwise why the skip is refused."""
     if env.get("GITHUB_ACTIONS") == "true" and env.get("GITHUB_EVENT_NAME") in SKIP_EVENTS:
         return None
@@ -70,10 +70,23 @@ def installed_names() -> list[str]:
     return [d.metadata["Name"] for d in metadata.distributions()]
 
 
-def main(root: Path = ROOT, version: tuple[int, int] | None = None, argv: list[str] | None = None) -> int:
+def main(
+    root: Path = ROOT,
+    version: tuple[int, int] | None = None,
+    argv: list[str] | None = None,
+    *,
+    env: Mapping[str, str],
+) -> int:
+    """The check; ``env`` is the environment it decides the skip from, passed and never read from the process.
+
+    Only the entry point below passes ``os.environ``. A caller that reads the process environment inherits whatever
+    its runner set: the drift job sets ``MAXIM_OVERDRIVE_UNLOCKED`` for the whole gate, and the tests of this check
+    that expected a refusal saw a skip instead (run 45238153656). Required and keyword-only, so forgetting it is a
+    ``TypeError``, not a silent inheritance.
+    """
     report = "--report" in (sys.argv[1:] if argv is None else argv)
-    if os.environ.get("MAXIM_OVERDRIVE_UNLOCKED") == "1" and not report:
-        refusal = skip_refusal(dict(os.environ))
+    if env.get("MAXIM_OVERDRIVE_UNLOCKED") == "1" and not report:
+        refusal = skip_refusal(env)
         print(f"check_lock: {refusal or 'SKIPPED (the drift job)'}", file=sys.stderr if refusal else sys.stdout)
         return 1 if refusal else 0
     version = version or (sys.version_info.major, sys.version_info.minor)
@@ -97,4 +110,4 @@ def main(root: Path = ROOT, version: tuple[int, int] | None = None, argv: list[s
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(env=os.environ))

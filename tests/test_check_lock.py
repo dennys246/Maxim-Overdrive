@@ -61,7 +61,7 @@ def test_an_empty_lockfile_is_a_finding() -> None:
 
 
 def test_a_python_without_a_lockfile_fails(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert check.main(tmp_path, (3, 11), argv=[]) == 1
+    assert check.main(tmp_path, (3, 11), argv=[], env={}) == 1
     assert "no lockfile for Python 3.11" in capsys.readouterr().err
 
 
@@ -72,11 +72,12 @@ def test_main_compares_the_lock_with_what_is_installed(
     (tmp_path / "constraints").mkdir()
     lock = tmp_path / "constraints" / "py3.12.txt"
     lock.write_text(f"pyyaml=={metadata.version('pyyaml')}\n")
-    assert check.main(tmp_path, (3, 12), argv=[]) == 0
+    assert check.main(tmp_path, (3, 12), argv=[], env={}) == 0
     lock.write_text("pyyaml==0.0.1\n")
-    assert check.main(tmp_path, (3, 12), argv=[]) == 1
+    assert check.main(tmp_path, (3, 12), argv=[], env={}) == 1
     assert "pyyaml is" in capsys.readouterr().err
-    assert check.main(tmp_path, (3, 12), argv=["--report"]) == 0  # the drift job's report never fails the run
+    report = check.main(tmp_path, (3, 12), argv=["--report"], env={})
+    assert report == 0  # the drift job's report never fails the run
 
 
 @pytest.mark.parametrize(
@@ -89,15 +90,32 @@ def test_main_compares_the_lock_with_what_is_installed(
         ({}, False),
     ],
 )
-def test_only_the_scheduled_drift_job_may_skip(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, env: dict[str, str], allowed: bool
-) -> None:
+def test_only_the_scheduled_drift_job_may_skip(tmp_path: Path, env: dict[str, str], allowed: bool) -> None:
     """A developer setting MAXIM_OVERDRIVE_UNLOCKED=1 gets a refusal, not a clean PASS (LK-S1)."""
-    for k in ("GITHUB_ACTIONS", "GITHUB_EVENT_NAME"):
-        monkeypatch.delenv(k, raising=False)
-    for k, v in {**env, "MAXIM_OVERDRIVE_UNLOCKED": "1"}.items():
+    assert check.main(tmp_path, (3, 11), argv=[], env={**env, "MAXIM_OVERDRIVE_UNLOCKED": "1"}) == (0 if allowed else 1)
+
+
+DRIFT_JOB = {"GITHUB_ACTIONS": "true", "GITHUB_EVENT_NAME": "schedule", "MAXIM_OVERDRIVE_UNLOCKED": "1"}
+
+
+def test_the_check_never_reads_the_process_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The drift job sets its skip for the whole gate, these tests included (run 45238153656, issues #60 to #63).
+
+    With the process in the drift job's own mode, a check handed an empty environment still refuses a missing lock:
+    the skip is decided from ``env`` alone, so no test of this check can inherit it.
+    """
+    for k, v in DRIFT_JOB.items():
         monkeypatch.setenv(k, v)
-    assert check.main(tmp_path, (3, 11), argv=[]) == (0 if allowed else 1)
+    assert check.main(tmp_path, (3, 11), argv=[], env={}) == 1
+    assert "no lockfile for Python 3.11" in capsys.readouterr().err
+
+
+def test_the_environment_is_a_required_keyword() -> None:
+    """Forgetting ``env`` is a TypeError, not a silent fall back to the process environment."""
+    with pytest.raises(TypeError, match="env"):
+        check.main(ROOT, (3, 11), [])
 
 
 def test_the_drift_job_sets_the_skip_and_ci_does_not() -> None:
