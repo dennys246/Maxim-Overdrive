@@ -10,7 +10,7 @@ only through Maxim's process:
 Game runs never go on Maxim's ledger.
 
 **Maxim tree read:** each draft names the `origin/main` it was read against (first `7084f561`, 2026-11-16); the statuses
-below were read at `f145e27b` (2026-11-24). Citations are `file::symbol` where a symbol exists, with line numbers only
+below were read at `5bcc2cf0` (2026-11-24). Citations are `file::symbol` where a symbol exists, with line numbers only
 as a hint (Maxim's rule: line numbers drift, symbols hold). Re-check against a fresh fetch before filing anything.
 
 **Ids.** Everything Overdrive proposes carries an `OD-` prefix (`OD-A3`, `OD-X1`), because Maxim already uses `T1`,
@@ -21,9 +21,9 @@ as a hint (Maxim's rule: line numbers drift, symbols hold). Re-check against a f
 
 | Draft | Venue | Overdrive roadmap ids | Status |
 |---|---|---|---|
-| [issues_now_DRAFT.md](issues_now_DRAFT.md) | two issues | OD-I1, OD-I2 | OD-I1: #1684, fixed by #1773, in no release; the lock gets it at the release holding #1773. OD-I2: not filed (a docstring nit, Maxim's answer) |
-| [embeddable_agent_DRAFT.md](embeddable_agent_DRAFT.md) | plan | OD-A10 to OD-A12, OD-A14, OD-A15, OD-A17, OD-A18, OD-I3 | Maxim's candidates A1, A4, B1, B2 (`overdrive_refactor_candidates.md`); no plan, nothing in a release |
-| [world_clock_release_DRAFT.md](world_clock_release_DRAFT.md) | two plans: A-pre (own clock) and A-post (with 1.3.6) | OD-A1 to OD-A8 | A-pre: Maxim plan PR #1787, open; A-post after the fence; nothing in a release |
+| [issues_now_DRAFT.md](issues_now_DRAFT.md) | two issues | OD-I1, OD-I2 | the roadmap's Issues now rows (O76) |
+| [embeddable_agent_DRAFT.md](embeddable_agent_DRAFT.md) | plan | OD-A10 to OD-A12, OD-A14, OD-A15, OD-A17, OD-A18, OD-I3 | Maxim's candidates A1, A4, A5, B1, B2 (`overdrive_refactor_candidates.md`); no plan; OD-I3: the roadmap's row |
+| [world_clock_release_DRAFT.md](world_clock_release_DRAFT.md) | two plans: A-pre (own clock) and A-post (with 1.3.6) | OD-A1 to OD-A8 | A-pre: Maxim's `world_clock_a_pre.md` (#1787, merged); A-post after the fence; nothing in a release |
 | [default_network_stepped_DRAFT.md](default_network_stepped_DRAFT.md) | plan, coordinated with #1263's remainder | OD-A9 | not filed; A-post |
 | [propose_settle_amendment_DRAFT.md](propose_settle_amendment_DRAFT.md) | amendment to `tool_failure_credit.md` (#1200) | OD-A16 | in cand. B2 (#1150), open; after #1200 |
 | [time_sense_DRAFT.md](time_sense_DRAFT.md) | plan, plus two experiment drafts (OD-X1, OD-X2) | OD-B8 to OD-B13 | not filed; tier B |

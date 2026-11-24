@@ -107,18 +107,21 @@ substrate carries the NPC while it deliberates; the hybrid line in Maxim tunes t
 ### 42. A clock moves by stamp and reader together, and a home records which clock its stamps are on (2026-11-24)
 
 **We labelled stamps and windows "A-pre, outside the fence" by the file each lives in. The unit that can move is the
-stamp together with every reader that subtracts from it.** *Evidence:* Maxim's A-pre plan (PR #1787 at `29dda704`,
-D-WC6 and its invariant I4). If a Hippocampus capture stamp moves to world time while one of its readers (the echo
-filter, SCN registration, `SituationSignature`'s persisted EC hash, retrieval's `time_diff`) still subtracts
-`time.time()`, the result is world epoch minus wall epoch. Under the host default the two reads agree, so no robot
+stamp together with every reader that subtracts from it or bins it.** *Evidence,* from Maxim's plan and code, not
+a run: Maxim's A-pre plan (`world_clock_a_pre.md`, #1787, D-WC6 and its invariant I4). If a Hippocampus capture
+stamp moves to world time while a reader still subtracts `time.time()` (the echo filter, retrieval's `time_diff`),
+the result is world epoch minus wall epoch; readers that bin it by calendar (SCN registration, `SituationSignature`'s
+persisted EC hash) bin a world stamp on the host's calendar. Under the host default the two reads agree, so no robot
 test can see it. A home written under world time and loaded under the host default makes sleep and eviction read
-every trace as decades old (#1787 says about 54 years; for a world epoch near 0 it is the wall epoch, about 57). So #1787 moves only closed pairs in A-pre and sends our OD-A4 stamp half and OD-A5's
+every trace as decades old (the plan says about 54 years; for a world epoch near 0 it is the wall epoch, about
+57). So the plan moves only closed pairs in A-pre and sends our OD-A4 stamp half and OD-A5's
 capture and access stamps to A-post with `AgentHome`, behind a clock-domain marker. Our own OD-A4 row had the same
 blind spot from the other side: it put a tool's duration, a read in the fenced `tool_dispatch.py`, in A-pre.
 
 *Consequence:* an Overdrive save that holds an agent home has to say which clock its stamps count, and refuse a
-mismatch, the way every other format here refuses a version it doesn't know. A Phase 3 row is placed by its whole
-reader set, not by the file that holds the write.
+mismatch, the way every other format here refuses a version it doesn't know; the roadmap's tier A open question (e)
+carries it to Phase 4's save design. A Phase 3 row is placed by its whole reader set, not by the file that holds
+the write.
 
 ## Working with Maxim
 
