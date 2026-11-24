@@ -46,3 +46,14 @@ plan byte-identical to `29dda704`), so the fold also re-reads at `5bcc2cf0` and 
 | Arch N-3 (lesson 42's save rule; `realtime_lanes_coop.md` contradiction) | NIT | open questions (d) and (e) |
 
 B52 to B54 are released unused: no finding is a rule waiting for a check.
+
+## Delta round (`delta.md`, on `858cc2b..e4d4df3`), and its folds
+
+The delta reviewer set the statuses above in `delta.md` §1. Under the stop rule no round follows it. Its findings and
+the author's folds, which no reviewer has read:
+- **E2, Arch SF-1** (reopened): OD-A4's and OD-A5's statuses cut to the plan's name, the release and the pointer.
+- **D1** (SHOULD-FIX): E3's deferral is recorded in the roadmap's tier A open items, with its owner and trigger.
+- **NIT 1:** `config.py:733-738`, and the seed set at load; the #1305 comment already says so, and is left.
+- **NIT 2:** draft §3.4 names `exec_agent.py`'s phase dict as the exception.
+- **NIT 3:** fixed.
+- **NIT 4:** the re-ask trigger is recorded beside the open questions.

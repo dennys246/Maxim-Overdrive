@@ -96,7 +96,7 @@ prompt-reaching modules. Examples on `5bcc2cf0` (the plan's census is authoritat
 - `agents/context_pool.py`'s `[HH:MM:SS]` observation stamps (`time.localtime(entry.timestamp)`, about `:468`,
   `:493`), which reach the live planning prompt;
 - SCN-derived text that reaches the model (`[TEMPORAL]`, `temporal_patterns`, `current_phase`), which the plan omits
-  under no calendar.
+  under no calendar, except `exec_agent.py`'s phase dict (A-post, §3.1).
 
 `llm_fallback`'s canned time and date answers are gone, removed with the short-question shortcut (#1689). What the
 agent *believes* the time is stays tier B.
