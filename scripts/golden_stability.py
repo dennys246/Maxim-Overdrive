@@ -29,6 +29,8 @@ WINDOW_PX = 3.0
 SUPERSAMPLE = 16
 PERCENTILE = 95.0
 BAR_RATIO = 2.0
+# Half a pixel's diagonal: a pixel whose centre is farther than this from every edge lies wholly on one side.
+EDGE_PX = 0.5 * 2.0**0.5 + 1e-9
 # What stability_check.tscn draws (its TIERS, PX_PER_M and OFFSETS; test_golden_stability holds them together):
 # every key must be measured, so a run that measured nothing can't pass.
 KEYS = ("laptop-120", "laptop-30", "laptop-72", "rig-120", "rig-30", "rig-72")
@@ -72,23 +74,32 @@ def bin_coverage(coverage: Floats, axis: Axis, width_px: float) -> Floats:
 
 
 def ideal_coverage(shape: tuple[int, int], axis: Axis, width_px: float) -> Floats:
-    """A rectangle of ``width_px`` along the axis at exact area coverage, by SUPERSAMPLE^2 samples per pixel. Only a
-    window around the axis is sampled; everything else is 0."""
+    """A rectangle of ``width_px`` along the axis at exact area coverage, by SUPERSAMPLE^2 samples per pixel. A pixel
+    whose centre is more than half a diagonal (EDGE_PX) inside or outside the rectangle is wholly in or out, so only
+    the band along the edges is sampled; the counts are the same as sampling every pixel."""
     h, w = shape
     out = np.zeros(shape, dtype=np.float64)
     x0 = max(int(min(axis.ax, axis.bx) - width_px - 2), 0)
     x1 = min(int(max(axis.ax, axis.bx) + width_px + 2), w)
     y0 = max(int(min(axis.ay, axis.by) - width_px - 2), 0)
     y1 = min(int(max(axis.ay, axis.by) + width_px + 2), h)
-    offsets = (np.arange(SUPERSAMPLE) + 0.5) / SUPERSAMPLE
     _, _, length = axis.unit()
-    for oy in offsets:
-        for ox in offsets:
-            ys, xs = np.mgrid[y0:y1, x0:x1].astype(np.float64)
-            along, across = _along_across(shape, axis, xs + ox, ys + oy)
-            inside = (across <= width_px / 2.0) & (along >= 0.0) & (along <= length)
-            out[y0:y1, x0:x1] += inside
-    return out / SUPERSAMPLE**2
+    ys, xs = np.mgrid[y0:y1, x0:x1].astype(np.float64)
+    along, across = _along_across(shape, axis, xs + 0.5, ys + 0.5)
+    half = width_px / 2.0
+    inside = (across <= half - EDGE_PX) & (along >= EDGE_PX) & (along <= length - EDGE_PX)
+    outside = (across > half + EDGE_PX) | (along < -EDGE_PX) | (along > length + EDGE_PX)
+    window = out[y0:y1, x0:x1]
+    window[inside] = 1.0
+    edge = ~inside & ~outside
+    offsets = (np.arange(SUPERSAMPLE) + 0.5) / SUPERSAMPLE
+    grid = (int(edge.sum()), SUPERSAMPLE, SUPERSAMPLE)  # pixel, sample row, sample column
+    sx = np.broadcast_to(xs[edge][:, None, None] + offsets[None, None, :], grid).reshape(-1)
+    sy = np.broadcast_to(ys[edge][:, None, None] + offsets[None, :, None], grid).reshape(-1)
+    s_along, s_across = _along_across(shape, axis, sx, sy)
+    hit = (s_across <= half) & (s_along >= 0.0) & (s_along <= length)
+    window[edge] = hit.reshape(-1, SUPERSAMPLE**2).sum(axis=1) / SUPERSAMPLE**2
+    return out
 
 
 def spread_statistic(per_offset: list[Floats]) -> float:
@@ -134,4 +145,32 @@ def findings(frames: Path) -> list[str]:
         if not passes(rendered, ideal):
             ratio = f"{rendered / ideal:.2f}x the ideal line" if ideal > 0 else f"{rendered:.3f} against an ideal of 0"
             found.append(f"stick stability ({key}): {ratio}, past {BAR_RATIO}x")
+        found += area_findings(key, images, axes, entry["drawn_px"])
     return found
+
+
+def srgb(linear: Floats) -> Floats:
+    """The sRGB transfer function, which a coverage written as colour rather than as data would pass through."""
+    out: Floats = np.where(linear <= 0.0031308, 12.92 * linear, 1.055 * np.power(linear, 1.0 / 2.4) - 0.055)
+    return out
+
+
+def area_ratio(frames: list[Floats], axes: list[Axis], width_px: float) -> float:
+    """The frames' mean binned coverage over the drawn width times the bin length: 1 when coverage is linear, since
+    edge coverage conserves area."""
+    bins = np.concatenate([np.asarray(bin_coverage(f, a, width_px)) for f, a in zip(frames, axes, strict=True)])
+    return float(bins.mean() / (BIN_PX * width_px))
+
+
+def area_findings(key: str, frames: list[Floats], axes: list[Axis], width_px: float) -> list[str]:
+    """The fuel-ID mask's coverage reads linear on this tier (review W-S5): the rendered area ratio sits within half
+    the excess sRGB-encoded coverage would show on the ideal line at the same geometry, so the bar separates the two
+    readings with equal margin."""
+    shape = (int(frames[0].shape[0]), int(frames[0].shape[1]))
+    encoded = [srgb(ideal_coverage(shape, a, width_px)) for a in axes]
+    margin = 0.5 * (area_ratio(encoded, axes, width_px) - 1.0)
+    ratio = area_ratio(frames, axes, width_px)
+    if abs(ratio - 1.0) <= margin:
+        return []
+    srgb_reads = f"sRGB would read 1 + {2 * margin:.3f}"
+    return [f"coverage encoding ({key}): area ratio {ratio:.3f}, outside 1 ± {margin:.3f} ({srgb_reads})"]

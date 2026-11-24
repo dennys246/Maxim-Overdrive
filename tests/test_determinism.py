@@ -18,9 +18,11 @@ import pytest
 
 from maxim_overdrive import data
 from simcore.adapters.sem.bridge import region_parts
-from simcore.core.applier import Applier
+from simcore.core.intents import Ignite, Strike
 from simcore.core.scene import Box, Cylinder, Scene
-from simcore.core.world import World
+from simcore.core.simulation import SimConfig, Simulation
+from tests._sim import SteppingPort, make, physics_steps, record, world_of
+from tests._testroots import spike_roots
 from tests.conftest import FAST_SPACINGS
 
 LIMITS = data.action_limits()
@@ -33,29 +35,30 @@ SCENE = Scene(
     (3.0, 3.0, 2.0),
     (Box((1.2, 1.2, 0), (1.8, 1.8, 0.6), "wood", "crate"), Box((0, 0, 0), (0.6, 3.0, 2.0), "concrete", "wall")),
 )
-TURNS = 30
-FIRE_W = 500_000.0  # hot enough that the crate degrades and loses cells within TURNS, at every fast grid spacing
+RUN_S = 180.0  # the 30 six-second turns this scenario ran before PR 4a retired the turn
+FIRE_W = 500_000.0  # hot enough that the crate degrades and loses cells within RUN_S, at every fast grid spacing
+IGNITE = Ignite(power_w=FIRE_W, radius_m=0.3)
+STRIKE = Strike(energy_j=2.0e7, sigma_m=0.2, point_m=None)
 
 # Determinism is a property of code paths, not of cell size: the fast tiers run the same code as max, and max would
 # add about 50 s to every pre-push for no new path.
 fast_spacings = pytest.mark.parametrize("dx_m", FAST_SPACINGS)
 
 
-def run(dx_m: float) -> World:
-    """Fire on the crate and a strike on the wall: heat, thermal degradation, thermal and mechanical destruction."""
-    w = World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
-    _, crate = region_parts(Applier(w), w.frames, "crate")
-    assert crate["structure"].execute("ignite", {"power_w": FIRE_W, "radius_m": 0.3}).success
-    _, wall = region_parts(Applier(w), w.frames, "wall")
-    assert wall["structure"].execute("strike", {"energy_j": 2.0e7, "sigma_m": 0.2}).success
-    for _ in range(TURNS):
-        w.advance()
-    return w
+def run(dx_m: float) -> Simulation:
+    """Fire on the crate and a strike on the wall at tick 1: heat, thermal degradation, thermal and mechanical
+    destruction, for RUN_S world seconds."""
+    sim = make(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
+    report = sim.step([record(IGNITE, "crate", tick=1, actor=1), record(STRIKE, "wall", tick=1, actor=2)])
+    assert all(o.success for o in report.outcomes)
+    physics_steps(sim, round(RUN_S / sim.config.physics_seconds))
+    return sim
 
 
-def digest(w: World) -> str:
-    """Everything the next turn depends on: cells, regions (in insertion order), sources, clock."""
+def digest(sim: Simulation) -> str:
+    """Everything the next tick depends on: cells, regions (in insertion order), sources, the clock and the frame."""
     h = hashlib.sha256()
+    w = world_of(sim)
     g = w.grid
     for arr in (g.material, g.original_material, g.integrity, g.temperature):
         h.update(arr.tobytes())
@@ -66,18 +69,19 @@ def digest(w: World) -> str:
         h.update(f"{region.footprint}{region.solid}".encode())  # where fires land and what a strike reaches
     for name, src in w.sources.items():
         h.update(f"{name}{src.point_m}{src.radius_m}{src.power_w}".encode())
-    h.update(f"{g.time_s!r} {w.turn}".encode())
+    h.update(f"{sim.tick} {sim.frames.latest.tick} {sim.frames.latest.time_s!r}".encode())
     return h.hexdigest()
 
 
 @fast_spacings
 def test_the_scenario_exercises_burning(dx_m):
     """Guard on the guard: if the fire stops reaching degradation, the determinism tests below test too little."""
-    w = run(dx_m)
-    sensors, _ = region_parts(Applier(w), w.frames, "crate")
+    sim = run(dx_m)
+    sensors, _ = region_parts(SteppingPort(sim), sim.frames, "crate")
     assert sensors["integrity"].value() < 0.9  # thermal degradation ran
-    original_crate = w.grid.regions["crate"].cells & (w.grid.original_material != 0)
-    assert (original_crate & ~w.grid.solid).any()  # and destroyed crate cells
+    g = world_of(sim).grid
+    original_crate = g.regions["crate"].cells & (g.original_material != 0)
+    assert (original_crate & ~g.solid).any()  # and destroyed crate cells
 
 
 # The fixed physics step (sim_core.md §8): on shipped data stability's bound (240, 60 and 15 s at 0.2, 0.1 and 0.05 m)
@@ -87,10 +91,9 @@ def test_the_scenario_exercises_burning(dx_m):
 @fast_spacings
 @pytest.mark.parametrize("refine", [1, 4])
 def test_each_physics_step_takes_refine_substeps_on_shipped_data(dx_m, refine):
-    w = World.from_scene(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
-    _, crate = region_parts(Applier(w), w.frames, "crate")
-    assert crate["structure"].execute("ignite", {"power_w": FIRE_W, "radius_m": 0.3}).success
-    assert [w.advance(0.5, refine=refine) for _ in range(3)] == [refine] * 3
+    sim = make(SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS, config=SimConfig(substep_refine=refine))
+    assert sim.step([record(IGNITE, "crate", tick=1)]).outcomes[0].success
+    assert [r.substeps for r in physics_steps(sim, 3)] == [refine] * 3
 
 
 @fast_spacings
@@ -115,7 +118,7 @@ def test_runs_in_processes_with_different_hash_seeds_agree(dx_m):
 
 # -- the static half: no hidden sources of nondeterminism ------------------------------------------------------------
 
-# Randomness, when it arrives, comes from one seeded numpy Generator owned by World; time comes from World.advance.
+# Randomness, when it arrives, comes from one seeded numpy Generator owned by World; time comes from Simulation.step.
 # The scan reads the syntax tree, so comments, strings, spacing, line breaks and aliases can't hide a call, and
 # f-string expressions are checked on every Python version.
 BANNED_MODULES = {
@@ -149,10 +152,10 @@ NUMPY_NAMES = {"np", "numpy"}
 CORE = "simcore/core"
 NUMPY_RANDOM_ALLOWED = {"default_rng", "Generator", "SeedSequence", "PCG64"}  # seeded construction only
 SEEDED_CONSTRUCTORS = {"default_rng", "PCG64", "SeedSequence"}
-# Package-qualified directories under src/ that may read the clock or OS entropy because nothing they read reaches the
-# world: the transport, when it lands (simcore/host, docs/standards_backlog.md B14). None exists yet, so every package
-# under src/ is scanned.
-NOT_SIMULATION: set[str] = set()
+# Package-qualified directories or files under src/ that may read the clock or OS entropy because nothing they read
+# reaches the world (docs/standards_backlog.md B14). The per-launch tokens draw from secrets and only admit sessions;
+# the rest of the host stays scanned, since its pacing loop will feed the world.
+NOT_SIMULATION: set[str] = {"simcore/host/tokens.py"}
 # Non-vacuity: the scan must reach the turn loop and the laws, wherever a move puts them (boundaries §11.2, W14).
 MUST_SCAN = {
     "simcore/core/world.py",
@@ -226,14 +229,99 @@ def findings(path: Path, source: str) -> list[str]:
     return out
 
 
+# asyncio's clock in src/ (review D1, delta D1): a sleep, a timeout or the loop, whose time() is monotonic wall time,
+# which a pacing loop could feed the world. Seen by module spelling (asyncio.sleep, from asyncio import sleep, a
+# submodule, getattr on the module) and by the loop's own handles on any value (connection.loop.time(),
+# server.get_loop(), call_later). The host's handshake deadline is the one use: one wait_for in server.py, which
+# admits a connection, and a join is a logged event (boundaries §6). Tests may bound a wait with them.
+ASYNC_CLOCK = {
+    "sleep", "wait_for", "wait", "timeout", "timeout_at", "Timeout", "as_completed", "get_running_loop",
+    "get_event_loop", "new_event_loop", "events", "tasks", "timeouts",
+}  # fmt: skip
+# websockets' connection.latency is a measured round trip: wall time, which lag compensation could take as a tick
+LOOP_HANDLES = {"loop", "_loop", "get_loop", "call_later", "call_at", "time", "latency"}
+ASYNC_CLOCK_ALLOWED = {"src/simcore/host/server.py": {"wait_for": 1}}
+
+
+def _asyncio_aliases(tree: ast.Module) -> set[str]:
+    imports = (a for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names)
+    return {(a.asname or a.name).split(".")[0] for a in imports if a.name.split(".")[0] == "asyncio"}
+
+
+def _asyncio_names(tree: ast.Module) -> list[tuple[int, str]]:
+    """(line, name) for each name ``tree`` takes from asyncio: imported, a submodule, an attribute, a getattr."""
+    aliases = _asyncio_aliases(tree)
+    out: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "asyncio":
+            out += [(node.lineno, n) for n in [*(node.module or "").split(".")[1:], *(a.name for a in node.names)]]
+        elif isinstance(node, ast.Import):
+            out += [
+                (node.lineno, n) for a in node.names if a.name.startswith("asyncio.") for n in a.name.split(".")[1:]
+            ]
+        elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id in aliases:
+            out.append((node.lineno, node.attr))
+        elif isinstance(node, ast.Call) and _dotted(node.func) == "getattr" and len(node.args) > 1:
+            target, name = node.args[0], node.args[1]
+            if isinstance(target, ast.Name) and target.id in aliases and isinstance(name, ast.Constant):
+                out.append((node.lineno, str(name.value)))
+    return out
+
+
+def async_clock_findings(path: Path, source: str) -> list[str]:
+    """Each use of asyncio's clock in ``source``, but the uses ``ASYNC_CLOCK_ALLOWED`` counts for ``path``."""
+    tree = ast.parse(source)
+    allowed = dict(ASYNC_CLOCK_ALLOWED.get(path.as_posix(), {}))
+    out = []
+    for line, name in _asyncio_names(tree):
+        if name in ASYNC_CLOCK and allowed.get(name, 0) > 0:
+            allowed[name] -= 1
+        elif name in ASYNC_CLOCK:
+            out.append(f"{path}:{line}: uses asyncio.{name}: the loop's clock")
+    handles = [n for n in ast.walk(tree) if isinstance(n, ast.Attribute) and n.attr in LOOP_HANDLES]
+    out += [f"{path}:{n.lineno}: reaches .{n.attr}: the event loop, whose time() is the wall clock" for n in handles]
+    return out
+
+
+def scan_hits(files: dict[Path, str]) -> list[str]:
+    """The main scan over ``files`` (absolute path to source): src/ modules held to ``src_findings``, the rest to
+    ``findings``. One function, so a test can hold the main scan to the asyncio half."""
+    return [
+        f
+        for p, s in files.items()
+        for f in (src_findings if p.is_relative_to(SRC) else findings)(p.relative_to(ROOT), s)
+    ]
+
+
+def src_findings(path: Path, source: str) -> list[str]:
+    """What the scan holds a src/ module to: the hidden sources everywhere, and asyncio's clock."""
+    return findings(path, source) + async_clock_findings(path, source)
+
+
 def _simulated(path: Path) -> bool:
     rel = path.relative_to(SRC).as_posix()
     return not any(rel == d or rel.startswith(d + "/") for d in NOT_SIMULATION)
 
 
+# A spike's host side paces to the wall clock and makes launch tokens, as simcore/host does; the rest of a spike the
+# gate runs (its simulation and its tests) is scanned.
+SPIKE_HOST = {
+    "spikes/slice/slice_server/server.py",
+    "spikes/slice/slice_server/__main__.py",
+    "spikes/slice/slice_server/voice.py",
+}
+MUST_SCAN_SPIKES = {"spikes/slice/slice_server/sim.py", "spikes/slice/tests/test_voice.py"}
+
+
 def scanned_files() -> list[Path]:
     files = [p for p in SRC.rglob("*.py") if _simulated(p)]
-    return sorted(files) + sorted((ROOT / "tests").rglob("*.py"))
+    spikes = [
+        p
+        for root in spike_roots()
+        for p in (ROOT / root).rglob("*.py")
+        if p.relative_to(ROOT).as_posix() not in SPIKE_HOST
+    ]
+    return sorted(files) + sorted((ROOT / "tests").rglob("*.py")) + sorted(spikes)
 
 
 def _core_imports(node: ast.AST) -> list[str]:
@@ -280,7 +368,8 @@ def core_findings(path: Path, source: str) -> list[str]:
 def test_the_simulation_and_tests_have_no_hidden_sources_of_nondeterminism():
     scanned = scanned_files()
     assert {p.relative_to(SRC).as_posix() for p in scanned if p.is_relative_to(SRC)} >= MUST_SCAN
-    hits = [f for p in scanned for f in findings(p.relative_to(ROOT), p.read_text())]
+    assert {p.relative_to(ROOT).as_posix() for p in scanned} >= MUST_SCAN_SPIKES
+    hits = scan_hits({p: p.read_text() for p in scanned})
     core = sorted((SRC / CORE).rglob("*.py"))
     assert {p.relative_to(SRC).as_posix() for p in core} >= MUST_SCAN
     hits += [f for p in core for f in core_findings(p.relative_to(ROOT), p.read_text())]
@@ -433,15 +522,47 @@ CYLINDER_SCENE = Scene(
 )
 
 
-def _cylinder_run(dx_m: float) -> World:
-    w = World.from_scene(CYLINDER_SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
-    _, barrel = region_parts(Applier(w), w.frames, "barrel")
-    assert barrel["structure"].execute("ignite", {"power_w": FIRE_W, "radius_m": 0.3}).success
-    for _ in range(5):
-        w.advance()
-    return w
+def _cylinder_run(dx_m: float) -> Simulation:
+    sim = make(CYLINDER_SCENE, MATERIALS, dx_m=dx_m, limits=LIMITS)
+    assert sim.step([record(IGNITE, "barrel", tick=1)]).outcomes[0].success
+    physics_steps(sim, 60)  # 30 s, the five 6 s turns this ran before PR 4a
+    return sim
 
 
 @fast_spacings
 def test_a_cylinder_scene_is_repeatable_in_process(dx_m):
     assert digest(_cylinder_run(dx_m)) == digest(_cylinder_run(dx_m))
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import asyncio\nasyncio.sleep(1)",
+        "import asyncio as aio\naio.get_running_loop()",
+        "from asyncio import timeout",
+        "from asyncio.tasks import gather",
+        "import asyncio.tasks",
+        "import asyncio\ngetattr(asyncio, 'sleep')",
+        "import asyncio\nasyncio.Timeout(None)",
+        "def f(connection):\n    return connection.loop.time()",
+        "def f(server):\n    return server.get_loop().time()",
+        "def f(loop):\n    loop.call_later(1, print)",
+        "def f(loop):\n    return loop.time()",
+        "def f(connection):\n    return connection.latency",
+    ],
+)
+def test_the_src_scan_sees_asyncio_s_clock(source):
+    assert src_findings(Path("src/simcore/host/pacing.py"), source)  # the main test's own entry point for src/
+
+
+def test_only_the_one_handshake_deadline_may_use_the_loop_s_clock():
+    one = "import asyncio\nasyncio.wait_for(x, 1)"
+    assert not async_clock_findings(Path("src/simcore/host/server.py"), one)
+    assert async_clock_findings(Path("src/simcore/host/server.py"), one + "\nasyncio.wait_for(y, 2)")
+    assert async_clock_findings(Path("src/simcore/host/server.py"), "import asyncio\nasyncio.sleep(1)")
+
+
+def test_the_main_scan_holds_src_to_the_asyncio_half():
+    planted = "import asyncio\nasyncio.sleep(1)\n"
+    assert scan_hits({SRC / "simcore" / "host" / "pacing.py": planted})  # what the main test runs, on a plant
+    assert not scan_hits({ROOT / "tests" / "test_x.py": planted})  # tests may bound a wait

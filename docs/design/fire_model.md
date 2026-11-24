@@ -230,10 +230,9 @@ zero.
 
 - **One fire act for everyone: `kindle`** (tile T4, which already retired `ignite`; F7 retired `extinguish`). It
   applies a held item's flame at a point.
-  - **Target derivation:** the fuel object or solid whose surface is nearest the point within 50 mm, with a tie
-    within 1 mm refused as `ambiguous_point` (R3's sticks at 0.75–1.5 cm separate by more than that).
-  - **The torch's pilot is a flame object** with a prescribed Q at the point, heating by §4 like any flame. That
-    replaces the sphere deposit and the 0.2 m minimum radius.
+  - **Target derivation:** `torch_pilot.md` §3's.
+  - **The torch's pilot** is a flame object from 6.2 (Phase 2). Phase 1's is `torch_pilot.md`'s prescribed flux,
+    which replaces the sphere deposit and the 0.2 m minimum radius.
   - The vocabulary is v1 amended before step 5 ships it.
 - **No NPC fire acts in Phase 1**, since there are no NPCs. `light`, `apply`, `carry`, `drop` and `place` come with
   item entities and NPC bodies (Phase 4), as the same `kindle` intent from a body, sharing its validators and log.
@@ -358,7 +357,7 @@ on a crate packed with cardboard; the player kindles the starter with the torch.
 - **Flame count is the crux:** TN 2102's cluster count is computed before R2.5.
 - **A fire budget is written before R2.5**, for example "fire kernels ≤ X ms per physics step at the 1.92 × 10⁶-cell
   tile with the crate at peak". It is recorded in Known gaps. The server is already at about 0.7 s per 0.5 s step on
-  that tile (gates `docs/architecture.md`, a 40×8×6 m tile).
+  that tile (gates `docs/known_gaps.md`, a 40×8×6 m tile).
 - **The primary gate is deterministic work counters:** node solves, view-factor pairs, ray samples, cluster edges
   and cap events per step. B5's `process_time` gate is secondary.
 
@@ -430,7 +429,8 @@ from the Hess solve is caught and re-raised):
 | 6.1 solid | §3 with R0 and R1 | — |
 | 6.2 flame | §4 with R2.5, R2a and R2b; the fire budget | — |
 | 6.3 two bodies | R3a–c | — |
-| 6.4 crib and exit | R4 and §7's scene | step 8 |
+| 6.1b torch pilot | `torch_pilot.md`; the Phase 1 slab exit | step 8 |
+| 6.4 crib and exit | R4 and §7's scene (Phase 2) | — |
 
 - **The time-box (owner ruling 3) covers 6.1 and 6.2.** Each gets at most two pre-registration reruns. Overrunning
   triggers §7's fallback.
@@ -471,4 +471,4 @@ Items 1–3 were ruled (owner, 2026-11-20) and are kept in `decisions/fire_model
   threads).
 - The client may draw flourish (flicker, smoke) no NPC senses: a named asymmetry.
 - **Not yet designed** (`fold.md`): the per-layer placement of the new code; `strike` and breach on fuel objects; a
-  held flame's lifecycle; flipping the two fire red gates and retiring `actions.yaml`'s ceilings (proposed: in 6.4).
+  held flame's lifecycle; the fire red gates and `actions.yaml`'s ceilings (`torch_pilot.md` §9.4).

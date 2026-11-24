@@ -17,8 +17,12 @@ from pathlib import Path
 
 import pytest
 
+from tests._testroots import gate_testpaths, spike_roots
+
 ROOT = Path(__file__).resolve().parents[1]
-SCANNED = ("src", "scripts", "tests")
+SCANNED = ("src", "scripts", "tests", *spike_roots())  # a spike the gate runs is scanned with its tests
+TEST_ROOTS = tuple(f"{p}/" for p in gate_testpaths())  # where the tests-only rules apply (ports, git)
+SPAWN_ROOTS = ("scripts/", *TEST_ROOTS, *(f"{p}/" for p in spike_roots()))  # where a process needs ALLOWED_SPAWNS
 SELF = Path(__file__).resolve()
 GIT_HELPER = "tests/_gitutil.py"
 
@@ -27,6 +31,7 @@ SHARED_ENV = {"HOME", "TMPDIR", "TMP", "TEMP", "USERPROFILE"}
 TEMP_CALLS_DIR_AT = {"mkdtemp": 2, "mkstemp": 2, "TemporaryDirectory": 2}  # positional index of dir=
 TEMP_CALLS_KEYWORD_ONLY = {"NamedTemporaryFile", "TemporaryFile", "SpooledTemporaryFile"}
 SERVER_CALLS_PORT_AT = {"serve": 2, "start_server": 2, "create_server": 2, "connect": None}  # positional index of port
+ADDRESS_CALLS = {"bind", "create_server", "create_connection"}  # an (host, port) tuple first
 PORT_IN_URL = re.compile(r"^\w+://[^/\s]*:(\d+)")
 EXEMPT = re.compile(r"#\s*shared-path-ok:\s*\S.{8,}")
 SUBPROCESS_CALLS = {"run", "call", "check_call", "check_output", "Popen"}
@@ -73,14 +78,15 @@ class _Module:
 
 
 def _fixed_port(node: ast.Call, mod: _Module) -> bool:
-    """A test server or client on a nonzero port: by keyword, by position, or in a ``.bind((host, port))`` tuple."""
+    """A test server or client on a nonzero port: by keyword, by position, or in an address tuple, ``(host, port)``,
+    as ``bind``, ``socket.create_server`` and ``socket.create_connection`` take it."""
     if any(kw.arg == "port" and _nonzero(mod.value(kw.value)) for kw in node.keywords):
         return True
     name = _call_name(node)
     at = SERVER_CALLS_PORT_AT.get(name or "")
     if at is not None and len(node.args) > at and _nonzero(mod.value(node.args[at])):
         return True
-    if name == "bind" and node.args and isinstance(node.args[0], ast.Tuple) and len(node.args[0].elts) >= 2:
+    if name in ADDRESS_CALLS and node.args and isinstance(node.args[0], ast.Tuple) and len(node.args[0].elts) >= 2:
         return _nonzero(mod.value(node.args[0].elts[1]))
     return False
 
@@ -142,6 +148,8 @@ ALLOWED_SPAWNS = {
     ("tests/test_constructors.py", "test_a_set_echoes_in_the_same_order_under_every_hash_seed"): "given",  # Python
     ("tests/_imports.py", "external_imports"): "given",  # grimp's graph of a tree's src/, in its own interpreter
     ("tests/test_client_project.py", "_detected"): "given",  # ci/install_godot.sh --platform, PATH only
+    ("scripts/remote_gate.py", "_run"): "given",  # git, scp and ssh, with a whitelisted env (no GIT_*, no proxy)
+    ("tests/test_readme.py", "test_the_readmes_python_example_runs_and_prints_a_reading"): "given",  # Python, tmp_path
 }
 SPAWN_MODULES = {
     "subprocess": {"run", "call", "check_call", "check_output", "Popen", "getoutput", "getstatusoutput"},
@@ -199,7 +207,7 @@ def _env_problem(node: ast.Call, kind: str) -> str | None:
 
 
 def spawn_findings(rel: str, tree: ast.Module) -> list[str]:
-    if not rel.startswith(("tests/", "scripts/")):
+    if not rel.startswith(SPAWN_ROOTS):
         return []
     aliases, owner, out = _aliases(tree), _enclosing_functions(tree), []
     for node in ast.walk(tree):
@@ -215,13 +223,13 @@ def spawn_findings(rel: str, tree: ast.Module) -> list[str]:
 
 def _process_findings(rel: str, node: ast.Call, where: str) -> list[str]:
     out = []
-    if rel.startswith("tests/") and rel != GIT_HELPER and _git_outside_helper(node):
+    if rel.startswith(TEST_ROOTS) and rel != GIT_HELPER and _git_outside_helper(node):
         out.append(f"{where}: a test runs git without tests/_gitutil.py, so it inherits GIT_DIR; use git()")
     return out
 
 
 def _node_findings(rel: str, node: ast.AST, mod: _Module) -> list[str]:
-    where, in_tests = f"{rel}:{getattr(node, 'lineno', 0)}", rel.startswith("tests/")
+    where, in_tests = f"{rel}:{getattr(node, 'lineno', 0)}", rel.startswith(TEST_ROOTS)
     out = []
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         if _shared_path(node.value):
@@ -296,6 +304,8 @@ def test_the_scan_catches_shared_paths(source: str) -> None:
         "asyncio.start_server(handler, host, 8765)",
         "PORT = 8765\nserve(handler, host, port=PORT)",
         "s.bind(('127.0.0.1', 8765))",
+        "socket.create_server(('127.0.0.1', 8765))",  # delta 2 S1: the slice's own spelling
+        "socket.create_connection(('127.0.0.1', 8765))",
         'websockets.connect("ws://127.0.0.1:8765")',
         'url = "http://localhost:8080/x"',
     ],
@@ -393,3 +403,20 @@ def test_the_allowlist_names_only_sites_that_exist() -> None:
         tree = ast.parse((ROOT / rel).read_text())
         names = {n.name for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
         assert function in names, (rel, function)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import subprocess\nsubprocess.run(['ls'], env={})\n",
+        "import socket\nsocket.create_server(('127.0.0.1', 8080))\n",
+        "import subprocess\nsubprocess.run(['git', 'status'], env={})\n",  # env given: only the git rule fires
+    ],
+)
+def test_a_spike_test_the_gate_runs_is_held_to_the_tests_rules(source: str) -> None:
+    # Delta 1 S1: the slice's tests were scanned only for shared paths; a spawn or a fixed port passed.
+    for root in (p for p in gate_testpaths() if p != "tests"):
+        hits = findings(f"{root}/test_planted.py", source)
+        assert hits
+        if "git" in source:  # the git rule itself, not the spawn rule catching the same call
+            assert any("tests/_gitutil.py" in h for h in hits), hits

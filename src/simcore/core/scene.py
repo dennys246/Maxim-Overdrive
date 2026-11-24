@@ -21,16 +21,8 @@ from typing import Any, Literal
 from simcore.core import topology
 from simcore.core.checks import MAXIM_TARGET_ALIASES, entity_key, shown
 from simcore.core.fields import CONSTRUCTION
-from simcore.core.grid import (
-    MAX_LENGTH_M,
-    REGION_NAME,
-    Bounds,
-    Footprint,
-    Mask,
-    MaterialGrid,
-    Point,
-    whole_micrometres,
-)
+from simcore.core.geometry import MAX_LENGTH_M, Mask, whole_micrometres
+from simcore.core.grid import REGION_NAME, Bounds, Footprint, MaterialGrid, Point
 from simcore.core.materials import MaterialTable
 from simcore.core.refusals import RefusalCode, Refused
 from simcore.core.schema import Field, Format, Identity, ListOf, Nested, Real, Schema, Tagged, Text, Vector, Whole
@@ -53,7 +45,7 @@ def constructing(grid: MaterialGrid) -> Iterator[None]:
 # real cell-count budget comes with the memory budget planned for design v2. Coordinates are bounded before any
 # arithmetic: squaring a 1e200 m radius overflowed a float inside the voxelizer (step 3b review, B1).
 MAX_AMBIENT_C = 3000.0
-MAX_EXTENT_M = MAX_LENGTH_M  # grid.MAX_LENGTH_M: one bound for every length a scene or a grid takes
+MAX_EXTENT_M = MAX_LENGTH_M  # geometry.MAX_LENGTH_M: one bound for every length a scene or a grid takes
 MAX_PRIMITIVES = 4096  # a list's length is counted before any primitive is built (boundaries §5.4)
 MAX_SPAWNS = 64
 _COORD3, _COORD2 = Vector(3, MAX_EXTENT_M), Vector(2, MAX_EXTENT_M)

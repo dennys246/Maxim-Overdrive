@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+import json
 import select
 import socket
 import stat
@@ -14,18 +15,20 @@ import pytest
 from slice_server import WIRE_VERSION, config
 from slice_server.__main__ import check_replay, main, serve, ticks_of
 from slice_server.intents import parse as parse_intent
+from slice_server.metrics import log_meta
 from slice_server.server import Client, Server
 from slice_server.sim import Sim
 from slice_server.voice import Voice
 from slice_server.wire import FrameReader, encode
 
 TOKEN = "t" * 32
+META = json.dumps(log_meta(0.2, data=config.raw())) + "\n"
 
 
 @contextmanager
 def serving(ticks: int) -> Iterator[tuple[Server, io.StringIO]]:
     log = io.StringIO()
-    log.write('{"meta":{"dx_m":0.2,"tick_s":0.1}}\n')
+    log.write(META)
     server = Server(Sim(config.load()), token=TOKEN, log=log)
     thread = threading.Thread(target=server.run, args=(ticks,))
     thread.start()
@@ -103,7 +106,7 @@ def test_stop_ends_the_loop_between_ticks_so_the_last_digest_replays(tmp_path: P
     # A Ctrl-C used to raise KeyboardInterrupt mid-tick, leaving half an advance in the final digest (a real session
     # failed replay that way). stop() only asks; the loop finishes its tick and returns.
     log = io.StringIO()
-    log.write('{"meta":{"dx_m":0.2,"tick_s":0.1}}\n')
+    log.write(META)
     server = Server(Sim(config.load()), token=TOKEN, log=log)
     thread = threading.Thread(target=server.run, daemon=True)  # no tick limit: only stop() ends it; daemon so a
     # missing stop fails the test instead of hanging pytest
@@ -124,7 +127,7 @@ def test_stop_ends_the_loop_between_ticks_so_the_last_digest_replays(tmp_path: P
 def test_a_change_of_the_vendors_state_sends_a_line_and_logs_it(tmp_path: Path) -> None:
     cfg = config.load()
     log = io.StringIO()
-    log.write('{"meta":{"dx_m":0.2,"tick_s":0.1}}\n')
+    log.write(META)
     sim = Sim(cfg)
     server = Server(sim, token=TOKEN, log=log, voice=Voice(cfg.npc.voice, cfg.npc.canned, None))
     thread = threading.Thread(target=server.run, args=(30,), daemon=True)
@@ -160,12 +163,26 @@ def test_a_change_of_the_vendors_state_sends_a_line_and_logs_it(tmp_path: Path) 
 def test_the_server_runs_past_its_stats_report() -> None:
     # A stray line in _report once broke every session at tick 50, after every other test had stopped short of it.
     cfg = config.load()
-    server = Server(Sim(cfg), token=TOKEN, log=io.StringIO(), voice=Voice(cfg.npc.voice, cfg.npc.canned, None))
+    voice = Voice(cfg.npc.voice, cfg.npc.canned, None)
+    server = Server(Sim(cfg), token=TOKEN, log=io.StringIO(), voice=voice, wall_tick_s=0.001)  # 55 ticks, fast
     try:
         server.run(ticks=55)
     finally:
         server.close()
     assert server.sim.tick == 55
+
+
+def test_the_wall_pacing_never_changes_the_world() -> None:
+    # wall_tick_s only says when the next tick runs; a tick is always the simulation's 0.1 s, so the digest agrees.
+    digests = []
+    for wall in (None, 0.001):
+        server = Server(Sim(config.load()), token=TOKEN, log=io.StringIO(), wall_tick_s=wall)
+        try:
+            server.run(ticks=5)
+        finally:
+            server.close()
+        digests.append(server.sim.digest())
+    assert digests[0] == digests[1]
 
 
 # --- review round (2026-11-21): reproductions written red-first --------------------------------------------------
@@ -193,7 +210,7 @@ def test_a_crash_mid_tick_leaves_a_log_that_replays_to_the_crash(tmp_path: Path)
     # the intents that caused it.
 
     log = io.StringIO()
-    log.write('{"meta":{"dx_m":0.2,"tick_s":0.1}}\n')
+    log.write(META)
     sim = Sim(config.load())
     server = Server(sim, token=TOKEN, log=log)
     real_step = sim.step
@@ -267,3 +284,8 @@ def test_a_silent_connection_is_dropped_after_the_hello_deadline() -> None:
     thread.join(timeout=30)
     server.close()
     assert [m["code"] for m in got] == ["hello_timeout"]
+
+
+def test_a_pacing_of_zero_is_refused() -> None:
+    with pytest.raises(ValueError, match="wall_tick_s must be positive"):
+        Server(Sim(config.load()), token=TOKEN, log=io.StringIO(), wall_tick_s=0.0)

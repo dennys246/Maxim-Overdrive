@@ -27,18 +27,18 @@ MAXIM_OVERDRIVE_ALL_TIERS=1 pytest       # adds the 0.05 m verification grid (sl
 
 ```python
 from maxim_overdrive import data
-from simcore.adapters.sem.bridge import to_maxim_entity
-from simcore.core.applier import Applier
+from simcore.adapters.sem.bridge import RegionInstrument
+from simcore.core.intents import Ignite, LogRecord
 from simcore.core.scene import Box, Scene
-from simcore.core.world import World
+from simcore.core.simulation import T3, Simulation
 
 scene = Scene((3.0, 3.0, 2.0), (Box((1.2, 1.2, 0), (1.8, 1.8, 0.6), "wood", "crate"),))
-world = World.from_scene(scene, data.materials(), dx_m=0.1, limits=data.action_limits())
-crate = to_maxim_entity(Applier(world), world.frames, "crate")  # a real maxim Entity
-crate.modulators["structure"].execute("ignite", {"power_w": 60_000})
-for _ in range(100):
-    world.advance()                                  # one 6-second turn
-print(crate.read_all_sensors()["integrity"].value)
+sim = Simulation.from_scene(scene, data.materials(), dx_m=0.1, config=T3, limits=data.action_limits())
+fire = Ignite(power_w=60_000.0, radius_m=0.3)
+sim.step([LogRecord(apply_tick=1, apply_us=0, actor_id=1, seq=0, kind="ignite", target="crate", params=fire)])
+for _ in range(6000):
+    sim.step(())                                     # one 0.1 s tick; physics every fifth
+print(RegionInstrument(sim.frames, "crate", "integrity").value())  # read from the latest published frame
 ```
 
 ## License

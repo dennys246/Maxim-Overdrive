@@ -1,6 +1,6 @@
 # Performance review: phase1/client-fuel (step 8 fuel pass), round 1
 
-Reader: Performance lens. Tree: `git diff 69483d9` plus untracked files, as they stood on 2026-11-22. I measured on a copy of `client/` in `/private/tmp/claude-501/-Users-dennyschaedig-Scripts-Maxim-Overdrive/b7bf205d-729f-449a-b38d-e830de582329/scratchpad/rev_perf/client/` with Godot 4.7.2 on the M2, using `HOME` and XDG under that directory. The fixture is `tools/fuel_aa/frame_time.gd::_many`: 2,000 rods and 2×10⁴ segments, the world limits. Load average was 10–14 on 8 cores, so treat the absolute values as rough. The ratios held across three runs. The bench script is `rev_perf/client/bench/bench.gd`, and the frame-time rerun is `rev_perf/client/bench/ft.gd`. I did not touch the worktree or its git state.
+Reader: Performance lens. Tree: `git diff 69483d9` plus untracked files, as they stood on 2026-11-22. I measured on a copy of `client/` in `<scratchpad>/rev_perf/client/` with Godot 4.7.2 on the M2, using `HOME` and XDG under that directory. The fixture is `tools/fuel_aa/frame_time.gd::_many`: 2,000 rods and 2×10⁴ segments, the world limits. Load average was 10–14 on 8 cores, so treat the absolute values as rough. The ratios held across three runs. The bench script is `rev_perf/client/bench/bench.gd`, and the frame-time rerun is `rev_perf/client/bench/ft.gd`. I did not touch the worktree or its git state.
 
 ## Summary
 

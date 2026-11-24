@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -22,7 +23,9 @@ import numpy as np
 import numpy.typing as npt
 
 HERE = Path(__file__).resolve().parent
-FDS = Path("/Users/dennyschaedig/Scripts/Maxim-Overdrive/.worktrees/_tools/fds-6.11.1/bin/fds")
+# The FDS 6.11.1 binary (the repo keeps it in .worktrees/_tools): $FDS, else `fds` on the caller's PATH, resolved here
+# because run() gives FDS a minimal PATH.
+FDS = Path(os.environ.get("FDS") or shutil.which("fds") or "fds")
 OUT = HERE / "out" / "fds"
 LONG_25 = 1500.0
 

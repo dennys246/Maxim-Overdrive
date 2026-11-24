@@ -164,12 +164,11 @@ def test_an_agent_facing_gate_claims_the_closed_code_vocabulary_only_because_it_
     each is called with a bad input here to show its refusal is a code, never words (WT-S1)."""
     from maxim_overdrive import data  # noqa: PLC0415
     from simcore.adapters.sem.bridge import region_parts  # noqa: PLC0415
-    from simcore.core.applier import Applier  # noqa: PLC0415
     from simcore.core.imagination import SpecRejected, place  # noqa: PLC0415
     from simcore.core.intents import ActionRefused, Ignite, parse_action  # noqa: PLC0415
     from simcore.core.refusals import RefusalCode  # noqa: PLC0415
     from simcore.core.scene import Box, Scene  # noqa: PLC0415
-    from simcore.core.world import World  # noqa: PLC0415
+    from tests._sim import SteppingPort, act, make, world_of  # noqa: PLC0415
 
     for name in (
         "src/simcore/adapters/sem/bridge.py::StructureModulator.execute",
@@ -179,16 +178,16 @@ def test_an_agent_facing_gate_claims_the_closed_code_vocabulary_only_because_it_
     ):
         assert gates.GATES[name].status == "meets", name
     scene = Scene((2.0, 2.0, 2.0), (Box((0.6, 0.6, 0.0), (1.2, 1.2, 0.6), "wood", "crate"),))
-    world = World.from_scene(scene, data.materials(), dx_m=0.2, limits=data.action_limits())
-    applier = Applier(world)
-    _, modulators = region_parts(applier, world.frames, "crate")
+    sim = make(scene, data.materials(), dx_m=0.2, limits=data.action_limits())
+    world = world_of(sim)
+    _, modulators = region_parts(SteppingPort(sim), sim.frames, "crate")
     error = modulators["structure"].execute("ignite", {"power_w": "hot"}).error
     assert error is not None
     assert RefusalCode(error.split(" ")[0]) is RefusalCode.NOT_FINITE
     with pytest.raises(ActionRefused) as refused:
         parse_action("ignite", {"power_w": 1e30}, world.limits)
     assert refused.value.agent_text == "out_of_range (power_w)"
-    assert applier.apply("nowhere", Ignite(1.0, 0.3)).agent_text == "no_region"
+    assert act(sim, "nowhere", Ignite(1.0, 0.3)).agent_text == "no_region"  # the applier's refusal, through a record
     with pytest.raises(SpecRejected) as rejected:
         place(world.grid, {"name": "crate", "primitives": []}, (0.0, 0.0, 0.0))
     assert rejected.value.agent_text == "name_taken"

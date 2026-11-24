@@ -143,8 +143,10 @@ Frozen per tick, replaced by `Simulation.step`; column-major, integer keys, no s
 | `body_temp_mk` | i32 | body temperature in millikelvin (the core holds float64) |
 | `energy`, `dose` | i32, i32 | present as zero with a `derivation_version` until Phase 4/5 (DC-N2; F5) |
 
-38 B per actor (derived). **Pilots** are a second per-tick table (DC-S4): `actor_id` (u32), `region_id` (u16),
-`end_tick` (u32), 10 B each.
+38 B per actor (derived). **Pilots** are a second per-tick table (DC-S4): `actor_id` (u32), `seq` (u32), `region_id`
+(u16), `object_id` (u32), `centre_mm` (3 × i32) and `end_tick` (u32), 30 B each: one row per live pilot of
+`torch_pilot.md` §2 (TP5), `centre_mm` rounded half to even from metres. 5b ships it with an `i32` dtype, a protocol
+bump and a refusal for ticks past 2³² − 1 (TP11).
 
 ### 2.3 Movement in integers
 
@@ -189,31 +191,29 @@ fields, the ordering key and `kind_rank` are boundaries §6.2's; `actor_id` come
 
 ### 3.2 `kindle` (T4; WT-B2, BF-S4, BF-S5, PH-S4, DC-S5–S7)
 
-<!-- contract: intent.kinds: move move_to kindle strike douse imagine | not: ignite extinguish test_a_fire_that_has_burned_its_fuel_stops_heating -->
+<!-- contract: intent.kinds: move move_to kindle strike douse imagine | not: ignite extinguish test_a_fire_that_has_burned_its_fuel_stops_heating torch_pilot.md -->
 - **Action vocabulary v1** is `move`, `move_to`, `kindle`, `strike`, `douse`, `imagine`. It adds `kindle` (a bounded
   pilot) and retires `ignite`, as F7 retired `extinguish` for `douse` (water as a heat and O₂ sink, with caps). It
   ships with 5b; 5a's logs carry v0, so the v0-log refusal test returns with 5b (owner, 2026-11-21; DC-S5).
-  Until step 6's skin exists, step 5's `kindle` deposits by sphere volume overlap at the point with the item's radius,
-  a marked, scheduled band-aid that step 6 removes. The red gate
-  `test_a_fire_that_has_burned_its_fuel_stops_heating` is rewritten to use `kindle` when step 6 flips it.
-- **`data/world/actions.yaml` v1** carries `kindle`'s physics-safety ceiling (`max_power_w`, `max_duration_s`,
-  `min_radius_m` = 0.2) and drops `ignite`. It is repo-only, so v0 is refused by version with a test, never migrated (step
+  Until 6.1b, step 5's `kindle` deposits by sphere volume overlap at the point with the item's radius, a marked,
+  scheduled band-aid that 6.1b removes. `test_a_fire_that_has_burned_its_fuel_stops_heating` and the other `ignite`
+  gates follow `torch_pilot.md` §9.4.
+- **`data/world/actions.yaml` v1** carries the sphere-era `kindle` ceiling (`max_power_w`, `max_duration_s`,
+  `min_radius_m` = 0.2) and drops `ignite`; 6.1b's version carries `torch_pilot.md` §6's. It is repo-only, so v0 is refused by version with a test, never migrated (step
   3b). Limits are the ceiling intersected with the item's capability (boundaries §6.1 rule 3).
-- **Power belongs to the item.** `content/items/torch.yaml`: `power_w`, footprint `radius_m` (≥ 0.2 m),
-  `max_duration_s`, `restrike_s` (world time, seconds). Phase 1's torch is a propane pilot of order 2 kW, 15.9 kW/m²
-  over its 0.2 m disc (*from memory*); its values come from step 6's band measurement (§6.3).
+- **The torch's physics belongs to the item,** `content/items/torch.yaml`, in world seconds: at 5b the sphere's
+  `power_w` and `radius_m` (≥ 0.2 m), `max_duration_s` and `restrike_s`; from 6.1b, `torch_pilot.md` §6's.
 - **Checks:** stage 1 checks types and the ceiling; the item's maximum is a logged stage-2 code, `over_item_max`
-  (DC-S6). Stage 2 derives the region: the named solid whose authored box surface lies within 50 mm of `point_mm`
-  with the point no deeper than 50 mm inside; two candidates is `ambiguous_point`. Exact for boxes; non-box fuel waits
-  for the CSG (AR-N4).
+  (DC-S6). Stage 2 derives the target: at 5b, the named solid cell region whose authored box surface lies within
+  50 mm of `point_mm`, the point no deeper than 50 mm inside, two candidates `ambiguous_point`; from 6.1b,
+  `torch_pilot.md` §3's rule.
 - **A body affordance, not a region one** (DC-S7): an NPC's `kindle` comes through its per-actor body modulator
   (boundaries §7.2), never `crate.kindle`. The log carries `target: null`; the derived region is in the receipt,
   recomputed on replay. The agent-facing parameter is `hold: brief | steady | long`, which the adapter converts to
   ticks from the item's data, so no tick count reaches an agent (npcs §3).
-- **Deposit:** the footprint disc by face-area overlap onto the bed's skin (6b), no single-cell fallback. The pilot
-  covers ticks [apply_tick, apply_tick + D); a physics step at tick t covers (t − 5, t], and receives P × 0.1 s per
-  overlapping tick (DC-N6).
-- **Lifecycle:** one live pilot per actor (`pilot_live`); it ends on expiry, on leave or when its region is gone.
+- **Deposit:** the sphere at 5b, `torch_pilot.md` §4–§5's from 6.1b. The pilot covers ticks [apply_tick,
+  apply_tick + D); a physics step at tick t covers (t − 5, t] (DC-N6).
+- **Lifecycle:** one live pilot per actor (`pilot_live`); it ends on expiry or on leave (`torch_pilot.md` §2).
 - **Receipt meaning:** `applied` means placed, not ignited. Credit for a pilot that never lit is the **OPEN divergence
   OD-A16 / OD-C5**; the tile's numbers go to the OD-A16 draft as evidence.
 
@@ -243,7 +243,7 @@ fields, the ordering key and `kind_rank` are boundaries §6.2's; `actor_id` come
 
 ### 3.4 Refusals (WT-S1, EX-S8), in check order
 
-<!-- contract: refusal.codes: bad_json unknown_kind unknown_field busy not_int bad_shape out_of_range outside_extent rate_limited coalesced out_of_reach not_on_surface ambiguous_point region_gone no_igniter over_item_max pilot_live restrike_wait no_body no_path unreachable | not: 5500.0 1e3 dir kindle move_to -->
+<!-- contract: refusal.codes: bad_json unknown_kind unknown_field busy not_int bad_shape out_of_range outside_extent rate_limited coalesced out_of_reach not_on_surface ambiguous_point region_gone no_igniter over_item_max pilot_live restrike_wait no_body no_path unreachable host_only bad_version missing_field bad_identity_key over_budget bad_text bad_token token_in_use hello_first | not: 5500.0 1e3 dir kindle move_to -->
 | Code | Stage | Reply | Logged | Step |
 |---|---|---|---|---|
 | `bad_json`, `unknown_kind`, `unknown_field`, `busy` | decode | `error` | no | 7 |
@@ -252,7 +252,8 @@ fields, the ordering key and `kind_rank` are boundaries §6.2's; `actor_id` come
 | `rate_limited` (wall flood guards: `kindle` ≤ 5/s, `move_to` ≤ 10/s), `coalesced` | stage 1 (client protocol layer) | `intent_result` | no | 7 |
 | `out_of_reach`, `not_on_surface`, `ambiguous_point`, `region_gone`, `no_igniter`, `over_item_max`, `pilot_live`, `restrike_wait` | stage 2 | `intent_result` | yes | 6 |
 | `no_body`, `no_path`, `unreachable` | stage 2 | `intent_result` | yes | 5 |
-| time refused (role) | `TimeAuthority` | `time_decision` | yes | 7, by a direct `HostOnly` test (WT-S9) |
+| time refused (`host_only`) | `TimeAuthority` | `time_decision` | yes | 7, by a direct `HostOnly` test (WT-S9) |
+| `bad_version`, `missing_field`, `bad_identity_key`, `over_budget`, `bad_text`; the handshake's `bad_token`, `token_in_use`, `hello_first` | decode, stage 1 | `error`; in the handshake, then a close (`client_rendering.md` §4.3) | no | 7 |
 
 - **The code enum lives in the core;** the client protocol layer produces `rate_limited` and `coalesced` (DC-N7).
 - **A stop is never refused** (WT-S5): `move` and `move_to` are latest-wins per session per tick; the superseded
@@ -415,7 +416,7 @@ adjacent to air.
 | Destroyed concrete within 1.0 m of the crate ≤ V_floor | deposit `plume_convective` into the floor |
 | `crate_far` keeps every cell and rises ≤ 1 °C | resolve the pilot's region as the last wood region in the map |
 | max(burning area) > 0 in (70, `t_gone`); after `t_gone`, burning and `combustion` are zero | never populate burning |
-| `test_a_fire_that_has_burned_its_fuel_stops_heating` flips green; its gate is removed | (the gate itself) |
+| `test_a_fire_that_has_burned_its_fuel_stops_heating` closes at 6.1b (`torch_pilot.md` §9.4) | — |
 
 **V_floor is not circular** (DPH-S3). The contact temperature is fixed before the run at a 900 °C bound (the ember
 balance, §5.3) for the cap's 5,400 s. V_floor is the same `thermal_degrade` law applied to the closed-form profile's
@@ -442,7 +443,8 @@ The layer order is `boundaries.md` §2.2's; this table places this design's modu
 | Actor and pilots tables, body archetype type, motion, blocked predicate, walk grid, A\*, path walking, body heat (convection and radiation), the bed and laws 6a–6d, intents, the refusal-code enum, receipts, `Frame` | core (motion and navigation as two modules, AR-N3) |
 | File gates (archetypes, items, scene v1, `actions.yaml` v1), the SEM membrane and agent adapter (the `hold` conversion) | adapters |
 | The alley, `human`, `torch`, the bed's φ and σ, fuel calibrations | game (`content/`, rights reserved, step 8) |
-| Wire encoding, sessions, latest-wins slots, rate limits, `TimeAuthority`, the network lane | client protocol |
+| Wire encoding, latest-wins slots, rate limits | client protocol |
+| Sessions, `TimeAuthority`, the network lane | host (`boundaries.md` §2.2) |
 | Godot | `client/` (`client_rendering.md` §7) |
 
 ## 8. Bio-faithful note
@@ -457,11 +459,7 @@ The layer order is `boundaries.md` §2.2's; this table places this design's modu
 
 ## 9. Open questions for the owner
 
-1. **The flame radiates into bodies by a point source in Phase 1,** walls in Phase 2: decided, T14.
-2. **The crate as 20 mm slats at φ = 0.25** (σ = 25 m²/m³, 32.4 kg), step 6's content value: decided, T15. A denser
-   crate burns longer and a sparser one may not sustain (σ_min 4.2–7.0 m²/m³).
-3. **Protocol v0 freezes only the kinds a Phase 1 client sends:** decided, T16.
-4. **The accelerant's form:** decided, T18.
+None: T14, T15, T16 and T18 decided the four (`decisions/tile_and_client.md`).
 
 ## 10. What this does not settle
 

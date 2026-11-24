@@ -14,49 +14,28 @@ from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Protocol
+from typing import NoReturn, Protocol
 
 import numpy as np
 import numpy.typing as npt
 
-from simcore.core.checks import MAXIM_TARGET_ALIASES, entity_key, finite_real, shown, whole_number
+from simcore.core.checks import MAXIM_TARGET_ALIASES, entity_key, finite_real, shown
+from simcore.core.geometry import Field, GridGeometry, Mask, whole_micrometres
 from simcore.core.materials import AIR_ID, MaterialTable
 from simcore.core.readonly import frozen
 from simcore.core.refusals import RefusalCode, Refused
 from simcore.core.schema import Text
 from simcore.core.window import WindowOwner
-from simcore.core.writers import Gate, UndeclaredWriter, WindowClosed, WriterToken
+from simcore.core.writers import Gate, WindowClosed, WriterToken
 
 # The one rule for a region's name, whoever names it (a scene file, an imagined object, code): printable, bounded,
 # and never a name Maxim resolves to the agent itself (step 3b(b) delta review, D-S1, D-S2).
 REGION_NAME = Text(reserved=tuple(MAXIM_TARGET_ALIASES))
 
-UM_PER_M = 1_000_000
-
 # Topology's fields: never handed out writable, so they change only through its edits, which count its batches.
 _EDITED_ONLY = frozenset({"material", "original_material"})
 
 
-MAX_LENGTH_M = 1000.0  # scene.MAX_EXTENT_M too: no tile is a kilometre across, and the conversion below stays finite
-
-
-def whole_micrometres(length_m: float, what: str) -> int:
-    """A positive length of at most ``MAX_LENGTH_M`` as whole micrometres, or a Refused: cell edges are integer
-    micrometres (F13, fire_solid §1.3). The 1 nm allowance is float noise on a whole micrometre, never a real length."""
-    if not (0 < length_m <= MAX_LENGTH_M):  # NaN fails too; bounded before arithmetic, so round() never overflows
-        raise Refused(
-            f"{what} must be above 0 and at most {MAX_LENGTH_M:g} m, got {length_m!r}", code=RefusalCode.OUT_OF_RANGE
-        )
-    um = round(length_m * UM_PER_M)
-    if um < 1 or abs(length_m * UM_PER_M - um) > 1e-3:
-        raise Refused(f"{what} {length_m} m is not a whole number of micrometres", code=RefusalCode.OUT_OF_RANGE)
-    return um
-
-
-# Array types for the grid's fields. Typing the element type (not bare np.ndarray) is what strict mypy needs on every
-# supported numpy: older stubs give ndarray no default type parameters.
-Mask = npt.NDArray[np.bool_]
-Field = npt.NDArray[np.float64]
 # A region's authored extent in metres, (min corner, max corner). It is kept beside the region's cells because the
 # cells depend on the grid spacing and the authored bounds don't, so anything that asks "is this point on the region?"
 # gets the same answer at every spacing.
@@ -114,49 +93,8 @@ def _bounding_box(mask: Mask) -> tuple[slice, slice, slice] | None:
     return spans[0], spans[1], spans[2]
 
 
-class GridGeometry:
-    """Where the cells are: the spacing and the shape, and the coordinates that follow from them."""
-
-    def __init__(self, dx: float, shape: tuple[int, int, int]) -> None:
-        self._dx, self._shape = dx, shape
-
-    @property
-    def dx(self) -> float:
-        return self._dx
-
-    @property
-    def shape(self) -> tuple[int, int, int]:
-        return self._shape
-
-    @property
-    def cell_volume_m3(self) -> float:
-        return self._dx**3
-
-    @property
-    def extent_m(self) -> tuple[float, float, float]:
-        return tuple(n * self._dx for n in self._shape)  # type: ignore[return-value]
-
-    def centers(self, axis: int) -> Field:
-        """Cell-centre coordinates along one axis, in metres."""
-        return (np.arange(self._shape[axis], dtype=np.float64) + 0.5) * self._dx
-
-    def mesh(self) -> tuple[Field, Field, Field]:
-        """Broadcastable cell-centre coordinates (x[:, None, None], y[None, :, None], z[None, None, :])."""
-        x = self.centers(0)[:, None, None]
-        y = self.centers(1)[None, :, None]
-        z = self.centers(2)[None, None, :]
-        return x, y, z
-
-    def cell_of(self, point_m: tuple[float, float, float]) -> tuple[int, int, int]:
-        idx = tuple(int(np.floor(p / self._dx)) for p in point_m)
-        for i, n in zip(idx, self._shape, strict=True):
-            if not 0 <= i < n:
-                raise ValueError(f"point {point_m} is outside the grid {self.extent_m}")
-        return idx  # type: ignore[return-value]
-
-
 # What a cell window's rollback restores: the channels, the region table, the clock and the topology version.
-_Saved = tuple[dict[str, npt.NDArray[np.generic]], dict[str, "Region"], int, int]
+_Saved = tuple[dict[str, npt.NDArray[np.generic]], dict[str, "Region"], dict[str, int], int]
 
 
 class CellStore(WindowOwner[_Saved]):
@@ -198,7 +136,30 @@ class CellStore(WindowOwner[_Saved]):
         # Inside a window that paints: each region's writable mask, and its footprint and solidity, in table order.
         self._masks: dict[str, Mask] | None = None
         self._meta: dict[str, tuple[Footprint, bool]] = {}
-        self._time_us = 0  # world time in whole microseconds: time is never stored as a float (sim_core.md §3)
+        # How many times each field may have changed: a cache keyed on a law's bound_reads reads these (sim_core.md
+        # §7). Bumped for each block or window a field was handed writable in, and for each edit that changed it.
+        self._versions: dict[str, int] = dict.fromkeys(self._channels, 0)
+        self._handed_open: set[str] = set()  # handed writable outside a narrowed block (construction's window)
+        self._rollbacks = 0  # never restored: a version from a rolled-back window can't be reached again
+        self._copied = 0  # field values copied, a work counter (sim_core.md §10); never restored
+        self._adopted = False  # a simulation owns these cells: the one owner of their time (sim_core.md §2)
+
+    def adopt(self) -> None:
+        """Hands the cells to their one simulation, the one owner of their time (sim_core.md §2). A second adoption
+        raises, so no second simulation, over this grid in any world, can publish it as frame 0 or step it."""
+        if self._adopted:
+            raise ValueError("these cells already have their simulation (sim_core.md §2)")
+        self._adopted = True
+
+    def __copy__(self) -> NoReturn:
+        """Refused: a copy would share the versions, the gate and the window with these cells, so a second simulation
+        over it would move the first one's cache keys and counters (PR 4a delta 4, D4-N3)."""
+        raise TypeError("cells are not copied: build a new grid from its scene (sim_core.md §2)")
+
+    def __deepcopy__(self, memo: dict[int, object]) -> NoReturn:
+        """Refused, so copying cells has one deliberate answer, a new grid from its scene; without it a deep copy fails
+        only by accident, on the material table's mappingproxy (PR 4a deltas 4, 6 and 7)."""
+        raise TypeError("cells are not copied: build a new grid from its scene (sim_core.md §2)")
 
     def _channel(self, name: str) -> npt.NDArray[np.generic]:
         """The field's array: writable inside the window only for a writer the registry declares for it, and for
@@ -206,22 +167,47 @@ class CellStore(WindowOwner[_Saved]):
         raises and the copy can't be unlocked (sim_core.md §5.1). The copy is made once per change of the field: a
         writer's revocation and Topology's edits drop it. A narrowed block reads only what its writer declares."""
         arr = self._channels[name]
+        if self._open or self._gate.narrowed:
+            self._gate.require_read(name)  # a narrowed reader reads only what it declares, in a window or at rest
         if not self._open:
             return arr  # frozen: nothing can make it writable (readonly.frozen)
-        self._gate.require_read(name)
         if name not in _EDITED_ONLY and self._gate.may_write(name):
-            if self._gate.narrowed:
-                self._handed.add(name)
+            (self._handed if self._gate.narrowed else self._handed_open).add(name)
             return arr
         view = self._views.get(name)
         if view is None:
-            view = self._views[name] = frozen(arr)
+            view = self._views[name] = self._counted(frozen(arr))
         return view
+
+    @property
+    def cells_copied(self) -> int:
+        """How many field values the windows have copied so far: at open, at commit, for read-only views and for
+        revoked writable arrays (sim_core.md §10). A tick's count is the change over it."""
+        return self._copied
+
+    def _counted(self, arr: npt.NDArray[np.generic]) -> npt.NDArray[np.generic]:
+        self._copied += arr.size
+        return arr
+
+    def field_version(self, name: str) -> tuple[int, int]:
+        """A key that moves whenever ``name``'s values may have changed (it may move when they didn't): the grid's
+        rollbacks, which never go back, and a count a rollback restores. So no key a rolled-back window reached is
+        ever reached again, and a cache keyed on these, whoever owns it, can't serve a state it wasn't built from."""
+        if name == "regions":  # the table moves only in Topology's batches, which bump the topology version
+            return self._rollbacks, self._topology_version
+        return self._rollbacks, self._versions[name]
 
     @property
     def topology_version(self) -> int:
         """How many of Topology's batches have changed the cells or the region table (sim_core.md §5.1, §7)."""
         return self._topology_version
+
+    @contextmanager
+    def reading(self, *, reads: tuple[str, ...]) -> Iterator[None]:
+        """Narrow to a reader that writes nothing and reads only ``reads``, in a window or at rest: a law's bound,
+        prepare and cache warm-up read what the law declares and nothing else (sim_core.md §5)."""
+        with self._gate.narrow(None, reads):  # no writer: nothing is handed out writable, so nothing to revoke
+            yield
 
     @contextmanager
     def as_writer(self, writer: WriterToken | None, *, reads: tuple[str, ...] | None = None) -> Iterator[None]:
@@ -238,8 +224,9 @@ class CellStore(WindowOwner[_Saved]):
                 self._topology_version += self._edited
                 self._edited = False
                 for name in self._handed:
-                    self._channels[name] = self._channels[name].copy()
+                    self._channels[name] = self._counted(self._channels[name].copy())
                     self._views.pop(name, None)
+                    self._versions[name] += 1
                 self._handed.clear()
 
     def _require_window(self, what: str) -> None:
@@ -264,25 +251,9 @@ class CellStore(WindowOwner[_Saved]):
 
     @property
     def regions(self) -> Mapping[str, Region]:
-        if self._open:
+        if self._open or self._gate.narrowed:
             self._gate.require_read("regions")
         return MappingProxyType(self._region_table())
-
-    @property
-    def time_s(self) -> float:
-        """World time in seconds, derived from the whole microseconds it is stored as, never accumulated."""
-        return self._time_us / 1_000_000
-
-    @property
-    def time_us(self) -> int:
-        return self._time_us
-
-    @time_us.setter
-    def time_us(self, value: int) -> None:
-        self._require_window("the clock")
-        if self._gate.narrowed:
-            raise UndeclaredWriter("time moves in the orchestrator, never inside a writer's block")
-        self._time_us = whole_number(value, "time_us")
 
     def _window_table(self) -> tuple[dict[str, Mask], dict[str, tuple[Footprint, bool]]]:
         """This window's changed region masks (writable, narrowed in place) and every region's footprint and
@@ -322,25 +293,29 @@ class CellStore(WindowOwner[_Saved]):
 
     def _open_window(self, writer: WriterToken | None) -> _Saved:
         self._gate.open(writer)
-        saved = (self._channels, self._regions, self._time_us, self._topology_version)
-        self._channels, self._masks = {name: arr.copy() for name, arr in self._channels.items()}, None
+        saved = (self._channels, self._regions, dict(self._versions), self._topology_version)
+        self._channels = {name: self._counted(arr.copy()) for name, arr in self._channels.items()}
+        self._masks = None
         self._views.clear()
         return saved
 
     def _prepare_commit(self) -> Callable[[], None]:
-        channels = {name: frozen(arr) for name, arr in self._channels.items()}
+        channels = {name: self._counted(frozen(arr)) for name, arr in self._channels.items()}
         table = self._region_table()
 
         def install() -> None:
             self._channels, self._regions = channels, table
+            for name in self._handed_open:
+                self._versions[name] += 1
 
         return install
 
     def _roll_back(self, saved: _Saved) -> None:
-        self._channels, self._regions, self._time_us, self._topology_version = saved
+        self._channels, self._regions, self._versions, self._topology_version = saved
+        self._rollbacks += 1
 
     def _close_window(self) -> None:
-        self._masks, self._views = None, {}
+        self._masks, self._views, self._handed_open = None, {}, set()
         self._gate.close()
 
 
@@ -467,9 +442,11 @@ class MaterialGrid(GridGeometry, CellStore):
         whether any value changed: a batch moves ``topology_version`` only if it changed a value (sim_core.md §5.1)."""
         changed = False
         for name, value in values:
-            changed = changed or bool((self._channels[name][mask] != value).any())
+            differs = bool((self._channels[name][mask] != value).any())
             self._channels[name][mask] = value  # in place, through the owner's dict: the writer scan sees it
             self._views.pop(name, None)
+            self._versions[name] += differs
+            changed = changed or differs
         return changed
 
     def _require_edit(self, what: str, *fields: str) -> None:

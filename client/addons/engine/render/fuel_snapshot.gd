@@ -39,8 +39,15 @@ const UNIT_TOLERANCE: float = 1e-6
 ## what the drawing side encodes (a first segment row in 24 bits, an object row in 16, a texture height of 2,048).
 const MAX_OBJECTS: int = 2000
 const MAX_SEGMENTS: int = 20000
+## §3.3's clip of surface_temperature_c, which the server's fuel encoder (step 7's, not yet built) must apply; until
+## then the fuel fixtures stand in, and tests/test_fuel_fixtures.py holds them, this and the shader's clamp to one range.
+## A frame outside it (or NaN, or ±inf) is refused on every renderer, where the shader's clamp can't be seen in an 8-bit
+## frame (owner ruling 9, TB-S4).
+const TEMPERATURE_MIN_C: float = -273.0
+const TEMPERATURE_MAX_C: float = 6000.0
 ## The columns whose change is a structural change (§3.2): every objects column but state, the geometry tables and the
-## segments' keys. The rest change every frame and are only held to their size (frame_problems).
+## segments' keys. The rest change every frame: frame_problems holds them to their size, state to 0 and 1, and the
+## temperature to §3.3's clip.
 const FRAME_COLUMNS: Array[String] = [
 	"objects.state", "segments.surface_temperature_c", "segments.ignited_fraction", "segments.thickness_fraction",
 	"segments.char_fraction",
@@ -107,7 +114,8 @@ func problems(region_names: Dictionary[int, String]) -> Array[String]:
 
 
 ## The per-frame check: the columns that change every frame hold their row counts' sizes (the structural check doesn't
-## see them change), and state is 0 (live) or 1 (burnt out), the only values §3.2 defines.
+## see them change), state is 0 (live) or 1 (burnt out), the only values §3.2 defines, and every temperature is in
+## §3.3's clip.
 func frame_problems() -> Array[String]:
 	var spec: Dictionary[String, Dictionary] = tables()
 	for key: String in FRAME_COLUMNS:
@@ -121,6 +129,16 @@ func frame_problems() -> Array[String]:
 	for i: int in state.size():
 		if state[i] > 1:
 			return ["object row %d has state %d; only 0 and 1 are defined" % [i, state[i]]]
+	return _temperature_problems()
+
+
+## A NaN fails both comparisons, so it is refused with the infinities.
+func _temperature_problems() -> Array[String]:
+	var temperatures: PackedByteArray = column("segments", "surface_temperature_c")
+	for i: int in rows.get("segments", 0):
+		var t_c: float = temperatures.decode_half(i * 2)
+		if not (t_c >= TEMPERATURE_MIN_C and t_c <= TEMPERATURE_MAX_C):
+			return ["segment row %d is at %s °C, outside [%s, %s] (§3.3)" % [i, t_c, TEMPERATURE_MIN_C, TEMPERATURE_MAX_C]]
 	return []
 
 

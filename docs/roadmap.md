@@ -1,4 +1,4 @@
-# Roadmap (rough draft, 2026-11-15)
+# Roadmap (rough draft, 2026-11-15; reconciled with `v0.1.0`, 2026-11-23)
 
 Long-term plan for Maxim Overdrive and the Maxim work it depends on. Phases are ordered by dependency, not by date.
 Each has an exit test, so it is clear when a phase is done. Phases 2 and 3 can run in parallel.
@@ -11,7 +11,7 @@ The world server v0: material cells authored in metres, heat conduction, damage,
 environment regions, imagination specs, and render snapshots (`docs/architecture.md`).
 
 - **Exit (met):** 42 tests pass at the laptop, rig and max profiles. Heat converges at second order against the closed
-  form, and crater volume is within 5% of its closed form. Breach and fire outcomes agree across rigs.
+  form, and crater volume is within 5% of its closed form. Breach and fire outcomes agree across rigs (fire on structure retired for Phase 1, TP6).
 
 ## Phase 1: The first visible tile (next)
 
@@ -32,33 +32,81 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   protocol v0 (`docs/design/tile_and_client.md` §3.3) and save v0 freeze. Its design review uses the note's own
   lenses.
 - Fires that go out when their fuel is gone, so a burnt-out crate's fire stops instead of heating air to millions of
-  degrees (`docs/architecture.md`, Known gaps; the red gate is
+  degrees (`docs/known_gaps.md`; the red gate is
   `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`). Needed before the Phase 1 exit
   (the slab) is gated. **Requirement:** fuel burns as sub-grid objects with geometry in metres, coupled to the cells
   by overlap (`docs/design/fire_model.md` §0, point 3; `docs/design/fire_solid.md` §1), well enough at the coarsest
-  rig to pass the gate. Converging is not enough: today's law converges, slowly,
+  rig to pass the exit's gates (`docs/design/torch_pilot.md` §9.2). Converging is not enough: today's law converges, slowly,
   and the coarse rig still sits far off, because the measured cause is a threshold on a cell's mean temperature
   (the crate's mean temperature agrees across rigs within 1 °C while the degradation driver differs 1.3–1.5×). A
-  per-cell ignition or pyrolysis threshold would inherit it. It must flip the strict
-  red gate `tests/test_act_validation.py::test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn`,
-  and it removes the marked band-aid in `data/world/actions.yaml`, whose ceilings keep fires at the powers the
-  current physics has been measured at.
-- The write window's two owners until `Simulation.step` owns it, marked band-aids (`docs/design/boundaries.md` §4.1,
-  2c): `World.advance` in `src/simcore/core/world.py` and the intent applier in `src/simcore/core/applier.py` open the
-  window themselves; step 5a's PR 4 moves both into the step (PR 2 moved the laws into the tuple, not the window), and
-  with it a strike becomes a `Load` the applier appends. `World._power_field` in the same `world.py` holds the
-  sources' deposit (sorted and cached since PR 3, `src/simcore/core/deposit.py`) until PR 4 hands the sources to
-  heat's `prepare` (`docs/design/sim_core.md` §7). The shell's
-  interim `Simulation(world)` seam in `src/simcore/core/simulation.py` goes in PR 4, when `Simulation` carries the
-  per-tick digest its strangler tests compare. A third, `place` in
-  `src/simcore/core/imagination.py`, opens it because the `imagine` intent kind doesn't exist yet; step 5a's intent
-  log, where every input joins one pipeline, makes it the applier's stage 2 of that kind.
-- The SEM membrane applies synchronously with no log, a marked band-aid in `src/simcore/adapters/sem/bridge.py`
-  (`docs/design/boundaries.md` §6.4): `phase1/agents` makes `execute` only parse, check the bound actor and append
-  the intent to the stepping agent's outbox.
+  per-cell ignition or pyrolysis threshold would inherit it. The strict red gate
+  `tests/test_act_validation.py::test_the_fiercest_allowed_fire_has_the_same_outcome_at_every_rig_on_every_turn` and
+  the other `ignite` gates close by deletion at 6.1b, the torch pilot (`docs/design/torch_pilot.md` §9.4, TP6), which
+  also removes the marked band-aid in `data/world/actions.yaml`, whose ceilings keep fires at the powers the current
+  physics has been measured at.
+- The write window's last owner outside `Simulation.step`, a marked band-aid (`docs/design/boundaries.md` §4.1): `place`
+  in `src/simcore/core/imagination.py` opens it because the `imagine` intent kind doesn't exist yet; step 5a's PR 4b,
+  with the intent log, makes it the applier's stage 2 of that kind. PR 4a moved `World.advance`'s and the applier's
+  windows into the step, made a strike a `Load`, and handed the sources to heat's `prepare`.
+- A built world's frame 0, a marked band-aid in `src/simcore/core/simulation.py` (`docs/design/sim_core.md` §2, §3):
+  `Simulation(world)` publishes any built grid as frame 0 at tick 0, so a grid rebuilt from a stepped state shows as
+  the authored world; step 5a's PR 4b loader states a loaded state's tick and frame 0 (PR 4a's review, Arch S5).
+- The SEM membrane submits through a submit-and-step port with no log, a marked band-aid in
+  `src/simcore/adapters/sem/bridge.py` (`docs/design/boundaries.md` §6.4): `phase1/agents` makes `execute` only parse,
+  check the bound actor and append the intent to the stepping agent's outbox.
+- **One file per record: steps 1a and 4 of the next steps (below).** `phase1/records-layout` (pushed, no PR) holds
+  the design `docs/design/records_layout.md`: each lesson, decision, Known gap and backlog row in its own file, every
+  index generated from them, and id collisions caught mechanically. Its round-1 review, on that branch, found eleven
+  BLOCKERs (A-B1–A-B4, C1–C3, W1–W4; C1 and W1 are one defect), none folded yet. Among them: committed generated
+  indexes bring the merge conflicts back (A-B1), and a CI result that goes stale when `main` moves still lets a
+  duplicate id merge (C1, W1). The owner ruled it unfinished for `v0.1.0` (tagged 2026-11-23 on `41036dc`). It
+  runs first after that tag (O79): step 1a folds the design, with steps 2 and 3 beside it on reserved ids, and step
+  4 builds it and migrates, alone, because the migration touches every shared record file.
 - **Exit (the fire fallback, owner, 2026-11-20):** walk into the alley, light a slab with the torch, and watch it
   char, burn and flame out. It must look the same, apart from detail, at the laptop and rig profiles. The crate moves
   to Phase 2 (`docs/design/research/solid_spike/results_rerun1.md` §7).
+
+### Phase 1 at `v0.1.0` (reconciled 2026-11-23)
+
+The steps are `docs/plans/foundations_plan.md` §2's; this table is their status, read from `git log v0.1.0`, the
+merged PRs and the tree at `41036dc`. Each item is done, with its PR and merge commit, or open, with an owner and a
+trigger. "Planning" means the planning session the owner starts when step 5 of the next steps merges, which
+reconciles this table again and writes step 6's brief (O79).
+
+| Step | State at `v0.1.0` | Owner and trigger of what is open |
+|---|---|---|
+| 0a–0c | done: a venv per worktree (each brief makes one); the open questions answered 2026-11-17 apart from copyright (Open questions, below); `erratum_1.md` sent 2026-11-18 | — |
+| 0d | done: the tile spec and the client spec, frozen at v3 (#5, `52cfeb4`) | — |
+| 1 | done: #1 `5a03d7b`, #2 `e70ffa3`, #3 `52557b9`, #4 `8c36da5`. `checklists.md`'s "Step 1" section outlived the merge and still holds undone items (`boundaries.md`'s status line reads "DRAFT v3"), and so do "Step 3b" and "Step 4" | planning, at the next tag: close or re-home each item, then delete the sections |
+| 2 | done: the Godot skeleton, its gate and the Linux golden job (#9, `c212370`) | — |
+| 3a | done: `simcore` in layers, import contracts (#15, `fa27d5f`) | — |
+| 3b | done: the membrane (#18, `67e96ad`); one schema per format, scene v1, refusal codes (#32, `5c054f6`). Not built: units and provenance on `Field`, and loaders for body archetypes and items | 6.0a (units and provenance); 5b (archetypes and items) |
+| 4 | done: the verification harness and the verification rule (#28, `8ba049d`; #30, `d1f1443`) | — |
+| 5a | open. Done: the design (#36, `2e67af2`), PR 1 (#39, `073abdc`), PR 2 (#44, `c95e861`), PR 3 (#45, `bfb12f8`), PR 4a (#49, `1fa7f9d`; #59, `b578761`; its last round's record #69, `03e1346`). Open: PR 4b (the intent log, `imagine` as an intent kind, a loaded state's tick and frame 0), which removes both `TEMPORARY(phase1/sim-clock)` markers | step 6 of the next steps (O79): after step 5, from the brief planning writes |
+| 5b | open, not started | planning assigns it; trigger: 5a PR 4b merged |
+| 6 | open, designs only: the ladder and the solid (#20, `35a1702`), the solid spike (#22, `a710193`), sub-cell solids S0 (#51, `d7b6233`), the torch pilot (#67, `cf2168e`). No fire-ladder code is in `src`: 6.0a, 6.0b, 6.1 and 6.1b are unbuilt, and every `ignite` red gate and `data/world/actions.yaml`'s marker wait on 6.1b. W-N1 (that marker's reason cites `docs/architecture.md`, where Known gaps no longer live) is fixed when 6.1b removes the marker | planning assigns it; trigger: 5a PR 4b merged (6.0a rides the 5a line) |
+| 7 | open. Done: the half before 5a's clock (#57, `5960606`), guest text's rulings (#65, `c7f081a`; #66, `cf9886a`). The rest is `checklists.md`'s "Step 7" | planning assigns it; trigger: 5a PR 4b (`intent_result`, `seq`, `tick`) and 5b |
+| 8 | open. Done: the cell shader and goldens (#31, `738d6d7`), the fuel-object design (#40, `00d9e53`), the fuel pass (#46, `2586ed7`; #56, `7500a85`). Open: the game package, the alley, the exit script, the playtest | planning assigns it; trigger: 6.1b and 7 |
+| 9 | open, not started | planning assigns it; trigger: 8 |
+| 10 | open. Done: the plan and weeks 1–3 (#25, `c1847b0`), playtest numbers from a log (#35, `34c20ee`), the slice on step 5a's `Simulation`, with its tests in the gate (#68, `c95ab24`). Open: week 4 (tuning, three playtests, the verdict due 2026-12-18), and three open items from `reviews/vertical_slice/port_fold.md`: (1) before the slice is deleted at step 10's close, measure `src` coverage with and without `spikes/slice/tests`, and if it drops, write tests for `src` first; (2) `Voice.ready()` after `close()` can lose lines, which is latent because the shipped path never calls it after `close()`; (3) two server tests run on the wall clock (B47) | week 4 and item 1: step 5 of the next steps. Item 2: whoever moves the voice out of the spike, or adds a caller of `ready()` after `close()`. Item 3: B47's trigger (either test passes 3 s or flakes, or the loop gains a start-after-authentication hook) |
+| Off the path | done: the LLM spike (#11, `62e749f`), the spec generator spike's plan and code (#42, `aaebc1b`; #50, `c6d4f10`; its run chain is session -18's), the generation harness's design (#54, `06c2774`). Open: the agent line, as tests | the agent line: planning assigns it; trigger: 5a PR 4b and 7 |
+
+### The next steps after `v0.1.0` (O79)
+
+O79 owns the order, what may run together and the ids each parallel step reserves, as amended by O81: step 5 runs
+now, beside step 1a, and writes no record file until step 4 merges. Each step is one short session
+on its own branch and worktree, from a committed brief that is the one owner of its done: an exit test a script can
+check, the files the step may touch, its review rounds and its stop rule. A session ends when its PR is handed to
+the owner.
+
+| # | Step | Brief |
+|---|---|---|
+| 1a | `phase1/records-layout`: fold the records-layout design's round-1 BLOCKERs, and record the owner's rulings | `docs/plans/next_steps/1a_records_design.md` |
+| 2 | `phase1/drift-and-lock`: the drift job's own bug (#60–#63), the lock to 1.3.4 (O78), O75's red gates | `docs/plans/next_steps/2_drift_and_lock.md` |
+| 3 | `phase3/upstream-sync`: the upstream lane's first reconciliation (O77), the world-clock draft first | `docs/plans/next_steps/3_upstream_sync.md` |
+| 4 | `phase1/records-build`: the folded design's R1 to R3, the migration included | `docs/plans/next_steps/4_records_build.md` |
+| 5 | `phase1/slice-week4`: the owner's tuning and playtests, the verdict, step 10's coverage item | `docs/plans/next_steps/5_slice_week4.md` |
+| 6 | Step 5a's PR 4b | written by planning when step 5 merges |
 
 ## Phase 2: Physics breadth (later; in parallel with Phase 3)
 
@@ -73,7 +121,8 @@ Each new field ships with a closed-form test and a cross-grid test, under the ve
   move as physical bodies if that can be done honestly. Research first, in the Structure and motion entry of
   `docs/plans/long_term_features.md`. Imagined objects meet the support rule when placed (D33).
 - **Scale:** move the hot loops to numba or C if profiling says so (never coarser far cells: world_model D21).
-- **Close the known gap:** the coarsest rig's late-burn lag (`docs/architecture.md`).
+- **Close the known gap:** the coarsest rig's late-burn lag (`docs/known_gaps.md`). Its gate closes by deletion at 6.1b
+  (TP6), so the 6.2 design restates the crate's bar.
 - **Moved from Phase 1 by the fire fallback (2026-11-20; after VS5):** crate and rungs 6.2–6.4 (flame object,
   two bodies, crib).
 - **Moved from Phase 1 by D26:** zones and vents, combustion per zone and its products, phase change other than
@@ -107,6 +156,12 @@ These go to the Maxim repo, each through Maxim's own process:
 None is patched here. The drafts, their index and the split into issues and plans are in `docs/maxim_upstream/README.md`,
 first read against Maxim `origin/main` `7084f561` (2026-11-16); tier A and the issues re-checked on `6fee7377` (2026-11-17), the agent rows on `f0b1cea4` (2026-11-19).
 
+**Owner and status (owner, 2026-11-23, O76 and O77).** Every open row in this phase is owned by the upstream lane,
+which reconciles them all at each Overdrive tag and each Maxim release; a row's own trigger, where it states one,
+comes first. A row's status names the Maxim issue or PR, the release that holds the fix, and where the lock is, and
+Maxim's issue is the one owner of anything more. Rows marked "read 2026-11-24" were read at Maxim `origin/main`
+`2fb497a1`, by the planning session after `v0.1.0`.
+
 **Owner decisions (2026-11-16):**
 - **SEM refinement is a priority** of Overdrive's foundations work, which runs in parallel with Maxim. That includes
   types Maxim marks shape-frozen, as long as changes stay bio-faithful and go through Maxim's process. Under Maxim's
@@ -137,18 +192,19 @@ be opt-in (from `boundaries.md` §9.3).
 
 | Id | Item | Was |
 |---|---|---|
-| OD-I1 | `x or time.time()` turns a world time of 0.0 into the wall clock, at five sites: `attention/salience_map.py:227`, `salience/salience_network.py:222`, `models/language/cost_tracker.py:376`, `:469`, `:480` | A9; filed by Maxim as #1684 |
+| OD-I1 | `x or time.time()` turns a world time of 0.0 into the wall clock, at five sites: `attention/salience_map.py:227`, `salience/salience_network.py:222`, `models/language/cost_tracker.py:376`, `:469`, `:480`. **Fixed in Maxim, in no release** (read 2026-11-24 at Maxim `origin/main` `2fb497a1`): #1773 (`1b2e60a9`) closes #1684; v1.3.4 does not contain it. O75's strict red gate holds it until the lock moves to a release that contains the fix (O78; step 2 of the next steps writes the gate) | A9; filed by Maxim as #1684 |
 | OD-I2 | `embodiment/sem.py::ModulatorResult` has no CC3 declaration. Downgraded to a docstring nit: it is an in-process return value, never persisted or sent (Maxim's answer) | C7 (half), P6 |
-| OD-I3 | The only pickle-capable load in `src`: `MemoryHub._restore_on_open` → `EmbeddingStore.load` → `np.load(allow_pickle=True)` on the global `~/.maxim/util/semantic_embeddings.npz`; dormant unless `enable_semantic`, and must land before `AgentHome` (OD-A12) makes it reachable from saves | OD-A13; filed by Maxim as #1685 |
-| OD-I4 | `ARCHITECTURE.md:182` is stale: the DM runtime doesn't build NPCs through `AgentFactory` (`create_npc_agent` has no caller) | new (Maxim's answer); filed by Maxim as #1686 |
-| OD-I5 | A security issue in cloud redaction, held by Maxim as a private advisory; details in private notes, not here | new (TBR-11) |
-| OD-I6 | pymaxim pins `rich>=13.0.0,<14.0` (`pyproject.toml` on Maxim `origin/main` 10888fec), and every embedder inherits it: Overdrive's import contracts can't use import-linter 2.7+ (which needs `rich>=14.2`) and stay on 2.6 / grimp 3.13 (step 3a, 2026-11-19). Ask: lift or widen the cap, or say why it's needed. Searched Maxim's `docs/plans/` for `rich`: nothing found | new (step 3a) |
-| OD-I7 | `ModulatorSpec.apply_damage` (`embodiment/spec.py:1034-1036` at `043eab8f`) returns 1.0 and applies nothing on a modulator with no sub-sensors, with no log or error: a flat body's burn changes nothing (`sem_stimuli.md` delta 1, Bio-faithful SF-2) | new; sent to Maxim's session for 1.3.4 triage, 2026-11-21 |
+| OD-I3 | The only pickle-capable load in `src`: `MemoryHub._restore_on_open` → `EmbeddingStore.load` → `np.load(allow_pickle=True)` on the global `~/.maxim/util/semantic_embeddings.npz`; dormant unless `enable_semantic`, and must land before `AgentHome` (OD-A12) makes it reachable from saves. **Fixed in Maxim, in no release** (read 2026-11-24 at Maxim `origin/main` `2fb497a1`): #1773 (`1b2e60a9`) closes #1685; v1.3.4 does not contain it. O75's strict red gate holds it until the lock moves to a release that contains the fix (O78; step 2 of the next steps writes the gate) | OD-A13; filed by Maxim as #1685 |
+| OD-I4 | `ARCHITECTURE.md:182` is stale: the DM runtime doesn't build NPCs through `AgentFactory` (`create_npc_agent` has no caller). **Done** (read 2026-11-24 at Maxim `origin/main` `2fb497a1`): #1771 (`a80d9c5a`) closes #1686. It fixes Maxim's documentation only, so nothing here waits on the lock | new (Maxim's answer); filed by Maxim as #1686 |
+| OD-I5 | A security issue in cloud redaction, held by Maxim as a private advisory; details in private notes, not here. **Fixed in v1.3.4** (its release notes, Security). Closes when step 2 of the next steps moves the lock to 1.3.4 (O78) | new (TBR-11) |
+| OD-I6 | pymaxim pins `rich>=13.0.0,<14.0` (`pyproject.toml` on Maxim `origin/main` 10888fec), and every embedder inherits it: Overdrive's import contracts can't use import-linter 2.7+ (which needs `rich>=14.2`) and stay on 2.6 / grimp 3.13 (step 3a, 2026-11-19). Ask: lift or widen the cap, or say why it's needed. Searched Maxim's `docs/plans/` for `rich`: nothing found. **Fixed in Maxim, in no release** (read 2026-11-24 at Maxim `origin/main` `2fb497a1`): #1773 (`1b2e60a9`) closes #1768; v1.3.4 does not contain it. O75's strict red gate holds it until the lock moves to a release that contains the fix (O78; step 2 of the next steps writes the gate) | new (step 3a) |
+| OD-I7 | `ModulatorSpec.apply_damage` (`embodiment/spec.py:1034-1036` at `043eab8f`) returns 1.0 and applies nothing on a modulator with no sub-sensors, with no log or error: a flat body's burn changes nothing (`sem_stimuli.md` delta 1, Bio-faithful SF-2). **Fixed in v1.3.4** (read 2026-11-24 at Maxim `origin/main` `2fb497a1`): PR #1725 (`4b9641d9`) closes #1719. Closes when step 2 of the next steps moves the lock to 1.3.4 (O78) | new; sent to Maxim's session for 1.3.4 triage, 2026-11-21 |
 | OD-I8 | `Embodiment.evaluate_failures` takes drive drift from `time.time()` (`embodiment/body.py`, about `:293` at `043eab8f`); `world_clock_release_DRAFT.md` names `last_fired` in the same function, not this read. A question to route to #1361's plans, not a fix | new; sent with OD-I7, 2026-11-21 |
 | OD-I9 | **Pushback** against `plans/archive/llm_path_fast_failover.md:43` and `:769` (cloud retries by design) and `docs/architecture/llm_routing.md`'s empty-content legacy path, which breaks Maxim's own rule at `:771` ("Backend failures raise typed exceptions, not return empty content"): the cloud backends turn almost every failure into `LLMResponse(content="")` (`anthropic_backend.py:377`, `:384-409`; `openai_backend.py:358-360`, `:505` at `043eab8f`), retry inside the call (`max_retries`, `capacity_max_retries`, 4 hard-coded gateway retries at `openai_backend.py:391`, and the SDK clients' own, `:450`), and drop cache-write tokens from `LLMResponse` (`anthropic_backend.py:416-422`). Ask: typed `BackendError`s, configurable retry budgets with defaults unchanged, complete usage counts, so a host gets one call, one outcome and can tell load from failure (`inference_placement.md` §1.3, §2.7, §9). Not in O29's subset | new (2026-11-21) |
-| OD-I10 | **Question** to Maxim's 2026-09-28 decision that "the proxy wins for operator paths" (`DECISIONS.md:1150-1192`, `utils/http.py:830`): Overdrive's gateways set `NO_PROXY=*`, which stops httpx's environment lookup from mounting any proxy and urllib's from consulting macOS System Settings (verified with httpx 0.28.1; `inference_gateway.md` §2). Ask: keep that honoured on the backends' path, since it rests on httpx's private `get_environment_proxies` (`DECISIONS.md:1188`), and expose `HTTPEndpoint.strict_address_check` (`utils/http.py:228`, `:875-881`) to backend callers. Not in O29's subset | new (2026-11-21) |
+| OD-I10 | **Question** to Maxim's 2026-09-28 decision that "the proxy wins for operator paths" (`DECISIONS.md:1150-1192`, `utils/http.py:830`): Overdrive's gateways set `NO_PROXY=*`, which stops httpx's environment lookup from mounting any proxy and urllib's from consulting macOS System Settings (verified with httpx 0.28.1; `inference_gateway.md` §2). Ask: keep that honoured on the backends' path, since it rests on httpx's private `get_environment_proxies` (`DECISIONS.md:1188`), and expose `HTTPEndpoint.strict_address_check` (`utils/http.py:228`, `:875-881`) to backend callers. Not in O29's subset. **Decided in Maxim, not fixed** (read 2026-11-24 at Maxim `origin/main` `2fb497a1`): #1782 is open, in no release | new (2026-11-21) |
 | OD-I11 | A blocked `base_url` can fail open to the cloud, because the refusal is keyed on the provider's **name**, not its **type**. `_OpenAIBackend._get_base_url` (`models/language/openai_backend.py:231-243` at `b98954f7`) warns "Blocked base_url … (SSRF protection)" and returns `None`. `_ensure_client` (`:273-275`) refuses only when `self._provider_key` is `openai_compatible` or `openai_compat`, while the router dispatches on the provider's type (`router.py:467-474`). So a provider of type `openai` (or `openai_compatible` under any other key) with a blocked URL builds a client with no base URL, and the OpenAI SDK takes `OPENAI_BASE_URL` or its default, api.openai.com. Run on pymaxim 1.3.4, 2026-11-22: a provider keyed `local`, type `openai`, pointing at a loopback llama-server, sent its prompt to api.openai.com, refused 401 (lesson 36). Searched Maxim's issues ("SSRF base_url fallback", "Blocked base_url"): nothing found. The fix is to refuse on the type, so a local-first game's NPC prompt can't leave the machine on one misconfiguration | new (2026-11-22) |
 | OD-I12 | **Question** to the deferred `plans/deferred/vllm_self_hosted_servers.md`, which calls `chat_template_kwargs` a "vLLM-only payload field" justified only by a dedicated backend (`:62`) and treats thinking as a parsing problem: `--reasoning-parser` keeps `<think>` text out of `content` (`:155-156`), but nothing bounds the tokens it spends. llama-server takes the same field. Run on pymaxim 1.3.4, 2026-11-22: `_OpenAIBackend` against llama-server (`--jinja`, build 10621) serving Qwen3.5 4B returned empty content, 512 of 512 tokens, `stop_reason` `length`: the template's thinking went to `reasoning_content` and spent the whole budget. Nothing in the backend can switch it off (`enable_thinking`, or Ollama's `think`). Does a reasoning model on a self-hosted lane need a per-provider thinking switch, and does this meet the plan's revive trigger? Searched issues ("thinking reasoning local qwen"): nothing found | new (2026-11-22) |
+| OD-I13 | **Ask:** seeds and samplers on Maxim's backends. `backend_protocol.py::complete_with_usage` (at `origin/main` 16aaf664) takes `temperature`, `stop` and `thinking`, with no seed, top-p, top-k, `min_p`, `repeat_penalty` or response format, which IP §1.3 F6 records and the generation harness needs to run through the gateway (`generation_harness.md` §4). Searched `docs/plans` for "seed" with backend and sampling terms: archived plans only, nothing live. Until it lands, the harness keeps its own marked client. Nothing is filed in Maxim (read 2026-11-24 at Maxim `origin/main` `2fb497a1`; searched issues for "seed sampler backend" and "top_p"): the upstream lane files it, with the owner's go-ahead | new (2026-11-22) |
 
 ### Tier A: an agent a host drives (Phase 4 waits on a named subset)
 
@@ -183,7 +239,11 @@ call; its owner put it after the cut (2026-11-19).
 
 Drafts:
 - `world_clock_release_DRAFT.md`: two plans. **A-pre** goes on its own clock, touching no fenced file. **A-post**
-  lands with Maxim's 1.3.6, Session A.
+  lands with Maxim's 1.3.6, Session A. **Stale against this table** (last changed 2026-11-16): it predates OD-A2's
+  split clock, the static AST ban, OD-A7's RNG ruling, OD-H6 and OD-A20's decline, and it lacks OD-A4's tool duration
+  and OD-I8. Maxim's 1.3.5 world-clock session (D9 in `release_1_3_5.md`) starts from it, owes the A-pre plan (none
+  is on Maxim's `origin/main`, read 2026-11-24 at Maxim `origin/main` `2fb497a1`) and claims OD-A2 to OD-A6. It reports the OD-A ids it takes to
+  the upstream lane (O77). Step 3 of the next steps brings the draft in line.
 - `default_network_stepped_DRAFT.md`.
 - `embeddable_agent_DRAFT.md`.
 - `propose_settle_amendment_DRAFT.md`, an amendment to Maxim's `tool_failure_credit.md`.
@@ -193,19 +253,19 @@ Drafts:
 | OD-A1 | #1361's S3–S6: a dependency, not duplicated. S3–S6 are in 1.3.6; S2 coordinates with Session V; S0 and S1 shipped. | — | A1 |
 | OD-A2 | `AgentTime`, split in two (with a **static** AST ban on `time.*` and `datetime.now` in Maxim's step-path set and a long-horizon scripted run, since dynamic plants miss consolidation, sleep and decay paths; BD-14.2): a **machinery clock** (epoch seconds as today, microseconds; decay, cadences and stamps) and a **perceived-time port**, the only time a prompt may contain. For robots the machinery clock is Maxim's `ExperienceClockDriver` (cand. A3), and the static ban extends M72 rather than adding a second lint. Keyed RNG substreams and `IdSource`. Host defaults read at call time, so `_StepClock` still works. Tests: a planted wall-clock read under an advancing fake clock, and a **planted-render test** (a sentinel in the machinery clock, TZ pinned, checked in raw, clock and date forms; an origin offset end to end; offset and scale only at render level on a frozen store, since a scaled clock legitimately changes decay). | A-pre | A2 |
 | OD-A3 | Prompt and observation time only through the perceived-time port, or omitted, with a lint banning `datetime.now`, `strftime` and `localtime` in prompt-reaching modules. Covers `prompt_builder`'s datetime and identity sections (`:229`, `:1122-1124`), `llm_fallback`'s canned answers and `context_pool`'s `[HH:MM:SS]` stamps (`:468`, `:493`). | A-pre | A6 |
-| OD-A4 | Live-path stamps outside the fence, passed explicitly with defaults kept; `SensorReading` stamping; a tool's duration supplied by the host in world time, not `runtime/tool_dispatch.py:1419`'s wall clock (`_observe_energy_cost`, `:695`, books NEGATIVE NAc valence above 2.0 s); Maxim agrees it is the root fix | A-pre | A5 (part) |
+| OD-A4 | Live-path stamps outside the fence, passed explicitly with defaults kept; `SensorReading` stamping; a tool's duration supplied by the host in world time, not `runtime/tool_dispatch.py:1419`'s wall clock (`_observe_energy_cost`, `:695`, books NEGATIVE NAc valence above 2.0 s); Maxim agrees it is the root fix. Maxim's #1769 (open, read 2026-11-24 at Maxim `origin/main` `2fb497a1`), `CostTracker`'s month on the wall clock, is routed by Maxim to the world-clock plan | A-pre | A5 (part) |
 | OD-A5 | The hippocampus's 30 s wall window, attention and salience stamps, and `TemporalSignature`'s phase source | A-pre | A5 (part), A7 (source half) |
 | OD-A6 | Reaction and pain dispatch gates on the injected clock under embedding. Motor and IO limits stay on the wall. Lands after #1200. | A-pre | A8 |
-| OD-A7 | Randomness and ids outside the fence: keyed substreams by Maxim's `utils/seeding.py::make_agent_rng(base_seed, agent_id)` with a stream argument, derived as `npcs_and_sem.md` §3.4 says (O40); a new release-gate item after the 1.4.0 cut, not a widened `1305.owned-rng` (Maxim's owner, 2026-11-19); `semantic.py:205`'s `or 42` made an explicit seed; `seed_all` never called on the embedded path; `time.time_ns()` event ids (`decisions/nac.py:1163`) | A-pre | A5 (part) |
+| OD-A7 | Randomness and ids outside the fence: keyed substreams by Maxim's `utils/seeding.py::make_agent_rng(base_seed, agent_id)` with a stream argument, derived as `npcs_and_sem.md` §3.4 says (O40); a new release-gate item after the 1.4.0 cut, not a widened `1305.owned-rng` (Maxim's owner, 2026-11-19); `semantic.py:205`'s `or 42` made an explicit seed; `seed_all` never called on the embedded path; `time.time_ns()` event ids (`decisions/nac.py:1163`). #1305 (`1305.owned-rng`, the 1.4.0 gate) is open (read 2026-11-24 at Maxim `origin/main` `2fb497a1`) | A-pre | A5 (part) |
 | OD-A8 | Fenced ids and stamps (`agent_loop`, `orchestrator`, `tool_dispatch`), NAc stamps and anchors, and `FailureMode.last_fired` (with S4) | A-post | A5 (rest), C8 (half) |
 | OD-A9 | `DefaultNetwork.step(now)`, with the thread a caller of it, coordinated with #1263's remainder | A-post | A3 |
 | OD-A10 | The embedded entry point on `AgentFactory`, every collaborator required; the DM runtime builds NPCs through it | embeddable | A10 |
 | OD-A11 | A closed tool roster for embedded agents, sealed with the advisor's patterns, refused at construction, with no workspace manifest. Engineering, on its own clock; making capability rosters the robot default stays experiment-gated | embeddable | new (TB2-B1) |
-| OD-A12 | `AgentHome`: one per-agent object over `AgentFactory`'s `persistence_dir`, routing the ten still-global store families; the ConceptExtractor thread made host-driven, which belongs to cand. A4's closure through `build_memory_hub(start_background_workers=False)` (`runtime/bio_stack.py:489`, `:654`), not A1 | embeddable | new (TB2-B2) |
+| OD-A12 | `AgentHome`: one per-agent object over `AgentFactory`'s `persistence_dir`, routing the ten still-global store families; the ConceptExtractor thread made host-driven, which belongs to cand. A4's closure through `build_memory_hub(start_background_workers=False)` (`runtime/bio_stack.py:489`, `:654`), not A1. No Maxim plan has taken it (read 2026-11-24 at Maxim `origin/main` `2fb497a1`); #984 (open) is its related issue | embeddable | new (TB2-B2) |
 | OD-A13 | *Moved to OD-I3*, an issue now | — | new (TB2-B2) |
 | OD-A14 | The request/reply cut: the request as a value (rendered text, sampling, the caller's declared function name, never a hardware-resolved tier: a new field, since no call site declares one today (`submit_function` and `get_backend_for_function` have no callers, `_complete_text` takes no function), so B1 tags each call site it lists; deadline field, `tools is None`), produced at `LLMRouter._complete_text` without building an `LLMRouter` in the embedded agent, with the host supplying the function's envelope (`total_budget`, `response_reserve`, a pure `token_counter`, `thinking`) to the `PromptBudgeter` (`inference_placement.md` §2.1), and asking B1 to render stable text in `system` and volatile text in `user` so prompt caches hit (Maxim's `docs/lessons/sim-n-ctx-config-drift.md`); the reply with reserved `cancelled(prefix)` and `truncated` variants that bypass the parse-failure template, and speech as a field emitted first. Not an `LLMBackend` capability | embeddable | new (DR-B2, Arch B3); was "streaming and cancellation on `LLMBackend`" |
 | OD-A15 | The stepped `think` on §A.1b's seam, one design for the submit path (OD-A14, OD-H6 and the cancelled-reply bypass land as parts of it): a continuation split into a host-owned header and an agent-owned body, with `basis_seq` (the agent's afferent-scheduler high-water seq, `thalamic_relay.md::preempted_since`; the host holds a copy, never computes it; LLM-proposal staleness waits on GL3.B7) and staleness per hybrid §A.1b.5 (O38); writes only as returned values, retrieval strengthening included; multi-call PFC cycles, `next_actions`; the robot path drives the same `think` (robot parity: OD-EA14); isolation between agents in one process. Lands after the 1.4.0 cut with the agent-loop decomposition slices | embeddable | A4 |
-| OD-A16 | Credit for effects measured later: receipts, the cerebellum observing at settle, exactly-once credit, `stale`, `call_error` and `wrong_target` kinds, a per-modulator valence default. Evidence from step 3b(b): `ModulatorResult` has no kind, so a SEM refusal's `error_kind` is `None`; the pain detector books it as an external failure (`executor.py:789`) and the replan path prompts "Failure type: None" (`loop_state.py:248`) (`docs/lessons_maxim_in_games.md` §31). Rides on OD-A18 | amendment | C1, C2, P2, P3, P7 |
+| OD-A16 | Credit for effects measured later: receipts, the cerebellum observing at settle, exactly-once credit, `stale`, `call_error` and `wrong_target` kinds, a per-modulator valence default. Evidence from step 3b(b): `ModulatorResult` has no kind, so a SEM refusal's `error_kind` is `None`; the pain detector books it as an external failure (`executor.py:789`) and the replan path prompts "Failure type: None" (`loop_state.py:248`) (`docs/lessons_maxim_in_games.md` §31). From step 5a's PR 4a: pymaxim 1.3.3's cerebellum learns from the read-back after `execute` (`tool_bridge.py:885`), and the LLM reads it (`:908`), so through a stepped world's port a douse's forward model learned the heating a physics tick on its call delivered (§37). Evidence from the torch pilot (lesson 38; `docs/design/torch_pilot.md` §12): a held act's effect lands after the call retires, and Maxim's `tool_failure_credit.md:80` removes the pending window that `docs/maxim_upstream/propose_settle_amendment_DRAFT.md`'s "Slow effects" paragraph relies on, so that paragraph is revised before the draft goes upstream; 6.1b records the two delays. Rides on OD-A18 | amendment | C1, C2, P2, P3, P7 |
 | OD-A17 | The embedded-path leak closure: prefetch off and the working directory at the agent home; the short-question shortcut is deleted in Maxim for everyone, matcher and fallback (#1689, PR #1694; after #1691 a fallback reply books no NAc credit, but `generate_llm_fallback` still echoes `triggering_input`); no `force=True` logging; paths under the agent home; a static import ban on `utils/audit.py` with `lint_dead_imports`' resolver (blind spot: `importlib` strings), naming `maxim.embodied_runtime`, the internet tools, `build_tool_registry`'s module and `runtime.prefetch`, plus the advisor's three closure tests; no env reads (A4 waits for A1, no `MAXIM_DATA_HOME` exception); no reply reaches the parse-failure template (it echoes the input; its bypass lands with cand. B1, as OD-A15's cancelled-reply bypass); no model backend in the embedded agent, so the model calls outside `think` (`AdaptivePlanner`, the `ToolPainBridge` reflection, `FearAgent`) fail closed | embeddable | new (Maxim's second answer; TBR-3, TBR-7) |
 | OD-A18 | Split `execute_and_learn` into dispatch and settle, folding in the parallel and agent-fallback side doors; generate vs apply for memory writes (cand. A6: applied at settle, published through the agent bus; O39), D53 `outcome_valence` and OD-A16's keys; settle feeds NAc's existing traces; memory writes carry provenance by source actor; each dispatched intent carries its invocation pid, and the host stamps it on every receipt and frame event the intent causes (the embedded efference copy, GL3.B2's join). B2 owns the call site (its dispatch is the `Executor._run_started` equivalent, drawing from the agent's own `EventSequencer` inside the worker and putting the pid on the intent value), the sequencer owns the mint, GL3.B2 the contract; the host's side of the pid is `npcs_and_sem.md` §6.6's. The pid waits on G17 (above). The settle invariant (OD-EA16): each minted pid comes back in exactly one terminal receipt, executed or a typed refusal; no receipt arrives without a minted pid; refusal receipts count as the pid's outcome, not a physical event, and a refusal's pid never appears in a GL3.B2 row (Maxim's review of v6); the host's refusals, deferrals past a budget and drops all end in one; when a worker dies, the host writes a typed `agent_failed` refusal receipt for every in-flight pid (O44). `session_id`, log segments and the sequencer's high-water seq are `npcs_and_sem.md` §6.6's (O43, O45; Maxim's Q1 alternative, so nothing is asked of its resume stage); GL3.B2's gate holds unchanged (Maxim's Q2 answer); robots settle right after dispatch (OD-EA15); `environment.step` (`tool_dispatch.py:1574`): our position is Maxim's suggestion, that the embedded roster passes no environment and the follow-up arrives in receipts (B2's call). After #1361 S3a and S3b and cand. A3 A-post, behind a bit-identical state-digest parity guard | embeddable | C1 (generate vs apply) |
 | OD-A19 | *Withdrawn 2026-11-17:* it duplicated Maxim's own `docs/plans/experience_clock_decay.md` (#1361 S3a), which we already track as OD-A1; the temporal-anchor fallback's age and expiry move in #1361 S3b, and its similarity's host-calendar read (`nac.py:3629`) is OD-A20. Was: Step-size-invariant decay: NAc's eligibility traces decay ×0.9 per loop tick today (`decisions/nac.py:3707`, from `_loop_bio_tick_maintenance`, `runtime/agent_loop.py:800-840`, with five sibling decays), so credit depends on the tick rate; decay as `exp(−Δt/τ)` on the machinery clock, with an exit test crediting one delayed receipt equally at two rate divisors (OD-EA12). Argues against the per-tick decay contract; corrects Overdrive's earlier claim that the traces decay on the wall clock (`correction_1.md`) | A-post | new (npcs_v3 BF3-1) |
@@ -262,6 +322,7 @@ Drafts: `sem_breaking_change_plan_DRAFT.md` (now an additive refinement plan; th
 | OD-C8 | Percepts and instruments, shrunk: instruments are in-world objects perceived through an existing `modality:` | C6 |
 | OD-C9 | A written version rule for the SEM vocabulary, on the existing `ENTITY_FORMAT_VERSION` | C7 (half) |
 | OD-C10 | `world_set_axis` for sub-sensors (unverified) | C8 (half), P4 |
+| OD-C11 | Egocentric locomotion and targets: a body affordance `move {forward, turn}` and target-by-percept-id, since Maxim's bodies offer a compass, a GPS and a position oracle no body has (`legs.move {direction: str, speed: str}` takes any string; `avatar.move_to {x, z}`; bench57's offset sensors; full paths in `reviews/tile_v1/fold.md` §1). The wire's direction stays allocentric, and Phase 4's adapter reduces the egocentric command to it (`tile_and_client.md` §2.3, §3.1). Decided to file (T6); no draft yet. Owner: the upstream lane (O77). Trigger: step 5b's movement vocabulary | T6 |
 | OD-C12 | Thermoregulation's controller in Maxim: effector outputs (skin blood flow, sweat rate, metabolic rate, as `sem_stimuli.md` §3.1 reserves them) and `autonomic_layer.md` §3.3's two-sided need (R-2: heat yields no corrective need). Searched `docs/plans`, `DECISIONS.md` and `src` at `043eab8f` for thermoreg, shiver, sweat, vasoconstrict, vasomotor, perfusion and core_temp: only the `core_temperature` drive. A question to `autonomic_layer.md` §3.3. **Future bar:** T17 (`xfail(strict=True)`), triggered when Maxim drives the effectors; its world-side test, the plant's closed forms, passes once the plant lands | M20 (2026-11-21) |
 | OD-H1 | The game as a test bed for the hybrid's questions (OD-HX1 to OD-HX5; HX2 is calibration only) | C11 |
 | OD-H2 | Pushback: in an embedded world, the hold's waiting cost uses modelled world-time latency, not observed latency | new (DR-B5, BF2-8) |
@@ -297,6 +358,9 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
 
 ## Phase 4: Cradles and the first NPCs (later)
 
+- **Retire the generation harness's own inference client** (`TEMPORARY(phase4/inference)`, `generation_harness.md`
+  §4) when the gateway path can carry its protocol: IP §4.2's request fields and §2.3's caller without speakers, IG
+  §3's engine proof, and the Phase 3 asks OD-I11, OD-I12 and OD-I13. Its file is listed here once the code exists.
 - **Starts on tier A's subset** (owner decisions O6, O15a and O29): no real Maxim NPC runs before the subset under
   Phase 3's tier A heading ships (OD-A1's #1361 S3a, S3b and S4; OD-A2 to OD-A11; OD-A12's thread; OD-A14 to OD-A18;
   OD-A20, declined, so the replay exit carries its divergence; the issues OD-I1 and OD-I3), and before Maxim's 1.4.0 cut with the agent-loop decomposition slice that
@@ -311,6 +375,7 @@ and cancelling a model call is a `cancelled(prefix)` reply under OD-A14.
   - the guest-text gate refusing line separators and format characters on decoded text;
   - memory provenance with a purge that survives relay and extraction.
   - O18's local model by default, remote only with the guest's informed consent.
+  - a cap on connections that haven't sent `hello` (`docs/plans/checklists.md`, step 7's deferrals);
   Deferred by name (O30): a worker OS sandbox, decided before guest sessions open.
 - The cradle writer: an arc's fixed event pool plus handcrafted inflection points, assembled per NPC in code.
 - Three NPCs on the first tile (the ripperdoc, a fixer, a street kid), each cradled from an authored life.
@@ -370,20 +435,26 @@ See `docs/book_to_world.md`. Extraction, timeline and the perspective split, the
 
 ## Before the repository goes public
 
-The repository is private until Maxim publishes its fix for OD-I5 (owner, 2026-11-21). Going public is one branch,
-`phaseN/go-public`, which does all of this, then the owner flips visibility:
+The repository was private until Maxim published its fix for OD-I5 (owner, 2026-11-21). It is public again since
+2026-11-22 (owner), after the disclosure and Maxim 1.3.4's release. The plan was one branch, `phaseN/go-public`, doing
+all of this before visibility flipped. Items 1 and 3 hold (item 3 read from the repository settings on 2026-11-22:
+no runners, approval for first-time contributors, read-only default token). Items 2 and 4 are done (reconciled at
+`v0.1.0`), and item 5 holds only because no asset exists yet:
 
 1. **Disclosure:** Maxim's advisory for OD-I5 is public and its fix released. Until then, stay private; the history is
    not rewritten (the mentions span 202 commits and GitHub keeps PR refs).
 2. **CI restored:** `.github/workflows/test.yml` runs Linux and macOS on every pull request again (public repositories
-   get free minutes). That reverses option B, so the test that pins it
-   (`tests/test_check_lock.py::test_macos_runs_on_githubs_runners_only_for_pushes_to_main_and_the_weekly_drift`) is
-   rewritten in the same commit.
+   get free minutes), reversing option B. The pinning test is rewritten as
+   `tests/test_check_lock.py::test_linux_and_macos_run_on_githubs_runners_for_every_pull_request_and_the_weekly_drift`
+   (PR #48). **Done:** #48, `53cd42c`.
 3. **No self-hosted runner** is registered (Settings > Actions > Runners lists none), and the repository settings
    require approval for workflow runs from first-time contributors.
 4. **Personal paths:** absolute paths under the owner's home in seven files (three spike scripts and four documents,
-   found 2026-11-21) become relative or are removed.
-5. **Assets and licences:** `ASSETS_LICENSE.md` and the asset manifest (B8) are current.
+   found 2026-11-21) become relative or are removed. **Done:** #48, `53cd42c`, and #58, `a55a810`, which added
+   `scripts/lint_paths.py`.
+5. **Assets and licences:** `ASSETS_LICENSE.md` and the asset manifest (B8) are current. The tree holds no
+   non-code asset at `v0.1.0` (no `assets/`; the client's images are rendered goldens), so B8's trigger, the first
+   non-procedural asset, still owns it.
 
 ## Standing rules
 

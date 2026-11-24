@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any
+from typing import Any, ClassVar
 
 from simcore.core.checks import finite_real, finite_vector, identity_key, shown, whole_number
 from simcore.core.limits import ActionLimits
@@ -46,6 +46,7 @@ def _typed(action: object, values: Mapping[str, object]) -> None:
 
 @dataclass(frozen=True)
 class Strike:
+    edits_cells: ClassVar[bool] = True  # a strike's load resolves in its record's tick: the tick's window copies cells
     energy_j: float
     sigma_m: float
     point_m: tuple[float, float, float] | None  # None: the region's centroid, found when the action applies
@@ -67,6 +68,7 @@ class Strike:
 
 @dataclass(frozen=True)
 class Ignite:
+    edits_cells: ClassVar[bool] = False  # a fire changes no cell until the next physics step
     power_w: float
     radius_m: float
 
@@ -80,6 +82,8 @@ class Ignite:
 
 @dataclass(frozen=True)
 class Extinguish:
+    edits_cells: ClassVar[bool] = False
+
     def check(self, limits: ActionLimits) -> None:
         pass
 
@@ -168,7 +172,7 @@ class LogRecord:
 
     5a's first PR carries world actions only: ``params`` is the typed action, ``target`` the region it acts on. The
     rest of §6.2's record (schema_version, the observed and issued ticks, the audit payload) and the log's file format
-    join in step 5a's PR 4, as fields with their own payload kinds, so this type widens rather than renames."""
+    join in step 5a's PR 4b, as fields with their own payload kinds, so this type widens rather than renames."""
 
     apply_tick: int
     apply_us: int
@@ -179,7 +183,7 @@ class LogRecord:
     params: Action
 
     def __post_init__(self) -> None:
-        # Each is stored back as a plain int, so a numpy integer can't reach the key (it must serialise; PR 4's log).
+        # Each is stored back as a plain int, so a numpy integer can't reach the key (it must serialise; PR 4b's log).
         object.__setattr__(
             self, "apply_tick", _bounded(self.apply_tick, "apply_tick", _I64, minimum=1)
         )  # tick 0 is construction (sim_core.md §3)

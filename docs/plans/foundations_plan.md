@@ -4,12 +4,10 @@ Where things stand, what comes next, what is open. `scripts/check_plan.py` check
 question is present (not true) and the 2,500-word budget. Source: the review in `docs/plans/reviews/`;
 `reviews/fold.md` maps each finding to where it went and keys the ids; `checklists.md` holds the steps' items.
 
-## 1. Status, as of 2026-11-20
+## 1. Status
 
-PRs #1–#13 are merged; open PRs are on GitHub. Each branch has a same-named worktree under `.worktrees/`.
-
-**Security gate.** Private since 2026-11-17. design-v2's history and PR #4 hold OD-I5's details; before going
-public, the owner decides on a force-push plus GitHub support for PR #4's refs. Security findings go to private notes.
+Each step's status at `v0.1.0`, with its PRs and commits, is the roadmap's ("Phase 1 at `v0.1.0`"), and so are the
+next steps (O79). Security findings stay private.
 
 ## 2. The order: tile first (D26)
 
@@ -28,11 +26,11 @@ Phase 1's exit is the roadmap's (`docs/roadmap.md`, Phase 1, "Exit").
 | 4 | `phase1/verify`, slim: refine space and time separately; heat retrofitted; the resolution rule becomes the verification rule (D20) | 3b | this line | the harness | heat's order-of-accuracy test passes for the right reason | Physics and resolution | |
 | 5a | `phase1/sim-clock` (O34): `Simulation`, tick (T3), 0.1 m truth, law list, field registry, intent log | 4, 3b | this line | a composition note | bit-identical replay; CPU time measured | Physics, Determinism, Performance | B2, B5 |
 | 5b | `phase1/bodies`: bodies, `move`/`move_to`, vocabulary v1 | 5a | this line | the actor table | replay of a movement script | Determinism, Wire | |
-| 6 | Fire as the ladder (2026-11-20; D30, T13, T17 superseded by `fire_model.md`, `fire_solid.md`): 6.0a data files on step 5a's line, 6.0b fuel objects, 6.1 the solid (R0, R1), 6.2–6.4 long term (fallback, 2026-11-20); fits within cited ranges, graded held out | 5a (6.0a), 5b | this line | flip `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating` red-first (6.1) | each rung's gates at three grids (tile §6.3); R0–R2.5 time-boxed, else the fallback | Physics, Determinism, Bio-faithful | fire burnout gap |
-| 7 | `phase1/protocol` v0: `client_rendering.md` §4.1's and `tile_and_client.md` §3.3's messages, versioned; WebSocket with `boundaries.md` §5.3's handshake; golden fixtures read by Python and Godot; the guest-join red gate | 5b, 6 (6.0b), 2, 0d | this line | `tests/fixtures/wire/` | both readers pass the fixtures | Wire, Trust, Concurrency, Determinism | B3, B14 |
+| 6 | Fire as the ladder (2026-11-20; D30, T13, T17 superseded by `fire_model.md`, `fire_solid.md`): 6.0a data files after 5a and `subcell_solids.md` S0, 6.0b fuel objects, 6.1 the solid (R0, R1), 6.2–6.4 long term (fallback, 2026-11-20); fits within cited ranges, graded held out | 5a (6.0a), 5b | this line | flip `tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating` red-first (6.1) | each rung's gates at three grids (tile §6.3); R0–R2.5 time-boxed, else the fallback | Physics, Determinism, Bio-faithful | fire burnout gap |
+| 7 | `phase1/protocol` v0: `client_rendering.md` §4.1's and `tile_and_client.md` §3.3's messages, versioned; `boundaries.md` §5.3's handshake; shared fixtures (O59, O60, O61, O62, O63, O64, O65, O66, O67, O68, O69, O70, O71, O72, O73, O74); guest-join red gate | 5b, 6 (6.0b), 2, 0d | this line | `client/tests/fixtures/wire/` | both readers pass the fixtures | Wire, Trust, Concurrency, Determinism | B3, B14 |
 | 8 | The tile: the alley, movement, the client drawing snapshots, the cell shader and the fuel-object pass (never colour alone; `client_objects.md`), golden screenshots per tier | 6, 7, 0d | this line | the alley scene | the exit scenario passes automatically, then a playtest | Client and rendering, Physics | B7 |
 | 9 | Save v0: grid, scene, actor and pilots tables | 8 | this line | save fixture | round trip, golden save | Wire, Determinism | B4 |
-| 10 | Heat-debt prototype (D28): the slice (VS5), before 8; then clinic (D27) | 2 | this line | `spikes/slice/` | verdict by 2026-12-18: fun or not, and why | Client and rendering | |
+| 10 | Heat-debt prototype (D28): the slice (VS5), before 8; then clinic (D27) | 2 | this line | `spikes/slice/` | verdict by 2026-12-18: fun or not, and why; before `spikes/slice/` is deleted, `src` coverage measured with and without its tests; `src` tests first if it drops | Client and rendering | |
 
 **In parallel, off the path:**
 - **The LLM spike (O20):** a throwaway `spikes/llm/` script, no Maxim: latency, tokens, cost, NPCs per local
@@ -53,9 +51,8 @@ Phase 1's exit is the roadmap's (`docs/roadmap.md`, Phase 1, "Exit").
 
 ## 3. Maxim (`origin/main` f0b1cea4)
 
-**Done there:** the candidates doc (#1688); #1684 (OD-I1), #1685
-(OD-I3, absorbing OD-A13), #1686 (OD-I4); OD-I5 a private advisory; #1687 closed (NPCs on POSIX only); #1396 (O18's guards). OD-I2
-a nit; OD-I6, OD-I7, OD-I8 new.
+**Status:** each id's is the roadmap's Phase 3 (O76): OD-I1, OD-I2, OD-I3 (absorbing OD-A13), OD-I4, OD-I5, OD-I6, OD-I7,
+OD-I8.
 
 **Exchanged:** `erratum_1.md` sent 2026-11-18 (OD-A20, OD-A21; OD-A19 withdrawn). Maxim's answer
 (`response_4.md`): 1.4.0 planned March–May 2027; the world-seam front gate accepted.
@@ -67,7 +64,7 @@ a nit; OD-I6, OD-I7, OD-I8 new.
 - Tier C: OD-H2 (C2), OD-H4 and OD-H5 (C5), OD-H6 (C3, disagreeing), OD-H1, OD-HX1, OD-HX5 (cautions).
 - Not in it yet: OD-C11 (proposed, tile §9), OD-A6, OD-A9, OD-H3, OD-X1, OD-X2; OD-B1, OD-B2, OD-B3, OD-B4, OD-B5, OD-B6, OD-B7 (Exp 64a's
   prerequisites), OD-B8, OD-B9, OD-B10, OD-B11, OD-B12, OD-B13; OD-C1, OD-C2, OD-C3, OD-C4, OD-C5, OD-C6, OD-C7,
-  OD-C8, OD-C9, OD-C10, OD-C12; OD-A22; OD-I9, OD-I10, OD-I11, OD-I12, OD-A23, OD-A24, OD-A25.
+  OD-C8, OD-C9, OD-C10, OD-C12; OD-A22; OD-I9, OD-I10, OD-I11, OD-I12, OD-I13, OD-A23, OD-A24, OD-A25.
 - Exit tests: OD-WC1, OD-EA4, OD-EA5, OD-EA6, OD-EA7, OD-EA9, OD-EA10, OD-EA11, OD-EA12, OD-EA14, OD-EA15, OD-EA16.
 
 ## 4. Decisions
@@ -89,7 +86,8 @@ a nit; OD-I6, OD-I7, OD-I8 new.
 | O34 | Step 5 splits into 5a and 5b |
 | O41 | Roadmap exempt |
 | O42 | Checklists exempt from O22 |
-| O57 | World-side imagination |
+| O57 | Imagination |
+| O75, O76, O77, O78, O79, O80, O81 | After `v0.1.0`: OD-I gates; Maxim's issue owns status; upstream lane; lock; next steps; NITs |
 
 **both §0:**
 
@@ -135,7 +133,7 @@ a nit; OD-I6, OD-I7, OD-I8 new.
 | O43 | `session_id` from the log header; the seq in the agent home |
 | O44 | Dead workers' pids refused |
 | O45 | A log segment per restore |
-| O46–O55 | Inference, its spike: O46, O47, O48, O49, O50, O51, O52, O53, O54, O55, O56, O58 |
+| O46–O55 | Inference: O46, O47, O48, O49, O50, O51, O52, O53, O54, O55, O56, O58 |
 | OA1 | A thought's kind from the agent's policy, a closed vocabulary; a logged host table sets cost |
 | OA2 | Dilation shown on a three-handed clock |
 | OA3 | No conversational repertoire of our own; proposed to Maxim as OD-H5 |
@@ -156,7 +154,7 @@ a nit; OD-I6, OD-I7, OD-I8 new.
 | D27 | The clinic after the exit; §12 answered |
 | D28 | A grey-box heat-debt prototype before more physics |
 | D29 | Step 6 adds open-air loss, the surface skin, sub-cell recession |
-| D31, D32, D33, D34, D35 | Structure |
+| D31, D32, D33, D34, D35, D36, D37 | Structure |
 
 **tile §0:**
 
@@ -207,10 +205,7 @@ Unnumbered (npcs §0): the thought-cost unit as fine as useful; test per Maxim t
 7. O17, with O26's mechanism.
 
 ### Open: tile §9
-1. T14.
-2. T15.
-3. T16.
-4. T18.
+None: T14, T15, T16 and T18 decided.
 
 ### Open: client §10
 None (T8–T12).
@@ -220,8 +215,8 @@ None (T8–T12).
 2. The world server as a pip dependency of Maxim: Phase 3.
 3. Copyright holder: still the owner's call.
 
-**Still open elsewhere:** Windows NPCs before Phase 8 (`checklists.md`); the guest-text gate's ZWNJ and ZWJ rule
-(step 7); whether F-S9's exit-test line is Phase 3's checklist (`fold.md`).
+**Still open elsewhere:** Windows NPCs before Phase 8 (`checklists.md`); whether F-S9's exit-test line is Phase 3's
+checklist (`fold.md`).
 
 ## 6. Risks
 

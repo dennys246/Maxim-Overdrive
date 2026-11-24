@@ -33,9 +33,9 @@ hypothesis==6.170.15
     # via maxim-overdrive (pyproject.toml)
 idna==3.20
     # via
+    #   maxim-overdrive (pyproject.toml)
     #   anyio
     #   httpx
-    #   maxim-overdrive (pyproject.toml)
     #   pymaxim
 import-linter==2.6
     # via maxim-overdrive (pyproject.toml)
@@ -110,3 +110,5 @@ typing-extensions==4.16.0
     #   grimp
     #   import-linter
     #   mypy
+websockets==17.4
+    # via maxim-overdrive (pyproject.toml)

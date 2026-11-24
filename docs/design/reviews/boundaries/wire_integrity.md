@@ -83,7 +83,7 @@ scripts/prepush.sh` in a worktree without its own `.venv`)
 - No worktree has a `.venv` (checked: `.worktrees/*/.venv` is absent), so every worktree gate runs the main
   checkout's interpreter.
 - That venv's editable install is `_editable_impl_maxim_overdrive.pth` containing
-  `/Users/dennyschaedig/Scripts/Maxim-Overdrive/src`.
+  `<home>/Scripts/Maxim-Overdrive/src`.
 - Verified: running that Python from `.worktrees/act-validation` resolves `maxim_overdrive.__file__` to the **main
   checkout's** `src/` (currently on `phase1/realtime-design`), and `data_dir()` to the main checkout's `data/`.
 

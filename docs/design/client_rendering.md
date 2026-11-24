@@ -80,10 +80,10 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
 | `welcome` | `session`, `role`, its own `actor` id (the body the camera follows), the world config, `shape`, the channel catalogue, the region map with each region's spec id, the zone list, material table v1 (ids to names and colours), the recipe name↔id map, the object-kind vocabulary, 1-based archetype and item lists, `regions_version`, the time state, `bindings_digest`, the engine `build` |
 | `regions` | new region-map entries and the new `regions_version`, sent before the first frame that uses them (DC-B1) |
 | `tick` | JSON with integer columns only (DC-S9): `tick`, scales, paused; the actor and pilots tables (world §2.2); events since the last delivery; `path_mm` for each actor whose `path_version` changed |
-| cell frame (binary) | `[u32 header length][JSON header][arrays]`, little-endian; the header has `protocol`, `kind`, `tick`, `shape: [nz, ny, nx]`, its grids (each with shape, cell size and origin), `regions_version`, the catalogue hash, `compression` (off in v0), and per array name, dtype, offset, size and uncompressed size |
+| cell frame (binary) | `[u32 header length][JSON header][arrays]`, little-endian; the ASCII header holds `protocol`, `kind`, `tick`, `shape: [nz, ny, nx]`, `regions_version`, `catalogue` (`welcome`'s hash), `compression` (`none` in v0), `grids` (`name`, `required`, `shape`, `cell_size_um`, `origin_um`: cell (0, 0, 0)'s corner, world x, y, z), `tables` (`name`, `required`, `rows`) and `arrays` (`channel`, `of`, `offset`, `size`, `uncompressed_size`), names printable ASCII (O63) |
 | `intent_result`, `time_decision`, `error` | world §3.3, §3.4 |
 
-- **The catalogue** gives each channel's `unit` (from the closed vocabulary), `dtype`, an encoding from a closed list,
+- **The catalogue** gives each channel's `unit` (a known channel's from the closed vocabulary), `dtype`, an encoding from a closed list,
   `required`, and `scale` and `offset` as integer rationals (`scale_num` / `scale_den`), so 975/255 needs no float
   format (DC-N5). Tables have typed columns: column-major, a per-column offset, an integer key column, no strings.
 - **Extension and bumps** (F2–F4, F6, W-F6): readers refuse, loudly, an unknown protocol version, `kind`, dtype or
@@ -93,11 +93,11 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
   compression bumps the protocol. `kind: delta` is reserved, not built.
 - **Axis order is Godot's** (W-F4): z, y, x, x fastest, one `Image` per z-slice; only `IsoCamera.to_godot` and
   `axes.gdshaderinc` map z-up to y-up.
-- **The catalogue hash** uses boundaries §6.3's one canonicaliser, in the core's checks. The region map is outside the
+- **The catalogue hash** uses boundaries §6.3's one canonicaliser. The region map is outside the
   hash, so `imagine` doesn't churn it.
-- **The decoder refuses** a frame whose `regions_version` is ahead of its map, or whose hash differs from `welcome`'s.
-- **JSON numbers read back as floats** [ran]: integers from `tick` or a frame header are cast with `int()`, within
-  boundaries §9.1's 2⁵³ pin.
+- **Every frame carries `welcome`'s hash,** whichever channels it holds; each equals its catalogue entry, and an
+  optional one may be absent (O64). The decoder refuses another hash, or a `regions_version` ahead of its map.
+- **The server's JSON holds integers only,** read by a strict parser on each side (boundaries §9.1).
 - **Events accumulate per session** until delivered, bounded at 256 `[engineering]`. An overflow forces a resync: the
   server sends a full `tick` state and the client requests `snapshot`. State tables carry everything an event
   announces, so a skipped tick at 20× loses nothing (DC-S4).
@@ -118,8 +118,6 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
 
 - **Frame size (derived):** 230,400 × 6 B = **1,382,400 B** plus the fuel tables (`client_objects.md` §3.5) and the header. The gate is Σ(dtype bytes) × cells plus
   a header bound, taken from the registry.
-- **Fixtures** (step 7) cover non-default scales, a frame after an `imagine` (a new region), and an asymmetric
-  fixture for the axes.
 
 ### 4.3 Buffers and the transport
 
@@ -129,8 +127,9 @@ This document's decisions (10 rulings) are kept as records, with their dates, ow
   - it refuses at `join` a shape whose frame, with the fuel tables at the world limits, exceeds a `data/server/` client cap of 3.5 MiB;
   - it sends a new frame only after the previous one has drained;
   - it keeps inbound `max_size` at 64 KiB, with a test for the 1009 close (TB-7, WT-S12).
-- **Head-of-line blocking:** a `tick` queued behind a 1.74 MB frame waits on the order of a millisecond on localhost
-  (*to measure*). The 100 ms buffer absorbs it.
+- **Server text messages are at most 64 KiB.**
+- **A refused connection ends** with `error`, then close 1008 whose reason is the code: Godot 4.7.2 can drop a text
+  packet arriving with the close [ran], so the client reads the reason.
 
 ## 5. The one shader
 
@@ -380,5 +379,5 @@ None: step 8's seven were decided 2026-11-21 (`reviews/step8_shader/fold.md`).
 | Requirement | Step |
 |---|---|
 | `client/` skeleton; `project.godot` (renderer, warnings, its test); `godot_check.py` and its fixtures; the CI golden job, its image and one renderer golden; §9's probes | 2 |
-| The decoder against wire fixtures (scales, hash, `regions`, a post-`imagine` frame, header refusals); `tick` encoding; event accumulation and resync; `net_client.gd`; JSON integer reads (§4.1); buffers and the server's caps; the fuel tables; the `Origin` test | 7 |
+| The decoders and their fixtures, `tick` encoding, events and resync, `net_client.gd`, buffers and caps, the fuel tables (`docs/plans/checklists.md`, step 7) | 7 |
 | The shader and its includes, bricks, depth golden, crack and glow, picking, cut-away and its 95% test, input mapping, HUD, tiers, the scenario goldens, staleness digests, `update_goldens.sh`, budgets; the fuel-object pass (`client_objects.md`) | 8 |

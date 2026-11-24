@@ -20,9 +20,9 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from slice_server import alley, config
+from slice_server import LOG_VERSION, alley, config
 from slice_server.intents import Intent, parse
-from slice_server.sim import Sim
+from slice_server.sim import ENGINE, Sim
 
 TICK_S = 0.1
 
@@ -87,17 +87,47 @@ class Observer:
             self.overdrive_strikes += bool(event["overdrive"])
 
 
-def observe(ticks: Sequence[Sequence[Intent]], *, dx_m: float = 0.2) -> tuple[Observer, Sim]:
-    """Replay ``ticks`` (one sequence of intents per tick) and watch it."""
-    sim, seen = Sim(config.load(), dx_m=dx_m), Observer()
+def observe(
+    ticks: Sequence[Sequence[Intent]], *, cfg: config.SliceConfig | None = None, dx_m: float = 0.2
+) -> tuple[Observer, Sim]:
+    """Replay ``ticks`` (one sequence of intents per tick) on ``cfg`` (the shipped data by default) and watch it."""
+    sim, seen = Sim(cfg or config.load(), dx_m=dx_m), Observer()
     for intents in ticks:
         seen.before(sim)
         seen.after(sim, sim.step(list(intents)))
     return seen, sim
 
 
+class LogRefused(ValueError):
+    """A session log this slice can't replay: another layout or engine cadence, data that doesn't parse, or a file
+    that isn't a whole log (a server killed mid-write). The message says which."""
+
+
+def log_meta(dx_m: float, *, data: dict[str, object]) -> dict[str, object]:
+    """The log's first record: its layout version, the grid, the engine's cadence and the data files (``config.raw``)
+    it was played on, so a replay after a retune still runs the tuning the session had."""
+    engine = {"tick_us": ENGINE.tick_us, "physics_every": ENGINE.physics_every}
+    return {"meta": {"log": LOG_VERSION, "dx_m": dx_m, "tick_s": ENGINE.tick_us / 1e6, "engine": engine, "data": data}}
+
+
+def _check_meta(path: Path, records: list[dict[str, object]]) -> dict[str, object]:
+    meta = records[0].get("meta") if records and isinstance(records[0], dict) else None
+    if not isinstance(meta, dict):
+        raise LogRefused(f"{path.name} doesn't start with a meta record")
+    version = meta.get("log")
+    if version != LOG_VERSION:
+        raise LogRefused(
+            f"{path.name} is a {version or 'pre-version'} log; this slice reads {LOG_VERSION} only (a log replays only"
+            " on the engine it was recorded on)"
+        )
+    if meta.get("engine") != log_meta(0.0, data={})["meta"]["engine"]:  # type: ignore[index]
+        raise LogRefused(f"{path.name} was recorded at engine cadence {meta.get('engine')}, this slice runs another")
+    return meta
+
+
 @dataclass(frozen=True)
 class LogParts:
+    cfg: config.SliceConfig  # the data the session was played on
     dx_m: float
     ticks: list[list[Intent]]
     digest: str | None  # the clean end's, or None
@@ -106,13 +136,35 @@ class LogParts:
     stats: list[dict[str, float]]
 
 
+def _records(path: Path) -> list[dict[str, object]]:
+    records = []
+    for number, line in enumerate(path.read_text().splitlines(), 1):
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError as exc:
+            why = f"{path.name} line {number} isn't a whole record ({exc.msg}); was the server killed mid-write?"
+            raise LogRefused(why) from exc
+        if not isinstance(record, dict):
+            raise LogRefused(f"{path.name} line {number} isn't a record")
+        records.append(record)
+    return records
+
+
 def read_log(path: Path) -> LogParts:
-    records = [json.loads(line) for line in path.read_text().splitlines()]
-    dx_m = float(records[0]["meta"]["dx_m"])
+    records = _records(path)
+    meta = _check_meta(path, records)
+    try:
+        cfg, dx_m = config.parse(meta.get("data")), float(meta["dx_m"])  # type: ignore[arg-type]
+        return _parts(cfg, dx_m, records[1:])
+    except (ValueError, KeyError, TypeError) as exc:  # LogRefused and the wire's refusals are ValueErrors too
+        raise LogRefused(f"{path.name} can't be replayed: {type(exc).__name__}: {exc}") from exc
+
+
+def _parts(cfg: config.SliceConfig, dx_m: float, records: list[dict[str, object]]) -> LogParts:
     by_tick: dict[int, list[Intent]] = {}
     end = crashed = None
     lines, stats = [], []
-    for r in records[1:]:
+    for r in records:
         if "intents" in r:
             by_tick[int(r["tick"])] = [parse(raw) for raw in r["intents"]]
         lines += [r["line"]] if "line" in r else []
@@ -124,7 +176,7 @@ def read_log(path: Path) -> LogParts:
     else:
         last = (int(crashed["tick"]) if crashed is not None else max(by_tick, default=-1)) + 1
     ticks = [by_tick.get(t, []) for t in range(last)]
-    return LogParts(dx_m, ticks, None if end is None else str(end["digest"]), crashed is not None, lines, stats)
+    return LogParts(cfg, dx_m, ticks, None if end is None else str(end["digest"]), crashed is not None, lines, stats)
 
 
 def _p95(values: list[float]) -> float | None:
@@ -166,7 +218,7 @@ def stat_numbers(stats: list[dict[str, float]]) -> dict[str, object]:
 def session_metrics(path: Path) -> dict[str, object]:
     """Every number the playtest kit asks of a session, with whether the replay can be trusted."""
     parts = read_log(path)
-    seen, sim = observe(parts.ticks, dx_m=parts.dx_m)
+    seen, sim = observe(parts.ticks, cfg=parts.cfg, dx_m=parts.dx_m)
     minutes = seen.ticks * TICK_S / 60
     counts = {k: v for k, v in asdict(seen).items() if not k.startswith("_")}
     return {

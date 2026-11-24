@@ -2,7 +2,7 @@ import ast
 import http.server
 import socketserver
 import threading
-import time
+from concurrent import futures
 from concurrent.futures import Future
 from pathlib import Path
 
@@ -15,10 +15,11 @@ SLICE = Path(__file__).resolve().parents[1] / "slice_server"
 
 
 def _wait(voice: Voice, n: int = 1) -> list:
-    lines: list = []
-    deadline = time.monotonic() + 10  # a bound on a worker thread, not a sleep: it returns as soon as lines arrive
-    while len(lines) < n and time.monotonic() < deadline:
-        lines += voice.ready()
+    """The first ``n`` lines, once their requests finish: waits on the futures, bounded, with no clock of its own."""
+    done, _ = futures.wait(voice._pending[:n], timeout=10)
+    assert len(done) == n, "the worker never finished"
+    lines = voice.ready()
+    assert len(lines) >= n
     return lines
 
 
@@ -72,8 +73,10 @@ def test_what_the_player_said_reaches_the_prompt_as_words() -> None:
 
 
 def test_the_voice_talks_only_to_a_local_model() -> None:
+    remote = "http://example.com:11434"  # shared-path-ok: refused before any connection; the test is the refusal
+    params = type(NPC.voice)(NPC.voice.model, remote, 2.5, 25, "x")
     with pytest.raises(ValueError, match="local"):
-        ollama(type(NPC.voice)(NPC.voice.model, "http://example.com:11434", 2.5, 25, "x"))
+        ollama(params)
 
 
 def test_cap_strips_stage_directions_and_quotes() -> None:
@@ -155,23 +158,45 @@ def test_ready_never_drops_a_line_that_finishes_while_it_looks() -> None:
     assert first + second == ["line"]
 
 
+def _finished(line: str, *, done: bool) -> Future:
+    f: Future = Future()
+    if done:
+        f.set_result(line)
+    else:
+        f.done = lambda: False  # type: ignore[method-assign]  # unfinished as far as ready() can tell
+    return f
+
+
+def test_ready_hands_lines_over_in_the_order_they_were_asked() -> None:
+    # Found when the slice's tests joined main's gate: the worker finished the first request and then the second
+    # between ready()'s two looks, so the second line came out first, 7 times in 40 trials.
+    voice = Voice(NPC.voice, NPC.canned, None)
+    first, second = _finished("first", done=False), _finished("second", done=True)
+    voice._pending = [first, second]
+    assert voice.ready() == [], "a later line waits for every earlier one"
+    first.set_result("first")
+    del first.done  # finished now
+    assert voice.ready() == ["first", "second"]
+
+
 def test_a_lines_latency_includes_its_time_in_the_queue() -> None:
-    # Executor S4: latency was timed from when the worker picked a request up, not from when it was asked.
+    # Executor S4: latency was timed from when the worker picked a request up, not from when it was asked. The voice
+    # reads this test's clock, so the numbers are exact and the test races nothing: the second request is picked up
+    # only after the first is released, and the clock was moved to 5 s before that.
+    now = [0.0]
     release = threading.Event()
 
     def slow(prompt: str, timeout: float) -> str:
-        release.wait(5)
+        release.wait(5)  # a bound on a worker thread, not a sleep: the test sets it at once
         return "ok"
 
-    voice = Voice(NPC.voice, NPC.canned, slow)
+    voice = Voice(NPC.voice, NPC.canned, slow, clock=lambda: now[0])
     voice.request("warn", "first")
     voice.request("warn", "second")  # waits behind the first on the single worker
-    start = time.monotonic()
-    while time.monotonic() - start < 0.2:  # let the second request age in the queue
-        pass
+    now[0] = 5.0
     release.set()
-    lines = _wait(voice, 2)
+    first, second = _wait(voice, 2)
     voice.close()
-    second = lines[1]
-    assert second.queued_s >= 0.2
-    assert second.latency_s >= second.queued_s
+    assert second.queued_s == 5.0
+    assert second.latency_s == 5.0
+    assert first.latency_s == 5.0

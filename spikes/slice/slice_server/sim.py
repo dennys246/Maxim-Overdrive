@@ -1,8 +1,9 @@
 """One deterministic tick of the slice: intents, then bodies, then fire, then physics (the tile spec's tick order).
 
-No clock and no IO here: ``Sim.step`` takes the tick's intents and advances exactly ``tick_s`` of simulated time, so
-the same intents give the same state, which is what replay checks (``replay``). The server paces it to the wall
-clock from outside. Every change to the world goes through the applier; the fire and the body's heat only decide.
+No clock and no IO here: ``Sim.step`` takes the tick's intents and runs exactly one tick of the engine's
+``Simulation``, so the same intents give the same state, which is what replay checks (``replay``). The server paces it
+to the wall clock from outside. The fire and the body's heat only decide; every change to the world is a record the
+tick hands to ``Simulation.step``, which applies them through the applier in one write window, then runs physics.
 """
 
 from __future__ import annotations
@@ -10,18 +11,19 @@ from __future__ import annotations
 import hashlib
 import math
 import struct
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import astuple, replace
 
 import numpy as np
 
 from maxim_overdrive import data
-from simcore.core.applier import Applier
+from simcore.core.applier import Outcome
 from simcore.core.frames import CellFrame
-from simcore.core.intents import Extinguish, Ignite
+from simcore.core.intents import RECORD_KIND_OF, Action, Extinguish, Ignite, LogRecord
 from simcore.core.intents import Strike as StrikeAction
 from simcore.core.scene import Box
-from simcore.core.world import World
+from simcore.core.simulation import SimConfig, Simulation
+from simcore.core.world import HeatSource, World
 from slice_server import alley, heat_debt, npc
 from slice_server.body import Body, Cells, Command, blocked, check_no_tunnelling, impulse, step
 from slice_server.config import NPC_STATES, SliceConfig
@@ -30,15 +32,27 @@ from slice_server.intents import Intent, Kindle, Move, Say, Strike
 from slice_server.reach import nearest_in_front
 
 CHEST_M = 1.0  # where on the body radiation and air temperature are read, above the feet
+PLAYER, FIRE = 1, 2  # the records' actor ids; a tick's records are handed over in the log's key order
+TICK_US = 100_000
+# Physics on every tick (the engine's default is every fifth). Not for the numbers: the same scripted run gives the
+# same event ticks at both cadences (review, 2026-11-23). For the digest: at one tick per physics step the engine
+# carries no source history from tick to tick, so ``Sim.digest`` covers every state a later tick depends on. At five,
+# the exposure's segments outlive a tick and nothing outside the engine can read them, so two diverged runs could
+# share a digest. The engine's own per-tick digest (step 5a, PR 4b) ends the reason.
+ENGINE = SimConfig(tick_us=TICK_US, physics_every=1)
 
 
 class Sim:
     def __init__(self, config: SliceConfig, *, dx_m: float = 0.2, tick_s: float = 0.1) -> None:
+        if round(tick_s * 1_000_000) != TICK_US:
+            raise ValueError(f"the slice runs the engine's {TICK_US} us tick, not {tick_s} s")
         check_no_tunnelling(config.body, tick_s, dx_m)
         self.config, self.tick_s, self.tick = config, tick_s, 0
         scene, table = alley.scene(), data.materials()
-        self.world = World.from_scene(scene, table, dx_m=dx_m, limits=data.action_limits())
-        self._applier = Applier(self.world)  # the only way the slice changes the world
+        self._world = World(scene.build(table, dx_m=dx_m), limits=data.action_limits())  # read only for its sources
+        self._engine = Simulation(self._world, config=ENGINE)
+        self._pending: list[tuple[int, str, Action]] = []  # this tick's records: actor, target, action
+        self._seq = {PLAYER: 0, FIRE: 0}
         self.body = Body(*alley.SPAWN_M, feet_z=alley.FLOOR_TOP_M)
         self.command = Command()
         self.heat = heat_debt.start(config.heat)
@@ -53,7 +67,7 @@ class Sim:
             raise ValueError(f"the vendor's stall ({v.stall_x}, {v.stall_y}) is inside a solid")
 
     def _check_fits_the_limits(self) -> None:
-        limits, radius = self.world.limits, self.config.fuel.fire.source_radius_m
+        limits, radius = self._engine.limits, self.config.fuel.fire.source_radius_m
         if not limits.min_radius_m <= radius <= limits.max_radius_m:
             raise ValueError(f"fire.source_radius_m {radius} is outside the action limits")
         for fuel in self.fire.fuels.values():
@@ -66,8 +80,13 @@ class Sim:
             raise ValueError(f"a strike's energy is over the action limits' {limits.max_energy_j:.0f} J")
 
     @property
+    def sources(self) -> Mapping[str, HeatSource]:
+        """The world's heat sources, read-only: what the fire's decisions became in the world."""
+        return self._world.sources
+
+    @property
     def frame(self) -> CellFrame:
-        return self.world.frames.latest.cells
+        return self._engine.frames.latest.cells
 
     def step(self, intents: Sequence[Intent]) -> list[dict[str, object]]:
         """One tick. Returns the events it caused, for the client and the session log."""
@@ -82,9 +101,31 @@ class Sim:
         for decision in decisions:
             self._apply(decision)
         events += fire_events + self._after_fire(fire_events)
-        self.world.advance(self.tick_s)
+        self._run_engine_tick(events)
         self.tick += 1
         return events
+
+    def _submit(self, actor: int, target: str, action: Action) -> None:
+        self._pending.append((actor, target, action))
+
+    def _run_engine_tick(self, events: list[dict[str, object]]) -> None:
+        """Hand the tick's records to the engine, which applies them and runs physics in one window, and check each
+        was applied: reach and powers were checked against the limits before submitting, so a refusal is a bug."""
+        records = []
+        for actor, target, action in self._pending:
+            self._seq[actor] += 1
+            kind = RECORD_KIND_OF[type(action)]
+            records.append(LogRecord(self._engine.tick, 0, actor, self._seq[actor], kind, target, action))
+        self._pending = []
+        records.sort(key=lambda r: r.key)
+        report = self._engine.step(records)
+        for record, outcome in zip(records, report.outcomes, strict=True):
+            if not outcome.success:
+                raise RuntimeError(f"the applier refused the {record.kind} on the {record.target}: {outcome.error}")
+        strikes = iter(o for r, o in zip(records, report.outcomes, strict=True) if r.kind == "strike")
+        for event in events:
+            if event["what"] == "strike" and event["ok"]:
+                event["destroyed_m3"] = _destroyed_m3(next(strikes))
 
     def _take(self, intent: Intent) -> dict[str, object] | None:
         if isinstance(intent, Move):
@@ -127,9 +168,7 @@ class Sim:
             # books flame radiation. Without the debit, radiation would add energy on top of the world's.
             fire = self.config.fuel.fire
             action = Ignite(decision.power_w * (1.0 - fire.radiant_fraction), fire.source_radius_m)
-        outcome = self._applier.apply(decision.region, action)
-        if not outcome.success:  # the powers were checked against the limits at start: this is a bug, say so
-            raise RuntimeError(f"the applier refused the fire's {decision}: {outcome.error}")
+        self._submit(FIRE, decision.region, action)  # powers were checked against the limits at start
 
     def _kindle(self) -> dict[str, object]:
         burnable = ((n, f.bounds) for n, f in self.fire.fuels.items() if not f.burnt_out)
@@ -153,15 +192,12 @@ class Sim:
         overdrive = self._effective(self.command).overdrive
         point = nearest_point(self.frame.regions[target].footprint.bounds_m, self._chest())
         energy = s.overdrive_energy_j if overdrive else s.energy_j
-        outcome = self._applier.apply(target, StrikeAction(energy, s.sigma_m, point))
-        if not outcome.success:  # reach and limits were checked here: a refusal is a bug, say so
-            raise RuntimeError(f"the applier refused a strike on the {target}: {outcome.error}")
+        self._submit(PLAYER, target, StrikeAction(energy, s.sigma_m, point))  # applied at the tick's end
         if overdrive:
             heat_debt.add_heat(self.heat, self.config.heat, s.overdrive_heat_j)
             impulse(b, -math.cos(b.yaw) * s.recoil_ns, -math.sin(b.yaw) * s.recoil_ns, self.config.body)
-        destroyed = float(outcome.metadata.get("destroyed_volume_m3", 0.0))
         return {"type": "event", "what": "strike", "region": target, "ok": True, "overdrive": overdrive,
-                "energy_j": energy, "destroyed_m3": destroyed}  # fmt: skip
+                "energy_j": energy, "destroyed_m3": 0.0}  # fmt: skip  # filled in once the engine applies it
 
     def _vendor_step(self, cells: Cells) -> list[dict[str, object]]:
         """Perceive (by oracle), decide, move, and douse through the fire and the applier."""
@@ -213,7 +249,8 @@ class Sim:
 
     def digest(self) -> str:
         """Every bit of state that replay must reproduce, and that later ticks depend on: cells, body, command, heat,
-        the vendor, the fires (their growth clocks included) and the world's heat sources."""
+        the vendor, the fires (their growth clocks included) and the world's heat sources. Complete only because
+        physics runs every tick (``ENGINE``)."""
         f, h = self.frame, hashlib.sha256()
         for array in (f.material, f.integrity, f.temperature):
             h.update(array.tobytes())
@@ -227,10 +264,14 @@ class Sim:
         numbers.append(NPC_STATES.index(self.vendor_state))
         for fuel in self.fire.fuels.values():
             numbers += [fuel.fuel_kg, fuel.skin_c, fuel.released_j, fuel.burning, fuel.burnt_out, fuel.burning_s]
-        numbers += [src.power_w for _, src in sorted(self.world.sources.items())]
+        numbers += [src.power_w for _, src in sorted(self.sources.items())]
         h.update(struct.pack(f"<{len(numbers)}d", *(float(n) for n in numbers)))
         h.update(struct.pack("<qd", self.tick, f.time_s))
         return h.hexdigest()
+
+
+def _destroyed_m3(outcome: Outcome) -> float:
+    return float(sum(e.destroyed_volume_m3 for e in outcome.effects))
 
 
 def _fuels(config: SliceConfig, primitives: Sequence[object], table: object) -> dict:

@@ -90,26 +90,27 @@ The tables are column-major numpy arrays, registered and sorted by integer key:
 
 ### 1.3 Representation, overlap, regions and limits
 
-**Representation is authored.** Fuel recipes are objects at every spacing. Structural materials are cells (concrete,
-steel, glass, drywall, and `wood` cells such as a plank wall). Wood cells keep today's thermal and damage laws and no
+**Representation is `subcell_solids.md` §2.2's rule:** fuel recipes are objects at every spacing, and other
+parts are objects or cells by their thinnest dimension in µm. Wood cells keep today's thermal and damage laws and no
 fire law; a burning wall is out of Phase 1, a Known gap (D-S4).
 
-**Overlap is judged on authored geometry in metres, never on cells:**
-- A fuel object may not overlap another fuel object, or any solid region's footprint, by more than 1 mm. That extends
-  today's imagined rule (`imagination._within_world_rules` refuses overlap with a solid footprint). Containers
+**Overlap and contact are judged on present geometry in µm** (`subcell_solids.md` §4), never on cells:
+- A fuel object may not overlap another fuel object, or any solid region's present geometry, by more than 1 mm. That
+  extends today's imagined rule (`imagination._within_world_rules` refuses overlap with a solid footprint). Containers
   (cardboard in the crate) come with 6.2's bed.
-- A structural `place` may not overlap a fuel object. Today `_voxelize` tests `mask & grid.solid` only.
+- Overlap with any part is `space_taken`.
 - An object partly outside the world is refused. Today's `place` catches only one entirely outside.
 
-**Contact** between a segment face and a solid cell face needs a separation ≤ 1 mm and an overlap over 1 mm along
-each face axis. Cell edges are integer micrometres (F13). By float edges, an object on [0.3, 0.5] m left a
-5.55×10⁻¹⁷ m sliver at 0.1 and 0.05 m and none at 0.2 m (D, DP FS-S2). `holds_fuel` uses the same metric threshold.
-It has no 6.0–6.1 consumer, so it is built with its first (6.2, or `kindle` in 6.4).
+**Contact** between a segment face and a solid region's present face (`subcell_solids.md` §4.1; before S1, its authored
+primitives) needs a separation ≤ 1 mm and an overlap over 1 mm along each face axis, in integer micrometres (F13). Float
+edges once left a 5.55×10⁻¹⁷ m sliver at 0.1 and 0.05 m and none at 0.2 m (D, DP FS-S2). `holds_fuel` uses the same
+metric threshold. It has no 6.0–6.1 consumer, so it is built with its first (6.2); 6.1b's `kindle` uses geometry.
 
 **Regions.** In 6.0–6.1 each fuel object names a new region (a scene's `region:` must not exist yet; a spec's
-`name`, as today). A region is then cells only or objects only; mixing comes with 6.2.
+`name`, as today). Mixed regions come with `subcell_solids.md` S1 (its §4.3).
 
-**World limits** (`data/world/limits.yaml`) are checked before allocation by scene build and `place`:
+**World limits** (`data/world/limits.yaml`; structure's in `subcell_solids.md` §3.1) are checked before allocation by
+scene build and `place`:
 
 | Limit | Value | Basis |
 |---|---|---|
@@ -137,19 +138,20 @@ An `imagine` is applied in its own window, between physics steps:
 
 ## 2. Occupancy, regions and the consumers
 
-**Acts and readings stay on cells in 6.0–6.1.** An object-only region is refused by every act and reading with one
-code, `fuel_only_region`, until 6.2 defines strike, fire and integrity on objects. `temperature_*` and the rest of
-`frames.QUANTITIES` keep their cell-only meaning, pinned by a test. An object quantity, when needed, gets a new name
-(F1) as a lab instrument under `tests/`, never in `QUANTITIES` or on an NPC builder (`boundaries.md` §4.4).
+**Acts and readings stay on cells until `subcell_solids.md` S3** (its §2.3). An act but `kindle` from 6.1b
+(`torch_pilot.md` §3) reaches only a region's cell parts, with no new code; readings and `region_parts` refuse an
+object-only region. `temperature_*` and the rest of `frames.QUANTITIES` keep their cell-only meaning, pinned by a test.
+An object quantity, when needed, gets a new name (F1) as a lab instrument under `tests/`, never in `QUANTITIES` or on
+an NPC builder (`boundaries.md` §4.4).
 
 Each consumer that asks "is something here", read at 396ae10:
 
 | Consumer | Today | 6.0–6.1 |
 |---|---|---|
 | `grid.Region.solid` | set once: at `paint` (`solid=mid != AIR_ID`), or `True` when imagined | unchanged |
-| `applier._check_region` | refuses unknown, `not solid` ("is air"), `not cells.any()` ("is gone") | refuses `fuel_only_region` first |
+| `applier._check_region` | refuses unknown, `not solid` ("is air"), `not cells.any()` ("is gone") | a region with a live object isn't gone (`subcell_solids.md` §4.3) |
 | `applier._on_region` | strike-point ownership from footprints and others' `solid`; refuses nothing | unchanged; no fuel sits in a solid footprint |
-| `World._power_field` | `frac * grid.solid`, falling back to air (Known gap) | unchanged; guarded (§3.1) |
+| `Deposit` | `frac * grid.solid`, falling back to air (Known gap) | unchanged; guarded (§3.1) |
 | `bridge.region_parts`, `StructureModulator` | `frame.is_solid`; an instrument per `QUANTITIES` entry; `strike`, `ignite`, `extinguish` | `region_parts` refuses an object-only region; affordances pinned |
 | `frames.Frame.reading` | cell reductions; `region_integrity` is 0.0 with no solid cells | refuses an object-only region, never 0.0 |
 | `Frame.is_solid`, `Observation.is_solid`, `CellFrame.solid` | cells | unchanged |
@@ -158,7 +160,7 @@ Each consumer that asks "is something here", read at 396ae10:
 | `scene._check_no_solid_overlaps`, `imagination._within_world_rules`, `_voxelize` | boxes, footprints, cells | plus §1.3's metric rules |
 | `encoding.snapshot` | `* frame.solid` masks | unchanged; no objects on the wire (§5.6) |
 | The digest (today's helper hashes `region.solid`) | cells, regions, sources, clock | plus `FuelStore`; empty tables add no bytes |
-| `kindle`'s target (fire_model §2.2) | none | 6.4 (Bio N1), by a metric nearest-surface query |
+| `kindle`'s target | none | 6.1b, `torch_pilot.md` §3 |
 
 ## 3. Coupling between objects and the grid
 
@@ -166,9 +168,9 @@ Each consumer that asks "is something here", read at 396ae10:
 
 **Every exposed object surface loses h_c(T_s − T∞) + εσ(T_s⁴ − T∞⁴) to the ambient reservoir:** tile 6a (§1.2,
 §5.2) on object surfaces, booked as tile §5.4's `open_air_loss`. Nothing an object loses enters an air cell.
-- **Why:** Phase 1 air has no advection, so heat put into it pools by an amount set by dx. `World._power_field`
+- **Why:** Phase 1 air has no advection, so heat put into it pools by an amount set by dx. `Deposit`
   refuses air for the same reason. For a cone sample the rule is literally true.
-- **It is permanent for Phase 1,** a Known gap rather than a `TEMPORARY` marker, recorded in `docs/architecture.md`
+- **It is permanent for Phase 1,** a Known gap rather than a `TEMPORARY` marker, recorded in `docs/known_gaps.md`
   in 6.0b's commit with its costs:
   - hot gas never preheats fuel: an object at 200 °C inside 200 °C cells still loses about 4.5 kW/m² (2.3 convective,
     2.2 radiative; D, Physics §4);
@@ -177,7 +179,7 @@ Each consumer that asks "is something here", read at 396ae10:
 - **The plume** leaves the open-topped alley (tile §1.2). Preheating from hot gas would be a new law 6.2 may design,
   not a stub it owes.
 - **The guard:** a test sums each law's power into `material == AIR_ID` cells and requires zero, except
-  `_power_field`'s fallback, whose Known gap has its strict red gate
+  `Deposit`'s fallback, whose Known gap has its strict red gate
   (`tests/test_cross_tier.py::test_a_fire_that_has_burned_its_fuel_stops_heating`). Sending an object's loss to its
   cells turns it red.
 
@@ -242,10 +244,11 @@ grid-free unit tests (Executor S11).
 
 ### 4.4 Ignition, the flame's flux and extinction, in a cone
 
-- **Pilot:** the cone's spark, present by definition; unpiloted ignition is refused (fire_model §3.2). It adds no
+- **Pilot:** the cone's spark, present by definition (shipped: `torch_pilot.md` §5). It adds no
   energy, so it has no ledger line (Physics N3).
 - **Flash:** a segment's unignited part attaches a flame when its per-m² mass flux reaches m''_flash.
-- **While flaming,** the part gets a prescribed flame flux q''_fl, as a gauge would read it, and its convective loss
+- **While flaming,** the part gets a prescribed flame flux q''_fl from the solid law (TP2), as a
+  gauge would read it, and its convective loss
   is off: the flame sits on that surface (Physics S4). Re-radiation stays.
 - **Extinction:** when the flaming part's mass flux falls below m''_ext.
 - **Hysteresis:** the loader refuses m''_ext ≥ m''_flash. That is a pre-registered model choice (a flame, once
@@ -352,7 +355,7 @@ here did.
   - `name_in_two_namespaces` (a recipe named `wood`, a material; Wire N-S6);
   - `duplicate_id` (retired ids are listed, like 5a's retired verbs);
   - `variant_bounds` (min > max, non-finite, a default out of bounds);
-  - `range_exceeds_limits`;
+  - `range_exceeds_limits`, with slabs ≤ 2 mm (`torch_pilot.md` §3);
   - `joint_loading`, checked at every corner of the variant box: loadings past the void, inconsistent bulk density,
     retention caps (Wire N-S5).
 - **Recipes load in sorted path order,** and ids come from the files, never glob order. The game's recipes arrive
@@ -368,18 +371,17 @@ here did.
   `kind` (`rod` with a finite non-zero axis, or `slab`), metric geometry, a new region. Scenes are repo-only, so the
   older version gets a bump and a refusal test, not a migration (`checklists.md` 3b).
 - **Spec v1:** `name`, recipe, admitted kind, geometry in range and closed variant keys; out of range is refused,
-  never clamped; checked against `Budget` and the remaining limits with `pending` counted. Structural imagining keeps
-  today's unversioned `{name, primitives}`, which nothing persisted, so no migration (Wire N-S6).
+  never clamped; checked against `Budget` and the remaining limits with `pending` counted. One tagged format with
+  structural parts; today's unversioned form is v0, migrated (`subcell_solids.md` §11.2).
 - **The caller** is step 5's `imagine` intent, reached in Phase 1 only through logged intents and tests (T16): a thin
   caller (A-S6, D-S11).
 
 ### 5.3 Refusal codes
 
 In tile §3.4's enum, each tested at its gate:
-- **Acts and readings:** `fuel_only_region`.
-- **Spec and scene:** `unknown_recipe`, `kind_not_admitted`, `geometry_out_of_range`, `bad_axis`,
-  `unknown_variant`, `variant_out_of_range`, `joint_loading`, `overlaps_fuel`, and 3b's `space_taken`,
-  `outside_extent`, `name_taken`, `over_budget`.
+- **Spec and scene:** `unknown_recipe`, `kind_not_admitted`, `bad_axis`, `unknown_variant`, `variant_out_of_range`,
+  `joint_loading`, and the existing `out_of_range`, `space_taken`, `outside_extent`, `name_taken`, `over_budget`; shared
+  with `subcell_solids.md` §11.3.
 - **Limits:** `world_limit_objects`, `_segments`, `_nodes`, `_area`, `_contact`; `object_ids_exhausted`,
   `region_ids_exhausted`.
 - **Loaders:** 3b's `bad_version` per file, and §5.1's catalogue codes.
@@ -392,7 +394,7 @@ In tile §3.4's enum, each tested at its gate:
   `np.sum` over a gathered subset (DP-S2: 56 of 200 mismatches).
 - **Ledger,** in tile §5.4's equation:
   - storage: Δ(nodes) sensible, Δ(inventory) at reference enthalpies, Δ(skins);
-  - input: `incident_absorbed`, which only the cone harness supplies in 6.1, its test ledger naming the heater and
+  - input: `incident_absorbed`, supplied by the cone harness and the torch, its test ledger naming the heater and
     the prescribed flame;
   - output: `open_air_loss`, `contact_to_cells`, `pyrolysate_out` (gas products at their temperature),
     `removed_with_mass`.
@@ -403,7 +405,7 @@ In tile §3.4's enum, each tested at its gate:
 
 6.0–6.1 builds no save. Step 9 takes:
 - a version, a loader (decoding in loaders, construction in the core), a gate row, a round trip and a golden;
-- every `FuelStore` table but `contact`, plus `pending` and the counter; `contact` rebuilt on load, never read;
+- every `FuelStore` table but `contact`, plus `pending`, the counter and pilots (`torch_pilot.md` §2); `contact` rebuilt on load, never read;
 - name maps for `recipe_id` and `region_id`, remapped by name;
 - offsets monotone, in bounds and matching the segments' parts; per-part node counts equal to the recipe's node rule
   for the saved geometry; thicknesses positive and summing; part areas summing; the counter above the largest id;
@@ -461,9 +463,8 @@ This review's findings are in `reviews/fire_solid/fold.md`. Every delta-round-1 
 |---|---|
 | This design | P2-B1, D-B1, NB1 (§3.1); NS1, P2-B2 (§4.4); N-B1, N-B2 (§1.3, §1.4); NS2, WT-B1, N-S1 (§2); N-S4, D-S1 (§0, §5.1); N-S5, N-S6, N-N4, D-S11 (§5.1, §5.2); N-S3, D-N1 (§5.6); N-S7, D1-S4 (§1.1, §5.5); N-N1 (§4.1); P2-S3, D1-S9, NS6, NN6 (§6); P2-S2 (§3.2); NN4 (§4.5); D-S4 (§1.3); D-S6 (§1.1, below); D-N5 (§0); P2-N1 (§4.4, the cone's spark) |
 | The 6.2 design | D1-B1, D1-B2, D1-S1, D1-S3, D1-S5–S8, D1-N1–N3, D-S10, P2-S1, P2-S4, P2-S5, P2-S7, P2-N2, P2-N3, NB2, NS3–NS5, NS7, NN1–NN3, N-N3, D-S8, D-S9 (with the owner), A-S4 (round 1); D1-S2 (6.1 runs awake); P2-S6 (also §3.1's Known gap); D-S3 (every structural face) |
-| 6.4, with `kindle`'s pilot | A-S2, NS8, D-S5 (red gates, `TEMPORARY` ceilings); N-S2, N-N2, NN5 |
+| `kindle`'s pilot, [`torch_pilot.md`](torch_pilot.md) | A-S2, NS8, D-S5 (red gates, `TEMPORARY` ceilings); N-S2, N-N2, NN5; D-S2 (§9) |
 | fire_model's next revision, before the 6.2 design | D-N2, D-N3 (`douse` lands with 6.2's acts), D-N4, NN7 |
-| The tile §6 revision, before step 8 | D-S2 |
 | The client design pass, before step 8 (`client_objects.md`) | D-B2 |
 | A note to the step 5 plan, before vocabulary v1 | D-S7, WT-S5 |
 
@@ -479,13 +480,13 @@ for segment temperature; fire_model §2.2's "SEM … read" is corrected in fire_
 | Recipe, component, reaction and limit types; `FuelCatalogue` | 1 | `core/chemistry.py`; `WorldLimits` in `core/limits.py` |
 | Rod and slab geometry; metric overlap and contact tests | 2 | `core/fuel_geometry.py` |
 | `FuelStore`, tables, `pending`, window | 3 | `core/fuel.py` |
-| The solid: conduction, absorption, kinetics, regression, flash, extinction | 4 | `core/solid.py` |
+| The solid: conduction, absorption, kinetics, regression, flash, q''_fl, extinction | 4 | `core/solid.py` |
 | Contact rows, skins, exchange | 4 | `core/coupling.py` |
 | Scene `fuel:`; spec v1 | 5a | `core/scene.py`, `core/imagination.py` |
-| `fuel_only_region`, insertion, the composed window | 6 | `core/applier.py`, `core/world.py` |
+| Insertion, the composed window | 6 | `core/applier.py`, `core/world.py` |
 | The fuel view, `FuelFrame` | 6 | `core/frames.py` |
 | Loaders | 7a | `adapters/loaders.py` |
-| The cone harness (heater, prescribed q''_fl, spark) and its test ledger | — | `tests/fire/` |
+| The cone harness (heater, spark) and its test ledger | — | `tests/fire/` |
 
 The core keeps its banned imports: no IO, no clock.
 
