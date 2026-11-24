@@ -15,3 +15,4 @@ ruling's contract in its owner section and links here. -->
 | TP7 | **The exit uses a longer plank with a cone-sized burning patch**, not a 0.1 m square. | owner, 2026-11-22 | `torch_pilot.md` §6 | live |
 | TP8 | **Tile §6.3 item 7's 2× band margin joins B30's list** of round-number bars to derive or cite. | owner, 2026-11-22 | `docs/standards_backlog.md` B30 | live |
 | TP9 | **`torch_pilot.md` §10's documentation edits are made on this branch**, before merge. Its code and data edits are 6.1b's. | owner, 2026-11-22 | `torch_pilot.md` §10 | live |
+| TP10 | **A cell region is a `kindle` candidate by authored geometry, as `applier._check_region`'s "gone" is:** destruction never removes one, since whether any cell survives depends on the grid spacing (merge round A-B1). | owner, 2026-11-23 | `torch_pilot.md` §3 | live |

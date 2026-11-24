@@ -56,9 +56,10 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   check the bound actor and append the intent to the stepping agent's outbox.
 - **Parked: one file per record (owner, 2026-11-23).** `phase1/records-layout` (pushed, no PR) holds the design
   `docs/design/records_layout.md`: each lesson, decision, Known gap and backlog row in its own file, every index
-  generated from them, and id collisions caught mechanically. Its round-1 review, on that branch, found three
-  BLOCKERs, none folded: committed generated indexes bring the merge conflicts back (A-B1), and a CI result that goes
-  stale when `main` moves still lets a duplicate id merge (C1, W1). The owner ruled it unfinished for the first base
+  generated from them, and id collisions caught mechanically. Its round-1 review, on that branch, found eleven
+  BLOCKERs (A-B1–A-B4, C1–C3, W1–W4; C1 and W1 are one defect), none folded. Among them: committed generated indexes
+  bring the merge conflicts back (A-B1), and a CI result that goes stale when `main` moves still lets a duplicate id
+  merge (C1, W1). The owner ruled it unfinished for the first base
   tag. **Trigger:** the first step after the tag and its planning session, run as the only active session before the
   fan-out, because it touches every shared record file.
 - **Exit (the fire fallback, owner, 2026-11-20):** walk into the alley, light a slab with the torch, and watch it

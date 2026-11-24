@@ -338,6 +338,8 @@ step 8's exit script. Its tests to write (mechanisms deferred here by the review
 - §9.4's controls, each proved by deletion: beat 8's by a flame flux on a part that isn't flaming (E2-S2); the face
   control's by projecting the disc, from a side point more than 1 mm below the top edge (E2-N5, D2-S3); the
   strip-halving times interpolated; and §7's strict red gate;
+- a cell region destroyed to its last cell stays a candidate at every grid (TP10); U4 (`generation_harness.md`)
+  judges ignition with §5's pilot condition, so a hold short of the band or a burnt-out target is no engine defect;
 - a cell-target `kindle` deposits nothing and heats no air (§4.1); T11's sweep (`sem_stimuli.md` §6.2) covers it and
   the off-face case;
 - the two delays for OD-A16 (§12): `kindle` to `t_flash` at the exit, with its spread, and the receipt to the first

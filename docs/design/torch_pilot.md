@@ -3,7 +3,7 @@
 **Scope.** The question that blocks step 8's exit scenario (`docs/plans/checklists.md` step 6, "Added by D-B2"): how
 a `kindle` ignites a slab when Phase 1 has no flame object. Phase 1's exit is the roadmap's (Phase 1, "Exit"). Flame
 objects, and with them fire_model §5.4's flame-object pilot, are 6.2's, in Phase 2 (`client_objects.md` §1). Both
-rounds' reports and folds are in `reviews/torch_pilot/`; the owner's rulings, TP1–TP9, in `decisions/torch_pilot.md`.
+rounds' reports and folds are in `reviews/torch_pilot/`; the owner's rulings, TP1–TP10, in `decisions/torch_pilot.md`.
 
 **What this document owns** (one owner per contract):
 - the pilot record (§2);
@@ -99,8 +99,9 @@ solid, or far from everything), the act is `not_on_surface`.
     `fire_solid.md` §1.4);
   - every solid cell region, by its authored solid primitives, minus carved air once world_model §5's CSG lands. It
     is never measured by its cells, whose faces move with dx, nor by `scene.py::footprint_of`'s bounding box.
-  - A cell region with no solid cell left is no candidate. A crater is not seen: the authored primitives stand
-    (§7), which is fruitless in Phase 1, since cells take no deposit.
+  - A cell region is a candidate until authored geometry (a later paint) has taken every cell, as the applier's
+    "gone" is (TP10). Destruction never removes one, nor is a crater seen: the authored primitives stand (§7), which is
+    fruitless in Phase 1, since cells take no deposit.
   - When the sub-cell solids design lands, its objects of every role join, by its own states (TP1).
 - **Distances** are f64 point-to-geometry distances in metres, from `point_mm` ÷ 1000 and the authored geometry
   (fire_solid §1.1 holds it in f64), by one fixed formula per kind. `centre_m` is stored unrounded.
@@ -216,7 +217,7 @@ solid, or far from everything), the act is `not_on_surface`.
   a validation gap, not a verified law.
 - **Energy beyond the face is lost:** none at r = W/2, 22% at r = 0.075 m, and 39% at r = W (D).
 - **A slab's sides and underside take no footprint** (one segmented face in 6.1).
-- **The target rule doesn't see craters:** a cell region is its authored primitives until it has no solid cell left.
+- **The target rule doesn't see destruction:** a cell region is its authored primitives, craters and all (TP10).
 - **The floor, not the cone's Kaowool, backs the exit slab,** so its back-face behaviour is a prediction.
 - **A cone-fitted q''_fl applies to every flaming part** (TP2): an extrapolation beyond the cone.
 - **Torch and flame fluxes add after flash** (§4.2), but two impinging flames share one boundary layer, so their gains
@@ -293,14 +294,14 @@ second pilot on the slab from another actor. Across machines, only the class is 
 | Out stays out | apply q''_fl to a part that isn't flaming: beat 8 |
 
 **None of the four `ignite` red gates is rewritten onto this design** (NS8, D-S5, A-S2):
-- `test_a_fire_that_has_burned_its_fuel_stops_heating` guards `World._power_field`'s fallback into air.
+- `test_a_fire_that_has_burned_its_fuel_stops_heating` guards `core/deposit.py::Deposit`'s fallback into air.
 - `test_the_fiercest_allowed_fire_…` reads cell integrity.
 - `test_a_fire_on_a_region_carved_hollow_…` guards the centroid rule.
-- `test_the_crate_is_badly_burned_at_the_same_turn_at_every_rig`, whose trigger is Phase 2's.
+- `test_the_crate_is_badly_burned_at_the_same_time_at_every_rig`, whose trigger is Phase 2's.
 
 The pilot touches none of them. At 5b, when `ignite` leaves the vocabulary, their precondition moves to 5b's sphere
 `kindle` on a cell region, which uses the same `HeatSource` path, so each stays red on its own subject. At 6.1b the
-sphere deposit, its last producer, goes, and with it `HeatSource`, `sources`, `source_exposure` and `_power_field`:
+sphere deposit, its last producer, goes, and with it `HeatSource`, `sources`, `source_exposure` and `Deposit`:
 one recorded digest break with the pilots member (§2). Each gate and Known gap then closes by that deletion, recorded.
 That is TP6, under which fire on structural cells leaves Phase 1. Today's `douse` removes a source, so it loses its
 subject too: until 6.2's water sink (D-N3), a `douse` is applied and fruitless, a Known gap. It has no wire message in
