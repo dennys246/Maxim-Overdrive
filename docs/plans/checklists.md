@@ -277,7 +277,8 @@ fails.
 - `move` and `move_to` as ordinary intents (AR-B2).
 - The Frame's cells part and per-tick body table, and the dial-invariance test (BF-B1).
 - The alley fixture and its B5 meters (EX-S1).
-- The pilots table and `path_version`; the Frame publication rule (DC-S2).
+- The pilots table and `path_version`; the Frame publication rule (DC-S2). The pilots table brings the wire's `i32`
+  dtype, a protocol bump and the refusal of a tick past 2³² − 1 (TP11).
 - Body radiation (skin view factors, the flame as a point source) with its closed forms: a clamped two-capacity box
   and a fixed point source (DPH-S4).
 - `join` records carry `body_key`, the archetype name and the held item's name.

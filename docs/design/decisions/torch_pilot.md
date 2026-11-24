@@ -16,3 +16,4 @@ ruling's contract in its owner section and links here. -->
 | TP8 | **Tile §6.3 item 7's 2× band margin joins B30's list** of round-number bars to derive or cite. | owner, 2026-11-22 | `docs/standards_backlog.md` B30 | live |
 | TP9 | **`torch_pilot.md` §10's documentation edits are made on this branch**, before merge. Its code and data edits are 6.1b's. | owner, 2026-11-22 | `torch_pilot.md` §10 | live |
 | TP10 | **A cell region is a `kindle` candidate by authored geometry, as `applier._check_region`'s "gone" is:** destruction never removes one, since whether any cell survives depends on the grid spacing (merge round A-B1). | owner, 2026-11-23 | `torch_pilot.md` §3 | live |
+| TP11 | **The pilots table ships with 5b, not step 7,** with an `i32` wire dtype for `centre_mm`, a protocol bump and the refusal of a tick past 2³² − 1. TP5's layout stands; step 7's shipped catalogue has no `i32` (merge round W-S2). | owner, 2026-11-23 | `tile_and_client.md` §2.2 | live |

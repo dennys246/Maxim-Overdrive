@@ -3,7 +3,7 @@
 **Scope.** The question that blocks step 8's exit scenario (`docs/plans/checklists.md` step 6, "Added by D-B2"): how
 a `kindle` ignites a slab when Phase 1 has no flame object. Phase 1's exit is the roadmap's (Phase 1, "Exit"). Flame
 objects, and with them fire_model §5.4's flame-object pilot, are 6.2's, in Phase 2 (`client_objects.md` §1). Both
-rounds' reports and folds are in `reviews/torch_pilot/`; the owner's rulings, TP1–TP10, in `decisions/torch_pilot.md`.
+rounds' reports and folds are in `reviews/torch_pilot/`; the owner's rulings, TP1–TP11, in `decisions/torch_pilot.md`.
 
 **What this document owns** (one owner per contract):
 - the pilot record (§2);

@@ -145,8 +145,8 @@ Frozen per tick, replaced by `Simulation.step`; column-major, integer keys, no s
 
 38 B per actor (derived). **Pilots** are a second per-tick table (DC-S4): `actor_id` (u32), `seq` (u32), `region_id`
 (u16), `object_id` (u32), `centre_mm` (3 × i32) and `end_tick` (u32), 30 B each: one row per live pilot of
-`torch_pilot.md` §2 (TP5), `centre_mm` rounded half to even from its metres. A tick past 2³² − 1 is outside v0; step 7
-names the refusal.
+`torch_pilot.md` §2 (TP5), `centre_mm` rounded half to even from metres. 5b ships it with an `i32` dtype, a protocol
+bump and a refusal for ticks past 2³² − 1 (TP11).
 
 ### 2.3 Movement in integers
 
