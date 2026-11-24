@@ -23,5 +23,5 @@ did" column is the author's account; the status column is the delta reviewer's, 
 | Det N4: `ready()` after `close()`, and lines undrained at close | Not changed: latent, never on the shipped path; open | |
 
 Found outside the review while folding: `spikes/specgen/test_spike.py` (another session's spike, run by hand by its
-own docstring) has one failing test on today's main, `test_m5_burns_an_accepted_spec_at_turns_of_6_s`. Reported to the
-owner, not changed here.
+own docstring) had one failing test on `7500a85`, `test_m5_burns_an_accepted_spec_at_turns_of_6_s`; #59 ported its M5,
+and on the merge with `b578761` all 73 pass. It stays outside testpaths, as its own docstring says.
