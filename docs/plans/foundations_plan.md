@@ -4,12 +4,10 @@ Where things stand, what comes next, what is open. `scripts/check_plan.py` check
 question is present (not true) and the 2,500-word budget. Source: the review in `docs/plans/reviews/`;
 `reviews/fold.md` maps each finding to where it went and keys the ids; `checklists.md` holds the steps' items.
 
-## 1. Status, as of 2026-11-20
+## 1. Status
 
-PRs #1–#13 are merged; open PRs are on GitHub. Each branch has a same-named worktree under `.worktrees/`.
-
-**Security gate.** Public again since 2026-11-22, after OD-I5's disclosure and Maxim 1.3.4's release (owner).
-Security findings still go to private notes; the roadmap's go-public items 2, 4 and 5 are still open.
+Each step's status at `v0.1.0`, with its PRs and commits, is the roadmap's ("Phase 1 at `v0.1.0`"), and so are the
+next steps (O79). Security findings stay private.
 
 ## 2. The order: tile first (D26)
 
@@ -32,7 +30,7 @@ Phase 1's exit is the roadmap's (`docs/roadmap.md`, Phase 1, "Exit").
 | 7 | `phase1/protocol` v0: `client_rendering.md` §4.1's and `tile_and_client.md` §3.3's messages, versioned; `boundaries.md` §5.3's handshake; shared fixtures (O59, O60, O61, O62, O63, O64, O65, O66, O67, O68, O69, O70, O71, O72, O73, O74); guest-join red gate | 5b, 6 (6.0b), 2, 0d | this line | `client/tests/fixtures/wire/` | both readers pass the fixtures | Wire, Trust, Concurrency, Determinism | B3, B14 |
 | 8 | The tile: the alley, movement, the client drawing snapshots, the cell shader and the fuel-object pass (never colour alone; `client_objects.md`), golden screenshots per tier | 6, 7, 0d | this line | the alley scene | the exit scenario passes automatically, then a playtest | Client and rendering, Physics | B7 |
 | 9 | Save v0: grid, scene, actor and pilots tables | 8 | this line | save fixture | round trip, golden save | Wire, Determinism | B4 |
-| 10 | Heat-debt prototype (D28): the slice (VS5), before 8; then clinic (D27) | 2 | this line | `spikes/slice/` | verdict by 2026-12-18: fun or not, and why | Client and rendering | |
+| 10 | Heat-debt prototype (D28): the slice (VS5), before 8; then clinic (D27) | 2 | this line | `spikes/slice/` | verdict by 2026-12-18: fun or not, and why; before `spikes/slice/` is deleted, `src` coverage measured with and without its tests; `src` tests first if it drops | Client and rendering | |
 
 **In parallel, off the path:**
 - **The LLM spike (O20):** a throwaway `spikes/llm/` script, no Maxim: latency, tokens, cost, NPCs per local
@@ -53,9 +51,8 @@ Phase 1's exit is the roadmap's (`docs/roadmap.md`, Phase 1, "Exit").
 
 ## 3. Maxim (`origin/main` f0b1cea4)
 
-**Done there:** the candidates doc (#1688); #1684 (OD-I1), #1685
-(OD-I3, absorbing OD-A13), #1686 (OD-I4); OD-I5 a private advisory; #1687 closed (NPCs on POSIX only); #1396 (O18's guards). OD-I2
-a nit; OD-I6, OD-I7, OD-I8 new.
+**Status:** each id's is the roadmap's Phase 3 (O76): OD-I1, OD-I2, OD-I3 (absorbing OD-A13), OD-I4, OD-I5, OD-I6, OD-I7,
+OD-I8.
 
 **Exchanged:** `erratum_1.md` sent 2026-11-18 (OD-A20, OD-A21; OD-A19 withdrawn). Maxim's answer
 (`response_4.md`): 1.4.0 planned March–May 2027; the world-seam front gate accepted.
@@ -90,6 +87,7 @@ a nit; OD-I6, OD-I7, OD-I8 new.
 | O41 | Roadmap exempt |
 | O42 | Checklists exempt from O22 |
 | O57 | Imagination |
+| O75, O76, O77, O78, O79 | After `v0.1.0`: OD-I red gates; status in Maxim's issue; one upstream lane; lock 1.3.4; next steps |
 
 **both §0:**
 

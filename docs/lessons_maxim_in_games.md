@@ -551,3 +551,19 @@ older than every fix.
 contains it. The durable fix is to make drift fail loudly instead of trusting attention: a strict red gate for each
 OD-I item that can be tested, run by the weekly drift job against the newest pymaxim, and the issue states checked
 against Maxim's GitHub. Both are proposals for the post-tag planning session, not built.
+
+### 40. An alarm that is red for our own reason hides the drift it exists to show (2026-11-23)
+
+**The weekly drift job is how a Maxim release reaches us, and it was red from its first run, for a bug of ours.**
+*Evidence:* run 45238153656, on `5960606` (2026-11-23), installed pymaxim 1.3.4 unpinned and failed all four jobs.
+Of the tests, 3,559 passed. Only two failed, both in `tests/test_check_lock.py`
+(`test_a_python_without_a_lockfile_fails` and `test_main_compares_the_lock_with_what_is_installed`). The job sets
+`MAXIM_OVERDRIVE_UNLOCKED` on purpose, those two tests don't clear it, so `check_lock.main` returns 0 where they
+expect 1. The job opened issues #60 to #63, and they sat unread through the tag. The planning session after
+`v0.1.0` found the failure only because it read the job before deciding when to move the lock.
+
+*Consequence:* the run showed two things. First, 1.3.4 breaks nothing of ours, so moving the lock is cheap (O78).
+Second, the job as it stands could never have shown that. O75's red gates depend on this job to tell us a release
+carries a fix: on a job that is already red, a gate turning red is invisible. So step 2 after the tag
+(`phase1/drift-and-lock`) fixes the job before it writes the gates. A scheduled job's result is read like a pull
+request's checks, and it is part of done.
