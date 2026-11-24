@@ -104,6 +104,22 @@ windows); cognition receives no time field, as time research §8.4 requires.
 mode isn't working.** *Evidence:* the real-time design's review. *Consequence:* waiting is defined in world time; the
 substrate carries the NPC while it deliberates; the hybrid line in Maxim tunes this by experiment.
 
+### 42. A clock moves by stamp and reader together, and a home records which clock its stamps are on (2026-11-24)
+
+**We labelled stamps and windows "A-pre, outside the fence" by the file each lives in. The unit that can move is the
+stamp together with every reader that subtracts from it.** *Evidence:* Maxim's A-pre plan (PR #1787 at `29dda704`,
+D-WC6 and its invariant I4). If a Hippocampus capture stamp moves to world time while one of its readers (the echo
+filter, SCN registration, `SituationSignature`'s persisted EC hash, retrieval's `time_diff`) still subtracts
+`time.time()`, the result is world epoch minus wall epoch. Under the host default the two reads agree, so no robot
+test can see it. A home written under world time and loaded under the host default makes sleep and eviction read
+every trace as decades old (#1787 says about 54 years; for a world epoch near 0 it is the wall epoch, about 57). So #1787 moves only closed pairs in A-pre and sends our OD-A4 stamp half and OD-A5's
+capture and access stamps to A-post with `AgentHome`, behind a clock-domain marker. Our own OD-A4 row had the same
+blind spot from the other side: it put a tool's duration, a read in the fenced `tool_dispatch.py`, in A-pre.
+
+*Consequence:* an Overdrive save that holds an agent home has to say which clock its stamps count, and refuse a
+mismatch, the way every other format here refuses a version it doesn't know. A Phase 3 row is placed by its whole
+reader set, not by the file that holds the write.
+
 ## Working with Maxim
 
 ### 13. Search Maxim before proposing to it (2026-11-17)

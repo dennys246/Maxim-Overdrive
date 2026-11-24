@@ -1,7 +1,13 @@
 # DRAFT for Maxim: two issues that can be filed now
 
 Both are discrete defects, actionable now, with a definite done state (Maxim `CONTRIBUTING.md`'s test for an
-issue). Both are outside the decomposition fence. Read against `origin/main` `7084f561`. Re-check before filing.
+issue). Both are outside the decomposition fence. Read against `origin/main` `7084f561`; statuses read at Maxim
+`origin/main` `f145e27b` (2026-11-24).
+
+**Status (O76):**
+- **OD-I1:** filed by Maxim as #1684, closed by PR #1773, which fixes all five sites. No release holds it; the lock
+  gets it when it reaches the release holding #1773.
+- **OD-I2:** not filed. Maxim's answer downgraded it to a docstring nit (`maxim_response_1/response.md`).
 
 ## OD-I1. `salience_map` turns a time of exactly 0.0 into the wall clock
 
