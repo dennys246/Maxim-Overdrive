@@ -22,7 +22,7 @@ from slice_server.voice import Voice
 from slice_server.wire import FrameReader, encode
 
 TOKEN = "t" * 32
-META = json.dumps(log_meta(0.2)) + "\n"
+META = json.dumps(log_meta(0.2, data=config.raw())) + "\n"
 
 
 @contextmanager
@@ -284,3 +284,8 @@ def test_a_silent_connection_is_dropped_after_the_hello_deadline() -> None:
     thread.join(timeout=30)
     server.close()
     assert [m["code"] for m in got] == ["hello_timeout"]
+
+
+def test_a_pacing_of_zero_is_refused() -> None:
+    with pytest.raises(ValueError, match="wall_tick_s must be positive"):
+        Server(Sim(config.load()), token=TOKEN, log=io.StringIO(), wall_tick_s=0.0)

@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from simcore.adapters.loaders import read_yaml
+from simcore.core.checks import shown
 from slice_server import WIRE_VERSION
 from slice_server.body import BodyParams
 from slice_server.fire import FireParams
@@ -163,9 +164,23 @@ def parse_npc(raw: object) -> NpcConfig:
     return NpcConfig(NpcParams(**vendor, charges=charges), params, lines)
 
 
+FILES = ("body", "fuel", "npc")
+
+
+def raw(data: Path = DATA) -> dict[str, object]:
+    """The data files as read, before parsing: what a session log keeps, so a replay runs on the tuning it was played
+    on. The repo's strict YAML reader: a repeated key is refused, not silently overridden by the last one."""
+    return {name: read_yaml(data / f"{name}.yaml") for name in FILES}
+
+
+def parse(files: object, *, ambient_c: float = 20.0) -> SliceConfig:
+    """``raw``'s mapping, parsed and checked: every file by its parser, each refusal naming what is wrong."""
+    if not isinstance(files, dict) or set(files) != set(FILES):
+        raise ValueError(f"the slice's data is the files {list(FILES)}, got {shown(files)}")
+    body, kindle, heat, strike = parse_body(files["body"])
+    fuel = parse_fuel(files["fuel"], ambient_c=ambient_c)
+    return SliceConfig(body, kindle, heat, strike, fuel, parse_npc(files["npc"]))
+
+
 def load(data: Path = DATA, *, ambient_c: float = 20.0) -> SliceConfig:
-    # The repo's strict YAML reader: a repeated key is refused, not silently overridden by the last one.
-    body, kindle, heat, strike = parse_body(read_yaml(data / "body.yaml"))
-    fuel = parse_fuel(read_yaml(data / "fuel.yaml"), ambient_c=ambient_c)
-    npc = parse_npc(read_yaml(data / "npc.yaml"))
-    return SliceConfig(body, kindle, heat, strike, fuel, npc)
+    return parse(raw(data), ambient_c=ambient_c)

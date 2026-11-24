@@ -77,8 +77,8 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["PLR0915", "SLF001"]
-"spikes/slice/tests/**" = ["PLR0915", "SLF001"]  # held to the tests' rules since the gate runs them  # tests reach private names to plant and probe; src and scripts never do
+"tests/**" = ["PLR0915", "SLF001"]  # tests reach private names to plant and probe; src and scripts never do
+"spikes/slice/tests/**" = ["PLR0915", "SLF001"]  # the slice's tests, held to the tests' rules since the gate runs them
 
 # Separation of concerns (CLAUDE.md, "Code"). Ruff's PL rules already cap returns, branches and statements per function;
 # mccabe caps the paths through it. scripts/lint_sizes.py::check_sizes holds the limits ruff has no rule for, and

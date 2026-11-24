@@ -73,8 +73,10 @@ def test_what_the_player_said_reaches_the_prompt_as_words() -> None:
 
 
 def test_the_voice_talks_only_to_a_local_model() -> None:
+    remote = "http://example.com:11434"  # shared-path-ok: refused before any connection; the test is the refusal
+    params = type(NPC.voice)(NPC.voice.model, remote, 2.5, 25, "x")
     with pytest.raises(ValueError, match="local"):
-        ollama(type(NPC.voice)(NPC.voice.model, "http://example.com:11434", 2.5, 25, "x"))
+        ollama(params)
 
 
 def test_cap_strips_stage_directions_and_quotes() -> None:

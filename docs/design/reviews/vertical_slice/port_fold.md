@@ -25,3 +25,20 @@ did" column is the author's account; the status column is the delta reviewer's, 
 Found outside the review while folding: `spikes/specgen/test_spike.py` (another session's spike, run by hand by its
 own docstring) had one failing test on `7500a85`, `test_m5_burns_an_accepted_spec_at_turns_of_6_s`; #59 ported its M5,
 and on the merge with `b578761` all 73 pass. It stays outside testpaths, as its own docstring says.
+
+## Delta 1 fold
+
+Delta 1 (`port_delta1.md`, on `14bfbfc`) set the round-1 statuses above in its own table: 11 fixed, Exec S2 / Arch S5
+/ Det S1, Det S2 and Arch N4 open, Det N4 deferred. Its new findings, and the author's account of the fold after
+`14bfbfc`, for delta 2 to read from the tree:
+
+| Finding | What the author did | Status (reviewer) |
+| --- | --- | --- |
+| Round 1 Exec S2 / Arch S5 / Det S1 (isolation half) and Delta 1 S1: the tests-only isolation rules fire only under `tests/` and `scripts/` | `TEST_ROOTS` from testpaths and `SPAWN_ROOTS` (with the spike roots) drive the spawn, git and fixed-port rules; `test_a_spike_test_the_gate_runs_is_held_to_the_tests_rules` plants a spawn, a fixed port and a bare git call in a slice test (red with the old roots). The scan then caught `test_voice.py`'s refused `example.com:11434`, exempted with its reason | |
+| Delta 1 S2: a truncated or malformed log crashes `metrics` | `read_log` refuses every line that isn't a JSON record, and wraps the parse of data, grid and intents in `LogRefused`; `test_a_damaged_log_is_refused_by_name` (truncated, bad `dx_m`, bad data, unknown intent, a non-record line) | |
+| Delta 1 S3: nothing holds the gate's ruff paths | `test_the_gate_lints_and_formats_every_path_it_tests` reads both ruff lines in `prepush.sh` against `RUFF_PATHS` (red with the slice dropped from the format line); the tracked-files ruff test uses the same paths | |
+| Delta 1 NIT: no digest of the data in the log, so a retune makes every earlier log mismatch | Taken as a SHOULD-FIX for week 4's tuning: the meta keeps the data files as read (`config.raw`), `serve` runs on exactly that data, and replay and metrics parse it from the log (`test_a_replay_runs_on_the_data_the_session_was_played_on`, red when metrics reads today's files) | |
+| Delta 1 NIT: `wall_tick_s` unvalidated | Refused unless positive; tested | |
+| Delta 1 NIT: the spliced per-file-ignore comment | Each line has its own reason | |
+| Delta 1 NIT: the tooling test doesn't name an empty testpath | It names it | |
+| Round 1 Det S2 (remainder): the vendor-line test (2.95 s) and the hello deadline (0.9 s) still run on the wall clock | Not changed. Both drive the real socket and the clocked hello deadline end to end; a fast run needs the client authenticated before the first tick, which the loop doesn't offer. Each is under the few-seconds bar. Author's proposal: deferred, trigger a slice test over 3 s or a flake of either | |

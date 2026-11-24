@@ -17,10 +17,12 @@ from pathlib import Path
 
 import pytest
 
-from tests._testroots import spike_roots
+from tests._testroots import gate_testpaths, spike_roots
 
 ROOT = Path(__file__).resolve().parents[1]
 SCANNED = ("src", "scripts", "tests", *spike_roots())  # a spike the gate runs is scanned with its tests
+TEST_ROOTS = tuple(f"{p}/" for p in gate_testpaths())  # where the tests-only rules apply (ports, git)
+SPAWN_ROOTS = ("scripts/", *TEST_ROOTS, *(f"{p}/" for p in spike_roots()))  # where a process needs ALLOWED_SPAWNS
 SELF = Path(__file__).resolve()
 GIT_HELPER = "tests/_gitutil.py"
 
@@ -203,7 +205,7 @@ def _env_problem(node: ast.Call, kind: str) -> str | None:
 
 
 def spawn_findings(rel: str, tree: ast.Module) -> list[str]:
-    if not rel.startswith(("tests/", "scripts/")):
+    if not rel.startswith(SPAWN_ROOTS):
         return []
     aliases, owner, out = _aliases(tree), _enclosing_functions(tree), []
     for node in ast.walk(tree):
@@ -219,13 +221,13 @@ def spawn_findings(rel: str, tree: ast.Module) -> list[str]:
 
 def _process_findings(rel: str, node: ast.Call, where: str) -> list[str]:
     out = []
-    if rel.startswith("tests/") and rel != GIT_HELPER and _git_outside_helper(node):
+    if rel.startswith(TEST_ROOTS) and rel != GIT_HELPER and _git_outside_helper(node):
         out.append(f"{where}: a test runs git without tests/_gitutil.py, so it inherits GIT_DIR; use git()")
     return out
 
 
 def _node_findings(rel: str, node: ast.AST, mod: _Module) -> list[str]:
-    where, in_tests = f"{rel}:{getattr(node, 'lineno', 0)}", rel.startswith("tests/")
+    where, in_tests = f"{rel}:{getattr(node, 'lineno', 0)}", rel.startswith(TEST_ROOTS)
     out = []
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         if _shared_path(node.value):
@@ -397,3 +399,17 @@ def test_the_allowlist_names_only_sites_that_exist() -> None:
         tree = ast.parse((ROOT / rel).read_text())
         names = {n.name for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
         assert function in names, (rel, function)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import subprocess\nsubprocess.run(['ls'], env={})\n",
+        "s.bind(('127.0.0.1', 8080))\n",
+        "import subprocess\nsubprocess.run(['git', 'status'])\n",
+    ],
+)
+def test_a_spike_test_the_gate_runs_is_held_to_the_tests_rules(source: str) -> None:
+    # Delta 1 S1: the slice's tests were scanned only for shared paths; a spawn or a fixed port passed.
+    (root,) = (p for p in gate_testpaths() if p != "tests")
+    assert findings(f"{root}/test_planted.py", source)

@@ -42,8 +42,9 @@ def serve(dx_m: float, port: int, *, llm: bool, root: Path = HERE, ticks: int | 
     log_path = _new_log(root / "sessions")
     token = secrets.token_hex(16)
     with log_path.open("w") as log:
-        log.write(json.dumps(log_meta(dx_m)) + "\n")
-        cfg = config.load()
+        data = config.raw()
+        log.write(json.dumps(log_meta(dx_m, data=data)) + "\n")
+        cfg = config.parse(data)  # the data the log keeps is the data the session runs
         # Engine choice: the voice talks to Ollama on 127.0.0.1 with stdlib urllib, so the slice adds no dependency.
         voice = Voice(cfg.npc.voice, cfg.npc.canned, ollama(cfg.npc.voice) if llm else None)
         server = Server(Sim(cfg, dx_m=dx_m), token=token, log=log, port=port, voice=voice)
@@ -74,8 +75,8 @@ def ticks_of(log_path: Path) -> tuple[float, list[list[intents.Intent]], str | N
 
 
 def check_replay(log_path: Path) -> bool:
-    dx_m, ticks, recorded = ticks_of(log_path)
-    got = replay(config.load(), ticks, dx_m=dx_m)
+    parts = read_log(log_path)
+    got, recorded, ticks = replay(parts.cfg, parts.ticks, dx_m=parts.dx_m), parts.digest, parts.ticks
     print(f"replayed {len(ticks)} ticks: {got}")
     if recorded is None:
         print("the session didn't end cleanly, so there is no digest to compare")

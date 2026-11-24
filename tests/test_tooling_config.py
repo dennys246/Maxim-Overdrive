@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 
 from tests._gitutil import git
-from tests._testroots import gate_testpaths
+from tests._testroots import gate_testpaths, spike_roots
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -77,7 +77,8 @@ def test_the_gate_runs_every_tests_directory_in_the_tree():
     roots = gate_testpaths()
     unrun = sorted(f for f in found if not any(f == p or f.startswith(p + "/") for p in roots))
     assert not unrun, f"tests the gate never runs (add them to testpaths): {unrun}"
-    assert all(any(f == p or f.startswith(p + "/") for f in found) for p in roots), "a testpath with no tests"
+    empty = [p for p in roots if not any(f == p or f.startswith(p + "/") for f in found)]
+    assert not empty, f"testpaths with no tracked tests: {empty}"
 
 
 def test_mypy_is_strict():
@@ -136,12 +137,24 @@ def test_tests_waive_only_the_statement_count():
     assert hits == {**EXPECTED, "statements": set()}
 
 
+# What the gate lints and formats: the engine, the tooling and every spike whose tests the gate runs.
+RUFF_PATHS = ("src", "tests", "scripts", *spike_roots())
+
+
+def test_the_gate_lints_and_formats_every_path_it_tests():
+    # Delta 1 S3: dropping spikes/slice from either ruff line in the gate left everything green.
+    gate = (ROOT / "scripts" / "prepush.sh").read_text().splitlines()
+    for command in ('"$PY" -m ruff check ', '"$PY" -m ruff format --check '):
+        (line,) = [ln for ln in gate if ln.startswith(command)]
+        assert line[len(command) :].split() == list(RUFF_PATHS), line
+
+
 def test_ruff_lints_every_tracked_python_file():
     """An exclude anywhere (a key, a glob, an extended config) shows up as a tracked file ruff doesn't see."""
-    shown = _ruff("check", "--show-files", "src", "tests", "scripts")
+    shown = _ruff("check", "--show-files", *RUFF_PATHS)
     assert shown.returncode == 0, shown.stderr
     seen = {str(Path(p).resolve().relative_to(ROOT)) for p in shown.stdout.split() if p.endswith(".py")}
-    listed = git(ROOT, "ls-files", "src", "tests", "scripts")
+    listed = git(ROOT, "ls-files", *RUFF_PATHS)
     tracked = {f for f in listed.stdout.splitlines() if f.endswith(".py")}
     assert tracked - seen == set()
 

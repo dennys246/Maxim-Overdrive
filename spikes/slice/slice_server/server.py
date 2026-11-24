@@ -88,6 +88,8 @@ class Server:
         in real time, and shorter in tests, which run ticks as fast as they like. It never changes a tick's length."""
         self.sim, self._token, self._log, self._hello_s = sim, token, log, hello_s
         self._wall_tick_s = sim.tick_s if wall_tick_s is None else wall_tick_s
+        if not self._wall_tick_s > 0:  # zero or less would spin the loop without pacing anything
+            raise ValueError(f"wall_tick_s must be positive, got {wall_tick_s}")
         self._listener = socket.create_server(("127.0.0.1", port))
         self._listener.setblocking(False)
         self.port: int = self._listener.getsockname()[1]

@@ -100,7 +100,7 @@ def test_voice_and_budget_numbers_from_the_log() -> None:
     [
         ({"dx_m": 0.2, "tick_s": 0.1}, "pre-version log"),  # every log recorded before the port onto Simulation
         ({"log": "slice-log-0", "dx_m": 0.2, "tick_s": 0.1}, "slice-log-0 log"),
-        ({**log_meta(0.2)["meta"], "engine": {"tick_us": 100000, "physics_every": 5}}, "engine cadence"),
+        ({**log_meta(0.2, data=config.raw())["meta"], "engine": {"tick_us": 100000, "physics_every": 5}}, "cadence"),
     ],
 )
 def test_a_log_from_another_engine_is_refused_by_name(tmp_path: Path, capsys, meta: dict, said: str) -> None:
@@ -156,7 +156,7 @@ def _build_fixture(path: Path, ticks: int = 200) -> None:
     from slice_server.intents import parse  # noqa: PLC0415 - only the rebuild needs it
 
     sim, script = Sim(config.load(), dx_m=0.2), _script()
-    rows = [log_meta(0.2)]
+    rows = [log_meta(0.2, data=config.raw())]
     for tick in range(ticks):
         raw = script.get(tick, [])
         rows += [{"tick": tick, "intents": raw}] if raw else []
@@ -172,3 +172,34 @@ def test_the_committed_session_log_still_replays() -> None:
     r = m["replayed"]
     assert isinstance(r, dict)
     assert (r["kindles_ok"], r["strikes"], r["overdrive_strikes"], r["douses"]) == (1, 1, 1, 1)  # it reaches them
+
+
+def test_a_replay_runs_on_the_data_the_session_was_played_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Delta 1: a retune of the YAML would have made every earlier playtest log report "does NOT match". The log keeps
+    # its data, and the replay reads that, never the files as they are now.
+    def retuned() -> config.SliceConfig:
+        raise AssertionError("the replay read today's data files")
+
+    monkeypatch.setattr(config, "load", retuned)
+    assert session_metrics(FIXTURE)["replay_matches"] is True
+
+
+@pytest.mark.parametrize(
+    ("damage", "said"),
+    [
+        (lambda text: text[:400], "isn't a whole record"),  # a server killed mid-write
+        (lambda text: text.replace('"dx_m": 0.2', '"dx_m": "x"'), "can't be replayed"),
+        (lambda text: text.replace('"mass_kg": 80.0', '"mass_kg": -1.0'), "can't be replayed"),
+        (lambda text: text.replace('"type": "kindle"', '"type": "fly"'), "can't be replayed"),
+        (lambda text: "[1]\n" + text, "isn't a record"),
+    ],
+)
+def test_a_damaged_log_is_refused_by_name(tmp_path: Path, capsys, damage, said: str) -> None:
+    # Delta 1 S2: a truncated log, or one with a bad number, crashed the metrics command with a traceback.
+    log = tmp_path / "damaged.jsonl"
+    log.write_text(damage(FIXTURE.read_text()))
+    assert log.read_text() != FIXTURE.read_text(), "a precondition: the damage applied"
+    with pytest.raises(LogRefused, match=said):
+        session_metrics(log)
+    assert main(["metrics", str(log)]) == 2
+    assert said in capsys.readouterr().err
