@@ -11,7 +11,8 @@ says why). Measured on `bfb12f8` and on the port with one script: a crate lit, t
 trips the body and burns the crate out on the same ticks; a 12-tick run with an Overdrive strike gives bit-identical
 integrity and temperatures within 6e-12 relative. A strike still lands where the body reads it next tick, as before.
 Main's gate runs the slice's tests and replays a committed session log (`tests/fixtures/`), so an engine change that
-moves the slice shows there. Session logs carry `slice-log-2`, the engine's cadence and the data played on; older logs are refused by name.
+moves the slice shows there. Session logs carry `slice-log-2`, the engine's cadence and the data played on; older
+logs are refused by name.
 
 ## Run it
 

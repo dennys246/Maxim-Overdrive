@@ -56,3 +56,13 @@ start-after-authentication hook). The author's account of the fold after `04d238
 | Delta 2 S3: layout changed without a version bump | `LOG_VERSION` is `slice-log-2`; the `slice-log-1` log from `14bfbfc` is committed again and refused by its version (`test_an_older_committed_log_is_refused_by_its_version`) | |
 | Delta 2 NIT 2: the broad handler wraps the parsers | Not changed: named by type, and the committed-log test goes red on a parser bug | |
 | Delta 2 NIT 3: the borrowed `shared-path-ok` marker on `test_voice.py`'s URL | Not changed | |
+
+## Delta 3, the last round
+
+The owner's stop rule (2026-11-23): delta 3 is the last round; only BLOCKER and SHOULD-FIX fold, NITs go to the
+backlog with no code. Delta 3 (`port_delta3.md`, on `d1c7b2c`) set the delta-2 rows: the three SHOULD-FIX fixed, the
+two NITs rejected as fold items. It found no BLOCKER or SHOULD-FIX. Its NITs 1 and 2 (the fixed-port rule's limits)
+are in backlog row B20; NIT 3 (the spike test's loop is vacuous with no spike in testpaths) is harmless, since the
+gate runs no spike that isn't in testpaths. Still open or deferred, with their triggers: Arch N4 (whether src coverage
+leans on the slice's tests; measure before the slice is deleted at step 10's close), Det N4 and the wall-clock server
+tests (deferred by delta 1 and 2's reviewers, triggers in their rows).
