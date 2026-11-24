@@ -29,6 +29,7 @@ both stay with review (B36). Marker lines don't count toward a design's word bud
 | `snapshot.channels` | `design/client_rendering.md` §4.2 | vocabulary | 3 |
 | `fuel.objects.columns` | `design/client_objects.md` §3.2 | vocabulary | 6 |
 | `fuel.segments.columns` | `design/client_objects.md` §3.3 | vocabulary | 4 |
+| `pilot.fields` | `design/torch_pilot.md` §2 | vocabulary | 6 |
 
 Not registered yet, and why:
 - The log header and the tiers are prose and table text, not code-span vocabularies.
@@ -51,3 +52,6 @@ The references that set the counts above three (2026-11-21):
 - `fuel.objects.columns` (5): `fire_solid.md` §1.1's `objects` table is the FuelStore's storage, a different
   contract whose columns share five names with the wire's.
 - `fuel.segments.columns` (3): `client_objects.md` §5.2 gives one display rule per column.
+- `pilot.fields` (5): tile §2.2's pilots row is the wire's view of the records, a different contract whose columns
+  share five names with them (`actor_id`, `seq`, `region_id`, `object_id`, `end_tick`; TP5); `boundaries.md` §6.2's
+  intent record shares three, because the record is keyed by the intent's id.
