@@ -112,6 +112,23 @@ def test_the_check_never_reads_the_process_environment(
     assert "no lockfile for Python 3.11" in capsys.readouterr().err
 
 
+def test_the_command_line_decides_the_skip_from_the_process_environment(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The gate runs the script, so the drift job's skip reaches ``main`` only through ``entry`` (review E1, W1).
+
+    In the drift job's mode the command line skips; with the event gone, the same variable is refused.
+    """
+    monkeypatch.setattr(sys, "argv", ["check_lock.py"])
+    for k, v in DRIFT_JOB.items():
+        monkeypatch.setenv(k, v)
+    assert check.entry() == 0
+    assert "SKIPPED (the drift job)" in capsys.readouterr().out
+    monkeypatch.delenv("GITHUB_EVENT_NAME")
+    assert check.entry() == 1
+    assert "only for the scheduled drift job" in capsys.readouterr().err
+
+
 def test_the_environment_is_a_required_keyword() -> None:
     """Forgetting ``env`` is a TypeError, not a silent fall back to the process environment."""
     with pytest.raises(TypeError, match="env"):

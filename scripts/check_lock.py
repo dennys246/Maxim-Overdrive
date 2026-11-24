@@ -79,10 +79,10 @@ def main(
 ) -> int:
     """The check; ``env`` is the environment it decides the skip from, passed and never read from the process.
 
-    Only the entry point below passes ``os.environ``. A caller that reads the process environment inherits whatever
-    its runner set: the drift job sets ``MAXIM_OVERDRIVE_UNLOCKED`` for the whole gate, and the tests of this check
-    that expected a refusal saw a skip instead (run 45238153656). Required and keyword-only, so forgetting it is a
-    ``TypeError``, not a silent inheritance.
+    Only ``entry``, the command line, passes ``os.environ``. A caller that reads the process environment inherits
+    whatever its runner set: the drift job sets ``MAXIM_OVERDRIVE_UNLOCKED`` for the whole gate, and the tests of this
+    check that expected a refusal saw a skip instead (run 45238153656). Required and keyword-only, so forgetting it is
+    a ``TypeError``, not a silent inheritance.
     """
     report = "--report" in (sys.argv[1:] if argv is None else argv)
     if env.get("MAXIM_OVERDRIVE_UNLOCKED") == "1" and not report:
@@ -109,5 +109,10 @@ def main(
     return 0
 
 
+def entry() -> int:
+    """The command line: the one caller that hands ``main`` the process environment, where the drift job's skip is."""
+    return main(env=os.environ)
+
+
 if __name__ == "__main__":
-    sys.exit(main(env=os.environ))
+    sys.exit(entry())

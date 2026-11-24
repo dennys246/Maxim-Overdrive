@@ -569,20 +569,25 @@ carries a fix: on a job that is already red, a gate turning red is invisible. So
 (`phase1/drift-and-lock`) fixes the job before it writes the gates. A scheduled job's result is read like a pull
 request's checks, and it is part of done.
 
-### 41. A gate waiting on an upstream fix is proved against the fix's own source, before the release ships (2026-11-24)
+### 41. A gate waiting on an upstream fix must flip on the fix's source and stay red with only the defect put back (2026-11-24)
 
-**A strict red gate for a Maxim fix is only worth something if it flips when the fix arrives, and a stand-in for the
-fix can agree with a gate that the real fix would not satisfy.** *Evidence:* `tests/test_maxim_fixes_pending.py` holds
-OD-I1, OD-I3 and OD-I6 red on pymaxim 1.3.4. Each gate's check is one helper, and a passing test runs it against a
-monkeypatched stand-in. That proves the check can pass, not that Maxim's fix passes it. So the gates also ran with
-`src/maxim` from #1773 (`1b2e60a9`, extracted with `git archive`, read-only) first on the path: OD-I1 and OD-I3 went
-`XPASS(strict)`, which is how they will fail at 1.3.5. OD-I6 reads the installed distribution's metadata, so only
-its stand-in, #1773's own `rich>=13.0.0,<16.0`, can show it. Reading the fix also shaped two gates: #1773's loader
-refuses a version 1 file and returns 0 without raising, so the pickle gate writes version 1 (a version 2 file returns
-0 on 1.3.4 too, and would have passed today). And the gates call public methods with an explicit time or path, never
-the wall clock or `~/.maxim`. The same step found lesson 40's root: `check_lock.main` read the process environment,
-so every test of it inherited the drift job's skip. It now takes `env` as a required keyword.
+**A strict red gate for a Maxim fix is worth something only if it tracks the defect itself, and passing on the fix
+doesn't show that.** *Evidence:* `tests/test_maxim_fixes_pending.py` holds OD-I1, OD-I3 and OD-I6 red on pymaxim
+1.3.4. The first OD-I3 gate wrote a version 1 file of pickled arrays and asserted that `load` returned 0. It went
+`XPASS(strict)` on #1773's source (`1b2e60a9`, overlaid on the installed package), which looked like proof. Review
+then put `allow_pickle=True` back into #1773's loader, and the gate still passed: #1773 refuses a version 1 file by
+its number before it reads a pickled array, and `load` returns 0 for every refusal, so the gate tracked the format,
+not the pickle (E2, W2). The fixed gate puts a value whose unpickling makes a directory in `version`, the field every
+loader reads first, and asserts the directory never appears. It is red on 1.3.4, red on 1.3.4 with only a version
+bump, red on #1773 with pickle back on, and flips on #1773. A metadata gate is provable the same way: OD-I6 flips with
+a copy of `pymaxim-1.3.4.dist-info` whose `Requires-Dist: rich` line is #1773's. The first version of this lesson said
+only a stand-in could show that, and it was wrong (E4). Two more defects the review found are of the same kind: a
+module-level `importorskip` would have turned a module Maxim moved into a quiet skip of every gate (E3, W3, A2), and
+the drift job's skip, once moved out of the process environment, reached `main` through one untested line (E1, W1).
+The same step found lesson 40's root: `check_lock.main` read the process environment, so every test of it inherited
+the drift job's skip. It now takes `env` as a required keyword.
 
-*Consequence:* when a Maxim fix is merged but not released, read its diff, write the gate on what the fix will do, and
-run the gate on the fix's source before trusting it. A gate that is proved only by a stand-in is a guess about
-upstream behaviour.
+*Consequence:* for each gate on an unreleased fix, run it in three setups before trusting it: the installed release
+(red), the fix's source overlaid on it (flips), and the fix with only the defect restored (red). Assert the defect's
+own effect (code ran, a clock was read), never a return value that every failure shares. A gate that can disappear,
+by a skip or an untested entry point, is no gate.
