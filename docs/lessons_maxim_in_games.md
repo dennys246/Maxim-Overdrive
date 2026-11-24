@@ -558,8 +558,9 @@ against Maxim's GitHub. Both are proposals for the post-tag planning session, no
 *Evidence:* run 45238153656, on `5960606` (2026-11-23), installed pymaxim 1.3.4 unpinned and failed all four jobs.
 Of the tests, 3,559 passed. Only two failed, both in `tests/test_check_lock.py`
 (`test_a_python_without_a_lockfile_fails` and `test_main_compares_the_lock_with_what_is_installed`). The job sets
-`MAXIM_OVERDRIVE_UNLOCKED` on purpose, those two tests don't clear it, so `check_lock.main` returns 0 where they
-expect 1. The job opened issues #60 to #63, and they sat unread through the tag. The planning session after
+`MAXIM_OVERDRIVE_UNLOCKED` on purpose, those two tests don't clear it, and on a scheduled Actions run `check_lock.main`
+then takes its skip path and returns 0 where they expect 1. Run locally with only the variable set, they fail
+through a different path, the refusal (this PR's review, E2). The job opened issues #60 to #63, and they sat unread through the tag. The planning session after
 `v0.1.0` found the failure only because it read the job before deciding when to move the lock.
 
 *Consequence:* the run showed two things. First, 1.3.4 breaks nothing of ours, so moving the lock is cheap (O78).
