@@ -93,7 +93,8 @@ reconciles this table again and writes step 6's brief (O79).
 
 ### The next steps after `v0.1.0` (O79)
 
-O79 owns the order, what may run together and the ids each parallel step reserves. Each step is one short session
+O79 owns the order, what may run together and the ids each parallel step reserves, as amended by O81: step 5 runs
+now, beside step 1a, and writes no record file until step 4 merges. Each step is one short session
 on its own branch and worktree, from a committed brief that is the one owner of its done: an exit test a script can
 check, the files the step may touch, its review rounds and its stop rule. A session ends when its PR is handed to
 the owner.

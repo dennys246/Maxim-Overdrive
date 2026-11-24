@@ -87,7 +87,7 @@ OD-I8.
 | O41 | Roadmap exempt |
 | O42 | Checklists exempt from O22 |
 | O57 | Imagination |
-| O75, O76, O77, O78, O79, O80 | After `v0.1.0`: OD-I gates; Maxim's issue owns status; upstream lane; lock; next steps; NITs |
+| O75, O76, O77, O78, O79, O80, O81 | After `v0.1.0`: OD-I gates; Maxim's issue owns status; upstream lane; lock; next steps; NITs |
 
 **both §0:**
 

@@ -38,7 +38,7 @@ O75–O80. The design's §1 counts and §8's branch list are stale, so recount t
 2. Record each ruling as a row in a new decision log, `docs/design/decisions/records_layout.md` (O79), headed like the
    other logs, with ids `RL1`, `RL2` and so on (check that `scripts/lint_ids.py` accepts the prefix). Each row cites
    its question in exactly one of these forms: `records_layout §10 Q1` to `records_layout §10 Q5`, `records_layout
-   added Q6`, `records_layout added Q7`. Your reserved ids (O79): lesson number 43 and up, B55 and up.
+   added Q6`, `records_layout added Q7`. Your reserved ids (O79, capped by O81): lesson numbers 43 to 45, B55 to B57.
 3. Write the stop rule (above) into `docs/design/reviews/records_layout/fold.md`.
 4. Fold the BLOCKERs and SHOULD-FIXes. Mechanism findings (a test plant, a script's behaviour) go to §9's build
    steps as tests to write, citing their finding. They are not contract text (CLAUDE.md, "A design document holds
@@ -47,8 +47,8 @@ O75–O80. The design's §1 counts and §8's branch list are stale, so recount t
    `docs/design/reviews/records_layout/delta_<lens>.md`, then stop.
 
 **Files you may touch:** `docs/design/records_layout.md`; `docs/design/reviews/records_layout/`;
-`docs/design/decisions/records_layout.md` (new); `docs/roadmap.md`'s step 1a and step 4 rows (state only); `docs/standards_backlog.md` (B55 and up, only for a rule waiting for a check);
-`docs/lessons_maxim_in_games.md`. Nothing else, and no code.
+`docs/design/decisions/records_layout.md` (new); `docs/roadmap.md`'s step 1a and step 4 rows (state only); `docs/standards_backlog.md` (B55 to B57, only for a rule waiting for a check);
+`docs/lessons_maxim_in_games.md` (lesson numbers 43 to 45). Nothing else, and no code.
 
 **Review:** the delta round reads the fold's diff with Architecture with Bio-faithful integration, Concurrency, Wire
 integrity and Executor, the same lenses as round 1.

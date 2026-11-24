@@ -1,7 +1,8 @@
 # Step 4: build the records layout and migrate (`phase1/records-build`)
 
 You are the records-build session. You run alone (O79): no other session may be open while you migrate, because
-the migration touches every shared record file (lessons, decisions, Known gaps, backlog). Before you start, ask the
+the migration touches every shared record file (lessons, decisions, Known gaps, backlog). Step 5's slice branch may be in flight beside you; under O81 it writes no record file and opens no PR until you
+merge, so it doesn't count against running alone. Before you start, ask the
 owner to confirm that no other Overdrive session is running. Check `gh pr list --state open` and `git worktree list`
 yourself too.
 
