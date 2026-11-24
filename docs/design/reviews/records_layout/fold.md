@@ -51,3 +51,45 @@ The design at `35cec7b`, merged with `origin/main` at `1ed9caa`. The owner's rul
 | W-N1 (a lesson heading's date tail) | fixed: the heading is generated from `date` (§6) | — |
 | W-N2 (`owner_section` values like "cites §8") | left: a converter detail | step 4, R2 |
 | W-N4 (a range renumber collides one at a time) | fixed: `renumber` takes a whole mapping (§5) | — |
+
+## After the delta round (RL11–RL13)
+
+The delta round found two new BLOCKERs in text the fold added (Executor X-B1 with Wire B1, and Concurrency B1) and
+left A-B4, W5, W6 and W11 open. Under the stop rule they went to the owner, who ruled RL11 and RL12 and amended the
+stop rule (RL13): the contract findings fold, and the same four reviewers set statuses on those folds only, in their
+delta reports. No other round follows.
+
+| Delta finding | Fold (the author's account) |
+|---|---|
+| Executor X-B1, Wire B1 | RL11: the two-stage proof, `legacy` fields (§4, §8) |
+| Concurrency B1, Executor S6, Wire N4 | RL12: the base is a fetched `origin/main`; no run mid-merge (§5) |
+| A-B4, W5, Wire S1, Architecture N-S3 | §4: `confirms`, `corrects`, `amended_by_external`, `restates` takes paths |
+| W6 | §4: `done_in` forms, one owner per fact after R3, `unknown` legal only at the migration |
+| W11 | §4, §7: `read_record` splits the file; the loaders gain a text entry point; quoted dates |
+| Architecture N-S1, Concurrency SF3, Executor S2 | §5: `renumber` never rewrites upstream files instead of refusing to run |
+| Architecture N-S2, Executor S3, Wire S3 | §3, §5: slug ids are plain slugs within a log's directory; `slug` key |
+| Wire S4 | §3: a cross-listed decision lives in the first of its logs by name |
+| Wire S5 | §5: whole-token rewrites only, never in `docs/design/reviews/` |
+| Concurrency SF1 | §6: `index` never discards text; §8: `migrate-branch` works after a clean merge |
+| Concurrency SF2, Executor S5 | §5: `renumber --merged`; the owner starts the fix session |
+| Executor S1 | §7: a lesson change without an `amended` entry is refused |
+| Executor S4, Wire S2, the §2 counts NITs | §2: 18 gaps, counts at `1ed9caa`; hand titles for the five without a lead |
+| A-N1 | §5: `B` duplicates stay `lint_guards`' |
+
+Delta NITs, the author's call:
+
+| NIT | Call | Trigger |
+|---|---|---|
+| Architecture: the restating-row example names the wrong log | fixed (§5) | — |
+| Architecture: a lesson's `section` can't change | fixed (§4) | — |
+| Architecture: lesson 11's heading tail | fixed (`legacy`, §8) | — |
+| Architecture, Bio: an amended lesson cited upstream tells no one | left | step 4, R1: a note when an amended lesson is cited under `docs/maxim_upstream/` |
+| Concurrency N1: `OD-` ids have no generated index | left: Phase 3 rows are out of scope (RL3) | when Phase 3 rows join |
+| Concurrency N2: a hand-resolved line with both branches' citations | fixed: a test in §9 R1 | — |
+| Concurrency N3: `migrate-branch` runs from `main` and commits on the branch | fixed (§8) | — |
+| Concurrency N4: derived status lines conflict without a duplicate | left: resolved by regenerating | step 4, if such conflicts recur |
+| Executor: "id order" undefined | fixed (§5) | — |
+| Executor, Wire N2: `lint_contracts` has a scope regex, not an out-of-scope list | fixed (§3, §7) | — |
+| Executor: CLAUDE.md's "A record id names one record" names the old logs after the migration | left: RL5 limits step 4's CLAUDE.md edits, so it goes to the owner | step 4, R3 |
+| Executor: one id with one slug in two branches | left: the same file name is an add/add conflict, or the same record | — |
+| Wire N5: retiring `check_plan`'s decision half drops its check of decision ids cited in designs | left | step 4, R1: decide whether `lint_ids` resolves decision ids cited in `docs/design/` |
