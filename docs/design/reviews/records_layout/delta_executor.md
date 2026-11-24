@@ -10,12 +10,12 @@ counts per record, and a census of every decision log's first and status cells. 
 | Finding | Status | Evidence |
 |---|---|---|
 | A-B1 | fixed | §1 withdraws the "stop conflicting" claim (RL9). §5 and §6 make the committed, id-ordered index the detector, and R1 tests it. Two insertions at one point always conflict in git's three-way merge, so the detector holds whenever both branches committed a regenerated index, and §7's regeneration check refuses one that didn't. |
-| A-B2 | fixed | RL10: lesson bodies are mutable, with an `amended` trail (§4). The trail isn't enforced, though: see SHOULD-FIX S1. |
-| A-B3 | fixed | §5 defines a family as an id prefix across every log, which is what `lint_ids` holds. Cross-listed rows become one record with `also_in`, and restating and id-less rows get slug ids. The slug-id file name is undefined: see S3. |
-| A-B4 | open | External rulings are covered now (`amends` takes a path and an anchor), but the four fields still can't carry every status cell on the tree. The census at `9d1e747` finds "confirmed by O69" (twice), "confirmed by O74", "corrected by O73", and seven `restates` cells whose target isn't an id ("restates world_model §0" four times, "restates boundaries §0" twice, "restates CLAUDE.md", "restates realtime decisions 1–4", "restates `client_rendering.md`"). §4 makes `restates` a list of ids and has no confirm or correct relation. R2's test "every non-`live` status cell derives back to its meaning" would go red on these, and §8 forbids dropping them ("none loses information"), so step 4 can't build what the design says. This is a contract gap. |
+| A-B2 | fixed | RL10: lesson bodies are mutable, with an `amended` trail (§4). S1 (the trail wasn't enforced) is fixed at `01cbb25`. |
+| A-B3 | fixed | §5 defines a family as an id prefix across every log, which is what `lint_ids` holds. Cross-listed rows become one record with `also_in`, and restating and id-less rows get slug ids. S3 (the slug-id file name) is fixed at `01cbb25`. |
+| A-B4 | fixed | Updated after the RL13 fold (`01cbb25`). At `9d1e747` the four fields couldn't carry "confirmed by O69" (twice), "confirmed by O74", "corrected by O73", or seven `restates` cells whose target isn't an id ("world_model §0" four times, "boundaries §0" twice, "CLAUDE.md", "realtime decisions 1–4", "`client_rendering.md`"). §4 now has `confirms`, `corrects` and `amended_by_external` (a path plus the ruling's first cell, which exists: `rulings.md` has a row whose first cell is 41), and `restates` takes a path with a section. Every status cell's meaning is now derivable, and R2 tests the four kinds. Reproducing the cells' exact wording is a separate problem: see "New BLOCKER in the fold". |
 | C1 | fixed | The same defect as W1. §1 withdraws the PR-CI claim, RL8 keeps "require up to date" off, and §5's detector stops the second merge with a conflict, which GitHub refuses whether or not the branch is protected. R1 tests it (A-B1, C1, W1). |
-| C2 | fixed | §4's exception and §5's "A duplicate on `main`" allow the rename only while `main` holds two records, and R1 tests that case. The rename's citations and who opens the fix branch are left: see S5. |
-| C3 | fixed | §5: `renumber` rewrites only lines the branch added or changed against the merge base, and lists `main`'s lines. R1's shared-file test goes red under a whole-file rewrite. One ordering case is left (S6). |
+| C2 | fixed | §4's exception and §5's "A duplicate on `main`" allow the rename only while `main` holds two records, and R1 tests that case. S5 (the rename's citations, and who opens the fix branch) is fixed at `01cbb25`. |
+| C3 | fixed | §5: `renumber` rewrites only lines the branch added or changed against the merge base, and lists `main`'s lines. R1's shared-file test goes red under a whole-file rewrite. S6 (running mid-merge) is fixed at `01cbb25` by RL12. |
 | W1 | fixed | As C1. |
 | W2 | fixed | As C3. The R1 test asserts both errors: the branch's citation moves, and `main`'s doesn't. |
 | W3 | fixed | §5 takes `lint_ids::check_lessons`'s spellings and scope (`docs/**/*.md`, `tests/*.py` `reason=`, frozen files skipped). I read `scripts/lint_ids.py`: it covers "Lesson N", "lessons N and N", ranges, `§N` and the file-name form, so "Lessons 32 and 33" is read. Decision citations are no longer resolved, so the false passes and the red marks on Maxim's ids are gone. |
@@ -118,3 +118,55 @@ counts per record, and a census of every decision log's first and status cells. 
 - **N5, §5: the same id with the same slug.** Two branches give an add/add conflict on one path, leaving one file
   with conflict markers. `renumber` can't separate the two records there, and R1 tests only "one id with two
   slugs". Trigger: R1.
+
+## Status check after the RL13 fold (2026-11-24)
+
+Read: `git diff 14c2e5d 01cbb25` (the design, RL11–RL13, and `fold.md`'s "After the delta round"), checked against the
+tree. I re-ran the first-cell and status-cell census over every decision log, grepped for the paths a `restates`
+entry would have to name, and counted the design's words: 3,989, a new document under 6,000.
+
+| Finding | Status | Evidence |
+|---|---|---|
+| X-B1 | open | RL11's two-stage proof and `legacy` fix three of its four cases: row position, lesson 11's heading tail, and the gap groups and bullet form. The fourth isn't on §8's closed list ("and only those"): the first cell of a slug-id row. That cell can't be derived from the slug: four rows read `—`, one reads `CLAUDE.md`, and others read `D26–D28` and `RT1–4`. This is part of the new BLOCKER below. |
+| S1 | fixed | §4 requires one `amended` entry for every body, `title` or `section` change, §7 refuses a change without one, and R1 tests it. |
+| S2 | fixed | §5: `renumber` never rewrites under `docs/maxim_upstream/` and doesn't refuse to run. `check_records` refuses a new upstream citation of a lesson that isn't on the base. R1 tests that the branch's record is still renumbered while `main`'s record of that number is cited upstream. |
+| S3 | fixed | §3: a slug-id decision is `<slug>.md`, unique in its log's directory, and the front matter has a `slug` key. The example now names `tile_and_client/`. R1 tests that a slug id makes a valid file name. |
+| S4 | fixed | §2 now says 18 bullets, 13 with a bold lead, which is true; the decision counts are true at `1ed9caa`. §4 makes hand titles legal and `unknown` legal at the migration. One residue: see SF-A below. |
+| S5 | fixed | §5: `lint_ids` names the PR that brought the second record, the owner starts the fix session, and `renumber --merged <PR>` rewrites the lines that PR's merge commit added against its first parent. R1 tests it. Merges on this repository are merge commits (`1ed9caa` "Merge pull request #72"), so a first parent exists. |
+| S6 | fixed | RL12: the base is a fetched `origin/main`, and `renumber` and the change check refuse during an uncommitted merge. R1 tests a stale local `main` and the refusal. |
+| N1 | fixed | §2's decision figures are now 1ed9caa's (164 rows, 154 ids, nine logs, plus this branch's log), which matches my count. |
+| N2 | fixed | §5 defines id order: prefix, then number, then suffix, with slug ids after their log's numbered ids. |
+| N3 | fixed | §3 and §7 now speak of `lint_contracts`' scope regex, widened to the `_header.md` files. |
+| N4 | deferred | The author left it for the owner, because RL5 limits step 4's CLAUDE.md edits. Trigger: step 4, R3. |
+| N5 | rejected | The author's reason holds: the same path on both branches is a git add/add conflict on the record file, which git itself reports and the session resolves; it never passes silently. |
+
+### New BLOCKER in the fold
+
+**§8 stage 1 (RL11): the closed `legacy` list can't reproduce today's decision cells byte for byte.**
+- The fold dropped "the derived status column" from the round trip's exceptions, so the status cells must regenerate
+  exactly. §8 says "A cell the fields can't derive is a converter bug, never a listed exception", and limits `legacy`
+  to five listed facts, "and only those".
+- Three kinds of cell on the tree are neither derivable from §4's fields nor on that list:
+  - **First-cell qualifiers.** `D12, provisional` and `PH2-S2, re-ruled`. The id is `D12`, and no field holds
+    "provisional". Stage 2 then drops it as "presentation only", although it is the ruling's standing.
+  - **First cells of slug-id rows.** These are the `—` rows, `CLAUDE.md`, `D26–D28` and `RT1–4` (X-B1's residue).
+  - **Status-cell wording.** The same field kind renders in four styles: "restates world_model §0" (stem and section),
+    "restates `client_rendering.md`" (a backticked file name), "restates CLAUDE.md" (bare), and "restates realtime
+    decisions 1–4". The last names no file: the nearest is `docs/design/realtime_lanes_coop.md`. Likewise "amended by
+    docs-contracts ruling 41" has to come from `{path: …/docs_contracts/rulings.md, ruling: "41"}`.
+- Failure: R2's byte-for-byte test fails on `client_rendering.md`, `sem_stimuli.md` and `tile_and_client.md`. Step 4
+  then either writes per-row special cases into the renderer (a band-aid) or puts unlisted text into `legacy`, which
+  §8 forbids. The brief says "Don't redesign", so the session stops at R2.
+- A fix for the owner to weigh (unverified): add the original id and status cells to `legacy`'s list, and add a field
+  for a ruling's qualifier, so that "provisional" survives stage 2.
+
+**SF-A (SHOULD-FIX, mechanism, for step 4's R1 and R3 tests): "the migration commit" has no definition the lint can
+read.**
+- §4 and §7 make `unknown` and `legacy` legal "only in a record that exists at the migration commit", and refuse
+  either one "written after it".
+- `check_records` compares with the base, a fetched `origin/main`. In the migration PR itself every record is new
+  against that base, and nothing names the commit.
+- Failure: R3's first commit fails its own gate on every `unknown` and `legacy` field. Or, if the lint skips the check
+  while the base has no records, the check is never tested before it matters.
+- Deferred to R1 and R3 as a test: the migration PR passes, and a later record holding `unknown` is refused. Trigger:
+  step 4, R1.

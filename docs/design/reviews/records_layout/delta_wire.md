@@ -28,15 +28,15 @@ and `scripts/check_plan.py`.
 | W2 | fixed | §5: `renumber` rewrites only lines added or changed against the merge base, and lists `main`'s citations without rewriting them. R1's third test runs on a shared file. The stacked-branch residual is stated and accepted under RL1. |
 | W3 | fixed | §5 adopts `lint_ids`' lesson grammar, which already reads "Lesson N", "lessons N and N", en-dash ranges, "lesson §N" and the file-name forms (`lint_ids.py::_CITE`). Decision citations are no longer resolved, so the day-one reds (`D53`, `D2395`, `B905`) and false passes (`T1-S1`) are gone. R1 tests every spelling. `renumber`'s decision grammar is a new finding (S5). |
 | W4 | fixed | §5 defines a family as `lint_ids` holds it: a prefix across every log. Cross-listed rows become one record with `also_in`; restating and id-less rows get log-qualified slug ids. Checked against `_decision_rows`: all ten cross-listed ids (O3–O7, O7a, O31, T1, T2, D20) and all fifteen non-id rows are covered. The new text's own defects are B1, S3 and S4. |
-| W5 | open | §4's four relations (supersedes, amends, also_in, restates) and the bold-lead title fix part of it. Status cells the fields still can't express: "confirmed by O69" (O67, O68), "confirmed by O74" (O73) and "corrected by O73" (O71) have no field. "restates world_model §0" or "boundaries §0" (six cells), "restates CLAUDE.md" and "restates `client_rendering.md`" name sections or files, not ids, and `restates` holds ids only. `RT1–4` "restates realtime decisions 1–4", but RT1–RT4 have no record, so §7's unknown-id refusal reds the migration commit. A cross-listed id's two rows carry different statuses (D20, O31 and T1: `live` in one log, "restates" in the other), and one record has one derived status. The two non-ISO date cells (`standing`, `owner, 2026-11-17/18`) are unaddressed: `date` must be ISO, and §8's `unknown` isn't an ISO date. R2's first test will fail on these cells, not pass. |
-| W6 | open | The gap and backlog fields and #52's deletion rule are fixed. Still open: (a) `gate` and `closes_at` duplicate the body's "Red gate: …" text, and the backlog `status` duplicates the "Lands with" cell's prose (`**done**`). The byte-identical round trip needs that prose kept, so there are two copies and no rule says which wins or that they agree. (b) `done_in` is "the commit", but the source cells say `step 3b part b` (B29) and `the owner's decision` (B21). B6's "done locally; pending its first …" and B19's "(1) done; (2), (3) open; (4) d…" fit `open`/`done in part`/`done` only by losing information. (c) §8's `unknown` isn't a legal value of the closed `kind` enum, of `gate` ("a test id, or `none` and a reason") or of `date`, so the schema refuses what the converter must write. |
+| W5 | fixed | After the RL13 fold (`01cbb25`): §4 adds `confirms`, `corrects` and `amended_by_external`, lets `restates` take a path with a section, and derives confirmed and corrected. Per-log cells and non-ISO date text go to `legacy` (§8 stage 1). R2's first test now names these cells. Checked: `world_model.md` and `boundaries.md` both have a `## 0.` section, and rulings.md's ruling numbers are unique first cells of its one table. Residual for R2: no file in the tree is plainly "realtime decisions 1–4", so RT1–4's `restates` path is the converter's to find. |
+| W6 | fixed | After the RL13 fold: "One owner per fact" (§4) keeps the prose verbatim until R3, with `check_records` refusing a field that disagrees, and the field becomes the owner afterwards. `done_in` takes a commit, a PR or a named step. `unknown` is legal only in records present at the migration commit. B6's and B19's mixed cells remain the converter's (R2's W6 test). |
 | W7 | fixed | RL4 sets the caps; §6 states them. Recounted (whitespace words): the longest lesson record is 473 words (31 and 36), decision row 361 (O79), gap 343, backlog row 540 (B5), giving 500, 400, 400 and 600, as §6 says. The plan's §4 table at about 1,083 words is stated. |
 | W8 | fixed | RL10; §4's "What may change" compares against the merge base and gives each family's deletion rule. |
 | W9 | fixed | §8 is rewritten. #48, #49, #52 and #55 are on `main` at `1ed9caa` (checked with `git log`). `migrate-branch` runs before the branch merges `main` and maps or refuses edits, and R2's last two tests cover it. (Its "checkout of `main`" is N4.) |
 | W10 | fixed | §7 keeps `check_plan::missing_ids`' `OD-` half; `check_plan` passes at `9d1e747`. The decision half's retirement has a side effect (N5). |
-| W11 | open | Fixed in part: the reader (`records.py::read_record`), its `---` grammar, versions per family and the gate row (`lint_gates.py::GATE_MODULES`) are named. Still open: the named parser is the one W11 said can't do the job. `loaders`' only public strict reader is `read_yaml(path)`, and on a record file it returns `Refused: not valid YAML: expected a single document in the stream` (run on `<scratchpad>`). No text-taking entry exists, and `_StrictLoader` is private. `core.schema` has no converter for a date (unquoted `date: 2026-11-24` loads as `datetime.date`, which `Text` refuses since it isn't a `str`). It has none for a list of strings either (`ListOf` yields mappings), and none for an "id or `path#anchor`" union. So the stated contract can't be met without new `loaders`/`core` API, and the design doesn't name it. |
-| W-N1 | open | §6 generates the heading's date from `date`, but lesson 11's heading reads "(2026-11-15, reworded 2026-11-20)". `amended` is empty at creation (§4), and §8's round trip doesn't exempt headings. |
-| W-N2 | deferred | The author's call, triggered at step 4's R2. It isn't in §9's tests, and §3 now depends on it (S4). |
+| W11 | fixed | After the RL13 fold: `read_record` splits the file itself, `loaders` gains a text-level entry to `_StrictLoader` at R1 (§4, §7), and a date is a quoted string, with an unquoted one refused. The list and union converters are left to R1's schema work; R1's W11 test covers the date and the `---` body. |
+| W-N1 | fixed | After the RL13 fold: lesson 11's heading tail goes to `legacy` (§8 stage 1), with an R2 test. |
+| W-N2 | deferred | The author's call, triggered at step 4's R2. After the RL13 fold §3 places a cross-listed decision by log name, so `owner_section` values no longer feed placement. |
 | W-N3 | fixed | §5 and §9's R3 schedule the `reason=` rewrite and a test that each one names a real gap. |
 | W-N4 | fixed | §5: `renumber` applies one whole mapping at once; R1 tests a range shift. |
 
@@ -121,3 +121,34 @@ and `scripts/check_plan.py`.
   `WORLD_DECISION`, `TILE_DECISION`). Retiring the decision half also drops the only check that an O, D or T id cited
   in a design is listed somewhere. With decision citations unresolved (§5), a design citing a decision id that has no
   record then passes everything.
+
+## Status check after the RL13 fold (2026-11-24)
+
+Read: `git diff 14c2e5d 01cbb25`, checked against the tree.
+
+| Finding | Status | Evidence |
+|---|---|---|
+| B1 | fixed | RL11: stage 1 is byte for byte in today's form, with `legacy` holding row position, per-log cells, heading tails, date text and gap grouping (§8). A cell the fields can't derive is a converter bug, not an exception. The stage-2 commit has its own defect (below). |
+| S1 | fixed | `amended_by_external` on the amended record, written only by the migration, resolving `{path, ruling}` against the table's first cell; a later ruling is a record (§4). |
+| S2 | fixed | §2 now says 18 bullets, 13 with a bold lead, and §4 gives hand titles to the five without one. |
+| S3 | fixed | A slug id is a plain slug, unique in its log's directory, in the file `<slug>.md`; `slug` is a front-matter key (§3, §4, §5). |
+| S4 | fixed | A cross-listed decision lives in the first of its logs by name (§3), which is deterministic. |
+| S5 | fixed | Whole-token rewrites only, never under `docs/design/reviews/` (§5), with an R1 test. `-` as a token boundary (`T1-S1` in `loaders.py`'s docstring) is R1's to pin. |
+| N1 | fixed | §2: 164 rows, 154 ids, nine logs at `1ed9caa`. |
+| N2 | fixed | §3 and §7 describe the scope regex and widen it to the `_header.md` files. |
+| N3 | fixed | §5 defines id order: prefix, number, suffix, then slug ids by slug. |
+| N4 | fixed | §8: a detached worktree of a fetched `origin/main`; the session commits. |
+| N5 | deferred | `fold.md`: step 4, R1 decides whether `lint_ids` resolves decision ids cited in `docs/design/`. |
+
+### New BLOCKER in the fold
+
+- **§4 "What may change" against §8 stage 2 and RL11: the presentation commit breaks the change rules.** Stage 2
+  "removes every `legacy` field and the duplicated prose". But §4 says "a decision file never changes". A lesson's
+  allowed changes don't include `legacy`, and every change needs an `amended` entry. The only exception named is §5's
+  duplicate fix. Every decision record carries a `legacy` row position, so the presentation commit edits all of them.
+  *Failure:* `check_records`' change check (§7, against the base) refuses R3's second commit on every decision record
+  and on lesson 11. The builder must then add an exception the design doesn't state, or leave `legacy` in place, which
+  §4 says is "removed at R3". §8 also contradicts itself: stage 2 "removes … the duplicated prose" from gap and backlog
+  bodies, yet "its diff changes no record's … body text". *Fix (unverified):* name the presentation commit as a second
+  one-time exception in §4, scoped to removing `legacy` and the §4 duplicated prose. That is a contract change, so it
+  goes to the owner.

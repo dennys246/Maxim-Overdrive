@@ -101,3 +101,25 @@ rev-parse` and `git merge-base` in this worktree for the base ref; grep over `sc
   D10's line, so two branches adding unrelated rulings that amend adjacent ids conflict without a duplicate. That
   costs a regeneration, not correctness, and is worth one line in §5 so a session doesn't read every index conflict as
   a duplicate.
+
+## Status check after the RL13 fold (2026-11-24)
+
+Read: `git diff 14c2e5d 01cbb25` (the design, RL11–RL13, fold.md's "After the delta round"), checked against the
+tree. Ran: in the SF1 scratch repository under `<scratchpad>`, `git merge-base late main` after the late branch had
+merged into `main`; `grep` of `.github/workflows/` for the base CI uses. No round-1 status changed.
+
+| Finding | Status | Evidence |
+|---|---|---|
+| B1 | fixed | §5 "The base": the merge base with a freshly fetched `origin/main`, never local `main`; `renumber` and the change check refuse during an uncommitted merge (RL12); §4, §7 and §8 point at it; R1 tests a stale local `main` and the mid-merge refusal. CI already compares with `origin/main` at `fetch-depth: 0` (`test.yml`). Merging `origin/main` and fetching again later still gives the last merged `main` commit as the base, so lines `main` gained after that aren't in the branch at all. Residual NIT: §7 still says "as `lint_sizes.py`'s ratchet compares", and that ratchet's base is `prepush.sh`'s "main if it exists"; R1's stale-`main` test is what holds it. |
+| SF1 | fixed | §6: regeneration never discards text; `index` refuses a generated file holding an entry no record holds and names it; R1 tests it. The loss I described can't happen now. Residual: my scenario had the late PR merged into `main` on GitHub. Then the merge base of that branch with `origin/main` is the branch's own tip (verified: `git merge-base late main` equals `late`, and the diff is empty), so `migrate-branch`'s "branch's own commits' diff against the base" finds nothing, and the tool §6 and §7 name can't do the repair. `main` stays red and every regeneration refuses until someone writes the record by hand. That is recoverable, with nothing lost, so it isn't a BLOCKER. R2's "after a clean merge" test should include the PR-already-on-`main` case. |
+| SF2 | fixed | §5: `lint_ids` names the PR that brought the second record; the owner starts the fix session; `renumber --merged <PR>` rewrites citations in that merge commit's lines against its first parent; R1 tests it. A squash or rebase merge has no two-parent merge commit; R1 should cover the merge method the owner uses. |
+| SF3 | fixed | §5: `renumber` never rewrites a file under `docs/maxim_upstream/` instead of refusing to run, and `check_records` refuses an added upstream citation of a lesson not on the base; R1 tests that the branch's record is still renumbered when `main`'s is cited upstream. |
+| N1 | deferred | Left by the author: `OD-` rows are out of scope (RL3). Trigger: when Phase 3 rows join the records. §5's "Each id-bearing family has one generated index" still overstates it for `OD-`. |
+| N2 | deferred | Moved to §9 R1 as a test: a hand-resolved line holding both branches' citations is listed, not rewritten. Trigger: R1. §5 still says `renumber` rewrites lines the branch "added or changed", which covers that line, so R1 must reconcile the text with the test. |
+| N3 | fixed | §8: `migrate-branch` runs in a detached worktree of a fetched `origin/main`, writes into the branch's worktree, and leaves the commit to the branch's session. |
+| N4 | deferred | Left: such a conflict costs a regeneration, not correctness. Trigger: step 4, if such conflicts recur. |
+
+### New BLOCKER in the fold
+
+None. The one gap I found is SF1's residual above: after a late PR has merged into `main`, `migrate-branch` finds no
+diff. It is recoverable by hand and loses nothing.
