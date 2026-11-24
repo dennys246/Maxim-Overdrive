@@ -215,7 +215,7 @@ only review holds.
 - **Tests are deterministic and fast.** No sleeps, wall clock, real network beyond localhost, or LLM calls in tests.
   Mark anything over a few seconds `slow` and gate it behind a tier variable. Guard:
   `tests/test_determinism.py::test_the_simulation_and_tests_have_no_hidden_sources_of_nondeterminism` (RNG, clock,
-  sleep), B1 (network and LLM calls)
+  sleep), B1 (network and LLM calls), B47 (slice tests that wait on server code the scan exempts)
 
 ### Review before push
 

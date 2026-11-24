@@ -537,3 +537,17 @@ because no row carries flame (`client_objects.md` §5.4).
 outcome (`t_flash`), and from the receipt to the first change in a declared stimulus row. The second one, not the
 first, sizes any credit window. The amendment draft's slow-effects paragraph has to be revisited before it goes
 upstream.
+
+### 39. Maxim's status, copied into this repo, drifts within a day, and "fixed in Maxim" is not "fixed here" (2026-11-23)
+
+**A row that records an upstream status by hand is a second owner of a fact Maxim owns.** *Evidence:* on
+2026-11-23 Maxim merged #1773 (`1b2e60a9`) and #1771, closing OD-I1, OD-I3, OD-I4 and OD-I6, and v1.3.4 had already
+shipped OD-I7's fix (PR #1725). `docs/roadmap.md` still listed all five as open. The gap came to light only
+because Maxim's world-clock kickoff listed four of the fixes as done; OD-I6 turned up only when #1773's description
+was read. Going the other way, none of the four code fixes reaches this repo yet: the lock pins `pymaxim==1.3.3`,
+older than every fix.
+
+*Consequence:* an OD row now says where a fix stands upstream and closes only when the lock moves to a release that
+contains it. The durable fix is to make drift fail loudly instead of trusting attention: a strict red gate for each
+OD-I item that can be tested, run by the weekly drift job against the newest pymaxim, and the issue states checked
+against Maxim's GitHub. Both are proposals for the post-tag planning session, not built.
