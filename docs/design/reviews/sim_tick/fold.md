@@ -174,3 +174,73 @@ checklist row suffices or `Simulation.__init__` needs a marker too.
 | D5-N1 | nothing checks that an `OWNED_CALLS` entry names a call that is made | `test_each_owned_call_is_made_by_one_of_its_owners`, for every entry; red when `adopt`'s one call is renamed | open (for the reviewer) |
 | D5-N2 | three PR 4a deferrals sit under the PR 3 group | their own group, "Deferred from PR 4a's review" | open (for the reviewer) |
 | D5-N3 | `__deepcopy__`'s docstring gives the shallow copy's reason | it names a deep copy's hazard, D4-N2's | open (for the reviewer) |
+
+**The owner's rulings on delta 5 (2026-11-22).** Arch S5's residual also gets a `TEMPORARY(phase1/sim-clock)` marker
+on `Simulation.__init__`, listed under Phase 1 in the roadmap beside its PR 4b checklist row; the lint fails with the
+listing removed. A delta 6 reviews the delta-5 fold, the merge with #50's spike pin and this marker.
+
+## Delta 6 (`delta6.md`, verbatim): 0 BLOCKER, 1 SHOULD-FIX, 3 NIT, on ef4c5c8
+
+One reader (Executor, Architecture, Wire integrity, Determinism) on the delta-5 fold, the merge with #50's spike and
+the marker. D5-N1 and D5-N2 fixed; D5-N3 open, folded below.
+
+**Correction first.** 79b5d91's message and the first E18 said that porting the spec spike's M5 to `Simulation` would
+change its turn to T3's 0.5 s step and move a pre-registered metric, and the owner ruled for a pin on that. It was
+false: a 6 s physics step reproduces the old M5 bit for bit (the reader measured it; the author reran it and `cmp`
+agreed). The owner then ruled to port (2026-11-22). The D5-N3 docstring was delta 5's unverified wording, folded
+without checking.
+
+| # | Finding | Fold | Status |
+|---|---|---|---|
+| D6-S1 | the pin rests on a false premise | ported: `burn.py` steps `Simulation` with a 1 s tick and physics every sixth; `test_m5_on_simulation_is_bit_for_bit_m5_on_world_advance` holds it to a golden recorded on `c6d4f10` (`m5_golden_c6d4f10.json`), red at T3's step; E18 rewritten | open (for the reviewer) |
+| D6-N1, D6-N2 | the guard checks only that `advance` exists; the M5 test is left red | moot: the guard and the pin are gone, and M5's tests pass on the branch | open (for the reviewer) |
+| D6-N3 | E18 doesn't say it came before the first run | E18 gives its time, 23:34 inside the first nightly window, and that no M5 result exists yet, for the spike's author to confirm | open (for the reviewer) |
+| D5-N3 (reopened) | the `__deepcopy__` docstring's hazard can't happen | it says why the refusal stands: one deliberate answer, where a deep copy otherwise fails by accident | open (for the reviewer) |
+
+## Delta 7 (`delta7.md`, verbatim): 0 BLOCKER, 2 SHOULD-FIX, 2 NIT, on 9de55a3, the follow-up PR
+
+PR #49 merged at `7d22c97`, before `ef4c5c8` (the marker) and `98810ce` (the delta-6 fold), which go in a follow-up
+PR from this branch (owner, 2026-11-23). One reader (Executor, Architecture, Wire integrity, Determinism) on
+`origin/main..9de55a3`. D6-S1, D6-N1 with D6-N2 and D6-N3 fixed; D5-N3 open.
+
+**Correction first.** The delta-6 fold's `__deepcopy__` docstring named the region table's mappingproxy; it is the
+material table's (`_materials`), checked by deep-copying each attribute alone.
+
+| # | Finding | Fold | Status |
+|---|---|---|---|
+| D7-S1 | nothing the gate runs reaches `spikes/`, so a physics change could move M5 silently | owner, 2026-11-23: M5 checks itself. `burn.check_engine` replays the golden before any burn and refuses to score on a difference; M5's output records the check and the `src` tree. Red at T3's step (`test_m5_on_simulation_is_bit_for_bit_m5_on_world_advance`, `test_m5_records_the_engine_it_burned_on`); `test_m5_refuses_to_score_on_an_engine_that_moved` plants a moved row | open (for the reviewer) |
+| D7-S2 | E18 may postdate the first run; no ruling covers it | owner, 2026-11-23: E18 stands as the one exception, because it changes no number; E18 and the errata's intro say so | fixed (author's, after the owner's ruling) |
+| D7-N1 | the golden's recorder isn't in the repo | `spikes/specgen/m5_golden_recorder.py`, beside the golden | open (for the reviewer) |
+| D7-N2 | no golden spec is a fire on air or a burnout | the golden holds six specs, `legs` (a fire on air) and `block` (burns out) among them, re-recorded on `c6d4f10` | open (for the reviewer) |
+| D5-N3 (reopened) | the docstring names the wrong table | "the material table's mappingproxy" | open (for the reviewer) |
+
+## Delta 8 (`delta8.md`, verbatim): 0 BLOCKER, 2 SHOULD-FIX, 2 NIT, on 8dcc0ff, the delta-7 fold
+
+One reader (Executor, Architecture, Wire integrity, Determinism) on `9de55a3..8dcc0ff`. The reader's statuses for
+delta 7: D7-S1, D7-N1 and D5-N3 fixed; D7-S2 the owner's ruling, and E18's text matches it; D7-N2 open, against the
+author's claim, because nothing tested `burn()`'s own returns on the fire on air and the burnout. Each fold below was
+proved by a mutation of `burn.py` that turns exactly one M5 test red (six mutations, six reds).
+
+| # | Finding | Fold | Status |
+|---|---|---|---|
+| D8-S1 | no test sees that `m5` calls `check_engine`, or calls it before burning | `test_m5_checks_the_engine_before_it_burns_anything` plants a refusing check and a recording `burn`; red with the call replaced by its literal, and with the check moved below the burns | open (for the reviewer) |
+| D8-S2 | `src_tree` records `HEAD:src`, not the `src` that ran; the test passes on any 40 characters | `burn.src_tree` refuses an uncommitted `src` (`git status --porcelain -- src`), so the recorded tree is the engine; `test_m5_refuses_an_uncommitted_src_which_no_tree_names` edits a committed `src` in a throwaway repository; `test_m5_records_the_engine_it_burned_on` compares with `HEAD:src`. Red without the refusal, and with the tree replaced by zeros. `generate.py::header`'s `src_tree`, which came before this diff, is not changed | open (for the reviewer) |
+| D8-N1 | E18 claims any engine that would move an M5 number stops M5; the golden is wood alone | E18 now says what the check covers: the golden's six specs, with data files refused at scoring by `data_sha256`, and a `src` change that moves only another material's burn passes | open (for the reviewer) |
+| D8-N2 | the errata intro's "committed before any data exists" has no exception; E18's time is stale | the intro names E18 as the exception; E18 says it was first written at 23:34 on 2026-11-22 and rewritten on 2026-11-23 | open (for the reviewer) |
+| D7-N2 (reopened) | `burn()`'s returns on a fire on air and a burnout are untested | `test_m5_burn_returns_a_fire_on_air_and_a_burnout_as_the_golden_rows_say` derives them from the golden's rows; red with the fire-on-air return deleted, and with the censor moved below the integrity read | open (for the reviewer) |
+
+## Delta 9 (`delta9.md`, verbatim): 0 BLOCKER, 2 SHOULD-FIX, 4 NIT, on 5dc79b5, the delta-8 fold
+
+One reader (Executor, Architecture, Wire integrity, Determinism) on `8dcc0ff..5dc79b5`. The reader's statuses for
+delta 8: D8-S1, D8-S2, D8-N1, D8-N2 and D7-N2 fixed. The fold moves the engine record into one function,
+`protocol.engine_tree`, which both records call: M5's output and generate.py's run header. Each fold below was proved
+by a mutation that turns exactly one test red (seven mutations, seven reds).
+
+| # | Finding | Fold | Status |
+|---|---|---|---|
+| D9-S1 | `src_tree` hashes `protocol.ROOT`'s `src`, while `simcore` may come from a borrowed venv's checkout; `data_sha256` has the same split | `engine_tree` refuses unless `simcore` and `maxim_overdrive` were imported from `ROOT/src`, so the tree, the engine and the data beside the package are one checkout. `test_the_engine_tree_refuses_an_engine_imported_from_another_checkout`; red without the check | open (for the reviewer) |
+| D9-S2 | no test sees `m5` itself refuse a dirty `src` | `test_m5_and_the_run_header_record_the_engine_tree_and_refuse_with_it` plants a refusing `engine_tree`; red with `m5`'s call inlined to `rev-parse`, and with the header's | open (for the reviewer) |
+| D9-N1 | `status.showUntrackedFiles=no` hides an untracked file under `src` | `--untracked-files=all`; the test sets that config in the throwaway repository and adds an untracked file; red without the flag | open (for the reviewer) |
+| D9-N2 | `generate.py::header` records `HEAD:src` on a dirty tree, by a second `_git` | the header records `engine_tree()`, read before `HEAD`. Not deferred: the reader's reason (a changed `generate.py` changes `spike_tree`, so a resume refuses) applies to every commit already, because a resume must also match `simcore_commit`; a run in progress resumes on its own commit | open (for the reviewer) |
+| D9-N3 | E18's data sentence claims more than `data_sha256` checks | E18 says `data_sha256` holds a run to the data it was generated on, that `git diff c6d4f10 -- data` is empty on 2026-11-23, and that no check holds the data to `c6d4f10` | open (for the reviewer) |
+| D9-N4 | `src_tree`'s git inherits `GIT_DIR` and the rest | `protocol.git` drops every `GIT_*` variable; the test sets `GIT_DIR` to another path; red when the environment is inherited | open (for the reviewer) |

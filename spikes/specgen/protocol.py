@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import subprocess
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,6 +19,8 @@ from typing import Any
 
 import yaml
 
+import maxim_overdrive
+import simcore
 from maxim_overdrive.data import materials
 from simcore.core.grid import MaterialGrid
 from simcore.core.imagination import SpecRejected, place
@@ -31,6 +35,8 @@ SCENE_EXTENT_M = (4.0, 4.0, 4.0)  # plan §5: an empty 4 x 4 x 4 m air scene
 OFFSET_M = (0.503, 0.503, 0.003)  # plan §5: the scene offset
 TRUTH_DX_M = 0.1  # plan §5: the truth grid
 RETRY_SEED = "100 * attempt + seed"
+# The engine's packages as imported: the spike records ROOT's src tree, so they must come from ROOT/src
+ENGINE = (Path(simcore.__file__), Path(maxim_overdrive.__file__))
 
 # The classes an attempt can end in (plan §5 M1): accepted and refused come from place; the rest are the scorer's.
 ACCEPTED, REFUSED, OUTSIDE, TRUNCATED, PARSE_FAILURE = (
@@ -81,6 +87,31 @@ def check_frozen(base: Path | None = None) -> dict[str, str]:
     if wrong:
         raise FrozenMismatch(f"frozen files differ from freeze.sha256: {wrong}")
     return files
+
+
+def git(root: Path, *args: str) -> str:
+    """git in ``root``, deaf to the caller's ``GIT_*`` variables, so an inherited ``GIT_DIR`` can't name another
+    repository (PR 4a delta 9, D9-N4)."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    out = subprocess.run(["git", "-C", str(root), *args], check=True, capture_output=True, text=True, env=env)
+    return out.stdout.strip()
+
+
+def engine_tree(root: Path = ROOT, engine: Sequence[Path] = ENGINE) -> str:
+    """The committed ``src`` tree that ran, which generate.py's header and M5 record. Refused unless every engine
+    package was imported from ``root/src`` (not a borrowed venv's checkout) and ``src`` has no change, tracked or
+    untracked, whatever the user's git config: otherwise no tree hash names the engine (PR 4a delta 8, D8-S2; delta
+    9, D9-S1, D9-N1, D9-N2)."""
+    src = (root / "src").resolve()
+    stray = [str(p) for p in engine if not p.resolve().is_relative_to(src)]
+    if stray:
+        raise RuntimeError(
+            f"the spike refuses: its engine was imported from outside {src}, so no tree names it: {stray}"
+        )
+    changed = git(root, "status", "--porcelain", "--untracked-files=all", "--", "src")
+    if changed:
+        raise RuntimeError(f"the spike refuses: src has uncommitted changes, so no tree names its engine:\n{changed}")
+    return git(root, "rev-parse", "HEAD:src")
 
 
 def spike_tree(base: Path | None = None) -> str:
