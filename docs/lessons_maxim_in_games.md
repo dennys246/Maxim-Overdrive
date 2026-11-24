@@ -568,3 +568,21 @@ Second, the job as it stands could never have shown that. O75's red gates depend
 carries a fix: on a job that is already red, a gate turning red is invisible. So step 2 after the tag
 (`phase1/drift-and-lock`) fixes the job before it writes the gates. A scheduled job's result is read like a pull
 request's checks, and it is part of done.
+
+### 41. A gate waiting on an upstream fix is proved against the fix's own source, before the release ships (2026-11-24)
+
+**A strict red gate for a Maxim fix is only worth something if it flips when the fix arrives, and a stand-in for the
+fix can agree with a gate that the real fix would not satisfy.** *Evidence:* `tests/test_maxim_fixes_pending.py` holds
+OD-I1, OD-I3 and OD-I6 red on pymaxim 1.3.4. Each gate's check is one helper, and a passing test runs it against a
+monkeypatched stand-in. That proves the check can pass, not that Maxim's fix passes it. So the gates also ran with
+`src/maxim` from #1773 (`1b2e60a9`, extracted with `git archive`, read-only) first on the path: OD-I1 and OD-I3 went
+`XPASS(strict)`, which is how they will fail at 1.3.5. OD-I6 reads the installed distribution's metadata, so only
+its stand-in, #1773's own `rich>=13.0.0,<16.0`, can show it. Reading the fix also shaped two gates: #1773's loader
+refuses a version 1 file and returns 0 without raising, so the pickle gate writes version 1 (a version 2 file returns
+0 on 1.3.4 too, and would have passed today). And the gates call public methods with an explicit time or path, never
+the wall clock or `~/.maxim`. The same step found lesson 40's root: `check_lock.main` read the process environment,
+so every test of it inherited the drift job's skip. It now takes `env` as a required keyword.
+
+*Consequence:* when a Maxim fix is merged but not released, read its diff, write the gate on what the fix will do, and
+run the gate on the fix's source before trusting it. A gate that is proved only by a stand-in is a guess about
+upstream behaviour.
