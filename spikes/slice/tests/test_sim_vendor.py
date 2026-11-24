@@ -26,7 +26,7 @@ def test_the_vendor_walks_to_a_young_fire_and_puts_it_out_through_the_applier() 
         events += sim.step([])
     assert {"type": "event", "what": "doused", "region": "crate", "by": "vendor"} in events
     assert not sim.fire.fuels["crate"].burning
-    assert "fire:crate" not in sim.world.sources
+    assert "fire:crate" not in sim.sources
     assert sim.charges == C.npc.vendor.charges - 1
     states = [e["state"] for e in events if e["what"] == "npc"]
     assert states[:2] == ["douse", "doused"], "it went to the fire, then put it out"
@@ -106,7 +106,7 @@ def test_a_kindle_beside_the_vendor_never_crashes_the_tick() -> None:
     for _ in range(5):
         sim.step([Kindle()] if _ == 0 else [])
     assert sim.charges == C.npc.vendor.charges - 1
-    assert "fire:crate" not in sim.world.sources
+    assert "fire:crate" not in sim.sources
 
 
 def test_relighting_beside_a_vendor_with_a_second_charge_never_crashes() -> None:
@@ -144,3 +144,21 @@ def test_a_tripped_body_strikes_without_overdrive() -> None:
     assert not event["overdrive"]
     assert event["energy_j"] == C.strike.energy_j
     assert sim.heat.core_c <= core
+
+
+def test_a_strikes_destroyed_volume_is_what_the_world_lost() -> None:
+    # The event's destroyed_m3 comes from the engine's outcome after the tick (Outcome.effects), not from the strike
+    # as asked: summed over strikes, it is the solid volume the crate lost.
+    calm = dataclasses.replace(C, strike=dataclasses.replace(C.strike, overdrive_heat_j=0.0, recoil_ns=0.0))
+    sim = Sim(calm)
+    sim.body = Body(5.5, 2.9, 0.4, yaw=0.0)
+    sim.command = Command(0.0, 0.0, 0.0, overdrive=True)
+    f = sim.frame
+    crate = f.regions["crate"].cells  # the region's cells stay its own; a destroyed one stops being solid
+    before = int(f.solid[crate].sum())
+    destroyed = 0.0
+    for _ in range(200):
+        destroyed += sum(float(e["destroyed_m3"]) for e in sim.step([Strike()]) if e["what"] == "strike" and e["ok"])
+    lost = before - int(sim.frame.solid[crate].sum())
+    assert lost > 0, "a precondition: two hundred Overdrive strikes destroy some of the crate"
+    assert destroyed == pytest.approx(lost * f.dx_m**3, rel=1e-9)

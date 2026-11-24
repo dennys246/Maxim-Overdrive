@@ -52,12 +52,12 @@ def test_a_burnt_out_object_leaves_no_fire_in_the_world() -> None:
     tiny = dataclasses.replace(C, fuel=dataclasses.replace(C.fuel, objects={**C.fuel.objects, "crate": 0.0001}))
     sim = _at_the_crate(tiny)
     sim.step([Kindle()])
-    assert "fire:crate" in sim.world.sources
+    assert "fire:crate" in sim.sources
     events = []
     for _ in range(300):
         events += sim.step([])
     assert {"type": "event", "what": "burnt_out", "region": "crate"} in events
-    assert "fire:crate" not in sim.world.sources
+    assert "fire:crate" not in sim.sources
     # A burnt-out crate is no longer a target: there is nothing left in reach that burns.
     assert sim.step([Kindle()])[0]["error"] == "nothing that burns within reach"
 
@@ -68,14 +68,14 @@ def test_a_neighbour_that_ignites_gets_a_fire_in_the_world() -> None:
     sim.fire.fuels["pallet"].skin_c = C.fuel.materials["wood"].ignition_c + 5.0  # past ignition: lights this tick
     events = sim.step([])
     assert any(e["what"] == "ignited" and e["region"] == "pallet" for e in events)
-    assert "fire:pallet" in sim.world.sources
+    assert "fire:pallet" in sim.sources
 
 
 def test_only_something_that_burns_is_kindled() -> None:
     sim = Sim(C)
     sim.body = Body(5.4, 2.0, 0.4, yaw=-np.pi / 2)  # facing the south wall, 1.6 m from it
     assert sim.step([Kindle()])[0]["ok"] is False
-    assert not sim.world.sources
+    assert not sim.sources
 
 
 def test_a_tripped_body_runs_slow_without_overdrive() -> None:

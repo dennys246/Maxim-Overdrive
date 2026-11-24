@@ -8,7 +8,16 @@ from slice_server import config
 from slice_server.__main__ import main, serve
 from slice_server.body import Command
 from slice_server.intents import Kindle, Move
-from slice_server.metrics import Observer, line_numbers, observe, report, session_metrics, stat_numbers
+from slice_server.metrics import (
+    LogRefused,
+    Observer,
+    line_numbers,
+    log_meta,
+    observe,
+    report,
+    session_metrics,
+    stat_numbers,
+)
 from slice_server.sim import Sim
 
 EAST = Move(Command(1.0, 0.0, 1.0))
@@ -86,6 +95,26 @@ def test_voice_and_budget_numbers_from_the_log() -> None:
     assert b["tick_cpu_ms_max"] == 30.0
 
 
+@pytest.mark.parametrize(
+    ("meta", "said"),
+    [
+        ({"dx_m": 0.2, "tick_s": 0.1}, "pre-version log"),  # every log recorded before the port onto Simulation
+        ({"log": "slice-log-0", "dx_m": 0.2, "tick_s": 0.1}, "slice-log-0 log"),
+        ({**log_meta(0.2, data=config.raw())["meta"], "engine": {"tick_us": 100000, "physics_every": 5}}, "cadence"),
+    ],
+)
+def test_a_log_from_another_engine_is_refused_by_name(tmp_path: Path, capsys, meta: dict, said: str) -> None:
+    # A log replays only on the engine it was recorded on: one from before the port would diverge in its last bits
+    # and be reported as "does NOT match", which hides why. It is refused instead, saying which log it is.
+    log = tmp_path / "old.jsonl"
+    log.write_text(json.dumps({"meta": meta}) + "\n" + json.dumps({"end": {"tick": 0, "digest": "0" * 64}}) + "\n")
+    with pytest.raises(LogRefused, match=said):
+        session_metrics(log)
+    for command in ("metrics", "replay"):
+        assert main([command, str(log)]) == 2
+        assert said in capsys.readouterr().err
+
+
 def test_a_real_session_log_replays_and_a_tampered_one_is_flagged(tmp_path: Path) -> None:
     serve(0.2, 0, llm=False, root=tmp_path, ticks=5)
     (log,) = (tmp_path / "sessions").iterdir()
@@ -101,3 +130,112 @@ def test_a_real_session_log_replays_and_a_tampered_one_is_flagged(tmp_path: Path
     assert tampered["replay_matches"] is False
     assert "does NOT match" in report(tampered)
     assert main(["metrics", str(log)]) == 1
+
+
+# The committed session log (CLAUDE.md: "Old fixtures stay committed"): a short scripted session that walks to the
+# crate, lights it, strikes it in Overdrive and watches the vendor douse it. A change to the engine that moves the
+# slice's replay turns this red in the gate. If the change is meant, rebuild the log with _build_fixture (from
+# spikes/slice: ../../.venv/bin/python -c "import sys; sys.path[:0] = ['.', 'tests']; import test_metrics as t;
+# t._build_fixture(t.FIXTURE)") and say so in the commit; a new log layout bumps LOG_VERSION and keeps the old file.
+FIXTURE = Path(__file__).parent / "fixtures" / "session_slice-log-2.jsonl"
+OLD_FIXTURE = Path(__file__).parent / "fixtures" / "session_slice-log-1.jsonl"  # kept: a version this slice refuses
+
+
+def _script() -> dict[int, list[dict[str, object]]]:
+    def move(x: float, y: float, effort: float, overdrive: bool = False) -> dict[str, object]:
+        return {"type": "move", "dir": [x, y], "effort": effort, "overdrive": overdrive}
+
+    return {
+        0: [move(1.0, 0.18, 1.0)],
+        32: [move(0.0, 0.0, 0.0), {"type": "kindle"}],
+        33: [move(0.0, 0.0, 0.0, True), {"type": "strike"}],
+        34: [move(0.0, 0.0, 0.0)],
+    }
+
+
+def _build_fixture(path: Path, ticks: int = 200) -> None:
+    from slice_server.intents import parse  # noqa: PLC0415 - only the rebuild needs it
+
+    sim, script = Sim(config.load(), dx_m=0.2), _script()
+    rows = [log_meta(0.2, data=config.raw())]
+    for tick in range(ticks):
+        raw = script.get(tick, [])
+        rows += [{"tick": tick, "intents": raw}] if raw else []
+        sim.step([parse(r) for r in raw])
+    rows.append({"end": {"tick": ticks, "digest": sim.digest()}})
+    path.parent.mkdir(exist_ok=True)
+    path.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in rows))
+
+
+def test_the_committed_session_log_still_replays() -> None:
+    m = session_metrics(FIXTURE)
+    assert m["replay_matches"] is True, "the engine moved the slice's replay; see FIXTURE's comment"
+    r = m["replayed"]
+    assert isinstance(r, dict)
+    assert (r["kindles_ok"], r["strikes"], r["overdrive_strikes"], r["douses"]) == (1, 1, 1, 1)  # it reaches them
+
+
+def test_a_replay_runs_on_the_data_the_session_was_played_on(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Delta 1: a retune of the YAML would have made every earlier playtest log report "does NOT match". The log keeps
+    # its data, and the replay reads that, never the files as they are now.
+    def retuned() -> config.SliceConfig:
+        raise AssertionError("the replay read today's data files")
+
+    monkeypatch.setattr(config, "load", retuned)
+    assert session_metrics(FIXTURE)["replay_matches"] is True
+
+
+@pytest.mark.parametrize(
+    ("damage", "said"),
+    [
+        (lambda text: text[:400], "isn't a whole record"),  # a server killed mid-write
+        (lambda text: text.replace('"dx_m": 0.2', '"dx_m": "x"'), "can't be replayed"),
+        (lambda text: text.replace('"mass_kg": 80.0', '"mass_kg": -1.0'), "can't be replayed"),
+        (lambda text: text.replace('"type": "kindle"', '"type": "fly"'), "can't be replayed"),
+        (lambda text: "[1]\n" + text, "isn't a record"),
+    ],
+)
+def test_a_damaged_log_is_refused_by_name(tmp_path: Path, capsys, damage, said: str) -> None:
+    # Delta 1 S2: a truncated log, or one with a bad number, crashed the metrics command with a traceback.
+    log = tmp_path / "damaged.jsonl"
+    log.write_text(damage(FIXTURE.read_text()))
+    assert log.read_text() != FIXTURE.read_text(), "a precondition: the damage applied"
+    with pytest.raises(LogRefused, match=said):
+        session_metrics(log)
+    assert main(["metrics", str(log)]) == 2
+    assert said in capsys.readouterr().err
+
+
+def test_an_older_committed_log_is_refused_by_its_version() -> None:
+    # Delta 2 S3: slice-log-1 had no data in its meta; it stays committed and is refused for its version, not its data.
+    with pytest.raises(LogRefused, match="slice-log-1 log"):
+        session_metrics(OLD_FIXTURE)
+
+
+def test_the_replay_command_runs_on_the_logged_data(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    # Delta 2 S2: only metrics was held to the log's data; replay could read today's files after a retune.
+    def retuned() -> config.SliceConfig:
+        raise AssertionError("the replay read today's data files")
+
+    monkeypatch.setattr(config, "load", retuned)
+    assert main(["replay", str(FIXTURE)]) == 0
+    assert "MATCH" in capsys.readouterr().out
+
+
+def test_a_session_runs_on_the_data_it_logged(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Delta 2 S2: serve read the files once for the log; nothing held it to run on that same reading.
+    reads, real_raw = [], config.raw
+
+    def raw_once() -> dict[str, object]:
+        reads.append(1)
+        assert len(reads) == 1, "serve read the data files a second time"
+        return real_raw()
+
+    def no_load() -> config.SliceConfig:
+        raise AssertionError("serve read the data files a second time")
+
+    monkeypatch.setattr(config, "raw", raw_once)
+    monkeypatch.setattr(config, "load", no_load)
+    serve(0.2, 0, llm=False, root=tmp_path, ticks=5)
+    (log,) = (tmp_path / "sessions").iterdir()
+    assert session_metrics(log)["replay_matches"] is True

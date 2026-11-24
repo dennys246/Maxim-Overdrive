@@ -56,7 +56,7 @@ packages = ["src/simcore", "src/maxim_overdrive"]
 "data" = "maxim_overdrive/_data"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "spikes/slice/tests"]  # every tests directory in the tree (tests/test_tooling_config.py)
 pythonpath = ["src"]
 addopts = ["--strict-markers", "--strict-config"]
 markers = ["slow: takes more than a few seconds; gate it behind a tier variable (CLAUDE.md, Testing)"]
@@ -78,6 +78,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["PLR0915", "SLF001"]  # tests reach private names to plant and probe; src and scripts never do
+"spikes/slice/tests/**" = ["PLR0915", "SLF001"]  # the slice's tests, held to the tests' rules since the gate runs them
 
 # Separation of concerns (CLAUDE.md, "Code"). Ruff's PL rules already cap returns, branches and statements per function;
 # mccabe caps the paths through it. scripts/lint_sizes.py::check_sizes holds the limits ruff has no rule for, and
