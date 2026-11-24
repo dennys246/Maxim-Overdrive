@@ -48,6 +48,9 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
   in `src/simcore/core/imagination.py` opens it because the `imagine` intent kind doesn't exist yet; step 5a's PR 4b,
   with the intent log, makes it the applier's stage 2 of that kind. PR 4a moved `World.advance`'s and the applier's
   windows into the step, made a strike a `Load`, and handed the sources to heat's `prepare`.
+- A built world's frame 0, a marked band-aid in `src/simcore/core/simulation.py` (`docs/design/sim_core.md` §2, §3):
+  `Simulation(world)` publishes any built grid as frame 0 at tick 0, so a grid rebuilt from a stepped state shows as
+  the authored world; step 5a's PR 4b loader states a loaded state's tick and frame 0 (PR 4a's review, Arch S5).
 - The SEM membrane submits through a submit-and-step port with no log, a marked band-aid in
   `src/simcore/adapters/sem/bridge.py` (`docs/design/boundaries.md` §6.4): `phase1/agents` makes `execute` only parse,
   check the bound actor and append the intent to the stepping agent's outbox.
