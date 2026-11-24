@@ -40,7 +40,7 @@ started from this brief continues on the same branch. The PR opens when the exit
 
 **Files you may touch:** `spikes/slice/` (data YAML and the code the tuning needs), `docs/plans/vertical_slice_verdict.md`
 (new, at most 1,000 words), `docs/plans/vertical_slice.md` (state only), `docs/roadmap.md` (step 10's row),
-`docs/design/reviews/slice_week4/`, `docs/standards_backlog.md` (NITs and B47's row),
+`docs/design/reviews/slice_week4/`, `docs/standards_backlog.md` (B47's row),
 `docs/lessons_maxim_in_games.md`. No `src/` change unless item 1 requires `src` tests, which go in `tests/`.
 
 **Review:** Executor, Architecture, Wire integrity, plus Client and rendering if the client changes. One round, one
@@ -81,8 +81,8 @@ another step.
   - A BLOCKER or SHOULD-FIX is folded.
   - If a fold changes text or code, one delta round reads only that fold's diff, and no round follows it. A
     BLOCKER the delta round finds goes to the owner for a ruling, not to another round.
-  - A NIT stays in the review record with its reviewer's trigger, and changes nothing. It becomes a backlog row only
-    if it is a rule waiting for a check (O80).
+  - A NIT is your call: fix it in a fold or leave it. Either way it is recorded in the review record with its
+    reviewer's trigger, and becomes a backlog row only if it is a rule waiting for a check (O80).
 - **Review:** parallel independent readers with the lenses your brief names (`docs/code_review.md`).
   - Reviewers, not you, set each finding's status (O25).
   - Record their reports verbatim under `docs/design/reviews/<your step>/`.
@@ -105,7 +105,8 @@ another step.
   text (`scripts/lint_paths.py`, B45).
 - **Lessons and ids:** record any lesson about Maxim in a game in `docs/lessons_maxim_in_games.md`, in the same PR.
   Steps 1a, 2 and 3 run together, so each takes only the ids O79 reserves for it, and releases an unused one in
-  its PR.
+  its PR. The reservations are for a step's first run. A rerun takes the ids the owner names when starting it, and
+  without them writes no record id. After step 4 merges, the record files live where step 4 moved them.
 - **Hand-off:**
   - The PR body carries the review summary, the last gate sha and this step's exit test output.
   - Update your memory. Re-read `MEMORY.md` before adding any pointer.

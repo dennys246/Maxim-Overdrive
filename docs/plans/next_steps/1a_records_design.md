@@ -9,11 +9,11 @@ not yours.
 `.worktrees/records-layout`, parked at `35cec7b` by the torch-pilot session and assigned to this step by O79. Check
 `git -C .worktrees/records-layout status` (clean) and `log -1` (`35cec7b`). If either differs, stop and ask the
 owner. Work there. Its `.venv` (Python 3.14) was installed from the lock at `35cec7b`, and the lock has gained `websockets` since, so
-reinstall it from the merged lock after the merge. Merge `origin/main` in: the branch is about 172
+reinstall it from the merged `constraints/py3.14.txt` after the merge. Merge `origin/main` in: the branch is about 172
 commits behind. After the merge, diff the merged tree against `main` and read the design's untouched text against
 `main`'s newer rulings and owners, not only the conflict hunks. #52 moved Known gaps to `docs/known_gaps.md`, #55
 added `scripts/lint_ids.py`, and #70 added lesson 39 and B47. This session's planning PR added lesson 40, B48 and
-O75–O79. The design's §1 counts and §8's branch list are stale, so recount them on the merged tree.
+O75–O80. The design's §1 counts and §8's branch list are stale, so recount them on the merged tree.
 
 **Inputs.**
 - The round-1 reports: `docs/design/reviews/records_layout/round1_architecture_bio.md`, `round1_concurrency.md` and
@@ -43,10 +43,11 @@ O75–O79. The design's §1 counts and §8's branch list are stale, so recount t
 4. Fold the BLOCKERs and SHOULD-FIXes. Mechanism findings (a test plant, a script's behaviour) go to §9's build
    steps as tests to write, citing their finding. They are not contract text (CLAUDE.md, "A design document holds
    the contract").
-5. Run one delta round on the fold's diff, then stop.
+5. Run one delta round on the fold's diff, with each lens's report saved as
+   `docs/design/reviews/records_layout/delta_<lens>.md`, then stop.
 
 **Files you may touch:** `docs/design/records_layout.md`; `docs/design/reviews/records_layout/`;
-`docs/design/decisions/records_layout.md` (new); `docs/roadmap.md`'s step 1a and step 4 rows (state only); `docs/standards_backlog.md` (NITs);
+`docs/design/decisions/records_layout.md` (new); `docs/roadmap.md`'s step 1a and step 4 rows (state only); `docs/standards_backlog.md` (B55 and up, only for a rule waiting for a check);
 `docs/lessons_maxim_in_games.md`. Nothing else, and no code.
 
 **Review:** the delta round reads the fold's diff with Architecture with Bio-faithful integration, Concurrency, Wire
@@ -58,7 +59,8 @@ set -e
 test "$(wc -w < docs/design/records_layout.md)" -le 6000
 D=$(ls docs/design/reviews/records_layout/delta*.md)      # the delta round's reports: the reviewers' statuses
 for id in A-B1 A-B2 A-B3 A-B4 C1 C2 C3 W1 W2 W3 W4; do
-  grep -qE "^\|[^|]*(^|[ ,*|])$id([ ,*]|\|).*\| *\**(fixed|deferred|rejected)" $D || { echo "no reviewer status: $id"; exit 1; }
+  grep -qE "^\|[^|]*(^|[ ,*|])$id([ ,*]|\|)[^|]*\| *\**(fixed|deferred|rejected)" $D || { echo "no reviewer status: $id"; exit 1; }
+  ! grep -qE "^\|[^|]*(^|[ ,*|])$id([ ,*]|\|)[^|]*\| *\**open" $D || { echo "a lens left $id open"; exit 1; }
 done
 for q in "§10 Q1" "§10 Q2" "§10 Q3" "§10 Q4" "§10 Q5" "added Q6" "added Q7"; do
   git grep -q "records_layout $q" -- docs/design/decisions || { echo "no ruling: $q"; exit 1; }
@@ -93,8 +95,8 @@ another step.
   - A BLOCKER or SHOULD-FIX is folded.
   - If a fold changes text or code, one delta round reads only that fold's diff, and no round follows it. A
     BLOCKER the delta round finds goes to the owner for a ruling, not to another round.
-  - A NIT stays in the review record with its reviewer's trigger, and changes nothing. It becomes a backlog row only
-    if it is a rule waiting for a check (O80).
+  - A NIT is your call: fix it in a fold or leave it. Either way it is recorded in the review record with its
+    reviewer's trigger, and becomes a backlog row only if it is a rule waiting for a check (O80).
 - **Review:** parallel independent readers with the lenses your brief names (`docs/code_review.md`).
   - Reviewers, not you, set each finding's status (O25).
   - Record their reports verbatim under `docs/design/reviews/<your step>/`.
@@ -117,7 +119,8 @@ another step.
   text (`scripts/lint_paths.py`, B45).
 - **Lessons and ids:** record any lesson about Maxim in a game in `docs/lessons_maxim_in_games.md`, in the same PR.
   Steps 1a, 2 and 3 run together, so each takes only the ids O79 reserves for it, and releases an unused one in
-  its PR.
+  its PR. The reservations are for a step's first run. A rerun takes the ids the owner names when starting it, and
+  without them writes no record id. After step 4 merges, the record files live where step 4 moved them.
 - **Hand-off:**
   - The PR body carries the review summary, the last gate sha and this step's exit test output.
   - Update your memory. Re-read `MEMORY.md` before adding any pointer.

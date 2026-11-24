@@ -49,3 +49,37 @@ reviewers' to set (O25); the author's "what changed" column is a claim for them 
 **NITs (O80):** recorded with no change: A13, A14, E15, E16, E17, E18, E19, W11, W12, W14 and W15. Changed
 anyway by other folds: A15 (E8's reinstall rule), E6 (W6's fold says "citing your PR") and W13 (O79's rewrite
 names the roadmap's old trigger instead of the wind-down plan).
+
+## The delta round, and the stop
+
+The delta reports (`delta_architecture.md`, `delta_executor.md`, `delta_wire.md`) set round 1's statuses:
+- Architecture: 13 fixed and 2 deferred (A13 and A14), none open.
+- Executor: 14 fixed and 5 deferred (E15–E19), none open.
+- Wire integrity: 10 fixed, 3 deferred (W11, W12, W15) and 1 open (W5).
+
+Wire notes that W14 was changed by A4's cut, so the round-1 fold's "no change" line understated it. The delta round
+found no BLOCKER. It found 13 SHOULD-FIXes (AD1–AD6, ED1–ED3, ED10, WD1–WD3) and 15 NITs.
+
+By the stop rule each SHOULD-FIX is folded below, and **no round follows, so every change in this section is the
+author's and unreviewed.** The owner ruled on two of them (2026-11-23): AD4, so the owner starts the lane at each
+tag and each Maxim release (O77), and AD6, so a NIT is the author's call and is recorded either way (O80).
+
+| Finding | What changed (author; unreviewed) |
+|---|---|
+| AD1 | O79 part 3: steps 2 and 3 record rulings in their own logs, `decisions/drift_and_lock.md` (`DK`) and `decisions/upstream_sync.md` (`UP`), now in their file lists |
+| AD2 | Brief 3: a draft never states the lock's current version, since `constraints/` owns it; it states the release a fix needs |
+| AD3 | O79 part 1: a trigger that falls while step 4 is open runs when step 4 merges, and brief 4's hand-off lists each one |
+| AD4 | O77: the owner starts the lane session at each tag and each Maxim release (owner's ruling) |
+| AD5 | B48's trigger: the lane's second run reports to the owner, and the next planning session assigns the build to a code step |
+| AD6, ED8 | O80 reworded (owner's ruling); the shared NIT rule follows it; the "(NITs)" labels on the backlog in briefs 1a and 5 are gone |
+| ED1, WD1 | Brief 1a: the status must sit in the cell after the id (`[^|]*` in place of `.*`), and no delta report may mark the id `open`. Checked on samples: A-B1, C1, W1 and A-B3 pass; A-B2, C2, C3 and a W2 that one lens marks `open` fail. Delta reports are named `delta_<lens>.md` |
+| ED2 | O79 part 3 and the shared rule: reservations are for a step's first run; a rerun uses ids the owner names when starting it, or writes none |
+| ED3 | Brief 4 may update the record paths in briefs 2, 3 and 5 to where the migration moves them; the shared rule says the records then live there |
+| ED10, WD3 | The briefs round 1 read are rebuilt at `round1_briefs/`, by reversing the fold's recorded replacements in order. Every reversal matched exactly once, and the rebuilt brief 2 holds the one-line decorator grep that E1 and W4 quoted. `README.md` says so |
+| W5 | Brief 2's `gh run list` adds `--commit "$(git rev-parse HEAD)"`, so it watches the run of the commit it dispatched |
+| WD2 | Brief 3's checks require `1.4.0` and `#1305` (supersession 3) in place of the vacuous M72 |
+
+**NITs (O80, the author's call):**
+- Changed: AD7 (brief 1a's "O75–O80") and ED9 (brief 1a names `constraints/py3.14.txt`).
+- Recorded with no change, with the reviewers' triggers in their reports: ED4 (covered by WD2's fold), ED5, ED6,
+  ED7, WD4, WD5 and WD6.

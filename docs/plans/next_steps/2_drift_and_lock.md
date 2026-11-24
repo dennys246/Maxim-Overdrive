@@ -1,7 +1,8 @@
 # Step 2: fix the drift job, move the lock to 1.3.4, gate the OD-I items (`phase1/drift-and-lock`)
 
 You are the drift-and-lock session. You run beside step 1a, the only other session allowed then (O79), and you
-take only the ids O79 reserves for you: lesson number 41 and B49 to B51. Your one job has three parts, in order:
+take only the ids O79 reserves for you: lesson number 41 and B49 to B51. Record any owner ruling in
+`docs/design/decisions/drift_and_lock.md` (new; ids `DK1`, `DK2` and so on). Your one job has three parts, in order:
 
 1. **The drift job is red for our own bug.** Run 45238153656 (2026-11-23, on `5960606`) installed pymaxim 1.3.4
    unpinned and failed on all four jobs. Of the tests, 3,559 passed. Two failed, both in `tests/test_check_lock.py`:
@@ -38,7 +39,7 @@ take only the ids O79 reserves for you: lesson number 41 and B49 to B51. Your on
 **Files you may touch:** `tests/test_check_lock.py`, `scripts/check_lock.py` (only if the root fix is there),
 `tests/conftest.py` (only if the root fix is there), one new test module for the gates, `constraints/py3.12.txt`,
 `constraints/py3.14.txt`, `docs/roadmap.md` (the OD-I1, OD-I3, OD-I5, OD-I6 and OD-I7 rows only),
-`docs/design/reviews/drift_and_lock/`, `docs/standards_backlog.md` (B49 to B51 only), `docs/lessons_maxim_in_games.md` (lesson number 41 only). No workflow edits: the job is right, the tests
+`docs/design/reviews/drift_and_lock/`, `docs/design/decisions/drift_and_lock.md`, `docs/standards_backlog.md` (B49 to B51 only), `docs/lessons_maxim_in_games.md` (lesson number 41 only). No workflow edits: the job is right, the tests
 are wrong.
 
 **Review:** Executor, Architecture, Wire integrity, plus Determinism and replay (the lock moves the stack the goldens
@@ -56,7 +57,7 @@ test "$(grep -c 'strict=True' $G)" -eq 3 && test "$(grep -c 'raises=AssertionErr
 test "$(.venv/bin/pytest -q -rx $G | grep -c '^XFAIL')" -eq 3
 # after a local prepush PASS and the owner's go-ahead for the push and the dispatch together:
 gh workflow run drift.yml --ref phase1/drift-and-lock
-sleep 10 && RUN=$(gh run list --workflow drift.yml --branch phase1/drift-and-lock --event workflow_dispatch --limit 1 --json databaseId -q '.[0].databaseId')
+sleep 10 && RUN=$(gh run list --workflow drift.yml --branch phase1/drift-and-lock --event workflow_dispatch --commit "$(git rev-parse HEAD)" --limit 1 --json databaseId -q '.[0].databaseId')
 gh run watch "$RUN" --exit-status
 ```
 A red drift run files up to four public issues (`drift.yml`'s last step), so list any it opens for the owner. If
@@ -92,8 +93,8 @@ another step.
   - A BLOCKER or SHOULD-FIX is folded.
   - If a fold changes text or code, one delta round reads only that fold's diff, and no round follows it. A
     BLOCKER the delta round finds goes to the owner for a ruling, not to another round.
-  - A NIT stays in the review record with its reviewer's trigger, and changes nothing. It becomes a backlog row only
-    if it is a rule waiting for a check (O80).
+  - A NIT is your call: fix it in a fold or leave it. Either way it is recorded in the review record with its
+    reviewer's trigger, and becomes a backlog row only if it is a rule waiting for a check (O80).
 - **Review:** parallel independent readers with the lenses your brief names (`docs/code_review.md`).
   - Reviewers, not you, set each finding's status (O25).
   - Record their reports verbatim under `docs/design/reviews/<your step>/`.
@@ -116,7 +117,8 @@ another step.
   text (`scripts/lint_paths.py`, B45).
 - **Lessons and ids:** record any lesson about Maxim in a game in `docs/lessons_maxim_in_games.md`, in the same PR.
   Steps 1a, 2 and 3 run together, so each takes only the ids O79 reserves for it, and releases an unused one in
-  its PR.
+  its PR. The reservations are for a step's first run. A rerun takes the ids the owner names when starting it, and
+  without them writes no record id. After step 4 merges, the record files live where step 4 moved them.
 - **Hand-off:**
   - The PR body carries the review summary, the last gate sha and this step's exit test output.
   - Update your memory. Re-read `MEMORY.md` before adding any pointer.

@@ -3,7 +3,8 @@
 You are the upstream lane (O77). You own `docs/maxim_upstream/` and the roadmap's Phase 3, and you are the
 "Overdrive session that owns `maxim_upstream`" that Maxim's 1.3.5 world-clock session (D9 in Maxim's
 `docs/plans/release_1_3_5.md`) reports its OD-A ids to. You run beside step 1a (O79), on the ids it reserves for you:
-lesson number 42 and B52 to B54. This step is docs only.
+lesson number 42 and B52 to B54. Record any owner ruling in `docs/design/decisions/upstream_sync.md` (new; ids
+`UP1`, `UP2` and so on). This step is docs only.
 
 **Why now.** Maxim's D9 session writes the A-pre world-clock plan, which isn't on Maxim's `origin/main` yet (read at
 `2fb497a1`). It starts from `docs/maxim_upstream/world_clock_release_DRAFT.md`, last changed 2026-11-16, which the
@@ -28,6 +29,8 @@ roadmap's OD-A4 row now cites it. The authoritative sources are the roadmap's ti
      row.
    - The draft must not grow (an existing document), so cut as you replace.
    - Add a line "read at Maxim `origin/main` `<sha>`".
+   - Never write the lock's current version into a draft: `constraints/` owns it, and step 2 moves it. Write the
+     release a fix needs ("closes when the lock reaches the release holding #1773").
 3. Read `docs/maxim_upstream/README.md` and `issues_now_DRAFT.md` against that sha. Restate each status in O76's form
    (the issue or PR number, the release that holds the fix, where the lock is), and nothing more.
 4. Reconcile every Phase 3 row you touch the same way, except OD-I1, OD-I3, OD-I5, OD-I6 and OD-I7, which step 2 owns
@@ -42,7 +45,7 @@ roadmap's OD-A4 row now cites it. The authoritative sources are the roadmap's ti
    Do only what the owner says.
 
 **Files you may touch:** `docs/maxim_upstream/` (any file), `docs/roadmap.md` (Phase 3 only), `docs/plans/foundations_plan.md`
-§3 (only if `scripts/check_plan.py` needs an id, and within its 2,500-word budget), `docs/design/reviews/upstream_sync/`,
+§3 (only if `scripts/check_plan.py` needs an id, and within its 2,500-word budget), `docs/design/reviews/upstream_sync/`, `docs/design/decisions/upstream_sync.md`,
 `docs/standards_backlog.md` (B52 to B54 only), `docs/lessons_maxim_in_games.md` (lesson number 42 only). No code.
 
 **Review:** Architecture, Wire integrity, Executor, plus Bio-faithful integration, which asks of every upstream draft
@@ -58,7 +61,7 @@ for id in OD-A2 OD-A3 OD-A4 OD-A5 OD-A6 OD-A7 OD-A8 OD-I8 '#1769'; do
 done
 grep -qE 'read at Maxim `origin/main` `[0-9a-f]{8,}`' "$F"
 # the five supersessions: each is applied or marked, and the tripwire survives only under a superseded heading
-for w in OD-H6 OD-A20 'perceived-time port' 'machinery clock' M72; do grep -q -- "$w" "$F" || { echo "missing $w"; exit 1; }; done
+for w in OD-H6 OD-A20 'perceived-time port' 'machinery clock' '1.4.0' '#1305'; do grep -q -- "$w" "$F" || { echo "missing $w"; exit 1; }; done
 awk '/^#/{h=$0} /setprofile/ && h !~ /[Ss]uperseded/ {print "setprofile outside a superseded section: " NR; bad=1} END{exit bad}' "$F"
 .venv/bin/python scripts/check_plan.py && .venv/bin/python scripts/lint_standards.py >/dev/null
 ```
@@ -91,8 +94,8 @@ another step.
   - A BLOCKER or SHOULD-FIX is folded.
   - If a fold changes text or code, one delta round reads only that fold's diff, and no round follows it. A
     BLOCKER the delta round finds goes to the owner for a ruling, not to another round.
-  - A NIT stays in the review record with its reviewer's trigger, and changes nothing. It becomes a backlog row only
-    if it is a rule waiting for a check (O80).
+  - A NIT is your call: fix it in a fold or leave it. Either way it is recorded in the review record with its
+    reviewer's trigger, and becomes a backlog row only if it is a rule waiting for a check (O80).
 - **Review:** parallel independent readers with the lenses your brief names (`docs/code_review.md`).
   - Reviewers, not you, set each finding's status (O25).
   - Record their reports verbatim under `docs/design/reviews/<your step>/`.
@@ -115,7 +118,8 @@ another step.
   text (`scripts/lint_paths.py`, B45).
 - **Lessons and ids:** record any lesson about Maxim in a game in `docs/lessons_maxim_in_games.md`, in the same PR.
   Steps 1a, 2 and 3 run together, so each takes only the ids O79 reserves for it, and releases an unused one in
-  its PR.
+  its PR. The reservations are for a step's first run. A rerun takes the ids the owner names when starting it, and
+  without them writes no record id. After step 4 merges, the record files live where step 4 moved them.
 - **Hand-off:**
   - The PR body carries the review summary, the last gate sha and this step's exit test output.
   - Update your memory. Re-read `MEMORY.md` before adding any pointer.
