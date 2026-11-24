@@ -42,3 +42,17 @@ Delta 1 (`port_delta1.md`, on `14bfbfc`) set the round-1 statuses above in its o
 | Delta 1 NIT: the spliced per-file-ignore comment | Each line has its own reason | |
 | Delta 1 NIT: the tooling test doesn't name an empty testpath | It names it | |
 | Round 1 Det S2 (remainder): the vendor-line test (2.95 s) and the hello deadline (0.9 s) still run on the wall clock | Not changed. Both drive the real socket and the clocked hello deadline end to end; a fast run needs the client authenticated before the first tick, which the loop doesn't offer. Each is under the few-seconds bar. Author's proposal: deferred, trigger a slice test over 3 s or a flake of either | |
+
+## Delta 2 fold
+
+Delta 2 (`port_delta2.md`, on `04d2386`) set the delta-1 rows in its own table: 5 fixed, the isolation half and the
+data-in-log row open, the wall-clock remainder deferred (reviewer: trigger either test over 3 s or flaking, or a
+start-after-authentication hook). The author's account of the fold after `04d2386`:
+
+| Finding | What the author did | Status (reviewer) |
+| --- | --- | --- |
+| Delta 2 S1 (and the open isolation row): `socket.create_server((host, 8080))` never flagged | `ADDRESS_CALLS` (`bind`, `create_server`, `create_connection`) reads the port from the address tuple; cases in the fixed-port test and in the spike test (red with only `bind`); the spike test's git case passes `env=` and asserts the git rule's own message (red with the git rule's root back to `tests/`) | |
+| Delta 2 S2 (and the open data row): replay and serve unguarded | `serve` parses the JSON round trip of the meta it wrote (which also ends Delta 2 NIT 1); `test_the_replay_command_runs_on_the_logged_data` and `test_a_session_runs_on_the_data_it_logged` (red when serve reads `config.load`, when it reads the files twice, and when replay reads `config.load`) | |
+| Delta 2 S3: layout changed without a version bump | `LOG_VERSION` is `slice-log-2`; the `slice-log-1` log from `14bfbfc` is committed again and refused by its version (`test_an_older_committed_log_is_refused_by_its_version`) | |
+| Delta 2 NIT 2: the broad handler wraps the parsers | Not changed: named by type, and the committed-log test goes red on a parser bug | |
+| Delta 2 NIT 3: the borrowed `shared-path-ok` marker on `test_voice.py`'s URL | Not changed | |

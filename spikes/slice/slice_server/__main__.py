@@ -42,9 +42,10 @@ def serve(dx_m: float, port: int, *, llm: bool, root: Path = HERE, ticks: int | 
     log_path = _new_log(root / "sessions")
     token = secrets.token_hex(16)
     with log_path.open("w") as log:
-        data = config.raw()
-        log.write(json.dumps(log_meta(dx_m, data=data)) + "\n")
-        cfg = config.parse(data)  # the data the log keeps is the data the session runs
+        meta = json.dumps(log_meta(dx_m, data=config.raw()))
+        log.write(meta + "\n")
+        # The session runs on the logged data as a replay reads it (through JSON), so the two parse the same values.
+        cfg = config.parse(json.loads(meta)["meta"]["data"])
         # Engine choice: the voice talks to Ollama on 127.0.0.1 with stdlib urllib, so the slice adds no dependency.
         voice = Voice(cfg.npc.voice, cfg.npc.canned, ollama(cfg.npc.voice) if llm else None)
         server = Server(Sim(cfg, dx_m=dx_m), token=token, log=log, port=port, voice=voice)

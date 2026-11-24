@@ -137,7 +137,8 @@ def test_a_real_session_log_replays_and_a_tampered_one_is_flagged(tmp_path: Path
 # slice's replay turns this red in the gate. If the change is meant, rebuild the log with _build_fixture (from
 # spikes/slice: ../../.venv/bin/python -c "import sys; sys.path[:0] = ['.', 'tests']; import test_metrics as t;
 # t._build_fixture(t.FIXTURE)") and say so in the commit; a new log layout bumps LOG_VERSION and keeps the old file.
-FIXTURE = Path(__file__).parent / "fixtures" / "session_slice-log-1.jsonl"
+FIXTURE = Path(__file__).parent / "fixtures" / "session_slice-log-2.jsonl"
+OLD_FIXTURE = Path(__file__).parent / "fixtures" / "session_slice-log-1.jsonl"  # kept: a version this slice refuses
 
 
 def _script() -> dict[int, list[dict[str, object]]]:
@@ -203,3 +204,38 @@ def test_a_damaged_log_is_refused_by_name(tmp_path: Path, capsys, damage, said: 
         session_metrics(log)
     assert main(["metrics", str(log)]) == 2
     assert said in capsys.readouterr().err
+
+
+def test_an_older_committed_log_is_refused_by_its_version() -> None:
+    # Delta 2 S3: slice-log-1 had no data in its meta; it stays committed and is refused for its version, not its data.
+    with pytest.raises(LogRefused, match="slice-log-1 log"):
+        session_metrics(OLD_FIXTURE)
+
+
+def test_the_replay_command_runs_on_the_logged_data(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    # Delta 2 S2: only metrics was held to the log's data; replay could read today's files after a retune.
+    def retuned() -> config.SliceConfig:
+        raise AssertionError("the replay read today's data files")
+
+    monkeypatch.setattr(config, "load", retuned)
+    assert main(["replay", str(FIXTURE)]) == 0
+    assert "MATCH" in capsys.readouterr().out
+
+
+def test_a_session_runs_on_the_data_it_logged(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Delta 2 S2: serve read the files once for the log; nothing held it to run on that same reading.
+    reads, real_raw = [], config.raw
+
+    def raw_once() -> dict[str, object]:
+        reads.append(1)
+        assert len(reads) == 1, "serve read the data files a second time"
+        return real_raw()
+
+    def no_load() -> config.SliceConfig:
+        raise AssertionError("serve read the data files a second time")
+
+    monkeypatch.setattr(config, "raw", raw_once)
+    monkeypatch.setattr(config, "load", no_load)
+    serve(0.2, 0, llm=False, root=tmp_path, ticks=5)
+    (log,) = (tmp_path / "sessions").iterdir()
+    assert session_metrics(log)["replay_matches"] is True
