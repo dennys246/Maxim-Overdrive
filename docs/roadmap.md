@@ -54,6 +54,13 @@ environment regions, imagination specs, and render snapshots (`docs/architecture
 - The SEM membrane submits through a submit-and-step port with no log, a marked band-aid in
   `src/simcore/adapters/sem/bridge.py` (`docs/design/boundaries.md` §6.4): `phase1/agents` makes `execute` only parse,
   check the bound actor and append the intent to the stepping agent's outbox.
+- **Parked: one file per record (owner, 2026-11-23).** `phase1/records-layout` (pushed, no PR) holds the design
+  `docs/design/records_layout.md`: each lesson, decision, Known gap and backlog row in its own file, every index
+  generated from them, and id collisions caught mechanically. Its round-1 review, on that branch, found three
+  BLOCKERs, none folded: committed generated indexes bring the merge conflicts back (A-B1), and a CI result that goes
+  stale when `main` moves still lets a duplicate id merge (C1, W1). The owner ruled it unfinished for the first base
+  tag. **Trigger:** the first step after the tag and its planning session, run as the only active session before the
+  fan-out, because it touches every shared record file.
 - **Exit (the fire fallback, owner, 2026-11-20):** walk into the alley, light a slab with the torch, and watch it
   char, burn and flame out. It must look the same, apart from detail, at the laptop and rig profiles. The crate moves
   to Phase 2 (`docs/design/research/solid_spike/results_rerun1.md` §7).
