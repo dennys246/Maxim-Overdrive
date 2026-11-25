@@ -1,7 +1,8 @@
 # DRAFT for Maxim: two issues that can be filed now
 
 Both are discrete defects, actionable now, with a definite done state (Maxim `CONTRIBUTING.md`'s test for an
-issue). Both are outside the decomposition fence. Read against `origin/main` `7084f561`. Re-check before filing.
+issue). Both are outside the decomposition fence. Read against `origin/main` `7084f561`. Their statuses are the
+roadmap's Issues now rows (O76): OD-I1 was filed by Maxim, and OD-I2 was downgraded to a docstring nit.
 
 ## OD-I1. `salience_map` turns a time of exactly 0.0 into the wall clock
 
