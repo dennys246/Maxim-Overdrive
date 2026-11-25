@@ -19,7 +19,7 @@ The gateway processes, their channel, per-transport classification, consent and 
 `inference_gateway.md` (IG below).
 
 **Sources:** Maxim `origin/main` at **043eab8f**, read with `git show`, with line numbers at that revision. *Verified*
-means a round's reader or the author read the line there. The locked release is pymaxim 1.3.3.
+means a round's reader or the author read the line there. pymaxim 1.3.3 was locked then.
 
 **Tags:**
 - **[now]:** `phase1/agents`, against the scripted test double and a scripted transport.
