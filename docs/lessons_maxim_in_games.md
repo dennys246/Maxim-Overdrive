@@ -625,3 +625,15 @@ the drift job's skip. It now takes `env` as a required keyword.
 own effect (code ran, pickle was asked for, a clock was read), never a return value that every failure shares,
 and judge it after the call, never inside a handler that swallows. A gate that can disappear,
 by a skip or an untested entry point, is no gate.
+
+### 45. A conflict resolved on GitHub can merge valid but stale text, and no gate sees it (2026-11-25)
+
+**Two lanes edited the same Phase 3 rows, and GitHub's resolution of the conflict silently kept the older lane's
+text.** *Evidence:* step 2 (#73) rewrote OD-I5 to OD-I7, then step 3's #74 went conflicting. The lane resolved it
+locally but hadn't pushed, and the PR was updated on GitHub (`ea0a7ee`) and merged. That resolution kept step 3's
+`514e50f` rows, so main lost #73's OD-I5 to OD-I7 text, and every CI job stayed green: the reverted rows were well
+formed, their ids unique, their citations live. A diff of main's rows against #73's merge (`7cb15b1`) found it,
+and #77 restored them. *Consequence:* a gate checks that text is valid, not that it is the text someone meant to
+keep. When a PR goes conflicting, its session pushes its own resolution as soon as it passes, or tells the owner
+not to resolve it on GitHub; after any conflicted merge, the conflicted rows are diffed against the other PR's
+text. Rows that another lane owns and Maxim's status feeds go stale this way without any upstream change.
