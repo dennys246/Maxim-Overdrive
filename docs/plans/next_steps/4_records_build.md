@@ -53,7 +53,9 @@ not edited, and the review record cites this paragraph.
 **Review:** Executor, Architecture, Wire integrity, plus Concurrency and lanes (ids under concurrent branches). One
 round over the PR before the migration commit, and one delta on the folds, then stop. The design asks for a round per
 R step. That isn't possible in one short session, so the one round covers R1 and R2, and the delta covers R3's
-commit.
+commit. The first round also reads the lines RL14 folded unreviewed: `docs/design/records_layout.md` §4's
+`qualifier` field and its second one-time exception (R3's presentation commit), §8's widened `legacy` list and
+corrected stage 2, and §9 R3's one PR.
 
 **Exit test** (use the commands §9 names; if the fold renamed them, use its names and say so in the PR):
 ```bash
