@@ -57,3 +57,17 @@ the author's folds, which no reviewer has read:
 - **NIT 2:** draft §3.4 names `exec_agent.py`'s phase dict as the exception.
 - **NIT 3:** fixed.
 - **NIT 4:** the re-ask trigger is recorded beside the open questions.
+
+## After the review: Maxim's corrections (2026-11-24, author's folds, read by no reviewer)
+
+Maxim's world-clock session sent three facts after the gate passed on `514e50f`. Each was read at `5bcc2cf0` before
+folding:
+- OD-A4's tool duration reaches no learning (#1788): draft §3.2 and the OD-A4 row corrected; lesson 43, an id outside this step's reservation, kept by the owner's amendment UP7.
+- #1787 answered open questions (a) and (d): both restated with the answer. The re-ask bullet is dropped, since it
+  was conditional on silence. (d)'s answer narrows UP6's premise for SCN registration; UP6 stands as ruled.
+- Two persisted stores are serialised from a set: open question (f).
+
+#74 merged at `ea0a7ee` (2026-11-25), `514e50f` plus GitHub's update merge, before these folds were pushed. That
+update merge resolved the Issues now conflict with `514e50f`'s rows, so step 2's OD-I5 to OD-I7 text left main. This
+branch, `phase3/upstream-sync-fold`, carries the folds from main as one commit, and restores those three rows to #73's
+text and OD-I8 to this lane's status; UP7 is recorded here for the first time.

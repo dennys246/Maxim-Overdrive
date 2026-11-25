@@ -70,10 +70,10 @@ OD-A7, after the 1.4.0 cut (§3.6).
 - **A stamp moves with every reader that subtracts from it.** The A-pre plan (D-WC6, I4) moves the stamp half (Hippocampus capture
   and access stamps, `SpecSensor.read`'s `SensorReading` stamp) with `AgentHome` (OD-A12) in A-post, each as a whole
   reader set with a clock-domain marker in the home, and reports this back against our A-pre label.
-- **A tool's duration from the host, in world time**, not `runtime/tool_dispatch.py::execute_and_learn`'s wall
-  `exec_start`/`exec_elapsed` (about `:1515`), which `_observe_energy_cost` books as NEGATIVE NAc valence above 2.0 s.
-  Maxim agrees it is the root fix. `tool_dispatch.py` is fenced, so it lands in A-post, with B2 (#1150), as a field of
-  the settle receipt (the plan's §Placements; its gate lands red in PR 0).
+- **A tool's duration from the host, in world time.** *Corrected:* the wall `exec_elapsed` (about `:1525`) reaches
+  only a log: `record_outcome`'s one caller (`:883`) passes no `elapsed_s`, so `_observe_energy_cost` never runs
+  (Maxim #1788). The wiring lands in A-post with B2 (#1150), in the fenced `tool_dispatch.py`, as a settle-receipt
+  field.
 - **#1769** (open): `CostTracker` seeds its month from `time.time()` but records on the caller's clock. Maxim routed it
   to this plan. The A-pre plan (D-WC5) puts the whole tracker on the wall: spend is real money. Overdrive needs no world
   time there.
@@ -161,7 +161,8 @@ PR 0's census, not a grep in a plan, fixes the counts.
   `simulation/orchestrator.py` until the decomposition slices touching it have landed." This plan also treats
   `runtime/tool_dispatch.py` as fenced (#1150's 1.3.6 slice), which is why OD-A4's tool duration is A-post.
 - **Overlaps:** #1361 S3 to S6 (1.3.6; A-post depends on them); `Embodiment.evaluate_failures` is S4's target
-  (`last_fired`, OD-I8); the PainBus is rewired by #1200 first; #1263's remainder is the Default Network draft's.
+  (`last_fired`, OD-A8; drive drift, OD-I8); the PainBus is rewired by #1200 first; #1263's remainder is the Default
+  Network draft's.
 - **CI cost (M83):** PRs are scoped to the census, not swept.
 
 ## 6. *Superseded:* the build

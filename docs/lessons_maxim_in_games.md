@@ -123,6 +123,16 @@ mismatch, the way every other format here refuses a version it doesn't know; the
 carries it to Phase 4's save design. A Phase 3 row is placed by its whole reader set, not by the file that holds
 the write.
 
+### 43. A learning path is live only if the edge into its sink is wired; a reader and a sink with a zero default between them teach nothing (2026-11-24)
+
+**Our OD-A4 row said a tool's wall-clock duration books NEGATIVE NAc valence. It books nothing.** *Evidence,* read at
+Maxim `5bcc2cf0`: `execute_and_learn` measures `exec_elapsed`, and `_observe_energy_cost` books valence for
+`elapsed_s > 0`, but `record_outcome` takes `elapsed_s=0.0` by default and its one caller passes none, so the sink has
+never run (Maxim #1788). We had read the reader and the sink, not the call between them. Maxim's PR 0 caught it with
+a precondition test: a gate that swaps the duration's clock would have passed vacuously. *Consequence:* before a
+row claims Maxim learns from a signal, trace or run the path from the read to the learning call; an Overdrive bar on
+such a path needs a passing test that the stimulus reaches the sink, as a future bar's evidence already must.
+
 ## Working with Maxim
 
 ### 13. Search Maxim before proposing to it (2026-11-17)

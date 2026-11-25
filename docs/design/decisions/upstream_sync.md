@@ -1,7 +1,7 @@
 # Decisions of the upstream lane (`phase3/upstream-sync`)
 
 <!-- A record (O79 part 3): owner rulings taken by the upstream lane. Rulings are never edited; a new ruling is a new
-row. The first run (step 3, 2026-11-24) took UP1 to UP6. -->
+row. The first run (step 3, 2026-11-24) took UP1 to UP7. -->
 
 | Id | Ruling | Who, date | Owner section | Status |
 |---|---|---|---|---|
@@ -11,3 +11,4 @@ row. The first run (step 3, 2026-11-24) took UP1 to UP6. -->
 | UP4 | **The three Phase 4 gaps that Maxim's A-pre plan opens are recorded as open questions beside O29, and one is asked on #1787.** (a) The stamp half lands with OD-A12, which the subset leaves out (asked on #1787); (b) OD-WC1 can't pass before the 1.4.0 cut; (c) Phase 4's first NPC has no coarse time readout. O29 itself waits for the owner. | owner, 2026-11-24 | `docs/roadmap.md` tier A, open questions | live |
 | UP5 | **OD-I11's row keeps its text,** which was public before the advisory, and says the advisory is a draft. | owner, 2026-11-24 | `docs/roadmap.md` OD-I11 | live |
 | UP6 | **Keeping the SCN's phase source on the host calendar is not described as covered by OD-A20's decline.** Our wording is corrected, the stale design lines (`npcs_and_sem.md` §3.3 and §12.2, `realtime_lanes_coop.md` row 10) become an open item for those documents' next session, and #1787 is asked which calendar SCN registration and the EC hash bin on once the stamps move. | owner, 2026-11-24 | `docs/roadmap.md` tier A, open question (d) | live |
+| UP7 | **Lesson number 43 moves from step 1a's reserved block to step 3, amending O79 (3) as capped by O81 (2); step 1a's block becomes 44 to 45.** Step 3 had numbered its OD-A4 lesson 43 outside its one reserved id, 42. The owner ruled in step 1a's session, "let #74 keep lesson 43, record it as an amendment", and confirmed it in this one. The ruling is recorded here, beside the lesson that uses the id; step 1a doesn't record it as well. | owner, 2026-11-24 | `docs/lessons_maxim_in_games.md` lesson 43 | live |
