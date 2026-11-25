@@ -80,7 +80,7 @@ pygments==2.21.0
     #   diff-cover
     #   pytest
     #   rich
-pymaxim==1.3.3
+pymaxim==1.3.4
     # via maxim-overdrive (pyproject.toml)
 pytest==9.2.0
     # via
