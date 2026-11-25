@@ -20,14 +20,42 @@ migrate under time pressure.
 
 **Files you may touch:** what §9 names (`scripts/records.py`, `scripts/lint_records.py` or the names the fold chose),
 their tests and fixtures, the record files and directories the design defines, the generated indexes,
-`scripts/lint_ids.py` and `scripts/lint_standards.py` (§7's changes), `CLAUDE.md` (only the wording the owner
-accepted in §10 Q5), `docs/plans/checklists.md` (step 7's two guest-text items, which then point at their gaps), `docs/design/reviews/records_build/`, `docs/roadmap.md` (step 4's row), and `docs/plans/next_steps/` (only the record
+`scripts/lint_ids.py`, `scripts/lint_guards.py`, `scripts/check_plan.py`, `scripts/lint_contracts.py` and
+`scripts/lint_standards.py` (§7's changes), `src/simcore/adapters/loaders.py` (only §4's text-level entry point to the
+strict YAML grammar, §7's one engine change) and its tests, `scripts/lint_gates.py` (the gate-registry rows for that
+entry point and `read_record`, §4), the red-gate `reason=` strings in `tests/` (R3's rewrite to gap slugs, §5),
+`CLAUDE.md` (only the wording below), `docs/plans/checklists.md` (step 7's two guest-text items, which then point at their gaps), `docs/design/reviews/records_build/`, `docs/roadmap.md` (step 4's row), and `docs/plans/next_steps/` (only the record
 paths in briefs 2, 3 and 5, moved to where the migration puts them).
+
+**CLAUDE.md** (owner's amendment of this brief, 2026-11-24). Step 4 makes two changes, both in R3's first commit, and
+no other:
+- §8's wording, as RL5 accepted it.
+- "A record id names one record" goes stale at the migration (it names `also in` rows and hand renumbering), and §8
+  doesn't touch it. Step 4 replaces that rule with this text, accepted when this amendment merged:
+
+  > **A record id names one record** (owner, 2026-11-23; one file per record, `docs/design/records_layout.md`).
+  > Sessions number decisions, lessons, backlog rows and roadmap items on their own branches, so two can take the
+  > same next id. Each decision id is defined once across `docs/design/decisions/` (a decision in two logs is one
+  > record with `also_in`), each lesson number and each `B` row once, and each `OD-` item once in
+  > `docs/roadmap.md`. Two branches adding to one family conflict in its generated index on purpose: that conflict
+  > is the detector, and `scripts/records.py index` resolves it, never a hand edit. When ids collide, the branch
+  > merged second renumbers its own record and its citations with `scripts/records.py renumber`, which rewrites
+  > only the lines the branch added or changed and lists the rest; a green check doesn't prove a listed citation
+  > moved. Guard: …
+
+  The Guard line names, as `file::function`, the checks R1 leaves holding each family's uniqueness (`lint_ids`'
+  for decisions, lessons and `OD-`, `lint_guards`' for `B`) and `lint_records`' generated-file check. Step 4 writes
+  only those names; if R1 changes what the rest of the text says (a command's name, say), stop and ask the owner.
+
+This amendment overrides §7's "CLAUDE.md changes only by the wording of §8" for this one rule; the design and RL5 are
+not edited, and the review record cites this paragraph.
 
 **Review:** Executor, Architecture, Wire integrity, plus Concurrency and lanes (ids under concurrent branches). One
 round over the PR before the migration commit, and one delta on the folds, then stop. The design asks for a round per
 R step. That isn't possible in one short session, so the one round covers R1 and R2, and the delta covers R3's
-commit.
+commit. The first round also reads the lines RL14 folded unreviewed: `docs/design/records_layout.md` §4's
+`qualifier` field and its second one-time exception (R3's presentation commit), §8's widened `legacy` list and
+corrected stage 2, and §9 R3's one PR.
 
 **Exit test** (use the commands §9 names; if the fold renamed them, use its names and say so in the PR):
 ```bash
