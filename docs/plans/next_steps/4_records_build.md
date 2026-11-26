@@ -8,8 +8,17 @@ yourself too.
 
 **Your base** is the folded design `docs/design/records_layout.md` as step 1a merged it, with its rulings (read
 `docs/design/decisions/records_layout.md`). Build its §9 steps R1 to R3. R4 (late
-branches) applies only to branches open at your migration, and there should be none. Don't redesign. If the
+branches) applies only to branches open at your migration. Don't redesign. If the
 design is wrong against the tree, stop and take it to the owner as a design finding.
+
+**Two late branches** (owner's amendment of this brief, 2026-11-25). `phase1/regions-design` (adds decision D38;
+edits `docs/plans/checklists.md` and `docs/roadmap.md`) and `phase1/slice2-design` (adds lesson number `44`) stay open
+through your step. They open no PR, merge nothing and add no record edits until you merge, so they don't count
+against running alone, and their worktrees in `git worktree list` are expected. You don't run R4 for them: their
+own session runs `migrate-branch` at its next merge of `main`, and settles `checklists.md` as an ordinary merge. So:
+- don't take lesson number `44` or D38 for any record you add; those numbers are theirs;
+- `migrate-branch` must handle both (an added decision row and an added lesson). Its §9 R2 fixtures already cover an
+  added row; add an added lesson if they don't.
 
 **Scope and the scope stop.** R1 is the format and the checks on fixtures. R2 is the converter with its round-trip
 tests. R3 is the migration commit, including the Known gaps `kind` and, if step 1a's ruling on added Q6 said so,
