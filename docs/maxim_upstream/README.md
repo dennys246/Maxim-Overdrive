@@ -7,7 +7,8 @@ only through Maxim's process:
 - **a plan** with a three-lens plan review (Executor, Architecture, Wire integrity) and a three-lens code review per PR;
 - **an experiment** with a four-lens design review, a frozen pre-registration and a ledger row.
 
-Game runs never go on Maxim's ledger.
+Game runs never go on Maxim's ledger, until Maxim records the owner's ruling of 2026-11-26 that game evidence may
+earn rungs through Maxim's own process ([joint_plan_DRAFT.md](joint_plan_DRAFT.md) §1, link J1).
 
 **Maxim tree read:** each draft names the `origin/main` it was read against (first `7084f561`, 2026-11-16); the statuses
 below were read at `5bcc2cf0` (2026-11-24). Citations are `file::symbol` where a symbol exists, with line numbers only
@@ -31,6 +32,7 @@ as a hint (Maxim's rule: line numbers drift, symbols hold). Re-check against a f
 | [hybrid_1_5_line_DRAFT.md](hybrid_1_5_line_DRAFT.md) | Overdrive's contribution to Maxim's hybrid arbitration line | OD-H1 to OD-H4 | not filed; OD-H2 is cand. C2 |
 | [decisions_entry_DRAFT.md](decisions_entry_DRAFT.md) | a `DECISIONS.md` entry for Maxim's owner | none | not filed; its question answered yes (Maxim's owner, 2026-11-19) |
 | [exp64_cradle_conduct_prereg_DRAFT.md](exp64_cradle_conduct_prereg_DRAFT.md) | experiment (Exp 64) | Phase 4 exit | not filed |
+| [joint_plan_DRAFT.md](joint_plan_DRAFT.md) | one dated plan across both repositories, and a `DECISIONS.md` entry (J1) | links J1–J14 over every row above | not filed; drafted 2026-11-26 |
 
 `sem_breaking_change_plan_DRAFT.md` keeps its file name because other Overdrive documents link to it. Its content is
 now an additive SEM refinement plan: under Maxim's own CC3 text, only one change needs a breaking path, and that one
