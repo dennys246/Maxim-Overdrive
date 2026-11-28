@@ -12,6 +12,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from records import BY_NAME, load_records
+
 # Every rule in these sections must name its guard. Honesty comes first in CLAUDE.md, and the lint reads it too.
 STANDARDS_HEADINGS = ("## First principle: brutal honesty", "## Engineering standards")
 GUARD = re.compile(r"Guard:\s*(.+)$")
@@ -79,13 +81,33 @@ def _path_problem(root: Path, ref: str) -> str | None:
     return None
 
 
+def backlog_numbers(backlog: str, root: Path) -> tuple[list[int], str]:
+    """Every backlog row's number, from the records under ``docs/standards_backlog/`` when it holds any, and where
+    they were read. A record the reader refuses is lint_records' finding."""
+    directory = root / BY_NAME["backlog"].root
+    texts = {
+        f"{BY_NAME['backlog'].root}{p.name}": p.read_text(encoding="utf-8") for p in sorted(directory.glob("*.md"))
+    }
+    records = load_records(texts)[0] if directory.is_dir() else []
+    if records:
+        return [int(r.id[1:]) for r in records], BY_NAME["backlog"].root
+    # TEMPORARY(phase1/records-build): the backlog is a hand-written table until R3's migration commit makes it
+    # generated from its records; R3 removes this table reading.
+    return [int(m.group(1)) for ln in backlog.splitlines() if (m := BACKLOG_ROW.match(ln))], "docs/standards_backlog.md"
+
+
 def check_guards(claude_md: str, backlog: str, root: Path) -> tuple[list[str], int, int]:
     """Findings, plus how many rules a check enforces and how many only review holds."""
-    ids = [int(m.group(1)) for ln in backlog.splitlines() if (m := BACKLOG_ROW.match(ln))]
+    ids, source = backlog_numbers(backlog, root)
     rows = set(ids)
     # Branches add rows in parallel; a merge that keeps two rows with one id would let a guard cite the wrong row.
     problems = [
-        f"docs/standards_backlog.md: backlog row B{b} is defined {ids.count(b)} times"
+        f"{source}: backlog row B{b} is defined {ids.count(b)} times"
+        + (
+            f": the branch merged second runs `scripts/records.py renumber B{b}=<next free id>`"
+            if source.endswith("/")
+            else ""
+        )
         for b in sorted(rows)
         if ids.count(b) > 1
     ]

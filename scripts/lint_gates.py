@@ -50,6 +50,7 @@ _FMT = "tests/test_formats.py"
 _SIM = "tests/test_simulation.py"
 _WIRE = "tests/test_wire.py"
 _HOST = "tests/test_host.py"
+_REC = "tests/test_records.py"
 # §5.4 asks anything agent-facing (errors, receipts) to answer in a closed code vocabulary. Since step 3b part (b) every
 # refusal these gates give carries a code (simcore.core.refusals, WT-S1), and the membrane answers an agent with the
 # code alone (step 3b review, Trust S3).
@@ -88,6 +89,10 @@ _SCHEMA_DESCRIPTIONS = (
 GATES: dict[str, Gate] = {
     # file gates: strict YAML, a version, closed keys, ValueError only, bounded echo; not agent-facing
     "src/simcore/adapters/loaders.py::read_yaml": Gate(_V, _ACT, "meets"),
+    # records_layout §4: the strict grammar on text that is not a whole file (a record's front matter), and the one
+    # reader of the record format, a file gate over the repository's shared records
+    "src/simcore/adapters/loaders.py::read_yaml_text": Gate(_V, _REC, "meets"),
+    "scripts/records.py::read_record": Gate(_V, _REC, "meets"),
     "src/simcore/adapters/loaders.py::existing_directory": Gate(_V, _VAL, "meets"),
     # B29: the data locator's handle, which joins bare names only and which only these gates open
     "src/simcore/adapters/loaders.py::DataPath": Gate(_V, _VAL, "meets"),
@@ -364,10 +369,12 @@ def check_gates(files: dict[str, str], gates: dict[str, Gate] | None = None) -> 
     needed: set[str] = set()
     classes: list[_Class] = []
     for rel, text in sorted(files.items()):
-        if rel.startswith("src/") and rel.endswith(".py"):
+        # scripts/ holds file gates too (the record reader); a row may name one, but only src/'s gate modules and
+        # Maxim's protocols decide which entry points need a row
+        if rel.startswith(("src/", "scripts/")) and rel.endswith(".py"):
             public, found = _module_entries(rel, text)
             defined |= public
-            classes += found
+            classes += found if rel.startswith("src/") else []
             needed |= public if rel in GATE_MODULES else set()
     protocol = _protocol_classes(classes)
     needed |= {f"{c.qualified}.{m}" for c in classes if c.qualified in protocol for m in c.methods}

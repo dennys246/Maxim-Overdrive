@@ -34,6 +34,7 @@ __all__ = [
     "load_action_limits",
     "load_materials",
     "read_yaml",
+    "read_yaml_text",
 ]
 
 
@@ -165,23 +166,36 @@ def _text_of(path: FilePath) -> str:
 def read_yaml(path: FilePath) -> object:
     """A data file parsed strictly: invalid YAML and repeated keys are refused, with the file named.
 
-    Every data loader reads through here, so none of them can keep the last of two values for one key. A scalar
-    SafeLoader can't build (``2026-02-30``, ``!!int x``, ``!!bool maybe``, a 5,000-digit int) is a refusal too:
-    those raise ValueError, KeyError or AttributeError inside PyYAML's constructors (step 3b(b) review, T1-S1, S2).
-    The handler wraps the whole load, so a bug in ``_StrictLoader``'s own constructors would read as the file's
-    ``bad_shape`` too: narrowing it needs a hook per scalar constructor, which no refusal so far has needed (D-N5).
+    Every data loader reads through here, so none of them can keep the last of two values for one key. The grammar
+    is ``read_yaml_text``'s, applied to the file's text."""
+    return read_yaml_text(_text_of(path), str(path))
+
+
+def read_yaml_text(text: str, what: str) -> object:
+    """YAML text parsed by the strict grammar, the text-level entry point (records_layout §4): invalid YAML and
+    repeated keys are refused, with ``what`` named.
+
+    For text that is not a whole file of its own, such as a record's front matter, which ``scripts/records.py``
+    splits from its body. A scalar SafeLoader can't build (``2026-02-30``, ``!!int x``, ``!!bool maybe``, a
+    5,000-digit int) is a refusal too: those raise ValueError, KeyError or AttributeError inside PyYAML's
+    constructors (step 3b(b) review, T1-S1, S2). The handler wraps the whole load, so a bug in ``_StrictLoader``'s
+    own constructors would read as the text's ``bad_shape`` too: narrowing it needs a hook per scalar constructor,
+    which no refusal so far has needed (D-N5). Text past ``MAX_FILE_BYTES`` is refused before it is parsed.
     """
-    text = _text_of(path)
+    if type(text) is not str:
+        raise Refused(f"{what}: YAML text must be a str, got {type(text).__name__}", code=RefusalCode.BAD_SHAPE)
+    if len(text.encode("utf-8", "surrogatepass")) > MAX_FILE_BYTES:
+        raise Refused(f"{what}: larger than {MAX_FILE_BYTES} bytes, no data file is", code=RefusalCode.OVER_BUDGET)
     try:
         return yaml.load(text, Loader=_StrictLoader)  # a SafeLoader subclass
-    except yaml.YAMLError as exc:  # reported, with the file, as the refusal
-        raise Refused(f"{path}: not valid YAML: {exc}", code=RefusalCode.BAD_SHAPE) from None
+    except yaml.YAMLError as exc:  # reported, with the text's name, as the refusal
+        raise Refused(f"{what}: not valid YAML: {exc}", code=RefusalCode.BAD_SHAPE) from None
     except RecursionError:  # the parser recurses per level; no data file nests this deep
-        raise Refused(f"{path}: nested too deeply to be a data file", code=RefusalCode.OVER_BUDGET) from None
+        raise Refused(f"{what}: nested too deeply to be a data file", code=RefusalCode.OVER_BUDGET) from None
     except Refused as exc:
-        raise Refused(f"{path}: {exc}", code=exc.code, field=exc.field) from None
+        raise Refused(f"{what}: {exc}", code=exc.code, field=exc.field) from None
     except (ValueError, KeyError, AttributeError, TypeError, OverflowError) as exc:  # a scalar it can't build
-        message = f"{path}: a value YAML can't build ({type(exc).__name__}): {shown(str(exc))}"
+        message = f"{what}: a value YAML can't build ({type(exc).__name__}): {shown(str(exc))}"
         raise Refused(message, code=RefusalCode.BAD_SHAPE) from None
 
 

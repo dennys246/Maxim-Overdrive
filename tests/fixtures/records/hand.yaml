@@ -1,0 +1,54 @@
+# The records migration's hand file (records_layout §4, §8): what the sources lack and the converter must not invent.
+# Each title is the row's or bullet's own opening words, cut to a title; every one is listed by `records.py migrate`.
+# Kinds and closing steps for Known gaps are R3's (step 4 brief), so this R2 copy gives none.
+version: 1
+titles:
+  - {key: "boundaries:O1", value: "One repository, with an enforced engine/game boundary and a written split trigger"}
+  - {key: "boundaries:O2", value: "The action result contract (a) now, (b) later"}
+  - {key: "boundaries:O7a", value: "O7's condition is met: the agent half is unparked"}
+  - {key: "client_rendering:T1", value: "Camera: isometric 3/4, fixed elevation, 90° steps, bounded zoom, a cut-away rule"}
+  - {key: "client_rendering:T2", value: "Click-to-move and WASD, both validated intents"}
+  - {key: "client_rendering:T8", value: "The Compatibility renderer for Phase 1"}
+  - {key: "client_rendering:T9", value: "No client-side prediction in Phase 1"}
+  - {key: "client_rendering:T10", value: "Camera elevation 40°"}
+  - {key: "client_rendering:T11", value: "Walls-down by region, with stumps"}
+  - {key: "client_rendering:T12", value: "Goldens gated in Linux CI only; the owner's Mac is advisory"}
+  - {key: "client_rendering:CLAUDE.md", value: "The client standards CLAUDE.md states"}
+  - {key: "inference_placement:—", value: "An owner_lan endpoint must have a private, link-local or CGNAT address"}
+  - {key: "npcs_and_sem:OA1", value: "A thought's kind is chosen by the agent's policy, from a closed vocabulary"}
+  - {key: "npcs_and_sem:OA2", value: "The player sees dilation on a three-handed analogue clock"}
+  - {key: "npcs_and_sem:OA3", value: "Overdrive builds no conversational repertoire of its own"}
+  - {key: "npcs_and_sem:O10", value: "No developer mode with real Maxim before tier A"}
+  - {key: "npcs_and_sem:O14", value: "Guest sessions with real Maxim"}
+  - {key: "npcs_and_sem:OA4", value: "Speech is stamped per syllable"}
+  - {key: "npcs_and_sem:OA5", value: "One mental-fatigue drive that rises with load"}
+  - {key: "npcs_and_sem:—", value: "The thought-cost unit is as fine as is realistic and useful"}
+  - {key: "npcs_and_sem:—:2", value: "Lay the foundations now, and test against Maxim as each tier lands"}
+  - {key: "sem_stimuli:—", value: "M16 merges into M4"}
+  - {key: "tile_and_client:T3", value: "Tick 0.1 s, physics every 0.5 s; the 6 s turn is retired"}
+  - {key: "tile_and_client:T4", value: "kindle, with power from a held item; ignite retired"}
+  - {key: "tile_and_client:T5", value: "A body heat state from Phase 1"}
+  - {key: "tile_and_client:T6", value: "File OD-C11 (egocentric locomotion) with Maxim"}
+  - {key: "tile_and_client:T7", value: "The walk direction is an integer vector, canonicalised at stage 1"}
+  - {key: "tile_and_client:T13", value: "Frozen at v3; no more paper rounds on the fire physics"}
+  - {key: "tile_and_client:T14", value: "The flame radiates into bodies by a point source in Phase 1"}
+  - {key: "tile_and_client:T15", value: "The crate: 20 mm slats at φ = 0.25"}
+  - {key: "tile_and_client:T16", value: "Protocol v0 freezes only the kinds a Phase 1 client sends"}
+  - {key: "tile_and_client:T17", value: "An accelerant lights the crate, not the pilot alone"}
+  - {key: "tile_and_client:T18", value: "The accelerant is a pore-loading field the SEM bridge reads, never an SEM rule"}
+  - {key: "tile_and_client:RT1–4", value: "Real time with pause on a fixed tick; a dial; pause a state; host-only time control"}
+  - {key: "tile_and_client:D20, D25", value: "One truth at 0.1 m, rigs are rendering tiers; reconstruct, decide at the point, integrate"}
+  - {key: "tile_and_client:D26–D28", value: "Tile first, exit as written; clinic after; heat-debt prototype after the tile"}
+  - {key: "tile_and_client:D29, D30", value: "Step 6 is 6a to 6d"}
+  - {key: "tile_and_client:O23, O24, O31", value: "Frames publish on change; simcore in layers; this split"}
+  - {key: "gap:NPC inference (no streaming yet, load ve", value: "NPC inference"}
+  - {key: "gap:Late in a burn the coarsest rig lags (cr", value: "Late in a burn the coarsest rig lags"}
+  - {key: "gap:Structural glow reads the cell-mean temp", value: "Structural glow reads the cell-mean temperature, not the face's"}
+  - {key: "gap:No convection or radiation: air only con", value: "No convection or radiation"}
+  - {key: "gap:Destroying a cell removes its heat (it b", value: "Destroying a cell removes its heat"}
+aliases:
+  - {key: "world_model §0", value: "docs/design/world_model.md §0"}
+  - {key: "boundaries §0", value: "docs/design/boundaries.md §0"}
+  - {key: "`client_rendering.md`", value: "docs/design/client_rendering.md"}
+  - {key: "CLAUDE.md", value: "CLAUDE.md"}
+  - {key: "realtime decisions 1–4", value: "docs/design/realtime_lanes_coop.md §Decisions"}

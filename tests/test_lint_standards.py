@@ -26,6 +26,7 @@ def _load(name: str):
 
 
 markers = _load("lint_markers")
+_load("records")  # lint_guards and lint_ids read the record files through it
 guards = _load("lint_guards")
 sizes = _load("lint_sizes")
 ratchet = _load("lint_coverage")
@@ -35,6 +36,9 @@ _load("lint_gates")
 _load("lint_contracts")
 _load("lint_ids")
 _load("lint_paths")
+_load("records_index")
+_load("records_git")
+_load("lint_records")
 lint = _load("lint_standards")
 
 ROADMAP = """\

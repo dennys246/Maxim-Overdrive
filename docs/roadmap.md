@@ -104,7 +104,7 @@ the owner.
 | 1a | `phase1/records-layout`: fold the records-layout design's round-1 BLOCKERs, and record the owner's rulings. State: folded, rulings RL1–RL14, PR with the owner | `docs/plans/next_steps/1a_records_design.md` |
 | 2 | `phase1/drift-and-lock`: the drift job's own bug (#60–#63), the lock to 1.3.4 (O78), O75's red gates | `docs/plans/next_steps/2_drift_and_lock.md` |
 | 3 | `phase3/upstream-sync`: the upstream lane's first reconciliation (O77), the world-clock draft first | `docs/plans/next_steps/3_upstream_sync.md` |
-| 4 | `phase1/records-build`: the folded design's R1 to R3, the migration included. State: waits for step 1a's merge | `docs/plans/next_steps/4_records_build.md` |
+| 4 | `phase1/records-build`: the folded design's R1 to R3, the migration included. State: R1 and R2 built; the tables stay the live record until R3, so `scripts/lint_ids.py` and `scripts/lint_guards.py` keep reading them, and `scripts/records_index.py` and `scripts/records.py` keep today's forms and the `legacy` fields, under `TEMPORARY(phase1/records-build)` markers that R3 removes | `docs/plans/next_steps/4_records_build.md` |
 | 5 | `phase1/slice-week4`: the owner's tuning and playtests, the verdict, step 10's coverage item | `docs/plans/next_steps/5_slice_week4.md` |
 | 6 | Step 5a's PR 4b | written by planning when step 5 merges |
 
