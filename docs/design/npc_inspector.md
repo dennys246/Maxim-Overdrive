@@ -1,256 +1,363 @@
-# NPC inspector: the mind record and the views over it (design, v1 draft, 2026-11-27)
+# NPC inspector: the mind record and the views over it (design, v2 draft, 2026-11-27)
 
-**Status:** DRAFT v1, not reviewed. The owner asked on 2026-11-27 for a way for players (and us) to explore what an
-NPC is internally experiencing, possibly through Maxim-pulse. This note holds the contract that feature needs on
-Overdrive's side, the one thing it asks of Maxim, and the questions only the owner can answer. Nothing here is
-decided. It changes the architecture (a new host output, a new purge reach, an upstream ask), so it gets a design
-review with the Bio-faithful lens before any code (CLAUDE.md).
+**Status:** DRAFT v2. It folds round 1's six lenses (`reviews/npc_inspector/`): Executor, Architecture, Wire
+integrity, Bio-faithful, Trust boundary, and Determinism and replay. The owner asked on 2026-11-27 for a way for
+players, and us, to explore what an NPC is internally experiencing, possibly through Maxim-pulse. This note holds the
+contract on Overdrive's side, one question for Maxim, and the choices only the owner can make (§10). Nothing here is
+decided.
 
 **What it owns** (one owner per contract, B36):
-- the mind record: what it holds, its clock, its versions, who writes it and who may read it (§2, §3);
+- the mind record: what it holds, its clock, its versions, its lane, who writes it and who may read it (§2–§4);
 - the rule that observation never calls into an agent (§1);
-- the shape of the upstream ask for a per-agent state readout (§6), until a draft in `docs/maxim_upstream/` takes it.
+- the views' rendering and transport rules (§7);
+- the upstream question's shape (§6), until a draft in `docs/maxim_upstream/` takes it (§9).
 
-It owns no codec kind, log record or wire message. Each one it touches is linked to its owner.
+Every other contract it touches is linked to its owner, and §8 lists each change it needs elsewhere.
 
 **Sources:**
 - Overdrive `origin/main` `e6d6a7f`.
-- Maxim `main` `b90800e` (2026-11-27), read in a fresh clone.
-- Maxim-pulse `main` `a1ba1d4` (2026-11-21), read in a fresh clone.
+- Maxim `main` `b90800e` (2026-11-27).
+- Maxim-pulse `main` `a1ba1d4`.
+- Text cited from `phase3/joint-plan` (PR #81, `20ada4e`) is unmerged and is marked so.
 
-Line numbers are at those revisions. *Verified* means the author read the line there.
+Line numbers are at these revisions.
 
 **Tags:**
-- **[agents]:** buildable in `phase1/agents` against the scripted test double, if the owner puts it in that step's scope (§8).
+- **[agents]:** buildable in `phase1/agents` against the scripted test double, if the owner adds it to that step (§10).
 - **[Phase 4]:** real NPCs.
 - **[later]:** named so the contract leaves room for it, and not built.
 
-## 1. The rule: record what crosses the membrane, never ask the agent
+## 1. The rule: record at the membrane, never ask the agent
 
-Three facts in the tree decide the shape. Each is *verified*:
-- **Agent state has no read path.** Each real agent runs in its own worker (O13). Its codec's kinds are closed per
-  direction, and none of them reads or inspects state (`npcs_and_sem.md` §6.6). "Nothing writes agent state from
-  anywhere else" (§6.3).
-- **Asking an agent what it remembers changes it.** A recall returns a `retrieval` write, applied at `settle`, so
-  the testing effect holds (`npcs_and_sem.md` §6.6, "Retrieval strengthening survives a host-called `think`"). An
-  inspector that queried memory would strengthen what it showed.
-- **Replay never runs the agents.** It reproduces the world, and agent homes are saved as state (`boundaries.md`
-  §6.2). Why an NPC chose something needs a tier-2 rerun.
+Three facts decide the shape:
+- **Agent state has no read path.** Each real agent runs in its own worker (O13). The codec's kinds are closed, and
+  none reads state (`npcs_and_sem.md` §6.6). Nothing writes agent state from anywhere else (§6.3).
+- **In Maxim, looking changes the mind.** A recall returns a `retrieval` write applied at `settle`
+  (`npcs_and_sem.md` §6.6). Maxim's own read paths touch what they read. `Observer` calls itself "snapshot-style (no
+  mutations)" (`simulation/introspection.py:27`), but its recall goes through `hippocampus.recall`. That bumps
+  `access_count` and `accessed_at` under a write lock (`memory/hippocampus.py:2549-2554`), and both fields drive
+  retention and consolidation.
+- **Replay never runs the agents.** It reproduces the world, and agent homes are saved as state
+  (`boundaries.md` §6.2).
 
-So the inspector's one rule, **[agents]**:
-- **The inspector never calls `AgentPort`**, never adds a codec kind, and never runs anything in a worker. It reads
-  only values the host already holds because they crossed the membrane in the normal course of a tick.
-- **The mind record is an output, never an input.** The `Simulation`, every law, every agent and replay never read
-  it. It is not a log input (`boundaries.md` §6.2: an NPC's thought is never one). Writing it must not change any
-  world or agent digest. Test: the same scene and intents with the record on and off give bit-identical world
-  digests and agent-home digests. A plant that feeds one record value back into a frame goes red.
-- **It runs on the world's clock.** Every entry is stamped with the integer tick at which the host saw it, and
-  nothing else. No wall time, no epoch and no Maxim `ts` enters it. A planted wall-time field is refused at write.
+So **[agents]**:
+- **The inspector never calls `AgentPort`**, never adds a codec kind or field, and never runs anything in a worker.
+- **It never runs Maxim over an agent home.** Browsing a saved home means reading a copy through a reader that is
+  shown not to touch it. No such reader exists yet, so until one does, the record and the logs are the only sources.
+- **The record is an output, never an input.** The `Simulation`, every law, every agent and the host's restore path
+  never read it. It is not a log input (`boundaries.md` §6.2).
 
-This is how a networked game records a match for kill-cams and replays. The authoritative server records what
-crossed into the simulation, and the view is rebuilt from that recording, so viewing can't change the match.
+**What the invariant promises, by tier** (`boundaries.md` §6.3):
+- **Tiers 1 and 2:** a run with the record on and the same run with it off give bit-identical world digests and
+  agent-home digests. That holds through a save, a load and a continue.
+- **Tier 3:** wall time reaches the world there, through floor-holding lateness, `reply_landed` and the per-park
+  ceiling (`npcs_and_sem.md` §4.4, §6.6). So the record is held to a cost instead: the simulation lane does no record
+  IO (§3), and its per-barrier time with the record on stays within the copy budget, measured on `phase1/lanes`'
+  meters.
 
-## 2. What the mind record holds
+The tests for both are in §9.
 
-One record per agent per run, append-only. Every entry carries the actor id, the tick, a kind, and the entry's schema
-version. The kinds are:
+**Its clock.** Every entry is stamped with the world-time event it reports, never with when the host saw it:
+- a delivery's tick;
+- a barrier's tick for a refusal;
+- a thought's modelled landing tick, or the tick its `reply_landed` record names.
 
-<!-- contract: mind_record.kinds: percept intent thought write receipt lifecycle state -->
-- **Entry kinds:** `percept`, `intent`, `thought`, `write`, `receipt`, `lifecycle` and `state`; the record refuses
-  any other.
+An arrival tick is wall data in an integer's clothing, so it is never a stamp. The record holds no wall time, epoch
+or Maxim timestamp, and the writer reads no clock, including for file names.
 
-Where each one comes from:
-- **percept** **[agents]**: the frame values the agent's pulls read at its last `step` (`npcs_and_sem.md` §7.3):
-  region, receptor, site and value, as the agent received them. It never holds the world's true value under a
-  sensor's name. That is the same "sensed, not handed" line the game-evidence draft draws (its condition 3, on
-  `phase3/joint-plan`, PR #81).
-- **intent** **[agents]**: each intent in `step_output` or a thought's output, with its invocation pid when there is
-  one (`boundaries.md` §6.2), and its stage-1 result.
-- **thought** **[agents]**: a thought's lifecycle as the host's continuation header sees it: kind, triggering input,
-  cycle index, landing ticks, and cancel or failure. Its speech is included, as validated. It never holds prompts or
-  raw model text. Those stay where `inference_placement.md` keeps them, and the agent-owned body stays opaque.
-- **write** **[agents]**: each gated write the host passes to `settle`: memory writes and `retrieval` writes (the
-  trace ids reactivated), with provenance as stamped (`npcs_and_sem.md` §6.6).
-- **receipt** **[agents]**: each receipt credited at `settle`, with its outcome and the valence the adapter reported
-  (`sem_stimuli.md` §6.2; D53's tiers, `npcs_and_sem.md` §6.1).
-- **lifecycle** **[agents]**: the agent's lifecycle records as the host logs them (`npcs_and_sem.md` §6.6), and
-  consolidation and sleep calls.
-- **state** **[later]**: Maxim's per-agent state readout, once Maxim emits one (§6). Until then the kind is
-  reserved and the record refuses it.
+## 2. What it holds
 
-**Two channels, labelled apart:**
-- A **readout** is a value the substrate produced: percepts, writes, receipts, and the state readout.
-- A **self-report** is what the agent says about itself: speech, and any thought text a later version admits.
+The record holds only what neither the world log nor the agent's own audit record holds. It holds **no free text**.
+Anything the log already carries (intents, speech, thought cancels and failures, `reply_landed`, worker lifecycle) a
+view reads from the log itself, joined on actor and tick. Memory writes are recorded agent-side, after OD-A15
+(`boundaries.md` §6.1), and the record only points at them. So there is one owner per fact. Guest words live only
+where O26's purge already reaches (the log, the agent home, saves), and a bug report has no new text to drop.
 
-A view shows each under its own label and never presents a self-report as a readout. LLM chain-of-thought often
-leaves out what actually drove an answer. Turpin et al. 2023 (arXiv 2305.04388) measured accuracy drops of up to 36%
-from biases the explanations never mentioned. People's reports of their own reasons are no better (Nisbett & Wilson
-1977). Where the two channels disagree, that disagreement is shown, not reconciled. *Both cited secondary in this
-draft; to verify before review.*
+<!-- contract: mind_record.kinds: stimulus refusal thought_state write_ref gap tick_end readout -->
+| Kind | Holds | Channel | On replay |
+|---|---|---|---|
+| `stimulus` **[agents]** | one delivery as it crossed to the worker: its tick, bindings digest, one value per binding, the receipts it carried, and the bindings' receptor and site resolved from the binding table it names | input | re-derived, and compared with the recorded copy |
+| `refusal` **[agents]** | an intent the host refused at stage 1: the intent's kind if it parsed, the refusal code, its byte length; never its parameters | host verdict | recorded only (the log holds stage-1-accepted intents) |
+| `thought_state` **[agents]** | the host-owned continuation header's counters: thought id and kind, triggering input id, cycle index and cap, each segment's modelled landing tick, cancel status | recording | recorded only |
+| `write_ref` **[after OD-A15]** | a pointer to one entry of the agent-side audit record: the write's sequence number and kind, and the count of reactivated trace ids | recording | recorded only |
+| `gap` **[agents]** | a span the record doesn't cover, from tick to tick, with a closed reason (below) | — | recorded only |
+| `tick_end` **[agents]** | the end of one tick's entries for this agent | — | recorded only |
+| `readout` **[later]** | Maxim's per-agent state readout (§6); reserved and refused until then | recording | recorded only |
 
-**The format.** The record is versioned, closed-schema strict JSON lines, through `simcore.core.schema` like every
-data format. It is gzip-free on disk, so a diff stays readable. It carries a header with the run's log root id and
-segment, and the scene digest, so a record is tied to the world log it shadows (`boundaries.md` §6.3). A reader
-refuses a version it doesn't know.
+The gap reasons are closed:
+- `dropped`: the queue overflowed (§3);
+- `stopped`: the writer stopped after an error;
+- `torn`: the file was trimmed after a crash;
+- `rewound`: a worker restarted from an earlier home, and the gap names the home's snapshot tick;
+- `off`: the record was switched off.
 
-**Its size** is measured, not guessed (B5). It holds only values that crossed the membrane already, so its rate is
-bounded by the codec's own size budgets (`npcs_and_sem.md` §6.6). The meter is bytes per NPC per world minute, at the
-20-NPC load `npcs_and_sem.md` §6.6's cost estimate uses, measured with the double.
+A view shows a `rewound` span's write pointers as lost, since the agent no longer holds those writes.
 
-## 3. Where it is written, and who reads it
+**Excluded by name:**
+- the host-only body frame, which holds world truth at the site (`sem_stimuli.md` §4.2);
+- the continuation's held reply and its agent-owned body;
+- prompts and raw model text;
+- anything decoded from a refused frame;
+- the gateway's outcome detail;
+- paths, exception text, process ids, the host environment.
 
-- **The host writes it**, at the barrier, after the tick's parks and before T+1, in canonical order
-  (`npcs_and_sem.md` §6.3, §9). It writes beside the world log under the save or run directory, never inside an
-  agent home. The home is the agent's own, and the record is the host's observation of it.
-- **Nothing in the engine reads it.** The import contracts gain a rule: no module under `simcore.core`, the laws or
-  `simcore.adapters` imports the record's writer or reader. The ownership scans gain its writer.
-- **A view reads it through a file gate** (`adapters/loaders.py`'s pattern). A mind record from someone else's save is
-  untrusted input, like any save. If the gate is in Python, it gets a row in the gate registry and every rejection
-  path tested.
-- **Saves and bug reports.** A save carries the record with the world log. A bug report drops `thought` speech and
-  `write` text by default, as it already drops `speak` text (`boundaries.md` §6.2), keeping lengths and ticks.
-- **Guest text.** NPC memories and speech can hold a guest's words (`npcs_and_sem.md` §5.2). The record is a new
-  place where guest text lives. The purge path must reach it: a guest's purge redacts the record's spans and leaves
-  O26's redaction records. That widens O26's reach list, which is the owner's ruling to make (§9).
+A failure is shown only by its closed reasons, which `inference_placement.md` §2.6 and `npcs_and_sem.md` §6.6 own.
 
-## 4. Determinism, replay and cost
+**A stimulus is not a percept.** The worker clamps a delivered value, adds its noise, and Maxim transduces it
+(`sem_stimuli.md` §0, §4.4; `npcs_and_sem.md` §3.4). The host sees none of that. A view labels this channel
+"delivered", never "perceived".
 
-- **Determinism.** §1's on/off test is the guard. The record's writer draws no randomness and reads no clock. It
-  iterates named collections in sorted-key order, as the log does (`boundaries.md` §6.2).
-- **Replay.** Replay reproduces the world, not the agents. So a replayed session's mind record is rebuilt only to
-  the extent the world log carries it: intents, speech and receipts. Percepts, writes, the state readout and thought
-  lifecycles come from the saved record, never from rerunning Maxim. A view of a replay shows which entries are
-  re-derived and which were recorded.
-- **Rerun.** A tier-2 rerun (`boundaries.md` §6.3) regenerates a full record. Comparing a rerun's record with the
-  original is a diagnostic for where agent behaviour diverged. That makes the record useful to verification as well
-  as to players. **[Phase 4]**
-- **Cost.** No extra round trip: the record copies values the barrier already decoded. The write cost per tick goes
-  on B5's agent-lane meters (`npcs_and_sem.md` §6.3), with its own budget.
+**Three channels, labelled apart:**
+- **input:** what the world delivered;
+- **host verdicts:** refusals, and the receipts inside a delivery;
+- **recording:** what the agent computed or emitted (thought counters, write pointers, the readout).
+
+What the agent says about itself (its speech, in the log) is a fourth channel, **report**, and a view never presents
+a report as a recording. Memory provenance is stamped by the producer, so it is host ground truth, not something the
+agent inferred (Maxim `reviews/grounding_gl3/bio-faithful.md:182-184`). Self-reports can misdescribe what produced
+them:
+- People's accounts of why they acted were no more accurate than outsiders' guesses from the stimulus alone (Nisbett
+  & Wilson 1977, *Psychological Review* 84; Ericsson & Simon 1980 is the standing critique).
+- With GPT-3.5 and Claude 1.0, chain-of-thought explanations left out the biasing features that drove the answers.
+  Those features cost up to 36% accuracy across 13 BIG-Bench Hard tasks (Turpin et al. 2023, NeurIPS).
+
+So where a report and a recording disagree, a view shows the disagreement.
+
+**When a report has read the recording.** Maxim's agent-callable introspection tools can read the same state
+(`embodied_runtime/agentic_runtime.py:754-759`, `explain` and others). Once the host can see which ones ran in a cycle
+(cognition tools as follow-ups, `npcs_and_sem.md` §6.1), the thought counters name them. A report from that cycle is
+then marked tool-informed. Until then a view says it can't tell.
+
+## 3. The format, the lane, and failure
+
+- **The format.** It follows the intent log's pattern (`sim_core.md` §14):
+  - one c14n-1 record per line after a header record;
+  - a declared `Format`, held by others, so it migrates or refuses;
+  - a gate-registry row and golden fixtures.
+
+  `simcore.core.schema` refuses fields named for ticks today, the same tension the intent log has. The amendment is
+  one shared dependency, made in `schema.py` and `tile_and_client.md` §3.2, the rule's owner (§8).
+- **One record per agent per log segment.** Each restore and each restart opens a segment (`boundaries.md` §6.3;
+  `npcs_and_sem.md` §6.6). The header carries:
+  - the log root id;
+  - its own segment and the parent segment;
+  - the scene digest;
+  - the bindings digest;
+  - the record's version.
+
+  A save carries each record truncated at the save's barrier, and a load opens a child record. This follows the
+  response cache's rule (`inference_placement.md` §4.2), which it links rather than restates. Whether the record was
+  on is a field of the log header (§8), so a missing record reads as "off", not as "lost".
+- **The lane.** The simulation lane builds each entry as a frozen value, in the record's order, and puts it on a
+  bounded queue. It never blocks and never does IO. A record lane drains the queue and writes whole ticks, each
+  closed by a tick end. This is the pattern of `realtime_lanes_coop.md` §4.1's record lane. The order within a tick
+  is the record's own key: kind in the table's order, then actor id, then the entry's sequence.
+- **Failure never stops the world.** On overflow, the record lane writes a `dropped` gap when it catches up. On a
+  write error it writes a `stopped` gap if it can, and then stops. Either way it raises a typed host status and a
+  meter, never a swallow. Whether a record failure should instead stop the run is the owner's call (§10).
+- **No worker can make the writer refuse.** Each field's bound is derived from the codec's bound for the value it
+  copies, and a test asserts that they're equal. So any value the codec accepted fits the record. A value that
+  somehow fails anyway becomes a `stopped` gap, never an exception at the barrier.
+- **Crashes.** The reader trims a torn final tick, reports it as a `torn` gap, and refuses any other corruption. A
+  view reads the record and the world log only up to the last tick complete in both.
+- **Size.** It holds no text, so its rate is set by deliveries and refusals. The meter is bytes per agent per world
+  minute, measured with the double at the 20-NPC load `npcs_and_sem.md` §6.6's cost estimate uses. The rotation unit
+  is the segment. The reader's budgets (bytes per line, entries per file, values per delivery) are contract, derived
+  from the codec's size budgets and measured at the build step.
+
+## 4. Who reads it, and where the code lives
+
+- **The writer** lives in `simcore.host`, the layer that owns the barrier and saves.
+- **The reader** is one Python gate module in `simcore.host`. It is the only reader in any language: a Godot or web
+  view reads only that gate's validated output, never the raw file. It gets a gate-registry row and an input-gate
+  entry. A mind record from someone else's save is the strictest class of input (`boundaries.md` §5.3, §5.4).
+- **The import rule** names that module. Only the view's entry point and the save-copy path may import it. Every
+  other module is refused, the host's restore path included, which an import contract enforces.
+- **The writing scan:** no function outside the writer's module opens a record for writing.
+- **Engine and game.** The record, its lane and its gate are engine. The audiences, the fiction and any player view
+  are the game's (§5, §7).
 
 ## 5. Who may see what: the information rules this feature needs
 
-Every leak rule in the tree runs one way: world, host and presentation data must not reach an NPC's cognition
-(*verified*: `fire_solid.md`, `npcs_and_sem.md` §1 and §5.4, `inference_placement.md`). None governs what a player
-may learn of an NPC. The feature needs that rule. This section names its parts; the choices are the owner's (§9).
+- **What exists today.** One rule already governs what a player learns of an NPC: the thinking NPC's pause, shown
+  diegetically through a host status channel (`npcs_and_sem.md` §5.4). A player view joins that rule. It doesn't
+  become a second owner of it.
+- **Stimuli reveal more than the client sees, from the first real NPC.** The client's snapshot carries display
+  quantization of a few channels (`client_rendering.md` §4.2). Body-site tissue values never reach it. So a player
+  view needs its rule at Phase 4, not later: delay, coarsen, or gate the view by the fiction.
+- **The tiers bind display, not confidentiality.** The developer, player and guest views (§10) filter what a view
+  shows. The file holds everything the record holds.
+- **The record never leaves the host's machine** except in a save or a bug report the host chooses. A guest's client
+  receives only a slice the server cuts. Handing a save to another person is a disclosure under O54 and O55's consent
+  rules. The record adds no guest text to that, because it holds none.
+- **Host data never enters**, by the closed field schema in §2. Maxim's stock surfaces do carry host data:
+  - `energy_status`'s wall windows (`tools/introspection.py:415, 437`);
+  - memory timestamps (`:745`);
+  - the console envelope's epoch `ts` (`console/server.py:1872`).
 
-- **Audiences.** There are three, with different contracts:
-  - the **developer**: everything in the record, out of character, never in a shipped build's player UI;
-  - the **player**: a curated, in-fiction view whose reach is earned or gated by the fiction;
-  - a **guest or spectator**: the least, and only after the guest gates (O14, O18).
-- **World truth through an NPC's senses.** A percept is the world at the NPC's site. Today the client receives whole
-  tiles with no visibility culling, so a player sees nothing new through an NPC. Once line of sight exists
-  (`tile_and_client.md`, Phase 4/5), an NPC's percepts reveal what the player can't see. The player view needs a
-  rule then: delay, coarsen, or gate by the fiction.
-- **Host data never enters the record.** Maxim's stock introspection tools carry host data the designs keep from NPCs.
-  `energy_status` exposes wall-clock token windows and `memory_recall` exposes epoch timestamps
-  (`reviews/foundations_v1/delta1_trust_boundary.md`, the leak findings). Pulse's event envelope stamps wall time
-  (Maxim `simulation/sim_logger.py`, `ts`). None of these is a source for the record.
-- **The player acting on what they saw** is an ordinary logged intent. World replay holds whatever the player
-  learned.
+  None of them is a source.
+- **A player who acts on what they saw** files an ordinary logged intent, and world replay holds.
 
-## 6. The one ask of Maxim: a typed, per-agent state readout
+## 6. The question for Maxim: a typed, per-agent projection of what a step already emits
 
-**Why.** The record's readout channel is thin without it. What crosses the membrane today is percepts, actions,
-writes and receipts. The state a player would want to explore never leaves the agent: attention, salience, valence,
-drives, prediction error, and why one action beat another. In Maxim that state exists but is never emitted:
-- `attention/salience_map.py::SalienceMap`;
-- `attention/attention_network.py::AttentionNetwork`;
-- `decisions/valence_signal.py::ValenceSignal`;
-- `energy/signal.py::EnergyBudget`;
-- `time/oscillator.py::OscillatorNetwork`;
-- `provenance/collector.py::ProvenanceCollector`.
+**What exists, and the decision that governs it.** Maxim's main already emits, per agent, much of what a viewer wants:
+- prediction error (`sim_nac`, `runtime/tool_dispatch.py:197`);
+- why one action won (`NAc_RECOMMEND`, `decisions/nac.py:355-380`);
+- drives, gates, reflexes, thoughts and deliberation salience (`simulation/sim_logger.py`);
+- a per-session bio log (`simulation/bio_telemetry.py`);
+- `api.on()` for embedders.
 
-All of these are at `b90800e`, *verified* by a reader; none reaches `sim_log`.
+The EVENT seam governs this stream (`deferred/reachy_app_maxim_seams.md`, decisions 4 to 6; shipped in
+`console/server.py`):
+- it rides `sim_log` records through `register_sim_sink`, and there is to be no new event system;
+- `kind` stays an open string, with untyped `data`;
+- `ts` is epoch time.
 
-**The ask, as a shape, not a design.** Maxim's `step` returns, beside its intents, an optional, frozen, versioned
-readout of state the step already computed. It is not the state digest of the embeddable draft's parity tests
-(OD-EA5, OD-EA6), which is a hash; this is a typed summary a person reads:
-- **Per agent.** It carries no global or process-wide sink, so two agents in one process can't mix (Maxim's
-  `sim_logger` SENSOR rate limit is keyed by entity and sensor, not by agent, `sim_logger.py:1702-1709`).
-- **Clock-free.** The host stamps the tick. The readout carries no `time.time()`. NAc's recommendation tick is
-  wall-based today (`decisions/nac.py:361`).
-- **Read-only to compute.** No recall, no strengthening and no model call. Computing it must leave the agent digest
-  unchanged, which Maxim can test with its own state digest.
-- **Bounded and typed.** Each field is a declared type with a size bound, and nothing is a free-form dict.
+Six objects are silent: `SalienceMap`, `AttentionNetwork`, `ValenceSignal`, `EnergyBudget`, `OscillatorNetwork` and
+`ProvenanceCollector`.
 
-Which fields it holds, and how they map to Maxim's objects, is Maxim's design. This note doesn't choose them. Doing
-so would be designing Maxim's cognition from here, which the joint plan's review flagged (BF-B2 in
-`reviews/joint_plan/bio_faithful.md`, on `phase3/joint-plan`, PR #81, not yet on `main`).
+**Why that stream can't serve an embedded, deterministic, multi-agent host.** The evidence, each item read at
+`b90800e`:
+- **The sink is process-global** (`sim_logger.py:657`), and its SENSOR sampling gate is keyed by entity and sensor,
+  not by agent (`:1702-1709`).
+- **Timing is wall time.** The envelope stamps epoch time, NAc's tick is wall-based (`nac.py:361`), and the SENSOR
+  gate samples on wall time. So what is recorded depends on latency.
+- **The values themselves are computed on wall time,** not only the stamps: salience decays on `time.time()`
+  (`attention/salience_map.py:227`), and so do energy and valence stamps and retention (`memory/strategies.py:199`).
+- **Observing changes the agent.**
+  - Turning sim logging on sets `_sim_active`, which adds "You are in a controlled simulation for testing and
+    evaluation…" to the prompt (`agents/prompt_builder.py:83-90, 217-222`). Interactive mode adds "A human user is
+    present and watching".
+  - `Observer`'s recall touches what it reads (§1).
+  - `explain` hands provenance back to the agent.
 
-**An instrument, not a percept.** The readout is a recording electrode, not a sense. The agent never receives it,
-never reads it and never learns it is observed. It enters no prompt and no store.
+**The question,** as a question to that seam and not a new system: can `step` return, beside its intents, an
+optional, frozen, versioned projection of what the step already computed or emits? It would be:
+- **Per agent**, with no process-global sink.
+- **Clock-free in value as well as stamp.** This depends on Maxim's world-clock work (`docs/plans/world_clock_a_pre.md`)
+  and Overdrive's draft (`docs/maxim_upstream/world_clock_release_DRAFT.md`). Until then, comparing `readout` entries
+  across reruns means nothing.
+- **Typed and bounded**, with no free-form dict.
+- **Observation-neutral.** With the projection on and off, prompts are byte-identical and the stores are identical,
+  `access_count` and `accessed_at` included. That test needs a state digest Maxim doesn't have. The one proposed is
+  Overdrive's (OD-EA5, OD-EA6 in `embeddable_agent_DRAFT.md`), and it must cover those touch fields.
 
-**Searched first** (CLAUDE.md, B22), at Maxim `b90800e`:
-- `docs/plans/maxim_ui.md` Phase 5 plans the "full dashboard … see the whole bio-stack live" for pulse, with no date.
-- `docs/plans/deferred/maxim_console.md` lists "Live observe / telemetry: the `Observer` + `on()` stream as a real
-  panel" as not built.
-- `docs/plans/deferred/decision_provenance.md` is deferred since 2026-09-19, with stages 1 and 2 shipped. It revives
-  only when a 1.4 rung names the gap, and this ask names no rung.
-- `docs/plans/archive/introspection_api_plan.md` Phase 5 (the agent's self-introspection tool) is "not started".
-- `simulation/introspection.py::Observer` and `memory/snapshot.py::SessionSnapshot` read state after the fact, and
-  neither is served.
-- `overdrive_refactor_candidates.md` §A4 is leak closure and says nothing about observing an embedded agent.
+Which values it holds, and how they map to Maxim's objects, is Maxim's design. The phrase is "the decision variables
+the step already computes", not a choice made here.
 
-- Overdrive's own `docs/maxim_upstream/embeddable_agent_DRAFT.md` (v7) covers stepping, writes and parity, and
-  says nothing about observation.
+**It is an instrument, not a percept.** The agent never receives the projection, never reads it, and never learns it
+is observed. Maxim's code today breaks that in the three ways above, so the projection can't be built by reusing
+`Observer`, `ProvenanceCollector` or the sim-logging switch.
 
-Nothing found plans a per-agent, clock-free readout. So this would be a question to `maxim_ui.md` Phase 5 and the
-deferred console's "live observe", which already want the data, and a candidate addition to the embeddable draft,
-not a new plan beside them.
+**On Overdrive's side** it is a field of the codec's step output, a format change that `npcs_and_sem.md` §6.6 and
+`sem_stimuli.md` §5 own. It needs a version bump, a gate row and golden rejection frames. It also gets its own line on
+the barrier budget, which §6.6 estimates at 0.2–0.8 wall seconds per second for 20 NPCs before it.
+
+**Also searched** (B22), with nothing found that plans a per-agent, clock-free projection:
+- `maxim_ui.md` Phase 5 (pulse's "full dashboard", undated);
+- `deferred/maxim_console.md`'s "live observe";
+- `deferred/decision_provenance.md` (deferred, and revives on a 1.4 rung);
+- `archive/introspection_api_plan.md` Phase 5 (not started);
+- `deferred/annotation_context_and_provenance.md` F1;
+- `simulation/tools.py::InspectAUTTool`;
+- `overdrive_refactor_candidates.md` §A4 (leak closure only);
+- Overdrive's embeddable draft v7, which says nothing about observation.
 
 **It serves three consumers:**
-- **pulse:** its `/ws` payloads are untyped, wall-stamped and single-agent (Maxim `console/server.py:1272`,
-  "the console fronts ONE persistent agent");
-- **Overdrive:** this record;
-- **Maxim's research:** decision provenance's open stages.
-
-That is why it belongs in the joint plan (PR #81's `joint_plan_DRAFT.md`) as a link both ways, not a
-game-only request. It is drafted upstream only after step 4 merges, because O79 keeps the upstream lane closed
-while step 4 runs.
+- pulse, whose stream is untyped, wall-stamped and single-agent (`console/server.py:1272`);
+- this record;
+- Maxim's own open question of whether its LLM "just copies whatever tool strings you print" (F1). Measuring
+  report-against-recording disagreement over game runs is direct evidence on that.
 
 ## 7. The views
 
-- **First: an offline explorer [agents].** It reads a saved mind record and the world log after a session, in the
-  pattern of Dwarf Fortress's Legends Viewer, which reads exported history outside the game. It has three parts:
+- **First: an offline explorer [agents].** It reads a record and the world log after a session, as Dwarf Fortress's
+  Legends Viewer reads exported history outside the game. It has three parts:
   - a per-NPC inspector;
   - a timeline scrubber on the world tick;
-  - a cause behind every line: each memory write links to the percepts and receipts around it, and each intent to
-    its receipt by pid (entry kinds: §2).
+  - a cause behind every line, joined on `(actor_id, seq)`, the intent id receipts carry (`boundaries.md` §6.1). The
+    invocation pid is null until Maxim's G17.
+- **Which UI** is the owner's choice (§10):
+  - **pulse's kit**, with a client that reads the gate's output. Its interface is 19 methods of a single-agent
+    console, and pulse's rule puts capability in pymaxim first (pulse `AGENTS.md:44-47`).
+  - **Overdrive's own viewer**, in Godot or a static page.
+- **Transport.** An offline view opens a file the user chose, and starts no network listener. Any listener that
+  serves record data follows `boundaries.md` §5.3's handshake (`127.0.0.1`, no `Origin`, a per-launch token), or it
+  is a design change reviewed on its own. That includes Maxim's console, whose trusted-origin rule differs. The world
+  server stays closed to browsers.
+- **Everything is drawn as plain text.** The record holds no text, but a view also shows log speech and audit-record
+  text. All of it is drawn as plain text: no BBCode, HTML or Markdown. That means a Godot `Label`, or `RichTextLabel`
+  with BBCode off, as `npcs_and_sem.md` §5.2 requires for speech, and `textContent` on a page. A terminal view
+  escapes C0, C1 and bidi controls. The host's text gates pass markup (`player_text` keeps `[img]…[/img]` and
+  `<img …>`, verified in round 1), so each view gets a planted-markup test.
+- **Names and tiers.**
+  - A developer or science view shows Maxim's own name for each quantity, with its fidelity tier from Maxim's
+    `bio_faithful_roadmap.md` (EARN, ANALOG or OPEN).
+  - A player view uses in-fiction names, and never a neuroscience term the value doesn't earn. Calling
+    `ValenceSignal` "dopamine" would be wrong: the roadmap lists dopamine-like broadcast as OPEN.
+  - No view draws a glow that no value drives.
+  - Brain images barely change how convincing an explanation seems (Michael et al. 2013, *Psychonomic Bulletin &
+    Review* 20, a meta-analysis of about 2,000 subjects; Farah & Hook 2013 is a review). But logically irrelevant
+    neuroscience text made bad explanations more satisfying to non-experts (Weisberg et al. 2008, *J. Cogn.
+    Neurosci.* 20).
+  - The never-colour-alone rule applies.
+- **Later: a live in-game view [Phase 4]** through a new host-to-client message carrying a server-cut slice, a wire
+  contract `client_rendering.md` §4.1 owns, under §5's rules. A purge can't recall what was already shown. That is a
+  known limit beside O26's replay boundary.
 
-  Live attach, the browser handshake and determinism don't arise.
-- **Which UI.** Two candidates, the owner's choice (§9):
-  - **(a) pulse's kit with a file-backed client.** `FacadeProvider` takes any `FacadeClient` (pulse
-    `packages/kit/src/facade/context.tsx`), but the interface is 19 methods of a single-agent console. Pulse's own
-    rule is that capability lands in pymaxim first, so a file-backed client is a pulse decision.
-  - **(b) Overdrive's own viewer**, in Godot or a static page over the record format.
-- **Later: a live in-game view [Phase 4].** It needs a new host-to-client message carrying a curated slice of the
-  record. That is a wire contract (`client_rendering.md` §4.1) and the §5 rules. It is never a browser attached to
-  the world server: the host refuses any `Origin` header by design (`src/simcore/host/server.py`), and a web client
-  would be a deliberate protocol change (`architecture.md`).
-- **Every glow names its quantity.** A view draws no brain-like decoration that no value drives. A meta-analysis
-  found that adding brain images barely changes how convincing an explanation seems (Farah & Hook 2013). Adding
-  neuroscience-flavoured words did raise satisfaction with poor explanations (Weisberg et al. 2008). *Secondary;
-  to verify.* The client's never-colour-alone rule applies.
+## 8. What this changes elsewhere
 
-## 8. When
+Each is a proposed edit to its owner section. It is made in the build step that needs it, or ruled by the owner.
+None of them is made here.
+- `boundaries.md` §6.3, the log header: whether the record was on.
+- `boundaries.md` §5.3, the gate table: the record joins "saves, intent logs, bug reports".
+- Save v1 (`roadmap.md` Phase 4; `boundaries.md` §7.1): a save carries the records, truncated at its barrier.
+- `simcore.core.schema` and `tile_and_client.md` §3.2: the tick-field rule, shared with the intent log.
+- `npcs_and_sem.md` §6.6 and `sem_stimuli.md` §5: the step output's `readout` field [later].
+- `boundaries.md` §6.1, the audit record (OD-A15): it gets a sequence number per write, which `write_ref` points at.
+- `pyproject.toml`: the import contract (§4).
 
-- **Nothing to inspect yet.** Real NPCs come after Maxim's embeddable contract. Phase 4's first real NPC is after
-  mid-2027 at the earliest (`roadmap.md`), and O10 bars a developer mode with real Maxim before tier A.
-- **[agents]:** §1 to §4 can be built and tested against the scripted double in `phase1/agents`, as checklist
-  items (`docs/plans/checklists.md`, that step's). That is new scope for that step, the owner's call. The explorer
-  over the double's records can follow it.
-- **[Phase 4]:** the real record, the rerun comparison, and the in-game view under §5's rules.
-- **[later]:** the `state` kind, at Maxim's pace.
+## 9. When, and the tests
 
-## 9. For the owner
+- **Nothing to inspect yet.** Phase 4's first real NPC is after mid-2027 at the earliest (`roadmap.md`), and O10 bars
+  a developer mode with real Maxim before tier A.
+- **[agents]**, if the owner adds §1–§4 to `phase1/agents`' checklist. Each test is proved by breaking what it guards:
+  - **On/off with an echo double.** The double folds every input it receives (deliveries, receipts, resumes) into its
+    home. Its home digest is the c14n-1 hash of that home, owned by this design for the double. Planting a recorded
+    value into a delivery turns the test red, and so does a restore path that reads the record. The run goes through
+    a save, a load and a continue.
+  - **A stalled writer.** A record lane that stalls for N wall seconds leaves the simulation lane's per-barrier time
+    within the copy budget. Once `phase1/lanes` brings the meters, this test gets a number.
+  - **Reproducibility.** Two record-on runs, including under different hash seeds, give byte-identical records.
+  - **Replay against the record.** Replay never writes a record. It recomputes the deliveries in memory and compares
+    them byte for byte with the recorded ones, so a drifting writer goes red.
+  - **Stamps.** A wall-derived integer in a tick field is caught: the writer asserts that each stamp equals the
+    world-time event it names. Planted paths, exception text and process ids are refused.
+  - **Bounds.** Each record bound equals its codec bound, and an oversized planted value becomes a `stopped` gap with
+    the world digest unchanged.
+  - **The rest:** torn-tick trimming, segment parent links, and planted markup in every view.
+- **[Phase 4]:** the real record; the rerun comparison of deliveries; the projection-off check against real Maxim; the
+  in-game view under §5.
+- **Upstream, after step 4 merges (O79).** The §6 question is drafted in `docs/maxim_upstream/`, which becomes its one
+  owner. It gets an `OD-` id and a Phase 3 row. So do the three pushbacks it carries:
+  - the EVENT seam's decisions 4 to 6, for an embedded multi-agent host;
+  - `_sim_active` putting observation into the prompt;
+  - `Observer`'s "no mutations" docstring, which its code contradicts.
+
+  A lesson records what this round found: in Maxim, observation is coupled to cognition. The joint plan (PR #81,
+  unmerged) gets the question as a link both ways.
+
+## 10. For the owner
 
 1. **The information rules (§5).** What may a player learn of an NPC, and when? Is the deep view earned in the
-   fiction? What happens to percepts once line of sight exists?
-2. **The audience first:** a developer and science view, a player view, or both? Prior art favours curated causal
-   lines for players, with raw data a click deeper.
-3. **The ethics framing:** is the view witnessing a life or dissecting one? It is worth deciding early.
-4. **O26's reach:** does the mind record join the list a guest's purge reaches (§3)? The author recommends yes.
-5. **Scope:** do §1 to §4 enter `phase1/agents`' checklist, or wait for Phase 4?
+   fiction? Stimuli reveal more than the client sees from Phase 4.
+2. **Audiences:** a developer and science view, a player view, or both?
+3. **The ethics framing:** witnessing a life, or dissecting one?
+4. **A record failure (§3):** does it leave a gap and let the world go on (the author's recommendation), or stop the
+   run?
+5. **Scope:** do §1–§4 and §9's tests enter `phase1/agents`' checklist, or wait for Phase 4?
 6. **The explorer's UI:** pulse's kit or Overdrive's own (§7)?
-7. **This branch and step 4:** step 4 runs alone (O79), naming only two late branches. Should this note be
-   reviewed and merged before step 4, or named as a third late branch? It touches no record file.
+7. **This branch and step 4.** Step 4 runs alone (O79), and its exit test requires no open PR. This branch is in
+   neither O79's nor O81's order. It can be reviewed and merged before step 4, like PR #81. Or the owner can amend
+   step 4's brief to name it as a late branch on #80's terms: no PR, no merge and no record edit until step 4 merges.
+   It touches no record family; it edits `contracts.md`'s registry.
