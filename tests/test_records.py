@@ -669,3 +669,38 @@ def test_the_report_prints_each_finding_and_the_verdict(capsys):
 
 def test_a_header_outside_a_family_directory_is_not_a_family_header():
     assert index.headers_of({"docs/other/_header.md": "x", "docs/lessons/_header.md": "y"}) == {"docs/lessons/": "y"}
+
+
+# -- the owner's ruling on delta D1: a seal in the marker line ---------------------------------------------------------
+
+
+def test_every_generated_file_is_sealed_and_any_edit_breaks_the_seal():
+    files = _sample()
+    for path in (
+        "docs/lessons_maxim_in_games.md",
+        "docs/design/decisions/alpha.md",
+        "docs/generated/decisions_index.md",
+    ):
+        assert index.unedited(files[path]), path
+    text = files["docs/standards_backlog.md"]
+    assert not index.unedited(text.replace("The check.", "The check"))  # a removed character
+    assert not index.unedited(text.replace("sha256:", "sha256:0"))  # a tampered seal
+    assert not index.unedited(text.split("\n", 1)[1])  # no marker line at all
+    assert not index.unedited("<!-- not generated -->\nx\n")
+
+
+def test_a_hand_deletion_is_an_edit_for_the_lint_too():
+    files = _sample()
+    files["docs/standards_backlog.md"] = files["docs/standards_backlog.md"].replace(
+        "| B1 | A rule | The check. | open |\n", ""
+    )
+    (finding,) = _check(files)
+    assert "it was edited since `index` wrote it" in finding
+
+
+def test_during_a_merge_only_a_line_no_generation_produces_is_an_edit():
+    files = _sample()
+    path = "docs/standards_backlog.md"
+    conflicted = files[path].replace("| B1 |", "<<<<<<< ours\n| B1 |", 1) + "=======\n>>>>>>> theirs\n"
+    assert index.edit_found(path, conflicted, [files], merging=True) is None
+    assert index.edit_found(path, conflicted.replace("The check.", "Mine."), [files], merging=True).startswith("holds")

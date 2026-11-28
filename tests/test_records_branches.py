@@ -736,3 +736,77 @@ def test_renumber_merged_refuses_a_pr_with_no_merge_commit(tmp_path, capsys):
 def test_files_at_reads_markdown_blobs_only(tmp_path):
     _, work = _repo(tmp_path, {"docs/a.md": "a\n", "docs/b.png": "png\n"})
     assert _git(work).files_at("HEAD", ("docs/",)) == {"docs/a.md": "a\n"}
+
+
+# -- the owner's ruling on delta D1: a seal in the marker line ---------------------------------------------------------
+
+
+def test_the_authoring_loop_regenerates_an_uncommitted_record_twice(tmp_path):
+    """Delta D1, scenario 1: write a record, index, revise it, index again."""
+    _, work = _repo(tmp_path, tree(lesson(1, "one")))
+    _write(work, dict([lesson(50, "fifty", body="Draft text.\n")]))
+    _regenerate(work)
+    _write(work, dict([lesson(50, "fifty", body="Better text.\n")]))
+    _regenerate(work)
+    text = (work / "docs/lessons_maxim_in_games.md").read_text()
+    assert "Better text." in text
+    assert "Draft text." not in text
+
+
+def test_renumber_on_an_uncommitted_indexed_record_regenerates(tmp_path):
+    """Delta D1, scenario 2."""
+    _, work = _repo(tmp_path, tree(decision("O1", "one")))
+    git(work, "checkout", "-q", "-b", "phase1/mine")
+    _write(work, dict([decision("O5", "mine")]))
+    _regenerate(work)
+    assert cli.renumber(work, _git(work), ["O5=O6"], None) == 0
+    log = (work / "docs/design/decisions/alpha.md").read_text()
+    assert "| O6 |" in log
+    assert "| O5 |" not in log
+
+
+def test_a_committed_record_change_without_index_regenerates(tmp_path):
+    """Delta D1, scenario 3: the generated file is stale, not edited."""
+    _, work = _repo(tmp_path, tree(lesson(1, "one")))
+    git(work, "checkout", "-q", "-b", "phase1/mine")
+    _write(work, dict([lesson(50, "fifty")]))
+    _regenerate(work)
+    _commit(work, {}, "lesson 50")
+    _commit(work, dict([lesson(50, "fifty", title="Retitled")]), "retitle, no index")
+    _regenerate(work)
+    assert "### 50. Retitled" in (work / "docs/lessons_maxim_in_games.md").read_text()
+
+
+@pytest.mark.parametrize("edit", ["delete", "move"])
+def test_index_refuses_a_line_removed_or_moved_by_hand(tmp_path, capsys, edit):
+    """Delta D2: an edit that only removes or moves text breaks the seal, so it is refused, not reverted."""
+    _, work = _repo(tmp_path, tree(lesson(1, "one", body="First.\n\nSecond.\n"), lesson(2, "two")))
+    path = work / "docs/lessons_maxim_in_games.md"
+    text = path.read_text()
+    edited = text.replace("First.\n\nSecond.", "First.")
+    if edit == "move":
+        edited = edited.replace("\nText.\n", "\nText.\n\nSecond.\n")
+    _commit(work, {"docs/lessons_maxim_in_games.md": edited}, f"{edit} a paragraph by hand")
+    assert cli.index(work, _git(work)) == 1
+    assert "was edited since `index` wrote it" in capsys.readouterr().err
+    assert path.read_text() == edited  # nothing was discarded
+
+
+@pytest.mark.parametrize(
+    ("style", "keep"),
+    [("merge", "theirs"), ("merge", "ours"), ("diff3", "theirs")],
+)
+def test_index_resolves_a_conflict_whichever_side_the_record_keeps(tmp_path, style, keep):
+    """During a merge a conflict's sides come from each side's records: HEAD's (ours), MERGE_HEAD's (theirs) and,
+    under diff3, the base's. Whichever the session keeps in the record, index regenerates from it (delta N4)."""
+    _, work = _repo(tmp_path, tree(gap("a-gap", body="**A gap.** Base; step 8 closes it.\n"), gap("b-gap")))
+    git(work, "config", "merge.conflictStyle", style)
+    for side in ("theirs", "ours"):
+        git(work, "checkout", "-q", "-b", side, "main")
+        _commit(work, dict([gap("a-gap", body=f"**A gap.** {side.capitalize()}; step 8 closes it.\n")]), side)
+        _regenerate(work)
+        _commit(work, {}, f"{side}: index")
+    assert git(work, "merge", "-q", "theirs", check=False).returncode != 0
+    git(work, "checkout", f"--{keep}", "--", "docs/known_gaps/a-gap.md")
+    _regenerate(work)
+    assert f"{keep.capitalize()}; step 8" in (work / "docs/known_gaps.md").read_text()

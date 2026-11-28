@@ -16,7 +16,7 @@ import records_branch
 from lint_records import HAND_EDIT
 from records import load_records
 from records_git import Git
-from records_index import generate, generation, headers_of, stray_lines
+from records_index import edit_found, generate, generation, headers_of
 from records_renumber import RenumberError, merged_commit, merged_own, parse_mapping, plan
 from records_tree import ROOTS, tree_files, write
 
@@ -32,15 +32,17 @@ def known_generations(git: Git) -> list[dict[str, str]]:
 
 
 def index(root: Path, git: Git) -> int:
-    """Regenerate every generated file from the records; refuse, writing nothing, when a generated file holds text
-    no known generation produces (a hand edit: ``records_index.stray_lines``)."""
+    """Regenerate every generated file from the records; refuse, writing nothing, when a generated file was edited
+    other than by ``index`` (``records_index.edit_found``)."""
     files = tree_files(root)
     records, problems = load_records(files)
     out, missing = generate(records, headers_of(files))
     current = {p: (root / p).read_text(encoding="utf-8") for p in out if (root / p).is_file()}
     known = [out, *known_generations(git)]
+    merging = git.merging()
     for path in sorted(current):
-        problems += [f"{path} holds {line!r}, {HAND_EDIT}" for line in stray_lines(path, current[path], known)[:1]]
+        if (edit := edit_found(path, current[path], known, merging=merging)) is not None:
+            problems.append(f"{path} {edit}: {HAND_EDIT}")
     problems += missing
     if problems:
         for p in problems:

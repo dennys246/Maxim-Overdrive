@@ -8,7 +8,7 @@ Scope: the staged diff on `phase1/records-build` against `a5cf4bd` (R1 and R2), 
 
 - **Round trip over the 14 fixture files.** The 14 fixtures under `tests/fixtures/records/today/` are byte-identical to `a5cf4bd`'s files (`cmp`). `migrate` followed by `generate` reproduces all 14, the marker line aside, and adds `docs/generated/decisions_index.md`. That makes 301 records, and every one survives `read_record(record_text(r))` with equal `meta` and `body`. I checked this independently in `probe1.py`.
 - **Versions.** `version: 2`, `0`, `"1"`, `1.0` and `true` are each refused with `bad_version`. An unquoted date is refused.
-- **The `---` split.** Bodies of `""`, `"\n"`, `"---\n"`, `"x\n---\n"`, `"\r\n"`, a body with no final newline, and bodies holding `\x85`, ` `, BOM or control characters all read back whole.
+- **The `---` split.** Bodies of `""`, `"\n"`, `"---\n"`, `"x\n---\n"`, `"\r\n"`, a body with no final newline, and bodies holding `\x85`, `\u2028`, BOM or control characters all read back whole.
 - **YAML quoting.** A lesson id is written as an int. The external ruling `"41"`, `yes`, `null`, `~`, `1e3`, `0x1F`, `12:30`, `2026-11-24`, `---`, `- x`, `#x`, `&a`, `*a`, unicode and emoji all round-trip. An empty legacy cell (`owner_section: ''`) round-trips too.
 - **Status meanings.** Every status cell in the 11 logs parses through `records_decisions.meaning`, which raises on anything it can't read. I printed each original non-`live` cell beside its derived status. Every primary row matches its meaning, with `live;` prefixes added (O6, O11, D23, D26, D29, the restating slug rows).
 - **A migrated tree is clean.** It passes `check_records` with no base and with today's base, `lint_ids.check_decisions` and `check_lessons`, relations (the external rulings 41, 45, 49, 50, 59 and 61 exist, and so do the `§0` sections), the budgets, and `prose_agrees`. It also passes a simulated R3 presentation commit that drops every `legacy` field.
@@ -84,7 +84,7 @@ Hand aliases, kinds and `closes_at` are also never put in `Migration.listed`. On
 
 ### W7 NIT: `scripts/records.py::Line` (`record_text` is not `read_record`'s inverse for YAML line breaks)
 
-`Line` refuses only `\n\r\x00`, but YAML also treats `\x85`, ` ` and ` ` as line breaks. Verified: a title `"a\x85b"` is emitted as `'a\x85  b'` and reads back as `'a b'`. A Hypothesis run over decision fields found 30 such differences in 4,000 examples, all involving `\x85`. Fix (unverified): refuse those three characters in `Line`, or dump strings double-quoted.
+`Line` refuses only `\n\r\x00`, but YAML also treats `\x85`, `\u2028` and `\u2029` as line breaks. Verified: a title `"a\x85b"` is emitted as `'a\x85  b'` and reads back as `'a b'`. A Hypothesis run over decision fields found 30 such differences in 4,000 examples, all involving `\x85`. Fix (unverified): refuse those three characters in `Line`, or dump strings double-quoted.
 
 ### W8 NIT: `scripts/lint_ids.py::duplicate_records` (slug-id decisions aren't held to "defined once")
 

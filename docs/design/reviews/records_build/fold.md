@@ -71,3 +71,22 @@ latent, counted within §8's list).
 3. **A5, W1:** where does the migration's hand file live after R3? Every `migrate-branch` run needs it.
 4. **E (RL14):** `qualifier: provisional` stays in D12's immutable record after a later ruling confirms it. Is a
    qualifier a historical label only?
+
+## The owner's rulings on the delta round (2026-11-27)
+
+The delta round (`delta.md`) found one BLOCKER, D1, which the stop rule sends to the owner. The owner ruled in session:
+
+- **D1: a seal in the marker line.** `index` writes the SHA-256 of each generated file's body into its marker line
+  (`records_index.seal`). A file whose body still matches its seal is untouched since `index` wrote it, so it
+  regenerates freely: the authoring loop, `renumber` on an uncommitted record, and a committed record change
+  without `index`, delta D1's three scenarios. Outside a merge, any other body is an edit and is refused by name, a
+  removed or moved line included, which also folds **D2**. During a merge, only a line no side's generation produces
+  is an edit (`records_index.edit_found`, the one rule `index` and the lint share). §6's marker contract gains the
+  seal. The design is not edited here (the brief: don't redesign), so R3 records this ruling where §6 can cite it.
+- **D3, D4 and D5 are deferred to R3**, the trigger, where R3's own rounds read their folds.
+
+The D1 fold landed after the delta round, so no review round has read it: the stop rule allows none. It ships with
+tests for each scenario, and 5 new mutations of the seal, plus 4 of `index`'s merge allowances, all go red. Delta N4 is
+folded with them: a merge whose conflict is resolved to either side, and under diff3, now has a test, and dropping
+the HEAD, MERGE_HEAD or base generation turns it red. The lint's base generation is removed, since outside a merge it
+only chose a message. N1 to N3 are left, with trigger R3.

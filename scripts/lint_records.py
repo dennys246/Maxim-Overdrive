@@ -37,7 +37,7 @@ from lint_ids import cited_lessons, frozen_files
 from lint_repo import tracked_text_files
 from records import BY_NAME, UNKNOWN, Record, load_records, stated_status, words
 from records_git import Git
-from records_index import TODAYS_FORM, generate, generation, headers_of, stray_lines
+from records_index import TODAYS_FORM, edit_found, generate, headers_of
 
 ROOT = Path(__file__).resolve().parents[1]
 UPSTREAM = "docs/maxim_upstream/"
@@ -185,25 +185,25 @@ def upstream_citations(files: Mapping[str, str], base: Base) -> list[str]:
 
 
 HAND_EDIT = (
-    "which no record generates: a hand edit. Move it into its record or _header.md; a late branch's edit of the old "
-    "files is moved by `scripts/records.py migrate-branch <branch> --into <its worktree> --hand <the migration's hand "
-    "file>` (records_layout §8). Then run `scripts/records.py index`"
+    "a hand edit. Move it into its record or _header.md; a late branch's edit of the old files is moved by "
+    "`scripts/records.py migrate-branch <branch> --into <its worktree> --hand <the migration's hand file>` "
+    "(records_layout §8). Then run `scripts/records.py index`"
 )
 
 
-def generated(files: Mapping[str, str], records: list[Record], base: Mapping[str, str]) -> list[str]:
-    """Every generated file must equal its regeneration. One that differs is stale (run ``index``) when every line
-    comes from what the tree's or the base's records generate, and holds a hand edit otherwise
-    (``records_index.stray_lines``, the one rule ``index`` refuses by too)."""
+def generated(files: Mapping[str, str], records: list[Record]) -> list[str]:
+    """Every generated file must equal its regeneration. One that differs is stale (run ``index``) when nothing but
+    ``index`` wrote it, and holds a hand edit otherwise (``records_index.edit_found``, the one rule ``index`` refuses
+    by too)."""
     out, problems = generate(records, headers_of(files))
-    known = [out, generation(base)]
+    known = [out]  # outside a merge any unsealed body is an edit; the generations only choose the message
     for path, text in sorted(out.items()):
         have = files.get(path)
         if have is None:
             problems.append(f"{path} is missing: run `scripts/records.py index`")
         elif have != text:
-            stray = stray_lines(path, have, known)
-            how = f"it holds {stray[0]!r}, {HAND_EDIT}" if stray else "it is stale: run `scripts/records.py index`"
+            edit = edit_found(path, have, known, merging=False)
+            how = f"it {edit}: {HAND_EDIT}" if edit else "it is stale: run `scripts/records.py index`"
             problems.append(f"{path} differs from its regeneration: {how}")
     return problems
 
@@ -278,8 +278,7 @@ def check_records(files: Mapping[str, str], *, base: Base | None, merging: bool)
     frozen = frozen_files(dict(files))
     live = {k: v for k, v in files.items() if k not in frozen}
     records, problems = load_records(live)
-    base_files = base.files if base is not None else {}
-    problems += prose_agrees(records) + generated(files, records, base_files) + relations(records, files)
+    problems += prose_agrees(records) + generated(files, records) + relations(records, files)
     problems += budgets(records)
     if base is None:
         return problems

@@ -2,7 +2,8 @@
 
 <!-- Kept verbatim. One reader covered the four lenses in turn, over the fold's diff only (the author's choice for a
 diff-only round; the charter asks for parallel readers, so this is recorded as a deviation). The report's escaped
-line-break characters are written as   and  . -->
+line-break characters are written as `\u2028` and `\u2029`, and its hypothetical lesson as "lesson number `50`",
+which lint_ids does not read as a citation. -->
 
 Lenses: Executor, Architecture, Wire integrity, Concurrency and lanes. Scope: `fold1.diff` (round-1 tree to fold 1) and, by the coordinator's addendum, `fold2.diff` (fold 1 to the current tree). I read only those diffs and the code they touch. I ran:
 - the three record test modules on the current tree: 187 passed;
@@ -40,7 +41,7 @@ Counts: 1 BLOCKER, 4 SHOULD-FIX, 6 NIT. Under the stop rule, D1 goes to the owne
 | E6 | **fixed** for the cases it reproduced | Non-ASCII names, a space and `diff.noprefix` are handled; the `fixed prefixes`, `quotePath` and `tab suffix` mutations each go red. Names holding `"`, `\`, a tab or a newline are still C-quoted (N1). |
 | E7 | **fixed** | The `untracked in renumber`, `binary skip` and `git failure caught` mutations each go red. |
 | E (RL14) qualifier | **fixed** (closed vocabulary; the `qualifier choice` mutation goes red). Whether a stored "provisional" is right at all stays **open** (owner question 4). |
-| W7 | fixed | `\x85`, ` `, ` ` and `\|` are refused, with a test. |
+| W7 | fixed | `\x85`, `\u2028`, `\u2029` and `\|` are refused, with a test. |
 | W8 | fixed | The docstring (read). |
 | N-1 | fixed | Two ids to one, and a path collision, are each refused; both mutations go red. An id that isn't free but has a different slug is still left to the lint. |
 | N-2 | **open, in part** | Git failures fixed. "`renumber` writes, then `index` refuses, then 'nothing was written'" is still there, and fold 1 made it more reachable (D1, second scenario). |
@@ -57,14 +58,14 @@ Counts: 1 BLOCKER, 4 SHOULD-FIX, 6 NIT. Under the stop rule, D1 goes to the owne
 
 The line-set rule accepts only lines that the working tree's records, HEAD's, the base's or MERGE_HEAD's generate. The generation `index` itself wrote a minute earlier, from records not yet committed, is none of these.
 
-- **Scenario 1, the authoring loop** (`p8`). A session writes lesson 50 ("Draft text."), runs `index` (rc 0), revises the record to "Better text.", and runs `index` again. Result: rc 1, "holds 'Draft text.', which no record generates: a hand edit … `migrate-branch` …". Nothing was hand-edited. The same tree on the round-1 copy gives rc 0, so fold 1 introduced the regression.
+- **Scenario 1, the authoring loop** (`p8`). A session writes lesson number `50` ("Draft text."), runs `index` (rc 0), revises the record to "Better text.", and runs `index` again. Result: rc 1, "holds 'Draft text.', which no record generates: a hand edit … `migrate-branch` …". Nothing was hand-edited. The same tree on the round-1 copy gives rc 0, so fold 1 introduced the regression.
 - **Scenario 2, `renumber`** (`p7`). An uncommitted O5 record, indexed, then `renumber O5=O6`:
   - the rename is written;
   - `index` refuses, calling the old `| O5 |` row a hand edit, and prints "nothing was written" after `renumber` has written;
   - the generated log still names O5.
 
   The round-1 copy gives rc 0 with the index updated. The new generated-file skip in `rewrite_citations` is what exposes this.
-- **Scenario 3, committed without `index`** (`p1` case c). A branch adds lesson 50 and indexes it, then commits a retitle without re-running `index`. `index` and the lint both report a hand edit.
+- **Scenario 3, committed without `index`** (`p1` case c). A branch adds lesson number `50` and indexes it, then commits a retitle without re-running `index`. `index` and the lint both report a hand edit.
 
 None of these loses data: every refusal fails safe. But the shipped command is wrong for §5/§6's normal "edit the records, then run `index`" loop, and the remedy it names is wrong. The only way out, undocumented, is to delete the generated file (`p1`: rc 0 afterwards), which is exactly what the rule exists to prevent. That is "wrong on the shipped path". It goes live at R3, which is why it is a BLOCKER now.
 
