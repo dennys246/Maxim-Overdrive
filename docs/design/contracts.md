@@ -31,6 +31,7 @@ both stay with review (B36). Marker lines don't count toward a design's word bud
 | `fuel.segments.columns` | `design/client_objects.md` §3.3 | vocabulary | 4 |
 | `pilot.fields` | `design/torch_pilot.md` §2 | vocabulary | 6 |
 | `mind_record.kinds` | `design/npc_inspector.md` §2 | vocabulary | 3 |
+| `mind_record.gaps` | `design/npc_inspector.md` §2 | vocabulary | 3 |
 
 Not registered yet, and why:
 - The log header and the tiers are prose and table text, not code-span vocabularies.
