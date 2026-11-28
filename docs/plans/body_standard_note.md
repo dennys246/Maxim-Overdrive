@@ -1,7 +1,7 @@
 # The body standard: an input for the next planning session
 
 **What this is.** This is an input for the planning session the owner starts when step 5 of the next steps merges
-(`docs/roadmap.md`, "The next steps after `v0.1.0`"). It proposes and decides nothing. It is not a design either:
+(`docs/roadmap.md`, "The next steps after `v0.1.0`"). It proposes; the owner's rulings on its questions are §5. It is not a design either:
 step 5b owns the body's contract (`docs/plans/checklists.md`, "Step 5b, bodies and movement"), and anything this note
 recommends reaches that contract only through step 5b's design review. It was written on 2026-11-27, at the owner's
 ask.
@@ -124,8 +124,7 @@ are:
   standards).
 - **Scars come only from damage the body took,** in play or in the past its cradle generates (`docs/roadmap.md`,
   Phase 4). Decorative scars contradict "a life it actually lived".
-- **Representation:** if appearance presets include skin tone, that representation choice gets an owner ruling, not
-  a default.
+- **Skin tone** is drawn per NPC from the setting's population (BS5).
 
 **R6. Timing: not in slice 1.**
 - The slice 1 vendor is the comparison baseline. "The vendor felt alive enough" is the verdict the NPC line has to
@@ -163,11 +162,16 @@ None of this is needed for R1 to R6. Each item is a candidate Phase 3 row, after
 - **Parameters on substrate-chosen actions,** which are empty today.
 - **Per-part sensors,** already OD-C10.
 
-## 5. Questions for the owner
+## 5. The owner's rulings (2026-11-27)
 
-1. Is the base the part-level body spec, with the skeleton as one view of it (R1, recommended), or a skeleton?
-2. Timing: step 5b's design and step 8's client (R6, recommended), or sooner?
-3. Is appearance world state NPCs can perceive (R5, recommended), or cosmetic?
-4. Do scars come only from damage the body lived through?
-5. If appearance presets include skin tone, the representation ruling.
-6. Does gaze go first among the drawn behaviours (R4)?
+The owner answered each question through a multiple-choice prompt. These rulings are inputs to the planning session
+and step 5b's design, and each is filed as an `O` decision after step 4 merges, while the decision files are frozen.
+
+| # | Question | Ruling |
+|---|---|---|
+| BS1 | What the base is | The part-level body spec, with the skeleton as one view of it (R1) |
+| BS2 | Timing | Step 5b's design and step 8's client; slice 1's vendor is left as it is (R6) |
+| BS3 | Appearance | World state that NPCs can perceive, owned by the server (R5) |
+| BS4 | Scars | Only from damage the body lived through, in play or in its cradle's past (R5) |
+| BS5 | Skin tone | A body-instance feature, drawn per NPC from a distribution that fits Maxim Prime's population, set by the owner or the writers |
+| BS6 | Gaze | First among the drawn behaviours (R4) |
