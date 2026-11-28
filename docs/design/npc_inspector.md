@@ -1,11 +1,11 @@
 # NPC inspector: the mind record and the views over it (design, v3 draft, 2026-11-27)
 
 **Status:** DRAFT v3. It folds round 1's six lenses and their delta round (`reviews/npc_inspector/`): Executor,
-Architecture, Wire integrity, Bio-faithful, Trust boundary, and Determinism and replay. Under the charter's stop rule
-the paper rounds end here unless the owner asks for another. The mechanism findings are deferred to the build steps
-§9 names. The owner asked on 2026-11-27 for a way for players, and us, to explore what an NPC is internally
-experiencing. This note holds the contract on Overdrive's side, one question for Maxim, and the owner's choices (§10).
-Nothing here is decided.
+Architecture, Wire integrity, Bio-faithful, Trust boundary, and Determinism and replay. The owner ended the paper
+rounds here under the charter's stop rule (NI1), and the mechanism findings are deferred to the build steps §9 names.
+The owner asked on 2026-11-27 for a way for players, and us, to explore what an NPC is internally experiencing. This
+note holds the contract on Overdrive's side and one question for Maxim. The owner's rulings on its questions are
+`reviews/npc_inspector/rulings.md` (NI1 to NI9, 2026-11-27).
 
 **What it owns** (one owner per contract, B36):
 - the mind record: its kinds, its gap reasons, its stamps, its format, its lane, who writes it and who may read it
@@ -23,7 +23,7 @@ Every other contract it touches is linked to its owner, and §8 lists each chang
 - Text on `phase3/joint-plan` (PR #81) is unmerged and is marked so.
 
 **Tags:**
-- **[agents]:** buildable in `phase1/agents` against the scripted test double, if the owner adds it (§10).
+- **[agents]:** buildable in `phase1/agents` against the scripted test double, which it enters (NI3).
 - **[lanes]:** needs `phase1/lanes`, which comes after it.
 - **[Phase 4]:** real NPCs.
 - **[later]:** named, not built.
@@ -158,7 +158,7 @@ re-derives it.
   dropped tick and hands that span to the next batch it enqueues, as a dropped gap.
 - **Failure never stops the world.** A write error, or a value that fails validation anyway, stops recording for that
   agent alone and writes a stopped gap if it can. It raises a typed host status and a meter, never a swallow.
-  Stopping the run instead is the owner's call (§10).
+  The owner ruled this way (NI4).
 - **Bounds.** Each field's bound equals the codec's bound for the value it holds, and a test asserts it.
 - **Saves.** A save never waits on the record. The record's thread closes the save's copy of each record
   asynchronously, and the save's header records the tick to which each record is complete (§8, save v1). A view reads
@@ -187,12 +187,13 @@ re-derives it.
   diegetically through a host status channel (`npcs_and_sem.md` §5.4). A player view joins that rule.
 - **Stimuli reveal more than the client sees, from the first real NPC.** The client's snapshot carries a few channels
   at display quantization (`client_rendering.md` §4.2), and body-site tissue values never reach it. So a player view
-  needs its rule at Phase 4: delay, coarsen, or gate the view by the fiction.
+  needs its rule at Phase 4. The owner ruled that the deep view is earned in the fiction, as a diegetic tool with
+  costs; outside it, players see behaviour only (NI5).
 - **The tiers bind display, not confidentiality.** The developer, player and guest views filter what a view shows.
   The file holds everything the record holds.
 - **The record leaves the host's machine** only in a save or bug report the host chooses (§8). A guest's client
-  receives only a slice the server cuts. Whether handing a save to another person needs the speakers' consent is the
-  owner's ruling (§10). It matters because a save carries the log's speech and the audit record's guest text, which
+  receives only a slice the server cuts. A save handed to another person drops other speakers' words unless they
+  consented (NI6). It matters because a save carries the log's speech and the audit record's guest text, which
   §7's views display. O54 governs release to a remote inference class, and nothing yet governs a save given to a
   person.
 - **Host data never enters**, by §2's closed schema. Maxim's stock surfaces do carry host data:
@@ -297,7 +298,7 @@ its own line on §6.6's barrier budget.
 - **Which UI.** Under this contract a view runs the Python gate in a child process and reads its output, with no
   network listener. That fits Overdrive's own viewer in Godot.
   - **The gate's output** is a declared `Format` owned here. Its fields are stated at the build step that builds the
-    viewer (§10).
+    viewer.
   - **A browser view,** pulse's kit or a static page, is out of contract until a reviewed design gives it a transport.
     Browsers always send `Origin`, and `boundaries.md` §5.3's handshake refuses it. A page that parsed an exported
     file would be a second, ungated reader. Pulse's own rule also puts capability in pymaxim first (pulse
@@ -352,6 +353,8 @@ made here.
   log. The same hole §2's replay column avoids.
 - **B5:** a row for the record (its copy cost and the world log's write time with it on and off) **[lanes]**.
 - `pyproject.toml`: the import contract (§4).
+- **NI6's handover rule:** the world log's speech and the audit record's guest text, at their owners, filed as an `O`
+  decision after step 4.
 
 ## 9. When, and the tests
 
@@ -391,20 +394,6 @@ made here.
   The wall-time facts in §6 are evidence for Maxim's world-clock plan, not a new pushback. A lesson records that in
   Maxim, observation is coupled to cognition. The joint plan (PR #81, unmerged) gets the question as a link both ways.
 
-## 10. For the owner
+## 10. Rulings
 
-1. **The information rules (§5).** What may a player learn of an NPC, and when? Is the deep view earned in the
-   fiction? Stimuli reveal more than the client sees from Phase 4.
-2. **Audiences:** a developer and science view, a player view, or both?
-3. **The ethics framing:** witnessing a life, or dissecting one?
-4. **Handing a save to another person (§5):** does it need the speakers' consent, extending O54 from inference classes
-   to people?
-5. **A record failure (§3):** a gap for that agent while the world goes on (the author's recommendation), or stop the
-   run?
-6. **The viewer:** Overdrive's own in Godot under this contract, or a browser view (pulse's kit) after its own
-   transport design?
-7. **Scope:** do §1–§4 and §9's tests enter `phase1/agents`' checklist, or wait for Phase 4?
-8. **This branch and step 4.** Step 4 runs alone (O79), and its exit test requires no open PR. This branch is in
-   neither O79's nor O81's order. It can merge before step 4, as the owner chose for PR #81 on 2026-11-26 (not yet
-   recorded in the tree). Or the owner can amend step 4's brief to name it a late branch on #80's terms. It touches
-   no record family; it edits `contracts.md`'s registry.
+The owner's rulings on this design's questions are `reviews/npc_inspector/rulings.md` (NI1 to NI9, 2026-11-27).
