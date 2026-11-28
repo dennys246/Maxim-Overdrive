@@ -10,6 +10,7 @@
    table inside a design: ``lint_contracts.py``.
 8. Record ids no two branches may share (decisions, lessons) and lesson citations that resolve: ``lint_ids.py``.
 9. No home directory in the tree, in any spelling: ``lint_paths.py``.
+10. The shared records: their format, the changes they allow, their generated files and relations: ``lint_records.py``.
 What they read from git comes from ``lint_repo.py``. This module runs them and says what the ratchets could not
 compare.
 
@@ -19,6 +20,7 @@ Run: ``python scripts/lint_standards.py [--base REF]`` (exit 1 on any finding). 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -30,10 +32,24 @@ from lint_ids import check_ids
 from lint_inputs import check_inputs
 from lint_markers import check_markers
 from lint_paths import check_paths
+from lint_records import BASE_PATHS, Base, check_records
 from lint_repo import base_pyproject, tracked_text_files
 from lint_sizes import check_size_ratchet, check_sizes, size_limits
+from records_git import Git
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def record_problems(files: dict[str, str], root: Path, base: str | None) -> list[str]:
+    """``check_records`` against the merge base with ``base`` (records_layout §5); with no base, nothing to compare.
+    The gate's own environment, on purpose: it reads the repository the gate is run in."""
+    if base is None:
+        return check_records(files, base=None, merging=False)
+    git = Git(root, os.environ)
+    if not git.ok("rev-parse", "--verify", "-q", f"{base}^{{commit}}"):
+        return []  # base_pyproject already reports an unknown --base as a finding
+    at = Base(git.files_at(git.merge_base(base), BASE_PATHS))
+    return check_records(files, base=at, merging=git.merging())
 
 
 def ratchet_notes(base: str | None, base_text: str | None) -> list[str]:
@@ -67,6 +83,7 @@ def main(argv: list[str] | None = None, root: Path = ROOT) -> int:
     designs = any(rel.startswith("docs/design/") for rel in files)
     problems += check_contracts(files) if designs else []
     problems += check_ids(files)
+    problems += record_problems(files, root, args.base)
     engine = any(rel.startswith("src/simcore/") for rel in files)
     problems += check_gates(files) if engine else []
     base_text, base_problems = base_pyproject(root, args.base)

@@ -140,6 +140,7 @@ ALLOWED_SPAWNS = {
     ("scripts/godot_check.py", "run_godot"): "godot",  # the one way Godot runs
     ("scripts/lint_repo.py", "tracked_text_files"): "given",  # git, on the repository the gate runs in
     ("scripts/lint_repo.py", "base_pyproject"): "given",  # git, the same
+    ("scripts/records_git.py", "_git"): "given",  # git, with the environment its caller hands in (records_layout §5)
     ("tests/_gitutil.py", "git"): "given",  # git with every GIT_* dropped and no global config
     ("tests/test_prepush.py", "_gate"): "given",  # the gate, copied into a tmp repository
     ("tests/test_tooling_config.py", "_ruff"): "given",  # ruff, reading the tree

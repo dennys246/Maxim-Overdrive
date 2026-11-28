@@ -22,7 +22,7 @@ gates = _load("lint_gates")  # after lint_inputs, which it imports by name
 def _repo_files() -> dict[str, str]:
     return {
         p.relative_to(ROOT).as_posix(): p.read_text()
-        for top in ("src", "tests")
+        for top in ("src", "tests", "scripts")  # scripts/records.py::read_record is a file gate too
         for p in sorted((ROOT / top).rglob("*.py"))
     }
 

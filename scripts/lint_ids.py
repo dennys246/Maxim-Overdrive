@@ -43,6 +43,8 @@ import re
 from collections import defaultdict
 from pathlib import PurePosixPath
 
+from records import Record, family_of, id_key, load_records
+
 DECISIONS = "docs/design/decisions/"
 LESSONS = "docs/lessons_maxim_in_games.md"
 ROADMAP = "docs/roadmap.md"
@@ -54,7 +56,7 @@ _ALSO_IN = re.compile(r"also in `decisions/([a-z_]+\.md)`")
 _HEADING = re.compile(r"^### (\d+)\.", re.M)
 _GAP = r"(?:[ \t]+|[ \t]*\n[ \t]*)"  # whitespace that never crosses a blank line
 _SEP_GAP = r"[ \t]*(?:\n[ \t]*)?"  # the same, but possibly none, after a list separator (an en-dash range)
-_CITE = re.compile(
+CITATION = re.compile(
     rf"\b[Ll]essons?{_GAP}(?:§[ \t]*)?(\d+(?:[ \t]*(?:,|and|\u2013|-|to){_SEP_GAP}(?!\d{{4}})(?:§[ \t]*)?\d+)*)"
     rf"|lessons_maxim_in_games\.md`?(?:::|[ \t]*§?[ \t]*)(\d+(?:[ \t]*(?:,|and|\u2013){_SEP_GAP}§[ \t]*\d+)*)"
 )
@@ -87,7 +89,35 @@ def _cross_listed(defs: list[tuple[str, int, str]]) -> bool:
     return log_b in _ALSO_IN.findall(status_a) and log_a in _ALSO_IN.findall(status_b)
 
 
+def family_records(files: dict[str, str], family: str) -> list[Record]:
+    """The family's records among ``files``; a record the reader refuses is lint_records' finding, not this one's."""
+    mine = {rel: text for rel, text in files.items() if (f := family_of(rel)) is not None and f.name == family}
+    return load_records(mine)[0]
+
+
+def duplicate_records(records: list[Record], family: str) -> list[str]:
+    """Two records with one id in a family (records_layout §5), naming both. A decision's slug id is unique only within
+    its log's directory (§5), so it is held by its path there, and only numbered ids are held across logs here."""
+    by_id: dict[str, list[str]] = defaultdict(list)
+    for r in records:
+        if family != "decisions" or id_key(r.id)[0] == 0:
+            by_id[r.id].append(r.path)
+    return [
+        f"{family} id {ident} is held by {len(paths)} records ({', '.join(sorted(paths))}): two branches took the same "
+        f"id. On a branch, the one merged second runs `scripts/records.py renumber {ident}=<next free id>`; on main, "
+        f"a fresh branch runs `renumber --merged <PR> {ident}=<next free id>` for the PR whose merge added the second "
+        "(`git log --merges --first-parent --format=%s -1 --diff-filter=A -- <its path>` names it)"
+        for ident, paths in sorted(by_id.items(), key=lambda kv: id_key(kv[0]))
+        if len(paths) > 1
+    ]
+
+
 def check_decisions(files: dict[str, str]) -> list[str]:
+    records = family_records(files, "decisions")
+    if records:
+        return duplicate_records(records, "decisions")
+    # TEMPORARY(phase1/records-build): the decision logs are hand-written tables until R3's migration commit
+    # makes them generated; R3 removes this table reading, and the records hold every id from then on.
     problems = []
     for ident, defs in sorted(_decision_rows(files).items()):
         if len(defs) > 1 and not _cross_listed(defs):
@@ -116,10 +146,10 @@ def check_roadmap_ids(files: dict[str, str]) -> list[str]:
     ]
 
 
-def _cited(text: str) -> list[tuple[int, int]]:
+def cited_lessons(text: str) -> list[tuple[int, int]]:
     """(lesson number, line) for every citation in the text; a range cites both ends."""
     out: list[tuple[int, int]] = []
-    for m in _CITE.finditer(text):
+    for m in CITATION.finditer(text):
         line = text.count("\n", 0, m.start()) + 1
         numbers = m.group(1) or m.group(2)
         out.extend((int(n), line) for n in re.findall(r"\d+", numbers))
@@ -163,14 +193,19 @@ def _citations(files: dict[str, str]) -> list[tuple[int, str, int]]:
         if rel in frozen:
             continue
         if rel.startswith("docs/") and rel.endswith(".md"):
-            out.extend((n, rel, line) for n, line in _cited(files[rel]))
+            out.extend((n, rel, line) for n, line in cited_lessons(files[rel]))
         elif rel.startswith("tests/") and rel.endswith(".py"):
             for text, start in _reason_strings(files[rel]):
-                out.extend((n, rel, start + line - 1) for n, line in _cited(text))
+                out.extend((n, rel, start + line - 1) for n, line in cited_lessons(text))
     return out
 
 
 def check_lessons(files: dict[str, str]) -> list[str]:
+    records = family_records(files, "lessons")
+    if records:
+        return duplicate_records(records, "lessons") + _unresolved(files, {int(r.id) for r in records})
+    # TEMPORARY(phase1/records-build): the lessons file is hand-written until R3's migration commit makes it generated
+    # from docs/lessons/; R3 removes this heading reading.
     if LESSONS not in files:
         cited = _citations(files)
         if not cited:
@@ -182,12 +217,16 @@ def check_lessons(files: dict[str, str]) -> list[str]:
         f"{LESSONS}: two branches took lesson {n}: the one merged second renumbers its own lesson and its own citations"
         for n in sorted({n for n in headings if headings.count(n) > 1})
     ]
-    known = set(headings)
+    return problems + _unresolved(files, set(headings))
+
+
+def _unresolved(files: dict[str, str], known: set[int]) -> list[str]:
+    problems = []
     for n, rel, line in _citations(files):
         if n not in known:
             problems.append(
-                f"{rel}:{line}: cites lesson {n}, which {LESSONS} doesn't have: cite an existing lesson, or add the "
-                "lesson in the same branch"
+                f"{rel}:{line}: cites lesson {n}, which no lesson has: cite an existing lesson, or add the lesson in "
+                "the same branch"
             )
     return problems
 

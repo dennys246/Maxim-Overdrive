@@ -21,6 +21,7 @@ def _load(name: str):
     return module
 
 
+_load("records")  # lint_ids reads the record files through it
 ids = _load("lint_ids")
 repo = _load("lint_repo")
 
